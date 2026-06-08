@@ -3,10 +3,7 @@ import {
   CODING_TOOL_PACK_ID,
 } from "./coding-tools.mjs";
 import {
-  mcpPromptsForServers,
-  mcpResourcesForServers,
   mcpToolsForServers,
-  normalizeMcpServerRecord,
 } from "./mcp-manager.mjs";
 import {
   RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS,
@@ -255,74 +252,6 @@ export function mcpTransportSummary(transportExecution = {}) {
   return "containment receipt";
 }
 
-export function mcpRegistryWithServers(registry = {}, servers = []) {
-  const normalizedServers = normalizeArray(servers).sort((left, right) =>
-    String(left.id ?? "").localeCompare(String(right.id ?? "")),
-  );
-  const tools = mcpToolsForServers(normalizedServers);
-  const resources = mcpResourcesForServers(normalizedServers);
-  const prompts = mcpPromptsForServers(normalizedServers);
-  return {
-    ...registry,
-    server_count: normalizedServers.length,
-    tool_count: tools.length,
-    resource_count: resources.length,
-    prompt_count: prompts.length,
-    servers: normalizedServers,
-    tools,
-    resources,
-    prompts,
-  };
-}
-
-export function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, fallbackSource) {
-  const raw = request.mcp_json ?? request;
-  const source = optionalString(request.config_source ?? raw.source) ?? fallbackSource;
-  const servers = raw.mcp_servers ?? raw.servers;
-  if (Array.isArray(servers)) {
-    return servers.map((server, index) =>
-      normalizeMcpServerRecord(
-        server.label ?? server.name ?? server.id ?? `server_${index + 1}`,
-        server,
-        {
-          workspace_root: workspaceRoot,
-          source,
-          source_scope: "thread",
-          status: server.status ?? "configured",
-        },
-      ),
-    );
-  }
-  return Object.entries(servers ?? {}).map(([label, config]) =>
-    normalizeMcpServerRecord(label, config, {
-      workspace_root: workspaceRoot,
-      source,
-      source_scope: "thread",
-      status: config?.status ?? "configured",
-    }),
-  );
-}
-
-export function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
-  const config =
-    request.server && typeof request.server === "object" && !Array.isArray(request.server)
-      ? request.server
-      : request.config && typeof request.config === "object" && !Array.isArray(request.config)
-        ? request.config
-        : request;
-  const label =
-    optionalString(request.label ?? request.name ?? request.server_label) ??
-    optionalString(config.label ?? config.name ?? config.id) ??
-    "mcp";
-  const source = optionalString(request.config_source ?? config.source) ?? "runtime_mcp_add";
-  return normalizeMcpServerRecord(label, config, {
-    workspace_root: workspaceRoot,
-    source,
-    source_scope: "thread",
-    status: config.status ?? "configured",
-  });
-}
-
 export function mcpToolKey(tool = {}) {
   return optionalString(tool.stable_tool_id) ??
     `${optionalString(tool.server_id) ?? "mcp.unknown"}:${optionalString(tool.tool_name) ?? "tool"}`;
@@ -410,14 +339,4 @@ export function mcpCatalogFullRequested(request = {}) {
     request.catalog_mode ?? request.mcp_catalog_mode,
   )?.toLowerCase();
   return mode === "full" || request.include_full_catalog === true;
-}
-
-export function mcpResourceKey(resource = {}) {
-  return optionalString(resource.stable_resource_id) ??
-    `${optionalString(resource.server_id) ?? "mcp.unknown"}:${optionalString(resource.uri) ?? "resource"}`;
-}
-
-export function mcpPromptKey(prompt = {}) {
-  return optionalString(prompt.stable_prompt_id) ??
-    `${optionalString(prompt.server_id) ?? "mcp.unknown"}:${optionalString(prompt.name) ?? "prompt"}`;
 }

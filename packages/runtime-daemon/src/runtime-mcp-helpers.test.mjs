@@ -11,14 +11,11 @@ import {
   mcpLiveExecutionModeForServer,
   mcpTransportEvidenceRef,
   mcpTransportSummary,
-  mcpRegistryWithServers,
   mcpServeAllowedToolIds,
   mcpServeToolCallResult,
   mcpServeToolDescriptor,
   mcpServeToolIdForName,
   mcpServerMatchesConfigSourceMode,
-  mcpServerRecordFromAddRequest,
-  mcpServerRecordsFromMutationInput,
   mcpToolSearchLimit,
   mcpToolIdentityMatches,
   mcpToolMatchesQuery,
@@ -187,102 +184,7 @@ test("runtime MCP helpers accept only canonical catalog request options", () => 
   assert.equal(mcpCatalogFullRequested({ includeFullCatalog: true }), false);
 });
 
-test("runtime MCP helpers normalize mutation inputs and registry projections", () => {
-  const record = mcpServerRecordFromAddRequest({
-    label: "Docs",
-    config: {
-      transport: "stdio",
-      command: "npx",
-      tools: [{ name: "search" }],
-    },
-  }, "/workspace");
-  assert.equal(record.label, "Docs");
-  assert.equal(record.source_scope, "thread");
-  assert.equal(record.status, "configured");
-  assert.equal(Object.hasOwn(record, "schemaVersion"), false);
-  assert.equal(Object.hasOwn(record, "serverUrl"), false);
-  assert.equal(Object.hasOwn(record, "sourceScope"), false);
-  assert.equal(Object.hasOwn(record, "allowedTools"), false);
-  assert.equal(Object.hasOwn(record, "evidenceRefs"), false);
-  assert.equal(Object.hasOwn(record, "vaultBoundary"), false);
-  assert.equal(Object.hasOwn(record.vault_boundary, "headerRefCount"), false);
-
-  const records = mcpServerRecordsFromMutationInput({
-    config_source: "workspace",
-    configSource: "retired-camel-source",
-    servers: {
-      docs: { transport: "stdio", command: "npx" },
-    },
-  }, "/workspace", "fallback");
-  assert.equal(records.length, 1);
-  assert.equal(records[0].label, "docs");
-  assert.equal(records[0].source, "workspace");
-
-  const canonicalJsonRecords = mcpServerRecordsFromMutationInput({
-    mcp_json: {
-      mcp_servers: {
-        canonical: { transport: "stdio", command: "npx" },
-      },
-    },
-    mcpJson: {
-      mcpServers: {
-        retired: { transport: "stdio", command: "retired" },
-      },
-    },
-  }, "/workspace", "fallback");
-  assert.deepEqual(canonicalJsonRecords.map((item) => item.label), ["canonical"]);
-
-  const retiredJsonRecords = mcpServerRecordsFromMutationInput({
-    mcpJson: {
-      mcpServers: {
-        retired: { transport: "stdio", command: "retired" },
-      },
-    },
-  }, "/workspace", "fallback");
-  assert.deepEqual(retiredJsonRecords, []);
-
-  const added = mcpServerRecordFromAddRequest({
-    label: "Git",
-    config_source: "runtime_control",
-    configSource: "retired-camel-source",
-    config: {
-      transport: "stdio",
-      command: "git",
-    },
-  }, "/workspace");
-  assert.equal(added.source, "runtime_control");
-
-  const canonicalServer = mcpServerRecordFromAddRequest({
-    label: "Canonical",
-    server: { transport: "stdio", command: "npx" },
-    mcpServer: { transport: "stdio", command: "retired" },
-  }, "/workspace");
-  assert.equal(canonicalServer.command, "npx");
-
-  const canonicalServerLabel = mcpServerRecordFromAddRequest({
-    server_label: "Canonical Label",
-    serverLabel: "Retired Label",
-    config: { transport: "stdio", command: "npx" },
-  }, "/workspace");
-  assert.equal(canonicalServerLabel.label, "Canonical Label");
-
-  const retiredServerLabel = mcpServerRecordFromAddRequest({
-    serverLabel: "Retired Label",
-    config: { transport: "stdio", command: "npx" },
-  }, "/workspace");
-  assert.equal(retiredServerLabel.label, "mcp");
-
-  const retiredServer = mcpServerRecordFromAddRequest({
-    label: "Retired",
-    mcpServer: { transport: "stdio", command: "retired" },
-  }, "/workspace");
-  assert.equal(retiredServer.command, null);
-
-  const registry = mcpRegistryWithServers({}, [record]);
-  assert.equal(registry.server_count, 1);
-  assert.equal(registry.tool_count, 1);
-  assert.equal(Object.hasOwn(registry, "serverCount"), false);
-  assert.equal(Object.hasOwn(registry, "toolCount"), false);
+test("runtime MCP helpers match canonical config source mode", () => {
   assert.equal(
     mcpConfigSourceModeForRequest({
       config_source_mode: "global-only",

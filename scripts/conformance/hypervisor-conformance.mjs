@@ -487,6 +487,9 @@ function runDocs() {
       /Slice 782 retired the dead helper-level JS MCP catalog summary\/exposure path/.test(guide) &&
       /no longer exports `mcpCatalogSummaryForServer\(\)`,\s+`mcpCatalogExposureForStatus\(\)`, or `mcpToolNamespaces\(\)`/.test(guide) &&
       /The\s+Slice 782 MCP helper summary-retirement matrix-compaction pass is complete/.test(guide) &&
+      /Slice 783 retired the dead helper-level JS MCP mutation\/registry projection\s+path/.test(guide) &&
+      /no longer exports\s+`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, or `mcpPromptKey\(\)`/.test(guide) &&
+      /The Slice 783 MCP helper\s+mutation\/registry-retirement matrix-compaction pass is pending/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -535,7 +538,8 @@ function runDocs() {
       /This pass compacted Slice 780 MCP public catalog Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 783 retired dead helper-level JS MCP mutation\/registry projection code/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 783 MCP\s+helper mutation\/registry-retirement evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -800,7 +804,9 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 782/.test(matrix) &&
       /`mcpCatalogSummaryForServer\(\)`, `mcpCatalogExposureForStatus\(\)`, and\s+`mcpToolNamespaces\(\)` exports in `runtime-mcp-helpers\.mjs` were only preserved by\s+self-referential helper tests/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 782 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 783/.test(matrix) &&
+      /`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, and `mcpPromptKey\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 783 MCP helper\s+mutation\/registry-retirement evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -811,6 +817,7 @@ function runDocs() {
       /public MCP list\/search declared catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
       /public MCP search\/fetch catalog summaries now route through Rust daemon-core\s+`McpManagerCatalogSummaryProjectionCore`\/`plan_mcp_manager_catalog_summary_projection` instead of JS\s+`mcpCatalogSummaryForServer`/.test(implementationMatrix) &&
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
+      /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
       /live catalog discovery and validation-input parsing remain read-only\/projection\s+migration helpers, not terminal validation, status projection, public validation\s+projection, catalog row projection, catalog summary projection, or registry authority/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
@@ -15320,10 +15327,6 @@ function runCompositor() {
   const runtimeMcpHelpersTest = exists("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs")
     : "";
-  const runtimeMcpRegistryWithServersBlock =
-    runtimeMcpHelpers.match(
-      /export function mcpRegistryWithServers\(registry = \{\}, servers = \[\]\) \{[\s\S]*?\n}\n\nexport function mcpConfigSourceModeForRequest/,
-    )?.[0] ?? "";
   const runtimeMcpServerSourceModeBlock =
     runtimeMcpHelpers.match(
       /export function mcpServerMatchesConfigSourceMode\(server = \{\}, sourceMode = "workspace_and_global"\) \{[\s\S]*?\n}\n\nexport function boundedPositiveInteger/,
@@ -15457,21 +15460,13 @@ function runCompositor() {
     runtimeMcpHelpers.match(
       /export function resolveMcpToolRecord\(servers = \[\], toolId, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServeAllowedToolIds/,
     )?.[0] ?? "";
-  const runtimeMcpServerRecordsFromMutationInputBlock =
-    runtimeMcpHelpers.match(
-      /export function mcpServerRecordsFromMutationInput\(request = \{\}, workspaceRoot, fallbackSource\) \{[\s\S]*?\n}\n\nexport function mcpServerRecordFromAddRequest/,
-    )?.[0] ?? "";
-  const runtimeMcpServerRecordFromAddRequestBlock =
-    runtimeMcpHelpers.match(
-      /export function mcpServerRecordFromAddRequest\(request = \{\}, workspaceRoot\) \{[\s\S]*?\n}\n\nexport function mcpToolKey/,
-    )?.[0] ?? "";
   const runtimeMcpLiveExecutionModeBlock =
     runtimeMcpHelpers.match(
       /export function mcpLiveExecutionModeForServer\(server, request = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpTransportEvidenceRef/,
     )?.[0] ?? "";
   const runtimeMcpTransportMetadataBlock =
     runtimeMcpHelpers.match(
-      /export function mcpTransportEvidenceRef\(transportExecution = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpRegistryWithServers/,
+      /export function mcpTransportEvidenceRef\(transportExecution = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpToolKey/,
     )?.[0] ?? "";
   const runtimeMcpToolIdentityHelperBlock =
     runtimeMcpHelpers.match(
@@ -22016,7 +22011,6 @@ function runCompositor() {
       /mcp_config_source_mode:\s*sourceMode/.test(runtimeMcpCatalogSurface) &&
       /^\s*mcp_config_source_mode\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
       /^\s*config_source_mode\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
-      /configSource: "retired-camel-source"/.test(runtimeMcpHelpersTest) &&
       /configSourceMode: "workspace"/.test(runtimeMcpHelpersTest) &&
       /mcpConfigSourceMode: "global"/.test(runtimeMcpHelpersTest) &&
       /resolveMcpServerRecord\(\[\{ serverId: "mcp\.retired\.docs" \}\],\s*"mcp\.retired\.docs"\),\s*null/.test(
@@ -22256,21 +22250,13 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-json-shape-request-aliases-retired",
-    /request\.mcp_json/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
-      /raw\.mcp_servers/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+    !/mcpServerRecordsFromMutationInput/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
       /input\.mcp_json \?\? input/.test(runtimeMcpManagerValidationInputBlock) &&
       /raw\.mcp_servers \?\? raw\.servers/.test(runtimeMcpManagerValidationInputBlock) &&
-      /workspace_root:\s*workspaceRoot/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
-      /source_scope:\s*"thread"/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
       runtimeMcpControlFacadeRetired &&
-      /mcpJson:\s*\{/.test(runtimeMcpHelpersTest) &&
       /mcpJson:\s*\{/.test(runtimeMcpManagerTest) &&
       /^\s*mcp_json\?: Record<string, unknown>;/m.test(runtimeMcpSdkValidationInputBlock) &&
-      !/request\.mcpJson\b/.test(
-        `${runtimeMcpServerRecordsFromMutationInputBlock}\n${runtimeMcpControlSurface}`,
-      ) &&
-      !/raw\.mcpServers\b/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
-      !/(?:workspaceRoot|sourceScope)\s*:/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      !/request\.mcpJson\b/.test(runtimeMcpControlSurface) &&
       !/input\.mcpJson\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/raw\.mcpServers\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/request\.mcpServers\b/.test(runtimeMcpControlSurface) &&
@@ -22321,13 +22307,8 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-add-server-request-alias-retired",
-    /request\.server/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
-      /request\.config/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
-      /workspace_root:\s*workspaceRoot/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
-      /source_scope:\s*"thread"/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
-      /mcpServer:\s*\{/.test(runtimeMcpHelpersTest) &&
-      !/request\.mcpServer\b/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
-      !/(?:workspaceRoot|sourceScope)\s*:/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+    !/mcpServerRecordFromAddRequest/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
+      runtimeMcpControlFacadeRetired &&
       !/^\s*mcpServer\?:/m.test(runtimeMcpSdkServerMutationInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
@@ -22339,17 +22320,15 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-helper-request-aliases-retired",
-    /request\.server_label/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
-      /request\.max_results/.test(runtimeMcpHelpers) &&
+    /request\.max_results/.test(runtimeMcpHelpers) &&
       /request\.catalog_mode/.test(runtimeMcpHelpers) &&
       /request\.mcp_catalog_mode/.test(runtimeMcpHelpers) &&
       /request\.include_full_catalog/.test(runtimeMcpHelpers) &&
-      /serverLabel: "Retired Label"/.test(runtimeMcpHelpersTest) &&
       /maxResults: 99/.test(runtimeMcpHelpersTest) &&
       /catalogMode: "summary"/.test(runtimeMcpHelpersTest) &&
       /mcpCatalogMode: "summary"/.test(runtimeMcpHelpersTest) &&
       /includeFullCatalog: false/.test(runtimeMcpHelpersTest) &&
-      !/request\.serverLabel\b/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      !/mcpServerRecordFromAddRequest/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
       !/request\.maxResults\b/.test(runtimeMcpHelpers) &&
       !/request\.(?:catalogMode|mcpCatalogMode|includeFullCatalog)\b/.test(runtimeMcpHelpers),
     [
@@ -22535,8 +22514,7 @@ function runCompositor() {
       /header_ref_count:\s*Object\.keys\(headerSecretRefs\)\.length/.test(
         runtimeMcpManagerServerRecordBlock,
       ) &&
-      /server_count:\s*normalizedServers\.length/.test(runtimeMcpRegistryWithServersBlock) &&
-      /tool_count:\s*tools\.length/.test(runtimeMcpRegistryWithServersBlock) &&
+      !/mcpRegistryWithServers/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
       /Object\.hasOwn\(registry,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(server,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
       /Object\.hasOwn\(server,\s*"workspaceRoot"\),\s*false/.test(runtimeMcpManagerTest) &&
@@ -22589,14 +22567,12 @@ function runCompositor() {
       /retiredOnly\.evidence_refs\.includes\("retired-context"\),\s*false/.test(
         runtimeMcpManagerTest,
       ) &&
-      /Object\.hasOwn\(record,\s*"sourceScope"\),\s*false/.test(runtimeMcpHelpersTest) &&
       /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
         runtimeMcpServerSourceModeBlock,
       ) &&
       /mcpServerMatchesConfigSourceMode\(\{ sourceScope: "global" \}, "global"\), false/.test(
         runtimeMcpHelpersTest,
       ) &&
-      /Object\.hasOwn\(registry,\s*"serverCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
       !/^\s*(?:schemaVersion|workspaceRoot|serverCount|resourceCount|promptCount)\s*:/m.test(
         runtimeMcpManagerRegistryBlock,
       ) &&
@@ -22612,9 +22588,6 @@ function runCompositor() {
       !/configCompatibility:\s*(?:source\.compatibility|"inline")/.test(runtimeMcpManagerRegistryBlock) &&
       !/^\s*(?:headerRefCount|envRefCount|secretValuesIncluded|runtimeResolution)\s*:/m.test(
         runtimeMcpManagerServerRecordBlock,
-      ) &&
-      !/^\s*(?:serverCount|toolCount|resourceCount|promptCount)\s*:/m.test(
-        runtimeMcpRegistryWithServersBlock,
       ) &&
       !/server\.sourceScope\b/.test(
         runtimeMcpServerSourceModeBlock,

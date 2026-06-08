@@ -724,6 +724,19 @@ SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
 Slice 782 MCP helper summary-retirement matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
+Slice 783 retired the dead helper-level JS MCP mutation/registry projection
+path. `runtime-mcp-helpers.mjs` no longer exports
+`mcpRegistryWithServers()`, `mcpServerRecordsFromMutationInput()`,
+`mcpServerRecordFromAddRequest()`, `mcpResourceKey()`, or `mcpPromptKey()`;
+helper tests no longer preserve those JS import/add/registry projection bodies
+after public MCP control mutations already fail closed and validation/catalog
+projection routes through Rust daemon-core migration transport. This still does
+not claim terminal MCP migration: direct Rust daemon-core MCP registry truth,
+live transport discovery and containment, wallet authority, StepModuleRouter
+dispatch, receipt binding, Agentgres admission, replay, and SDK/IDE protocol
+coverage still need direct Rust daemon-core ownership. The Slice 783 MCP helper
+mutation/registry-retirement matrix-compaction pass is pending and must run
+before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 
