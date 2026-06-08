@@ -13386,6 +13386,64 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
+## Implementation Slice 670
+
+```yaml
+slice: 670
+phase: 10-authoritative-js-facade-retirement
+objective: retire the model-mount server-control schemaVersion option alias
+  before server-control state can enter Rust Agentgres record-state admission
+owner_boundary:
+  route_or_surface: model-mount server-control state persistence
+  authority_gate: unchanged; server-control lifecycle receipts still require
+    Rust Agentgres record-state admission before the local server-state cache
+    write
+  execution_backend: JS remains the product/API server-control facade, but the
+    mounted store adapter now passes canonical `schema_version` into
+    server-control helpers
+  truth_path: server-control records commit through
+    `commitModelMountRecordState` and `commitRuntimeModelMountRecordState`
+    using canonical record-state commit fields before local cache persistence
+  projection_path: server-control status/log/event responses remain API-facing
+    projection objects, while the internal option alias can no longer steer the
+    persisted server-control schema marker
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/model-mounting.mjs
+    - packages/runtime-daemon/src/model-mounting/server-control.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/server-control.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts conformance requires server-control record-state persistence to
+    derive schema from `options?.schema_version`, not `options.schemaVersion`
+  - focused daemon tests poison retired `schemaVersion` options and prove the
+    canonical schema is the only value carried into the record-state commit
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/server-control.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/server-control.mjs
+    - node --check packages/runtime-daemon/src/model-mounting.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+  replay_or_shadow_comparison: server-control lifecycle fixtures now pass both
+    canonical `schema_version` and retired `schemaVersion`, and only the
+    canonical value reaches the Rust Agentgres record-state request
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public model-mount server-control response shape is unchanged for this
+      slice
+    - terminal Rust daemon-core API extraction remains pending beyond this JS
+      facade-retirement seam
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 Current expected behavior after Slice 669 and the one-hundred-fifth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future

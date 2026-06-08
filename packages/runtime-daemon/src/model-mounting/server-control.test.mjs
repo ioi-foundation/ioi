@@ -77,7 +77,7 @@ function fakeState({ stateDir = mkdtempSync(join(tmpdir(), "ioi-server-control-"
 test("server control projects gateway status from mounted state", () => {
   const state = fakeState();
   try {
-    const status = serverStatus(state, "http://127.0.0.1:3200", { schemaVersion: SCHEMA });
+    const status = serverStatus(state, "http://127.0.0.1:3200", { schema_version: SCHEMA });
 
     assert.equal(status.schemaVersion, SCHEMA);
     assert.equal(status.status, "running");
@@ -98,7 +98,7 @@ test("server control projects gateway status from mounted state", () => {
 test("server control records lifecycle operations, state, and log ids", () => {
   const state = fakeState();
   try {
-    const stopped = serverStop(state, null, { schemaVersion: SCHEMA });
+    const stopped = serverStop(state, null, { schema_version: SCHEMA });
     assert.equal(stopped.controlStatus, "stopped");
     assert.equal(stopped.lastServerOperation, "server_stop");
     assert.equal(stopped.receiptId, "receipt.server_stop.1");
@@ -110,17 +110,39 @@ test("server control records lifecycle operations, state, and log ids", () => {
     assert.equal(state.recordStateCommits[0].record.operation, "server_stop");
     assert.equal(JSON.parse(readFileSync(join(state.stateDir, "server-state.json"), "utf8")).id, "server-control.default");
 
-    const restarted = serverRestart(state, "http://daemon.test", { schemaVersion: SCHEMA });
+    const restarted = serverRestart(state, "http://daemon.test", { schema_version: SCHEMA });
     assert.equal(restarted.controlStatus, "running");
     assert.equal(restarted.lastServerOperation, "server_restart");
     assert.equal(state.receipts.at(-1).details.previousControlStatus, "stopped");
     assert.equal(state.receipts.at(-1).details.previousReceiptId, "receipt.server_stop.1");
 
-    const started = serverStart(state, null, { schemaVersion: SCHEMA });
+    const started = serverStart(state, null, { schema_version: SCHEMA });
     assert.equal(started.lastServerOperation, "server_start");
     assert.equal(serverLogRecords(state, { limit: 10 }).length, 3);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
+  }
+});
+
+test("server control ignores retired schemaVersion option before record-state commit", () => {
+  const state = fakeState();
+  try {
+    const stopped = serverStop(state, null, {
+      schema_version: SCHEMA,
+      schemaVersion: "schema.retired",
+    });
+    assert.equal(stopped.schemaVersion, SCHEMA);
+    assert.equal(state.recordStateCommits[0].record.schemaVersion, SCHEMA);
+  } finally {
+    rmSync(state.stateDir, { recursive: true, force: true });
+  }
+
+  const aliasOnlyState = fakeState();
+  try {
+    const aliasOnly = serverStatus(aliasOnlyState, null, { schemaVersion: "schema.retired.only" });
+    assert.equal(aliasOnly.schemaVersion, undefined);
+  } finally {
+    rmSync(aliasOnlyState.stateDir, { recursive: true, force: true });
   }
 });
 
@@ -129,7 +151,7 @@ test("server control state fails closed before local cache write without Rust Ag
   delete state.commitRuntimeModelMountRecordState;
   try {
     assert.throws(
-      () => serverStop(state, null, { schemaVersion: SCHEMA }),
+      () => serverStop(state, null, { schema_version: SCHEMA }),
       (error) => {
         assert.equal(error.status, 500);
         assert.equal(error.code, "model_mount_server_control_state_commit_unconfigured");
@@ -164,13 +186,13 @@ test("server control logs and events are redacted and limit bounded", () => {
     assert.equal(records[0].authorization, "[REDACTED]");
     assert.equal(records[0].nested.apiKey, "[REDACTED]");
 
-    const logs = serverLogs(state, { limit: "500" }, { schemaVersion: SCHEMA });
+    const logs = serverLogs(state, { limit: "500" }, { schema_version: SCHEMA });
     assert.equal(logs.kind, "server_logs");
     assert.equal(logs.redaction, "redacted");
     assert.equal(logs.records.length, 5);
     assert.equal(state.receipts.at(-1).details.limit, 200);
 
-    const events = serverEvents(state, { limit: 1 }, { schemaVersion: SCHEMA });
+    const events = serverEvents(state, { limit: 1 }, { schema_version: SCHEMA });
     assert.equal(events.kind, "server_events");
     assert.equal(events.events.length, 1);
     assert.equal(events.events[0].event, "server_events_read");

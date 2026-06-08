@@ -9,7 +9,8 @@ import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
 
-export function serverStatus(state, baseUrl, { schemaVersion }) {
+export function serverStatus(state, baseUrl, { schema_version } = {}) {
+  const schemaVersion = schema_version;
   state.evictExpiredInstances();
   state.coalesceLoadedInstances();
   const runningInstances = [...state.instances.values()].filter((instance) => instance.status === "loaded");
@@ -17,7 +18,7 @@ export function serverStatus(state, baseUrl, { schemaVersion }) {
     ["blocked", "absent", "stopped"].includes(provider.status),
   );
   const backends = state.listBackends();
-  const controlState = serverControlState(state, { schemaVersion });
+  const controlState = serverControlState(state, { schema_version });
   return {
     schemaVersion,
     status: runningInstances.length > 0 ? "running" : "stopped",
@@ -46,14 +47,14 @@ export function serverStatus(state, baseUrl, { schemaVersion }) {
   };
 }
 
-export function serverControlState(state, { schemaVersion }) {
+export function serverControlState(state, { schema_version } = {}) {
   const statePath = path.join(state.stateDir, "server-state.json");
   if (fs.existsSync(statePath)) {
     return readJson(statePath);
   }
   return {
     id: SERVER_CONTROL_RECORD_ID,
-    schemaVersion,
+    schemaVersion: schema_version,
     status: "running",
     gatewayStatus: "running",
     operation: "server_status",
@@ -121,7 +122,7 @@ export function recordServerOperation(state, operation, status, baseUrl, details
     ...details,
   });
   const controlState = writeServerControlState(state, {
-    schemaVersion: options.schemaVersion,
+    schemaVersion: options?.schema_version,
     status,
     gatewayStatus: "running",
     operation,
@@ -147,7 +148,8 @@ export function recordServerOperation(state, operation, status, baseUrl, details
   };
 }
 
-export function serverLogs(state, query = {}, { schemaVersion }) {
+export function serverLogs(state, query = {}, { schema_version } = {}) {
+  const schemaVersion = schema_version;
   const limit = normalizeLimit(query.limit, 80, 200);
   const receipt = state.lifecycleReceipt("server_logs_read", {
     modelId: "ioi-local-server",
@@ -170,7 +172,8 @@ export function serverLogs(state, query = {}, { schemaVersion }) {
   };
 }
 
-export function serverEvents(state, query = {}, { schemaVersion }) {
+export function serverEvents(state, query = {}, { schema_version } = {}) {
+  const schemaVersion = schema_version;
   const limit = normalizeLimit(query.limit, 80, 200);
   const receipt = state.lifecycleReceipt("server_events_read", {
     modelId: "ioi-local-server",

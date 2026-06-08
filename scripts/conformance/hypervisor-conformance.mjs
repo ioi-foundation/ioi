@@ -11188,10 +11188,18 @@ function runReceipts() {
       /recordDir:\s*"server-control"/.test(serverControl) &&
       /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(serverControl) &&
       /model_mount\.server_control\.write/.test(serverControl) &&
+      /schemaVersion:\s*options\?\.schema_version/.test(serverControl) &&
+      !/schemaVersion:\s*options\?\.schemaVersion/.test(serverControl) &&
+      !/schemaVersion:\s*options\.schemaVersion/.test(serverControl) &&
       /model_mount_server_control_state_commit_unconfigured/.test(serverControl) &&
       /commitModelMountRecordState\(state,[\s\S]*?writeJson\(path\.join\(state\.stateDir,\s*"server-state\.json"\),\s*record\)/.test(
         serverControl,
       ) &&
+      /server control ignores retired schemaVersion option before record-state commit/.test(
+        serverControlTest,
+      ) &&
+      /schema_version:\s*SCHEMA/.test(serverControlTest) &&
+      /schemaVersion:\s*"schema\.retired"/.test(serverControlTest) &&
       /server control state fails closed before local cache write without Rust Agentgres record-state commit/.test(
         serverControlTest,
       ) &&

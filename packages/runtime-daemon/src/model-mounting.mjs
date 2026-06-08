@@ -540,11 +540,11 @@ export class ModelMountingState {
   }
 
   serverStatus(baseUrl) {
-    return serverControl.serverStatus(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverStatus(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverControlState() {
-    return serverControl.serverControlState(this, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverControlState(this, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   writeServerControlState(state) {
@@ -552,27 +552,27 @@ export class ModelMountingState {
   }
 
   serverStart(baseUrl) {
-    return serverControl.serverStart(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverStart(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverStop(baseUrl) {
-    return serverControl.serverStop(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverStop(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverRestart(baseUrl) {
-    return serverControl.serverRestart(this, baseUrl, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverRestart(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   recordServerOperation(operation, status, baseUrl, details = {}) {
-    return serverControl.recordServerOperation(this, operation, status, baseUrl, details, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.recordServerOperation(this, operation, status, baseUrl, details, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverLogs(query = {}) {
-    return serverControl.serverLogs(this, query, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverLogs(this, query, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverEvents(query = {}) {
-    return serverControl.serverEvents(this, query, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return serverControl.serverEvents(this, query, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
   }
 
   serverLogRecords({ limit = 80 } = {}) {
