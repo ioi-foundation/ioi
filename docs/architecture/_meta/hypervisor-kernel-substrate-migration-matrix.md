@@ -69,11 +69,11 @@ This pass compacted Slice 769 MCP serve `tools/call` `params.args` fallback
 retirement evidence.
 This pass compacted Slice 770 MCP manager `allowedTools` server config/catalog
 alias-retirement evidence.
-Slice 771 retired the MCP manager `allowedResources` and `allowedPrompts`
-server config/catalog fallbacks.
+This pass compacted Slice 771 MCP manager `allowedResources`/`allowedPrompts`
+server config/catalog alias-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice only after compacting the Slice 771 MCP
-manager resource/prompt alias-retirement evidence. Preserve the live owner map,
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
 terminal blockers, and the fact that fail-closed JS facades, canonical input
 helpers, local projection helpers, and migration transport are not terminal
 substrate.
@@ -183,9 +183,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending for Slice 771 MCP manager
+- Next scheduled matrix-compaction pass: none pending after Slice 771 MCP manager
   `allowedResources`/`allowedPrompts` server config/catalog alias-retirement
-  evidence.
+  compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15176,27 +15176,29 @@ alias-only inputs, and conformance forbids the retired
   that seam lands, and do not encode the command bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice Evidence: 771
+## Compacted Implementation Slice Evidence: 771
 
-Slice 771 retired the MCP manager `allowedResources` and `allowedPrompts` server
-config/catalog fallbacks. `packages/runtime-daemon/src/mcp-manager.mjs` now
-derives MCP resource and prompt catalog exposure from canonical `resources`,
-`prompts`, `allowed_resources`, or `allowed_prompts` only; retired camelCase
-`allowedResources` and `allowedPrompts` can no longer populate server records,
-resource/prompt catalog rows, or registry counts. The focused
-`mcp-manager.test.mjs` regression poisons retired resource and prompt aliases
-beside canonical fields and in an alias-only inline server config, proving only
-canonical fields create catalog exposure. The conformance harness forbids the
-retired `allowedResources`/`allowedPrompts`
-fallback patterns from the manager source and requires the poisoned regression.
+The expanded Slice 771 ledger was compacted on 2026-06-08 after MCP manager
+`allowedResources`/`allowedPrompts` server config/catalog alias retirement
+landed. The evidence is now carried in the owner map and conformance rows:
+`mcp-manager.mjs` derives MCP resource and prompt catalog exposure from
+canonical `resources`, `prompts`, `allowed_resources`, or `allowed_prompts`
+only, focused tests poison retired resource and prompt aliases beside canonical
+and alias-only inputs, and conformance forbids the retired
+`allowedResources`/`allowedPrompts` fallback patterns from the manager source.
 
-This does not claim terminal MCP migration: direct Rust daemon-core MCP
-control/admission/projection still needs to own wallet authority, transport
-containment, StepModuleRouter dispatch, receipt binding, Agentgres
-expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
-coverage, and conformance. Do not encode the remaining JS MCP manager/catalog
-helpers as terminal architecture. Schedule and run a matrix-compaction pass for
-Slice 771 before unrelated route-family work resumes.
+- Terminal MCP migration is still not claimed. Direct Rust daemon-core MCP
+  control/admission/projection still needs to own wallet authority, transport
+  containment, StepModuleRouter dispatch, receipt binding, Agentgres
+  expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
+  coverage, and conformance.
+- Do not encode the remaining JS MCP manager/catalog helpers as terminal
+  architecture.
+- Scheduled matrix-compaction obligation from Slice 771 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the command bridge, read-only helper
+  adapters, or fail-closed JS surfaces as terminal architecture.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
