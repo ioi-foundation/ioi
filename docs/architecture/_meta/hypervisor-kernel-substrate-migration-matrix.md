@@ -248,7 +248,7 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: compact Slice 799 after the next
+- Next scheduled matrix-compaction pass: compact Slice 800 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -16101,7 +16101,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 799
+## Compacted Implementation Slice Evidence: 799
 
 Slice 799 moved successful latest model_mount provider-health and vault-health
 read envelopes out of JS object construction and through Rust read-projection
@@ -16125,7 +16125,40 @@ remains migration transport, and direct Rust daemon-core Agentgres projection
 APIs still need to replace local map/projection materialization and JS transport
 wrappers.
 
-Scheduled matrix-compaction obligation from Slice 799 is pending after this
+Scheduled matrix-compaction obligation from Slice 799 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 800
+
+Slice 800 retired the JS not-found preflight decisions from the latest
+model_mount provider-health and vault-health read surfaces.
+`latestProviderHealth()` now sends provider-scoped `latest_provider_health`
+projection requests directly to `plan_model_mount_read_projection`; the Rust
+planner verifies provider existence, health-record presence, and receipt
+binding before authoring or rejecting the read. `latestVaultHealth()` now sends
+`latest_vault_health` projection requests directly to the Rust planner, which
+verifies the vault-health receipt exists. The JS facade only translates Rust
+rejection codes such as `model_mount_provider_not_found`,
+`model_mount_provider_health_not_found`, and
+`model_mount_vault_health_not_found` into the existing public 404 envelope.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal model_mount migration: JS still materializes state
+input for the projection planner, the command bridge remains migration
+transport, and direct Rust daemon-core Agentgres projection APIs still need to
+replace local map/projection materialization, JS transport wrappers, and edge
+error-envelope translation.
+
+Scheduled matrix-compaction obligation from Slice 800 is pending after this
 verified slice. The next resume should either compact this evidence once the
 next Rust-core extraction/facade-retirement seam is clear or continue with that
 next seam while preserving the non-terminal status of command transport, JS

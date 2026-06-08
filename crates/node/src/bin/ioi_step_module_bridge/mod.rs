@@ -2316,6 +2316,15 @@ fn model_mount_latest_provider_health(
             "latest provider health projection requires provider_id".to_string(),
         )
     })?;
+    let provider_exists = array_field(&request.state, "providers")
+        .into_iter()
+        .any(|record| json_string_field(&record, "id").as_deref() == Some(provider_id));
+    if !provider_exists {
+        return Err(BridgeError::new(
+            "model_mount_provider_not_found",
+            format!("model_mount provider not found: {provider_id}"),
+        ));
+    }
     let health = array_field(&request.state, "provider_health")
         .into_iter()
         .filter(|record| json_string_field(record, "providerId").as_deref() == Some(provider_id))
@@ -8046,6 +8055,29 @@ mod tests {
             "receipt-provider-health"
         );
 
+        let mut missing_provider_state = state_with_health.clone();
+        missing_provider_state["providers"] = json!([]);
+        let missing_provider_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "latest_provider_health",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "provider_id": "provider.local",
+                    "state": missing_provider_state
+                }
+            }))
+            .expect("missing provider latest health request");
+        let missing_provider_error = plan_model_mount_read_projection(missing_provider_request)
+            .expect_err("latest provider health fails closed when provider is missing");
+        assert_eq!(
+            missing_provider_error.code,
+            "model_mount_provider_not_found"
+        );
+
         let vault_health_request: ModelMountReadProjectionBridgeRequest =
             serde_json::from_value(json!({
                 "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
@@ -8055,7 +8087,7 @@ mod tests {
                     "projection_kind": "latest_vault_health",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": state_with_health
+                    "state": state_with_health.clone()
                 }
             }))
             .expect("model_mount latest vault health request");
@@ -8074,6 +8106,29 @@ mod tests {
         assert_eq!(
             vault_health_response["projection"]["replay"]["receipt"]["id"],
             "receipt-vault-health"
+        );
+
+        let mut missing_vault_health_state = state_with_health;
+        missing_vault_health_state["receipts"] = json!([]);
+        let missing_vault_health_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "latest_vault_health",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": missing_vault_health_state
+                }
+            }))
+            .expect("missing vault health request");
+        let missing_vault_health_error =
+            plan_model_mount_read_projection(missing_vault_health_request)
+                .expect_err("latest vault health fails closed when health receipt is missing");
+        assert_eq!(
+            missing_vault_health_error.code,
+            "model_mount_vault_health_not_found"
         );
     }
 

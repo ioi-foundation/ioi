@@ -983,6 +983,20 @@ projection migration: JS still prepares current state input and not-found
 translation, and direct Rust daemon-core Agentgres projection APIs still need to
 replace command transport and local materialization.
 
+Slice 800 retired the JS not-found preflight decisions from the latest
+model_mount provider-health and vault-health read surfaces. `latestProviderHealth()`
+now sends provider-scoped `latest_provider_health` projection requests directly
+to `plan_model_mount_read_projection`; the Rust planner verifies provider
+existence, health-record presence, and receipt binding before authoring or
+rejecting the read. `latestVaultHealth()` now sends `latest_vault_health`
+projection requests directly to the Rust planner, which verifies the vault
+health receipt exists. The JS facade only translates Rust rejection codes such
+as `model_mount_provider_not_found`, `model_mount_provider_health_not_found`,
+and `model_mount_vault_health_not_found` into the existing public 404 envelope.
+This still does not claim terminal model_mount projection migration: JS still
+prepares current state input and command transport remains migration transport
+until direct Rust daemon-core Agentgres projection APIs replace it.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

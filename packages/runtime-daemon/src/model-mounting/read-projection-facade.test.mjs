@@ -143,7 +143,7 @@ function createState() {
     receiptId: "receipt-provider-health",
     status: "healthy",
   }];
-  return { facade, state, readProjectionRequests };
+  return { facade, state, readProjectionPlanner, readProjectionRequests };
 }
 
 function rustProjectionFixture(request) {
@@ -453,9 +453,28 @@ test("read projection facade projects latest provider and vault health envelopes
 });
 
 test("read projection facade preserves latest health not-found errors", () => {
-  const { facade, state } = createState();
+  const { facade, state, readProjectionPlanner, readProjectionRequests } = createState();
 
-  state.listProviderHealth = () => [];
+  readProjectionPlanner.planReadProjection = (request) => {
+    readProjectionRequests.push(request);
+    if (request.projection_kind === "latest_provider_health") {
+      throw Object.assign(new Error("provider health has not been checked"), {
+        code: "model_mount_provider_health_not_found",
+      });
+    }
+    if (request.projection_kind === "latest_vault_health") {
+      throw Object.assign(new Error("vault adapter health has not been checked"), {
+        code: "model_mount_vault_health_not_found",
+      });
+    }
+    return {
+      source: "rust_model_mount_read_projection_command",
+      backend: "rust_model_mount_read_projection",
+      projection_kind: request.projection_kind,
+      projection: rustProjectionFixture(request),
+    };
+  };
+
   assert.throws(
     () => facade.latestProviderHealth(state, "provider.local"),
     (error) =>
@@ -464,7 +483,6 @@ test("read projection facade preserves latest health not-found errors", () => {
       error.details.providerId === "provider.local",
   );
 
-  state.listReceipts = () => [];
   assert.throws(
     () => facade.latestVaultHealth(state),
     (error) =>
@@ -472,4 +490,9 @@ test("read projection facade preserves latest health not-found errors", () => {
       error.code === "not_found" &&
       error.details.receiptKind === "vault_adapter_health",
   );
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "latest_provider_health",
+    "latest_vault_health",
+  ]);
+  assert.equal(readProjectionRequests[0].provider_id, "provider.local");
 });

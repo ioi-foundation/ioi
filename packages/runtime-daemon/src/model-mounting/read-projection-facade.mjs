@@ -122,26 +122,19 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function latestProviderHealth(state, providerId) {
-    state.provider(providerId);
-    const health = state.listProviderHealth()
-      .filter((record) => record.providerId === providerId)
-      .at(-1);
-    if (!health?.receiptId) {
-      throw notFoundDep(`Provider health has not been checked: ${providerId}`, { providerId });
+    try {
+      return rustReadProjection(state, "latest_provider_health", { providerId });
+    } catch (error) {
+      throw translateLatestProviderHealthError(error, providerId);
     }
-    return rustReadProjection(state, "latest_provider_health", { providerId });
   }
 
   function latestVaultHealth(state) {
-    const receipt = state.listReceipts()
-      .filter((item) => item.kind === "vault_adapter_health")
-      .at(-1);
-    if (!receipt) {
-      throw notFoundDep("Vault adapter health has not been checked.", {
-        receiptKind: "vault_adapter_health",
-      });
+    try {
+      return rustReadProjection(state, "latest_vault_health");
+    } catch (error) {
+      throw translateLatestVaultHealthError(error);
     }
-    return rustReadProjection(state, "latest_vault_health");
   }
 
   function workflowNodeBindings(state) {
@@ -190,6 +183,25 @@ export function createModelMountingReadProjectionFacade({
       });
     }
     return result;
+  }
+
+  function translateLatestProviderHealthError(error, providerId) {
+    if (
+      error?.code === "model_mount_provider_not_found" ||
+      error?.code === "model_mount_provider_health_not_found"
+    ) {
+      return notFoundDep(`Provider health has not been checked: ${providerId}`, { providerId });
+    }
+    throw error;
+  }
+
+  function translateLatestVaultHealthError(error) {
+    if (error?.code === "model_mount_vault_health_not_found") {
+      return notFoundDep("Vault adapter health has not been checked.", {
+        receiptKind: "vault_adapter_health",
+      });
+    }
+    throw error;
   }
 
   function readProjectionInput(state, baseUrl = null) {
