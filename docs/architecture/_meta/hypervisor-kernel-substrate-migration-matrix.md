@@ -13430,6 +13430,42 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 684: IDE TUI Control Model-Route Alias Retirement
+
+- Date: 2026-06-08.
+- Phase: 10/11 facade retirement and compositor protocol projection cleanup.
+- Route family: Hypervisor IDE TUI control projection.
+- Seam: the IDE TUI control-state projection still accepted retired camelCase
+  model-route protocol aliases (`requestedModel`, `selectedModel`,
+  `modelRouteId`, `routeId`, `modelId`, `reasoningEffort`,
+  `workflowNodeId`, and `receiptRefs`) beside canonical snake_case daemon/TUI
+  control-state fields before materializing run-inspector rows.
+- Implementation:
+  - `packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts`
+    now reads TUI model-route and thinking-row metadata only from canonical
+    snake_case fields (`requested_model`, `selected_model`, `model_route_id`,
+    `reasoning_effort`, `workflow_node_id`, and `receipt_refs`).
+  - Subagent TUI control rows now derive route/workflow ownership from
+    canonical `model_route_id`, `route_id`, `workflow_graph_id`, and
+    `workflow_node_id` fields instead of retired camelCase route/workflow
+    aliases.
+  - TUI command and validation rows now derive model route fields only from
+    canonical `model_id`, `route_id`, and `reasoning_effort` fields.
+  - `packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+    adds poisoned-alias coverage proving retired camelCase model-route values
+    cannot steer model-route, thinking, subagent, command, or validation rows
+    when canonical daemon protocol fields are present.
+  - `scripts/conformance/hypervisor-conformance.mjs` adds the compositor guard
+    `ide-tui-control-model-route-aliases-retired`.
+- Verification:
+  - `node --check scripts/conformance/hypervisor-conformance.mjs`
+  - `node --import tsx --test --test-name-pattern "TUI control" packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts`
+  - `npm run hypervisor-conformance:compositor`
+- Remaining: this retires another IDE adapter compatibility seam. Terminal
+  migration still requires the broader Rust daemon-core extraction and JS
+  facade retirement described in the sprint blockers; this slice does not claim
+  terminal conformance.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13445,7 +13481,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 683 and the one-hundred-nineteenth 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 684:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

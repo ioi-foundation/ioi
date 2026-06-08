@@ -22762,6 +22762,71 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "ide-tui-control-model-route-aliases-retired",
+    /const modelId = stringField\(modeStatus,\s*"requested_model"\);/.test(
+      agentIdeRuntimeEventProjection,
+    ) &&
+      /const selectedModel = stringField\(modeStatus,\s*"selected_model"\);/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /const routeId = stringField\(modeStatus,\s*"model_route_id"\);/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /const reasoningEffort = stringField\(modeStatus,\s*"reasoning_effort"\);/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /stringField\(modeStatus,\s*"workflow_node_id"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /stringArrayField\(modeStatus,\s*"receipt_refs"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /stringField\(entry,\s*"model_route_id"\)\s*\?\?\s*[\r\n\s]*stringField\(entry,\s*"route_id"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /modelId:\s*stringField\(entry,\s*"model_id"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /routeId:\s*stringField\(entry,\s*"route_id"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /reasoningEffort:\s*stringField\(entry,\s*"reasoning_effort"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(modeStatus,\s*"(?:requestedModel|selectedModel|modelRouteId|reasoningEffort|workflowNodeId)"/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringArrayField\(modeStatus,\s*"receiptRefs"/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      !/stringField\(entry,\s*"(?:modelRouteId|routeId|modelId|reasoningEffort)",\s*"(?:model_route_id|route_id|model_id|reasoning_effort)"\)/.test(
+        agentIdeRuntimeEventProjection,
+      ) &&
+      /TUI control projection ignores retired model route aliases/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /modelRouteId:\s*"route\.retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /routeId:\s*"route\.command\.retired"/.test(agentIdeRuntimeEventProjectionTest) &&
+      /reasoningEffort:\s*"retired-medium"/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /assert\.notEqual\(modelRoute\?\.routeId,\s*"route\.retired"\)/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /assert\.notEqual\(command\?\.routeId,\s*"route\.command\.retired"\)/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ) &&
+      /assert\.notEqual\(validation\?\.reasoningEffort,\s*"retired-low"\)/.test(
+        agentIdeRuntimeEventProjectionTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
+      "packages/agent-ide/src/runtime/workflow-runtime-event-projection.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE TUI control model-route rows must consume canonical snake_case route/model/reasoning fields without retired camelCase protocol aliases",
+  );
+  assertCheck(
+    result,
     "ide-computer-use-projection-control-aliases-retired",
     /const payloadStep = stringField\(event\.payload,\s*"computer_use_step"\);/.test(
       agentIdeRuntimeEventProjection,

@@ -892,12 +892,12 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       policyDecisionRefs: [],
       reactFlowNodeId: "runtime.tui-control-state.mode-status",
     });
-    const modelId = stringField(modeStatus, "requestedModel", "requested_model");
-    const selectedModel = stringField(modeStatus, "selectedModel", "selected_model");
-    const routeId = stringField(modeStatus, "modelRouteId", "model_route_id");
-    const reasoningEffort = stringField(modeStatus, "reasoningEffort", "reasoning_effort");
+    const modelId = stringField(modeStatus, "requested_model");
+    const selectedModel = stringField(modeStatus, "selected_model");
+    const routeId = stringField(modeStatus, "model_route_id");
+    const reasoningEffort = stringField(modeStatus, "reasoning_effort");
     const modelNodeId =
-      stringField(modeStatus, "workflowNodeId", "workflow_node_id") ??
+      stringField(modeStatus, "workflow_node_id") ??
       "runtime.model-router";
     if (modelId || selectedModel || routeId) {
       rows.push({
@@ -919,7 +919,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
         cursor: lastCursor,
         eventId: lastEventId,
         sequence: null,
-        receiptRefs: stringArrayField(modeStatus, "receiptRefs", "receipt_refs"),
+        receiptRefs: stringArrayField(modeStatus, "receipt_refs"),
         policyDecisionRefs: [],
         reactFlowNodeId: modelNodeId,
       });
@@ -944,7 +944,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
         cursor: lastCursor,
         eventId: lastEventId,
         sequence: null,
-        receiptRefs: stringArrayField(modeStatus, "receiptRefs", "receipt_refs"),
+        receiptRefs: stringArrayField(modeStatus, "receipt_refs"),
         policyDecisionRefs: [],
         reactFlowNodeId: `${modelNodeId}.thinking`,
       });
@@ -1258,7 +1258,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
     const sequence = numberField(entry, "sequence", "seq") ?? index + 1;
     const fallbackNodeId = `runtime.subagent.${slug(operation)}.${slug(role ?? subagentId ?? String(sequence))}`;
     const rowWorkflowGraphId =
-      stringField(entry, "workflowGraphId", "workflow_graph_id") ??
+      stringField(entry, "workflow_graph_id") ??
       workflowGraphId;
     rows.push({
       id:
@@ -1279,8 +1279,8 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       runId: subagentRunId,
       modelId: null,
       routeId:
-        stringField(entry, "modelRouteId", "model_route_id") ??
-        stringField(entry, "routeId", "route_id"),
+        stringField(entry, "model_route_id") ??
+        stringField(entry, "route_id"),
       reasoningEffort: null,
       subagentId,
       subagentRole: role,
@@ -1333,7 +1333,7 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
         "policy_decision_refs",
       ),
       reactFlowNodeId:
-        stringField(entry, "workflowNodeId", "workflow_node_id") ??
+        stringField(entry, "workflow_node_id") ??
         fallbackNodeId,
     });
   });
@@ -1812,9 +1812,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: stringField(entry, "approvalId", "approval_id"),
       jobId: stringField(entry, "jobId", "job_id"),
       runId: stringField(entry, "runId", "run_id"),
-      modelId: stringField(entry, "modelId", "model_id"),
-      routeId: stringField(entry, "routeId", "route_id"),
-      reasoningEffort: stringField(entry, "reasoningEffort", "reasoning_effort"),
+      modelId: stringField(entry, "model_id"),
+      routeId: stringField(entry, "route_id"),
+      reasoningEffort: stringField(entry, "reasoning_effort"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,
@@ -1845,9 +1845,9 @@ export function projectRuntimeTuiControlStateToWorkflowProjection(
       approvalId: stringField(entry, "approvalId", "approval_id"),
       jobId: stringField(entry, "jobId", "job_id"),
       runId: stringField(entry, "runId", "run_id"),
-      modelId: stringField(entry, "modelId", "model_id"),
-      routeId: stringField(entry, "routeId", "route_id"),
-      reasoningEffort: stringField(entry, "reasoningEffort", "reasoning_effort"),
+      modelId: stringField(entry, "model_id"),
+      routeId: stringField(entry, "route_id"),
+      reasoningEffort: stringField(entry, "reasoning_effort"),
       threadId: stringField(entry, "threadId", "thread_id") ?? threadId,
       turnId: stringField(entry, "turnId", "turn_id") ?? currentTurnId,
       cursor: stringField(entry, "cursor") ?? lastCursor,

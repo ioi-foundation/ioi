@@ -2630,6 +2630,113 @@ test("projects TUI control state into React Flow run-inspector rows", () => {
   assert.equal(projection.rows[22]?.message, "/steer requires guidance text");
 });
 
+test("TUI control projection ignores retired model route aliases", () => {
+  const projection = projectRuntimeTuiControlStateToWorkflowProjection({
+    schema_version: "ioi.agent-cli.tui-control-state.v1",
+    surface: "tui",
+    thread_id: "thread-test",
+    workflow_graph_id: "workflow-canonical",
+    current_turn_id: "turn-test",
+    last_cursor: "events_thread:test:2",
+    last_event_id: "event-canonical",
+    mode_status: {
+      requested_model: "model-canonical",
+      requestedModel: "model-retired",
+      selected_model: "selected-canonical",
+      selectedModel: "selected-retired",
+      model_route_id: "route.canonical",
+      modelRouteId: "route.retired",
+      reasoning_effort: "high",
+      reasoningEffort: "retired-high",
+      workflow_node_id: "runtime.model-router.canonical",
+      workflowNodeId: "runtime.model-router.retired",
+      receipt_refs: ["receipt-canonical"],
+      receiptRefs: ["receipt-retired"],
+    },
+    subagent_rows: [
+      {
+        id: "subagent-row",
+        row_kind: "subagent",
+        status: "completed",
+        subagent_id: "agent-subagent",
+        subagent_role: "explore",
+        subagent_operation: "spawn",
+        model_route_id: "route.subagent.canonical",
+        modelRouteId: "route.subagent.retired",
+        route_id: "route.subagent-fallback.canonical",
+        routeId: "route.subagent-fallback.retired",
+        workflow_graph_id: "workflow-canonical",
+        workflowGraphId: "workflow-retired",
+        workflow_node_id: "runtime.subagent.canonical",
+        workflowNodeId: "runtime.subagent.retired",
+      },
+    ],
+    command_history: [
+      {
+        id: "command-row",
+        command: "model",
+        model_id: "model.command.canonical",
+        modelId: "model.command.retired",
+        route_id: "route.command.canonical",
+        routeId: "route.command.retired",
+        reasoning_effort: "medium",
+        reasoningEffort: "retired-medium",
+      },
+    ],
+    validation_errors: [
+      {
+        id: "validation-row",
+        command: "model",
+        model_id: "model.validation.canonical",
+        modelId: "model.validation.retired",
+        route_id: "route.validation.canonical",
+        routeId: "route.validation.retired",
+        reasoning_effort: "low",
+        reasoningEffort: "retired-low",
+      },
+    ],
+  });
+
+  const modelRoute = projection.rows.find((row) => row.rowKind === "model_route");
+  assert.equal(modelRoute?.modelId, "model-canonical");
+  assert.equal(modelRoute?.routeId, "route.canonical");
+  assert.equal(modelRoute?.reasoningEffort, "high");
+  assert.equal(modelRoute?.reactFlowNodeId, "runtime.model-router.canonical");
+  assert.deepEqual(modelRoute?.receiptRefs, ["receipt-canonical"]);
+  assert.notEqual(modelRoute?.modelId, "model-retired");
+  assert.notEqual(modelRoute?.routeId, "route.retired");
+  assert.notEqual(modelRoute?.reasoningEffort, "retired-high");
+  assert.notEqual(modelRoute?.reactFlowNodeId, "runtime.model-router.retired");
+
+  const thinking = projection.rows.find((row) => row.rowKind === "thinking");
+  assert.deepEqual(thinking?.receiptRefs, ["receipt-canonical"]);
+  assert.notDeepEqual(thinking?.receiptRefs, ["receipt-retired"]);
+
+  const subagent = projection.rows.find((row) => row.rowKind === "subagent");
+  assert.equal(subagent?.routeId, "route.subagent.canonical");
+  assert.equal(subagent?.workflowGraphId, "workflow-canonical");
+  assert.equal(subagent?.reactFlowNodeId, "runtime.subagent.canonical");
+  assert.notEqual(subagent?.routeId, "route.subagent.retired");
+  assert.notEqual(subagent?.workflowGraphId, "workflow-retired");
+  assert.notEqual(subagent?.reactFlowNodeId, "runtime.subagent.retired");
+
+  const command = projection.rows.find((row) => row.id === "command-row");
+  assert.equal(command?.modelId, "model.command.canonical");
+  assert.equal(command?.routeId, "route.command.canonical");
+  assert.equal(command?.reasoningEffort, "medium");
+  assert.notEqual(command?.modelId, "model.command.retired");
+  assert.notEqual(command?.routeId, "route.command.retired");
+  assert.notEqual(command?.reasoningEffort, "retired-medium");
+
+  const validation = projection.rows.find((row) => row.id === "validation-row");
+  assert.equal(validation?.modelId, "model.validation.canonical");
+  assert.equal(validation?.routeId, "route.validation.canonical");
+  assert.equal(validation?.reasoningEffort, "low");
+  assert.notEqual(validation?.modelId, "model.validation.retired");
+  assert.notEqual(validation?.routeId, "route.validation.retired");
+  assert.notEqual(validation?.reasoningEffort, "retired-low");
+});
+
 test("projects TUI cost and context controls to usage, budget, and compaction nodes", () => {
   const projection = projectRuntimeTuiControlStateToWorkflowProjection({
     schema_version: "ioi.agent-cli.tui-control-state.v1",
