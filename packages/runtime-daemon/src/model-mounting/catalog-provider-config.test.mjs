@@ -305,70 +305,14 @@ test("catalog provider auth headers resolve vault material without plaintext per
   );
 });
 
-test("catalog provider auth supports OAuth session refresh projections", async () => {
+test("catalog provider OAuth auth-header refresh facade fails closed until Rust core owns catalog provider control", async () => {
   const state = createState();
-  const refreshedSession = {
-    id: "session-1",
-    status: "active",
-    scopes: ["read"],
-    evidenceRefs: ["VaultOAuthSession"],
-  };
+  let resolveAccessHeaderCount = 0;
   state.oauthSessions.set("session-1", { id: "session-1", status: "active" });
   state.catalogProviderConfigs.set("catalog.huggingface", {
     id: "catalog.huggingface",
     oauthSessionId: "session-1",
-    catalogAuthScheme: "oauth2",
-    catalogAuthHeaderName: "authorization",
-  });
-  state.catalogProviderConfig = () => state.catalogProviderConfigs.get("catalog.huggingface");
-  state.nowIso = () => "2026-06-03T12:00:00.000Z";
-  state.oauthCredentialProvider = {
-    async resolveAccessHeader(session, { headerName }) {
-      assert.equal(session.id, "session-1");
-      assert.equal(headerName, "authorization");
-      return {
-        refreshed: true,
-        session: refreshedSession,
-        headerValue: "Bearer refreshed",
-        evidence: { oauthSessionHash: "hash-session", resolvedMaterial: true },
-      };
-    },
-  };
-
-  const auth = await catalogProviderAuthHeaders("catalog.huggingface", state);
-
-  assert.deepEqual(auth.headers, { authorization: "Bearer refreshed" });
-  assert.deepEqual(state.oauthSessions.get("session-1"), {
-    ...refreshedSession,
-    providerId: "catalog.huggingface",
-  });
-  assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary.status, "refreshed");
-  assert.equal(state.recordStateCommits.length, 2);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "oauth-sessions");
-  assert.equal(state.recordStateCommits[0].record_id, "session-1");
-  assert.equal(
-    state.recordStateCommits[0].operation_kind,
-    "model_mount.oauth_session.auth_header_refresh",
-  );
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
-  assert.equal(state.recordStateCommits[1].record_dir, "model-catalog-providers");
-  assert.equal(state.recordStateCommits[1].record_id, "catalog.huggingface");
-  assert.equal(
-    state.recordStateCommits[1].operation_kind,
-    "model_mount.catalog_provider_auth_header.refresh",
-  );
-  assert.deepEqual(state.recordStateCommits[1].receipt_refs, []);
-  assert.equal(state.writeVaultRefsCount(), 1);
-});
-
-test("catalog provider auth refresh fails closed before provider config mutation without Rust Agentgres record-state commit", async () => {
-  const state = createState();
-  delete state.commitRuntimeModelMountRecordState;
-  state.oauthSessions.set("session-1", { id: "session-1", status: "active" });
-  state.catalogProviderConfigs.set("catalog.huggingface", {
-    id: "catalog.huggingface",
-    oauthSessionId: "session-1",
+    oauthSessionHash: "hash:session-1",
     catalogAuthScheme: "oauth2",
     catalogAuthHeaderName: "authorization",
   });
@@ -376,27 +320,38 @@ test("catalog provider auth refresh fails closed before provider config mutation
   state.nowIso = () => "2026-06-03T12:00:00.000Z";
   state.oauthCredentialProvider = {
     async resolveAccessHeader() {
-      return {
-        refreshed: true,
-        session: { id: "session-1", status: "active", refreshCount: 1 },
-        headerValue: "Bearer refreshed",
-        evidence: { oauthSessionHash: "hash-session", resolvedMaterial: true },
-      };
+      resolveAccessHeaderCount += 1;
+      throw new Error("OAuth access-header resolution should not run in JS");
     },
   };
 
   await assert.rejects(
     () => catalogProviderAuthHeaders("catalog.huggingface", state),
     (error) => {
-      assert.equal(error.code, "model_mount_oauth_session_commit_unconfigured");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_auth_header.refresh");
       assert.equal(error.details.provider_id, "catalog.huggingface");
-      assert.equal(error.details.record_dir, "oauth-sessions");
+      assert.equal(error.details.oauth_session_hash, "hash:session-1");
+      assert.equal(error.details.catalog_auth_scheme, "oauth2");
+      assert.equal(typeof error.details.catalog_auth_header_name_hash, "string");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "oauthSessionHash"), false);
       return true;
     },
   );
 
+  assert.equal(resolveAccessHeaderCount, 0);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.equal(state.oauthSessions.get("session-1").refreshCount, undefined);
   assert.equal(state.catalogProviderConfigs.get("catalog.huggingface").oauthBoundary, undefined);
+  assert.equal(state.writeVaultRefsCount(), 0);
 });
 
 test("catalog provider config validates provider ids and auth schemes", () => {

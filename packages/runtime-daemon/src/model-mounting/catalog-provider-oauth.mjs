@@ -1,4 +1,4 @@
-import { throwCatalogProviderControlRustCoreRequired } from "./catalog-provider-configuration-operations.mjs";
+import { throwCatalogProviderControlRustCoreRequired } from "./catalog-provider-config.mjs";
 
 export function startCatalogProviderOAuth(state, providerId, body = {}, deps = {}) {
   const {

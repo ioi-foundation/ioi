@@ -13,10 +13,6 @@ import {
 import {
   oauthBoundaryForSession,
 } from "./oauth-boundary.mjs";
-import {
-  commitOAuthSessionRecordState,
-} from "./oauth-record-state.mjs";
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
 
@@ -315,44 +311,15 @@ export async function catalogProviderAuthHeaders(providerId, state) {
   const headerName = normalizeProviderAuthHeaderName(config.catalogAuthHeaderName ?? "authorization");
   const authScheme = normalizeCatalogAuthScheme(config.catalogAuthScheme ?? "bearer");
   if (authScheme === "oauth2" && config.oauthSessionId) {
-    const session = state?.oauthSessions?.get(config.oauthSessionId) ?? null;
-    const resolved = await state.oauthCredentialProvider.resolveAccessHeader(session, { providerId, headerName });
-    if (resolved.refreshed) {
-      const refreshedSession = {
-        ...resolved.session,
-        providerId: resolved.session?.providerId ?? providerId,
-      };
-      commitOAuthSessionRecordState(
-        state,
-        refreshedSession,
-        "model_mount.oauth_session.auth_header_refresh",
-        [],
-      );
-      if (config?.id && state.catalogProviderConfigs?.has(config.id)) {
-        const refreshedConfig = {
-          ...config,
-          oauthBoundary: oauthBoundaryForSession(refreshedSession, { refreshed: true }),
-          updatedAt: state.nowIso?.() ?? config.updatedAt,
-        };
-        commitModelMountRecordState(state, {
-          recordDir: "model-catalog-providers",
-          record: refreshedConfig,
-          operation_kind: "model_mount.catalog_provider_auth_header.refresh",
-          receipt_refs: [],
-          unconfiguredCode: "model_mount_catalog_provider_auth_header_state_commit_unconfigured",
-          unconfiguredMessage:
-            "Catalog provider auth-header refresh persistence requires Rust Agentgres record-state commit.",
-          unconfiguredDetails: { provider_id: providerId },
-        });
-        state.catalogProviderConfigs.set(config.id, refreshedConfig);
-      }
-      state.oauthSessions.set(refreshedSession.id, refreshedSession);
-    }
-    state?.writeVaultRefs?.();
-    return {
-      headers: { [headerName]: resolved.headerValue },
-      evidence: resolved.evidence,
-    };
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_auth_header.refresh",
+      {
+        provider_id: providerId,
+        oauth_session_hash: config.oauthSessionHash ?? stableHash(config.oauthSessionId),
+        catalog_auth_scheme: authScheme,
+        catalog_auth_header_name_hash: stableHash(headerName),
+      },
+    );
   }
   if (!config.authVaultRef) {
     throw runtimeError({
@@ -412,4 +379,27 @@ export async function catalogProviderAuthHeaders(providerId, state) {
 export function catalogAuthorizationHeaderValue(authScheme, material) {
   if (authScheme === "raw" || authScheme === "api_key") return material;
   return `Bearer ${material}`;
+}
+
+export function throwCatalogProviderControlRustCoreRequired(operation_kind, details = {}, deps = {}) {
+  throw (deps.runtimeError ?? defaultRuntimeError)({
+    status: 501,
+    code: "model_mount_catalog_provider_control_rust_core_required",
+    message:
+      "Catalog provider configuration, OAuth, and auth-header mutation facades require Rust daemon-core wallet/cTEE custody ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.catalog_provider_control",
+      evidence_refs: [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function defaultRuntimeError({ code, message, details, status }) {
+  return Object.assign(new Error(message), { code, details, status });
 }

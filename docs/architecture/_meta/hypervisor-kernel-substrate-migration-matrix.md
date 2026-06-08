@@ -13990,6 +13990,81 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 712
+
+```yaml
+slice: 712
+phase: 10-authoritative-js-facade-retirement
+objective: retire catalog-provider OAuth auth-header refresh JS mutation before
+  OAuth credential execution or state persistence
+owner_boundary:
+  route_or_surface: model-mounting catalog provider auth-header resolution for
+    OAuth-backed catalog provider sessions
+  authority_gate: fail closed at `model_mount.catalog_provider_control` when a
+    catalog auth header would require OAuth session access/refresh; non-OAuth
+    vault-ref auth header reads remain read adapters
+  execution_backend: none in JS for OAuth auth-header refresh; Rust daemon-core
+    model_mount must own OAuth access-header resolution, wallet/cTEE custody,
+    refreshed session state, provider-config projection, receipts, and
+    record-state
+  truth_path: no JS `resolveAccessHeader`, OAuth session record-state commit,
+    provider-config record-state commit, OAuth session map mutation,
+    provider-config map mutation, vault write, or projection write from the
+    OAuth auth-header path
+  projection_path: catalog provider list/get, runtime-material lookup, and
+    non-OAuth vault-ref auth-header reads still project through current JS
+    adapters until direct Rust catalog-provider control/projection APIs land
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs
+    - packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs
+    - packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs
+    - packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires
+    `model_mount_catalog_provider_control_rust_core_required` for the OAuth
+    auth-header refresh path
+  - conformance rejects reintroducing JS OAuth credential access-header
+    execution, OAuth session/provider-config record-state commits, OAuth
+    session/provider-config map mutation, or the old auth-header refresh
+    unconfigured record-state error
+  - focused daemon tests prove OAuth auth-header refresh fails with canonical
+    snake_case details and leaves OAuth provider execution count, record-state
+    commits, vault writes, sessions, and provider configs untouched
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - catalog provider runtime-material resolution still reads current JS
+      state/vault-port adapters until Rust daemon-core catalog-provider
+      projection and custody APIs land
+    - non-OAuth vault-ref auth header reads still resolve through JS vault-port
+      plumbing as a migration adapter; Rust wallet/cTEE control must absorb it
+      before terminal conformance
+    - schedule a matrix-compaction pass once the next Rust-core extraction or
+      facade-retirement seam is clear, so catalog-provider control retirement
+      remains migration evidence rather than terminal bridge shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14005,7 +14080,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 711 and the public catalog-provider control JS mutation-facade retirement pass:
+Current expected behavior after Slice 712 and the catalog-provider OAuth auth-header refresh JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

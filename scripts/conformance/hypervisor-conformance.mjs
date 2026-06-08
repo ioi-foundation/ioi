@@ -7107,14 +7107,14 @@ function runBridge() {
     "model-mount-catalog-provider-control-js-facade-retired",
     /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderConfigurationOperations) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(
-        catalogProviderConfigurationOperations,
+        catalogProviderConfig,
       ) &&
       /rust_core_boundary:\s*"model_mount\.catalog_provider_control"/.test(
-        catalogProviderConfigurationOperations,
+        catalogProviderConfig,
       ) &&
-      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderConfigurationOperations) &&
-      /rust_daemon_core_catalog_provider_control_required/.test(catalogProviderConfigurationOperations) &&
-      /rust_daemon_core_wallet_ctee_custody_required/.test(catalogProviderConfigurationOperations) &&
+      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderConfig) &&
+      /rust_daemon_core_catalog_provider_control_required/.test(catalogProviderConfig) &&
+      /rust_daemon_core_wallet_ctee_custody_required/.test(catalogProviderConfig) &&
       /model_mount\.catalog_provider_configuration\.write/.test(catalogProviderConfigureBlock) &&
       !/state\.receipt\("model_catalog_provider_configuration"/.test(catalogProviderConfigureBlock) &&
       !/commitModelMountRecordState/.test(catalogProviderConfigurationOperations) &&
@@ -7145,7 +7145,7 @@ function runBridge() {
     result,
     "model-mount-catalog-provider-oauth-js-facade-retired",
     /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderOAuthOperations) &&
-      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfigurationOperations) &&
+      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
       /recordDir:\s*"oauth-states"/.test(oauthRecordState) &&
       /recordDir:\s*"oauth-sessions"/.test(oauthRecordState) &&
       /model_mount_oauth_state_commit_unconfigured/.test(oauthRecordState) &&
@@ -7169,10 +7169,14 @@ function runBridge() {
       !/state\.writeVaultRefs\(\)/.test(catalogProviderOAuthOperations) &&
       !/state\.writeProjection\(\)/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
-      /model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
-      /model_mount_catalog_provider_auth_header_state_commit_unconfigured/.test(
+      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
+      !/model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
+      !/model_mount_catalog_provider_auth_header_state_commit_unconfigured/.test(
         catalogProviderConfig,
       ) &&
+      !/commitOAuthSessionRecordState/.test(catalogProviderConfig) &&
+      !/commitModelMountRecordState/.test(catalogProviderConfig) &&
+      !/resolveAccessHeader/.test(catalogProviderConfig) &&
       !/state\.writeMap\("model-catalog-providers"/.test(catalogProviderOAuthOperations) &&
       !/state\.writeMap\("oauth-states"/.test(catalogProviderOAuthOperations) &&
       !/state\.writeMap\("oauth-sessions"/.test(catalogProviderOAuthOperations) &&
@@ -7180,6 +7184,8 @@ function runBridge() {
       !/writeMap\("model-catalog-providers"/.test(catalogProviderConfig) &&
       !/writeMap\?\.\("oauth-sessions"/.test(catalogProviderConfig) &&
       !/writeMap\("oauth-sessions"/.test(catalogProviderConfig) &&
+      !/state\.catalogProviderConfigs\.set/.test(catalogProviderConfig) &&
+      !/state\.oauthSessions\.set/.test(catalogProviderConfig) &&
       /catalog OAuth mutation facades fail closed until Rust core owns catalog provider control/.test(
         catalogProviderOAuthOperationsTest,
       ) &&
@@ -7189,10 +7195,12 @@ function runBridge() {
       /public_catalog_provider_control_js_facade_retired/.test(catalogProviderOAuthOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
-      /catalog provider auth refresh fails closed before provider config mutation without Rust Agentgres record-state commit/.test(
+      /catalog provider OAuth auth-header refresh facade fails closed until Rust core owns catalog provider control/.test(
         catalogProviderConfigTest,
       ) &&
       /recordStateCommits/.test(catalogProviderConfigTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(resolveAccessHeaderCount,\s*0\)/.test(catalogProviderConfigTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",

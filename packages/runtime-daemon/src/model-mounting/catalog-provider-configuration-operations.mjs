@@ -5,6 +5,7 @@ import {
   catalogProviderMaterialPurpose,
   catalogProviderMaterialVaultRef,
   catalogProviderRuntimeMaterialFromValue,
+  throwCatalogProviderControlRustCoreRequired,
 } from "./catalog-provider-config.mjs";
 import { publicCatalogProviderConfig } from "./catalog-projections.mjs";
 import { catalogProviderStatus } from "./catalog-registry.mjs";
@@ -122,27 +123,4 @@ export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
     state.catalogProviderRuntimeMaterials.set(providerId, failed);
     return failed;
   }
-}
-
-export function throwCatalogProviderControlRustCoreRequired(operation_kind, details = {}, deps = {}) {
-  throw (deps.runtimeError ?? defaultRuntimeError)({
-    status: 501,
-    code: "model_mount_catalog_provider_control_rust_core_required",
-    message:
-      "Catalog provider configuration and OAuth mutation facades require Rust daemon-core wallet/cTEE custody ownership.",
-    details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.catalog_provider_control",
-      evidence_refs: [
-        "public_catalog_provider_control_js_facade_retired",
-        "rust_daemon_core_catalog_provider_control_required",
-        "rust_daemon_core_wallet_ctee_custody_required",
-      ],
-      ...details,
-    },
-  });
-}
-
-function defaultRuntimeError({ code, message, details, status }) {
-  return Object.assign(new Error(message), { code, details, status });
 }
