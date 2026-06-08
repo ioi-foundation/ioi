@@ -15,6 +15,7 @@ import {
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -874,6 +875,69 @@ test("mcp control agent state update runner sends Rust state update bridge reque
   assert.equal(Object.hasOwn(result.control, "eventId"), false);
   assert.equal(Object.hasOwn(result.control, "createdAt"), false);
   assert.equal(result.agent.mcpRegistry.servers[0].id, "mcp.docs");
+});
+
+test("MCP server validation runner sends Rust daemon-core validation request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_mcp_server_validation_command",
+            backend: "rust_policy",
+            status: "blocked",
+            ok: false,
+            issue_count: 1,
+            warning_count: 0,
+            issues: [
+              {
+                code: "mcp_secret_not_vault_ref",
+                severity: "error",
+                server_id: "mcp.secret",
+                key: "Authorization",
+                message: "MCP env/header secrets must be represented as vault:// refs before activation.",
+              },
+            ],
+            warnings: [],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.validateMcpServers({
+    servers: [
+      {
+        id: "mcp.secret",
+        transport: "stdio",
+        command: "npx",
+        secret_refs: {
+          Authorization: { invalidVaultRef: true },
+        },
+      },
+    ],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "validate_mcp_servers");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.servers[0].secret_refs.Authorization.invalidVaultRef, true);
+  assert.equal(result.source, "rust_mcp_server_validation_command");
+  assert.equal(result.status, "blocked");
+  assert.equal(result.ok, false);
+  assert.equal(result.issue_count, 1);
+  assert.equal(result.issues[0].server_id, "mcp.secret");
+  assert.equal(Object.hasOwn(result.issues[0], "serverId"), false);
 });
 
 test("thread memory agent state update runner sends Rust state update bridge request", () => {

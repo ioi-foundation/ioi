@@ -453,6 +453,14 @@ function runDocs() {
       /The Slice 773 MCP manager\s+validation secret-ref alias-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
+      /Slice 774 moved public MCP server validation decisioning into Rust daemon-core\s+validation transport/.test(
+        guide,
+      ) &&
+      /McpServerValidationCore/.test(guide) &&
+      /validate_mcp_servers/.test(guide) &&
+      /The Slice 774 MCP server validation Rust-core matrix-compaction pass is pending/.test(
+        guide,
+      ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -492,7 +500,8 @@ function runDocs() {
       /This pass compacted Slice 771 MCP manager `allowedResources`\/`allowedPrompts`\s+server config\/catalog alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 772 MCP manager transport\/containment alias-retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 773 MCP manager validation `secretRefs`\s+alias-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 774 moved public MCP server validation decisioning into Rust daemon-core\s+validation transport/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 774 MCP\s+server validation Rust-core evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -716,11 +725,18 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 773/.test(matrix) &&
       /MCP manager\s+validation `secretRefs` alias retirement/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 773 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 773 MCP\s+manager validation `secretRefs` alias-retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 774/.test(matrix) &&
+      /McpServerValidationCore/.test(matrix) &&
+      /validate_mcp_servers/.test(matrix) &&
+      /contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/.test(matrix) &&
+      /Schedule and run a matrix-compaction pass for Slice\s+774 before unrelated route-family work resumes/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 774 MCP server\s+validation Rust-core evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
+      /public MCP server validation now sends normalized canonical server records through\s+Rust daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
+      /lower-level manager validation remain read-only\/projection migration helpers,\s+not terminal validation authority/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
@@ -1178,7 +1194,11 @@ function runBridge() {
     )?.[0] ?? "";
   const mcpControlAgentStateUpdateCoreBlock =
     policyCore.match(
-      /impl McpControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct ThreadMemoryAgentStateUpdateCore;)/,
+      /impl McpControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct McpServerValidationCore;)/,
+    )?.[0] ?? "";
+  const mcpServerValidationCoreBlock =
+    policyCore.match(
+      /impl McpServerValidationCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct ThreadMemoryAgentStateUpdateCore;)/,
     )?.[0] ?? "";
   const threadMemoryAgentStateUpdateCoreBlock =
     policyCore.match(
@@ -1473,6 +1493,14 @@ function runBridge() {
     : "";
   const runtimeMcpControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs")
+    : "";
+  const runtimeMcpCatalogSurface = exists("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs")
+    : "";
+  const runtimeMcpCatalogSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs")
     : "";
   const runtimeThreadMemoryState = exists("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-memory-state.mjs")
@@ -5647,6 +5675,12 @@ function runBridge() {
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_mcp_control_agent_state_update/.test(policyCore) &&
       /rust_policy_rejects_invalid_mcp_control_agent_state_update_schema/.test(policyCore) &&
+      /McpServerValidationCore/.test(policyCore) &&
+      /McpServerValidationRequest/.test(policyCore) &&
+      /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_validates_mcp_servers/.test(policyCore) &&
+      /rust_policy_rejects_invalid_mcp_server_records/.test(policyCore) &&
+      /rust_policy_rejects_invalid_mcp_server_validation_schema/.test(policyCore) &&
       /"control_kind": control_kind/.test(mcpControlAgentStateUpdateCoreBlock) &&
       /"event_id": request\.event_id/.test(mcpControlAgentStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(mcpControlAgentStateUpdateCoreBlock) &&
@@ -5657,6 +5691,14 @@ function runBridge() {
       /McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /rust_mcp_control_agent_state_update_command/.test(bridgeModule) &&
       /bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
+      /validate_mcp_servers/.test(bridgeModule) &&
+      /McpServerValidationBridgeRequest/.test(bridgeModule) &&
+      /rust_mcp_server_validation_command/.test(bridgeModule) &&
+      /bridge_validates_mcp_servers_through_rust_core/.test(bridgeModule) &&
+      /"secret_refs":/.test(policyCore) &&
+      /"secretRefs":/.test(policyCore) &&
+      /server\.get\("secret_refs"\)/.test(mcpServerValidationCoreBlock) &&
+      !/server\.get\("secretRefs"\)/.test(mcpServerValidationCoreBlock) &&
       /response\["control"\]\["control_kind"\]/.test(bridgeModule) &&
       /response\["control"\]\["event_id"\]/.test(bridgeModule) &&
       /response\["control"\]\.get\("controlKind"\)\.is_none\(\)/.test(
@@ -5667,12 +5709,30 @@ function runBridge() {
         bridgeModule,
       ) &&
       /planMcpControlAgentStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /validateMcpServers/.test(runtimeContextPolicyRunner) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
       /mcp control agent state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /MCP server validation runner sends Rust daemon-core validation request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.operation,\s*"validate_mcp_servers"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.source,\s*"rust_mcp_server_validation_command"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/.test(
+        runtimeMcpCatalogSurface,
+      ) &&
+      /validateMcpServers\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
+      /rust_mcp_server_validation_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
       /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
       /Object\.hasOwn\(result\.control,\s*"controlKind"\),\s*false/.test(
@@ -5714,6 +5774,8 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs",
+      "packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
     ],

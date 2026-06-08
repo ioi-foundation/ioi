@@ -49,6 +49,10 @@ pub const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-control-agent-state-update-request.v1";
 pub const MCP_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-control-agent-state-update.v1";
+pub const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-server-validation-request.v1";
+pub const MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-server-validation.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update-request.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -228,6 +232,14 @@ pub enum McpControlAgentStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum McpServerValidationError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -921,6 +933,26 @@ pub struct McpControlAgentStateUpdateRecord {
     pub updated_at: String,
     pub control: Value,
     pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerValidationRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub servers: Vec<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerValidationRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub ok: bool,
+    pub issue_count: usize,
+    pub warning_count: usize,
+    pub issues: Vec<Value>,
+    pub warnings: Vec<Value>,
     pub generated_at: String,
 }
 
@@ -2246,8 +2278,8 @@ impl ThreadControlAgentStateUpdateCore {
             )?;
             let requested_model_id = optional_json_string(&model_route_value, "requested_model_id")
                 .ok_or(ThreadControlAgentStateUpdateError::MissingField(
-                "model_route.requested_model_id",
-            ))?;
+                    "model_route.requested_model_id",
+                ))?;
             let route_id = optional_json_string(&model_route_value, "route_id").ok_or(
                 ThreadControlAgentStateUpdateError::MissingField("model_route.route_id"),
             )?;
@@ -2442,6 +2474,128 @@ impl McpControlAgentStateUpdateCore {
             updated_at: request.created_at.clone(),
             control,
             agent: Value::Object(agent),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct McpServerValidationCore;
+
+impl McpServerValidationCore {
+    pub fn validate(
+        &self,
+        request: &McpServerValidationRequest,
+    ) -> Result<McpServerValidationRecord, McpServerValidationError> {
+        request.validate()?;
+        let mut issues = Vec::new();
+        let mut warnings = Vec::new();
+
+        for server in &request.servers {
+            let transport = normalize_mcp_transport(json_string_value(server, "transport"));
+            let server_id = json_string_value(server, "id");
+            let server_url = json_string_value(server, "server_url")
+                .or_else(|| json_string_value(server, "endpoint"));
+
+            if !matches!(transport.as_str(), "stdio" | "http" | "sse") {
+                issues.push(mcp_validation_diagnostic(
+                    "mcp_transport_unsupported",
+                    "error",
+                    server_id.as_deref(),
+                    json!({
+                        "transport": transport,
+                        "message": "MCP server transport must be stdio, http, or sse."
+                    }),
+                ));
+            }
+            if transport == "stdio" && json_string_value(server, "command").is_none() {
+                issues.push(mcp_validation_diagnostic(
+                    "mcp_server_transport_missing",
+                    "error",
+                    server_id.as_deref(),
+                    json!({
+                        "message": "MCP stdio server must declare a command."
+                    }),
+                ));
+            }
+            if matches!(transport.as_str(), "http" | "sse") && server_url.is_none() {
+                issues.push(mcp_validation_diagnostic(
+                    "mcp_server_transport_missing",
+                    "error",
+                    server_id.as_deref(),
+                    json!({
+                        "message": "MCP HTTP/SSE server must declare a remote URL."
+                    }),
+                ));
+            }
+            if matches!(transport.as_str(), "http" | "sse")
+                && server_url.as_deref().is_some_and(|url| !is_http_url(url))
+            {
+                issues.push(mcp_validation_diagnostic(
+                    "mcp_remote_url_invalid",
+                    "error",
+                    server_id.as_deref(),
+                    json!({
+                        "message": "MCP HTTP/SSE server URL must use http:// or https://."
+                    }),
+                ));
+            }
+            if matches!(transport.as_str(), "http" | "sse")
+                && json_bool_path(server, &["containment", "allow_network_egress"]) == Some(false)
+            {
+                issues.push(mcp_validation_diagnostic(
+                    "mcp_remote_network_blocked",
+                    "error",
+                    server_id.as_deref(),
+                    json!({
+                        "message": "MCP HTTP/SSE server requires network egress in containment policy."
+                    }),
+                ));
+            }
+
+            if let Some(secret_refs) = server.get("secret_refs").and_then(Value::as_object) {
+                for (key, value) in secret_refs {
+                    if value.get("invalidVaultRef").and_then(Value::as_bool) == Some(true) {
+                        issues.push(mcp_validation_diagnostic(
+                            "mcp_secret_not_vault_ref",
+                            "error",
+                            server_id.as_deref(),
+                            json!({
+                                "key": key,
+                                "message": "MCP env/header secrets must be represented as vault:// refs before activation."
+                            }),
+                        ));
+                    }
+                }
+            }
+
+            let allowed_tool_count = server
+                .get("allowed_tools")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            if allowed_tool_count == 0 {
+                warnings.push(mcp_validation_diagnostic(
+                    "mcp_allowed_tools_empty",
+                    "warning",
+                    server_id.as_deref(),
+                    json!({
+                        "message": "No allowed_tools list is declared; invocation remains unavailable until tools are narrowed."
+                    }),
+                ));
+            }
+        }
+
+        let ok = issues.is_empty();
+        Ok(McpServerValidationRecord {
+            schema_version: MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_mcp_server_validation".to_string(),
+            status: if ok { "pass" } else { "blocked" }.to_string(),
+            ok,
+            issue_count: issues.len(),
+            warning_count: warnings.len(),
+            issues,
+            warnings,
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -3047,6 +3201,18 @@ impl McpControlAgentStateUpdateRequest {
     }
 }
 
+impl McpServerValidationRequest {
+    pub fn validate(&self) -> Result<(), McpServerValidationError> {
+        if self.schema_version != MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION {
+            return Err(McpServerValidationError::InvalidSchemaVersion {
+                expected: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl ThreadMemoryAgentStateUpdateRequest {
     pub fn validate(&self) -> Result<(), ThreadMemoryAgentStateUpdateError> {
         if self.schema_version != THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -3540,6 +3706,49 @@ fn json_string_value(value: &Value, key: &str) -> Option<String> {
 
 fn optional_json_string(value: &Value, key: &str) -> Option<String> {
     json_string_value(value, key)
+}
+
+fn json_bool_path(value: &Value, path: &[&str]) -> Option<bool> {
+    let mut current = value;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    current.as_bool()
+}
+
+fn normalize_mcp_transport(value: Option<String>) -> String {
+    match value
+        .unwrap_or_else(|| "stdio".to_string())
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "streamable_http" | "streamable-http" | "http-json-rpc" => "http".to_string(),
+        "server-sent-events" | "eventsource" => "sse".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn is_http_url(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+fn mcp_validation_diagnostic(
+    code: &str,
+    severity: &str,
+    server_id: Option<&str>,
+    detail: Value,
+) -> Value {
+    let mut diagnostic = object_value(&detail).unwrap_or_default();
+    diagnostic.insert("code".to_string(), Value::String(code.to_string()));
+    diagnostic.insert("severity".to_string(), Value::String(severity.to_string()));
+    diagnostic.insert(
+        "server_id".to_string(),
+        server_id
+            .map(|value| Value::String(value.to_string()))
+            .unwrap_or(Value::Null),
+    );
+    Value::Object(diagnostic)
 }
 
 fn json_path_string(value: &Value, path: &[&str]) -> Option<String> {
@@ -4532,6 +4741,29 @@ mod tests {
         }
     }
 
+    fn mcp_server_validation_request() -> McpServerValidationRequest {
+        McpServerValidationRequest {
+            schema_version: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION.to_string(),
+            servers: vec![
+                json!({
+                    "id": "mcp.docs",
+                    "transport": "stdio",
+                    "command": "npx",
+                    "allowed_tools": ["search"]
+                }),
+                json!({
+                    "id": "mcp.remote",
+                    "transport": "http",
+                    "server_url": "https://mcp.example.test",
+                    "allowed_tools": ["fetch"],
+                    "containment": {
+                        "allow_network_egress": true
+                    }
+                }),
+            ],
+        }
+    }
+
     fn thread_memory_agent_state_update_request() -> ThreadMemoryAgentStateUpdateRequest {
         ThreadMemoryAgentStateUpdateRequest {
             schema_version: THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
@@ -5264,6 +5496,104 @@ mod tests {
         assert!(record.control.get("createdAt").is_none());
         assert_eq!(record.agent["updatedAt"], "2026-06-06T05:45:00.000Z");
         assert_eq!(record.agent["mcpRegistry"]["servers"][0]["id"], "mcp.docs");
+    }
+
+    #[test]
+    fn rust_policy_validates_mcp_servers() {
+        let record = McpServerValidationCore
+            .validate(&mcp_server_validation_request())
+            .expect("mcp server validation");
+
+        assert_eq!(
+            record.schema_version,
+            MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_mcp_server_validation");
+        assert_eq!(record.status, "pass");
+        assert!(record.ok);
+        assert_eq!(record.issue_count, 0);
+        assert_eq!(record.warning_count, 0);
+        assert!(record.issues.is_empty());
+        assert!(record.warnings.is_empty());
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_mcp_server_records() {
+        let mut request = mcp_server_validation_request();
+        request.servers = vec![
+            json!({
+                "id": "mcp.bad-stdio",
+                "transport": "stdio",
+                "allowed_tools": []
+            }),
+            json!({
+                "id": "mcp.remote",
+                "transport": "http",
+                "server_url": "file:///tmp/socket",
+                "allowed_tools": ["fetch"],
+                "containment": {
+                    "allow_network_egress": false
+                }
+            }),
+            json!({
+                "id": "mcp.secret",
+                "transport": "stdio",
+                "command": "npx",
+                "allowed_tools": ["secret"],
+                "secret_refs": {
+                    "Authorization": { "invalidVaultRef": true }
+                },
+                "secretRefs": {
+                    "Authorization": { "invalidVaultRef": false }
+                }
+            }),
+        ];
+
+        let record = McpServerValidationCore
+            .validate(&request)
+            .expect("mcp server validation");
+
+        assert_eq!(record.status, "blocked");
+        assert!(!record.ok);
+        assert_eq!(record.issue_count, 4);
+        assert_eq!(record.warning_count, 1);
+        let codes = record
+            .issues
+            .iter()
+            .filter_map(|issue| issue["code"].as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            codes,
+            vec![
+                "mcp_server_transport_missing",
+                "mcp_remote_url_invalid",
+                "mcp_remote_network_blocked",
+                "mcp_secret_not_vault_ref",
+            ]
+        );
+        assert_eq!(record.issues[3]["server_id"], "mcp.secret");
+        assert_eq!(record.issues[3]["key"], "Authorization");
+        assert!(record.issues[3].get("serverId").is_none());
+        assert_eq!(record.warnings[0]["code"], "mcp_allowed_tools_empty");
+        assert!(record.warnings[0].get("serverId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_mcp_server_validation_schema() {
+        let mut request = mcp_server_validation_request();
+        request.schema_version = "legacy.mcp-validation".to_string();
+
+        let error = McpServerValidationCore
+            .validate(&request)
+            .expect_err("invalid schema should be rejected");
+
+        assert_eq!(
+            error,
+            McpServerValidationError::InvalidSchemaVersion {
+                expected: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.mcp-validation".to_string(),
+            }
+        );
     }
 
     #[test]

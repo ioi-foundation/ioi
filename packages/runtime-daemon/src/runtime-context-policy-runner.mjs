@@ -21,6 +21,8 @@ export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-control-agent-state-update-request.v1";
+export const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-server-validation-request.v1";
 export const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-memory-agent-state-update-request.v1";
 export const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -154,6 +156,14 @@ export class RustContextPolicyRunner {
     return normalizeMcpControlAgentStateUpdateBridgeResult(this.evaluateRawPolicy({
       operation: "plan_mcp_control_agent_state_update",
       schemaVersion: MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  validateMcpServers(request = {}) {
+    return normalizeMcpServerValidationBridgeResult(this.evaluateRawPolicy({
+      operation: "validate_mcp_servers",
+      schemaVersion: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -644,6 +654,28 @@ export function normalizeMcpControlAgentStateUpdateBridgeResult(value = {}) {
     control:
       objectRecord(result.control) ?? objectRecord(record.control) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
+  };
+}
+
+export function normalizeMcpServerValidationBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const issues = arrayValue(result.issues ?? record.issues);
+  const warnings = arrayValue(result.warnings ?? record.warnings);
+  const ok = Boolean(result.ok ?? record.ok);
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_mcp_server_validation_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status:
+      optionalString(result.status ?? record.status) ??
+      (ok ? "pass" : "blocked"),
+    ok,
+    issue_count: numberValue(result.issue_count ?? record.issue_count) ?? issues.length,
+    warning_count:
+      numberValue(result.warning_count ?? record.warning_count) ?? warnings.length,
+    issues,
+    warnings,
   };
 }
 

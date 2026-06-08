@@ -39,10 +39,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
     ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
-    McpControlAgentStateUpdateRequest, OperatorInterruptStateUpdateCore,
-    OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
-    OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
-    RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
+    McpControlAgentStateUpdateRequest, McpServerValidationCore, McpServerValidationRequest,
+    OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
+    OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
+    RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
@@ -474,6 +474,16 @@ struct McpControlAgentStateUpdateBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct McpServerValidationBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpServerValidationRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ThreadMemoryAgentStateUpdateBridgeRequest {
     #[serde(rename = "schema_version")]
     schema_version: String,
@@ -899,6 +909,11 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_mcp_control_agent_state_update(request)
+        }
+        "validate_mcp_servers" => {
+            let request: McpServerValidationBridgeRequest = serde_json::from_value(raw_request)
+                .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            validate_mcp_servers(request)
         }
         "plan_thread_memory_agent_state_update" => {
             let request: ThreadMemoryAgentStateUpdateBridgeRequest =
@@ -2586,6 +2601,38 @@ fn plan_mcp_control_agent_state_update(
         "updated_at": record.updated_at.clone(),
         "control": record.control.clone(),
         "agent": record.agent.clone(),
+    }))
+}
+
+fn validate_mcp_servers(request: McpServerValidationBridgeRequest) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "validate_mcp_servers" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = McpServerValidationCore
+        .validate(&request.request)
+        .map_err(|error| BridgeError::new("mcp_server_validation_invalid", format!("{error:?}")))?;
+    Ok(json!({
+        "source": "rust_mcp_server_validation_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "ok": record.ok,
+        "issue_count": record.issue_count,
+        "warning_count": record.warning_count,
+        "issues": record.issues.clone(),
+        "warnings": record.warnings.clone(),
     }))
 }
 
@@ -6184,9 +6231,7 @@ mod tests {
             .expect_err("daemon-core model_mount rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
@@ -7349,9 +7394,7 @@ mod tests {
             .expect_err("daemon-core cTEE custody rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
@@ -7585,9 +7628,7 @@ mod tests {
             .expect_err("daemon-core worker/service package rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
@@ -7648,9 +7689,7 @@ mod tests {
             .expect_err("daemon-core settlement rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
@@ -7753,9 +7792,7 @@ mod tests {
             .expect_err("daemon-core authority rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
@@ -7856,9 +7893,7 @@ mod tests {
             .expect_err("daemon-core governed improvement rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
@@ -7996,9 +8031,7 @@ mod tests {
             .expect_err("daemon-core workspace restore rejects StepModule command schema");
 
         assert_eq!(error.code, "schema_version_invalid");
-        assert!(error
-            .message
-            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
         assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
         assert_eq!(fs::read_to_string(&target).expect("not restored"), "new");
         let _ = fs::remove_dir_all(workspace);
@@ -9127,6 +9160,41 @@ mod tests {
             response["agent"]["mcpRegistry"]["servers"][0]["id"],
             "mcp.docs"
         );
+    }
+
+    #[test]
+    fn bridge_validates_mcp_servers_through_rust_core() {
+        let request: McpServerValidationBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "validate_mcp_servers",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.mcp-server-validation-request.v1",
+                "servers": [
+                    {
+                        "id": "mcp.remote",
+                        "transport": "http",
+                        "server_url": "file:///tmp/socket",
+                        "allowed_tools": ["fetch"],
+                        "containment": {
+                            "allow_network_egress": false
+                        }
+                    }
+                ]
+            }
+        }))
+        .expect("mcp server validation bridge request");
+
+        let response = validate_mcp_servers(request).expect("mcp server validation planned");
+
+        assert_eq!(response["source"], "rust_mcp_server_validation_command");
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["ok"], false);
+        assert_eq!(response["issue_count"], 2);
+        assert_eq!(response["issues"][0]["code"], "mcp_remote_url_invalid");
+        assert_eq!(response["issues"][1]["code"], "mcp_remote_network_blocked");
+        assert!(response["issues"][0].get("serverId").is_none());
     }
 
     #[test]

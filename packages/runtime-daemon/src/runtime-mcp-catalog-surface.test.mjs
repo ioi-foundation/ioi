@@ -59,6 +59,24 @@ function harness() {
       calls.push({ name: "mcpServerRecordsFromValidationInput", input, workspaceRoot });
       return input.servers ?? [];
     },
+    contextPolicyRunner: {
+      validateMcpServers(request) {
+        calls.push({ name: "validateMcpServers", request });
+        const issues = request.servers.some((item) => item.invalid)
+          ? [{ code: "invalid", server_id: "mcp.invalid" }]
+          : [];
+        return {
+          source: "rust_mcp_server_validation_command",
+          backend: "rust_policy",
+          ok: issues.length === 0,
+          status: issues.length === 0 ? "pass" : "blocked",
+          issue_count: issues.length,
+          warning_count: 0,
+          issues,
+          warnings: [],
+        };
+      },
+    },
     mcpToolsForServers(servers) {
       return servers.flatMap((item) =>
         (item.tools ?? []).map((tool) => ({
@@ -184,6 +202,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(validation.status, "blocked");
   assert.equal(validation.server_count, 2);
   assert.equal(validation.issue_count, 1);
+  assert.equal(validation.issues[0].server_id, "mcp.invalid");
   assert.equal(validation.tools.length, 2);
   assert.equal(Object.hasOwn(validation, "schemaVersion"), false);
   assert.equal(Object.hasOwn(validation, "serverCount"), false);
@@ -192,6 +211,10 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.deepEqual(
     calls.find((call) => call.name === "mcpServerRecordsFromValidationInput")?.workspaceRoot,
     "/resolved/custom",
+  );
+  assert.deepEqual(
+    calls.find((call) => call.name === "validateMcpServers")?.request.servers.map((item) => item.id),
+    ["mcp.valid", "mcp.invalid"],
   );
 
   surface.validateMcp(store, {

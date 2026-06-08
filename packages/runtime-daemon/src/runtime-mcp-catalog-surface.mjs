@@ -35,6 +35,7 @@ import {
   optionalString,
 } from "./runtime-value-helpers.mjs";
 import { agentIdForThread } from "./runtime-identifiers.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 
 export function createRuntimeMcpCatalogSurface({
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
@@ -64,6 +65,7 @@ export function createRuntimeMcpCatalogSurface({
   optionalString: optionalStringDep = optionalString,
   pathResolve = path.resolve,
   resolveMcpServerRecord: resolveMcpServerRecordDep = resolveMcpServerRecord,
+  contextPolicyRunner = createContextPolicyRunnerFromEnv(),
   validateMcpServerRecords: validateMcpServerRecordsDep = validateMcpServerRecords,
 } = {}) {
   return {
@@ -303,7 +305,7 @@ export function createRuntimeMcpCatalogSurface({
         input.cwd ?? input.workspace_root ?? store.defaultCwd,
       );
       const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot);
-      const validation = validateMcpServerRecordsDep(servers);
+      const validation = contextPolicyRunner.validateMcpServers({ servers });
       const tools = mcpToolsForServersDep(servers);
       const resources = mcpResourcesForServersDep(servers);
       const prompts = mcpPromptsForServersDep(servers);
