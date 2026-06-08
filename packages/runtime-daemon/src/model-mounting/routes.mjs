@@ -222,8 +222,8 @@ export function routeSelectionReceipt({
   evidenceRefs = [],
   admitModelMountRouteDecision,
   nextReceiptId,
+  persistRustAuthoredReceipt,
   previousResponseId = null,
-  receipt,
   responseId = null,
   routeDecision,
   selection,
@@ -269,48 +269,17 @@ export function routeSelectionReceipt({
       workflow,
     }),
   );
-  const rustEvidenceRefs = uniqueRefs([
-    modelMountRouteDecision.route_decision_ref,
-    ...(Array.isArray(modelMountRouteDecision.evidence_refs) ? modelMountRouteDecision.evidence_refs : []),
-  ]);
-  const payload = {
-    summary: `Route ${selection.route.id} selected ${selection.endpoint.modelId}.`,
-    redaction: "none",
-    evidenceRefs: uniqueRefs([
-      "model_router",
-      "rust_model_mount_core",
-      selection.route.id,
-      selection.endpoint.id,
-      ...rustEvidenceRefs,
-      ...evidenceRefs,
-    ]),
-    details: {
-      route_id: selection.route.id,
-      selected_model: selection.endpoint.modelId,
-      endpoint_id: selection.endpoint.id,
-      provider_id: selection.endpoint.providerId,
-      capability,
-      policy_hash: policyHash,
-      response_id: responseId,
-      previous_response_id: previousResponseId,
-      model_route_decision_schema_version: routeDecision.MODEL_ROUTE_DECISION_SCHEMA_VERSION,
-      model_route_decision_event_kind: routeDecision.MODEL_ROUTE_DECISION_EVENT_KIND,
-      model_route_decision_id: modelRouteDecision.decision_id,
-      model_route_decision: modelRouteDecision,
-      model_mount_route_decision_schema_version: "ioi.model_mount.route_decision.v1",
-      model_mount_route_decision_ref: modelMountRouteDecision.route_decision_ref,
-      model_mount_route_decision_hash: modelMountRouteDecision.route_decision_hash,
-      model_mount_route_decision_source: modelMountRouteDecision.source,
-      model_mount_route_decision_backend: modelMountRouteDecision.backend,
-      model_mount_route_decision_receipt_refs: modelMountRouteDecision.receipt_refs ?? [],
-      model_mount_route_decision: modelMountRouteDecision.record,
-      workflow_graph_id: workflow.workflowGraphId ?? null,
-      workflow_node_id: workflow.workflowNodeId ?? null,
-      workflow_node_type: workflow.workflowNodeType ?? null,
-    },
-  };
-  if (receiptId) payload.id = receiptId;
-  return receipt("model_route_selection", payload);
+  void evidenceRefs;
+  void modelRouteDecision;
+  void responseId;
+  void previousResponseId;
+  if (typeof persistRustAuthoredReceipt !== "function") {
+    throw routeDecisionAcceptedReceiptRequiredError("persist_rust_authored_receipt");
+  }
+  if (!modelMountRouteDecision.accepted_receipt_record) {
+    throw routeDecisionAcceptedReceiptRequiredError("accepted_receipt_record");
+  }
+  return persistRustAuthoredReceipt(modelMountRouteDecision.accepted_receipt_record);
 }
 
 export function routeSelectionReceiptForState(state, selection, options = {}, deps = {}) {
@@ -322,7 +291,7 @@ export function routeSelectionReceiptForState(state, selection, options = {}, de
     admitModelMountRouteDecision: (request) => state.admitModelMountRouteDecision(request),
     ...options,
     nextReceiptId: (kind) => state.nextReceiptId(kind),
-    receipt: (kind, payload) => state.receipt(kind, payload),
+    persistRustAuthoredReceipt: (record) => state.persistRustAuthoredReceipt(record),
     routeDecision,
     selection,
     stableHash,
@@ -411,6 +380,22 @@ function routeDecisionReceiptIdRequiredError() {
   const error = new Error("Model route decisions require a precomputed receipt id before Rust admission.");
   error.status = 500;
   error.code = "model_mount_route_decision_receipt_id_required";
+  return error;
+}
+
+function routeDecisionAcceptedReceiptRequiredError(field) {
+  const error = new Error("Model route selection receipts must be authored by Rust daemon core.");
+  error.status = 502;
+  error.code = "model_mount_route_selection_rust_receipt_required";
+  error.details = {
+    missing: field,
+    rust_core_boundary: "model_mount.route_selection_receipt",
+    evidence_refs: [
+      "model_mount_route_selection_js_receipt_creation_retired",
+      "rust_daemon_core_model_route_selection_receipt_required",
+      "agentgres_model_route_selection_truth_required",
+    ],
+  };
   return error;
 }
 

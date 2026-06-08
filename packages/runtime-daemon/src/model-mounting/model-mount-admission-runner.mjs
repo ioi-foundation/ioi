@@ -260,6 +260,7 @@ function normalizeRouteDecisionBridgeResult(value = {}) {
     route_decision_ref: result.route_decision_ref ?? record.route_decision_ref ?? null,
     route_decision_hash: result.route_decision_hash ?? record.route_decision_hash ?? null,
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
+    accepted_receipt_record: result.accepted_receipt_record ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
 }

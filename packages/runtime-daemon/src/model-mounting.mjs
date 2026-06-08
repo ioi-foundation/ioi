@@ -343,6 +343,7 @@ import {
   getReceipt as getReceiptState,
   lifecycleReceipt as lifecycleReceiptState,
   listReceipts as listReceiptsState,
+  persistRustAuthoredReceipt as persistRustAuthoredReceiptState,
   receipt as receiptState,
 } from "./model-mounting/receipt-operations.mjs";
 
@@ -1249,7 +1250,7 @@ export class ModelMountingState {
       body,
       getReceipt: (receiptId) => this.getReceipt(receiptId),
       normalizeScopes,
-      receipt: (kind, payload) => this.receipt(kind, payload),
+      persistRustAuthoredReceipt: (record) => this.persistRustAuthoredReceipt(record),
       requiredString,
       runtimeError,
     });
@@ -1273,6 +1274,10 @@ export class ModelMountingState {
       redact,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
     });
+  }
+
+  persistRustAuthoredReceipt(record) {
+    return persistRustAuthoredReceiptState(this, record);
   }
 
   provider(providerId) {

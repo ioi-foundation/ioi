@@ -41,6 +41,7 @@ function captureError(fn) {
 }
 
 function admitModelMountRouteDecision(request) {
+  const receiptId = String(request.receipt_refs[0] ?? "receipt://receipt-route").replace(/^receipt:\/\//, "");
   return {
     source: "rust_model_mount_mock",
     backend: "rust_model_mount_live",
@@ -52,6 +53,56 @@ function admitModelMountRouteDecision(request) {
     route_decision_ref: "model_mount://route_decision/test",
     route_decision_hash: "sha256:test",
     receipt_refs: request.receipt_refs,
+    accepted_receipt_record: {
+      id: receiptId,
+      runId: null,
+      kind: "model_route_selection",
+      summary: "Route route.local-first selected model.local.",
+      redaction: "none",
+      evidenceRefs: [
+        "model_router",
+        "rust_model_mount_core",
+        "rust_daemon_core_model_route_selection_receipt",
+        "route.local-first",
+        "endpoint.local",
+        "model_mount://route_decision/test",
+      ],
+      createdAt: "unix:1",
+      details: {
+        rust_daemon_core_receipt_author: "ModelMountCore.admit_route_decision",
+        route_id: "route.local-first",
+        selected_model: "model.local",
+        endpoint_id: "endpoint.local",
+        provider_id: "provider.local",
+        capability: request.capability,
+        policy_hash: request.policy_hash,
+        response_id: null,
+        previous_response_id: null,
+        model_route_decision_schema_version: request.schema_version,
+        model_route_decision_event_kind: "model_route_decision",
+        model_route_decision_id: request.idempotency_key,
+        model_route_decision: {
+          decision_id: request.idempotency_key,
+          route_id: "route.local-first",
+          selected_model: "model.local",
+        },
+        model_mount_route_decision_schema_version: request.schema_version,
+        model_mount_route_decision_ref: "model_mount://route_decision/test",
+        model_mount_route_decision_hash: "sha256:test",
+        model_mount_route_decision_source: "rust_model_mount_mock",
+        model_mount_route_decision_backend: "rust_model_mount_live",
+        model_mount_route_decision_receipt_refs: request.receipt_refs,
+        model_mount_route_decision: {
+          ...request,
+          route_decision_ref: "model_mount://route_decision/test",
+          route_decision_hash: "sha256:test",
+        },
+        workflow_graph_id: request.workflow_graph_ref ?? null,
+        workflow_node_id: request.workflow_node_ref ?? null,
+        workflow_node_type: null,
+      },
+      schemaVersion: "ioi.model-mounting.runtime.v1",
+    },
     evidence_refs: ["rust_model_mount_core", "model_mount://route_decision/test"],
   };
 }
@@ -371,8 +422,7 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
     admitModelMountRouteDecision,
     nextReceiptId: () => "receipt-route",
     previousResponseId: "resp-0",
-    receipt: (kind, payload) => {
-      const record = { id: payload.id ?? "receipt-route", kind, ...payload };
+    persistRustAuthoredReceipt: (record) => {
       created.push(record);
       return record;
     },
@@ -397,18 +447,17 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
 
   assert.equal(receipt.kind, "model_route_selection");
   assert.equal(receipt.id, "receipt-route");
-  assert.equal(created[0].details.model_route_decision_schema_version, "v1");
+  assert.equal(created[0].details.rust_daemon_core_receipt_author, "ModelMountCore.admit_route_decision");
+  assert.equal(created[0].details.model_route_decision_schema_version, "ioi.model_mount.route_decision.v1");
   assert.equal(created[0].details.model_route_decision_event_kind, "model_route_decision");
-  assert.equal(created[0].details.model_route_decision_id, "decision-1");
-  assert.equal(created[0].details.model_route_decision.decision_id, "decision-1");
+  assert.equal(created[0].details.model_route_decision_id, "model_route_decision:decision-1");
+  assert.equal(created[0].details.model_route_decision.decision_id, "model_route_decision:decision-1");
   assert.equal(Object.hasOwn(created[0].details.model_route_decision, "decisionId"), false);
   assert.equal(created[0].details.route_id, "route.local-first");
   assert.equal(created[0].details.selected_model, "model.local");
   assert.equal(created[0].details.endpoint_id, "endpoint.local");
   assert.equal(created[0].details.provider_id, "provider.local");
-  assert.equal(created[0].details.policy_hash, "policy-hash");
-  assert.equal(created[0].details.response_id, "resp-1");
-  assert.equal(created[0].details.previous_response_id, "resp-0");
+  assert.equal(created[0].details.policy_hash, "sha256:policy-hash");
   assert.equal(created[0].details.model_mount_route_decision_ref, "model_mount://route_decision/test");
   assert.equal(created[0].details.model_mount_route_decision_hash, "sha256:test");
   assert.equal(created[0].details.model_mount_route_decision.route_ref, "route.local-first");
@@ -431,10 +480,10 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.deepEqual(created[0].evidenceRefs, [
     "model_router",
     "rust_model_mount_core",
+    "rust_daemon_core_model_route_selection_receipt",
     "route.local-first",
     "endpoint.local",
     "model_mount://route_decision/test",
-    "extra",
   ]);
 });
 
@@ -544,6 +593,40 @@ test("model mounting route receipt fails closed without Rust admission", () => {
   );
 
   assert.equal(error.code, "model_mount_route_decision_admission_required");
+});
+
+test("model mounting route receipt rejects Rust admission results without Rust-authored receipt record", () => {
+  const error = captureError(() =>
+    routeSelectionReceipt({
+      body: { model: "auto" },
+      capability: "chat",
+      admitModelMountRouteDecision: (request) => {
+        const { accepted_receipt_record, ...result } = admitModelMountRouteDecision(request);
+        void accepted_receipt_record;
+        return result;
+      },
+      nextReceiptId: () => "receipt-route",
+      persistRustAuthoredReceipt: () => {
+        throw new Error("must not persist");
+      },
+      routeDecision: {
+        MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
+        MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
+        workflowContextFromRouteRequest: () => ({}),
+        createModelRouteDecision: () => ({ decision_id: "decision-1" }),
+      },
+      selection: {
+        route: { id: "route.local-first" },
+        endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
+        provider: { id: "provider.local" },
+      },
+      stableHash: () => "policy-hash",
+    }),
+  );
+
+  assert.equal(error.code, "model_mount_route_selection_rust_receipt_required");
+  assert.equal(error.details.missing, "accepted_receipt_record");
+  assert.ok(error.details.evidence_refs.includes("rust_daemon_core_model_route_selection_receipt_required"));
 });
 
 test("model mounting route receipt requires a precomputed receipt id", () => {
@@ -690,8 +773,7 @@ test("model mounting route selection operations preserve delegate wiring without
     provider(providerId) {
       return this.providers.get(providerId);
     },
-    receipt(kind, payload) {
-      const record = { id: `receipt-${kind}`, kind, ...payload };
+    persistRustAuthoredReceipt(record) {
       receipts.push(record);
       return record;
     },
@@ -732,7 +814,7 @@ test("model mounting route selection operations preserve delegate wiring without
     stableHash: () => "policy-hash",
   });
   assert.equal(receipt.kind, "model_route_selection");
-  assert.equal(receipts.at(-1).details.model_route_decision_id, "decision-1");
+  assert.equal(receipts.at(-1).details.model_route_decision_id, "model_route_decision:decision-1");
   assert.equal(Object.hasOwn(receipts.at(-1).details, "modelRouteDecisionId"), false);
   assert.equal(receipts.at(-1).details.model_mount_route_decision_ref, "model_mount://route_decision/test");
 });

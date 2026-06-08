@@ -5,8 +5,18 @@ import {
   getReceipt,
   lifecycleReceipt,
   listReceipts,
+  persistRustAuthoredReceipt,
   receipt,
 } from "./receipt-operations.mjs";
+
+function captureError(fn) {
+  try {
+    fn();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("Expected function to throw.");
+}
 
 test("receipt operations delegate receipt reads to the canonical store", () => {
   const receipts = [{ id: "receipt-one" }];
@@ -157,11 +167,10 @@ test("model instance lifecycle receipt helper fails closed even with Rust bindin
   assert.deepEqual(created, []);
 });
 
-test("receipt operations write redacted receipts and refresh projection", () => {
+test("receipt operations persist Rust-authored receipts and refresh projection", () => {
   const writes = [];
   const state = {
     projectionWrites: 0,
-    nowIso: () => "2026-06-04T12:00:00.000Z",
     store: {
       writeReceipt(record) {
         writes.push(record);
@@ -172,27 +181,60 @@ test("receipt operations write redacted receipts and refresh projection", () => 
     },
   };
 
-  const record = receipt(state, "provider_health", {
-    summary: "Provider checked.",
-    redaction: "redacted",
-    evidenceRefs: ["provider.health"],
+  const rustRecord = {
+    id: "receipt-route",
+    runId: null,
+    kind: "model_route_selection",
+    summary: "Route route.local-first selected model.local.",
+    redaction: "none",
+    evidenceRefs: ["rust_model_mount_core"],
+    createdAt: "unix:1",
     details: {
-      provider_id: "provider.local",
-      apiKey: "secret",
+      rust_daemon_core_receipt_author: "ModelMountCore.admit_route_decision",
+      model_mount_route_decision_ref: "model_mount://route_decision/test",
     },
-  }, {
-    randomUUID: () => "uuid-1",
-    redact: (value) => ({ ...value, apiKey: "[REDACTED]" }),
-    schemaVersion: "schema.v1",
-  });
+    schemaVersion: "ioi.model-mounting.runtime.v1",
+  };
 
-  assert.equal(record.id, "receipt_provider_health_uuid-1");
-  assert.equal(record.createdAt, "2026-06-04T12:00:00.000Z");
-  assert.equal(record.schemaVersion, "schema.v1");
-  assert.deepEqual(record.details, {
-    provider_id: "provider.local",
-    apiKey: "[REDACTED]",
-  });
-  assert.equal(writes[0], record);
+  const record = persistRustAuthoredReceipt(state, rustRecord);
+
+  assert.equal(record, rustRecord);
+  assert.equal(writes[0], rustRecord);
   assert.equal(state.projectionWrites, 1);
+});
+
+test("receipt operations reject JS receipt creation after Rust receipt authoring cut", () => {
+  const error = captureError(
+    () =>
+      receipt({}, "provider_health", {
+        summary: "Provider checked.",
+        redaction: "redacted",
+        evidenceRefs: ["provider.health"],
+        details: { provider_id: "provider.local" },
+      }),
+  );
+
+  assert.equal(error.code, "model_mount_js_receipt_creation_retired");
+  assert.ok(error.details.evidence_refs.includes("rust_daemon_core_model_mount_receipt_authoring_required"));
+});
+
+test("receipt operations reject non-Rust-authored receipt persistence", () => {
+  const error = captureError(
+    () =>
+      persistRustAuthoredReceipt({ store: { writeReceipt() {} }, writeProjection() {} }, {
+        id: "receipt-route",
+        kind: "model_route_selection",
+        createdAt: "unix:1",
+        schemaVersion: "ioi.model-mounting.runtime.v1",
+        evidenceRefs: [],
+        details: {},
+      }),
+  );
+
+  assert.equal(error.code, "model_mount_rust_authored_receipt_required");
+  assert.deepEqual(error.details.missing, [
+    "evidenceRefs.rust_model_mount_core",
+    "details.rust_daemon_core_receipt_author",
+    "details.model_mount_route_decision_ref",
+  ]);
 });

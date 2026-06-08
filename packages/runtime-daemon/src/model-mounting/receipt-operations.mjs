@@ -23,6 +23,13 @@ export function lifecycleReceipt(state, operation, details = {}) {
   });
 }
 
+export function persistRustAuthoredReceipt(state, record = {}) {
+  assertRustAuthoredReceiptRecord(record);
+  state.store.writeReceipt(record);
+  state.writeProjection();
+  return record;
+}
+
 function assertNoRetiredLifecycleSubjectAliases(details = {}) {
   const retiredAliases = ["modelId", "endpointId"].filter((field) => Object.hasOwn(details, field));
   if (retiredAliases.length === 0) return;
@@ -34,25 +41,49 @@ function assertNoRetiredLifecycleSubjectAliases(details = {}) {
 }
 
 export function receipt(state, kind, { id, summary, redaction, evidenceRefs, details }, deps = {}) {
-  const {
-    randomUUID,
-    redact,
-    schemaVersion,
-  } = deps;
-  const record = {
-    id: id ?? `receipt_${kind}_${randomUUID()}`,
-    runId: null,
-    kind,
-    summary,
-    redaction,
-    evidenceRefs,
-    createdAt: state.nowIso(),
-    details: redact(details),
-    schemaVersion,
+  void state;
+  void kind;
+  void id;
+  void summary;
+  void redaction;
+  void evidenceRefs;
+  void details;
+  void deps;
+  throw modelMountJsReceiptCreationRetiredError();
+}
+
+function assertRustAuthoredReceiptRecord(record = {}) {
+  const evidenceRefs = Array.isArray(record.evidenceRefs) ? record.evidenceRefs : [];
+  const details = record.details && typeof record.details === "object" ? record.details : {};
+  const missing = [];
+  if (!record.id) missing.push("id");
+  if (!record.kind) missing.push("kind");
+  if (!record.createdAt) missing.push("createdAt");
+  if (!record.schemaVersion) missing.push("schemaVersion");
+  if (!evidenceRefs.includes("rust_model_mount_core")) missing.push("evidenceRefs.rust_model_mount_core");
+  if (!details.rust_daemon_core_receipt_author) missing.push("details.rust_daemon_core_receipt_author");
+  if (!details.model_mount_route_decision_ref) missing.push("details.model_mount_route_decision_ref");
+  if (missing.length === 0) return;
+  const error = new Error("Model-mount receipt persistence requires a Rust-authored receipt record.");
+  error.status = 502;
+  error.code = "model_mount_rust_authored_receipt_required";
+  error.details = { missing };
+  throw error;
+}
+
+export function modelMountJsReceiptCreationRetiredError() {
+  const error = new Error("Model-mount receipt creation in JS is retired; Rust daemon core must author receipt records.");
+  error.status = 501;
+  error.code = "model_mount_js_receipt_creation_retired";
+  error.details = {
+    rust_core_boundary: "model_mount.receipt_authoring",
+    evidence_refs: [
+      "model_mount_js_receipt_creation_retired",
+      "rust_daemon_core_model_mount_receipt_authoring_required",
+      "agentgres_model_mount_receipt_truth_required",
+    ],
   };
-  state.store.writeReceipt(record);
-  state.writeProjection();
-  return record;
+  return error;
 }
 
 export function modelLifecycleReceiptRustCoreRequiredError(details = {}) {

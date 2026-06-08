@@ -91,6 +91,7 @@ const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge
 const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
 const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
+const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
 const MAX_DIFF_BYTES: u64 = 64 * 1024;
@@ -1254,6 +1255,7 @@ fn admit_model_mount_route_decision(
         .map_err(|error| {
             BridgeError::new("model_mount_route_decision_rejected", format!("{error:?}"))
         })?;
+    let accepted_receipt_record = rust_authored_route_selection_receipt(&record)?;
     Ok(json!({
         "source": "rust_model_mount_command",
         "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
@@ -1261,10 +1263,82 @@ fn admit_model_mount_route_decision(
         "route_decision_ref": record.route_decision_ref,
         "route_decision_hash": record.route_decision_hash,
         "receipt_refs": record.receipt_refs,
+        "accepted_receipt_record": accepted_receipt_record,
         "evidence_refs": [
             "rust_model_mount_core",
             record.route_decision_ref,
         ],
+    }))
+}
+
+fn rust_authored_route_selection_receipt(
+    record: &ioi_services::agentic::runtime::kernel::model_mount::ModelMountRouteDecisionRecord,
+) -> Result<Value, BridgeError> {
+    let receipt_ref = record.receipt_refs.first().ok_or_else(|| {
+        BridgeError::new(
+            "model_mount_route_receipt_missing",
+            "route decision missing receipt ref".to_string(),
+        )
+    })?;
+    let receipt_id = receipt_ref
+        .strip_prefix("receipt://")
+        .unwrap_or(receipt_ref.as_str())
+        .to_string();
+    let created_at = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|error| {
+            BridgeError::new("model_mount_route_receipt_time_failed", error.to_string())
+        })?
+        .as_secs();
+    Ok(json!({
+        "id": receipt_id,
+        "runId": null,
+        "kind": "model_route_selection",
+        "summary": format!("Route {} selected {}.", record.route_ref, record.model_ref),
+        "redaction": "none",
+        "evidenceRefs": [
+            "model_router",
+            "rust_model_mount_core",
+            "rust_daemon_core_model_route_selection_receipt",
+            record.route_ref,
+            record.endpoint_ref,
+            record.route_decision_ref,
+        ],
+        "createdAt": format!("unix:{created_at}"),
+        "details": {
+            "rust_daemon_core_receipt_author": "ModelMountCore.admit_route_decision",
+            "route_id": record.route_ref,
+            "selected_model": record.model_ref,
+            "endpoint_id": record.endpoint_ref,
+            "provider_id": record.provider_ref,
+            "capability": record.capability,
+            "policy_hash": record.policy_hash,
+            "response_id": null,
+            "previous_response_id": null,
+            "model_route_decision_schema_version": record.schema_version,
+            "model_route_decision_event_kind": "model_route_decision",
+            "model_route_decision_id": record.idempotency_key,
+            "model_route_decision": {
+                "decision_id": record.idempotency_key,
+                "route_id": record.route_ref,
+                "selected_model": record.model_ref,
+                "selected_endpoint_id": record.endpoint_ref,
+                "provider_id": record.provider_ref,
+                "capability": record.capability,
+                "policy_hash": record.policy_hash,
+            },
+            "model_mount_route_decision_schema_version": record.schema_version,
+            "model_mount_route_decision_ref": record.route_decision_ref,
+            "model_mount_route_decision_hash": record.route_decision_hash,
+            "model_mount_route_decision_source": "rust_model_mount_command",
+            "model_mount_route_decision_backend": "rust_model_mount_live",
+            "model_mount_route_decision_receipt_refs": record.receipt_refs,
+            "model_mount_route_decision": record,
+            "workflow_graph_id": record.workflow_graph_ref,
+            "workflow_node_id": record.workflow_node_ref,
+            "workflow_node_type": null,
+        },
+        "schemaVersion": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
     }))
 }
 

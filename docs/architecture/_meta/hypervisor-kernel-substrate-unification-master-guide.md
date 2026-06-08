@@ -859,6 +859,22 @@ model-capability protocol alias-retirement matrix-compaction pass is complete.
 No matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands; do not encode the command bridge or JS transport
 wrappers as terminal architecture.
+Slice 791 moved route-selection receipt authoring out of the JS
+model_mount facade and into the Rust daemon-core route-decision admission
+boundary. `admit_model_mount_route_decision` now returns an
+`accepted_receipt_record` authored by Rust from the admitted
+`ModelMountRouteDecisionRecord`; the JS `routeSelectionReceipt()` path fails
+closed unless that Rust-authored receipt is present, and
+`receipt-operations.mjs` now rejects generic JS model_mount receipt creation
+with `model_mount_js_receipt_creation_retired`. JS may still persist the
+Rust-authored receipt through the existing Agentgres receipt-state commit gate,
+but it no longer synthesizes the accepted `model_route_selection` receipt. This
+still does not claim terminal model_mount migration: direct Rust daemon-core
+route-control/projection APIs, Agentgres route truth beyond the current commit
+gate, wallet authority binding, StepModuleRouter dispatch, replay, and direct
+Rust API replacement for command transport still need ownership. The Slice 791
+route-selection receipt Rust-authoring matrix-compaction pass is scheduled for
+the next resume cycle before unrelated route-family work continues.
 
 ## Part II: Target Execution Model
 
