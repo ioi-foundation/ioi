@@ -1015,8 +1015,8 @@ export class AgentgresRuntimeStateStore {
     return this.modelRouteSelection.resolveRunModelRoute(agent, request);
   }
 
-  selectModelRouteWithFallback({ requestedModel, routeId, capability, policy, body, evidenceRefs }) {
-    return this.modelRouteSelection.selectModelRouteWithFallback({ requestedModel, routeId, capability, policy, body, evidenceRefs });
+  selectModelRoute({ requestedModel, routeId, capability, policy, body, evidenceRefs }) {
+    return this.modelRouteSelection.selectModelRoute({ requestedModel, routeId, capability, policy, body, evidenceRefs });
   }
 
   resolveRunMemory(agent, request = {}, prompt = "") {

@@ -7507,7 +7507,6 @@ function runBridge() {
       /requested_model:\s*body\.model/.test(modelRouteSelectionTest) &&
       /selected_model:\s*selection\.endpoint/.test(modelRouteSelectionTest) &&
       /fallback_triggered:\s*Boolean\(body\.fallback_triggered\)/.test(modelRouteSelectionTest) &&
-      /assert\.equal\(route\.decision\.fallback_triggered,\s*true\)/.test(modelRouteSelectionTest) &&
       !/details:\s*\{\s*modelRouteDecision\s*:/.test(modelRouteSelectionTest) &&
       !/route\.decision\.fallbackTriggered/.test(modelRouteSelectionTest),
     [
@@ -7542,6 +7541,26 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
     ],
     "Phase 3/10 is pending: runtime model-route selection requests must ignore retired camelCase model/route aliases before route selection",
+  );
+  assertCheck(
+    result,
+    "runtime-model-route-selection-js-fallback-retired",
+    /function selectModelRoute\(\{ requestedModel, routeId, capability, policy, body, evidenceRefs = \[\] \}\)/.test(
+      modelRouteSelection,
+    ) &&
+      !/selectModelRouteWithFallback/.test(modelRouteSelection) &&
+      !/runtime_model_route_fallback/.test(modelRouteSelection) &&
+      !/fallbackRouteId|fallbackSelection|fallbackBody/.test(modelRouteSelection) &&
+      /model route selection fails closed instead of creating JS fallback receipt/.test(
+        modelRouteSelectionTest,
+      ) &&
+      /JS fallback route receipt should not be created/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(receiptContexts\.length,\s*0\)/.test(modelRouteSelectionTest),
+    [
+      "packages/runtime-daemon/src/threads/model-route-selection.mjs",
+      "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
+    ],
+    "Phase 10 is pending: runtime model-route selection must fail closed instead of minting a JS fallback route receipt",
   );
   assertCheck(
     result,

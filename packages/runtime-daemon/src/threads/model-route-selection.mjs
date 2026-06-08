@@ -4,51 +4,15 @@ import {
   modelWorkflowContext,
 } from "./thread-runtime-controls.mjs";
 
-export function createModelRouteSelection({ modelMounting, normalizeArray }) {
-  const array = typeof normalizeArray === "function"
-    ? normalizeArray
-    : (value) => (Array.isArray(value) ? value : []);
-
-  function selectModelRouteWithFallback({ requestedModel, routeId, capability, policy, body, evidenceRefs = [] }) {
-    try {
-      const selection = modelMounting.selectRoute({ modelId: requestedModel, routeId, capability, policy });
-      const receipt = modelMounting.routeSelectionReceipt(selection, {
-        body,
-        capability,
-        evidenceRefs,
-      });
-      return modelRouteBindingFromReceipt(receipt, requestedModel);
-    } catch (error) {
-      const fallbackRouteId = "route.local-first";
-      const fallbackPolicy = {
-        ...policy,
-        allow_hosted_fallback: false,
-      };
-      const fallbackBody = {
-        ...body,
-        model: "auto",
-        route_id: fallbackRouteId,
-        model_policy: fallbackPolicy,
-        fallback_triggered: true,
-        fallback_reason: error?.code ?? "primary_route_unavailable",
-      };
-      const fallbackSelection = modelMounting.selectRoute({
-        modelId: "auto",
-        routeId: fallbackRouteId,
-        capability,
-        policy: fallbackPolicy,
-      });
-      fallbackSelection.evaluatedCandidates = [
-        ...array(error?.details?.evaluatedCandidates),
-        ...array(fallbackSelection.evaluatedCandidates),
-      ];
-      const receipt = modelMounting.routeSelectionReceipt(fallbackSelection, {
-        body: fallbackBody,
-        capability,
-        evidenceRefs: ["runtime_model_route_fallback", ...evidenceRefs],
-      });
-      return modelRouteBindingFromReceipt(receipt, requestedModel);
-    }
+export function createModelRouteSelection({ modelMounting }) {
+  function selectModelRoute({ requestedModel, routeId, capability, policy, body, evidenceRefs = [] }) {
+    const selection = modelMounting.selectRoute({ modelId: requestedModel, routeId, capability, policy });
+    const receipt = modelMounting.routeSelectionReceipt(selection, {
+      body,
+      capability,
+      evidenceRefs,
+    });
+    return modelRouteBindingFromReceipt(receipt, requestedModel);
   }
 
   function resolveModelRoute(options = {}, context = {}) {
@@ -64,7 +28,7 @@ export function createModelRouteSelection({ modelMounting, normalizeArray }) {
       model_policy: policy,
       ...workflow,
     };
-    return selectModelRouteWithFallback({
+    return selectModelRoute({
       requestedModel,
       routeId,
       capability,
@@ -97,6 +61,6 @@ export function createModelRouteSelection({ modelMounting, normalizeArray }) {
   return {
     resolveModelRoute,
     resolveRunModelRoute,
-    selectModelRouteWithFallback,
+    selectModelRoute,
   };
 }

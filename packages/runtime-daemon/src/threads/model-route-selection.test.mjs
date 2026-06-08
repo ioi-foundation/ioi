@@ -28,7 +28,6 @@ function routeReceipt({ id, body, selection, capability, evidenceRefs }) {
 test("model route selection resolves explicit model route with workflow context", () => {
   const calls = [];
   const helper = createModelRouteSelection({
-    normalizeArray: (value) => (Array.isArray(value) ? value : []),
     modelMounting: {
       selectRoute(input) {
         calls.push(["selectRoute", input]);
@@ -75,7 +74,6 @@ test("model route selection resolves explicit model route with workflow context"
 test("model route selection ignores retired request aliases", () => {
   const calls = [];
   const helper = createModelRouteSelection({
-    normalizeArray: (value) => (Array.isArray(value) ? value : []),
     modelMounting: {
       selectRoute(input) {
         calls.push(["selectRoute", input]);
@@ -113,7 +111,6 @@ test("model route selection ignores retired request aliases", () => {
 test("model route selection defaults when only retired request aliases are supplied", () => {
   const calls = [];
   const helper = createModelRouteSelection({
-    normalizeArray: (value) => (Array.isArray(value) ? value : []),
     modelMounting: {
       selectRoute(input) {
         calls.push(["selectRoute", input]);
@@ -146,62 +143,40 @@ test("model route selection defaults when only retired request aliases are suppl
   assert.equal(route.routeId, "route.local-first");
 });
 
-test("model route selection falls back to local-first route with merged candidate evidence", () => {
+test("model route selection fails closed instead of creating JS fallback receipt", () => {
   const receiptContexts = [];
-  let callCount = 0;
   const helper = createModelRouteSelection({
-    normalizeArray: (value) => (Array.isArray(value) ? value : []),
     modelMounting: {
       selectRoute(input) {
-        callCount += 1;
-        if (callCount === 1) {
-          const error = new Error("hosted route blocked");
-          error.code = "hosted_route_blocked";
-          error.details = {
-            evaluatedCandidates: [{ endpointId: "hosted-one", status: "rejected" }],
-          };
-          throw error;
-        }
-        return {
-          route: { id: input.routeId },
-          endpoint: { id: "endpoint-fallback", modelId: "qwen-fallback" },
-          provider: { id: "provider-local" },
-          evaluatedCandidates: [{ endpointId: "local-one", status: "accepted" }],
+        assert.equal(input.modelId, "gpt-hosted");
+        assert.equal(input.routeId, "route.hosted");
+        const error = new Error("hosted route blocked");
+        error.code = "hosted_route_blocked";
+        error.details = {
+          evaluatedCandidates: [{ endpointId: "hosted-one", status: "rejected" }],
         };
+        throw error;
       },
       routeSelectionReceipt(selection, context) {
         receiptContexts.push({ selection, context });
-        return routeReceipt({ id: "receipt-fallback", selection, ...context });
+        throw new Error("JS fallback route receipt should not be created");
       },
     },
   });
 
-  const route = helper.selectModelRouteWithFallback({
-    requestedModel: "gpt-hosted",
-    routeId: "route.hosted",
-    capability: "chat",
-    policy: { allow_hosted_fallback: true },
-    body: { model: "gpt-hosted", route_id: "route.hosted" },
-    evidenceRefs: ["runtime_run_model_route"],
-  });
-
-  assert.equal(callCount, 2);
-  assert.equal(receiptContexts[0].context.body.model, "auto");
-  assert.equal(receiptContexts[0].context.body.route_id, "route.local-first");
-  assert.equal(receiptContexts[0].context.body.fallback_triggered, true);
-  assert.equal(receiptContexts[0].context.body.fallback_reason, "hosted_route_blocked");
-  assert.deepEqual(receiptContexts[0].context.evidenceRefs, [
-    "runtime_model_route_fallback",
-    "runtime_run_model_route",
-  ]);
-  assert.deepEqual(receiptContexts[0].selection.evaluatedCandidates, [
-    { endpointId: "hosted-one", status: "rejected" },
-    { endpointId: "local-one", status: "accepted" },
-  ]);
-  assert.equal(route.requestedModelId, "auto");
-  assert.equal(route.selectedModel, "qwen-fallback");
-  assert.equal(route.routeId, "route.local-first");
-  assert.equal(route.decision.fallback_triggered, true);
+  assert.throws(
+    () =>
+      helper.selectModelRoute({
+        requestedModel: "gpt-hosted",
+        routeId: "route.hosted",
+        capability: "chat",
+        policy: { allow_hosted_fallback: true },
+        body: { model: "gpt-hosted", route_id: "route.hosted" },
+        evidenceRefs: ["runtime_run_model_route"],
+      }),
+    /hosted route blocked/,
+  );
+  assert.equal(receiptContexts.length, 0);
 });
 
 test("run model route reuses persisted agent route when request has no model override", () => {
