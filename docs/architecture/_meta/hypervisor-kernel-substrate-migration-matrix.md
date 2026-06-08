@@ -14,8 +14,8 @@ plus workspace-change control/inspection bridge request alias evidence through
 slice 655, plus managed-session inspection/control bridge request alias evidence
 through slice 657, and run-cancel fail-closed detail alias evidence through
 slice 658, plus diagnostics operator-override not-found detail alias evidence
-through slice 659. Slice 660 is expanded below pending the next scheduled
-matrix-compaction pass.
+through slice 659, plus computer-use route authority-scope alias evidence
+through slice 660.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -52,7 +52,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, model-mount accepted-receipt transition/head bridge-field retirement, runtime usage request-metadata alias-retirement, workspace-change control/inspection bridge request alias-retirement, managed-session inspection/control bridge request alias-retirement, run-cancel fail-closed detail alias-retirement, and diagnostics operator-override not-found detail alias-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, model-mount accepted-receipt transition/head bridge-field retirement, runtime usage request-metadata alias-retirement, workspace-change control/inspection bridge request alias-retirement, managed-session inspection/control bridge request alias-retirement, run-cancel fail-closed detail alias-retirement, diagnostics operator-override not-found detail alias-retirement, and computer-use route authority-scope alias-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -131,6 +131,11 @@ Matrix compaction timing:
   operator-override turn lookup not-found detail alias-retirement evidence after
   slice 659 was compacted into the route-family range while preserving the
   pre-planner ownership check and Rust policy-core planning boundary.
+- Ninety-sixth scheduled pass completed on 2026-06-07: the computer-use route
+  authority-scope alias-retirement evidence after slice 660 was compacted into
+  the route-family range while preserving computer-use route-family JS facade
+  retirement as migration transport and terminal Rust daemon-core ownership as
+  the remaining target.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,
@@ -13328,58 +13333,6 @@ closeout:
   push: required after verification
 ```
 
-### Slice 660: computer-use route authority-scope alias retirement
-
-```yaml
-ImplementationSlice:
-  objective: prevent retired `authorityScopes` input aliases from steering
-    computer-use route authority metadata before StepModule/Rust dispatch
-  owner_boundary:
-    route_or_surface: runtime-daemon computer-use native-browser, visual-GUI,
-      sandboxed-hosted, and visual-observation broker invocation metadata
-    authority_gate: canonical `authority_scopes` only; retired `authorityScopes`
-      input is ignored and cannot add wallet.network authority scopes
-    execution_backend: existing computer-use StepModule/Rust dispatch lanes
-    truth_path: receipt/projection metadata receives only canonical
-      `authority_scopes`
-    projection_path: computer-use projection continues reading canonical
-      `metadata.authority_scopes`
-  touched_files:
-    docs:
-      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-    daemon:
-      - packages/runtime-daemon/src/computer-use-inputs.mjs
-      - packages/runtime-daemon/src/index.mjs
-    rust_core: []
-    ide: []
-    tests:
-      - packages/runtime-daemon/src/computer-use-inputs.test.mjs
-      - scripts/conformance/hypervisor-conformance.mjs
-  conformance_checks:
-    - no retired camelCase `authorityScopes` request alias can influence
-      computer-use route authority metadata
-    - visual-observation broker re-dispatches canonical `authority_scopes`
-      rather than reviving the retired `authorityScopes` field
-    - bridge conformance pins the alias retirement before future route-family
-      work resumes
-  verification:
-    commands:
-      - node --test packages/runtime-daemon/src/computer-use-inputs.test.mjs
-      - node --check scripts/conformance/hypervisor-conformance.mjs
-      - node --check packages/runtime-daemon/src/index.mjs
-      - node --check packages/runtime-daemon/src/computer-use-inputs.mjs
-    replay_or_shadow_comparison: not_applicable
-  cleanup:
-    legacy_paths_removed: true
-    compatibility_shims_remaining:
-      - broader computer-use route-family JS facade remains migration transport
-        until Rust core ownership and facade retirement are complete
-  closeout:
-    git_diff_check: required
-    commit: required
-    push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13395,7 +13348,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 660 and the ninety-fifth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 660 and the ninety-sixth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
