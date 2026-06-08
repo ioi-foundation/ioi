@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV,
   MODEL_MOUNT_ADMISSION_COMMAND_ENV,
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
@@ -984,12 +985,18 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
   assert.equal(Object.hasOwn(result, "stateRoot"), false);
 });
 
-test("Rust model_mount admission runner reads the generic admission command env", () => {
+test("Rust model_mount admission runner env uses daemon-core command boundary", () => {
   const runner = createModelMountAdmissionRunnerFromEnv({
-    [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "mock-model-mount-bridge",
+    [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV]: "--json",
+    IOI_MODEL_MOUNT_ADMISSION_COMMAND: "retired-model-mount-bridge",
+    IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS: "--retired-model-mount",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-model-mount-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("Rust model_mount admission runner fails closed without command", () => {

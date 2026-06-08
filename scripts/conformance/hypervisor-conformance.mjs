@@ -6486,10 +6486,18 @@ function runBridge() {
       /ModelMountCore/.test(bridgeModule) &&
       /ModelMountRouteDecisionRequest/.test(bridgeModule) &&
       /bridge_admits_model_mount_route_decision_through_rust_core/.test(bridgeModule) &&
+      /model_mount_route_decision_rejects_step_module_command_schema/.test(bridgeModule) &&
       /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
       /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(modelMountAdmissionRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountAdmissionRunner) &&
+      !/IOI_MODEL_MOUNT_ADMISSION_COMMAND/.test(modelMountAdmissionRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(modelMountAdmissionRunner) &&
       !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
       /model_mount_admission_bridge_unconfigured/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount admission runner env uses daemon-core command boundary/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
       !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountAdmissionRunner) &&
       !/mockFixtureResponse/.test(modelMountAdmissionRunner) &&
       !/isFixtureRequest/.test(modelMountAdmissionRunner) &&

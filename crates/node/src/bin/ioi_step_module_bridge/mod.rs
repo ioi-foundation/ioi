@@ -1004,6 +1004,19 @@ fn is_daemon_core_operation(operation: &str) -> bool {
     matches!(
         operation,
         "admit_storage_backend_write"
+            | "admit_model_mount_route_decision"
+            | "admit_model_mount_invocation"
+            | "admit_model_mount_provider_execution"
+            | "execute_model_mount_provider_invocation"
+            | "execute_model_mount_provider_stream_invocation"
+            | "plan_model_mount_provider_lifecycle"
+            | "plan_model_mount_provider_inventory"
+            | "plan_model_mount_instance_lifecycle"
+            | "admit_model_mount_provider_result"
+            | "plan_model_mount_backend_process"
+            | "plan_model_mount_accepted_receipt_head"
+            | "plan_model_mount_accepted_receipt_transition"
+            | "bind_model_mount_invocation_receipt"
             | "commit_runtime_run_state"
             | "commit_runtime_agent_state"
             | "commit_runtime_memory_state"
@@ -1086,12 +1099,12 @@ fn run_coding_tool_step_module(request: StepModuleBridgeRequest) -> Result<Value
 fn admit_model_mount_route_decision(
     request: ModelMountRouteDecisionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1123,12 +1136,12 @@ fn admit_model_mount_route_decision(
 fn admit_model_mount_invocation(
     request: ModelMountInvocationAdmissionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1160,12 +1173,12 @@ fn admit_model_mount_invocation(
 fn admit_model_mount_provider_execution(
     request: ModelMountProviderExecutionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1200,12 +1213,12 @@ fn admit_model_mount_provider_execution(
 fn execute_model_mount_provider_invocation(
     request: ModelMountProviderInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1257,12 +1270,12 @@ fn execute_model_mount_provider_invocation(
 fn execute_model_mount_provider_stream_invocation(
     request: ModelMountProviderInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1323,12 +1336,12 @@ fn execute_model_mount_provider_stream_invocation(
 fn plan_model_mount_provider_lifecycle(
     request: ModelMountProviderLifecycleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1370,12 +1383,12 @@ fn plan_model_mount_provider_lifecycle(
 fn plan_model_mount_provider_inventory(
     request: ModelMountProviderInventoryBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1421,12 +1434,12 @@ fn plan_model_mount_provider_inventory(
 fn plan_model_mount_instance_lifecycle(
     request: ModelMountInstanceLifecycleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1469,12 +1482,12 @@ fn plan_model_mount_instance_lifecycle(
 fn admit_model_mount_provider_result(
     request: ModelMountProviderResultAdmissionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1507,12 +1520,12 @@ fn admit_model_mount_provider_result(
 fn plan_model_mount_backend_process(
     request: ModelMountBackendProcessPlanBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1548,12 +1561,12 @@ fn plan_model_mount_backend_process(
 fn plan_model_mount_accepted_receipt_head(
     request: ModelMountAcceptedReceiptHeadBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1587,12 +1600,12 @@ fn plan_model_mount_accepted_receipt_head(
 fn plan_model_mount_accepted_receipt_transition(
     request: ModelMountAcceptedReceiptTransitionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -1629,12 +1642,12 @@ fn plan_model_mount_accepted_receipt_transition(
 fn bind_model_mount_invocation_receipt(
     request: ModelMountInvocationReceiptBindingBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -6109,7 +6122,7 @@ mod tests {
     #[test]
     fn bridge_admits_model_mount_route_decision_through_rust_core() {
         let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "admit_model_mount_route_decision",
             "backend": "rust_model_mount_live",
             "request": {
@@ -6143,9 +6156,43 @@ mod tests {
     }
 
     #[test]
+    fn model_mount_route_decision_rejects_step_module_command_schema() {
+        let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "admit_model_mount_route_decision",
+            "backend": "rust_model_mount_live",
+            "request": {
+                "schema_version": "ioi.model_mount.route_decision.v1",
+                "route_ref": "route.local-first",
+                "provider_ref": "provider.local",
+                "endpoint_ref": "endpoint.local",
+                "model_ref": "model.local",
+                "capability": "chat",
+                "policy_hash": "sha256:policy",
+                "idempotency_key": "model_route_decision:test",
+                "receipt_refs": ["receipt://route"],
+                "authority_grant_refs": [],
+                "authority_receipt_refs": [],
+                "privacy_profile": "local_private",
+                "node_plaintext_allowed": false
+            }
+        }))
+        .expect("bridge request");
+
+        let error = admit_model_mount_route_decision(request)
+            .expect_err("daemon-core model_mount rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
     fn bridge_admits_model_mount_invocation_through_rust_core() {
         let request: ModelMountInvocationAdmissionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "admit_model_mount_invocation",
             "backend": "rust_model_mount_live",
             "request": {
@@ -6198,7 +6245,7 @@ mod tests {
     #[test]
     fn bridge_admits_model_mount_provider_execution_through_rust_core() {
         let request: ModelMountProviderExecutionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "admit_model_mount_provider_execution",
             "backend": "rust_model_mount_live",
             "request": {
@@ -6250,7 +6297,7 @@ mod tests {
     fn bridge_executes_model_mount_provider_invocation_through_rust_core() {
         let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "admit_model_mount_provider_execution",
                 "backend": "rust_model_mount_live",
                 "request": {
@@ -6290,7 +6337,7 @@ mod tests {
             .expect("provider execution hash");
 
         let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "execute_model_mount_provider_invocation",
             "backend": "rust_model_mount_fixture",
             "request": {
@@ -6346,7 +6393,7 @@ mod tests {
     fn bridge_executes_native_local_model_mount_provider_invocation_through_rust_core() {
         let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "admit_model_mount_provider_execution",
                 "backend": "rust_model_mount_live",
                 "request": {
@@ -6386,7 +6433,7 @@ mod tests {
             .expect("provider execution hash");
 
         let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "execute_model_mount_provider_invocation",
             "backend": "rust_model_mount_native_local",
             "request": {
@@ -6454,7 +6501,7 @@ mod tests {
     fn bridge_executes_native_local_model_mount_provider_stream_through_rust_core() {
         let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "admit_model_mount_provider_execution",
                 "backend": "rust_model_mount_live",
                 "request": {
@@ -6495,7 +6542,7 @@ mod tests {
             .expect("provider execution hash");
 
         let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "execute_model_mount_provider_stream_invocation",
             "backend": "rust_model_mount_native_local_stream",
             "request": {
@@ -6558,7 +6605,7 @@ mod tests {
     #[test]
     fn bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core() {
         let request: ModelMountProviderLifecycleBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_provider_lifecycle",
             "backend": "rust_model_mount_native_local_lifecycle",
             "request": {
@@ -6615,7 +6662,7 @@ mod tests {
     #[test]
     fn bridge_plans_model_mount_backend_process_through_rust_core() {
         let request: ModelMountBackendProcessPlanBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_backend_process",
             "backend": "rust_model_mount_backend_process",
             "request": {
@@ -6671,7 +6718,7 @@ mod tests {
     fn bridge_plans_model_mount_accepted_receipt_transition_through_rust_core() {
         let request: ModelMountAcceptedReceiptTransitionBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "plan_model_mount_accepted_receipt_transition",
                 "backend": "rust_model_mount_accepted_receipt_transition",
                 "request": {
@@ -6732,7 +6779,7 @@ mod tests {
     #[test]
     fn bridge_plans_model_mount_accepted_receipt_head_through_rust_core() {
         let request: ModelMountAcceptedReceiptHeadBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_accepted_receipt_head",
             "backend": "rust_model_mount_accepted_receipt_head",
             "request": {
@@ -6775,7 +6822,7 @@ mod tests {
     #[test]
     fn bridge_plans_local_model_mount_provider_inventory_through_rust_core() {
         let request: ModelMountProviderInventoryBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_provider_inventory",
             "backend": "rust_model_mount_native_local_inventory",
             "request": {
@@ -6833,7 +6880,7 @@ mod tests {
     #[test]
     fn bridge_plans_model_mount_instance_lifecycle_through_rust_core() {
         let request: ModelMountInstanceLifecycleBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_instance_lifecycle",
             "backend": "rust_model_mount_instance_lifecycle",
             "request": {
@@ -6887,7 +6934,7 @@ mod tests {
     fn bridge_admits_model_mount_provider_result_through_rust_core() {
         let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "admit_model_mount_provider_execution",
                 "backend": "rust_model_mount_live",
                 "request": {
@@ -6933,7 +6980,7 @@ mod tests {
 
         let request: ModelMountProviderResultAdmissionBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "admit_model_mount_provider_result",
                 "backend": "rust_model_mount_live",
                 "request": {
@@ -7008,7 +7055,7 @@ mod tests {
             .expect("accepted receipt transition planned");
         let request: ModelMountInvocationReceiptBindingBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "bind_model_mount_invocation_receipt",
                 "backend": "rust_model_mount_live",
                 "invocation": {

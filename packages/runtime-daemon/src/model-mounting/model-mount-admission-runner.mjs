@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const MODEL_MOUNT_ADMISSION_COMMAND_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMMAND";
-export const MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV = "IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS";
-export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const MODEL_MOUNT_ADMISSION_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
@@ -189,7 +189,7 @@ export class RustModelMountAdmissionRunner {
     }
     if (!this.command) {
       throw new ModelMountAdmissionRunnerError(
-        "Model mount admission requires IOI_MODEL_MOUNT_ADMISSION_COMMAND for Rust core admission.",
+        "Model mount admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core model_mount admission.",
         "model_mount_admission_bridge_unconfigured",
         {
           env: MODEL_MOUNT_ADMISSION_COMMAND_ENV,
