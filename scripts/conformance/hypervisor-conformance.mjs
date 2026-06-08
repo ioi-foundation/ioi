@@ -411,7 +411,7 @@ function runDocs() {
       /The Slice 764 direct `AgentMemoryStore` writer and run-memory mutation path\s+retirement matrix-compaction pass is complete/.test(guide) &&
       /Slice 765 retired the private backend registry local log writer/.test(guide) &&
       /`writeBackendLog\(\)` no longer\s+imports filesystem APIs, creates `backend-logs\/\*\.jsonl`/.test(guide) &&
-      /Schedule a matrix-compaction pass after Slice 765/.test(guide) &&
+      /The Slice 765 backend registry local log writer retirement matrix-compaction\s+pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -440,8 +440,8 @@ function runDocs() {
       /This pass compacted Slice 762 catalog-provider config-update helper retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 763 direct conversation-artifact store writer\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
-      /Slice 765 retired the private backend registry local log writer/.test(matrix) &&
-      /Next resume instruction: compact Slice 765 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
+      /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -640,9 +640,10 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 764 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 764/.test(matrix) &&
       /runtime_run_memory_mutation_rust_core_required/.test(matrix) &&
-      /Implementation Slice Evidence: 765/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 765 is now satisfied/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 765/.test(matrix) &&
       /model_mount_backend_log_js_writer_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 765 backend\s+registry local log writer retirement/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 765 backend\s+registry local log writer retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(

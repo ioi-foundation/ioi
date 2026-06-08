@@ -57,15 +57,14 @@ This pass compacted Slice 763 direct conversation-artifact store writer
 retirement evidence.
 This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory
 mutation path retirement evidence.
-Slice 765 retired the private backend registry local log writer so model-mount
-backend lifecycle migration plumbing can no longer create `backend-logs/*.jsonl`
-as a duplicate local log truth path.
-Next resume instruction: compact Slice 765 into the route-family ledger before
-starting unrelated route-family work, then continue the next Rust-core
-extraction or facade-retirement implementation slice. Preserve the live owner
-map, terminal blockers, and the fact that fail-closed JS facades, canonical
-input helpers, local projection helpers, and migration transport are not
-terminal substrate.
+This pass compacted Slice 765 backend registry local log writer retirement
+evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -172,12 +171,13 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 765 backend
-  registry local log writer retirement.
-- Future-resumption trigger: compact Slice 765 before starting unrelated
-  route-family work, then resume the migration goal by carrying out the next
-  Rust-core extraction or facade-retirement slice. Do not let context compaction
-  demote this to optional evidence pruning.
+- Next scheduled matrix-compaction pass: none pending after Slice 765 backend
+  registry local log writer retirement compaction.
+- Future-resumption trigger: resume the migration goal by carrying out the next
+  Rust-core extraction or facade-retirement slice first. Once that seam is
+  clear, perform the scheduled matrix-compaction pass before starting unrelated
+  route-family work; do not let context compaction demote this to optional
+  evidence pruning.
 - Next resume order is mandatory: clarify a concrete Rust-core
   extraction/facade-retirement seam with a verified slice, then schedule and run
   the next matrix-compaction pass before starting unrelated route-family work.
@@ -14533,14 +14533,16 @@ target ownership.
   that seam lands, and do not encode the remaining JS memory read adapter,
   run-memory projection helper, or command transport as terminal architecture.
 
-## Implementation Slice Evidence: 765
+## Compacted Implementation Slice Evidence: 765
 
-Date: 2026-06-08.
-Route family: `ModelBackendLifecycle`.
-Current lane: Rust-core extraction plus JS-facade retirement.
+The expanded Slice 765 ledger was compacted on 2026-06-08 after backend
+registry local log writer retirement landed. This slice remains active
+migration evidence, not terminal architecture. The `ModelBackendLifecycle`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
 
-- Retired the private backend registry local log writer that remained behind
-  backend lifecycle/process-supervision migration plumbing.
+- Slice 765 retired the private backend registry local log writer that remained
+  behind backend lifecycle/process-supervision migration plumbing.
 - `writeBackendLog()` no longer imports `node:fs`/`node:path`, creates
   `backend-logs/*.jsonl`, appends endpoint log records, or mirrors endpoint
   logs into backend-specific JSONL files.
@@ -14556,9 +14558,11 @@ Current lane: Rust-core extraction plus JS-facade retirement.
   own process control, log/event projection, Agentgres expected-head/state-root
   binding, receipt/event materialization, replay, SDK/IDE protocol coverage,
   and conformance.
-- Schedule the next matrix-compaction pass to compact Slice 765 before starting
-  unrelated route-family work; do not encode the remaining JS process
-  supervision helper or command transport as terminal architecture.
+- Scheduled matrix-compaction obligation from Slice 765 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the remaining JS process-supervision helper
+  or command transport as terminal architecture.
 
 ## Command State
 

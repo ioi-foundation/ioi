@@ -490,9 +490,9 @@ control, log/event projection, Agentgres expected-head/state-root binding,
 receipt/event materialization, replay, SDK/IDE protocol coverage, and
 conformance. Do not encode the remaining JS process-supervision helper as
 terminal architecture.
-Schedule a matrix-compaction pass after Slice 765 before starting unrelated
-route-family work, once this Rust-core extraction/facade-retirement seam is
-ready to collapse into compacted evidence.
+The Slice 765 backend registry local log writer retirement matrix-compaction
+pass is complete. No matrix-compaction pass is pending until the next Rust-core
+extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
