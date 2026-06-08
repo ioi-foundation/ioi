@@ -79,10 +79,14 @@ This pass compacted Slice 774 MCP server validation Rust-core evidence.
 This pass compacted Slice 775 MCP status validation Rust-core evidence.
 This pass compacted Slice 776 MCP status projection Rust-core evidence.
 This pass compacted Slice 777 agent-scoped MCP status Rust-core evidence.
-Next resume instruction: continue the next concrete Rust-core extraction or
-facade-retirement implementation slice. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+Slice 778 moved MCP status catalog-row projection into Rust daemon-core
+migration transport.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice only after compacting the Slice 778 MCP
+status catalog-projection Rust-core evidence. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -189,8 +193,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending until the next Rust-core
-  extraction or facade-retirement seam lands.
+- Next scheduled matrix-compaction pass: pending for Slice 778 MCP status
+  catalog-projection Rust-core evidence.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15367,6 +15371,36 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode the command bridge, read-only helper
 adapters, or fail-closed JS surfaces as terminal architecture.
+
+## Implementation Slice Evidence: 778
+
+Slice 778 moved MCP status catalog-row projection out of the JS status surfaces
+and into Rust daemon-core migration transport. `McpManagerCatalogProjectionCore`
+now lives beside `McpServerValidationCore` and
+`McpManagerStatusProjectionCore`, with
+`McpManagerCatalogProjectionRequest` and `McpManagerCatalogProjectionRecord`
+owning canonical tool, resource, prompt, and enabled-tool row projection from
+canonical server records. The daemon-core bridge exposes
+`plan_mcp_manager_catalog_projection`, and
+`runtime-context-policy-runner.mjs` exposes
+`planMcpManagerCatalogProjection()`.
+
+`runtime-mcp-catalog-surface.mjs` and `runtime-mcp-control-surface.mjs` now call
+`contextPolicyRunner.planMcpManagerCatalogProjection({ servers })` before
+`planMcpManagerStatusProjection({ ... })`, so public `mcpStatus()` and
+agent-scoped `mcpStatusForAgent()` no longer derive status catalog rows,
+enabled-tool rows, resource row sorting, or prompt row sorting in JS. Focused JS
+tests prove the status surfaces carry `rust_mcp_manager_catalog_projection`
+handoff evidence into the Rust status projection request, and Rust/bridge tests
+prove the catalog rows are produced by Rust without retired camelCase stable-id
+aliases.
+
+This does not claim terminal MCP migration: direct Rust daemon-core MCP registry
+truth, live catalog discovery, wallet authority, transport containment,
+StepModuleRouter dispatch, receipt binding, Agentgres expected-head/state-root
+binding, replay, SDK/IDE protocol coverage, and conformance still need to own
+the whole MCP control/projection path. Schedule and run a matrix-compaction pass
+for Slice 778 before unrelated route-family work resumes.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

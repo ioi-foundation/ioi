@@ -76,6 +76,33 @@ function harness() {
           warnings: [],
         };
       },
+      planMcpManagerCatalogProjection(request) {
+        calls.push({ name: "planMcpManagerCatalogProjection", request });
+        const tools = request.servers.flatMap((item) =>
+          (item.tools ?? []).map((tool) => ({
+            server_id: item.id,
+            tool_name: tool.name,
+            stable_tool_id: `${item.id}.${tool.name}`,
+          })),
+        );
+        const resources = request.servers.flatMap((item) => item.resources ?? []);
+        const prompts = request.servers.flatMap((item) => item.prompts ?? []);
+        return {
+          source: "rust_mcp_manager_catalog_projection_command",
+          backend: "rust_policy",
+          status: "projected",
+          server_count: request.servers.length,
+          tool_count: tools.length,
+          resource_count: resources.length,
+          prompt_count: prompts.length,
+          enabled_tool_count: tools.length,
+          servers: request.servers,
+          tools,
+          resources,
+          prompts,
+          enabled_tools: tools,
+        };
+      },
       planMcpManagerStatusProjection(request) {
         calls.push({ name: "planMcpManagerStatusProjection", request });
         const validation = {
@@ -212,6 +239,10 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(status.source, "rust_mcp_manager_status_projection_command");
   assert.equal(status.validation.source, "rust_mcp_server_validation_command");
   assert.equal(status.validation.server_count, 3);
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerCatalogProjection")?.request.servers.length,
+    3,
+  );
   assert.equal(status.routes.search_tools, "/v1/mcp/tools/search");
   assert.equal(Object.hasOwn(status, "schemaVersion"), false);
   assert.equal(Object.hasOwn(status, "serverCount"), false);
@@ -249,6 +280,10 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.deepEqual(
     calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.servers.map((item) => item.id),
     ["mcp.agent.git", "mcp.workspace.docs", "model-search"],
+  );
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.tools[0].stable_tool_id,
+    "mcp.agent.git.diff",
   );
   assert.equal(
     calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.routes.search_tools,

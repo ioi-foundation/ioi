@@ -39,7 +39,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
-    McpControlAgentStateUpdateRequest, McpManagerStatusProjectionCore,
+    McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionCore,
+    McpManagerCatalogProjectionRequest, McpManagerStatusProjectionCore,
     McpManagerStatusProjectionRequest, McpServerValidationCore, McpServerValidationRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
@@ -495,6 +496,16 @@ struct McpManagerStatusProjectionBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct McpManagerCatalogProjectionBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpManagerCatalogProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct ThreadMemoryAgentStateUpdateBridgeRequest {
     #[serde(rename = "schema_version")]
     schema_version: String,
@@ -931,6 +942,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_mcp_manager_status_projection(request)
+        }
+        "plan_mcp_manager_catalog_projection" => {
+            let request: McpManagerCatalogProjectionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_mcp_manager_catalog_projection(request)
         }
         "plan_thread_memory_agent_state_update" => {
             let request: ThreadMemoryAgentStateUpdateBridgeRequest =
@@ -2698,6 +2715,52 @@ fn plan_mcp_manager_status_projection(
         "prompts": record.prompts.clone(),
         "validation": record.validation.clone(),
         "routes": record.routes.clone(),
+    }))
+}
+
+fn plan_mcp_manager_catalog_projection(
+    request: McpManagerCatalogProjectionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_mcp_manager_catalog_projection" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = McpManagerCatalogProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "mcp_manager_catalog_projection_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_manager_catalog_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "server_count": record.server_count,
+        "tool_count": record.tool_count,
+        "resource_count": record.resource_count,
+        "prompt_count": record.prompt_count,
+        "enabled_tool_count": record.enabled_tool_count,
+        "servers": record.servers.clone(),
+        "tools": record.tools.clone(),
+        "resources": record.resources.clone(),
+        "prompts": record.prompts.clone(),
+        "enabled_tools": record.enabled_tools.clone(),
     }))
 }
 
@@ -9312,6 +9375,60 @@ mod tests {
         assert_eq!(response["routes"]["search_tools"], "/v1/mcp/tools/search");
         assert!(response.get("serverCount").is_none());
         assert!(response["routes"].get("searchTools").is_none());
+    }
+
+    #[test]
+    fn bridge_projects_mcp_manager_catalog_through_rust_core() {
+        let request: McpManagerCatalogProjectionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_mcp_manager_catalog_projection",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.mcp-manager-catalog-projection-request.v1",
+                "servers": [
+                    {
+                        "id": "mcp.docs",
+                        "label": "Docs",
+                        "enabled": true,
+                        "allowed_tools": [{ "name": "search" }],
+                        "resources": [{ "uri": "docs://index" }],
+                        "prompts": [{ "name": "summarize" }]
+                    },
+                    {
+                        "id": "mcp.disabled",
+                        "label": "Disabled",
+                        "enabled": false,
+                        "allowed_tools": ["noop"]
+                    }
+                ]
+            }
+        }))
+        .expect("mcp manager catalog projection bridge request");
+
+        let response = plan_mcp_manager_catalog_projection(request)
+            .expect("mcp manager catalog projection planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_manager_catalog_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(response["server_count"], 2);
+        assert_eq!(response["tool_count"], 2);
+        assert_eq!(response["enabled_tool_count"], 1);
+        assert_eq!(response["tools"][0]["stable_tool_id"], "mcp.Docs.search");
+        assert_eq!(response["tools"][1]["status"], "disabled");
+        assert_eq!(
+            response["resources"][0]["stable_resource_id"],
+            "mcp.Docs.resource.docs_index"
+        );
+        assert_eq!(
+            response["prompts"][0]["stable_prompt_id"],
+            "mcp.Docs.prompt.summarize"
+        );
+        assert!(response.get("stableToolId").is_none());
+        assert!(response["tools"][0].get("stableToolId").is_none());
     }
 
     #[test]

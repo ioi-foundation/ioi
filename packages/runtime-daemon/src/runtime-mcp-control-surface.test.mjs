@@ -49,20 +49,10 @@ function harness() {
       ],
     },
   };
-  const mcpToolsForServers = (servers) =>
-    servers.flatMap((item) =>
-      (item.tools ?? []).map((tool) => ({
-        server_id: item.id,
-        tool_name: tool.name,
-        stable_tool_id: `${item.id}.${tool.name}`,
-        side_effect_class: tool.side_effect_class ?? "read",
-      })),
-    );
   const surface = createRuntimeMcpControlSurface({
     RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: "invoke.schema",
     RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: "status.schema",
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
-    mcpToolsForServers,
     runtimeError,
     contextPolicyRunner: {
       validateMcpServers(request) {
@@ -74,6 +64,35 @@ function harness() {
           status: issues.length === 0 ? "pass" : "blocked",
           issues,
           warnings: [],
+        };
+      },
+      planMcpManagerCatalogProjection(request) {
+        calls.push({ name: "planMcpManagerCatalogProjection", request });
+        const tools = request.servers.flatMap((item) =>
+          (item.tools ?? []).map((tool) => ({
+            server_id: item.id,
+            tool_name: tool.name,
+            stable_tool_id: `${item.id}.${tool.name}`,
+            side_effect_class: tool.side_effect_class ?? "read",
+          })),
+        );
+        const resources = request.servers.flatMap((item) => item.resources ?? []);
+        const prompts = request.servers.flatMap((item) => item.prompts ?? []);
+        return {
+          source: "rust_mcp_manager_catalog_projection_command",
+          schema_version: "catalog.schema",
+          object: "ioi.runtime_mcp_manager_catalog_projection",
+          status: "projected",
+          server_count: request.servers.length,
+          tool_count: tools.length,
+          enabled_tool_count: tools.length,
+          resource_count: resources.length,
+          prompt_count: prompts.length,
+          servers: request.servers,
+          tools,
+          enabled_tools: tools,
+          resources,
+          prompts,
         };
       },
       planMcpManagerStatusProjection(request) {
@@ -160,6 +179,10 @@ test("runtime MCP control surface keeps read-only status projection canonical", 
   assert.equal(status.prompt_count, 1);
   assert.equal(status.source, "rust_mcp_manager_status_projection_command");
   assert.equal(status.validation.source, "rust_mcp_server_validation_command");
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerCatalogProjection")?.request.servers[0].id,
+    "mcp.docs",
+  );
   assert.deepEqual(status.tools.map((tool) => tool.stable_tool_id), [
     "mcp.docs.search",
     "mcp.docs.write",

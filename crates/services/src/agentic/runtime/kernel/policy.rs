@@ -57,6 +57,10 @@ pub const MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-status-projection-request.v1";
 pub const MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-status.v1";
+pub const MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-catalog-projection-request.v1";
+pub const MCP_MANAGER_CATALOG_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-catalog-projection.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update-request.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -248,6 +252,14 @@ pub enum McpServerValidationError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum McpManagerStatusProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum McpManagerCatalogProjectionError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1006,6 +1018,33 @@ pub struct McpManagerStatusProjectionRecord {
     pub prompts: Vec<Value>,
     pub validation: Value,
     pub routes: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerCatalogProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub status_schema_version: Option<String>,
+    #[serde(default)]
+    pub servers: Vec<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerCatalogProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub server_count: usize,
+    pub tool_count: usize,
+    pub resource_count: usize,
+    pub prompt_count: usize,
+    pub enabled_tool_count: usize,
+    pub servers: Vec<Value>,
+    pub tools: Vec<Value>,
+    pub resources: Vec<Value>,
+    pub prompts: Vec<Value>,
+    pub enabled_tools: Vec<Value>,
     pub generated_at: String,
 }
 
@@ -2655,6 +2694,59 @@ impl McpServerValidationCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct McpManagerCatalogProjectionCore;
+
+impl McpManagerCatalogProjectionCore {
+    pub fn project(
+        &self,
+        request: &McpManagerCatalogProjectionRequest,
+    ) -> Result<McpManagerCatalogProjectionRecord, McpManagerCatalogProjectionError> {
+        request.validate()?;
+
+        let mut tools = Vec::new();
+        let mut resources = Vec::new();
+        let mut prompts = Vec::new();
+        let mut enabled_tools = Vec::new();
+
+        for server in &request.servers {
+            let server_tools = mcp_catalog_tools_for_server(server);
+            if server.get("enabled").and_then(Value::as_bool) != Some(false) {
+                enabled_tools.extend(server_tools.clone());
+            }
+            tools.extend(server_tools);
+            resources.extend(mcp_catalog_resources_for_server(server));
+            prompts.extend(mcp_catalog_prompts_for_server(server));
+        }
+
+        resources.sort_by(|left, right| {
+            mcp_catalog_resource_key(left).cmp(&mcp_catalog_resource_key(right))
+        });
+        prompts.sort_by(|left, right| {
+            mcp_catalog_prompt_key(left).cmp(&mcp_catalog_prompt_key(right))
+        });
+
+        Ok(McpManagerCatalogProjectionRecord {
+            schema_version: request.status_schema_version.clone().unwrap_or_else(|| {
+                MCP_MANAGER_CATALOG_PROJECTION_RESULT_SCHEMA_VERSION.to_string()
+            }),
+            object: "ioi.runtime_mcp_manager_catalog_projection".to_string(),
+            status: "projected".to_string(),
+            server_count: request.servers.len(),
+            tool_count: tools.len(),
+            resource_count: resources.len(),
+            prompt_count: prompts.len(),
+            enabled_tool_count: enabled_tools.len(),
+            servers: request.servers.clone(),
+            tools,
+            resources,
+            prompts,
+            enabled_tools,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct McpManagerStatusProjectionCore;
 
 impl McpManagerStatusProjectionCore {
@@ -3345,6 +3437,18 @@ impl McpManagerStatusProjectionRequest {
     }
 }
 
+impl McpManagerCatalogProjectionRequest {
+    pub fn validate(&self) -> Result<(), McpManagerCatalogProjectionError> {
+        if self.schema_version != MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(McpManagerCatalogProjectionError::InvalidSchemaVersion {
+                expected: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl ThreadMemoryAgentStateUpdateRequest {
     pub fn validate(&self) -> Result<(), ThreadMemoryAgentStateUpdateError> {
         if self.schema_version != THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -3713,6 +3817,238 @@ fn safe_id(value: &str) -> String {
         output = output.replace("__", "_");
     }
     output.trim_matches('_').to_string()
+}
+
+fn mcp_catalog_server_label(server: &Value) -> String {
+    optional_trimmed(server.get("label").and_then(Value::as_str))
+        .or_else(|| optional_trimmed(server.get("name").and_then(Value::as_str)))
+        .or_else(|| optional_trimmed(server.get("id").and_then(Value::as_str)))
+        .unwrap_or_else(|| "mcp".to_string())
+}
+
+fn mcp_catalog_server_status(server: &Value) -> String {
+    if server.get("enabled").and_then(Value::as_bool) == Some(false) {
+        "disabled".to_string()
+    } else {
+        optional_trimmed(server.get("status").and_then(Value::as_str))
+            .unwrap_or_else(|| "configured".to_string())
+    }
+}
+
+fn mcp_catalog_server_transport(server: &Value) -> String {
+    optional_trimmed(server.get("transport").and_then(Value::as_str))
+        .unwrap_or_else(|| "stdio".to_string())
+}
+
+fn mcp_catalog_items(value: Option<&Value>) -> Vec<Value> {
+    match value {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter(|item| !item.is_null())
+            .cloned()
+            .collect(),
+        Some(Value::Object(map)) => map
+            .iter()
+            .map(|(name, entry)| {
+                if let Value::Object(entry_map) = entry {
+                    let mut item = serde_json::Map::new();
+                    item.insert("name".to_string(), Value::String(name.clone()));
+                    item.extend(entry_map.clone());
+                    Value::Object(item)
+                } else {
+                    json!({
+                        "name": name,
+                        "uri": match entry {
+                            Value::Null => name.clone(),
+                            Value::String(text) => text.clone(),
+                            other => other.to_string(),
+                        },
+                    })
+                }
+            })
+            .collect(),
+        Some(value) if !value.is_null() => vec![value.clone()],
+        _ => Vec::new(),
+    }
+}
+
+fn mcp_catalog_value_string(value: &Value) -> Option<String> {
+    value
+        .as_str()
+        .and_then(|text| optional_trimmed(Some(text)))
+        .or_else(|| match value {
+            Value::Null | Value::Array(_) | Value::Object(_) => None,
+            other => optional_trimmed(Some(other.to_string().as_str())),
+        })
+}
+
+fn mcp_catalog_field_string(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter().find_map(|key| {
+        value
+            .get(*key)
+            .and_then(Value::as_str)
+            .and_then(|text| optional_trimmed(Some(text)))
+    })
+}
+
+fn mcp_catalog_tools_for_server(server: &Value) -> Vec<Value> {
+    let server_label = mcp_catalog_server_label(server);
+    let safe_server = safe_id(&server_label);
+    let server_id = server.get("id").cloned().unwrap_or(Value::Null);
+    let status = mcp_catalog_server_status(server);
+    let transport = mcp_catalog_server_transport(server);
+
+    mcp_catalog_items(server.get("allowed_tools"))
+        .into_iter()
+        .map(|tool| {
+            let tool_name = mcp_catalog_field_string(&tool, &["name", "tool_name", "toolName"])
+                .or_else(|| mcp_catalog_value_string(&tool))
+                .unwrap_or_else(|| "tool".to_string());
+            let safe_tool = safe_id(&tool_name);
+            json!({
+                "schema_version": MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION,
+                "stable_tool_id": format!("mcp.{safe_server}.{safe_tool}"),
+                "display_name": format!("{server_label}.{tool_name}"),
+                "pack": "mcp",
+                "server_id": server_id.clone(),
+                "server_label": server_label,
+                "tool_name": tool_name,
+                "description": mcp_catalog_field_string(&tool, &["description"]),
+                "status": status,
+                "transport": transport,
+                "primitive_capabilities": ["prim:connector.invoke"],
+                "authority_scope_requirements": ["scope:mcp.invoke"],
+                "effect_class": "connector_call",
+                "risk_domain": "connector",
+                "input_schema": tool.get("input_schema").or_else(|| tool.get("inputSchema")).cloned().unwrap_or_else(|| json!({ "type": "object" })),
+                "output_schema": tool.get("output_schema").or_else(|| tool.get("outputSchema")).cloned().unwrap_or_else(|| json!({ "type": "object" })),
+                "evidence_requirements": ["mcp_containment_receipt"],
+                "workflow_node_type": "McpToolNode",
+                "workflow_config_fields": ["server_id", "tool_name", "allowed_tools", "containment"],
+                "workflow_node_id": format!("runtime.mcp-tool.{safe_server}.{safe_tool}"),
+                "receipt_refs": [],
+            })
+        })
+        .collect()
+}
+
+fn mcp_catalog_resources_for_server(server: &Value) -> Vec<Value> {
+    let server_label = mcp_catalog_server_label(server);
+    let safe_server = safe_id(&server_label);
+    let server_id = server.get("id").cloned().unwrap_or(Value::Null);
+    let status = mcp_catalog_server_status(server);
+    let transport = mcp_catalog_server_transport(server);
+
+    mcp_catalog_items(
+        server
+            .get("resources")
+            .or_else(|| server.get("allowed_resources")),
+    )
+    .into_iter()
+    .map(|resource| {
+        let uri = mcp_catalog_field_string(&resource, &["uri", "url", "resource_uri"])
+            .or_else(|| mcp_catalog_value_string(&resource))
+            .unwrap_or_else(|| format!("resource://{safe_server}/unknown"));
+        let name =
+            mcp_catalog_field_string(&resource, &["name", "title"]).unwrap_or_else(|| uri.clone());
+        let safe_uri = safe_id(&uri);
+        json!({
+            "schema_version": MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION,
+            "stable_resource_id": format!("mcp.{safe_server}.resource.{safe_uri}"),
+            "display_name": format!("{server_label}.{name}"),
+            "pack": "mcp",
+            "server_id": server_id.clone(),
+            "server_label": server_label,
+            "uri": uri,
+            "name": name,
+            "description": mcp_catalog_field_string(&resource, &["description"]),
+            "mime_type": mcp_catalog_field_string(&resource, &["mime_type", "mimeType"]),
+            "status": status,
+            "transport": transport,
+            "primitive_capabilities": ["prim:connector.resource.read"],
+            "authority_scope_requirements": ["scope:mcp.resource.read"],
+            "effect_class": "read_only_catalog",
+            "risk_domain": "connector",
+            "evidence_requirements": ["mcp_resource_catalog_receipt"],
+            "workflow_node_type": "McpResourceNode",
+            "workflow_config_fields": ["server_id", "uri", "containment"],
+            "workflow_node_id": format!("runtime.mcp-resource.{safe_server}.{safe_uri}"),
+            "receipt_refs": [],
+        })
+    })
+    .collect()
+}
+
+fn mcp_catalog_prompts_for_server(server: &Value) -> Vec<Value> {
+    let server_label = mcp_catalog_server_label(server);
+    let safe_server = safe_id(&server_label);
+    let server_id = server.get("id").cloned().unwrap_or(Value::Null);
+    let status = mcp_catalog_server_status(server);
+    let transport = mcp_catalog_server_transport(server);
+
+    mcp_catalog_items(
+        server
+            .get("prompts")
+            .or_else(|| server.get("allowed_prompts")),
+    )
+    .into_iter()
+    .map(|prompt| {
+        let name = mcp_catalog_field_string(&prompt, &["name", "title"])
+            .or_else(|| mcp_catalog_value_string(&prompt))
+            .unwrap_or_else(|| "prompt".to_string());
+        let safe_prompt = safe_id(&name);
+        let arguments = prompt
+            .get("arguments")
+            .filter(|value| value.is_array())
+            .cloned()
+            .unwrap_or_else(|| json!([]));
+        json!({
+            "schema_version": MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION,
+            "stable_prompt_id": format!("mcp.{safe_server}.prompt.{safe_prompt}"),
+            "display_name": format!("{server_label}.{name}"),
+            "pack": "mcp",
+            "server_id": server_id.clone(),
+            "server_label": server_label,
+            "name": name,
+            "description": mcp_catalog_field_string(&prompt, &["description"]),
+            "arguments": arguments.clone(),
+            "prompt_arguments": arguments,
+            "status": status,
+            "transport": transport,
+            "primitive_capabilities": ["prim:connector.prompt.read"],
+            "authority_scope_requirements": ["scope:mcp.prompt.read"],
+            "effect_class": "read_only_catalog",
+            "risk_domain": "connector",
+            "evidence_requirements": ["mcp_prompt_catalog_receipt"],
+            "workflow_node_type": "McpPromptNode",
+            "workflow_config_fields": ["server_id", "prompt_name", "containment"],
+            "workflow_node_id": format!("runtime.mcp-prompt.{safe_server}.{safe_prompt}"),
+            "receipt_refs": [],
+        })
+    })
+    .collect()
+}
+
+fn mcp_catalog_resource_key(resource: &Value) -> String {
+    mcp_catalog_field_string(resource, &["stable_resource_id"]).unwrap_or_else(|| {
+        format!(
+            "{}:{}",
+            mcp_catalog_field_string(resource, &["server_id"])
+                .unwrap_or_else(|| "mcp.unknown".to_string()),
+            mcp_catalog_field_string(resource, &["uri"]).unwrap_or_else(|| "resource".to_string())
+        )
+    })
+}
+
+fn mcp_catalog_prompt_key(prompt: &Value) -> String {
+    mcp_catalog_field_string(prompt, &["stable_prompt_id"]).unwrap_or_else(|| {
+        format!(
+            "{}:{}",
+            mcp_catalog_field_string(prompt, &["server_id"])
+                .unwrap_or_else(|| "mcp.unknown".to_string()),
+            mcp_catalog_field_string(prompt, &["name"]).unwrap_or_else(|| "prompt".to_string())
+        )
+    })
 }
 
 fn budget_hash(value: &Value) -> Result<String, ContextBudgetPolicyError> {
@@ -5712,6 +6048,77 @@ mod tests {
         assert_eq!(record.routes["search_tools"], "/v1/mcp/tools/search");
         assert!(record.validation.get("serverCount").is_none());
         assert!(record.routes.get("searchTools").is_none());
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_manager_catalog_rows() {
+        let request = McpManagerCatalogProjectionRequest {
+            schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: None,
+            servers: vec![
+                json!({
+                    "id": "mcp.docs",
+                    "label": "Docs",
+                    "enabled": true,
+                    "transport": "stdio",
+                    "allowed_tools": [
+                        {
+                            "name": "search",
+                            "description": "Search docs",
+                            "input_schema": { "type": "object" }
+                        }
+                    ],
+                    "resources": [
+                        {
+                            "uri": "docs://index",
+                            "name": "index",
+                            "mime_type": "text/plain"
+                        }
+                    ],
+                    "prompts": [
+                        {
+                            "name": "summarize",
+                            "arguments": [{ "name": "topic" }]
+                        }
+                    ]
+                }),
+                json!({
+                    "id": "mcp.disabled",
+                    "label": "Disabled",
+                    "enabled": false,
+                    "allowed_tools": ["noop"]
+                }),
+            ],
+        };
+
+        let record = McpManagerCatalogProjectionCore
+            .project(&request)
+            .expect("mcp manager catalog projection");
+
+        assert_eq!(
+            record.schema_version,
+            MCP_MANAGER_CATALOG_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_mcp_manager_catalog_projection");
+        assert_eq!(record.status, "projected");
+        assert_eq!(record.server_count, 2);
+        assert_eq!(record.tool_count, 2);
+        assert_eq!(record.enabled_tool_count, 1);
+        assert_eq!(record.resource_count, 1);
+        assert_eq!(record.prompt_count, 1);
+        assert_eq!(record.tools[0]["stable_tool_id"], "mcp.Docs.search");
+        assert_eq!(record.tools[1]["status"], "disabled");
+        assert_eq!(
+            record.resources[0]["stable_resource_id"],
+            "mcp.Docs.resource.docs_index"
+        );
+        assert_eq!(
+            record.prompts[0]["stable_prompt_id"],
+            "mcp.Docs.prompt.summarize"
+        );
+        assert!(record.tools[0].get("stableToolId").is_none());
+        assert!(record.resources[0].get("stableResourceId").is_none());
+        assert!(record.prompts[0].get("stablePromptId").is_none());
     }
 
     #[test]

@@ -111,9 +111,7 @@ export function createRuntimeMcpCatalogSurface({
     },
     mcpStatus(store, options = {}) {
       const servers = this.listMcpServers(store, options);
-      const tools = this.listMcpTools(store, options);
-      const resources = this.listMcpResources(store, options);
-      const prompts = this.listMcpPrompts(store, options);
+      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
       const validation = contextPolicyRunner.validateMcpServers({ servers });
       const routes = {
         servers: "/v1/mcp/servers",
@@ -136,9 +134,10 @@ export function createRuntimeMcpCatalogSurface({
         status_schema_version: statusSchemaVersion,
         validation,
         servers,
-        tools,
-        resources,
-        prompts,
+        tools: catalog.tools,
+        resources: catalog.resources,
+        prompts: catalog.prompts,
+        enabled_tools: catalog.enabled_tools,
         routes,
       });
     },

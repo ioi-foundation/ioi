@@ -3,12 +3,7 @@ import {
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   mcpRegistryForWorkspace,
-  mcpToolsForServers,
 } from "./mcp-manager.mjs";
-import {
-  mcpPromptKey,
-  mcpResourceKey,
-} from "./runtime-mcp-helpers.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   normalizeArray,
@@ -20,10 +15,7 @@ export function createRuntimeMcpControlSurface({
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: invocationSchemaVersion = RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: statusSchemaVersion = RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: validationSchemaVersion = RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-  mcpPromptKey: mcpPromptKeyDep = mcpPromptKey,
   mcpRegistryForWorkspace: mcpRegistryForWorkspaceDep = mcpRegistryForWorkspace,
-  mcpResourceKey: mcpResourceKeyDep = mcpResourceKey,
-  mcpToolsForServers: mcpToolsForServersDep = mcpToolsForServers,
   normalizeArray: normalizeArrayDep = normalizeArray,
   optionalString: optionalStringDep = optionalString,
   runtimeError: runtimeErrorDep = runtimeError,
@@ -58,36 +50,16 @@ export function createRuntimeMcpControlSurface({
     mcpStatusForAgent(agent) {
       const registry = agent.mcpRegistry ?? mcpRegistryForWorkspaceDep(agent.cwd);
       const servers = normalizeArrayDep(registry.servers);
-      const tools = mcpToolsForServersDep(servers);
-      const resourceRecords = servers.flatMap((server) =>
-        normalizeArrayDep(server.resources).map((resource) => {
-          const record = resource && typeof resource === "object" ? resource : { uri: String(resource) };
-          return { server_id: server.id, ...record };
-        }),
-      );
-      const promptRecords = servers.flatMap((server) =>
-        normalizeArrayDep(server.prompts).map((prompt) => {
-          const record = prompt && typeof prompt === "object" ? prompt : { name: String(prompt) };
-          return { server_id: server.id, ...record };
-        }),
-      );
-      const resources = resourceRecords.sort((left, right) =>
-        mcpResourceKeyDep(left).localeCompare(mcpResourceKeyDep(right)),
-      );
-      const prompts = promptRecords.sort((left, right) =>
-        mcpPromptKeyDep(left).localeCompare(mcpPromptKeyDep(right)),
-      );
-      const enabledServers = servers.filter((server) => server.enabled !== false);
-      const enabledTools = mcpToolsForServersDep(enabledServers);
+      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
       const validation = contextPolicyRunner.validateMcpServers({ servers });
       return contextPolicyRunner.planMcpManagerStatusProjection({
         status_schema_version: statusSchemaVersion,
         validation,
         servers,
-        tools,
-        enabled_tools: enabledTools,
-        resources,
-        prompts,
+        tools: catalog.tools,
+        enabled_tools: catalog.enabled_tools,
+        resources: catalog.resources,
+        prompts: catalog.prompts,
       });
     },
     importThreadMcp(_store, threadId, _request = {}) {
