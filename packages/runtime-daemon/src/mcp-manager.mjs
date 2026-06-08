@@ -133,11 +133,11 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     ...Object.keys(config.tools ?? {}),
   ]);
   const declaredResources = normalizeMcpResourceDeclarations(
-    config.resources ?? config.allowedResources ?? config.allowed_resources,
+    config.resources ?? config.allowed_resources,
     { id, label: name, name, transport, enabled: config.enabled !== false && config.disabled !== true },
   );
   const declaredPrompts = normalizeMcpPromptDeclarations(
-    config.prompts ?? config.allowedPrompts ?? config.allowed_prompts,
+    config.prompts ?? config.allowed_prompts,
     { id, label: name, name, transport, enabled: config.enabled !== false && config.disabled !== true },
   );
   const env =
@@ -242,7 +242,7 @@ export function mcpToolsForServers(servers = []) {
 export function mcpResourcesForServers(servers = []) {
   return servers.flatMap((server) =>
     normalizeMcpResourceDeclarations(
-      server.resources ?? server.allowedResources ?? server.allowed_resources,
+      server.resources ?? server.allowed_resources,
       server,
     ),
   );
@@ -251,7 +251,7 @@ export function mcpResourcesForServers(servers = []) {
 export function mcpPromptsForServers(servers = []) {
   return servers.flatMap((server) =>
     normalizeMcpPromptDeclarations(
-      server.prompts ?? server.allowedPrompts ?? server.allowed_prompts,
+      server.prompts ?? server.allowed_prompts,
       server,
     ),
   );

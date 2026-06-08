@@ -430,6 +430,15 @@ function runDocs() {
       /The Slice 770 MCP\s+manager `allowedTools` alias-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
+      /Slice 771 retired the MCP manager `allowedResources` and `allowedPrompts`\s+server config\/catalog fallbacks/.test(
+        guide,
+      ) &&
+      /resource and prompt catalog exposure\s+only from canonical `resources`, `prompts`, `allowed_resources`, or\s+`allowed_prompts`/.test(
+        guide,
+      ) &&
+      /The Slice 771 MCP\s+manager resource\/prompt alias-retirement matrix-compaction pass is pending/.test(
+        guide,
+      ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -466,7 +475,8 @@ function runDocs() {
       /This pass compacted Slice 770 MCP manager `allowedTools` server config\/catalog\s+alias-retirement evidence/.test(
         matrix,
       ) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 771 retired the MCP manager `allowedResources` and `allowedPrompts`\s+server config\/catalog fallbacks/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 771 MCP\s+manager resource\/prompt alias-retirement evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -681,13 +691,17 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 770/.test(matrix) &&
       /MCP manager\s+`allowedTools` server config\/catalog alias retirement/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 770 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 770 MCP manager\s+`allowedTools` server config\/catalog alias-retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 771/.test(matrix) &&
+      /MCP manager `allowedResources` and `allowedPrompts` server\s+config\/catalog fallbacks/.test(matrix) &&
+      /Schedule and run a matrix-compaction pass for\s+Slice 771 before unrelated route-family work resumes/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 771 MCP manager\s+`allowedResources`\/`allowedPrompts` server config\/catalog alias-retirement\s+evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
-      /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+and server tool-exposure handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
-      /server tool-exposure handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
-      /`allowedTools` aliases/.test(implementationMatrix) &&
+      /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, and resource\/prompt catalog handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
+      /`allowedTools`, `allowedResources`, and `allowedPrompts` aliases/.test(
+        implementationMatrix,
+      ) &&
       /MCP serve `tools\/call` now consumes canonical `params\.arguments` only/.test(implementationMatrix) &&
       /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
@@ -22185,6 +22199,9 @@ function runCompositor() {
       !/normalizeArray\(server\.allowedTools \?\? server\.allowed_tools\)/.test(
         runtimeMcpManager,
       ) &&
+      !/(?:config|server)\.(?:allowedResources|allowedPrompts)\s*\?\?/.test(
+        runtimeMcpManager,
+      ) &&
       /vault_boundary:\s*\{/.test(runtimeMcpManagerServerRecordBlock) &&
       /header_ref_count:\s*Object\.keys\(headerSecretRefs\)\.length/.test(
         runtimeMcpManagerServerRecordBlock,
@@ -22210,6 +22227,13 @@ function runCompositor() {
       ) &&
       /allowedTools:\s*\["retired\.invoke"\]/.test(runtimeMcpManagerTest) &&
       /retiredOnly\.allowed_tools,\s*\[\]/.test(runtimeMcpManagerTest) &&
+      /MCP manager server records ignore retired allowedResources and allowedPrompts aliases/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /allowedResources:\s*\[\{ uri: "docs:\/\/retired"/.test(runtimeMcpManagerTest) &&
+      /allowedPrompts:\s*\[\{ name: "ask_retired" \}\]/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.resource_count,\s*0/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.prompt_count,\s*0/.test(runtimeMcpManagerTest) &&
       /MCP manager server records ignore retired sourcePath and sourceScope aliases/.test(
         runtimeMcpManagerTest,
       ) &&

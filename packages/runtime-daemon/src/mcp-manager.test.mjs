@@ -189,6 +189,45 @@ test("MCP manager server records ignore retired allowedTools aliases", () => {
   }).tools, []);
 });
 
+test("MCP manager server records ignore retired allowedResources and allowedPrompts aliases", () => {
+  const server = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      resources: [{ uri: "docs://canonical", name: "canonical" }],
+      allowedResources: [{ uri: "docs://retired", name: "retired" }],
+      prompts: [{ name: "ask_canonical" }],
+      allowedPrompts: [{ name: "ask_retired" }],
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+    },
+  );
+
+  assert.deepEqual(server.resources.map((resource) => resource.uri), ["docs://canonical"]);
+  assert.deepEqual(server.prompts.map((prompt) => prompt.name), ["ask_canonical"]);
+  assert.equal(Object.hasOwn(server, "allowedResources"), false);
+  assert.equal(Object.hasOwn(server, "allowedPrompts"), false);
+
+  const retiredOnly = mcpRegistryForWorkspace("/workspace", {
+    mcp_servers: {
+      docs: {
+        transport: "stdio",
+        command: "npx",
+        allowedResources: [{ uri: "docs://retired", name: "retired" }],
+        allowedPrompts: [{ name: "ask_retired" }],
+      },
+    },
+  });
+
+  assert.deepEqual(retiredOnly.resources, []);
+  assert.deepEqual(retiredOnly.prompts, []);
+  assert.equal(retiredOnly.resource_count, 0);
+  assert.equal(retiredOnly.prompt_count, 0);
+});
+
 test("MCP manager server records ignore retired workspaceRoot context alias", () => {
   const server = normalizeMcpServerRecord(
     "docs",
