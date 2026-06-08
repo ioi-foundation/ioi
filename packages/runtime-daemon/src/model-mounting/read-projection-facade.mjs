@@ -13,9 +13,6 @@ import {
   runtimeModelCatalogList as runtimeModelCatalogListProjection,
   workflowNodeBindings as workflowNodeBindingsProjection,
 } from "./read-model.mjs";
-import {
-  buildAdapterBoundaries,
-} from "./projections.mjs";
 import { notFound } from "./io.mjs";
 
 export function createModelMountingReadProjectionFacade({
@@ -257,7 +254,7 @@ export function createModelMountingReadProjectionFacade({
       mcp_servers: state.listMcpServers(),
       conversation_states: state.listConversations(),
       workflow_bindings: workflowNodeBindingsProjection({ capabilityForWorkflowNode }),
-      adapter_boundaries: buildAdapterBoundaries(state),
+      agentgres_store: state.store.adapterStatus(),
       receipts: state.listReceipts(),
       wallet: state.walletAuthority.adapterStatus(),
       vault: state.vaultStatus(),

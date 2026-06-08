@@ -177,7 +177,7 @@ function rustProjectionFixture(request) {
     mcpServers: state.mcp_servers,
     conversationStates: state.conversation_states,
     workflowBindings: state.workflow_bindings,
-    adapterBoundaries: state.adapter_boundaries,
+    adapterBoundaries: adapterBoundariesFromState(state),
     lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
     routeReceipts: receipts.filter((receipt) => receipt.kind === "model_route_selection"),
     routeDecisions: routeDecisionsFromReceipts(receipts),
@@ -324,6 +324,33 @@ function rustProjectionFixture(request) {
   throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
 }
 
+function adapterBoundariesFromState(state) {
+  return {
+    wallet: state.wallet,
+    vault: state.vault,
+    oauth: {
+      port: "OAuthCredentialProvider",
+      implementation: "agentgres_vault_oauth_session",
+      methods: [
+        "startAuthorization",
+        "completeAuthorization",
+        "exchangeAuthorizationCode",
+        "refreshAccessToken",
+        "revokeSession",
+        "resolveAccessHeader",
+      ],
+      plaintextPersistence: false,
+      evidenceRefs: [
+        "OAuthCredentialProvider",
+        "VaultOAuthAuthorizationState",
+        "VaultOAuthSession",
+        "oauth_tokens_not_persisted",
+      ],
+    },
+    agentgres: state.agentgres_store,
+  };
+}
+
 function routeDecisionsFromReceipts(receipts) {
   return receipts
     .filter((receipt) => receipt.kind === "model_route_selection")
@@ -372,6 +399,8 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
   assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
+  assert.equal(readProjectionRequests.every((request) => request.state.agentgres_store.port === "AgentgresStorePort"), true);
+  assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "adapter_boundaries")), false);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind).slice(-2), [
     "projection",
     "projection",
@@ -387,11 +416,13 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.artifacts.length, 2);
   assert.equal(snapshot.modelCapabilities.length, 2);
   assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
+  assert.equal(snapshot.adapterBoundaries.agentgres.port, "AgentgresStorePort");
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
+  assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
   assert.equal(projectionWritePlan.source, "rust_model_mount_read_projection_command");

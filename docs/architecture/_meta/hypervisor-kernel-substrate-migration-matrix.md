@@ -248,7 +248,7 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: compact Slice 800 after the next
+- Next scheduled matrix-compaction pass: compact Slice 801 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -16131,7 +16131,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 800
+## Compacted Implementation Slice Evidence: 800
 
 Slice 800 retired the JS not-found preflight decisions from the latest
 model_mount provider-health and vault-health read surfaces.
@@ -16158,7 +16158,36 @@ transport, and direct Rust daemon-core Agentgres projection APIs still need to
 replace local map/projection materialization, JS transport wrappers, and edge
 error-envelope translation.
 
-Scheduled matrix-compaction obligation from Slice 800 is pending after this
+Scheduled matrix-compaction obligation from Slice 800 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 801
+
+Slice 801 retired the JS adapter-boundary object materializer from the
+model_mount read-projection facade. `readProjectionInput()` no longer imports or
+calls `buildAdapterBoundaries()` and no longer passes an `adapter_boundaries`
+object into the Rust read-projection planner. Instead it passes primitive
+`wallet`, `vault`, and `agentgres_store` adapter status inputs, and
+`plan_model_mount_read_projection` authors the public `adapterBoundaries`
+projection object, including OAuth boundary metadata, inside Rust.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal model_mount migration: JS still materializes broad
+state input for the projection planner, the command bridge remains migration
+transport, and direct Rust daemon-core Agentgres projection APIs still need to
+replace local map/projection materialization, JS transport wrappers, and edge
+error-envelope translation.
+
+Scheduled matrix-compaction obligation from Slice 801 is pending after this
 verified slice. The next resume should either compact this evidence once the
 next Rust-core extraction/facade-retirement seam is clear or continue with that
 next seam while preserving the non-terminal status of command transport, JS

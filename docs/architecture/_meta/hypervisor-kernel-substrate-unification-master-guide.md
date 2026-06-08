@@ -997,6 +997,17 @@ This still does not claim terminal model_mount projection migration: JS still
 prepares current state input and command transport remains migration transport
 until direct Rust daemon-core Agentgres projection APIs replace it.
 
+Slice 801 retired the JS adapter-boundary object materializer from the
+model_mount read-projection facade. `readProjectionInput()` no longer imports or
+calls `buildAdapterBoundaries()` and no longer passes an `adapter_boundaries`
+object into the Rust planner. Instead it passes primitive `wallet`, `vault`, and
+`agentgres_store` adapter status inputs, and `plan_model_mount_read_projection`
+authors the public `adapterBoundaries` projection object, including OAuth
+boundary metadata, inside Rust. This still does not claim terminal model_mount
+projection migration: JS still prepares broad current-state input and command
+transport remains migration transport until direct Rust daemon-core Agentgres
+projection APIs replace it.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

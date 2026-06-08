@@ -2121,7 +2121,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "workflowNodes": array_field(state, "workflow_bindings"),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": model_mount_projection_summary(request),
-        "adapterBoundaries": projection.get("adapterBoundaries").cloned().unwrap_or(Value::Null),
+        "adapterBoundaries": projection.get("adapterBoundaries").cloned().unwrap_or_else(|| model_mount_adapter_boundaries(state)),
     })
 }
 
@@ -2156,7 +2156,7 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "mcpServers": array_field(state, "mcp_servers"),
         "conversationStates": array_field(state, "conversation_states"),
         "workflowBindings": array_field(state, "workflow_bindings"),
-        "adapterBoundaries": object_or_null(state.get("adapter_boundaries")),
+        "adapterBoundaries": model_mount_adapter_boundaries(state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
         "routeDecisions": route_decisions_from_receipts(&receipts),
@@ -2165,6 +2165,33 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),
         "toolReceipts": receipts_by_kind(&receipts, "mcp_tool_invocation"),
         "receipts": receipts,
+    })
+}
+
+fn model_mount_adapter_boundaries(state: &Value) -> Value {
+    json!({
+        "wallet": object_or_null(state.get("wallet")),
+        "vault": object_or_null(state.get("vault")),
+        "oauth": {
+            "port": "OAuthCredentialProvider",
+            "implementation": "agentgres_vault_oauth_session",
+            "methods": [
+                "startAuthorization",
+                "completeAuthorization",
+                "exchangeAuthorizationCode",
+                "refreshAccessToken",
+                "revokeSession",
+                "resolveAccessHeader",
+            ],
+            "plaintextPersistence": false,
+            "evidenceRefs": [
+                "OAuthCredentialProvider",
+                "VaultOAuthAuthorizationState",
+                "VaultOAuthSession",
+                "oauth_tokens_not_persisted",
+            ],
+        },
+        "agentgres": object_or_null(state.get("agentgres_store")),
     })
 }
 
@@ -7903,9 +7930,9 @@ mod tests {
             "mcp_servers": [],
             "conversation_states": [],
             "workflow_bindings": [],
-            "adapter_boundaries": {"agentgres": {"port": "AgentgresStorePort"}},
             "wallet": {"port": "WalletAuthorityPort"},
             "vault": {"port": "VaultPort"},
+            "agentgres_store": {"port": "AgentgresStorePort"},
             "server": {"status": "running"},
             "receipts": [
                 {
@@ -7981,6 +8008,14 @@ mod tests {
             "receipt-route"
         );
         assert_eq!(
+            response["projection"]["adapterBoundaries"]["agentgres"]["port"],
+            "AgentgresStorePort"
+        );
+        assert_eq!(
+            response["projection"]["adapterBoundaries"]["oauth"]["plaintextPersistence"],
+            false
+        );
+        assert_eq!(
             response["projection"]["routeDecisions"][0]["selected_model"],
             "model.local"
         );
@@ -8012,6 +8047,10 @@ mod tests {
         assert_eq!(
             snapshot_response["projection"]["projection"]["source"],
             "agentgres_model_mounting_projection"
+        );
+        assert_eq!(
+            snapshot_response["projection"]["adapterBoundaries"]["agentgres"]["port"],
+            "AgentgresStorePort"
         );
         assert_eq!(
             snapshot_response["projection"]["workflowNodes"]

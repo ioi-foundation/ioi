@@ -548,6 +548,9 @@ function runDocs() {
       /Slice 800 retired the JS not-found preflight decisions from the latest\s+model_mount provider-health and vault-health read surfaces/.test(guide) &&
       /the Rust planner verifies provider\s+existence, health-record presence, and receipt binding before authoring or\s+rejecting the read/.test(guide) &&
       /`model_mount_provider_not_found`[\s\S]*`model_mount_provider_health_not_found`[\s\S]*`model_mount_vault_health_not_found`/.test(guide) &&
+      /Slice 801 retired the JS adapter-boundary object materializer from the\s+model_mount read-projection facade/.test(guide) &&
+      /no longer imports or\s+calls `buildAdapterBoundaries\(\)` and no longer passes an `adapter_boundaries`\s+object into the Rust planner/.test(guide) &&
+      /authors the public `adapterBoundaries` projection object, including OAuth\s+boundary metadata, inside Rust/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -556,7 +559,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 797/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 798/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 799/.test(matrix) &&
-      /Implementation Slice Evidence: 800/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 800/.test(matrix) &&
+      /Implementation Slice Evidence: 801/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -912,7 +916,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 800 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 801 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7696,6 +7700,9 @@ function runBridge() {
       /function rustProjectionObjectField/.test(modelMountingReadProjectionFacade) &&
       /readProjectionPlanner\.planReadProjection/.test(modelMountingReadProjectionFacade) &&
       /model_mount_js_read_projection_authoring_retired/.test(modelMountingReadProjectionFacade) &&
+      !/buildAdapterBoundaries/.test(modelMountingReadProjectionFacade) &&
+      !/adapter_boundaries/.test(modelMountingReadProjectionFacade) &&
+      /agentgres_store:\s*state\.store\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustProjectionObjectField\(state,\s*"adapterBoundaries"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7725,6 +7732,9 @@ function runBridge() {
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
+      /request\.state\.agentgres_store\.port === "AgentgresStorePort"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /Rust model_mount admission runner sends read projection plan request/.test(modelMountAdmissionRunnerTest) &&
@@ -7738,6 +7748,10 @@ function runBridge() {
       /fn model_mount_snapshot/.test(bridgeModule) &&
       /fn model_mount_latest_provider_health/.test(bridgeModule) &&
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
+      /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
+      !/"adapter_boundaries":/.test(bridgeModule) &&
+      /"agentgres": object_or_null\(state\.get\("agentgres_store"\)\)/.test(bridgeModule) &&
+      /"plaintextPersistence": false/.test(bridgeModule) &&
       /model_mount_provider_not_found/.test(bridgeModule) &&
       /model_mount_provider_health_not_found/.test(bridgeModule) &&
       /model_mount_vault_health_not_found/.test(bridgeModule) &&
@@ -7748,6 +7762,8 @@ function runBridge() {
       /"projection_kind": "snapshot"/.test(bridgeModule) &&
       /"projection_kind": "latest_provider_health"/.test(bridgeModule) &&
       /"projection_kind": "latest_vault_health"/.test(bridgeModule) &&
+      /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
+      /snapshot_response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /latest provider health projected in Rust/.test(bridgeModule) &&
       /latest provider health fails closed when provider is missing/.test(bridgeModule) &&
       /latest vault health projected in Rust/.test(bridgeModule) &&
