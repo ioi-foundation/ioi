@@ -354,12 +354,14 @@ the Rust model_mount process-plan boundary and local provider load paths:
 This does not claim terminal model_mount lifecycle migration: direct Rust
 daemon-core model_mount lifecycle/planning APIs still need to own backend
 process planning, provider lifecycle admission, receipt/state-root binding,
-Agentgres admission, projection, and replay. The Slice 756
-matrix-compaction pass is pending and must run before unrelated route-family
-work resumes. Future compactions must preserve evidence, distinguish interim
-bridge scaffolding, canonical JS input filtering, and fail-closed JS facades
-from terminal Rust daemon-core shape, and avoid encoding command transport,
-canonical input helpers, or read-only JS helpers as long-term substrate.
+Agentgres admission, projection, and replay. The Slice 756 backend-process
+plan/load-option alias-retirement matrix-compaction pass is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands. Future compactions must preserve evidence,
+distinguish interim bridge scaffolding, canonical JS input filtering, and
+fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
+command transport, canonical input helpers, or read-only JS helpers as
+long-term substrate.
 
 ## Part II: Target Execution Model
 

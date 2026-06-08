@@ -381,7 +381,12 @@ function runDocs() {
       /`contextLength`, `maxModelLen`, `tensorParallelSize`,\s+`gpuMemoryUtilization`, `modelPath`, `embedding`, `defaults\.contextLength`, and\s+`body\.loadOptions` can no longer steer Rust-facing backend process planning/.test(
         guide,
       ) &&
-      /The Slice 756\s+matrix-compaction pass is pending and must run before unrelated route-family\s+work resumes/.test(guide) &&
+      /The Slice 756 backend-process\s+plan\/load-option alias-retirement matrix-compaction pass is complete/.test(
+        guide,
+      ) &&
+      /No\s+matrix-compaction pass is pending until the next Rust-core extraction or\s+facade-retirement seam lands/.test(
+        guide,
+      ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -401,8 +406,8 @@ function runDocs() {
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 753\s+public model invocation dead JS body retirement evidence, then compacted Slice\s+754 model invocation migration-helper compatibility alias retirement evidence/.test(matrix) &&
-      /Slice 756\s+then retired backend-process plan and provider load-option compatibility aliases\s+from the Rust model_mount process-plan boundary/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first by compacting Slice 756 evidence\s+before unrelated route-family work/.test(matrix) &&
+      /then\s+compacted Slice 756 backend-process plan and provider load-option compatibility\s+alias-retirement evidence from the Rust model_mount process-plan boundary/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -533,13 +538,19 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 755 is now satisfied/.test(
         matrix,
       ) &&
-      /Implementation Slice 756: Backend Process Plan Load-Option Alias Retirement/.test(
+      /Compacted Implementation Slice Evidence: 756/.test(
         matrix,
       ) &&
-      /Rust backend process-plan request assembly no longer reads\s+`contextLength`, `maxModelLen`, `tensorParallelSize`,\s+`gpuMemoryUtilization`, `modelPath`, `embedding`, or\s+`defaults\.contextLength`/.test(matrix) &&
+      /Slice 756 retired backend-process planning compatibility aliases/.test(
+        matrix,
+      ) &&
+      /Rust backend process-plan request assembly no longer reads `contextLength`,\s+`maxModelLen`, `tensorParallelSize`, `gpuMemoryUtilization`, `modelPath`,\s+`embedding`, or `defaults\.contextLength`/.test(matrix) &&
       /Local, vLLM, llama\.cpp, Ollama, and LM Studio provider load paths no longer\s+read `body\.loadOptions`/.test(matrix) &&
       /model-mount-backend-process-load-option-aliases-retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 756 backend-process\s+plan\/load-option alias retirement/.test(
+      /Scheduled matrix-compaction obligation from Slice 756 is now satisfied/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 756\s+backend-process plan\/load-option alias retirement compaction/.test(
         matrix,
       ) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
