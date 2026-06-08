@@ -368,7 +368,8 @@ function runDocs() {
       /Slice 748 direct model lifecycle receipt helper facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 749 public model invocation facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 750 runtime model-route selection facade\s+retirement compaction is complete/.test(guide) &&
-      /No matrix-compaction pass is pending until\s+the next seam lands/.test(guide) &&
+      /Slice 751 stream-cancel receipt facade\s+retirement has landed/.test(guide) &&
+      /schedule and run the next matrix-compaction pass before\s+unrelated route-family work resumes/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -386,7 +387,8 @@ function runDocs() {
       /then compacted Slice 748 direct model lifecycle\s+receipt helper facade-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 751 stream-cancel\s+receipt facade retirement has landed and scheduled the next compaction pass/.test(matrix) &&
+      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -463,7 +465,14 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 750 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 750/.test(
+      /Implementation Slice 751: Model Stream-Cancel Receipt Facade Retirement/.test(
+        matrix,
+      ) &&
+      /model_mount_stream_cancel_rust_core_required/.test(matrix) &&
+      /model_mount_stream_cancel_js_facade_retired/.test(matrix) &&
+      /rust_daemon_core_model_stream_cancel_required/.test(matrix) &&
+      /agentgres_model_stream_cancel_truth_required/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 751/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
@@ -1635,7 +1644,7 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/openai-compat-routes.test.mjs")
     : "";
   const modelStreamCancelDetailsObject =
-    openAiCompatRoutes.match(/details: \{\n {6}stream_kind[\s\S]*?\n {4}\},/)?.[0] ?? "";
+    openAiCompatRoutes.match(/error\.details = \{\n {4}boundary: "model_mount\.stream_cancel"[\s\S]*?\n {2}\};/)?.[0] ?? "";
   const retiredRouteDecisionEnvPattern = new RegExp("MODEL_MOUNT_" + "ROUTE_DECISION_COMMAND_ENV");
   assertCheck(
     result,
@@ -7387,33 +7396,42 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-stream-cancel-receipt-detail-aliases-retired",
-    /^ {6}stream_kind:\s*streamKind/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}invocation_receipt_id:\s*invocation\.receipt\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}route_id:\s*invocation\.route\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}selected_model:\s*invocation\.model/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}endpoint_id:\s*invocation\.endpoint\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}provider_id:\s*invocation\.endpoint\.providerId/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}instance_id:\s*invocation\.instance\.id/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}backend_id:\s*invocation\.instance\.backendId/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}selected_backend:\s*invocation\.receipt\.details\?\.selected_backend/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}stream_source:\s*invocation\.receipt\.details\?\.stream_source/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}provider_response_kind:\s*invocation\.providerResponseKind/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}backend_evidence_refs:\s*invocation\.receipt\.details\?\.backend_evidence_refs/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}tool_receipt_ids:\s*invocation\.toolReceiptIds/m.test(modelStreamCancelDetailsObject) &&
-      /^ {6}frames_written:\s*framesWritten/m.test(modelStreamCancelDetailsObject) &&
-      !/^ {6}(?:streamKind|invocationReceiptId|routeId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|streamSource|providerResponseKind|backendEvidenceRefs|toolReceiptIds|framesWritten)\s*[:,]/m.test(
+    "model-mount-stream-cancel-js-facade-retired",
+    /model_mount_stream_cancel_rust_core_required/.test(openAiCompatRoutes) &&
+      /MODEL_STREAM_CANCEL_RUST_CORE_REQUIRED_EVIDENCE_REFS/.test(openAiCompatRoutes) &&
+      /model_mount_stream_cancel_js_facade_retired/.test(openAiCompatRoutes) &&
+      /rust_daemon_core_model_stream_cancel_required/.test(openAiCompatRoutes) &&
+      /agentgres_model_stream_cancel_truth_required/.test(openAiCompatRoutes) &&
+      /throw modelStreamCancelRustCoreRequiredError/.test(openAiCompatRoutes) &&
+      !/mounts\.receipt\("model_invocation_stream_canceled"/.test(openAiCompatRoutes) &&
+      /^ {4}stream_kind:\s*streamKind/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}invocation_receipt_id:\s*invocation\.receipt\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}route_id:\s*invocation\.route\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}selected_model:\s*invocation\.model/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}endpoint_id:\s*invocation\.endpoint\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}provider_id:\s*invocation\.endpoint\.providerId/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}instance_id:\s*invocation\.instance\.id/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}backend_id:\s*invocation\.instance\.backendId/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}selected_backend:\s*invocation\.receipt\.details\?\.selected_backend/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}stream_source:\s*invocation\.receipt\.details\?\.stream_source/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}provider_response_kind:\s*invocation\.providerResponseKind/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}backend_evidence_refs:\s*invocation\.receipt\.details\?\.backend_evidence_refs/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}tool_receipt_ids:\s*invocation\.toolReceiptIds/m.test(modelStreamCancelDetailsObject) &&
+      /^ {4}frames_written:\s*framesWritten/m.test(modelStreamCancelDetailsObject) &&
+      !/^ {4}(?:streamKind|invocationReceiptId|routeId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|streamSource|providerResponseKind|backendEvidenceRefs|toolReceiptIds|framesWritten)\s*[:,]/m.test(
         modelStreamCancelDetailsObject,
       ) &&
-      /stream cancellation receipts use canonical detail metadata/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(receipts\[0\]\.payload\.details,\s*"streamKind"\),\s*false/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(receipts\[0\]\.payload\.details,\s*"providerResponseKind"\),\s*false/.test(openAiCompatRoutesTest) &&
-      /Object\.hasOwn\(receipts\[0\]\.payload\.details,\s*"framesWritten"\),\s*false/.test(openAiCompatRoutesTest),
+      /stream cancellation receipt facade fails closed with canonical detail metadata/.test(openAiCompatRoutesTest) &&
+      /JS stream cancellation receipt should not be created/.test(openAiCompatRoutesTest) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"streamKind"\),\s*false/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerResponseKind"\),\s*false/.test(openAiCompatRoutesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"framesWritten"\),\s*false/.test(openAiCompatRoutesTest),
     [
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
     ],
-    "Phase 3/10 is pending: stream cancellation receipts must serialize canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 10 is pending: stream cancellation must fail closed before JS receipt creation and keep canonical snake_case Rust-core-required details",
   );
   assertCheck(
     result,
