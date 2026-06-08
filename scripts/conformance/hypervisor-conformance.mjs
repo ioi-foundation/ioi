@@ -318,7 +318,7 @@ function runDocs() {
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-736 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, and runtime\s+task\/job control facade-retirement seams/.test(guide) &&
+      /Slices\s+733-737 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement seams/.test(guide) &&
       /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
@@ -334,7 +334,7 @@ function runDocs() {
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-736 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, and runtime task\/job control\s+facade-retirement seams/.test(
+      /Slices 733-737 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, and runtime thread-fork control facade-retirement seams/.test(
         matrix,
       ) &&
       /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
@@ -5467,29 +5467,30 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: thread-memory Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
+  const runtimeThreadForkControlFacadeRetired =
+    /runtime_thread_fork_rust_core_required/.test(runtimeThreadForkState) &&
+    /runtime_thread_fork_js_facade_retired/.test(runtimeThreadForkState) &&
+    /rust_daemon_core_thread_fork_required/.test(runtimeThreadForkState) &&
+    /agentgres_thread_fork_state_truth_required/.test(runtimeThreadForkState) &&
+    !/store\.createAgent\(/.test(runtimeThreadForkState) &&
+    !/store\.appendRuntimeEvent\(/.test(runtimeThreadForkState) &&
+    !/store\.threadForAgent\(/.test(runtimeThreadForkState) &&
+    !/store\.runtimeEventStream\(/.test(runtimeThreadForkState) &&
+    !/source_event_kind:\s*"OperatorControl\.Fork"/.test(runtimeThreadForkState) &&
+    /thread fork mutation facade fails closed before JS fork lifecycle mutation/.test(
+      runtimeThreadForkStateTest,
+    ) &&
+    /assertNoRetiredThreadForkDetailAliases/.test(runtimeThreadForkStateTest) &&
+    /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeThreadForkStateTest);
   assertCheck(
     result,
     "thread-fork-request-aliases-retired",
-    /const idempotencyKey = request\.idempotency_key;/.test(runtimeThreadForkState) &&
-      /workflow_graph_id: request\.workflow_graph_id \?\? null/.test(runtimeThreadForkState) &&
-      /workflow_node_id: request\.workflow_node_id \?\? "runtime\.thread-fork"/.test(
-        runtimeThreadForkState,
-      ) &&
-      /thread fork state ignores retired request identity aliases/.test(
-        runtimeThreadForkStateTest,
-      ) &&
-      /idempotencyKey: "fork-key"/.test(runtimeThreadForkStateTest) &&
+    runtimeThreadForkControlFacadeRetired &&
+      /idempotencyKey: "retired-key"/.test(runtimeThreadForkStateTest) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadForkStateTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadForkStateTest) &&
       /requestedBy: "operator_retired"/.test(runtimeThreadForkStateTest) &&
-      /events\[0\]\.workflow_graph_id, null/.test(runtimeThreadForkStateTest) &&
-      /events\[0\]\.workflow_node_id, "runtime\.thread-fork"/.test(
-        runtimeThreadForkStateTest,
-      ) &&
-      /events\[0\]\.payload\.requested_by, "operator"/.test(runtimeThreadForkStateTest) &&
-      /events\[0\]\.idempotency_key, "thread:thread_a:operator\.fork:thread_fork"/.test(
-        runtimeThreadForkStateTest,
-      ) &&
+      /error\.details\.idempotency_key, "fork-key"/.test(runtimeThreadForkStateTest) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
         runtimeThreadForkState,
       ) &&
@@ -5500,7 +5501,17 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
     ],
-    "Phase 10/11 is pending: thread fork request routing must use canonical idempotency_key/workflow ids only",
+    "Phase 10/11 is pending: thread fork request routing must fail closed before JS lifecycle mutation while using canonical idempotency details only",
+  );
+  assertCheck(
+    result,
+    "thread-fork-control-js-facade-retired",
+    runtimeThreadForkControlFacadeRetired,
+    [
+      "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread fork mutation facades must stay retired before JS agent creation, event append, or fork projection",
   );
   assertCheck(
     result,

@@ -1,86 +1,31 @@
 export function createThreadForkState({
-  eventStreamIdForThread,
-  fixtureProfileForAgent,
-  operatorControlSource,
-  optionalString,
+  runtimeError = ({ status = 500, code = "runtime_thread_fork_error", message, details }) =>
+    Object.assign(new Error(message), { status, code, details }),
 } = {}) {
   function forkThread(store, threadId, request = {}) {
-    const sourceThread = store.getThread(threadId);
-    const sourceAgent = store.agentForThread(threadId);
-    const options = {
-      ...(request.options ?? {}),
-      local: {
-        cwd: request.options?.local?.cwd ?? sourceThread.workspace ?? store.defaultCwd,
+    void store;
+    const idempotencyKey =
+      typeof request.idempotency_key === "string" && request.idempotency_key.trim()
+        ? request.idempotency_key
+        : null;
+    throw runtimeError({
+      status: 501,
+      code: "runtime_thread_fork_rust_core_required",
+      message:
+        "Runtime thread fork requires direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.thread_fork",
+        operation: "thread_fork",
+        operation_kind: "thread.fork",
+        thread_id: threadId,
+        ...(idempotencyKey ? { idempotency_key: idempotencyKey } : {}),
+        evidence_refs: [
+          "runtime_thread_fork_js_facade_retired",
+          "rust_daemon_core_thread_fork_required",
+          "agentgres_thread_fork_state_truth_required",
+        ],
       },
-      model: request.options?.model ? request.options.model : { id: sourceThread.model_route },
-    };
-    const idempotencyKey = request.idempotency_key;
-    const streamId = eventStreamIdForThread(threadId);
-    if (idempotencyKey) {
-      const duplicate = store.runtimeEventStream(streamId).idempotency.get(String(idempotencyKey));
-      const duplicateForkThreadId =
-        duplicate?.payload_summary?.fork_thread_id ?? duplicate?.payload?.fork_thread_id;
-      if (duplicateForkThreadId) {
-        return {
-          ...store.getThread(String(duplicateForkThreadId)),
-          source_thread_id: sourceThread.thread_id,
-          forked_from_seq:
-            Number(duplicate?.payload_summary?.source_latest_seq ?? sourceThread.latest_seq) ||
-            sourceThread.latest_seq,
-        };
-      }
-    }
-    const fork = store.createAgent(options);
-    const thread = store.threadForAgent(fork);
-    const sourceLatestSeq = sourceThread.latest_seq;
-    const sourceLatestTurnId = sourceThread.latest_turn_id ?? "";
-    const controlSource = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
-    const reason = optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested thread fork";
-    const now = new Date().toISOString();
-    store.appendRuntimeEvent({
-      event_stream_id: streamId,
-      thread_id: threadId,
-      turn_id: sourceLatestTurnId,
-      item_id: `${threadId}:item:thread-fork:${thread.thread_id}`,
-      idempotency_key: idempotencyKey ? String(idempotencyKey) : `thread:${threadId}:operator.fork:${thread.thread_id}`,
-      source: controlSource,
-      source_event_kind: "OperatorControl.Fork",
-      event_kind: "thread.forked",
-      status: "completed",
-      actor: "user",
-      created_at: now,
-      workspace_root: sourceAgent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? null,
-      workflow_node_id: request.workflow_node_id ?? "runtime.thread-fork",
-      component_kind: "thread_fork",
-      payload_schema_version: "ioi.runtime.thread-fork.v1",
-      payload: {
-        event_kind: "OperatorControl.Fork",
-        reason,
-        requested_by: requestedBy,
-        control_surface: controlSource,
-        source_thread_id: sourceThread.thread_id,
-        source_agent_id: sourceThread.agent_id,
-        source_latest_seq: sourceLatestSeq,
-        source_latest_turn_id: sourceLatestTurnId || null,
-        fork_thread_id: thread.thread_id,
-        fork_agent_id: thread.agent_id,
-        fork_session_id: thread.session_id,
-        session_id: sourceThread.session_id,
-      },
-      receipt_refs: [`receipt_${sourceThread.agent_id}_thread_fork_${thread.agent_id}`],
-      policy_decision_refs: [`policy_${sourceThread.agent_id}_thread_fork_allow`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(sourceAgent),
     });
-    return {
-      ...thread,
-      source_thread_id: sourceThread.thread_id,
-      forked_from_seq: sourceLatestSeq,
-    };
   }
 
   return {
