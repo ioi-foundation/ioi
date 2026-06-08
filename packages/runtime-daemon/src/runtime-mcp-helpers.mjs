@@ -1,11 +1,8 @@
-import crypto from "node:crypto";
-
 import {
   CODING_TOOL_IDS,
   CODING_TOOL_PACK_ID,
 } from "./coding-tools.mjs";
 import {
-  RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
   mcpPromptsForServers,
   mcpResourcesForServers,
   mcpToolsForServers,
@@ -39,10 +36,6 @@ export function normalizeStringList(value) {
 
 export function safeId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
-}
-
-export function doctorHash(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex");
 }
 
 export function uniqueStrings(values) {
@@ -417,100 +410,6 @@ export function mcpCatalogFullRequested(request = {}) {
     request.catalog_mode ?? request.mcp_catalog_mode,
   )?.toLowerCase();
   return mode === "full" || request.include_full_catalog === true;
-}
-
-export function mcpCatalogExposureForStatus(server, catalog = {}, options = {}) {
-  const tools = normalizeArray(catalog.tools ?? catalog.listed_tools);
-  const resources = normalizeArray(catalog.resources ?? catalog.listed_resources);
-  const prompts = normalizeArray(catalog.prompts ?? catalog.listed_prompts);
-  const previewLimit = boundedPositiveInteger(options.preview_limit, MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT, MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT);
-  const fullCatalogIncluded = options.force_full_catalog === true || tools.length <= previewLimit;
-  const summary = mcpCatalogSummaryForServer(server, { tools, resources, prompts }, {
-    live_mode: catalog.execution_mode ?? server.transport ?? "stdio",
-    deferred: !fullCatalogIncluded,
-    preview_limit: previewLimit,
-    catalog,
-  });
-  const exposedTools = fullCatalogIncluded ? tools : tools.slice(0, previewLimit);
-  const exposedResources = fullCatalogIncluded ? resources : resources.slice(0, previewLimit);
-  const exposedPrompts = fullCatalogIncluded ? prompts : prompts.slice(0, previewLimit);
-  return {
-    tools: exposedTools,
-    resources: exposedResources,
-    prompts: exposedPrompts,
-    summary,
-    exposure: {
-      mode: fullCatalogIncluded ? "full" : "deferred",
-      deferred: !fullCatalogIncluded,
-      preview_limit: previewLimit,
-      full_catalog_included: fullCatalogIncluded,
-      returned_tool_count: exposedTools.length,
-      returned_resource_count: exposedResources.length,
-      returned_prompt_count: exposedPrompts.length,
-      search_route: "/v1/mcp/tools/search",
-      fetch_route: "/v1/mcp/tools/{tool_id}",
-    },
-  };
-}
-
-export function mcpCatalogSummaryForServer(server = {}, catalog = {}, options = {}) {
-  const tools = normalizeArray(catalog.tools);
-  const resources = normalizeArray(catalog.resources);
-  const prompts = normalizeArray(catalog.prompts);
-  const toolNames = tools.map((tool) => optionalString(tool.tool_name)).filter(Boolean).sort();
-  const namespaces = mcpToolNamespaces(toolNames);
-  const hashPayload = {
-    server_id: server.id ?? null,
-    tools: tools.map((tool) => ({
-      stable_tool_id: tool.stable_tool_id ?? null,
-      tool_name: tool.tool_name ?? null,
-      description: tool.description ?? null,
-      input_schema: tool.input_schema ?? null,
-    })),
-    resources: resources.map((resource) => ({
-      stable_resource_id: resource.stable_resource_id ?? null,
-      uri: resource.uri ?? null,
-      name: resource.name ?? null,
-    })),
-    prompts: prompts.map((prompt) => ({
-      stable_prompt_id: prompt.stable_prompt_id ?? null,
-      name: prompt.name ?? null,
-    })),
-  };
-  const catalogHash = doctorHash(JSON.stringify(hashPayload));
-  const previewLimit = boundedPositiveInteger(options.preview_limit, MCP_LIVE_CATALOG_DEFAULT_PREVIEW_LIMIT, MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT);
-  const deferred = Boolean(options.deferred ?? tools.length > previewLimit);
-  return {
-    schema_version: RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-    object: "ioi.runtime_mcp_catalog_summary",
-    status: options.status ?? "completed",
-    server_id: server.id ?? null,
-    server_label: server.label ?? server.name ?? server.id ?? null,
-    transport: server.transport ?? null,
-    execution_mode: options.live_mode ?? null,
-    catalog_hash: catalogHash,
-    tool_count: tools.length,
-    resource_count: resources.length,
-    prompt_count: prompts.length,
-    namespace_count: namespaces.length,
-    namespaces,
-    preview_limit: previewLimit,
-    preview_tool_names: toolNames.slice(0, Math.min(previewLimit, 20)),
-    deferred,
-    full_catalog_included: !deferred,
-    error_code: options.error_code ?? null,
-    search_route: "/v1/mcp/tools/search",
-    fetch_route: "/v1/mcp/tools/{tool_id}",
-  };
-}
-
-export function mcpToolNamespaces(toolNames = []) {
-  return uniqueStrings(
-    normalizeArray(toolNames).map((name) => {
-      const text = String(name);
-      return text.split(/__|[.:/-]/)[0] || text;
-    }),
-  ).sort().slice(0, 25);
 }
 
 export function mcpResourceKey(resource = {}) {

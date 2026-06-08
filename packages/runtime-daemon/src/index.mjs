@@ -73,10 +73,7 @@ import {
   threadStatusForAgent,
   turnIdForRun,
 } from "./runtime-identifiers.mjs";
-import {
-  boundedPositiveInteger,
-  mcpToolNamespaces,
-} from "./runtime-mcp-helpers.mjs";
+import { boundedPositiveInteger } from "./runtime-mcp-helpers.mjs";
 import {
   redactRuntimeNodeForDoctor,
   runtimeToolRegistryGovernanceMetadata,

@@ -3,10 +3,7 @@ import test from "node:test";
 
 import { RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS } from "./runtime-contract-constants.mjs";
 import {
-  doctorHash,
-  mcpCatalogExposureForStatus,
   mcpCatalogFullRequested,
-  mcpCatalogSummaryForServer,
   mcpConfigSourceModeForRequest,
   mcpJsonRpcError,
   mcpJsonRpcErrorCodeFor,
@@ -25,7 +22,6 @@ import {
   mcpToolSearchLimit,
   mcpToolIdentityMatches,
   mcpToolMatchesQuery,
-  mcpToolNamespaces,
   resolveMcpServerRecord,
   resolveMcpToolRecord,
 } from "./runtime-mcp-helpers.mjs";
@@ -180,73 +176,7 @@ test("runtime MCP helpers shape JSON-RPC envelopes and transport metadata", () =
   assert.equal(mcpTransportSummary({ executionMode: "live_http" }), "containment receipt");
 });
 
-test("runtime MCP helpers summarize and defer large catalogs", () => {
-  const tools = Array.from({ length: 4 }, (_, index) => ({
-    stable_tool_id: `mcp.docs.search_${index}`,
-    tool_name: `docs__search_${index}`,
-    description: "Search docs",
-    input_schema: { type: "object" },
-  }));
-  const exposure = mcpCatalogExposureForStatus(
-    { id: "mcp.docs", label: "Docs", transport: "stdio" },
-    { tools, resources: [{ uri: "docs://root" }], prompts: [{ name: "ask" }] },
-    { preview_limit: 2 },
-  );
-
-  assert.equal(exposure.tools.length, 2);
-  assert.equal(exposure.exposure.deferred, true);
-  assert.equal(exposure.summary.tool_count, 4);
-  assert.equal(exposure.summary.full_catalog_included, false);
-  assert.equal(exposure.exposure.preview_limit, 2);
-  assert.equal(Object.hasOwn(exposure.summary, "toolCount"), false);
-  assert.equal(Object.hasOwn(exposure.summary, "fullCatalogIncluded"), false);
-  assert.equal(Object.hasOwn(exposure.summary, "executionMode"), false);
-  assert.equal(Object.hasOwn(exposure.summary, "errorCode"), false);
-  assert.equal(Object.hasOwn(exposure.summary, "searchRoute"), false);
-  assert.equal(Object.hasOwn(exposure.exposure, "previewLimit"), false);
-  assert.equal(Object.hasOwn(exposure.exposure, "returnedToolCount"), false);
-  assert.equal(Object.hasOwn(exposure.exposure, "searchRoute"), false);
-  const canonicalSummaryHash = mcpCatalogSummaryForServer(
-    { id: "mcp.docs", label: "Docs" },
-    {
-      tools: [{
-        stable_tool_id: "mcp.docs.search",
-        tool_name: "search",
-        description: "Search docs",
-        input_schema: { type: "object" },
-      }],
-      resources: [{ stable_resource_id: "mcp.docs.root", uri: "docs://root", name: "Docs root" }],
-      prompts: [{ stable_prompt_id: "mcp.docs.ask", name: "ask" }],
-    },
-  );
-  assert.equal(
-    canonicalSummaryHash.catalog_hash,
-    doctorHash(JSON.stringify({
-      server_id: "mcp.docs",
-      tools: [{
-        stable_tool_id: "mcp.docs.search",
-        tool_name: "search",
-        description: "Search docs",
-        input_schema: { type: "object" },
-      }],
-      resources: [{ stable_resource_id: "mcp.docs.root", uri: "docs://root", name: "Docs root" }],
-      prompts: [{ stable_prompt_id: "mcp.docs.ask", name: "ask" }],
-    })),
-  );
-
-  const largeCatalogTools = Array.from({ length: 60 }, (_, index) => ({
-    stable_tool_id: `mcp.docs.large_${index}`,
-    tool_name: `docs__large_${index}`,
-  }));
-  const retiredOptionExposure = mcpCatalogExposureForStatus(
-    { id: "mcp.docs", label: "Docs", transport: "stdio" },
-    { tools: largeCatalogTools, resources: [], prompts: [] },
-    { previewLimit: 2, forceFullCatalog: true },
-  );
-  assert.equal(retiredOptionExposure.tools.length, 50);
-  assert.equal(retiredOptionExposure.exposure.mode, "deferred");
-
-  assert.deepEqual(mcpToolNamespaces(["docs__search", "git.diff", "file.inspect"]), ["docs", "file", "git"]);
+test("runtime MCP helpers accept only canonical catalog request options", () => {
   assert.equal(mcpToolSearchLimit({ max_results: 7, maxResults: 99 }), 7);
   assert.equal(mcpToolSearchLimit({ maxResults: 7 }), 25);
   assert.equal(mcpCatalogFullRequested({ catalog_mode: "full", catalogMode: "summary" }), true);

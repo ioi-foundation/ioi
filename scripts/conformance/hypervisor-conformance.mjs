@@ -484,6 +484,9 @@ function runDocs() {
       /Slice 781 moved MCP catalog summary projection into Rust daemon-core migration\s+transport/.test(guide) &&
       /McpManagerCatalogSummaryProjectionCore/.test(guide) &&
       /The Slice 781 MCP catalog summary Rust-core\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 782 retired the dead helper-level JS MCP catalog summary\/exposure path/.test(guide) &&
+      /no longer exports `mcpCatalogSummaryForServer\(\)`,\s+`mcpCatalogExposureForStatus\(\)`, or `mcpToolNamespaces\(\)`/.test(guide) &&
+      /The\s+Slice 782 MCP helper summary-retirement matrix-compaction pass is pending/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -531,7 +534,8 @@ function runDocs() {
       /This pass compacted Slice 779 MCP validation projection Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 780 MCP public catalog Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 782 retired dead helper-level JS MCP catalog summary\/exposure code/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 782 MCP\s+helper summary-retirement evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -793,7 +797,9 @@ function runDocs() {
       /plan_mcp_manager_catalog_summary_projection/.test(matrix) &&
       /planMcpManagerCatalogSummaryProjection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 781 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 782/.test(matrix) &&
+      /`mcpCatalogSummaryForServer\(\)`, `mcpCatalogExposureForStatus\(\)`, and\s+`mcpToolNamespaces\(\)` exports in `runtime-mcp-helpers\.mjs` were only preserved by\s+self-referential helper tests/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 782 MCP helper\s+summary-retirement evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -803,6 +809,7 @@ function runDocs() {
       /public MCP status plus agent-scoped `mcpStatusForAgent` catalog row inputs now\s+route through Rust daemon-core `McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection`/.test(implementationMatrix) &&
       /public MCP list\/search declared catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
       /public MCP search\/fetch catalog summaries now route through Rust daemon-core\s+`McpManagerCatalogSummaryProjectionCore`\/`plan_mcp_manager_catalog_summary_projection` instead of JS\s+`mcpCatalogSummaryForServer`/.test(implementationMatrix) &&
+      /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
       /live catalog discovery and validation-input parsing remain read-only\/projection\s+migration helpers, not terminal validation, status projection, public validation\s+projection, catalog row projection, catalog summary projection, or registry authority/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
@@ -22699,37 +22706,15 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-catalog-summary-output-aliases-retired",
-    /options\.preview_limit/.test(runtimeMcpCatalogExposureBlock) &&
-      /options\.force_full_catalog/.test(runtimeMcpCatalogExposureBlock) &&
-      /preview_limit:\s*previewLimit/.test(runtimeMcpCatalogExposureBlock) &&
-      /full_catalog_included:\s*fullCatalogIncluded/.test(runtimeMcpCatalogExposureBlock) &&
-      /returned_tool_count:\s*exposedTools\.length/.test(runtimeMcpCatalogExposureBlock) &&
-      /search_route:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpCatalogExposureBlock) &&
-      /schema_version:\s*RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMcpCatalogSummaryBlock) &&
-      /server_id:\s*server\.id/.test(runtimeMcpCatalogSummaryBlock) &&
-      /execution_mode:\s*options\.live_mode/.test(runtimeMcpCatalogSummaryBlock) &&
-      /tool_count:\s*tools\.length/.test(runtimeMcpCatalogSummaryBlock) &&
-      /full_catalog_included:\s*!deferred/.test(runtimeMcpCatalogSummaryBlock) &&
-      /error_code:\s*options\.error_code/.test(runtimeMcpCatalogSummaryBlock) &&
-      /tool_name/.test(runtimeMcpCatalogSummaryBlock) &&
-      /stable_tool_id/.test(runtimeMcpCatalogSummaryBlock) &&
-      /input_schema/.test(runtimeMcpCatalogSummaryBlock) &&
-      /server_id:\s*server\.id \?\? null/.test(runtimeMcpCatalogSummaryBlock) &&
-      /stable_resource_id:\s*resource\.stable_resource_id/.test(runtimeMcpCatalogSummaryBlock) &&
-      /stable_prompt_id:\s*prompt\.stable_prompt_id/.test(runtimeMcpCatalogSummaryBlock) &&
+    !/mcpCatalogExposureForStatus/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
+      !/mcpCatalogSummaryForServer/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
+      !/mcpToolNamespaces/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
+      /runtime MCP helpers accept only canonical catalog request options/.test(
+        runtimeMcpHelpersTest,
+      ) &&
       /live_mode:\s*liveMode/.test(runtimeMcpCatalogSurface) &&
       /error_code:\s*optionalStringDep/.test(runtimeMcpCatalogSurface) &&
       /preview_limit:\s*mcpCatalogPreviewLimitDep/.test(runtimeMcpCatalogSurface) &&
-      /previewLimit:\s*2,\s*forceFullCatalog:\s*true/.test(runtimeMcpHelpersTest) &&
-      /Object\.hasOwn\(exposure\.summary,\s*"toolCount"\),\s*false/.test(runtimeMcpHelpersTest) &&
-      /Object\.hasOwn\(exposure\.exposure,\s*"previewLimit"\),\s*false/.test(runtimeMcpHelpersTest) &&
-      /canonicalSummaryHash\.catalog_hash/.test(runtimeMcpHelpersTest) &&
-      /server_id:\s*"mcp\.docs"/.test(runtimeMcpHelpersTest) &&
-      /input_schema:\s*\{\s*type:\s*"object"\s*\}/.test(runtimeMcpHelpersTest) &&
-      /retiredOptionExposure\.exposure\.mode,\s*"deferred"/.test(runtimeMcpHelpersTest) &&
-      !/\boptions\.(?:previewLimit|forceFullCatalog|liveMode|errorCode)\b/.test(
-        `${runtimeMcpCatalogExposureBlock}\n${runtimeMcpCatalogSummaryBlock}`,
-      ) &&
       !/\b(?:previewLimit|forceFullCatalog|liveMode|errorCode)\s*:/.test(
         `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
       ) &&
@@ -22739,24 +22724,17 @@ function runCompositor() {
       /stableToolId: "mcp\.workspace\.docs\.search"[\s\S]*workflowNodeId: "runtime\.mcp\.docs\.search"[\s\S]*toolName: "search"[\s\S]*serverId: "mcp\.workspace\.docs"[\s\S]*\}, "runtime\.mcp\.docs\.search"\), false/.test(
         runtimeMcpHelpersTest,
       ) &&
-      !/^\s*(?:previewLimit|fullCatalogIncluded|returnedToolCount|returnedResourceCount|returnedPromptCount|searchRoute|fetchRoute)\s*:/m.test(
-        runtimeMcpCatalogExposureBlock,
-      ) &&
       !/\btool\.(?:stableToolId|serverId|toolName|workflowNodeId|displayName|serverLabel|inputSchema)\b/.test(
-        `${runtimeMcpCatalogSummaryBlock}\n${runtimeMcpToolIdentityHelperBlock}`,
+        runtimeMcpToolIdentityHelperBlock,
       ) &&
       !/\b(?:resource\.stableResourceId|resource\.serverId|prompt\.stablePromptId|prompt\.serverId)\b/.test(
         runtimeMcpHelpers,
-      ) &&
-      !/serverId:\s*server\.id/.test(runtimeMcpCatalogSummaryReturnBlock) &&
-      !/^\s*(?:schemaVersion|serverLabel|executionMode|catalogHash|toolCount|resourceCount|promptCount|namespaceCount|previewLimit|previewToolNames|fullCatalogIncluded|errorCode|searchRoute|fetchRoute)\s*:/m.test(
-        runtimeMcpCatalogSummaryReturnBlock,
       ),
     [
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
     ],
-    "Phase 10/11 is pending: MCP catalog summary/exposure helpers must expose canonical snake_case output fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: retired JS MCP catalog summary/exposure helpers must stay removed after Rust summary projection ownership",
   );
   assertCheck(
     result,
