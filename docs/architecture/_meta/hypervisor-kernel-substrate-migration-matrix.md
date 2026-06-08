@@ -75,13 +75,13 @@ This pass compacted Slice 772 MCP manager transport/containment alias-retirement
 evidence.
 This pass compacted Slice 773 MCP manager validation `secretRefs`
 alias-retirement evidence.
-Slice 774 moved public MCP server validation decisioning into Rust daemon-core
-validation transport.
+This pass compacted Slice 774 MCP server validation Rust-core evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice only after compacting the Slice 774 MCP
-server validation Rust-core evidence. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -188,8 +188,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending for Slice 774 MCP server
-  validation Rust-core evidence.
+- Next scheduled matrix-compaction pass: none pending after Slice 774 MCP server
+  validation Rust-core compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15252,33 +15252,31 @@ conformance forbids `server.secretRefs` from the manager validation path.
   that seam lands, and do not encode the command bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice Evidence: 774
+## Compacted Implementation Slice Evidence: 774
 
-Slice 774 moved public MCP server validation decisioning into Rust daemon-core
-validation transport. `McpServerValidationCore` in
-`crates/services/src/agentic/runtime/kernel/policy.rs` now owns MCP server
-validation status, diagnostics, and warning generation for normalized canonical
-server records, including transport shape, remote URL policy, containment,
-canonical `secret_refs`, and allowed-tools warnings. The daemon-core command
-bridge exposes `validate_mcp_servers` through `IOI_RUNTIME_DAEMON_CORE_COMMAND`,
-and `runtime-context-policy-runner.mjs` exposes `validateMcpServers()` for the
-runtime daemon.
+The expanded Slice 774 ledger was compacted on 2026-06-08 after public MCP
+server validation moved into Rust daemon-core validation transport. The evidence
+is now carried in the owner map and conformance rows:
+`McpServerValidationCore` owns validation status, diagnostics, and warnings for
+normalized canonical MCP server records; the daemon-core bridge exposes
+`validate_mcp_servers`; `runtime-context-policy-runner.mjs` exposes
+`validateMcpServers()`; and `runtime-mcp-catalog-surface.mjs` routes the public
+`validateMcp()` facade through `contextPolicyRunner.validateMcpServers({
+servers })`.
 
-`runtime-mcp-catalog-surface.mjs` now routes the public `validateMcp()` facade
-through `contextPolicyRunner.validateMcpServers({ servers })` after canonical
-server-record normalization, so JS no longer owns the public validation
-pass/block decision or diagnostic synthesis. Focused Rust, bridge, runner, and
-catalog-surface tests prove the new Rust command path and canonical snake_case
-diagnostics. The lower-level `mcp-manager.mjs` validator remains only as a
-manager/status projection and focused canonical-shape helper during migration;
-do not encode that JS helper as terminal MCP validation architecture.
-
-This does not claim terminal MCP migration: direct Rust daemon-core MCP
-control/admission/projection still needs to own wallet authority, transport
-containment, StepModuleRouter dispatch, receipt binding, Agentgres
-expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
-coverage, and conformance. Schedule and run a matrix-compaction pass for Slice
-774 before unrelated route-family work resumes.
+- Terminal MCP migration is still not claimed. Direct Rust daemon-core MCP
+  control/admission/projection still needs to own wallet authority, transport
+  containment, StepModuleRouter dispatch, receipt binding, Agentgres
+  expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
+  coverage, and conformance.
+- The lower-level `mcp-manager.mjs` validator remains only as a manager/status
+  projection and focused canonical-shape helper during migration; do not encode
+  it as terminal MCP validation architecture.
+- Scheduled matrix-compaction obligation from Slice 774 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the command bridge, read-only helper
+  adapters, or fail-closed JS surfaces as terminal architecture.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

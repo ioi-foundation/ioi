@@ -612,8 +612,9 @@ instead of synthesizing public validation pass/block truth in JS. This remains
 migration transport, not the terminal direct daemon-core API: catalog
 normalization/projection and manager/status helpers still need direct Rust
 MCP control/admission/projection ownership before terminal migration is claimed.
-The Slice 774 MCP server validation Rust-core matrix-compaction pass is pending
-and must run before unrelated route-family work resumes.
+The Slice 774 MCP server validation Rust-core matrix-compaction pass is complete.
+No matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

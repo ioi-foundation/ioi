@@ -458,7 +458,7 @@ function runDocs() {
       ) &&
       /McpServerValidationCore/.test(guide) &&
       /validate_mcp_servers/.test(guide) &&
-      /The Slice 774 MCP server validation Rust-core matrix-compaction pass is pending/.test(
+      /The Slice 774 MCP server validation Rust-core matrix-compaction pass is complete/.test(
         guide,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -500,8 +500,8 @@ function runDocs() {
       /This pass compacted Slice 771 MCP manager `allowedResources`\/`allowedPrompts`\s+server config\/catalog alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 772 MCP manager transport\/containment alias-retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 773 MCP manager validation `secretRefs`\s+alias-retirement evidence/.test(matrix) &&
-      /Slice 774 moved public MCP server validation decisioning into Rust daemon-core\s+validation transport/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 774 MCP\s+server validation Rust-core evidence/.test(matrix) &&
+      /This pass compacted Slice 774 MCP server validation Rust-core evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -725,12 +725,12 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 773/.test(matrix) &&
       /MCP manager\s+validation `secretRefs` alias retirement/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 773 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 774/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 774/.test(matrix) &&
       /McpServerValidationCore/.test(matrix) &&
       /validate_mcp_servers/.test(matrix) &&
-      /contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/.test(matrix) &&
-      /Schedule and run a matrix-compaction pass for Slice\s+774 before unrelated route-family work resumes/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 774 MCP server\s+validation Rust-core evidence/.test(matrix) &&
+      /contextPolicyRunner\.validateMcpServers\(\{\s+servers \}\)/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 774 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 774 MCP server\s+validation Rust-core compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
