@@ -670,6 +670,11 @@ Matrix compaction timing:
   admission/invocation/lifecycle/inventory/receipt-binding command boundary as
   migration transport and terminal direct Rust daemon-core API ownership as the
   remaining target.
+- One-hundred-thirty-third scheduled pass completed on 2026-06-08: the
+  worker/service package daemon-core command-envelope evidence after slice 697
+  was compacted into the route-family range while preserving package invocation
+  admission as migration transport and terminal direct Rust daemon-core API
+  ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13510,63 +13515,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 697: Worker/Service Package Daemon-Core Command Envelope
-
-```yaml
-objective: move worker/service package invocation admission off the generic
-  StepModule command envelope and retired worker-service package command envs
-  onto the Rust daemon-core command envelope while preserving package execution
-  as a shared Step/Module invocation/result contract.
-owner_boundary:
-  route_or_surface: worker/service package daemon runner and Rust command parser
-  authority_gate: Rust worker/service package admission core resolves
-    StepModuleRouter admission, receipt binding, accepted receipt append,
-    Agentgres admission, and projection before daemon facades can persist or
-    project package invocation state
-  execution_backend: ioi.runtime.daemon_core.command.v1 through
-    IOI_RUNTIME_DAEMON_CORE_COMMAND as bounded migration transport
-  truth_path: package invocation admission remains Rust-bound/admitted before JS
-    result assembly and store persistence; retired StepModule command envelopes
-    fail before package admission
-  projection_path: bridge conformance requires daemon-core env/schema for the
-    worker/service package runner and a focused Rust negative proof rejects the
-    retired StepModule command envelope for package invocation admission
-touched_files:
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs
-  - packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs
-  - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  - scripts/conformance/hypervisor-conformance.mjs
-conformance_delta:
-  - bridge conformance now requires the worker/service package runner to use
-    IOI_RUNTIME_DAEMON_CORE_COMMAND and ioi.runtime.daemon_core.command.v1
-  - Rust command parser classifies admit_worker_service_package_invocation as a
-    daemon-core operation
-  - focused Rust negative proof rejects the retired
-    ioi.step_module.command_bridge.v1 envelope before package invocation
-    admission
-  - focused JS runner proof ignores retired IOI_WORKER_SERVICE_PACKAGE_COMMAND
-    and IOI_STEP_MODULE_COMMAND envs
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge worker_service_package -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core worker/service package API extraction
-      remains pending; the command binary is migration transport only until
-      package invocation admission is exposed through the direct Rust daemon-core
-      protocol surface
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13582,7 +13530,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 697 and the one-hundred-thirty-second 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 697 and the one-hundred-thirty-third 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
