@@ -960,6 +960,7 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
             resource_count: 1,
             prompt_count: 1,
             enabled_server_count: 1,
+            enabled_tool_count: 1,
             validation: {
               ok: true,
               server_count: 2,
@@ -997,6 +998,7 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
   assert.equal(result.status, "ready");
   assert.equal(result.server_count, 2);
   assert.equal(result.enabled_server_count, 1);
+  assert.equal(result.enabled_tool_count, 1);
   assert.equal(result.validation.server_count, 2);
   assert.equal(result.validation.tools[0].stable_tool_id, "mcp.docs.search");
   assert.equal(result.routes.search_tools, "/v1/mcp/tools/search");

@@ -370,6 +370,7 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
 export function normalizeContextBudgetPolicyBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
+  const enabledToolCount = numberValue(result.enabled_tool_count ?? record.enabled_tool_count);
   return {
     ...record,
     source: result.source ?? record.source ?? "rust_context_budget_policy_command",
@@ -692,6 +693,7 @@ export function normalizeMcpServerValidationBridgeResult(value = {}) {
 export function normalizeMcpManagerStatusProjectionBridgeResult(value = {}) {
   const result = objectRecord(value) ?? {};
   const record = objectRecord(result.record) ?? result;
+  const enabledToolCount = numberValue(result.enabled_tool_count ?? record.enabled_tool_count);
   return {
     ...record,
     source: result.source ?? record.source ?? "rust_mcp_manager_status_projection_command",
@@ -705,6 +707,7 @@ export function normalizeMcpManagerStatusProjectionBridgeResult(value = {}) {
     prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? 0,
     enabled_server_count:
       numberValue(result.enabled_server_count ?? record.enabled_server_count) ?? 0,
+    ...(enabledToolCount === null ? {} : { enabled_tool_count: enabledToolCount }),
     servers: arrayValue(result.servers ?? record.servers),
     tools: arrayValue(result.tools ?? record.tools),
     resources: arrayValue(result.resources ?? record.resources),

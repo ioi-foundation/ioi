@@ -4,7 +4,6 @@ import {
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   mcpRegistryForWorkspace,
   mcpToolsForServers,
-  validateMcpServerRecords,
 } from "./mcp-manager.mjs";
 import {
   mcpPromptKey,
@@ -15,6 +14,7 @@ import {
   normalizeArray,
   optionalString,
 } from "./runtime-value-helpers.mjs";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 
 export function createRuntimeMcpControlSurface({
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: invocationSchemaVersion = RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
@@ -27,7 +27,7 @@ export function createRuntimeMcpControlSurface({
   normalizeArray: normalizeArrayDep = normalizeArray,
   optionalString: optionalStringDep = optionalString,
   runtimeError: runtimeErrorDep = runtimeError,
-  validateMcpServerRecords: validateMcpServerRecordsDep = validateMcpServerRecords,
+  contextPolicyRunner = createContextPolicyRunnerFromEnv(),
 } = {}) {
   return {
     importMcp(store, input = {}) {
@@ -77,25 +77,18 @@ export function createRuntimeMcpControlSurface({
       const prompts = promptRecords.sort((left, right) =>
         mcpPromptKeyDep(left).localeCompare(mcpPromptKeyDep(right)),
       );
-      const validation = validateMcpServerRecordsDep(servers);
       const enabledServers = servers.filter((server) => server.enabled !== false);
       const enabledTools = mcpToolsForServersDep(enabledServers);
-      return {
-        schema_version: statusSchemaVersion,
-        object: "ioi.runtime_mcp_manager_status",
-        status: validation.ok ? "ready" : "blocked",
-        server_count: servers.length,
-        enabled_server_count: enabledServers.length,
-        tool_count: tools.length,
-        enabled_tool_count: enabledTools.length,
-        resource_count: resources.length,
-        prompt_count: prompts.length,
+      const validation = contextPolicyRunner.validateMcpServers({ servers });
+      return contextPolicyRunner.planMcpManagerStatusProjection({
+        status_schema_version: statusSchemaVersion,
+        validation,
         servers,
         tools,
+        enabled_tools: enabledTools,
         resources,
         prompts,
-        validation,
-      };
+      });
     },
     importThreadMcp(_store, threadId, _request = {}) {
       throwMcpControlRustCoreRequired("import_mcp", "thread.mcp_import", {

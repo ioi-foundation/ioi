@@ -983,6 +983,8 @@ pub struct McpManagerStatusProjectionRequest {
     #[serde(default)]
     pub prompts: Vec<Value>,
     #[serde(default)]
+    pub enabled_tools: Vec<Value>,
+    #[serde(default)]
     pub routes: Value,
 }
 
@@ -996,6 +998,8 @@ pub struct McpManagerStatusProjectionRecord {
     pub resource_count: usize,
     pub prompt_count: usize,
     pub enabled_server_count: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled_tool_count: Option<usize>,
     pub servers: Vec<Value>,
     pub tools: Vec<Value>,
     pub resources: Vec<Value>,
@@ -2669,6 +2673,11 @@ impl McpManagerStatusProjectionCore {
             .iter()
             .filter(|server| server.get("enabled").and_then(Value::as_bool) != Some(false))
             .count();
+        let enabled_tool_count = if request.enabled_tools.is_empty() {
+            None
+        } else {
+            Some(request.enabled_tools.len())
+        };
         let ok = request
             .validation
             .get("ok")
@@ -2700,6 +2709,7 @@ impl McpManagerStatusProjectionCore {
             resource_count,
             prompt_count,
             enabled_server_count,
+            enabled_tool_count,
             servers: request.servers.clone(),
             tools: request.tools.clone(),
             resources: request.resources.clone(),
@@ -5672,6 +5682,7 @@ mod tests {
             tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
             resources: vec![json!({ "uri": "mcp.docs://root" })],
             prompts: vec![json!({ "name": "ask" })],
+            enabled_tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
             routes: json!({
                 "search_tools": "/v1/mcp/tools/search",
             }),
@@ -5692,6 +5703,7 @@ mod tests {
         assert_eq!(record.resource_count, 1);
         assert_eq!(record.prompt_count, 1);
         assert_eq!(record.enabled_server_count, 1);
+        assert_eq!(record.enabled_tool_count, Some(1));
         assert_eq!(record.validation["server_count"], 2);
         assert_eq!(
             record.validation["tools"][0]["stable_tool_id"],

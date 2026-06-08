@@ -32,6 +32,7 @@ function failIfCalled(name) {
 }
 
 function harness() {
+  const calls = [];
   const agent = {
     id: "agent-one",
     cwd: "/workspace",
@@ -63,9 +64,44 @@ function harness() {
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
     mcpToolsForServers,
     runtimeError,
-    validateMcpServerRecords(servers) {
-      const issues = servers.some((item) => item.invalid) ? [{ code: "invalid_server" }] : [];
-      return { ok: issues.length === 0, issues, warnings: [] };
+    contextPolicyRunner: {
+      validateMcpServers(request) {
+        calls.push({ name: "validateMcpServers", request });
+        const issues = request.servers.some((item) => item.invalid) ? [{ code: "invalid_server" }] : [];
+        return {
+          source: "rust_mcp_server_validation_command",
+          ok: issues.length === 0,
+          status: issues.length === 0 ? "pass" : "blocked",
+          issues,
+          warnings: [],
+        };
+      },
+      planMcpManagerStatusProjection(request) {
+        calls.push({ name: "planMcpManagerStatusProjection", request });
+        return {
+          source: "rust_mcp_manager_status_projection_command",
+          schema_version: request.status_schema_version,
+          object: "ioi.runtime_mcp_manager_status",
+          status: request.validation.ok ? "ready" : "needs_review",
+          server_count: request.servers.length,
+          enabled_server_count: request.servers.filter((item) => item.enabled !== false).length,
+          tool_count: request.tools.length,
+          enabled_tool_count: request.enabled_tools.length,
+          resource_count: request.resources.length,
+          prompt_count: request.prompts.length,
+          servers: request.servers,
+          tools: request.tools,
+          resources: request.resources,
+          prompts: request.prompts,
+          validation: {
+            ...request.validation,
+            server_count: request.servers.length,
+            tool_count: request.tools.length,
+            resource_count: request.resources.length,
+            prompt_count: request.prompts.length,
+          },
+        };
+      },
     },
   });
   const store = {
@@ -78,7 +114,7 @@ function harness() {
     validateMcp: failIfCalled("validateMcp"),
     writeAgent: failIfCalled("writeAgent"),
   };
-  return { agent, store, surface };
+  return { agent, calls, store, surface };
 }
 
 function assertNoRetiredDetailAliases(details) {
@@ -109,7 +145,7 @@ function assertRustCoreRequired(error, operation, operationKind) {
 }
 
 test("runtime MCP control surface keeps read-only status projection canonical", () => {
-  const { agent, surface } = harness();
+  const { agent, calls, surface } = harness();
 
   const status = surface.mcpStatusForAgent(agent);
 
@@ -122,10 +158,20 @@ test("runtime MCP control surface keeps read-only status projection canonical", 
   assert.equal(status.enabled_tool_count, 2);
   assert.equal(status.resource_count, 1);
   assert.equal(status.prompt_count, 1);
+  assert.equal(status.source, "rust_mcp_manager_status_projection_command");
+  assert.equal(status.validation.source, "rust_mcp_server_validation_command");
   assert.deepEqual(status.tools.map((tool) => tool.stable_tool_id), [
     "mcp.docs.search",
     "mcp.docs.write",
   ]);
+  assert.deepEqual(
+    calls.find((call) => call.name === "validateMcpServers")?.request.servers.map((item) => item.id),
+    ["mcp.docs"],
+  );
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.enabled_tools.length,
+    2,
+  );
   assert.equal(Object.hasOwn(status.resources[0], "serverId"), false);
   assert.equal(Object.hasOwn(status, "schemaVersion"), false);
   assert.equal(Object.hasOwn(status, "serverCount"), false);

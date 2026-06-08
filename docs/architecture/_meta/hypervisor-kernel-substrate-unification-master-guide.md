@@ -641,6 +641,19 @@ coverage still need direct Rust daemon-core ownership. The Slice 776 MCP status
 projection Rust-core matrix-compaction pass is complete. No matrix-compaction
 pass is pending until the next Rust-core extraction or facade-retirement seam
 lands.
+Slice 777 routed agent-scoped MCP status validation and projection through Rust
+daemon-core migration transport. `mcpStatusForAgent()` no longer imports,
+injects, or calls the JS `validateMcpServerRecords` validator and no longer
+derives readiness/count projection itself; it sends canonical agent MCP server
+records through `validate_mcp_servers` and the status envelope through
+`plan_mcp_manager_status_projection`, with `McpManagerStatusProjectionCore`
+owning optional `enabled_tool_count` for agent-scoped status. This still does
+not claim terminal MCP migration: direct Rust daemon-core MCP registry truth,
+catalog gathering, wallet authority, transport containment, StepModuleRouter
+dispatch, receipt binding, Agentgres admission, replay, and SDK/IDE protocol
+coverage still need direct Rust daemon-core ownership. The Slice 777
+agent-scoped MCP status Rust-core matrix-compaction pass is pending and must run
+before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 

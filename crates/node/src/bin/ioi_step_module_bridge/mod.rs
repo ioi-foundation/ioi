@@ -2691,6 +2691,7 @@ fn plan_mcp_manager_status_projection(
         "resource_count": record.resource_count,
         "prompt_count": record.prompt_count,
         "enabled_server_count": record.enabled_server_count,
+        "enabled_tool_count": record.enabled_tool_count,
         "servers": record.servers.clone(),
         "tools": record.tools.clone(),
         "resources": record.resources.clone(),
@@ -9281,6 +9282,7 @@ mod tests {
                     { "id": "mcp.disabled", "enabled": false }
                 ],
                 "tools": [{ "stable_tool_id": "mcp.docs.search" }],
+                "enabled_tools": [{ "stable_tool_id": "mcp.docs.search" }],
                 "resources": [{ "uri": "mcp.docs://root" }],
                 "prompts": [{ "name": "ask" }],
                 "routes": {
@@ -9301,6 +9303,7 @@ mod tests {
         assert_eq!(response["status"], "ready");
         assert_eq!(response["server_count"], 2);
         assert_eq!(response["enabled_server_count"], 1);
+        assert_eq!(response["enabled_tool_count"], 1);
         assert_eq!(response["validation"]["server_count"], 2);
         assert_eq!(
             response["validation"]["tools"][0]["stable_tool_id"],
