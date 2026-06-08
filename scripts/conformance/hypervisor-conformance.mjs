@@ -11657,7 +11657,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-control-receipt-direct-write-guard",
-      /model_mount_provider_control_lifecycle_planning_required/.test(
+      /model_mount_provider_control_rust_core_required/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/provider_stateless_start|provider_stateless_stop/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
@@ -11679,7 +11682,7 @@ function runReceipts() {
       /retired_aliases\.includes\("providerKind"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
-      /local provider start and stop fail closed without Rust lifecycle bindings/.test(
+      /local provider start and stop fail closed until direct Rust core control exists/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /provider control receipt writes fail closed without provider kind/.test(
@@ -11692,7 +11695,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider start/stop control must fail closed unless backed by Rust model_mount lifecycle binding",
+    "Phase 9/10 is pending: provider start/stop control must fail closed until direct Rust daemon-core control exists",
   );
   assertCheck(
     result,
@@ -12348,8 +12351,8 @@ function runReceipts() {
       ) &&
       /recordDir:\s*"model-providers"/.test(providerOperations) &&
       /model_mount\.provider\.health_update/.test(providerOperations) &&
-      /model_mount\.provider\.start/.test(providerOperations) &&
-      /model_mount\.provider\.stop/.test(providerOperations) &&
+      !/model_mount\.provider\.start/.test(providerOperations) &&
+      !/model_mount\.provider\.stop/.test(providerOperations) &&
       /model_mount_provider_state_commit_unconfigured/.test(providerOperations) &&
       !/state\.writeMap\("model-providers"/.test(providerOperations) &&
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
@@ -12364,8 +12367,7 @@ function runReceipts() {
       /recordStateCommits/.test(providerOperationsTest) &&
       /model_mount\.provider\.write/.test(providerOperationsTest) &&
       /model_mount\.provider\.health_update/.test(providerOperationsTest) &&
-      /model_mount\.provider\.start/.test(providerOperationsTest) &&
-      /model_mount\.provider\.stop/.test(providerOperationsTest) &&
+      /provider start and stop fail closed until direct Rust core control exists/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
         providerOperationsTest,
       ) &&
@@ -12410,22 +12412,28 @@ function runReceipts() {
       /http_status:\s*driverResult\.httpStatus/.test(providerOperations) &&
       /auth_vault_ref_hash:\s*driverResult\.authEvidence\?\.vaultRefHash/.test(providerOperations) &&
       /provider_auth_evidence_refs:\s*driverResult\.authEvidence\?\.evidenceRefs/.test(providerOperations) &&
-      /failure_code:\s*error\?\.code/.test(providerOperations) &&
-      /provider_health_status:\s*status/.test(providerOperations) &&
-      /provider_health_receipt_id:\s*receipt\.id/.test(providerOperations) &&
-      /adapter:\s*failureDetails\.adapter/.test(providerOperations) &&
       /model_count:\s*resolved\.length/.test(providerOperations) &&
       /loaded_count:\s*resolved\.length/.test(providerOperations) &&
+      /model_mount_provider_lifecycle_backend_unmigrated/.test(providerOperations) &&
+      /model_mount_provider_inventory_backend_unmigrated/.test(providerOperations) &&
+      /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
+      !/provider_stateless_start|provider_stateless_stop/.test(providerOperations) &&
+      !/function providerHealthFailure/.test(providerOperations) &&
       !/details:\s*\{[^}]*\b(?:providerId|providerKind|httpStatus|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|failureCode|failureStatus|providerErrorHash|vaultRefConfigured|resolvedMaterial|modelId|modelCount|loadedCount|evidenceRefs|providerHealthStatus|providerHealthReceiptId)\s*:/.test(
         providerOperations,
       ) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"httpStatus"\),\s*false/.test(providerOperationsTest) &&
-      /assert\.equal\(error\.details\.adapter,\s*"remote_provider_adapter"\)/.test(providerOperationsTest) &&
-      /assert\.equal\(state\.receipts\.at\(-1\)\.payload\.details\.adapter,\s*"remote_provider_adapter"\)/.test(providerOperationsTest) &&
+      /hosted provider health fails closed before JS driver execution/.test(providerOperationsTest) &&
+      /assert\.equal\(healthCalls,\s*0\)/.test(providerOperationsTest) &&
+      /provider model and loaded lists require Rust inventory before local fallbacks/.test(providerOperationsTest) &&
+      /assert\.equal\(listModelCalls,\s*0\)/.test(providerOperationsTest) &&
+      /assert\.equal\(listLoadedCalls,\s*0\)/.test(providerOperationsTest) &&
+      /assert\.equal\(startCalls,\s*0\)/.test(providerOperationsTest) &&
+      /assert\.equal\(stopCalls,\s*0\)/.test(providerOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerHealthStatus"\),\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-2\)\.details,\s*"modelCount"\),\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"loadedCount"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-2\)\.details,\s*"providerKind"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"providerKind"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\)\s*===\s*false/.test(providerOperationsTest) &&
       /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
       !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&

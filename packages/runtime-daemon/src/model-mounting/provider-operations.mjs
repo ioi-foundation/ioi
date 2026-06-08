@@ -104,9 +104,11 @@ export async function providerHealth(state, providerId, deps = {}) {
     safeId,
   } = deps;
   const provider = state.provider(providerId);
+  assertProviderRustLifecycleBackend(provider, "provider_health");
   const checkedAt = state.nowIso();
   try {
     const driverResult = await state.driverForProvider(provider).health(provider, { state });
+    assertProviderOperationLifecycleBound(provider, driverResult, "provider_health");
     const status = driverResult.status ?? (provider.status === "configured" ? "available" : provider.status);
     const receipt = state.receipt("provider_health", {
       summary: `Provider ${providerId} health is ${status}.`,
@@ -152,101 +154,8 @@ export async function providerHealth(state, providerId, deps = {}) {
     state.writeProjection();
     return publicProvider(updated, providerHasVaultRef(updated) ? state.vault.vaultRefMetadata(updated.secretRef) : null);
   } catch (error) {
-    if (isModelMountRecordStateCommitError(error)) throw error;
-    return providerHealthFailure(state, provider, providerId, error, {
-      normalizeScopes: deps.normalizeScopes,
-      providerHasVaultRef,
-      providerHealthFailureStatus,
-      safeId,
-    });
+    throw error;
   }
-}
-
-function isModelMountRecordStateCommitError(error) {
-  return typeof error?.code === "string" && (
-    error.code.startsWith("model_mount_record_state_commit") ||
-    error.code.startsWith("model_mount_artifact_state_commit") ||
-    error.code.startsWith("model_mount_provider_state_commit") ||
-    error.code.startsWith("model_mount_provider_health_state_commit")
-  );
-}
-
-function providerHealthFailure(state, provider, providerId, error, deps) {
-  const {
-    normalizeScopes,
-    providerHasVaultRef,
-    providerHealthFailureStatus,
-    safeId,
-  } = deps;
-  const checkedAt = state.nowIso();
-  const status = providerHealthFailureStatus(error);
-  const failureDetails = error?.details && typeof error.details === "object" ? error.details : {};
-  const evidenceRefs = normalizeScopes(failureDetails.evidence_refs, [`provider_health_${error?.code ?? "runtime_error"}`]);
-  const receipt = state.receipt("provider_health", {
-    summary: `Provider ${providerId} health failed closed as ${status}.`,
-    redaction: "redacted",
-    evidenceRefs,
-    details: {
-      provider_id: providerId,
-      provider_kind: provider.kind,
-      status,
-      failure_code: error?.code ?? "runtime",
-      failure_status: error?.status ?? 500,
-      http_status: failureDetails.http_status ?? null,
-      provider_error_hash: failureDetails.provider_error_hash ?? null,
-      vault_ref_configured: failureDetails.vault_ref_configured ?? providerHasVaultRef(provider),
-      auth_vault_ref_hash: failureDetails.vault_ref_hash ?? null,
-      resolved_material: failureDetails.resolved_material ?? null,
-      adapter: failureDetails.adapter ?? null,
-    },
-  });
-  const updated = {
-    ...provider,
-    status,
-    discovery: {
-      ...provider.discovery,
-      checkedAt,
-      lastHealthCheck: {
-        status,
-        evidenceRefs,
-        httpStatus: failureDetails.http_status ?? null,
-        authVaultRefHash: failureDetails.vault_ref_hash ?? null,
-        failureCode: error?.code ?? "runtime",
-        failureStatus: error?.status ?? 500,
-        resolvedMaterial: failureDetails.resolved_material ?? null,
-        receiptId: receipt.id,
-      },
-    },
-  };
-  commitProviderRecordState(state, updated, "model_mount.provider.health_update", [receipt.id]);
-  commitProviderHealthStateRecord(state, {
-    id: `health.${safeId(providerId)}`,
-    providerId,
-    status,
-    checkedAt,
-    receiptId: receipt.id,
-    failureCode: error?.code ?? "runtime",
-    failureStatus: error?.status ?? 500,
-    evidenceRefs,
-  });
-  state.providers.set(providerId, updated);
-  state.writeProjection();
-  error.details = {
-    provider_id: providerId,
-    provider_kind: provider.kind,
-    provider_health_status: status,
-    provider_health_receipt_id: receipt.id,
-    failure_code: error?.code ?? "runtime",
-    failure_status: error?.status ?? 500,
-    http_status: failureDetails.http_status ?? null,
-    provider_error_hash: failureDetails.provider_error_hash ?? null,
-    vault_ref_configured: failureDetails.vault_ref_configured ?? providerHasVaultRef(provider),
-    auth_vault_ref_hash: failureDetails.vault_ref_hash ?? null,
-    resolved_material: failureDetails.resolved_material ?? null,
-    evidence_refs: evidenceRefs,
-    adapter: failureDetails.adapter ?? null,
-  };
-  throw error;
 }
 
 function commitProviderHealthStateRecord(state, record) {
@@ -294,7 +203,9 @@ function providerLifecycleReceiptFields(lifecycle) {
 
 export async function listProviderModels(state, providerId) {
   const provider = state.provider(providerId);
+  assertProviderRustInventoryBackend(provider, "provider_models_list");
   const models = await state.driverForProvider(provider).listModels({ state, provider });
+  assertProviderOperationInventoryBound(provider, models, "provider_models_list");
   for (const artifact of models) {
     commitModelArtifactRecordState(state, artifact, "model_mount.artifact.provider_inventory", []);
     state.artifacts.set(artifact.id, artifact);
@@ -316,7 +227,9 @@ export async function listProviderModels(state, providerId) {
 
 export async function listProviderLoaded(state, providerId) {
   const provider = state.provider(providerId);
+  assertProviderRustInventoryBackend(provider, "provider_loaded_list");
   const loaded = await state.driverForProvider(provider).listLoaded({ state, provider });
+  assertProviderOperationInventoryBound(provider, loaded, "provider_loaded_list");
   const resolved = loaded.length > 0
     ? loaded
     : state.listInstances().filter((instance) => instance.providerId === providerId && instance.status === "loaded");
@@ -345,81 +258,92 @@ function providerInventoryReceiptFields(inventory) {
 }
 
 export async function startProvider(state, providerId, deps = {}) {
-  const { publicProvider } = deps;
   const provider = state.provider(providerId);
-  const driver = state.driverForProvider(provider);
-  const result = typeof driver.start === "function"
-    ? await driver.start({ state, provider })
-    : { status: provider.status === "blocked" ? "blocked" : "available", evidenceRefs: ["provider_stateless_start"] };
-  assertProviderControlLifecycleBound(provider, result, "provider_start");
-  const updated = {
-    ...provider,
-    status: result.status ?? "available",
-    discovery: {
-      ...provider.discovery,
-      checkedAt: state.nowIso(),
-      lastStart: {
-        status: result.status ?? "available",
-        evidenceRefs: result.evidenceRefs ?? [],
-      },
-    },
-  };
-  const receipt = state.lifecycleReceipt("provider_start", {
-    provider_id: providerId,
-    provider_kind: provider.kind,
-    model_id: provider.label,
-    state: updated.status,
-    evidence_refs: result.evidenceRefs ?? [],
-    ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
-  });
-  commitProviderRecordState(state, updated, "model_mount.provider.start", [receipt.id]);
-  state.providers.set(providerId, updated);
-  return publicProvider(updated);
+  throw providerControlRustCoreRequired(provider, "provider_start");
 }
 
 export async function stopProvider(state, providerId, deps = {}) {
-  const { publicProvider } = deps;
   const provider = state.provider(providerId);
-  const driver = state.driverForProvider(provider);
-  const result = typeof driver.stop === "function"
-    ? await driver.stop({ state, provider })
-    : { status: "stopped", evidenceRefs: ["provider_stateless_stop"] };
-  assertProviderControlLifecycleBound(provider, result, "provider_stop");
-  const updated = {
-    ...provider,
-    status: result.status ?? "stopped",
-    discovery: {
-      ...provider.discovery,
-      checkedAt: state.nowIso(),
-      lastStop: {
-        status: result.status ?? "stopped",
-        evidenceRefs: result.evidenceRefs ?? [],
-      },
-    },
-  };
-  const receipt = state.lifecycleReceipt("provider_stop", {
-    provider_id: providerId,
-    provider_kind: provider.kind,
-    model_id: provider.label,
-    state: updated.status,
-    evidence_refs: result.evidenceRefs ?? [],
-    ...providerLifecycleReceiptFields(result.model_mount_provider_lifecycle),
-  });
-  commitProviderRecordState(state, updated, "model_mount.provider.stop", [receipt.id]);
-  state.providers.set(providerId, updated);
-  return publicProvider(updated);
+  throw providerControlRustCoreRequired(provider, "provider_stop");
 }
 
-function assertProviderControlLifecycleBound(provider, result, operation) {
-  if (!modelMountProviderKindRequiresRustInstanceLifecycle(provider?.kind)) return;
+function assertProviderRustLifecycleBackend(provider, operation) {
+  if (providerHasRustModelMountLifecycleBackend(provider)) return;
+  const error = new Error("Provider lifecycle operation requires Rust model_mount lifecycle backend support.");
+  error.status = 501;
+  error.code = "model_mount_provider_lifecycle_backend_unmigrated";
+  error.details = {
+    operation,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+    provider_driver: provider?.driver ?? null,
+    api_format: provider?.apiFormat ?? null,
+  };
+  throw error;
+}
+
+function assertProviderRustInventoryBackend(provider, operation) {
+  if (providerHasRustModelMountInventoryBackend(provider)) return;
+  const error = new Error("Provider inventory operation requires Rust model_mount inventory backend support.");
+  error.status = 501;
+  error.code = "model_mount_provider_inventory_backend_unmigrated";
+  error.details = {
+    operation,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+    provider_driver: provider?.driver ?? null,
+    api_format: provider?.apiFormat ?? null,
+  };
+  throw error;
+}
+
+function assertProviderOperationLifecycleBound(provider, result, operation) {
   if (result?.model_mount_provider_lifecycle) return;
-  const error = new Error("Provider start/stop for migrated local providers requires Rust model_mount lifecycle planning.");
+  const error = new Error("Provider lifecycle operation requires Rust model_mount lifecycle planning.");
   error.status = 502;
-  error.code = "model_mount_provider_control_lifecycle_planning_required";
+  error.code = "model_mount_provider_lifecycle_planning_required";
   error.details = {
     operation,
     provider_id: provider?.id ?? null,
     provider_kind: provider?.kind ?? null,
   };
   throw error;
+}
+
+function assertProviderOperationInventoryBound(provider, result, operation) {
+  if (result?.model_mount_provider_inventory) return;
+  const error = new Error("Provider inventory operation requires Rust model_mount inventory planning.");
+  error.status = 502;
+  error.code = "model_mount_provider_inventory_planning_required";
+  error.details = {
+    operation,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+  };
+  throw error;
+}
+
+function providerControlRustCoreRequired(provider, operation) {
+  const error = new Error("Provider start/stop control requires direct Rust daemon-core support.");
+  error.status = 501;
+  error.code = "model_mount_provider_control_rust_core_required";
+  error.details = {
+    operation,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+  };
+  return error;
+}
+
+function providerHasRustModelMountLifecycleBackend(provider = {}) {
+  return modelMountProviderKindRequiresRustInstanceLifecycle(provider.kind) ||
+    provider.kind === "fixture" ||
+    provider.driver === "native_local" ||
+    provider.driver === "fixture" ||
+    provider.apiFormat === "ioi_native" ||
+    provider.apiFormat === "ioi_fixture";
+}
+
+function providerHasRustModelMountInventoryBackend(provider = {}) {
+  return providerHasRustModelMountLifecycleBackend(provider);
 }

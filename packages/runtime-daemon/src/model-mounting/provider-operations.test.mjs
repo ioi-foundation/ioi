@@ -302,17 +302,19 @@ test("provider secret normalization rejects plaintext and preserves existing vau
   assert.equal(normalizeProviderSecretRef(state, "openai", { secret_ref: "" }, null, providerDeps()), null);
 });
 
-test("provider health success persists public health and vault metadata boundary", async () => {
+test("Rust-backed provider health persists public health and vault metadata boundary", async () => {
   const state = fakeState();
-  state.providers.set("provider.openai", {
-    id: "provider.openai",
-    kind: "openai",
-    label: "OpenAI",
+  state.providers.set("provider.fixture", {
+    id: "provider.fixture",
+    kind: "fixture",
+    driver: "fixture",
+    apiFormat: "ioi_fixture",
+    label: "Fixture",
     status: "configured",
-    secretRef: "vault://provider/openai",
+    secretRef: "vault://provider/fixture",
     discovery: { evidenceRefs: ["operator_provider_config"] },
   });
-  state.drivers.set("provider.openai", {
+  state.drivers.set("provider.fixture", {
     async health() {
       return {
         status: "available",
@@ -323,21 +325,30 @@ test("provider health success persists public health and vault metadata boundary
           evidenceRefs: ["VaultPort.resolveVaultRef"],
           headerNames: ["authorization"],
         },
+        model_mount_provider_lifecycle: {
+          action: "health",
+          status: "available",
+          lifecycle_hash: "sha256:fixture-health",
+          evidence_refs: ["rust_model_mount_provider_lifecycle"],
+          execution_backend: "rust_model_mount_fixture_lifecycle",
+          backend_id: "backend.fixture",
+        },
       };
     },
   });
   const currentDeps = providerDeps();
 
-  const result = await providerHealth(state, "provider.openai", currentDeps);
+  const result = await providerHealth(state, "provider.fixture", currentDeps);
 
   assert.equal(result.status, "available");
   assert.equal(result.vaultBoundary.runtimeBound, true);
-  assert.equal(state.providers.get("provider.openai").discovery.lastHealthCheck.httpStatus, 200);
+  assert.equal(state.providers.get("provider.fixture").discovery.lastHealthCheck.httpStatus, 200);
   assert.equal(state.receipts.at(-1).kind, "provider_health");
-  assert.equal(state.receipts.at(-1).payload.details.provider_id, "provider.openai");
-  assert.equal(state.receipts.at(-1).payload.details.provider_kind, "openai");
+  assert.equal(state.receipts.at(-1).payload.details.provider_id, "provider.fixture");
+  assert.equal(state.receipts.at(-1).payload.details.provider_kind, "fixture");
   assert.equal(state.receipts.at(-1).payload.details.http_status, 200);
   assert.equal(state.receipts.at(-1).payload.details.auth_vault_ref_hash, "vault-hash:provider");
+  assert.equal(state.receipts.at(-1).payload.details.model_mount_provider_lifecycle_hash, "sha256:fixture-health");
   assert.deepEqual(state.receipts.at(-1).payload.details.provider_auth_evidence_refs, ["VaultPort.resolveVaultRef"]);
   assert.deepEqual(state.receipts.at(-1).payload.details.provider_auth_header_names, ["authorization"]);
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
@@ -348,20 +359,21 @@ test("provider health success persists public health and vault metadata boundary
   assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerAuthHeaderNames"), false);
   assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
   assert.equal(state.recordStateCommits[0].record_dir, "model-providers");
-  assert.equal(state.recordStateCommits[0].record_id, "provider.openai");
+  assert.equal(state.recordStateCommits[0].record_id, "provider.fixture");
   assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.provider.health_update");
   assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.provider_health.1"]);
   assert.equal(state.recordStateCommits[0].record.status, "available");
   assert.equal(state.recordStateCommits[1].record_dir, "provider-health");
-  assert.equal(state.recordStateCommits[1].record_id, "health.provider_openai");
+  assert.equal(state.recordStateCommits[1].record_id, "health.provider_fixture");
   assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.provider_health.write");
   assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.provider_health.1"]);
   assert.equal(state.recordStateCommits[1].record.status, "available");
   assert.equal(state.projections, 1);
 });
 
-test("provider health failure updates provider status and augments thrown details", async () => {
+test("hosted provider health fails closed before JS driver execution", async () => {
   const state = fakeState();
+  let healthCalls = 0;
   state.providers.set("provider.remote", {
     id: "provider.remote",
     kind: "custom_http",
@@ -371,6 +383,7 @@ test("provider health failure updates provider status and augments thrown detail
   });
   state.drivers.set("provider.remote", {
     async health() {
+      healthCalls += 1;
       const error = new Error("auth failed");
       error.status = 403;
       error.code = "policy";
@@ -388,15 +401,13 @@ test("provider health failure updates provider status and augments thrown detail
   await assert.rejects(
     () => providerHealth(state, "provider.remote", currentDeps),
     (error) => {
-      assert.equal(error.details.provider_health_status, "blocked");
-      assert.equal(error.details.provider_health_receipt_id, "receipt.provider_health.1");
+      assert.equal(error.code, "model_mount_provider_lifecycle_backend_unmigrated");
+      assert.equal(error.status, 501);
+      assert.equal(error.details.operation, "provider_health");
       assert.equal(error.details.provider_id, "provider.remote");
       assert.equal(error.details.provider_kind, "custom_http");
-      assert.equal(error.details.failure_code, "policy");
-      assert.equal(error.details.failure_status, 403);
-      assert.equal(error.details.http_status, 401);
-      assert.equal(error.details.provider_error_hash, "hash:error");
-      assert.equal(error.details.adapter, "remote_provider_adapter");
+      assert.equal(error.details.provider_driver, null);
+      assert.equal(error.details.api_format, null);
       assert.equal(Object.hasOwn(error.details, "providerHealthStatus"), false);
       assert.equal(Object.hasOwn(error.details, "providerHealthReceiptId"), false);
       assert.equal(Object.hasOwn(error.details, "providerId"), false);
@@ -408,56 +419,50 @@ test("provider health failure updates provider status and augments thrown detail
       return true;
     },
   );
-  assert.equal(state.receipts.at(-1).payload.details.provider_id, "provider.remote");
-  assert.equal(state.receipts.at(-1).payload.details.provider_kind, "custom_http");
-  assert.equal(state.receipts.at(-1).payload.details.failure_code, "policy");
-  assert.equal(state.receipts.at(-1).payload.details.failure_status, 403);
-  assert.equal(state.receipts.at(-1).payload.details.http_status, 401);
-  assert.equal(state.receipts.at(-1).payload.details.provider_error_hash, "hash:error");
-  assert.equal(state.receipts.at(-1).payload.details.adapter, "remote_provider_adapter");
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerKind"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "failureCode"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "failureStatus"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "httpStatus"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "providerErrorHash"), false);
-  assert.equal(state.providers.get("provider.remote").status, "blocked");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-providers");
-  assert.equal(state.recordStateCommits[0].record.status, "blocked");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.provider_health.1"]);
-  assert.equal(state.recordStateCommits[1].record_dir, "provider-health");
-  assert.equal(state.recordStateCommits[1].record.failureCode, "policy");
-  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.provider_health.1"]);
-  assert.equal(state.projections, 1);
+  assert.equal(healthCalls, 0);
+  assert.equal(state.providers.get("provider.remote").status, "configured");
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.projections, 0);
 });
 
 test("provider health persistence fails closed without Rust Agentgres record-state commit", async () => {
   const state = fakeState();
   delete state.commitRuntimeModelMountRecordState;
-  state.providers.set("provider.openai", {
-    id: "provider.openai",
-    kind: "openai",
-    label: "OpenAI",
+  state.providers.set("provider.fixture", {
+    id: "provider.fixture",
+    kind: "fixture",
+    driver: "fixture",
+    apiFormat: "ioi_fixture",
+    label: "Fixture",
     status: "configured",
     discovery: { evidenceRefs: ["operator_provider_config"] },
   });
-  state.drivers.set("provider.openai", {
+  state.drivers.set("provider.fixture", {
     async health() {
       return {
         status: "available",
         evidenceRefs: ["provider_http_health"],
+        model_mount_provider_lifecycle: {
+          action: "health",
+          status: "available",
+          lifecycle_hash: "sha256:fixture-health",
+          evidence_refs: ["rust_model_mount_provider_lifecycle"],
+          execution_backend: "rust_model_mount_fixture_lifecycle",
+          backend_id: "backend.fixture",
+        },
       };
     },
   });
 
   await assert.rejects(
-    () => providerHealth(state, "provider.openai", providerDeps()),
+    () => providerHealth(state, "provider.fixture", providerDeps()),
     (error) =>
       error.code === "model_mount_provider_state_commit_unconfigured" &&
-      error.details.provider_id === "provider.openai" &&
-      error.details.provider_kind === "openai",
+      error.details.provider_id === "provider.fixture" &&
+      error.details.provider_kind === "fixture",
   );
-  assert.equal(state.providers.get("provider.openai").status, "configured");
+  assert.equal(state.providers.get("provider.fixture").status, "configured");
 });
 
 test("local provider health receipts carry Rust lifecycle bindings", async () => {
@@ -498,43 +503,52 @@ test("local provider health receipts carry Rust lifecycle bindings", async () =>
   assert.equal(Object.hasOwn(details, "providerKind"), false);
 });
 
-test("provider model and loaded lists use driver results or local fallbacks", async () => {
+test("provider model and loaded lists require Rust inventory before local fallbacks", async () => {
   const state = fakeState();
+  let listModelCalls = 0;
+  let listLoadedCalls = 0;
   state.providers.set("provider.test", {
     id: "provider.test",
-    kind: "fixture",
-    label: "Fixture",
+    kind: "custom_http",
+    label: "Remote",
     status: "available",
-    discovery: { evidenceRefs: ["fixture_provider"] },
+    discovery: { evidenceRefs: ["remote_provider"] },
   });
   state.artifacts.set("artifact.local", { id: "artifact.local", providerId: "provider.test" });
   state.instances.set("instance.local", { id: "instance.local", providerId: "provider.test", status: "loaded" });
   state.drivers.set("provider.test", {
     async listModels() {
+      listModelCalls += 1;
       return [];
     },
     async listLoaded() {
+      listLoadedCalls += 1;
       return [];
     },
   });
 
-  const models = await listProviderModels(state, "provider.test");
-  const loaded = await listProviderLoaded(state, "provider.test");
+  await assert.rejects(
+    () => listProviderModels(state, "provider.test"),
+    (error) =>
+      error.code === "model_mount_provider_inventory_backend_unmigrated" &&
+      error.status === 501 &&
+      error.details.operation === "provider_models_list" &&
+      error.details.provider_id === "provider.test" &&
+      error.details.provider_kind === "custom_http",
+  );
+  await assert.rejects(
+    () => listProviderLoaded(state, "provider.test"),
+    (error) =>
+      error.code === "model_mount_provider_inventory_backend_unmigrated" &&
+      error.status === 501 &&
+      error.details.operation === "provider_loaded_list" &&
+      error.details.provider_id === "provider.test" &&
+      error.details.provider_kind === "custom_http",
+  );
 
-  assert.deepEqual(models.map((record) => record.id), ["artifact.local"]);
-  assert.deepEqual(loaded.map((record) => record.id), ["instance.local"]);
-  assert.equal(state.receipts.at(-2).details.provider_kind, "fixture");
-  assert.equal(state.receipts.at(-2).details.model_id, "Fixture");
-  assert.equal(state.receipts.at(-2).details.model_count, 1);
-  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "providerKind"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-2).details, "modelCount"), false);
-  assert.equal(state.receipts.at(-1).details.provider_kind, "fixture");
-  assert.equal(state.receipts.at(-1).details.model_id, "Fixture");
-  assert.equal(state.receipts.at(-1).details.loaded_count, 1);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerKind"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "loadedCount"), false);
+  assert.equal(listModelCalls, 0);
+  assert.equal(listLoadedCalls, 0);
+  assert.deepEqual(state.receipts, []);
 });
 
 test("local provider model and loaded list receipts carry Rust inventory bindings", async () => {
@@ -603,7 +617,16 @@ test("provider model inventory artifacts fail closed without Rust Agentgres reco
   });
   state.drivers.set("provider.local", {
     async listModels() {
-      return [{ id: "artifact.native", providerId: "provider.local", modelId: "native" }];
+      return Object.assign([{ id: "artifact.native", providerId: "provider.local", modelId: "native" }], {
+        model_mount_provider_inventory: {
+          action: "list_models",
+          status: "listed",
+          inventory_hash: "sha256:list-models",
+          evidence_refs: ["rust_model_mount_provider_inventory"],
+          execution_backend: "rust_model_mount_native_local_inventory",
+          item_count: 1,
+        },
+      });
     },
   });
 
@@ -623,8 +646,10 @@ test("provider model inventory artifacts fail closed without Rust Agentgres reco
   assert.deepEqual(state.receipts, []);
 });
 
-test("provider start and stop preserve stateless defaults and receipts", async () => {
+test("provider start and stop fail closed until direct Rust core control exists", async () => {
   const state = fakeState();
+  let startCalls = 0;
+  let stopCalls = 0;
   state.providers.set("provider.custom", {
     id: "provider.custom",
     kind: "custom_http",
@@ -632,35 +657,48 @@ test("provider start and stop preserve stateless defaults and receipts", async (
     status: "configured",
     discovery: { evidenceRefs: ["operator_provider_config"] },
   });
-  state.drivers.set("provider.custom", {});
+  state.drivers.set("provider.custom", {
+    async start() {
+      startCalls += 1;
+      return { status: "available" };
+    },
+    async stop() {
+      stopCalls += 1;
+      return { status: "stopped" };
+    },
+  });
 
-  const started = await startProvider(state, "provider.custom", providerDeps());
-  const stopped = await stopProvider(state, "provider.custom", providerDeps());
-
-  assert.equal(started.status, "available");
-  assert.equal(stopped.status, "stopped");
-  assert.equal(state.providers.get("provider.custom").discovery.lastStop.status, "stopped");
-  assert.deepEqual(state.receipts.map((receipt) => receipt.kind), ["provider_start", "provider_stop"]);
-  assert.deepEqual(state.receipts.map((receipt) => receipt.details.provider_id), ["provider.custom", "provider.custom"]);
-  assert.deepEqual(state.receipts.map((receipt) => receipt.details.provider_kind), ["custom_http", "custom_http"]);
-  assert.deepEqual(state.receipts.map((receipt) => receipt.details.model_id), ["Custom", "Custom"]);
-  assert.deepEqual(state.receipts.map((receipt) => receipt.details.evidence_refs), [["provider_stateless_start"], ["provider_stateless_stop"]]);
-  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "providerId")), [false, false]);
-  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "providerKind")), [false, false]);
-  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "modelId")), [false, false]);
-  assert.deepEqual(state.receipts.map((receipt) => Object.hasOwn(receipt.details, "evidenceRefs")), [false, false]);
-  assert.equal(state.recordStateCommits[0].record_dir, "model-providers");
-  assert.equal(state.recordStateCommits[0].record_id, "provider.custom");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.provider.start");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["lifecycle.provider_start.1"]);
-  assert.equal(state.recordStateCommits[1].record_dir, "model-providers");
-  assert.equal(state.recordStateCommits[1].record_id, "provider.custom");
-  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.provider.stop");
-  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["lifecycle.provider_stop.2"]);
+  await assert.rejects(
+    () => startProvider(state, "provider.custom", providerDeps()),
+    (error) =>
+      error.code === "model_mount_provider_control_rust_core_required" &&
+      error.status === 501 &&
+      error.details.operation === "provider_start" &&
+      error.details.provider_id === "provider.custom" &&
+      error.details.provider_kind === "custom_http" &&
+      Object.hasOwn(error.details, "providerId") === false &&
+      Object.hasOwn(error.details, "providerKind") === false,
+  );
+  await assert.rejects(
+    () => stopProvider(state, "provider.custom", providerDeps()),
+    (error) =>
+      error.code === "model_mount_provider_control_rust_core_required" &&
+      error.status === 501 &&
+      error.details.operation === "provider_stop" &&
+      error.details.provider_id === "provider.custom" &&
+      error.details.provider_kind === "custom_http" &&
+      Object.hasOwn(error.details, "providerId") === false &&
+      Object.hasOwn(error.details, "providerKind") === false,
+  );
+  assert.equal(startCalls, 0);
+  assert.equal(stopCalls, 0);
+  assert.equal(state.providers.get("provider.custom").status, "configured");
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 
-test("local provider start and stop fail closed without Rust lifecycle bindings", async () => {
+test("local provider start and stop fail closed until direct Rust core control exists", async () => {
   const state = fakeState();
   state.providers.set("provider.local", {
     id: "provider.local",
@@ -673,7 +711,7 @@ test("local provider start and stop fail closed without Rust lifecycle bindings"
 
   await assert.rejects(
     () => startProvider(state, "provider.local", providerDeps()),
-    (error) => error.code === "model_mount_provider_control_lifecycle_planning_required" &&
+    (error) => error.code === "model_mount_provider_control_rust_core_required" &&
       error.details.operation === "provider_start" &&
       error.details.provider_id === "provider.local" &&
       error.details.provider_kind === "ioi_native_local" &&
@@ -682,7 +720,7 @@ test("local provider start and stop fail closed without Rust lifecycle bindings"
   );
   await assert.rejects(
     () => stopProvider(state, "provider.local", providerDeps()),
-    (error) => error.code === "model_mount_provider_control_lifecycle_planning_required" &&
+    (error) => error.code === "model_mount_provider_control_rust_core_required" &&
       error.details.operation === "provider_stop" &&
       error.details.provider_id === "provider.local" &&
       error.details.provider_kind === "ioi_native_local" &&
