@@ -212,8 +212,8 @@ test("runtime bridge usage events are inserted after turn start and keep public 
       mode: "send",
       prompt: "hello",
       result: "done",
-      createdAt: "2026-06-03T00:00:00.000Z",
-      updatedAt: "2026-06-03T00:00:01.000Z",
+      created_at: "2026-06-03T00:00:00.000Z",
+      updated_at: "2026-06-03T00:00:01.000Z",
       usage: {
         total_tokens: 1000,
         input_tokens: 200,
@@ -238,7 +238,43 @@ test("runtime bridge usage events are inserted after turn start and keep public 
     "turn.completed",
   ]);
   assert.equal(events[1].payload_schema_version, "ioi.runtime.usage-delta.v1");
+  assert.equal(events[1].created_at, "2026-06-03T00:00:01.000Z");
   assert.equal(events[3].payload.stage, "completion_streamed");
   assert.equal(events[5].status, "blocked");
   assert.equal(events[5].receipt_refs[0], "receipt_context_pressure_turn_run-one_completion_streamed");
+});
+
+test("runtime bridge usage events ignore retired projection timestamp aliases", () => {
+  const runtime = helpers();
+  const events = runtime.insertRuntimeBridgeUsageDeltaEvents({
+    threadId: "thread-one",
+    agent: { id: "agent-one", cwd: "/workspace" },
+    projection: {
+      runId: "run-one",
+      turnId: "turn-one",
+      mode: "send",
+      prompt: "hello",
+      result: "done",
+      created_at: "2026-06-03T00:00:00.000Z",
+      updated_at: "2026-06-03T00:00:01.000Z",
+      createdAt: "1999-01-01T00:00:00.000Z",
+      updatedAt: "1999-01-01T00:00:01.000Z",
+      usage: {
+        total_tokens: 1000,
+        input_tokens: 200,
+        output_tokens: 800,
+        context_window_tokens: 1000,
+        context_used_tokens: 900,
+      },
+      events: [{ event_kind: "turn.started", item_id: "turn-started" }],
+    },
+  });
+
+  const usageEvents = events.filter((event) => event.event_kind !== "turn.started");
+  assert.equal(usageEvents.length, 5);
+  for (const event of usageEvents) {
+    assert.equal(event.created_at, "2026-06-03T00:00:01.000Z");
+    assert.notEqual(event.created_at, "1999-01-01T00:00:01.000Z");
+    assert.equal(Object.hasOwn(event, "createdAt"), false);
+  }
 });

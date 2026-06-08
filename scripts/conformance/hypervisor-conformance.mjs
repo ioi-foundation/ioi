@@ -16698,16 +16698,27 @@ function runCompositor() {
       !/usageTelemetry\.(?:inputTokens|outputTokens|totalTokens|estimatedCostUsd|contextWindowTokens|contextUsedTokens|contextPressure|contextPressureStatus|routeId)/.test(
         runtimeUsageEvents,
       ) &&
+      !/created_at:\s*projection\.(?:updatedAt|createdAt)/.test(runtimeUsageEvents) &&
+      /created_at:\s*projection\.updated_at \?\? projection\.created_at/.test(
+        runtimeUsageEvents,
+      ) &&
       /retiredUsagePayloadAliasKeys/.test(runtimeUsageEventsTest) &&
       /retiredUsageTelemetryInputAliasKeys/.test(runtimeUsageEventsTest) &&
       /retiredContextPressurePayloadAliasKeys/.test(runtimeUsageEventsTest) &&
       /retiredContextPressureAlertAliasKeys/.test(runtimeUsageEventsTest) &&
-      /retiredContextPressureAlertActionAliasKeys/.test(runtimeUsageEventsTest),
+      /retiredContextPressureAlertActionAliasKeys/.test(runtimeUsageEventsTest) &&
+      /runtime bridge usage events ignore retired projection timestamp aliases/.test(
+        runtimeUsageEventsTest,
+      ) &&
+      /updatedAt:\s*"1999-01-01T00:00:01\.000Z"/.test(runtimeUsageEventsTest) &&
+      /event\.created_at,\s*"2026-06-03T00:00:01\.000Z"/.test(
+        runtimeUsageEventsTest,
+      ),
     [
       "packages/runtime-daemon/src/runtime-usage-events.mjs",
       "packages/runtime-daemon/src/runtime-usage-events.test.mjs",
     ],
-    "Phase 10/11 is pending: daemon runtime usage event producers must emit canonical snake_case payload fields without compatibility aliases",
+    "Phase 10/11 is pending: daemon runtime usage event producers must emit canonical snake_case payload and timestamp fields without compatibility aliases",
   );
   assertCheck(
     result,

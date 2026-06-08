@@ -13400,6 +13400,51 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 679
+
+```yaml
+slice: 679
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime usage event projection timestamp aliases
+owner_boundary:
+  route_or_surface: runtime usage/context-pressure event insertion
+  authority_gate: unchanged; inserted events remain projections over runtime
+    usage telemetry and cannot mint accepted truth directly
+  execution_backend: JS projection helper during migration; canonical runtime
+    projection fields only
+  truth_path: usage/context-pressure events derive `created_at` only from
+    canonical `projection.updated_at` or `projection.created_at`, without
+    retired `updatedAt`/`createdAt` fallbacks
+  projection_path: runtime replay/compositor receives canonical event
+    timestamps only
+touched_files:
+  daemon:
+    - packages/runtime-daemon/src/runtime-usage-events.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-usage-events.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - runtime usage event producers reject retired projection timestamp aliases
+  - compositor conformance guards canonical `created_at` sourcing for inserted
+    usage/context-pressure events
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-usage-events.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test --test-name-pattern "runtime bridge usage events" packages/runtime-daemon/src/runtime-usage-events.test.mjs
+    - npm run hypervisor-conformance:compositor
+  replay_or_shadow_comparison: not_applicable
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader runtime projection JS facade retirement and terminal Rust
+      projection-core ownership remain pending
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
