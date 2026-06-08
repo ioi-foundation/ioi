@@ -166,6 +166,11 @@ Matrix compaction timing:
   the route-family range while preserving MCP manager JS facade retirement as
   migration transport and terminal Rust daemon-core ownership as the remaining
   target.
+- One-hundred-second scheduled pass completed on 2026-06-07: the Studio
+  intent-frame execution-mode alias-retirement evidence after slice 666 was
+  compacted into the route-family range while preserving Studio intent-frame JS
+  facade retirement as migration transport and terminal Rust daemon-core
+  ownership as the remaining target.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,
@@ -13363,65 +13368,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 666
-
-```yaml
-slice: 666
-phase: 10-authoritative-js-facade-retirement
-objective: retire the Studio intent-frame `executionMode` compatibility alias
-  before ask-vs-agent route intent metadata is selected
-owner_boundary:
-  route_or_surface: Studio intent-frame route selection
-  authority_gate: unchanged; this slice changes pre-execution route intent
-    metadata only and does not grant authority or mutate accepted truth
-  execution_backend: unchanged; Studio intent routing remains daemon facade
-    projection pending terminal Rust daemon-core ownership
-  truth_path: canonical `execution_mode` can select ask mode; retired
-    `executionMode` no longer steers ask-vs-agent routing and falls back to
-    the agent route when supplied alone
-  projection_path: compositor conformance now scans Studio intent-frame source
-    for canonical `execution_mode` input/helper context usage and rejects
-    retired `executionMode` readers
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/studio-intent-frame.mjs
-  tests:
-    - packages/runtime-daemon/src/studio-intent-frame.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - compositor conformance requires Studio intent routing to read canonical
-    `input.execution_mode`
-  - compositor conformance requires helper contexts to use canonical
-    `context.execution_mode`
-  - compositor conformance rejects direct `input.executionMode` and
-    `context.executionMode` readers in the implementation
-  - focused Studio intent tests prove canonical `execution_mode` wins and
-    retired-only `executionMode` falls closed to agent routing
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/studio-intent-frame.test.mjs
-    - node --check packages/runtime-daemon/src/studio-intent-frame.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:compositor
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core API extraction remains pending beyond this
-      Studio intent-frame facade cleanup
-    - Studio intent-frame output still exposes legacy product-facing camelCase
-      projection aliases until the broader IDE/API event projection contract is
-      migrated
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13437,7 +13383,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 666 and the one-hundred-first 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 666 and the one-hundred-second 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
