@@ -1,51 +1,25 @@
-export function cancelRun(state, runId, deps) {
-  const {
-    contextPolicyRunner,
-    now = () => new Date().toISOString(),
-  } = deps;
+export function cancelRun(state, runId) {
   const run = state.getRun(runId);
-  if (typeof contextPolicyRunner?.planRunCancelStateUpdate !== "function") {
-    throw new Error("Run cancellation requires Rust policy state-update planning.");
-  }
-  const stateUpdate = contextPolicyRunner.planRunCancelStateUpdate({
-    run_id: run.id,
-    run,
-    canceled_at: now(),
+  throwRunCancelRustCoreRequired({
+    operation: "run_cancel",
+    operation_kind: "run.cancel",
+    run_id: run?.id ?? runId,
+    run_status: run?.status ?? null,
   });
-  const updated = plannedRunCancelRecord(stateUpdate, run.id);
-  const operationKind = plannedRunCancelOperationKind(stateUpdate, run.id);
-  state.runs.set(runId, updated);
-  state.writeRun(updated, operationKind);
-  return updated;
 }
 
-function plannedRunCancelRecord(stateUpdate, runId) {
-  const updatedRun = stateUpdate.run;
-  if (!updatedRun?.id) {
-    const error = new Error("Rust run cancellation state planning did not return a run record.");
-    error.code = "run_cancel_state_update_planner_invalid";
-    error.details = { run_id: runId };
-    throw error;
-  }
-  return updatedRun;
-}
-
-function plannedRunCancelOperationKind(stateUpdate, runId) {
-  const operationKind =
-    typeof stateUpdate?.operation_kind === "string" && stateUpdate.operation_kind.trim()
-      ? stateUpdate.operation_kind
-      : null;
-  if (!operationKind) {
-    const error = new Error("Rust run cancellation state planning did not return an operation kind.");
-    error.code = "run_cancel_state_update_operation_kind_missing";
-    error.details = { run_id: runId, operation_kind: "run.cancel" };
-    throw error;
-  }
-  if (operationKind !== "run.cancel") {
-    const error = new Error("Rust run cancellation state planning returned an unexpected operation kind.");
-    error.code = "run_cancel_state_update_operation_kind_mismatch";
-    error.details = { run_id: runId, expected_operation_kind: "run.cancel", operation_kind: operationKind };
-    throw error;
-  }
-  return operationKind;
+function throwRunCancelRustCoreRequired(details = {}) {
+  const error = new Error("Run cancellation requires direct Rust daemon-core state admission and persistence.");
+  error.status = 501;
+  error.code = "runtime_run_cancel_rust_core_required";
+  error.details = {
+    rust_core_boundary: "runtime.run_cancel",
+    ...details,
+    evidence_refs: [
+      "runtime_run_cancel_js_facade_retired",
+      "rust_daemon_core_run_cancel_required",
+      "agentgres_run_cancel_state_truth_required",
+    ],
+  };
+  throw error;
 }

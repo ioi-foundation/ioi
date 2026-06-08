@@ -5129,28 +5129,30 @@ function runBridge() {
       /run cancel state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
-      /plannedRunCancelRecord/.test(runtimeRunCancellation) &&
-      /plannedRunCancelOperationKind/.test(runtimeRunCancellation) &&
-      /details\s*=\s*\{\s*run_id:\s*runId\s*\}/.test(runtimeRunCancellation) &&
-      /details\s*=\s*\{\s*run_id:\s*runId,\s*operation_kind:\s*"run\.cancel"\s*\}/.test(runtimeRunCancellation) &&
-      /details\s*=\s*\{\s*run_id:\s*runId,\s*expected_operation_kind:\s*"run\.cancel",\s*operation_kind:\s*operationKind\s*\}/.test(runtimeRunCancellation) &&
+      /runtime_run_cancel_rust_core_required/.test(runtimeRunCancellation) &&
+      /rust_core_boundary:\s*"runtime\.run_cancel"/.test(runtimeRunCancellation) &&
+      /runtime_run_cancel_js_facade_retired/.test(runtimeRunCancellation) &&
+      /rust_daemon_core_run_cancel_required/.test(runtimeRunCancellation) &&
+      /agentgres_run_cancel_state_truth_required/.test(runtimeRunCancellation) &&
+      /operation_kind:\s*"run\.cancel"/.test(runtimeRunCancellation) &&
+      !/contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
+      !/plannedRunCancelRecord/.test(runtimeRunCancellation) &&
+      !/plannedRunCancelOperationKind/.test(runtimeRunCancellation) &&
+      !/state\.runs\.set/.test(runtimeRunCancellation) &&
+      !/state\.writeRun/.test(runtimeRunCancellation) &&
       !/details\s*=\s*\{[^}\n]*\brunId\s*:/.test(runtimeRunCancellation) &&
       !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord|makeEvent|artifact\(/.test(
         runtimeRunCancellation,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeRunCancellation) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.cancel"/.test(runtimeRunCancellation) &&
-      /plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
-      /cancelRun fails closed without Rust-planned run record/.test(runtimeRunCancellationTest) &&
-      /cancelRun fails closed without Rust-planned operation kind/.test(
-        runtimeRunCancellationTest,
-      ) &&
-      /cancelRun fails closed with canonical details for mismatched Rust-planned operation kind/.test(
-        runtimeRunCancellationTest,
-      ) &&
+      /cancelRun facade fails closed before Rust planning or JS persistence/.test(runtimeRunCancellationTest) &&
+      /cancelRun missing-run failure remains canonical and does not write/.test(runtimeRunCancellationTest) &&
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(runtimeRunCancellationTest) &&
+      !/plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
-      /contextPolicyRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex),
+      /return cancelRunState\(this,\s*runId\);/.test(runtimeDaemonIndex) &&
+      !/cancelRunState\(this,\s*runId,\s*\{/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -5160,7 +5162,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: run cancellation state updates must be planned by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: public run cancellation must fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
   );
   assertCheck(
     result,

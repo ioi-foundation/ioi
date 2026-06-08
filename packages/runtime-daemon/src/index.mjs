@@ -2114,9 +2114,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   cancelRun(runId) {
-    return cancelRunState(this, runId, {
-      contextPolicyRunner: this.contextPolicyRunner,
-    });
+    return cancelRunState(this, runId);
   }
 
   replayFromCanonicalState(runId, cursor) {

@@ -14618,6 +14618,73 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 721
+
+```yaml
+slice: 721
+phase: 10-authoritative-js-facade-retirement
+objective: retire public run-cancel JS state persistence facade until direct
+  Rust daemon-core run-cancel admission/persistence owns cancellation
+owner_boundary:
+  route_or_surface: runtime run cancellation
+  authority_gate: run cancellation now fails closed at `runtime.run_cancel`
+    before Rust policy planner invocation from the JS facade, JS run-map
+    mutation, `writeRun` persistence, runtime task/job/checklist projection
+    rewriting, or event/receipt/artifact materialization
+  execution_backend: none in JS for public run cancellation; the existing Rust
+    run-cancel state-update planner remains migration plumbing only and must
+    not be used by the JS facade to persist accepted cancellation truth
+  truth_path: no JS run record mutation or `writeRun("run.cancel")` from the
+    public cancel facade; Rust daemon-core must own Agentgres admission,
+    expected heads/state-root binding, receipt/projection materialization, and
+    persistence before cancellation can execute again
+  projection_path: direct Rust daemon-core run-cancel projection APIs must
+    materialize canceled run/task/job/checklist truth before public
+    cancellation surfaces can return accepted data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-run-cancellation.mjs
+    - packages/runtime-daemon/src/index.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-run-cancellation.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps the Rust run-cancel planner bridge available
+    as migration plumbing but requires the public JS cancellation facade to fail
+    closed before planner calls, map mutation, `writeRun`, and projection
+    materialization
+  - focused daemon tests prove canonical snake_case fail-closed details and no
+    JS writes for existing and missing run ids
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-run-cancellation.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-run-cancellation.mjs
+    - node --check packages/runtime-daemon/src/runtime-run-cancellation.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - task/job/subagent/route handlers may still enter cancellation through JS
+      protocol adapters, but public cancellation now fails closed until direct
+      Rust daemon-core admission/persistence APIs are verified
+    - Rust run-cancel planner bridge remains migration plumbing for the future
+      direct Rust API; it must not be mistaken for terminal JS-owned
+      cancellation persistence after context compaction
+    - schedule a matrix-compaction pass once the next runtime control or event
+      append Rust-core extraction/facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14633,7 +14700,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 720 and the runtime-survey JS receipt/probe facade retirement pass:
+Current expected behavior after Slice 721 and the run-cancel JS persistence
+facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
