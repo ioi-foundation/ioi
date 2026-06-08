@@ -355,8 +355,8 @@ export class Turn {
   }
 
   async *events(options: RuntimeEventStreamOptions = {}): AsyncIterable<RuntimeThreadEvent> {
-    const sinceSeq = options.sinceSeq ?? Math.max(0, (this.record.seq_start ?? 1) - 1);
-    for await (const event of this.client.streamThreadEvents(this.threadId, { ...options, sinceSeq })) {
+    const since_seq = options.since_seq ?? Math.max(0, (this.record.seq_start ?? 1) - 1);
+    for await (const event of this.client.streamThreadEvents(this.threadId, { ...options, since_seq })) {
       options.signal?.throwIfAborted();
       if (event.turnId === this.id) {
         yield event;
@@ -366,7 +366,7 @@ export class Turn {
 
   stream(options: StreamOptions = {}): AsyncIterable<RuntimeThreadEvent> {
     return this.events({
-      lastEventId: options.lastEventId,
+      last_event_id: options.last_event_id,
       signal: options.signal,
     });
   }

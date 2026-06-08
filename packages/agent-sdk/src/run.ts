@@ -27,11 +27,11 @@ export class Run {
 
   async *stream(options: StreamOptions = {}): AsyncIterable<IOISDKMessage> {
     const mode = options.mode ?? "replay-and-tail";
-    if (mode === "tail" && !options.lastEventId) {
+    if (mode === "tail" && !options.last_event_id) {
       return;
     }
     for await (const event of this.client.streamRun(this.id, {
-      lastEventId: options.lastEventId,
+      last_event_id: options.last_event_id,
     })) {
       options.signal?.throwIfAborted();
       yield event;

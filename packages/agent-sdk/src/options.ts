@@ -130,7 +130,7 @@ export interface SendOptions {
 
 export interface StreamOptions {
   mode?: StreamMode;
-  lastEventId?: string;
+  last_event_id?: string;
   signal?: AbortSignal;
 }
 

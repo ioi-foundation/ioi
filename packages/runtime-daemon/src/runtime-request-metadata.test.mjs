@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { usageRequestMetadataFromUrl } from "./runtime-request-metadata.mjs";
+import {
+  runtimeEventCursorFromRequest,
+  usageRequestMetadataFromUrl,
+} from "./runtime-request-metadata.mjs";
 
 const retiredUsageRequestMetadataAliasKeys = [
   "eventKind",
@@ -45,4 +48,40 @@ test("usage request metadata ignores retired URL aliases", () => {
   );
 
   assert.equal(metadata, null);
+});
+
+test("runtime event cursor request metadata uses canonical query fields", () => {
+  assert.deepEqual(
+    runtimeEventCursorFromRequest({
+      request: { headers: {} },
+      url: new URL("http://daemon.test/v1/runs/run-1/events?since_seq=7"),
+    }),
+    { since_seq: 7 },
+  );
+  assert.deepEqual(
+    runtimeEventCursorFromRequest({
+      request: { headers: {} },
+      url: new URL("http://daemon.test/v1/runs/run-1/events?last_event_id=event-canonical"),
+    }),
+    { last_event_id: "event-canonical" },
+  );
+});
+
+test("runtime event cursor request metadata ignores retired lastEventId query alias", () => {
+  assert.deepEqual(
+    runtimeEventCursorFromRequest({
+      request: { headers: {} },
+      url: new URL("http://daemon.test/v1/runs/run-1/events?lastEventId=event-retired"),
+    }),
+    { last_event_id: "" },
+  );
+  assert.deepEqual(
+    runtimeEventCursorFromRequest({
+      request: { headers: { "last-event-id": "event-header" } },
+      url: new URL(
+        "http://daemon.test/v1/runs/run-1/events?lastEventId=event-retired",
+      ),
+    }),
+    { last_event_id: "event-header" },
+  );
 });

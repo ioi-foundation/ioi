@@ -20760,16 +20760,16 @@ function runCompositor() {
     ["packages/agent-sdk/src/substrate-client.ts"],
     "Phase 10/11 is pending: Agent SDK diagnostics repair result contracts must expose canonical snake_case fields without duplicate camelCase aliases",
   );
-	  assertCheck(
-	    result,
-	    "runtime-event-envelope-compat-aliases-retired",
+  assertCheck(
+    result,
+    "runtime-event-envelope-compat-aliases-retired",
     !/\bid:\s*String\(seq\)|timestamp_ms:|event:\s*eventKind/.test(runtimeEventEnvelopes) &&
       /retiredEnvelopeAliasKeys/.test(runtimeEventEnvelopesTest) &&
       /event\.event_id\s*\?\?\s*event\.seq/.test(runtimeHttpUtils) &&
       !/event\.id\s*\?\?\s*event\.seq/.test(runtimeHttpUtils) &&
       /writeSse uses canonical runtime event ids/.test(runtimeHttpUtilsTest) &&
-      /event\.event_id === lastEventId/.test(threadReplay) &&
-      !/event\.id === lastEventId/.test(threadReplay),
+      /event\.event_id === last_event_id/.test(threadReplay) &&
+      !/event\.id === last_event_id/.test(threadReplay),
     [
       "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
       "packages/runtime-daemon/src/runtime-event-envelopes.test.mjs",
@@ -20778,6 +20778,42 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
     ],
     "Phase 10/11 is pending: daemon runtime event envelopes must not emit legacy id/event/timestamp aliases, and SSE/cursors must use canonical event_id",
+  );
+  assertCheck(
+    result,
+    "runtime-event-cursor-request-aliases-retired",
+    /return \{ since_seq: Number\(url\.searchParams\.get\("since_seq"\)/.test(
+      runtimeRequestMetadata,
+    ) &&
+      /last_event_id: url\.searchParams\.get\("last_event_id"\) \?\? request\.headers\["last-event-id"\] \?\? ""/.test(
+        runtimeRequestMetadata,
+      ) &&
+      !/url\.searchParams\.get\("lastEventId"\)/.test(runtimeRequestMetadata) &&
+      /cursor\.since_seq/.test(threadReplay) &&
+      /cursor\.last_event_id/.test(threadReplay) &&
+      !/cursor\.(?:sinceSeq|lastEventId)\b/.test(threadReplay) &&
+      /since_seq\?: number;/.test(agentSdkSubstrateClient) &&
+      /last_event_id\?: string;/.test(agentSdkSubstrateClient) &&
+      /streamRun\(runId: string, options\?: \{ last_event_id\?: string \}\)/.test(
+        agentSdkSubstrateClient,
+      ) &&
+      /params\.set\("last_event_id", options\.last_event_id\)/.test(agentSdkSubstrateClient) &&
+      /last_event_id\?: string;/.test(agentSdkOptionsForRuntimeMcp) &&
+      !/lastEventId\?: string;/.test(`${agentSdkSubstrateClient}\n${agentSdkOptionsForRuntimeMcp}`) &&
+      !/sinceSeq\?: number;/.test(agentSdkSubstrateClient) &&
+      /runtime event cursor request metadata ignores retired lastEventId query alias/.test(
+        runtimeRequestMetadataTest,
+      ) &&
+      /url\.searchParams\.has\("lastEventId"\), false/.test(agentSdkTest),
+    [
+      "packages/runtime-daemon/src/runtime-request-metadata.mjs",
+      "packages/runtime-daemon/src/runtime-request-metadata.test.mjs",
+      "packages/runtime-daemon/src/threads/thread-replay.mjs",
+      "packages/agent-sdk/src/options.ts",
+      "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/test/sdk.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime event cursors must use canonical since_seq/last_event_id and ignore retired lastEventId/sinceSeq request aliases before replay/SSE projection",
   );
   assertCheck(
     result,

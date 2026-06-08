@@ -13385,7 +13385,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 668 and the one-hundred-fourth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 669:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13829,3 +13829,57 @@ reconstruct the active seam without carrying every per-slice paragraph.
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |
 | `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal migration is still not claimed until live route families are routed through Rust core and JS facade retirement is complete. |
 | `npm run build --workspace=@ioi/agent-ide` | pass | Migrated IDE protocol-client helpers and adjacent replay/projection surfaces compile under the current package TypeScript target. |
+
+## Slice 669: Runtime Event Cursor Alias Retirement
+
+phase: 10-authoritative-js-facade-retirement
+route/surface: runtime event replay/SSE cursors, SDK run/thread streaming options
+owner target: Rust core `projection` and replay protocol with JS/SDK reduced to canonical adapters
+
+objective: retire the IOI-owned `lastEventId` and `sinceSeq` cursor aliases
+before runtime event replay, SSE query parsing, SDK run streaming, and SDK
+thread/turn event streaming can preserve a camelCase compatibility path.
+The SSE `Last-Event-ID` header remains accepted as transport protocol input,
+but daemon and SDK request/query objects use canonical `last_event_id` and
+`since_seq`.
+
+implementation:
+
+- `packages/runtime-daemon/src/runtime-request-metadata.mjs` now parses
+  `since_seq` and `last_event_id` query parameters into canonical cursor fields
+  and ignores the retired `lastEventId` query alias.
+- `packages/runtime-daemon/src/threads/thread-replay.mjs` now consumes
+  `since_seq` and `last_event_id` cursor objects and emits canonical
+  `event_stream_id`, `since_seq`, `last_event_id`, and `latest_seq` error
+  details.
+- Runtime callers in context-policy and diagnostics repair now pass
+  `since_seq` cursor objects into replay helpers.
+- `packages/agent-sdk/src/options.ts`, `packages/agent-sdk/src/run.ts`,
+  `packages/agent-sdk/src/thread.ts`, and
+  `packages/agent-sdk/src/substrate-client.ts` now expose and send
+  `last_event_id`/`since_seq` for run and thread event streaming.
+- Focused daemon and SDK tests prove canonical cursor behavior and keep retired
+  `lastEventId`/`sinceSeq` only as poison fixtures that must not affect
+  projection or error detail output.
+- `scripts/conformance/hypervisor-conformance.mjs` adds
+  `runtime-event-cursor-request-aliases-retired` to the compositor tier.
+
+verification:
+
+- `node --test packages/runtime-daemon/src/runtime-request-metadata.test.mjs packages/runtime-daemon/src/threads/thread-replay.test.mjs packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs packages/runtime-daemon/src/runtime-run-read-surface.test.mjs`
+- `node --test packages/agent-sdk/test/sdk.test.mjs`
+- `node --check packages/runtime-daemon/src/runtime-request-metadata.mjs`
+- `node --check packages/runtime-daemon/src/threads/thread-replay.mjs`
+- `node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs`
+- `node --check packages/runtime-daemon/src/runtime-context-policy-surface.mjs`
+- `node --check scripts/conformance/hypervisor-conformance.mjs`
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `npm run build --workspace=@ioi/agent-sdk`
+- `npm run hypervisor-conformance:compositor`
+
+terminal impact:
+
+- This is facade retirement, not terminal completion. It removes another
+  event/replay compatibility path at the daemon and SDK boundary before replay
+  projection can be treated as Rust-core-owned protocol evidence across all hot
+  route families.

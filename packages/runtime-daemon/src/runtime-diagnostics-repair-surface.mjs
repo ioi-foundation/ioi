@@ -660,7 +660,7 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     const gateId = optionalString(request.gate_id);
     const target = optionalString(decisionRef)?.toLowerCase();
     const action = optionalString(request.action ?? request.decision_action)?.toLowerCase();
-    const gateEvents = store.runtimeEventsForStream(eventStreamIdForThread(threadId), { sinceSeq: 0 })
+    const gateEvents = store.runtimeEventsForStream(eventStreamIdForThread(threadId), { since_seq: 0 })
       .filter((event) => event.event_kind === "policy.blocked" && event.component_kind === "lsp_diagnostics_gate")
       .filter((event) => {
         if (!gateId) return true;

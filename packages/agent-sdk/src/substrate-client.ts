@@ -1255,8 +1255,8 @@ export interface RuntimeCteePrivateWorkspaceActionResult extends Record<string, 
 }
 
 export interface RuntimeEventStreamOptions {
-  sinceSeq?: number;
-  lastEventId?: string;
+  since_seq?: number;
+  last_event_id?: string;
   signal?: AbortSignal;
 }
 
@@ -1437,7 +1437,7 @@ export interface RuntimeSubstrateClient {
   dryRun(agentId: string, prompt: string, options?: DryRunOptions): Promise<RuntimeRunRecord>;
   handoff(agentId: string, prompt: string, options?: HandoffOptions): Promise<RuntimeRunRecord>;
   learn(agentId: string, options: LearnOptions): Promise<RuntimeRunRecord>;
-  streamRun(runId: string, options?: { lastEventId?: string }): AsyncIterable<IOISDKMessage>;
+  streamRun(runId: string, options?: { last_event_id?: string }): AsyncIterable<IOISDKMessage>;
   waitRun(runId: string): Promise<IOIRunResult>;
   cancelRun(runId: string): Promise<RuntimeRunRecord>;
   getRun(runId: string): Promise<RuntimeRunRecord>;
@@ -2038,8 +2038,8 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
     });
   }
 
-  async *streamRun(runId: string, options: { lastEventId?: string } = {}): AsyncIterable<IOISDKMessage> {
-    const query = options.lastEventId ? `?lastEventId=${encodeURIComponent(options.lastEventId)}` : "";
+  async *streamRun(runId: string, options: { last_event_id?: string } = {}): AsyncIterable<IOISDKMessage> {
+    const query = options.last_event_id ? `?last_event_id=${encodeURIComponent(options.last_event_id)}` : "";
     const events = await this.requestEvents("streamRun", `/v1/runs/${encodePath(runId)}/events${query}`);
     for (const event of eventsFromResponse(events)) {
       yield event;
@@ -3548,10 +3548,10 @@ function runtimeEventsFromResponse(value: unknown): RuntimeEventEnvelope[] {
 
 function runtimeEventQuery(options: RuntimeEventStreamOptions = {}): string {
   const params = new URLSearchParams();
-  if (options.sinceSeq !== undefined) {
-    params.set("since_seq", String(options.sinceSeq));
-  } else if (options.lastEventId) {
-    params.set("lastEventId", options.lastEventId);
+  if (options.since_seq !== undefined) {
+    params.set("since_seq", String(options.since_seq));
+  } else if (options.last_event_id) {
+    params.set("last_event_id", options.last_event_id);
   }
   const text = params.toString();
   return text ? `?${text}` : "";

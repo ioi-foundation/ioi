@@ -333,7 +333,7 @@ export function createRuntimeContextPolicySurface({
             result.compact_idempotency_key,
         });
         compactEvent =
-          store.runtimeEventsForStream(streamId, { sinceSeq: previousLatestSeq }).find(
+          store.runtimeEventsForStream(streamId, { since_seq: previousLatestSeq }).find(
             (event) => event.component_kind === "context_compaction",
           ) ?? null;
         result.compaction_executed = Boolean(compactEvent);

@@ -140,7 +140,7 @@ test("runtime events replay by stream and cursor", () => {
     event_kind: "turn.completed",
   }, deps(calls));
 
-  assert.deepEqual(runtimeEventsForStream(store, "stream:thread", { sinceSeq: 1 }).map((event) => event.seq), [2]);
+  assert.deepEqual(runtimeEventsForStream(store, "stream:thread", { since_seq: 1 }).map((event) => event.seq), [2]);
   assert.deepEqual(runtimeEventsForTurn(store, "turn_1", "evt_1").map((event) => event.seq), [2]);
   assert.equal(latestRuntimeEventSeq(store, "stream:thread"), 2);
 });
@@ -157,18 +157,20 @@ test("runtime cursor rejects missing and future cursors", () => {
   const stream = store.runtimeEventStream("stream:thread");
 
   assert.throws(
-    () => runtimeCursorSeq(store, stream, { lastEventId: "missing" }, deps(calls)),
+    () => runtimeCursorSeq(store, stream, { last_event_id: "missing" }, deps(calls)),
     (error) => {
       assert.equal(error.code, "event_cursor_out_of_range");
-      assert.equal(error.details.lastEventId, "missing");
+      assert.equal(error.details.last_event_id, "missing");
+      assert.equal(Object.hasOwn(error.details, "lastEventId"), false);
       return true;
     },
   );
   assert.throws(
-    () => assertRuntimeCursorSeq(3, 1, { eventStreamId: "stream:thread" }, deps(calls)),
+    () => assertRuntimeCursorSeq(3, 1, { event_stream_id: "stream:thread" }, deps(calls)),
     (error) => {
       assert.equal(error.code, "event_cursor_out_of_range");
-      assert.equal(error.details.sinceSeq, 3);
+      assert.equal(error.details.since_seq, 3);
+      assert.equal(Object.hasOwn(error.details, "sinceSeq"), false);
       return true;
     },
   );

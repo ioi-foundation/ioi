@@ -1132,8 +1132,9 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/runs/run_http/events") {
-      const lastEventId = url.searchParams.get("lastEventId");
-      const start = lastEventId ? events.findIndex((item) => item.id === lastEventId) + 1 : 0;
+      const last_event_id = url.searchParams.get("last_event_id");
+      assert.equal(url.searchParams.has("lastEventId"), false);
+      const start = last_event_id ? events.findIndex((item) => item.id === last_event_id) + 1 : 0;
       response.setHeader("content-type", "text/event-stream");
       response.end(events.slice(start).map((item) => `id: ${item.id}\ndata: ${JSON.stringify(item)}\n\n`).join(""));
       return;
@@ -1209,7 +1210,7 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
       if (firstBatch.length === 1) break;
     }
     const secondBatch = [];
-    for await (const item of run.stream({ lastEventId: firstBatch.at(-1).id })) {
+    for await (const item of run.stream({ last_event_id: firstBatch.at(-1).id })) {
       secondBatch.push(item);
     }
     assert.deepEqual(secondBatch.map((item) => item.id), ["run_http:1", "run_http:2"]);
@@ -1228,7 +1229,7 @@ test("daemon SDK client uses the public substrate HTTP endpoint", async () => {
     assert.equal(Object.hasOwn(httpTools.at(0), "receiptBehavior"), false);
     assert.ok(requests.includes("POST /v1/agents"));
     assert.ok(requests.includes("POST /v1/agents/agent_http/runs"));
-    assert.ok(requests.includes("GET /v1/runs/run_http/events?lastEventId=run_http%3A0"));
+    assert.ok(requests.includes("GET /v1/runs/run_http/events?last_event_id=run_http%3A0"));
   } finally {
     await close(server);
   }
@@ -1499,11 +1500,11 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
       return;
     }
     if (request.method === "GET" && url.pathname === "/v1/threads/thread_sdk/events") {
-      const sinceSeq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
+      const since_seq = Number(url.searchParams.get("since_seq") ?? 0) || 0;
       response.setHeader("content-type", "text/event-stream");
       response.end(
         runtimeEvents
-          .filter((item) => item.seq > sinceSeq)
+          .filter((item) => item.seq > since_seq)
           .map((item) => `id: ${item.event_id}\ndata: ${JSON.stringify(item)}\n\n`)
           .join(""),
       );
@@ -1520,7 +1521,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     const thread = await Thread.create({ local: { cwd: process.cwd() }, substrateClient: client });
     const turn = await thread.send("Exercise typed thread events.");
     const threadEvents = [];
-    for await (const item of thread.events({ sinceSeq: 0 })) threadEvents.push(item);
+    for await (const item of thread.events({ since_seq: 0 })) threadEvents.push(item);
     const toolEvent = threadEvents.find((item) => item.sourceEventKind === "KernelEvent::AgentActionResult");
     assert.equal(toolEvent.type, "tool_completed");
     assert.equal(toolEvent.payloadSchemaVersion, "ioi.runtime.kernel-event.v1");
@@ -1549,7 +1550,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     });
     assert.equal(forked.id, "thread_sdk_fork");
     const forkedEvents = [];
-    for await (const item of thread.events({ sinceSeq: 4 })) forkedEvents.push(item);
+    for await (const item of thread.events({ since_seq: 4 })) forkedEvents.push(item);
     assert.deepEqual(forkedEvents.map((item) => item.type), ["thread_forked"]);
     assert.equal(forkedEvents[0].eventKind, "thread.forked");
     assert.equal(forkedEvents[0].sourceEventKind, "OperatorControl.Fork");
@@ -1565,7 +1566,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     });
     assert.equal(compacted.record.latest_seq, 6);
     const compactedEvents = [];
-    for await (const item of thread.events({ sinceSeq: 5 })) compactedEvents.push(item);
+    for await (const item of thread.events({ since_seq: 5 })) compactedEvents.push(item);
     assert.deepEqual(compactedEvents.map((item) => item.type), ["context_compacted"]);
     assert.equal(compactedEvents[0].eventKind, "context.compacted");
     assert.equal(compactedEvents[0].sourceEventKind, "OperatorControl.Compact");
@@ -1581,7 +1582,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     });
     assert.equal(steered.status, "completed");
     const steeredEvents = [];
-    for await (const item of thread.events({ sinceSeq: 6 })) steeredEvents.push(item);
+    for await (const item of thread.events({ since_seq: 6 })) steeredEvents.push(item);
     assert.deepEqual(steeredEvents.map((item) => item.type), ["turn_steered"]);
     assert.equal(steeredEvents[0].eventKind, "turn.steered");
     assert.equal(steeredEvents[0].sourceEventKind, "OperatorControl.Steer");
@@ -1597,7 +1598,7 @@ test("Thread and Turn wrappers project canonical daemon events into typed SDK ru
     });
     assert.equal(interrupted.status, "interrupted");
     const interruptedEvents = [];
-    for await (const item of thread.events({ sinceSeq: 7 })) interruptedEvents.push(item);
+    for await (const item of thread.events({ since_seq: 7 })) interruptedEvents.push(item);
     assert.deepEqual(interruptedEvents.map((item) => item.type), ["turn_interrupted"]);
     assert.equal(interruptedEvents[0].eventKind, "turn.interrupted");
     assert.equal(interruptedEvents[0].sourceEventKind, "OperatorControl.Interrupt");

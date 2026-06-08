@@ -124,37 +124,37 @@ export function runtimeCursorSeq(store, stream, cursor = {}, deps = {}) {
   const latestSeq = stream.events.at(-1)?.seq ?? 0;
   if (typeof cursor === "number") {
     return store.assertRuntimeCursorSeq(Number(cursor) || 0, latestSeq, {
-      eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
-      sinceSeq: Number(cursor) || 0,
+      event_stream_id: stream.events.at(-1)?.event_stream_id ?? null,
+      since_seq: Number(cursor) || 0,
     });
   }
   if (typeof cursor === "string") {
-    return store.runtimeCursorSeq(stream, { lastEventId: cursor });
+    return store.runtimeCursorSeq(stream, { last_event_id: cursor });
   }
-  if (cursor.sinceSeq !== null && cursor.sinceSeq !== undefined) {
-    return store.assertRuntimeCursorSeq(Number(cursor.sinceSeq) || 0, latestSeq, {
-      eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
-      sinceSeq: Number(cursor.sinceSeq) || 0,
+  if (cursor.since_seq !== null && cursor.since_seq !== undefined) {
+    return store.assertRuntimeCursorSeq(Number(cursor.since_seq) || 0, latestSeq, {
+      event_stream_id: stream.events.at(-1)?.event_stream_id ?? null,
+      since_seq: Number(cursor.since_seq) || 0,
     });
   }
-  const lastEventId = String(cursor.lastEventId ?? "").trim();
-  if (!lastEventId) return 0;
-  if (/^\d+$/.test(lastEventId)) {
-    return store.assertRuntimeCursorSeq(Number(lastEventId), latestSeq, {
-      eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
-      lastEventId,
+  const last_event_id = String(cursor.last_event_id ?? "").trim();
+  if (!last_event_id) return 0;
+  if (/^\d+$/.test(last_event_id)) {
+    return store.assertRuntimeCursorSeq(Number(last_event_id), latestSeq, {
+      event_stream_id: stream.events.at(-1)?.event_stream_id ?? null,
+      last_event_id,
     });
   }
-  const match = stream.events.find((event) => event.event_id === lastEventId);
+  const match = stream.events.find((event) => event.event_id === last_event_id);
   if (match) return match.seq;
   throw runtimeError({
     status: 409,
     code: "event_cursor_out_of_range",
     message: "Runtime event cursor does not exist in this stream.",
     details: {
-      eventStreamId: stream.events.at(-1)?.event_stream_id ?? null,
-      lastEventId,
-      latestSeq,
+      event_stream_id: stream.events.at(-1)?.event_stream_id ?? null,
+      last_event_id,
+      latest_seq: latestSeq,
     },
   });
 }
@@ -166,7 +166,7 @@ export function assertRuntimeCursorSeq(cursorSeq, latestSeq, details = {}, deps 
       status: 409,
       code: "event_cursor_out_of_range",
       message: "Runtime event cursor is beyond the latest committed sequence.",
-      details: { ...details, sinceSeq: cursorSeq, latestSeq },
+      details: { ...details, since_seq: cursorSeq, latest_seq: latestSeq },
     });
   }
   return cursorSeq;

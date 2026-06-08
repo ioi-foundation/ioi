@@ -18,14 +18,10 @@ export function baseUrlForRequest(request) {
 
 export function runtimeEventCursorFromRequest({ request, url }) {
   if (url.searchParams.has("since_seq")) {
-    return { sinceSeq: Number(url.searchParams.get("since_seq") ?? 0) || 0 };
+    return { since_seq: Number(url.searchParams.get("since_seq") ?? 0) || 0 };
   }
   return {
-    lastEventId:
-      url.searchParams.get("lastEventId") ??
-      url.searchParams.get("last_event_id") ??
-      request.headers["last-event-id"] ??
-      "",
+    last_event_id: url.searchParams.get("last_event_id") ?? request.headers["last-event-id"] ?? "",
   };
 }
 

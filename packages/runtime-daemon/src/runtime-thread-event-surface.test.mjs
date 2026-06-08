@@ -153,10 +153,10 @@ test("runtime thread event surface projects turns and event queries", () => {
     () => surface.getTurn(store, "thread-agent-one", "missing"),
     /Turn not found: missing/,
   );
-  assert.deepEqual(surface.eventsForThread(store, "thread-agent-one", { sinceSeq: 1 }), [
+  assert.deepEqual(surface.eventsForThread(store, "thread-agent-one", { since_seq: 1 }), [
     { event_id: "stream-event" },
   ]);
-  assert.deepEqual(surface.eventsForRun(store, "run-one", { lastEventId: "event-one" }), [
+  assert.deepEqual(surface.eventsForRun(store, "run-one", { last_event_id: "event-one" }), [
     { event_id: "turn-event" },
   ]);
 
@@ -164,14 +164,14 @@ test("runtime thread event surface projects turns and event queries", () => {
     {
       name: "runtimeEventsForStream",
       eventStreamId: "stream-thread-agent-one",
-      cursor: { sinceSeq: 1 },
+      cursor: { since_seq: 1 },
     },
   ]);
   assert.deepEqual(calls.filter((call) => call.name === "runtimeEventsForTurn"), [
     {
       name: "runtimeEventsForTurn",
       turnId: "runtime-turn-run-one",
-      cursor: { lastEventId: "event-one" },
+      cursor: { last_event_id: "event-one" },
     },
   ]);
 });
@@ -182,7 +182,7 @@ test("runtime thread event surface delegates replay and projection helpers", () 
   assert.equal(surface.ensureThreadStartedEvent(store, agent).event_id, "thread-started");
   assert.deepEqual(surface.projectRunEvents(store, run), ["projected-run"]);
   assert.equal(surface.appendRuntimeEvent(store, { event_kind: "turn.started" }).event_id, "event-one");
-  assert.equal(surface.runtimeCursorSeq(store, { events: [] }, { sinceSeq: 2 }), 3);
+  assert.equal(surface.runtimeCursorSeq(store, { events: [] }, { since_seq: 2 }), 3);
   assert.equal(surface.assertRuntimeCursorSeq(2, 4, { eventStreamId: "stream-one" }), 2);
   assert.equal(surface.latestRuntimeEventSeq(store, "stream-one"), 9);
   assert.deepEqual(surface.runtimeEventStream(store, "stream-one"), { events: [] });
