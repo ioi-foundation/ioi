@@ -143,6 +143,11 @@ Matrix compaction timing:
   into the route-family range while preserving computer-use route-family JS
   facade retirement as migration transport and terminal Rust daemon-core
   ownership as the remaining target.
+- Ninety-eighth scheduled pass completed on 2026-06-07: the migrated coding-tool
+  input-summary alias-retirement evidence after slice 662 was compacted into the
+  route-family range while preserving Rust workload live execution as the current
+  migrated coding-tool backend and terminal Rust daemon-core ownership as the
+  remaining target.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,
@@ -13340,63 +13345,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 662
-
-```yaml
-slice: 662
-phase: 10-authoritative-js-facade-retirement
-objective: retire migrated coding-tool input-summary camelCase request aliases
-  before StepModule/Rust projection metadata is emitted
-owner_boundary:
-  route_or_surface: runtime coding-tool input summary and patch shorthand
-    projection metadata
-  authority_gate: unchanged; coding-tool approval and budget gates still precede
-    Rust workload live execution
-  execution_backend: Rust workload live remains required for migrated coding-tool
-    execution
-  truth_path: input summaries for approval, governance, invocation, and runtime
-    projection metadata now consume canonical snake_case request fields only
-  projection_path: bridge conformance requires `codingToolInputSummary` and patch
-    shorthand counting to ignore retired camelCase-only request aliases before
-    StepModule/Rust metadata can be emitted
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  runtime_daemon:
-    - packages/runtime-daemon/src/coding-tools.mjs
-  tests:
-    - packages/runtime-daemon/src/coding-tools.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires coding-tool input summaries to emit canonical
-    `dry_run`, `command_id`, `timeout_ms`, and `include_ignored` fields
-  - bridge conformance rejects summary readers for retired `dryRun`,
-    `commandId`, `timeoutMs`, and `includeIgnored` aliases
-  - bridge conformance requires patch shorthand edit counting to use canonical
-    `old_text`, `new_text`, `append_text`, and `prepend_text` fields without
-    retired camelCase shorthand fallbacks
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/coding-tools.test.mjs
-    - node --check packages/runtime-daemon/src/coding-tools.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - public coding-tool catalog schemas still expose legacy camelCase product
-      fields until the broader coding-tool protocol catalog shape is migrated
-    - terminal Rust daemon-core API extraction remains pending beyond this
-      JS-facade metadata cleanup
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13412,7 +13360,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 662 and the ninety-seventh 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 662 and the ninety-eighth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
