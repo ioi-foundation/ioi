@@ -67,9 +67,10 @@ This pass compacted Slice 768 visual observation artifact materialization path
 alias fallback metadata retirement evidence.
 This pass compacted Slice 769 MCP serve `tools/call` `params.args` fallback
 retirement evidence.
+Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
+facade-retirement implementation slice only after compacting the Slice 770 MCP
+manager `allowedTools` alias-retirement evidence. Preserve the live owner map,
 terminal blockers, and the fact that fail-closed JS facades, canonical input
 helpers, local projection helpers, and migration transport are not terminal
 substrate.
@@ -179,8 +180,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 769 MCP serve
-  `params.args` retirement compaction.
+- Next scheduled matrix-compaction pass: pending for Slice 770 MCP manager
+  `allowedTools` server config/catalog alias-retirement evidence.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15146,6 +15147,29 @@ reconstruct the active seam without carrying every per-slice paragraph.
   canonical snake_case `head_ref`, `state_root`, `projection_watermark`,
   `head_hash`, and `evidence_refs` fields instead of retired camelCase head
   bridge outputs; runtime usage request metadata now emits only canonical snake_case usage/projection request fields, so retired `eventKind`, `componentKind`, `payloadSchemaVersion`, `workflowGraphId`, `workflowNodeId`, `usageMeterScope`, and `simulationMode` aliases cannot re-enter usage telemetry projection metadata; workspace-change control now derives change identity only from canonical `change_id` and sends canonical `session_id`, `thread_id`, `workspace_root`, `request_hash`, `change_id`, and `created_at` fields into runtime bridge control dispatch without retired camelCase bridge request aliases, and workspace-change inspection now sends canonical `session_id`, `thread_id`, `workspace_root`, `projection`, and `requested_at` fields into runtime bridge inspection dispatch while retired `sessionId`, `threadId`, `workspaceRoot`, and `requestedAt` request aliases fail closed before dispatch; managed-session inspection now sends canonical `session_id`, `thread_id`, `workspace_root`, `projection`, `managed_sessions_only`, and `requested_at` fields into runtime bridge inspection dispatch while retired `sessionId`, `threadId`, `workspaceRoot`, `managedSessionsOnly`, and `requestedAt` request aliases fail closed before dispatch; managed-session control now derives identity only from canonical `managed_session_id` and sends canonical `session_id`, `thread_id`, `workspace_root`, `request_hash`, `managed_session_id`, and `created_at` fields into runtime bridge control dispatch while retired `managedSessionId`, `sessionCardId`, `session_card_id`, `createdAt`, and `requestHash` aliases fail closed before dispatch; run-cancel Rust-planning fail-closed details now expose canonical `run_id`, `operation_kind`, and `expected_operation_kind` fields without retired `runId` detail aliases before any JS persistence write, computer-use route authority metadata now ignores retired `authorityScopes` input aliases before native-browser, visual-GUI, sandboxed-hosted, or visual-observation broker StepModule/Rust dispatch, and computer-use route retention metadata now ignores retired `observationRetentionMode` input aliases before native-browser, visual-GUI, or sandboxed-hosted StepModule/Rust dispatch. Computer-use route workflow-node metadata now ignores retired `workflowNodeIds` input aliases before native-browser, visual-GUI, or sandboxed-hosted StepModule/Rust dispatch. Computer-use control action selection now ignores retired `controlAction` input aliases before control receipt/authority metadata is emitted. IDE auth stream failure panel rows now consume canonical `invocation_receipt_id`, `stream_kind`, `route_id`, `selected_model`, `frames_written`, and `chunks_forwarded` stream receipt details while retired `invocationReceiptId`, `streamKind`, `routeId`, `selectedModel`, `framesWritten`, and `chunksForwarded` aliases fail closed before panel projection. Crash-recovery proof producers, live GUI proof adapters, and IDE report-card readers now use canonical snake_case proof, daemon, turn, replay, and check fields while retired camelCase proof envelopes fail closed before replay/restart report-card projection. Authority-boundary sandbox proof producers, visualizer proof wrappers, and IDE visualizer readers now use canonical snake_case proof, check, result, authority-scope, and evidence fields while retired camelCase authority-boundary proof aliases fail closed before workspace/network/environment/computer-use boundary visualization. Runtime model-route selection no longer catches a rejected primary route decision to mint a JS fallback route receipt or `runtime_model_route_fallback` evidence; the daemon facade now fails closed until the Rust/model_mount route-decision path admits a decision. Context-policy, compaction, operator-control, thread-control, MCP-control, thread-memory, runtime-bridge, agent/run/status, and subagent state-update planning now use the `ioi.runtime.daemon_core.command.v1` envelope through `IOI_RUNTIME_DAEMON_CORE_COMMAND`; runtime Agentgres storage admission and state commits now use the same daemon-core command envelope while ignoring retired runtime-Agentgres and StepModule command envs; external capability exit authorization now uses the same daemon-core command envelope while ignoring retired external-capability and StepModule command envs; cTEE Private Workspace custody execution now uses the same daemon-core command envelope while ignoring retired cTEE and StepModule command envs; L1 settlement trigger admission now uses the same daemon-core command envelope while ignoring retired L1/StepModule command envs; governed runtime-improvement proposal admission now uses the same daemon-core command envelope while ignoring retired governed-improvement/StepModule command envs; workspace restore policy planning, preview/apply operations, and snapshot capture now use the same daemon-core command envelope while ignoring retired workspace-restore/StepModule command envs; model_mount route-decision, invocation admission, provider execution/invocation/result, lifecycle/inventory, accepted-receipt planning, and receipt-binding operations now use the same daemon-core command envelope while ignoring retired model-mount/StepModule command envs; worker/service package invocation admission now uses the same daemon-core command envelope while ignoring retired worker-service-package/StepModule command envs; and the Rust command parser rejects retired `ioi.step_module.command_bridge.v1` envelopes for those daemon-core policy, truth-path, wallet.network authority, cTEE custody, L1 settlement admission, governed-improvement proposal, workspace restore, model_mount, and worker/service package invocation admission operations.
+
+## Implementation Slice Evidence: 770
+
+Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback.
+`packages/runtime-daemon/src/mcp-manager.mjs` now derives declared MCP tool
+exposure only from canonical `allowed_tools` and declared `tools` object keys;
+retired `allowedTools` can no longer populate `allowed_tools`, create catalog
+tool records, or suppress the empty-allowed-tools warning. The focused
+`mcp-manager.test.mjs` regression poisons `allowedTools: ["retired.invoke"]`
+beside canonical `allowed_tools` and in an alias-only inline server config, and
+proves only the canonical field creates tool exposure while alias-only input
+produces no catalog tools. `scripts/conformance/hypervisor-conformance.mjs`
+guards the canonical `normalizeArray(config.allowed_tools)` path and forbids
+the retired `config.allowedTools ?? config.allowed_tools` and
+`server.allowedTools ?? server.allowed_tools` expansion patterns.
+
+This does not claim terminal MCP migration: direct Rust daemon-core MCP
+control/admission/projection still needs to own wallet authority, transport
+containment, StepModuleRouter dispatch, receipt binding, Agentgres
+expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
+coverage, and conformance. Do not encode the remaining JS MCP manager/catalog
+helpers as terminal architecture. Schedule and run a matrix-compaction pass for
+Slice 770 before unrelated route-family work resumes.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

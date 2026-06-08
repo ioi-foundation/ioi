@@ -553,8 +553,19 @@ transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, projection, replay, SDK/IDE protocol coverage,
 and conformance. Do not encode the remaining JS MCP serve facade as terminal
 architecture. The Slice 769 MCP serve `params.args` alias-retirement
-matrix-compaction pass is complete. No matrix-compaction pass is pending until
-the next Rust-core extraction or facade-retirement seam lands.
+matrix-compaction pass is complete.
+Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback
+before MCP manager records can expose tools. `mcp-manager.mjs` now derives
+declared tool exposure only from canonical `allowed_tools` and declared `tools`
+object keys; retired `allowedTools` can no longer create catalog tool records or
+suppress empty-allowed-tools warnings. This does not claim terminal MCP manager
+migration: direct Rust daemon-core MCP control/admission/projection still needs
+to own wallet authority, transport containment, StepModuleRouter dispatch,
+receipt binding, Agentgres expected-head/state-root binding, registry truth,
+replay, SDK/IDE protocol coverage, and conformance. Do not encode the remaining
+JS MCP manager/catalog helpers as terminal architecture. The Slice 770 MCP
+manager `allowedTools` alias-retirement matrix-compaction pass is pending and
+must run before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 

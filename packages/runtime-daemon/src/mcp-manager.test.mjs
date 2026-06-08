@@ -145,6 +145,50 @@ test("MCP manager registry and server records emit canonical output fields only"
   assert.equal(Object.hasOwn(prompt, "workflowNodeId"), false);
 });
 
+test("MCP manager server records ignore retired allowedTools aliases", () => {
+  const server = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      allowed_tools: ["search"],
+      allowedTools: ["retired.invoke"],
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+    },
+  );
+
+  assert.deepEqual(server.allowed_tools, ["search"]);
+  assert.deepEqual(server.tool_count, 1);
+  assert.equal(Object.hasOwn(server, "allowedTools"), false);
+
+  const retiredOnly = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      allowedTools: ["retired.invoke"],
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+    },
+  );
+
+  assert.deepEqual(retiredOnly.allowed_tools, []);
+  assert.deepEqual(mcpRegistryForWorkspace("/workspace", {
+    mcp_servers: {
+      docs: {
+        transport: "stdio",
+        command: "npx",
+        allowedTools: ["retired.invoke"],
+      },
+    },
+  }).tools, []);
+});
+
 test("MCP manager server records ignore retired workspaceRoot context alias", () => {
   const server = normalizeMcpServerRecord(
     "docs",

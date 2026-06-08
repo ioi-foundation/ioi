@@ -129,7 +129,7 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
       (serverUrl ? (String(serverUrl).includes("/sse") ? "sse" : "http") : "stdio"),
   );
   const declaredTools = uniqueStrings([
-    ...normalizeArray(config.allowedTools ?? config.allowed_tools),
+    ...normalizeArray(config.allowed_tools),
     ...Object.keys(config.tools ?? {}),
   ]);
   const declaredResources = normalizeMcpResourceDeclarations(
@@ -233,7 +233,7 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
 
 export function mcpToolsForServers(servers = []) {
   return servers.flatMap((server) =>
-    normalizeArray(server.allowedTools ?? server.allowed_tools).map((tool) =>
+    normalizeArray(server.allowed_tools).map((tool) =>
       normalizeMcpToolEntry(tool, server),
     ),
   );
@@ -319,7 +319,7 @@ export function validateMcpServerRecords(servers = []) {
         });
       }
     }
-    if (normalizeArray(server.allowedTools ?? server.allowed_tools).length === 0) {
+    if (normalizeArray(server.allowed_tools).length === 0) {
       warnings.push({
         code: "mcp_allowed_tools_empty",
         severity: "warning",
