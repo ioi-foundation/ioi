@@ -400,7 +400,7 @@ function runDocs() {
       /The Slice 760 catalog download policy request-synonym retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 761 retired remaining camelCase policy steering from model-mount route\s+selection/.test(guide) &&
       /`denyFixtureModels` and `maxCostUsd` can no longer affect endpoint\s+selection/.test(guide) &&
-      /Schedule the Slice 761 matrix-compaction pass on the next resume/.test(guide) &&
+      /The Slice 761 model-mount route-selection policy alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -425,9 +425,9 @@ function runDocs() {
       /This pass compacted Slice 758 catalog-provider OAuth callback state\s+alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 759 catalog-provider runtime-material read-cache\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 760 catalog download policy request-synonym\s+retirement evidence/.test(matrix) &&
-      /Slice 761 retired model-mount route-selection policy aliases from the remaining\s+JS selector helper/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 761 model-mount route-selection\s+policy alias retirement/.test(matrix) &&
-      /Implementation Slice 761: Route-Selection Policy Alias Retirement/.test(matrix) &&
+      /This pass compacted Slice 761 model-mount route-selection policy alias\s+retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 760/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
@@ -617,7 +617,8 @@ function runDocs() {
         matrix,
       ) &&
       /Scheduled matrix-compaction obligation from Slice 760 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 761 model-mount route-selection\s+policy alias retirement/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 761\s+model-mount route-selection policy alias-retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,

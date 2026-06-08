@@ -418,9 +418,10 @@ already canonical hosted-fallback policy. This does not claim terminal route
 selection migration: direct Rust daemon-core model_mount route-control and
 route-decision APIs still need to own route policy evaluation, authority gates,
 receipt binding, Agentgres admission, projection, replay, and conformance.
-Schedule the Slice 761 matrix-compaction pass on the next resume after this
-seam lands; do not encode the remaining JS selector helper as terminal
-architecture.
+Do not encode the remaining JS selector helper as terminal architecture.
+The Slice 761 model-mount route-selection policy alias-retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
