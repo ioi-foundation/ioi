@@ -162,7 +162,6 @@ import {
 } from "./model-mounting/catalog-provider-oauth.mjs";
 import {
   assertConfigurableCatalogProvider,
-  catalogProviderConfigUpdate,
 } from "./model-mounting/catalog-provider-config.mjs";
 import {
   catalogProviderConfig as catalogProviderConfigState,
@@ -730,7 +729,6 @@ export class ModelMountingState {
   startCatalogProviderOAuth(providerId, body = {}) {
     return startCatalogProviderOAuthState(this, providerId, body, {
       assertConfigurableCatalogProvider,
-      catalogProviderConfigUpdate,
       catalogProviderStatus,
       publicCatalogProviderConfig,
     });
@@ -739,7 +737,6 @@ export class ModelMountingState {
   async completeCatalogProviderOAuth(providerId, body = {}) {
     return completeCatalogProviderOAuthState(this, providerId, body, {
       assertConfigurableCatalogProvider,
-      catalogProviderConfigUpdate,
       catalogProviderStatus,
       publicCatalogProviderConfig,
       requiredString,
@@ -750,7 +747,6 @@ export class ModelMountingState {
   async exchangeCatalogProviderOAuth(providerId, body = {}) {
     return exchangeCatalogProviderOAuthState(this, providerId, body, {
       assertConfigurableCatalogProvider,
-      catalogProviderConfigUpdate,
       catalogProviderStatus,
       publicCatalogProviderConfig,
     });

@@ -6,8 +6,6 @@ import {
   assertConfigurableCatalogProvider,
   catalogProviderAuthConfig,
   catalogProviderAuthHeaders,
-  catalogProviderConfigUpdate,
-  catalogProviderMaterialVaultRef,
   catalogProviderRuntimeMaterialFromBody,
   catalogProviderRuntimeMaterialFromValue,
   normalizeCatalogAuthScheme,
@@ -72,44 +70,14 @@ function createState() {
   };
 }
 
-test("catalog provider config updates bind source material to vault refs", () => {
-  const state = createState();
-  const update = catalogProviderConfigUpdate(
-    "catalog.custom_http",
-    {
-      base_url: "https://catalog.example.test/",
-      auth_vault_ref: "vault://catalog/auth",
-      auth_header_name: "X-Catalog-Key",
-    },
-    null,
-    "2026-06-03T12:00:00.000Z",
-    state,
-  );
-
-  assert.equal(update.record.id, "catalog.custom_http");
-  assert.equal(update.record.enabled, true);
-  assert.equal(update.record.catalogAuthConfigured, true);
-  assert.equal(update.record.catalogAuthHeaderName, "x-catalog-key");
-  assert.equal(update.record.materialPersistence, "runtime_vault_binding");
-  assert.equal(update.runtimeMaterial.baseUrl, "https://catalog.example.test");
-  assert.equal(update.runtimeMaterial.runtimeMaterialStatus, "bound_runtime_session");
-  assert.equal(state.bound[0].vaultRef, catalogProviderMaterialVaultRef("catalog.custom_http"));
-  assert.equal(state.bound[0].material, "https://catalog.example.test");
-  assert.equal(state.writeVaultRefsCount(), 1);
-});
-
 test("catalog provider source request aliases fail closed before vault binding", () => {
   const state = createState();
 
   assert.throws(
     () =>
-      catalogProviderConfigUpdate(
-        "catalog.local_manifest",
-        { manifestPath: "./manifest.json" },
-        null,
-        "2026-06-03T12:00:00.000Z",
-        state,
-      ),
+      catalogProviderRuntimeMaterialFromBody("catalog.local_manifest", {
+        manifestPath: "./manifest.json",
+      }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "catalog_provider_source_request_aliases_retired");
@@ -134,6 +102,34 @@ test("catalog provider source request aliases fail closed before vault binding",
       return true;
     },
   );
+
+  assert.throws(
+    () =>
+      catalogProviderRuntimeMaterialFromBody("catalog.local_manifest", {
+        path: "./manifest.json",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "catalog_provider_source_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["path"]);
+      assert.deepEqual(error.details.canonical_fields, ["manifest_path", "base_url"]);
+      return true;
+    },
+  );
+
+  assert.throws(
+    () =>
+      catalogProviderRuntimeMaterialFromBody("catalog.custom_http", {
+        url: "https://catalog.example.test",
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "catalog_provider_source_request_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, ["url"]);
+      assert.deepEqual(error.details.canonical_fields, ["manifest_path", "base_url"]);
+      return true;
+    },
+  );
 });
 
 test("catalog provider auth request aliases fail closed before source or auth binding", () => {
@@ -146,7 +142,7 @@ test("catalog provider auth request aliases fail closed before source or auth bi
 
   assert.throws(
     () =>
-      catalogProviderConfigUpdate(
+      catalogProviderAuthConfig(
         "catalog.custom_http",
         {
           base_url: "https://catalog.example.test/",
@@ -160,7 +156,6 @@ test("catalog provider auth request aliases fail closed before source or auth bi
           oauthSessionId: "session-1",
         },
         null,
-        "2026-06-03T12:00:00.000Z",
         state,
       ),
     (error) => {

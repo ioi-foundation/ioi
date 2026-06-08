@@ -422,6 +422,21 @@ Do not encode the remaining JS selector helper as terminal architecture.
 The Slice 761 model-mount route-selection policy alias-retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
+Slice 762 retired the hidden catalog-provider JS config-update helper that could
+still bind source material, write vault refs, and synthesize catalog-provider
+configuration records outside the public fail-closed Rust-core control facade.
+`model-mounting.mjs` no longer imports or injects `catalogProviderConfigUpdate`,
+and catalog-provider source material parsing now accepts only canonical
+`manifest_path` and `base_url`; retired `path`, `url`, `manifestPath`, and
+`baseUrl` inputs fail closed before vault binding. This does not claim terminal
+catalog-provider control migration: direct Rust daemon-core catalog-provider
+control/projection still needs to own configuration, OAuth state/session
+custody, wallet/cTEE vault binding, auth-header refresh, receipts, Agentgres
+admission, record-state, projection, replay, and conformance. Do not encode the
+remaining JS source/auth helpers as terminal architecture.
+Schedule the Slice 762 catalog-provider config-update helper retirement
+matrix-compaction pass on the next resume before starting unrelated
+route-family work.
 
 ## Part II: Target Execution Model
 

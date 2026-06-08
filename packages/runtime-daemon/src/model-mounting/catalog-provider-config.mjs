@@ -5,7 +5,6 @@ import {
   runtimeError,
   safeId,
   stableHash,
-  truthy,
 } from "./io.mjs";
 import {
   normalizeProviderAuthHeaderName,
@@ -14,11 +13,11 @@ import {
   oauthBoundaryForSession,
 } from "./oauth-boundary.mjs";
 
-const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1";
-
 export const MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS = ["catalog.local_manifest", "catalog.custom_http", "catalog.huggingface"];
 
 const RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES = [
+  "path",
+  "url",
   "manifestPath",
   "baseUrl",
 ];
@@ -57,116 +56,13 @@ export function assertConfigurableCatalogProvider(providerId) {
   }
 }
 
-export function catalogProviderConfigUpdate(providerId, body, existing = null, updatedAt, state) {
-  assertCanonicalCatalogProviderAuthRequestBody(body);
-  const enabled = body.enabled === undefined ? existing?.enabled ?? true : truthy(body.enabled);
-  const materialFromBody = catalogProviderRuntimeMaterialFromBody(providerId, body);
-  let runtimeMaterial = catalogProviderHasSourceMaterial(materialFromBody)
-    ? materialFromBody
-    : state.catalogProviderRuntimeMaterials.get(providerId) ?? null;
-  let materialPersistence = existing?.materialPersistence ?? "metadata_only";
-  let materialVaultRefHash = existing?.materialVaultRefHash ?? null;
-  let runtimeMaterialStatus = existing?.runtimeMaterialStatus ?? (existing?.materialConfigured ? "missing_runtime_material" : "unconfigured");
-  let materialSource = existing?.vaultMaterialSource ?? runtimeMaterial?.materialSource ?? null;
-  const evidenceRefs = ["catalog_provider_config_metadata", "no_plaintext_catalog_material_persisted"];
-  if (catalogProviderHasSourceMaterial(materialFromBody)) {
-    const sourceValue = catalogProviderSourceValue(providerId, materialFromBody);
-    const binding = state.vault.bindVaultRef({
-      vaultRef: catalogProviderMaterialVaultRef(providerId),
-      material: sourceValue,
-      purpose: catalogProviderMaterialPurpose(providerId),
-      label: catalogProviderMaterialLabel(providerId),
-    });
-    state.writeVaultRefs();
-    runtimeMaterial = {
-      ...materialFromBody,
-      runtimeMaterialStatus: "bound_runtime_session",
-      materialSource: binding.materialSource ?? "runtime_memory",
-      materialVaultRefHash: binding.vaultRefHash,
-      evidenceRefs: normalizeScopes(binding.evidenceRefs, ["VaultPort.bindVaultRef", "catalog_provider_source_material_vault_bound"]),
-    };
-    materialVaultRefHash = binding.vaultRefHash;
-    materialSource = binding.materialSource ?? "runtime_memory";
-    materialPersistence =
-      binding.materialSource === "encrypted_keychain_vault_adapter"
-        ? "vault_material_adapter"
-        : "runtime_vault_binding";
-    runtimeMaterialStatus = "bound_runtime_session";
-    evidenceRefs.push("VaultPort.bindVaultRef", "catalog_provider_source_material_vault_bound");
-  } else if (existing?.materialConfigured || existing?.materialVaultRefHash) {
-    runtimeMaterial = state.catalogProviderRuntimeMaterial(providerId);
-    materialVaultRefHash = runtimeMaterial?.materialVaultRefHash ?? existing?.materialVaultRefHash ?? stableHash(catalogProviderMaterialVaultRef(providerId));
-    materialSource = runtimeMaterial?.materialSource ?? existing?.vaultMaterialSource ?? null;
-    runtimeMaterialStatus =
-      runtimeMaterial?.runtimeMaterialStatus ??
-      (catalogProviderHasSourceMaterial(runtimeMaterial) ? "resolved_from_vault" : "missing_runtime_material");
-    if (materialSource === "encrypted_keychain_vault_adapter") materialPersistence = "vault_material_adapter";
-    evidenceRefs.push("VaultPort.resolveVaultRef", "catalog_provider_source_material_vault_resolve");
-  }
-  const material = catalogProviderHasSourceMaterial(runtimeMaterial) ? runtimeMaterial : {};
-  const materialHash =
-    providerId === "catalog.local_manifest"
-      ? material.manifestPath
-        ? stableHash(path.resolve(material.manifestPath))
-        : existing?.manifestPathHash ?? null
-      : (providerId === "catalog.custom_http" || providerId === "catalog.huggingface") && material.baseUrl
-        ? stableHash(material.baseUrl)
-        : providerId === "catalog.custom_http" || providerId === "catalog.huggingface"
-          ? existing?.baseUrlHash ?? null
-          : null;
-  const authConfig = catalogProviderAuthConfig(providerId, body, existing, state);
-  const authVaultRefHash = authConfig.authVaultRefHash;
-  if (authVaultRefHash) evidenceRefs.push("wallet.network.vault_ref_boundary", "catalog_provider_auth_vault_ref");
-  if (!materialVaultRefHash && (materialHash || existing?.materialConfigured)) {
-    materialVaultRefHash = stableHash(catalogProviderMaterialVaultRef(providerId));
-  }
-  const record = {
-    id: providerId,
-    schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-    enabled,
-    configHash: stableHash({
-      providerId,
-      enabled,
-      materialHash,
-      materialVaultRefHash,
-      authVaultRefHash,
-      catalogAuthScheme: authConfig.catalogAuthScheme,
-      catalogAuthHeaderNameHash: authConfig.catalogAuthHeaderNameHash,
-      oauthSessionHash: authConfig.oauthSessionHash,
-    }),
-    manifestPathHash: providerId === "catalog.local_manifest" ? materialHash : null,
-    baseUrlHash: providerId === "catalog.custom_http" || providerId === "catalog.huggingface" ? materialHash : null,
-    authVaultRef: authConfig.authVaultRef,
-    authVaultRefHash,
-    catalogAuthConfigured: authConfig.catalogAuthConfigured,
-    catalogAuthScheme: authConfig.catalogAuthScheme,
-    catalogAuthHeaderName: authConfig.catalogAuthHeaderName,
-    catalogAuthHeaderNameHash: authConfig.catalogAuthHeaderNameHash,
-    oauthSessionId: authConfig.oauthSessionId,
-    oauthSessionHash: authConfig.oauthSessionHash,
-    oauthBoundary: authConfig.oauthBoundary,
-    materialVaultRefHash,
-    materialConfigured: Boolean(materialHash),
-    materialPersistence: materialHash ? materialPersistence : "metadata_only",
-    runtimeMaterialStatus: materialHash ? runtimeMaterialStatus : "unconfigured",
-    vaultMaterialSource: materialSource,
-    updatedAt,
-    evidenceRefs: normalizeScopes(evidenceRefs, ["catalog_provider_config_metadata", "no_plaintext_catalog_material_persisted"]),
-  };
-  return {
-    record,
-    runtimeMaterial: materialHash ? runtimeMaterial : null,
-    evidenceRefs: record.evidenceRefs,
-  };
-}
-
 export function catalogProviderRuntimeMaterialFromBody(providerId, body = {}) {
   assertCanonicalCatalogProviderSourceRequestBody(body);
   const source =
     providerId === "catalog.local_manifest"
-      ? body.manifest_path ?? body.path ?? null
+      ? body.manifest_path ?? null
       : providerId === "catalog.custom_http" || providerId === "catalog.huggingface"
-        ? body.base_url ?? body.url ?? null
+        ? body.base_url ?? null
         : null;
   return source === null ? {} : catalogProviderRuntimeMaterialFromValue(providerId, source);
 }
@@ -292,18 +188,9 @@ export function catalogProviderHasSourceMaterial(material) {
   return Boolean(material?.manifestPath || material?.baseUrl);
 }
 
-export function catalogProviderSourceValue(providerId, material) {
-  return providerId === "catalog.local_manifest" ? path.resolve(material.manifestPath) : material?.baseUrl ?? "";
-}
-
 export function catalogProviderMaterialVaultRef(providerId) { return `vault://ioi/model-catalog/${safeId(providerId)}/source`; }
 
 export function catalogProviderMaterialPurpose(providerId) { return `catalog.source:${providerId}`; }
-
-export function catalogProviderMaterialLabel(providerId) {
-  if (providerId === "catalog.local_manifest") return "Local manifest catalog source";
-  return providerId === "catalog.huggingface" ? "Hugging Face-compatible catalog source" : "Custom HTTP catalog source";
-}
 
 export async function catalogProviderAuthHeaders(providerId, state) {
   const config = state?.catalogProviderConfig?.(providerId) ?? null;

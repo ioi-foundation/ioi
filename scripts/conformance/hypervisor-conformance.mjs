@@ -401,6 +401,9 @@ function runDocs() {
       /Slice 761 retired remaining camelCase policy steering from model-mount route\s+selection/.test(guide) &&
       /`denyFixtureModels` and `maxCostUsd` can no longer affect endpoint\s+selection/.test(guide) &&
       /The Slice 761 model-mount route-selection policy alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 762 retired the hidden catalog-provider JS config-update helper/.test(guide) &&
+      /`model-mounting\.mjs` no longer imports or injects `catalogProviderConfigUpdate`/.test(guide) &&
+      /Schedule the Slice 762 catalog-provider config-update helper retirement\s+matrix-compaction pass on the next resume/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -426,8 +429,10 @@ function runDocs() {
       /This pass compacted Slice 759 catalog-provider runtime-material read-cache\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 760 catalog download policy request-synonym\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 761 model-mount route-selection policy alias\s+retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; because Slice 762 has now landed,\s+perform the scheduled Slice 762 matrix-compaction pass before unrelated\s+route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
+      /Implementation Slice: 762/.test(matrix) &&
+      /catalogProviderConfigUpdate/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 760/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
@@ -618,12 +623,14 @@ function runDocs() {
       ) &&
       /Scheduled matrix-compaction obligation from Slice 760 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 761\s+model-mount route-selection policy alias-retirement compaction/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 762\s+catalog-provider config-update helper retirement/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
       ) &&
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
+      /the hidden `catalogProviderConfigUpdate` JS writer has been removed/.test(implementationMatrix) &&
+      /source material parsing accepts only canonical `manifest_path` and `base_url`/.test(implementationMatrix) &&
       /runtime material lookup no longer writes vault refs or local runtime-material cache entries/.test(
         implementationMatrix,
       ) &&
@@ -12149,16 +12156,18 @@ function runReceipts() {
     /RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES/.test(catalogProviderConfig) &&
       /CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS/.test(catalogProviderConfig) &&
       /catalog_provider_source_request_aliases_retired/.test(catalogProviderConfig) &&
-      /assertCanonicalCatalogProviderSourceRequestBody\(body\);[\s\S]*body\.manifest_path \?\? body\.path \?\? null/.test(
+      /assertCanonicalCatalogProviderSourceRequestBody\(body\);[\s\S]*body\.manifest_path \?\? null/.test(
         catalogProviderRuntimeMaterialFromBodyBlock,
       ) &&
-      /body\.base_url \?\? body\.url \?\? null/.test(catalogProviderRuntimeMaterialFromBodyBlock) &&
-      !/body\.(?:manifestPath|baseUrl)\b/.test(catalogProviderConfig) &&
+      /body\.base_url \?\? null/.test(catalogProviderRuntimeMaterialFromBodyBlock) &&
+      !/body\.(?:path|url|manifestPath|baseUrl)\b/.test(catalogProviderConfig) &&
       /catalog provider source request aliases fail closed before vault binding/.test(
         catalogProviderConfigTest,
       ) &&
       /retired_aliases,\s*\[\s*"manifestPath"\s*\]/.test(catalogProviderConfigTest) &&
       /retired_aliases,\s*\[\s*"baseUrl"\s*\]/.test(catalogProviderConfigTest) &&
+      /retired_aliases,\s*\[\s*"path"\s*\]/.test(catalogProviderConfigTest) &&
+      /retired_aliases,\s*\[\s*"url"\s*\]/.test(catalogProviderConfigTest) &&
       /canonical_fields,\s*\[\s*"manifest_path",\s*"base_url"\s*\]/.test(catalogProviderConfigTest) &&
       /assert\.equal\(state\.bound\.length,\s*0\)/.test(catalogProviderConfigTest) &&
       /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
@@ -12172,17 +12181,17 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
-    "Phase 7/11 is pending: catalog provider source request bodies must fail closed on retired camelCase source aliases before vault binding",
+    "Phase 7/11 is pending: catalog provider source request bodies must fail closed on retired source aliases before vault binding",
   );
   assertCheck(
     result,
     "model-mount-catalog-provider-auth-request-aliases-retired",
-    /RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES/.test(catalogProviderConfig) &&
+      /RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES/.test(catalogProviderConfig) &&
       /CANONICAL_CATALOG_PROVIDER_AUTH_REQUEST_FIELDS/.test(catalogProviderConfig) &&
       /catalog_provider_auth_request_aliases_retired/.test(catalogProviderConfig) &&
-      /export function catalogProviderConfigUpdate[\s\S]*?assertCanonicalCatalogProviderAuthRequestBody\(body\);[\s\S]*?state\.vault\.bindVaultRef/.test(
-        catalogProviderConfig,
-      ) &&
+      !/export function catalogProviderConfigUpdate\b/.test(catalogProviderConfig) &&
+      !/catalogProviderConfigUpdate/.test(runtimeDaemonIndex) &&
+      !/state\.vault\.bindVaultRef/.test(catalogProviderConfig) &&
       /firstOwn\(body,\s*\["auth_vault_ref"\]\)/.test(catalogProviderAuthConfigBlock) &&
       /body\.auth_scheme \?\? existing\?\.catalogAuthScheme \?\? "bearer"/.test(
         catalogProviderAuthConfigBlock,
