@@ -332,7 +332,8 @@ function runDocs() {
         guide,
       ) &&
       /Slice 746 retired the model-mount conversation-state write and\s+stream-completion finalization JS facades/.test(guide) &&
-      /Resume by completing the scheduled Slice 746 matrix-compaction pass before\s+starting unrelated route-family work/.test(guide) &&
+      /Slice 746 model conversation\/stream completion facade-retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Resume with the next verified Rust-core extraction or facade-retirement slice/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -349,7 +350,8 @@ function runDocs() {
         guide,
       ) &&
       /Slice 745 MCP workflow facade-retirement compaction is complete/.test(guide) &&
-      /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+now scheduled/.test(guide) &&
+      /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+complete/.test(guide) &&
+      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -358,10 +360,10 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Slice 746 retired the model-mount\s+conversation-state write and stream-completion finalization JS facades/.test(
+      /This pass compacted Slice 746\s+model-mount conversation-state write and stream-completion finalization\s+facade-retirement evidence/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: Slice 746 model conversation\/stream\s+completion facade-retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -397,10 +399,11 @@ function runDocs() {
       /model_mount_mcp_workflow_rust_core_required/.test(matrix) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 745 is now satisfied/.test(matrix) &&
-      /Implementation Slice 746/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 746/.test(matrix) &&
+      /Slice 746 retired JS-authoritative model conversation-state writes and native\s+stream-completion finalization/.test(matrix) &&
       /model_mount_conversation_rust_core_required/.test(matrix) &&
       /model_mount_stream_completion_js_facade_retired/.test(matrix) &&
-      /matrix_compaction: scheduled after Slice 746 verification/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 746 is now satisfied/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
