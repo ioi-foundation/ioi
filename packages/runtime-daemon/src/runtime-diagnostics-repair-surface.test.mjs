@@ -829,7 +829,8 @@ test("diagnostics repair surface creates retry turns with injected diagnostics f
   assert.equal(result.turn_id, "turn_repair");
   assert.equal(createRunCalls[0].agentId, "agent_alpha");
   assert.equal(createRunCalls[0].request.prompt, "Try the fix again");
-  assert.equal(createRunCalls[0].request.options.diagnosticsMode, "skip");
+  assert.equal(createRunCalls[0].request.options.diagnostics_mode, "skip");
+  assert.equal(Object.hasOwn(createRunCalls[0].request.options, "diagnosticsMode"), false);
   assert.equal(createRunCalls[0].request.diagnostics_feedback.mode, "repair_retry");
   assert.equal(Object.hasOwn(createRunCalls[0].request, "diagnosticsFeedback"), false);
   assert.equal(events[0].payload_summary.retry_turn_id, "turn_repair");

@@ -20318,6 +20318,23 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "diagnostics-repair-retry-create-run-diagnostics-mode-alias-retired",
+    /diagnostics_mode:\s*"skip"/.test(diagnosticsRepairRetryHelperBody) &&
+      !/diagnosticsMode\s*:/.test(diagnosticsRepairRetryHelperBody) &&
+      /createRunCalls\[0\]\.request\.options\.diagnostics_mode,\s*"skip"/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(createRunCalls\[0\]\.request\.options,\s*"diagnosticsMode"\),\s*false/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
+      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics repair retry turn creation must send canonical diagnostics_mode without the retired diagnosticsMode option alias",
+  );
+  assertCheck(
+    result,
     "diagnostics-feedback-repair-context-aliases-retired",
     /schema_version:\s*DIAGNOSTICS_ROLLBACK_REPAIR_CONTEXT_SCHEMA_VERSION/.test(
       runtimeDiagnosticsFeedbackSurface,

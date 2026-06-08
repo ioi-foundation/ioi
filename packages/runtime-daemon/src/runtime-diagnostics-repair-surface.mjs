@@ -535,7 +535,6 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
       prompt,
       options: {
         ...(request.options ?? {}),
-        diagnosticsMode: "skip",
         diagnostics_mode: "skip",
       },
       memory: request.memory,

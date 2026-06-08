@@ -13388,6 +13388,52 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 677
+
+```yaml
+slice: 677
+phase: 10-authoritative-js-facade-retirement
+objective: retire diagnostics repair retry create-run diagnosticsMode option alias
+owner_boundary:
+  route_or_surface: runtime diagnostics repair retry turn creation
+  authority_gate: unchanged; diagnostics repair retry remains decision-mediated
+    and policy-gated before a retry turn is created
+  execution_backend: daemon repair facade still delegates consequential retry
+    turn creation through the canonical runtime run path; JS facade now sends
+    canonical diagnostics options only
+  truth_path: retry turn creation carries `diagnostics_mode: "skip"` in
+    create-run options without the retired `diagnosticsMode` compatibility alias
+  projection_path: diagnostics repair retry event projection remains canonical
+    and receipt/policy/rollback ref bound
+touched_files:
+  daemon:
+    - packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - diagnostics repair retry turn creation sends canonical `diagnostics_mode`
+    without duplicate `diagnosticsMode`
+  - focused tests assert the retired option alias is absent from the create-run
+    boundary
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test --test-name-pattern "diagnostics repair surface creates retry turns with injected diagnostics feedback" packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - npm run hypervisor-conformance:compositor
+  replay_or_shadow_comparison: not_applicable
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader diagnostics repair and runtime run creation facades still need
+      terminal Rust daemon-core ownership across every retry/repair path
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
