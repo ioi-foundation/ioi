@@ -277,6 +277,8 @@ struct ModelMountReadProjectionRequest {
     generated_at: Option<String>,
     #[serde(default)]
     receipt_id: Option<String>,
+    #[serde(default)]
+    provider_id: Option<String>,
     state: Value,
 }
 
@@ -2078,6 +2080,8 @@ fn model_mount_read_projection(
         "receipt_replay" => model_mount_receipt_replay(request),
         "model_route_decisions" => Ok(model_mount_route_decisions(request)),
         "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
+        "latest_provider_health" => model_mount_latest_provider_health(request),
+        "latest_vault_health" => model_mount_latest_vault_health(request),
         other => Err(BridgeError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),
@@ -2185,23 +2189,42 @@ fn model_mount_receipt_replay(
         )
     })?;
     let projection = model_mount_projection(request);
-    let receipts = projection
+    let receipt = find_receipt(&projection, receipt_id)?;
+    Ok(model_mount_receipt_replay_projection(
+        request,
+        &projection,
+        &receipt,
+    ))
+}
+
+fn find_receipt(projection: &Value, receipt_id: &str) -> Result<Value, BridgeError> {
+    projection
         .get("receipts")
         .and_then(Value::as_array)
         .cloned()
-        .unwrap_or_default();
-    let receipt = receipts
-        .iter()
+        .unwrap_or_default()
+        .into_iter()
         .find(|candidate| json_string_field(candidate, "id").as_deref() == Some(receipt_id))
-        .cloned()
         .ok_or_else(|| {
             BridgeError::new(
                 "model_mount_receipt_not_found",
                 format!("model_mount receipt not found: {receipt_id}"),
             )
-        })?;
+        })
+}
+
+fn model_mount_receipt_replay_projection(
+    request: &ModelMountReadProjectionRequest,
+    projection: &Value,
+    receipt: &Value,
+) -> Value {
+    let receipts = projection
+        .get("receipts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
     let details = receipt.get("details").cloned().unwrap_or(Value::Null);
-    Ok(json!({
+    json!({
         "schemaVersion": model_mount_projection_schema_version(request),
         "source": "agentgres_model_mounting_projection_replay",
         "receipt": receipt,
@@ -2212,7 +2235,7 @@ fn model_mount_receipt_replay(
         "provider": projection_lookup(&projection, "providers", details.get("provider_id")),
         "toolReceipts": tool_receipts_from_details(&receipts, &details),
         "projectionWatermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
-    }))
+    })
 }
 
 fn model_mount_route_decisions(request: &ModelMountReadProjectionRequest) -> Value {
@@ -2282,6 +2305,74 @@ fn model_mount_authority_snapshot(request: &ModelMountReadProjectionRequest) -> 
             "remoteWalletConfigured": remote_wallet_configured,
         },
     })
+}
+
+fn model_mount_latest_provider_health(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, BridgeError> {
+    let provider_id = request.provider_id.as_deref().ok_or_else(|| {
+        BridgeError::new(
+            "model_mount_provider_id_required",
+            "latest provider health projection requires provider_id".to_string(),
+        )
+    })?;
+    let health = array_field(&request.state, "provider_health")
+        .into_iter()
+        .filter(|record| json_string_field(record, "providerId").as_deref() == Some(provider_id))
+        .last()
+        .ok_or_else(|| {
+            BridgeError::new(
+                "model_mount_provider_health_not_found",
+                format!("provider health has not been checked: {provider_id}"),
+            )
+        })?;
+    let receipt_id = json_string_field(&health, "receiptId").ok_or_else(|| {
+        BridgeError::new(
+            "model_mount_provider_health_receipt_missing",
+            format!("provider health missing receipt id: {provider_id}"),
+        )
+    })?;
+    let projection = model_mount_projection(request);
+    let receipt = find_receipt(&projection, &receipt_id)?;
+    Ok(json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "source": "agentgres_provider_health_latest",
+        "providerId": provider_id,
+        "health": health,
+        "receipt": receipt,
+        "replay": model_mount_receipt_replay_projection(request, &projection, &receipt),
+        "projectionWatermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
+    }))
+}
+
+fn model_mount_latest_vault_health(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, BridgeError> {
+    let projection = model_mount_projection(request);
+    let receipt = projection
+        .get("receipts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|candidate| {
+            json_string_field(candidate, "kind").as_deref() == Some("vault_adapter_health")
+        })
+        .last()
+        .ok_or_else(|| {
+            BridgeError::new(
+                "model_mount_vault_health_not_found",
+                "vault adapter health has not been checked".to_string(),
+            )
+        })?;
+    Ok(json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "source": "agentgres_vault_health_latest",
+        "health": receipt.get("details").cloned().unwrap_or(Value::Null),
+        "receipt": receipt,
+        "replay": model_mount_receipt_replay_projection(request, &projection, &receipt),
+        "projectionWatermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
+    }))
 }
 
 fn model_mount_projection_schema_version(request: &ModelMountReadProjectionRequest) -> String {
@@ -7807,22 +7898,48 @@ mod tests {
             "wallet": {"port": "WalletAuthorityPort"},
             "vault": {"port": "VaultPort"},
             "server": {"status": "running"},
-            "receipts": [{
-                "id": "receipt-route",
-                "kind": "model_route_selection",
-                "createdAt": "2026-06-08T00:00:00.000Z",
-                "details": {
-                    "model_route_decision": {
-                        "schema_version": "ioi.model-route-decision.v1",
+            "receipts": [
+                {
+                    "id": "receipt-route",
+                    "kind": "model_route_selection",
+                    "createdAt": "2026-06-08T00:00:00.000Z",
+                    "details": {
+                        "model_route_decision": {
+                            "schema_version": "ioi.model-route-decision.v1",
+                            "route_id": "route.local-first",
+                            "selected_model": "model.local"
+                        },
                         "route_id": "route.local-first",
-                        "selected_model": "model.local"
-                    },
-                    "route_id": "route.local-first",
-                    "endpoint_id": "endpoint.local",
-                    "provider_id": "provider.local"
+                        "endpoint_id": "endpoint.local",
+                        "provider_id": "provider.local"
+                    }
+                },
+                {
+                    "id": "receipt-provider-health",
+                    "kind": "provider_health",
+                    "createdAt": "2026-06-08T00:01:00.000Z",
+                    "details": {
+                        "providerId": "provider.local",
+                        "status": "healthy"
+                    }
+                },
+                {
+                    "id": "receipt-vault-health",
+                    "kind": "vault_adapter_health",
+                    "createdAt": "2026-06-08T00:02:00.000Z",
+                    "details": {
+                        "status": "healthy",
+                        "implementation": "runtime_memory_vault"
+                    }
                 }
-            }]
+            ]
         });
+        let mut state_with_health = state.clone();
+        state_with_health["provider_health"] = json!([{
+            "providerId": "provider.local",
+            "receiptId": "receipt-provider-health",
+            "status": "healthy"
+        }]);
         let request: ModelMountReadProjectionBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_read_projection",
@@ -7849,7 +7966,7 @@ mod tests {
             response["projection"]["source"],
             "agentgres_model_mounting_projection"
         );
-        assert_eq!(response["projection"]["watermark"], 1);
+        assert_eq!(response["projection"]["watermark"], 3);
         assert_eq!(
             response["projection"]["routeDecisions"][0]["receipt_id"],
             "receipt-route"
@@ -7897,6 +8014,67 @@ mod tests {
         assert!(snapshot_response["projection"]
             .get("workflow_bindings")
             .is_none());
+
+        let provider_health_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "latest_provider_health",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "provider_id": "provider.local",
+                    "state": state_with_health.clone()
+                }
+            }))
+            .expect("model_mount latest provider health request");
+
+        let provider_health_response = plan_model_mount_read_projection(provider_health_request)
+            .expect("latest provider health projected in Rust");
+
+        assert_eq!(
+            provider_health_response["projection_kind"],
+            "latest_provider_health"
+        );
+        assert_eq!(
+            provider_health_response["projection"]["receipt"]["id"],
+            "receipt-provider-health"
+        );
+        assert_eq!(
+            provider_health_response["projection"]["replay"]["receipt"]["id"],
+            "receipt-provider-health"
+        );
+
+        let vault_health_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "latest_vault_health",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": state_with_health
+                }
+            }))
+            .expect("model_mount latest vault health request");
+
+        let vault_health_response = plan_model_mount_read_projection(vault_health_request)
+            .expect("latest vault health projected in Rust");
+
+        assert_eq!(
+            vault_health_response["projection_kind"],
+            "latest_vault_health"
+        );
+        assert_eq!(
+            vault_health_response["projection"]["receipt"]["id"],
+            "receipt-vault-health"
+        );
+        assert_eq!(
+            vault_health_response["projection"]["replay"]["receipt"]["id"],
+            "receipt-vault-health"
+        );
     }
 
     #[test]

@@ -971,6 +971,18 @@ model_mount projection migration: JS still prepares current state input, and
 direct Rust daemon-core Agentgres projection APIs still need to replace command
 transport and local materialization.
 
+Slice 799 moved successful latest model_mount provider-health and vault-health
+read envelopes through Rust read-projection kinds. `latestProviderHealth()` now
+preflights provider existence and health-record presence at the JS edge, then
+returns the Rust-authored `latest_provider_health` projection. `latestVaultHealth()`
+keeps its not-found edge check, then returns the Rust-authored
+`latest_vault_health` projection. The returned health envelope, receipt replay,
+and projection watermark now come from `plan_model_mount_read_projection` rather
+than JS object construction. This still does not claim terminal model_mount
+projection migration: JS still prepares current state input and not-found
+translation, and direct Rust daemon-core Agentgres projection APIs still need to
+replace command transport and local materialization.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -116,14 +116,18 @@ function createState() {
     },
     internalFixtureModelsEnabled: () => false,
     isFixtureModelRecord: (artifact) => artifact.family === "fixture",
-    listJson: () => [],
+    listJson: () => ["/state/provider-health/provider.local.json"],
     modelMountSchemaVersion: "model.mount.schema",
     path: { join: (...parts) => parts.join("/") },
     providerHasVaultRef: (provider) => Boolean(provider.secretRef),
     publicOAuthSession: (session) => ({ id: session.id }),
     publicOAuthState: (oauthState) => ({ id: oauthState.id }),
     publicProvider: (provider, vaultMetadata) => ({ id: provider.id, vaultMetadata }),
-    readJson: () => null,
+    readJson: () => ({
+      providerId: "provider.local",
+      receiptId: "receipt-provider-health",
+      status: "healthy",
+    }),
     readProjectionPlanner,
     notFound: (message, details) => Object.assign(new Error(message), {
       status: 404,
@@ -268,6 +272,40 @@ function rustProjectionFixture(request) {
       },
     };
   }
+  if (request.projection_kind === "latest_provider_health") {
+    const health = state.provider_health.find((record) => record.providerId === request.provider_id);
+    const receipt = receipts.find((candidate) => candidate.id === health?.receiptId);
+    return {
+      schemaVersion: request.schema_version,
+      source: "agentgres_provider_health_latest",
+      providerId: request.provider_id,
+      health,
+      receipt,
+      replay: {
+        schemaVersion: request.schema_version,
+        source: "agentgres_model_mounting_projection_replay",
+        receipt,
+        projectionWatermark: projection.watermark,
+      },
+      projectionWatermark: projection.watermark,
+    };
+  }
+  if (request.projection_kind === "latest_vault_health") {
+    const receipt = receipts.filter((candidate) => candidate.kind === "vault_adapter_health").at(-1);
+    return {
+      schemaVersion: request.schema_version,
+      source: "agentgres_vault_health_latest",
+      health: receipt.details,
+      receipt,
+      replay: {
+        schemaVersion: request.schema_version,
+        source: "agentgres_model_mounting_projection_replay",
+        receipt,
+        projectionWatermark: projection.watermark,
+      },
+      projectionWatermark: projection.watermark,
+    };
+  }
   if (request.projection_kind === "receipt_replay") {
     const receipt = receipts.find((candidate) => candidate.id === request.receipt_id);
     return {
@@ -317,7 +355,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.listDownloads(state).map((download) => download.id), ["download.one"]);
   assert.deepEqual(facade.listOAuthSessions(state), []);
   assert.deepEqual(facade.listOAuthStates(state), []);
-  assert.deepEqual(facade.listProviderHealth(state), []);
+  assert.deepEqual(facade.listProviderHealth(state).map((health) => health.receiptId), ["receipt-provider-health"]);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "projection",
     "projection",
@@ -389,7 +427,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {
-  const { facade, state } = createState();
+  const { facade, state, readProjectionRequests } = createState();
 
   const providerHealth = facade.latestProviderHealth(state, "provider.local");
   assert.equal(providerHealth.schemaVersion, "model.mount.schema");
@@ -407,6 +445,11 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(vaultHealth.receipt.id, "receipt-vault-health");
   assert.equal(vaultHealth.replay.receipt.id, "receipt-vault-health");
   assert.equal(vaultHealth.projectionWatermark, 4);
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "latest_provider_health",
+    "latest_vault_health",
+  ]);
+  assert.equal(readProjectionRequests[0].provider_id, "provider.local");
 });
 
 test("read projection facade preserves latest health not-found errors", () => {

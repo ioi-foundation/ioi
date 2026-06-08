@@ -129,16 +129,7 @@ export function createModelMountingReadProjectionFacade({
     if (!health?.receiptId) {
       throw notFoundDep(`Provider health has not been checked: ${providerId}`, { providerId });
     }
-    const receipt = state.getReceipt(health.receiptId);
-    return {
-      schemaVersion: modelMountSchemaVersion,
-      source: "agentgres_provider_health_latest",
-      providerId,
-      health,
-      receipt,
-      replay: state.receiptReplay(receipt.id),
-      projectionWatermark: state.listReceipts().length,
-    };
+    return rustReadProjection(state, "latest_provider_health", { providerId });
   }
 
   function latestVaultHealth(state) {
@@ -150,22 +141,15 @@ export function createModelMountingReadProjectionFacade({
         receiptKind: "vault_adapter_health",
       });
     }
-    return {
-      schemaVersion: modelMountSchemaVersion,
-      source: "agentgres_vault_health_latest",
-      health: receipt.details,
-      receipt,
-      replay: state.receiptReplay(receipt.id),
-      projectionWatermark: state.listReceipts().length,
-    };
+    return rustReadProjection(state, "latest_vault_health");
   }
 
   function workflowNodeBindings(state) {
     return rustProjectionField(state, "workflowBindings");
   }
 
-  function rustReadProjection(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
-    const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, receiptId });
+  function rustReadProjection(state, projectionKind, { baseUrl = null, providerId = null, receiptId = null } = {}) {
+    const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, providerId, receiptId });
     return result.projection;
   }
 
@@ -181,10 +165,11 @@ export function createModelMountingReadProjectionFacade({
     return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
-  function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
+  function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, providerId = null, receiptId = null } = {}) {
     if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
       throwReadProjectionRustCoreRequired(projectionKind, {
         base_url: baseUrl,
+        provider_id: providerId,
         receipt_id: receiptId,
       });
     }
@@ -193,6 +178,7 @@ export function createModelMountingReadProjectionFacade({
       schema_version: modelMountSchemaVersion,
       generated_at: state.nowIso(),
       base_url: baseUrl,
+      provider_id: providerId,
       receipt_id: receiptId,
       state: readProjectionInput(state, baseUrl),
     });

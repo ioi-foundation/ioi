@@ -542,13 +542,17 @@ function runDocs() {
       /Slice 798 moved public model_mount adapter-boundary and workflow-node binding\s+reads through Rust projection fields/.test(guide) &&
       /`adapterBoundaries\(\)` now returns the\s+Rust-authored `adapterBoundaries` projection object/.test(guide) &&
       /`workflowNodeBindings\(\)` now returns the Rust-authored `workflowBindings`\s+projection list/.test(guide) &&
+      /Slice 799 moved successful latest model_mount provider-health and vault-health\s+read envelopes through Rust read-projection kinds/.test(guide) &&
+      /`latestProviderHealth\(\)` now\s+preflights provider existence and health-record presence at the JS edge, then\s+returns the Rust-authored `latest_provider_health` projection/.test(guide) &&
+      /`latestVaultHealth\(\)`\s+keeps its not-found edge check, then returns the Rust-authored\s+`latest_vault_health` projection/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 795/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 796/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 797/.test(matrix) &&
-      /Implementation Slice Evidence: 798/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 798/.test(matrix) &&
+      /Implementation Slice Evidence: 799/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -904,7 +908,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 798 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 799 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7692,6 +7696,9 @@ function runBridge() {
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustProjectionObjectField\(state,\s*"adapterBoundaries"\)/.test(modelMountingReadProjectionFacade) &&
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"workflowBindings"\)/.test(modelMountingReadProjectionFacade) &&
+      /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
+      /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
+      /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
       /listArtifacts\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
       /listProviders\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
       /listEndpoints\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7705,18 +7712,27 @@ function runBridge() {
       /facade\.adapterBoundaries\(state\)\.agentgres\.port/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
       /Rust model_mount admission runner sends read projection plan request/.test(modelMountAdmissionRunnerTest) &&
       /planReadProjection\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_read_projection"/.test(modelMountAdmissionRunner) &&
       /normalizeReadProjectionBridgeResult/.test(modelMountAdmissionRunner) &&
       /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(bridgeModule) &&
+      /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(bridgeModule) &&
+      /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&
+      /fn model_mount_latest_provider_health/.test(bridgeModule) &&
+      /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /"workflowNodes": array_field\(state,\s*"workflow_bindings"\)/.test(bridgeModule) &&
       /rust_model_mount_read_projection_command/.test(bridgeModule) &&
       /rust_daemon_core_model_mount_projection/.test(bridgeModule) &&
       /agentgres_model_mount_read_truth/.test(bridgeModule) &&
       /"projection_kind": "snapshot"/.test(bridgeModule) &&
+      /"projection_kind": "latest_provider_health"/.test(bridgeModule) &&
+      /"projection_kind": "latest_vault_health"/.test(bridgeModule) &&
+      /latest provider health projected in Rust/.test(bridgeModule) &&
+      /latest vault health projected in Rust/.test(bridgeModule) &&
       /snapshot projection planned in Rust/.test(bridgeModule),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
