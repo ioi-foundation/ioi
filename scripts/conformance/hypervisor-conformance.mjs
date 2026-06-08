@@ -879,6 +879,15 @@ function runBridge() {
   const codingToolContracts = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
+  const codingToolContractsTest = exists("packages/runtime-daemon/src/coding-tools.test.mjs")
+    ? read("packages/runtime-daemon/src/coding-tools.test.mjs")
+    : "";
+  const codingToolInputSummaryBody =
+    codingToolContracts.match(
+      /export function codingToolInputSummary\(toolId, input = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const codingToolPatchEditNormalizerBody =
+    codingToolContracts.match(/function normalizePatchEdits\(input = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const artifactReadContractBlock = codingToolContracts.match(
     /stable_tool_id:\s*"artifact\.read"[\s\S]*?(?=\n\s*\{\n\s*schema_version:\s*CODING_TOOL_PACK_SCHEMA_VERSION,\n\s*stable_tool_id:\s*"tool\.retrieve_result")/,
   )?.[0] ?? "";
@@ -3465,6 +3474,42 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use route metadata must ignore retired observationRetentionMode input aliases before StepModule/Rust dispatch",
+  );
+  assertCheck(
+    result,
+    "coding-tool-input-summary-aliases-retired",
+    /dry_run:\s*Boolean\(input\.dry_run\)/.test(codingToolInputSummaryBody) &&
+      /command_id:\s*optionalString\(input\.command_id\) \?\? "node\.test"/.test(
+        codingToolInputSummaryBody,
+      ) &&
+      /command_id:\s*optionalString\(input\.command_id\) \?\? "auto"/.test(
+        codingToolInputSummaryBody,
+      ) &&
+      /timeout_ms:\s*input\.timeout_ms \?\? null/.test(codingToolInputSummaryBody) &&
+      /include_ignored:\s*Boolean\(input\.include_ignored\)/.test(
+        codingToolInputSummaryBody,
+      ) &&
+      !/input\.dryRun\b/.test(codingToolInputSummaryBody) &&
+      !/input\.commandId\b/.test(codingToolInputSummaryBody) &&
+      !/input\.timeoutMs\b/.test(codingToolInputSummaryBody) &&
+      !/input\.includeIgnored\b/.test(codingToolInputSummaryBody) &&
+      /Object\.hasOwn\(input,\s*"old_text"\)/.test(codingToolPatchEditNormalizerBody) &&
+      /Object\.hasOwn\(input,\s*"append_text"\)/.test(codingToolPatchEditNormalizerBody) &&
+      /Object\.hasOwn\(input,\s*"prepend_text"\)/.test(codingToolPatchEditNormalizerBody) &&
+      !/Object\.hasOwn\(input,\s*"oldText"\)/.test(codingToolPatchEditNormalizerBody) &&
+      !/Object\.hasOwn\(input,\s*"appendText"\)/.test(codingToolPatchEditNormalizerBody) &&
+      !/Object\.hasOwn\(input,\s*"prependText"\)/.test(codingToolPatchEditNormalizerBody) &&
+      /coding tool input summaries ignore retired camelCase request aliases/.test(
+        codingToolContractsTest,
+      ) &&
+      /dryRun: true/.test(codingToolContractsTest) &&
+      /commandId: "npm\.test"/.test(codingToolContractsTest) &&
+      /includeIgnored: true/.test(codingToolContractsTest),
+    [
+      "packages/runtime-daemon/src/coding-tools.mjs",
+      "packages/runtime-daemon/src/coding-tools.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool input summaries must ignore retired camelCase request aliases before StepModule/Rust projection metadata",
   );
   assertCheck(
     result,

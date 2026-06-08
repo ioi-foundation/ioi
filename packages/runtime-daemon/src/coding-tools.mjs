@@ -596,24 +596,24 @@ export function codingToolInputSummary(toolId, input = {}) {
   if (toolId === "file.apply_patch") {
     return {
       path: optionalString(input.path) ?? null,
-      dryRun: Boolean(input.dryRun ?? input.dry_run),
+      dry_run: Boolean(input.dry_run),
       editCount: normalizePatchEdits(input).length,
     };
   }
   if (toolId === "test.run") {
     return {
-      commandId: optionalString(input.commandId ?? input.command_id) ?? "node.test",
+      command_id: optionalString(input.command_id) ?? "node.test",
       paths: codingToolRawPathSummary(input),
       cwd: optionalString(input.cwd) ?? ".",
-      timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
+      timeout_ms: input.timeout_ms ?? null,
     };
   }
   if (toolId === "lsp.diagnostics") {
     return {
-      commandId: optionalString(input.commandId ?? input.command_id) ?? "auto",
+      command_id: optionalString(input.command_id) ?? "auto",
       paths: codingToolRawPathSummary(input),
       cwd: optionalString(input.cwd) ?? ".",
-      timeoutMs: input.timeoutMs ?? input.timeout_ms ?? null,
+      timeout_ms: input.timeout_ms ?? null,
     };
   }
   if (toolId === "artifact.read") {
@@ -640,7 +640,7 @@ export function codingToolInputSummary(toolId, input = {}) {
   }
   if (toolId === "git.diff") return { paths: codingToolRawPathSummary(input) };
   if (toolId === "workspace.status") {
-    return { includeIgnored: Boolean(input.includeIgnored ?? input.include_ignored) };
+    return { include_ignored: Boolean(input.include_ignored) };
   }
   return {};
 }
@@ -854,19 +854,19 @@ function normalizeArray(value) {
 
 function normalizePatchEdits(input = {}) {
   const edits = Array.isArray(input.edits) ? input.edits.slice(0, CODING_TOOL_APPLY_PATCH_MAX_EDITS) : [];
-  if (Object.hasOwn(input, "oldText") || Object.hasOwn(input, "old_text")) {
+  if (Object.hasOwn(input, "old_text")) {
     edits.push({
       type: "replace",
-      oldText: input.oldText ?? input.old_text,
-      newText: input.newText ?? input.new_text ?? "",
+      oldText: input.old_text,
+      newText: input.new_text ?? "",
       occurrence: input.occurrence,
     });
   }
-  if (Object.hasOwn(input, "appendText") || Object.hasOwn(input, "append_text")) {
-    edits.push({ type: "append", text: input.appendText ?? input.append_text ?? "" });
+  if (Object.hasOwn(input, "append_text")) {
+    edits.push({ type: "append", text: input.append_text ?? "" });
   }
-  if (Object.hasOwn(input, "prependText") || Object.hasOwn(input, "prepend_text")) {
-    edits.push({ type: "prepend", text: input.prependText ?? input.prepend_text ?? "" });
+  if (Object.hasOwn(input, "prepend_text")) {
+    edits.push({ type: "prepend", text: input.prepend_text ?? "" });
   }
   return edits
     .map((edit) => (edit && typeof edit === "object" && !Array.isArray(edit) ? edit : null))
