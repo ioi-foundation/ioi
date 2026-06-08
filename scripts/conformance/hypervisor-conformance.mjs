@@ -318,7 +318,7 @@ function runDocs() {
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-738 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement, plus conversation-artifact control facade-retirement seams/.test(guide) &&
+      /Slices\s+733-739 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement, conversation-artifact control facade-retirement, and\s+permanent agent-delete control facade-retirement seams/.test(guide) &&
       /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
@@ -334,7 +334,7 @@ function runDocs() {
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-738 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, runtime thread-fork control facade-retirement, and\s+conversation-artifact control facade-retirement seams/.test(
+      /Slices 733-739 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, runtime thread-fork control facade-retirement, and\s+conversation-artifact control facade-retirement, and permanent agent-delete\s+control facade-retirement seams/.test(
         matrix,
       ) &&
       /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
@@ -12612,6 +12612,34 @@ function runReceipts() {
       "packages/runtime-daemon/src/threads/thread-store.test.mjs",
     ],
     "Phase 5/11 is pending: agent deletion must not append a duplicate daemon-local operation record outside the guarded deletion state transition",
+  );
+  assertCheck(
+    result,
+    "thread-agent-delete-js-facade-retired",
+    /runtime_agent_delete_rust_core_required/.test(threadStore) &&
+      /runtime_agent_delete_js_facade_retired/.test(threadStore) &&
+      /rust_daemon_core_agent_delete_required/.test(threadStore) &&
+      /agentgres_agent_delete_state_truth_required/.test(threadStore) &&
+      !/store\.agents\.delete\(/.test(threadStore) &&
+      !/store\.removeQuiet\(/.test(threadStore) &&
+      !/store\.listRuns\(agentId\)/.test(threadStore) &&
+      /thread store permanent delete facade fails closed before JS state mutation/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /assertNoRetiredAgentDeleteDetailAliases/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /assert\.equal\(store\.agents\.has\("agent_1"\), true\)/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ) &&
+      /assert\.equal\(store\.calls\.some\(\(call\) => call\.operation === "remove_quiet"\), false\)/.test(
+        read("packages/runtime-daemon/src/threads/thread-store.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-store.mjs",
+      "packages/runtime-daemon/src/threads/thread-store.test.mjs",
+    ],
+    "Phase 10/11 is pending: permanent agent delete must fail closed before JS agent-map mutation or local file removal",
   );
   assertCheck(
     result,

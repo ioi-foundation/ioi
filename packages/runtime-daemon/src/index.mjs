@@ -956,8 +956,7 @@ export class AgentgresRuntimeStateStore {
 
   deleteAgent(agentId) {
     return deleteAgentState(this, agentId, {
-      path,
-      policyError,
+      runtimeError,
     });
   }
 

@@ -74,17 +74,27 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
 }
 
 export function deleteAgent(store, agentId, deps = {}) {
-  const { path, policyError } = deps;
-  const agent = store.getAgent(agentId);
-  const runCount = store.listRuns(agentId).length;
-  if (runCount > 0) {
-    throw policyError(
-      "Permanent agent deletion requires retention review when canonical runs exist; archive instead.",
-      { agentId, runCount },
-    );
-  }
-  store.agents.delete(agentId);
-  store.removeQuiet(path.join(store.stateDir, "agents", `${agentId}.json`));
+  const {
+    runtimeError = ({ status: errorStatus = 500, code = "agent_delete_control_error", message, details }) =>
+      Object.assign(new Error(message), { status: errorStatus, code, details }),
+  } = deps;
+  throw runtimeError({
+    status: 501,
+    code: "runtime_agent_delete_rust_core_required",
+    message:
+      "Permanent agent deletion requires direct Rust daemon-core admission and persistence.",
+    details: {
+      rust_core_boundary: "runtime.agent_delete",
+      operation: "agent_delete",
+      operation_kind: "agent_deletion",
+      agent_id: agentId,
+      evidence_refs: [
+        "runtime_agent_delete_js_facade_retired",
+        "rust_daemon_core_agent_delete_required",
+        "agentgres_agent_delete_state_truth_required",
+      ],
+    },
+  });
 }
 
 export function getRun(store, runId, deps = {}) {

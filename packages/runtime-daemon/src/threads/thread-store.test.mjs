@@ -114,6 +114,12 @@ function assertNoRetiredAgentStatusDetailAliases(details) {
   }
 }
 
+function assertNoRetiredAgentDeleteDetailAliases(details) {
+  for (const key of ["rustCoreBoundary", "operationKind", "agentId", "evidenceRefs", "runCount"]) {
+    assert.equal(Object.hasOwn(details, key), false, `retired agent delete detail alias ${key}`);
+  }
+}
+
 test("thread store lists and resolves agents", () => {
   const store = fakeStore();
   store.agents.set("agent_late", { id: "agent_late", createdAt: "2026-06-03T00:00:02.000Z" });
@@ -192,7 +198,7 @@ test("thread store projects usage for run and thread", () => {
   });
 });
 
-test("thread store updates and deletes agents without canonical runs", () => {
+test("thread store updates agents through Rust state planning", () => {
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
 
@@ -202,11 +208,6 @@ test("thread store updates and deletes agents without canonical runs", () => {
   assert.equal(planner.input.status, "archived");
   assert.equal(planner.input.operation_kind, "agent.archive");
   assert.equal(store.calls.at(-1).operationKind, "agent.archive");
-
-  deleteAgent(store, "agent_1", deps(store.calls));
-  assert.equal(store.agents.has("agent_1"), false);
-  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
-  assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), true);
 });
 
 test("thread store fails closed without Rust status planner", () => {
@@ -310,7 +311,7 @@ test("thread store fails closed on mismatched Rust-planned status operation kind
   assert.equal(store.agents.get("agent_1").status, "active");
 });
 
-test("thread store blocks permanent delete when runs exist", () => {
+test("thread store permanent delete facade fails closed before JS state mutation", () => {
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
   store.runs.set("run_1", { id: "run_1", agentId: "agent_1" });
@@ -318,11 +319,24 @@ test("thread store blocks permanent delete when runs exist", () => {
   assert.throws(
     () => deleteAgent(store, "agent_1", deps(store.calls)),
     (error) => {
-      assert.equal(error.policy, true);
-      assert.equal(error.details.runCount, 1);
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_agent_delete_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.agent_delete");
+      assert.equal(error.details.operation, "agent_delete");
+      assert.equal(error.details.operation_kind, "agent_deletion");
+      assert.equal(error.details.agent_id, "agent_1");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_agent_delete_js_facade_retired",
+        "rust_daemon_core_agent_delete_required",
+        "agentgres_agent_delete_state_truth_required",
+      ]);
+      assertNoRetiredAgentDeleteDetailAliases(error.details);
       return true;
     },
   );
+  assert.equal(store.agents.has("agent_1"), true);
+  assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), false);
+  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
 });
 
 test("thread store registers and resolves in-flight runtime turns", () => {
