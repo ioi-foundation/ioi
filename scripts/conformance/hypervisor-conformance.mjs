@@ -3383,8 +3383,17 @@ function runBridge() {
       /input\.controlled_relaunch_approval_ref \?\?\s*[\r\n\s]*input\.host_browser_launch_approval_ref \?\?\s*[\r\n\s]*input\.browser_launch_approval_ref/.test(computerUseInputs) &&
       /input\.cdp_timeout_ms \?\?\s*[\r\n\s]*input\.timeout_ms/.test(computerUseInputs) &&
       /input\.session_mode \?\?\s*[\r\n\s]*input\.computer_use_session_mode/.test(computerUseInputs) &&
+      /computerUseAuthorityScopesForInput/.test(computerUseInputs) &&
+      /normalizeArray\(input\.authority_scopes\)/.test(computerUseInputs) &&
       /input\.controlled_relaunch === true/.test(computerUseInputs) &&
       /input\.cdp_endpoint_url \?\?\s*[\r\n\s]*input\.cdp_endpoint \?\?\s*[\r\n\s]*input\.cdp_websocket_url \?\?\s*[\r\n\s]*input\.cdp_ws_url \?\?\s*[\r\n\s]*input\.web_socket_debugger_url/.test(computerUseInputs) &&
+      /computer-use inputs consume canonical authority scopes only/.test(
+        computerUseInputsTest,
+      ) &&
+      /authorityScopes: \["scope\.retired"\]/.test(computerUseInputsTest) &&
+      /assert\.deepEqual\(\s*[\r\n\s]*computerUseAuthorityScopesForInput\(\{\s*[\r\n\s]*authorityScopes: \["scope\.retired"\]/.test(
+        computerUseInputsTest,
+      ) &&
       /actionKind: "click"/.test(computerUseInputsTest) &&
       /computerUseActionKind: "click"/.test(computerUseInputsTest) &&
       /assert\.equal\(nativeBrowserActionKindForInput\(\{ actionKind: "click", computerUseActionKind: "click" \}\), "inspect"\)/.test(
@@ -3394,15 +3403,35 @@ function runBridge() {
       /assert\.equal\(nativeBrowserHasExplicitCdpEndpoint\(\{ cdpWsUrl: "ws:\/\/localhost\/devtools" \}\), false\)/.test(
         computerUseInputsTest,
       ) &&
-      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
+      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|authorityScopes|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
         `${computerUseInputs}\n${computerUseToolIdentityBodies.slice(1, 5).join("\n")}`,
+      ) &&
+      !/input\.authorityScopes\b/.test(runtimeDaemonIndex) &&
+      !/authorityScopes:\s*normalizeArray/.test(runtimeDaemonIndex),
+    [
+      "packages/runtime-daemon/src/computer-use-inputs.mjs",
+      "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use request selectors and authority-scope metadata must use canonical snake_case fields without retired camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-route-authority-scope-alias-retired",
+    /computerUseAuthorityScopesForInput\(input\)/.test(runtimeDaemonIndex) &&
+      /authority_scopes:\s*computerUseAuthorityScopesForInput\(input\)/.test(runtimeDaemonIndex) &&
+      !/normalizeArray\(input\.authorityScopes\s*\?\?\s*input\.authority_scopes\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/authorityScopes:\s*computerUseAuthorityScopesForInput/.test(
+        runtimeDaemonIndex,
       ),
     [
       "packages/runtime-daemon/src/computer-use-inputs.mjs",
       "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use request selectors must use canonical snake_case action, approval, session, target, CDP, and relaunch fields without retired camelCase aliases",
+    "Phase 10/11 is pending: computer-use route metadata must ignore retired authorityScopes input aliases before StepModule/Rust dispatch",
   );
   assertCheck(
     result,

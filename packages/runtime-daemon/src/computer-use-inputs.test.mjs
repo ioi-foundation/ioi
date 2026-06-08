@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  computerUseAuthorityScopesForInput,
   computerUseControlActionForInput,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindIsReadOnly,
@@ -17,6 +18,22 @@ import {
   visualGuiObservationMetadataForInput,
   visualGuiSessionModeForInput,
 } from "./computer-use-inputs.mjs";
+
+test("computer-use inputs consume canonical authority scopes only", () => {
+  assert.deepEqual(
+    computerUseAuthorityScopesForInput({
+      authority_scopes: ["computer_use.visual_gui.read", " ", "scope.extra"],
+      authorityScopes: ["scope.retired"],
+    }),
+    ["computer_use.visual_gui.read", "scope.extra"],
+  );
+  assert.deepEqual(
+    computerUseAuthorityScopesForInput({
+      authorityScopes: ["scope.retired"],
+    }),
+    [],
+  );
+});
 
 test("computer-use inputs normalize action kinds and read-only classes", () => {
   assert.equal(nativeBrowserActionKindValue("input text"), "type_text");

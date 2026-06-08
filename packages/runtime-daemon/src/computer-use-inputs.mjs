@@ -65,6 +65,12 @@ export function nativeBrowserCdpTimeoutMs(input = {}) {
   return 3_000;
 }
 
+export function computerUseAuthorityScopesForInput(input = {}) {
+  return normalizeArray(input.authority_scopes)
+    .map((scope) => optionalString(scope))
+    .filter(Boolean);
+}
+
 export function nativeBrowserSessionModeForInput(input = {}) {
   const explicit = optionalString(
     input.session_mode ??

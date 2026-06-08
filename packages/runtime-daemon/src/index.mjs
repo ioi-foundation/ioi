@@ -16,6 +16,7 @@ import {
 } from "./browser-discovery.mjs";
 import { computerUseProviderRegistryReport } from "./computer-use-provider-registry.mjs";
 import {
+  computerUseAuthorityScopesForInput,
   computerUseControlActionForInput,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindFromText,
@@ -2605,7 +2606,7 @@ export class AgentgresRuntimeStateStore {
       authority_scopes: uniqueStrings([
         requestedActionAuthority,
         "computer_use.native_browser.read",
-        ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
+        ...computerUseAuthorityScopesForInput(input),
       ]),
       observation_retention_mode: observationRetentionMode,
       fail_closed_when_unavailable: true,
@@ -2835,7 +2836,7 @@ export class AgentgresRuntimeStateStore {
         requestedActionAuthority,
         "computer_use.visual_gui.observe",
         "computer_use.visual_gui.read",
-        ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
+        ...computerUseAuthorityScopesForInput(input),
       ]),
       observation_retention_mode: observationRetentionMode,
       fail_closed_when_unavailable: true,
@@ -3049,7 +3050,7 @@ export class AgentgresRuntimeStateStore {
         requestedActionAuthority,
         "computer_use.sandboxed_hosted.observe",
         "computer_use.sandboxed_hosted.read",
-        ...normalizeArray(input.authorityScopes ?? input.authority_scopes),
+        ...computerUseAuthorityScopesForInput(input),
       ]),
       observation_retention_mode: observationRetentionMode,
       fail_closed_when_unavailable: true,
@@ -3189,7 +3190,7 @@ export class AgentgresRuntimeStateStore {
       actionKind: "inspect",
       action_kind: "inspect",
       computer_use_action_kind: "inspect",
-      authorityScopes: normalizeArray(input.authorityScopes ?? input.authority_scopes)
+      authority_scopes: computerUseAuthorityScopesForInput(input)
         .map((scope) => optionalString(scope))
         .filter((scope) => scope && !scope.includes(".act") && scope !== "coordinate_action"),
     };
