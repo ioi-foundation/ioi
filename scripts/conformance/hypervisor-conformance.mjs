@@ -310,16 +310,16 @@ function runDocs() {
       /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
       /must\s+not be treated as the terminal substrate/.test(guide) &&
       /collapse into the Rust daemon core API/.test(guide) &&
-      /Resume-goal scheduling marker: Slice 740 clarified the next Rust-core\s+extraction\/JS-facade retirement owner boundary/.test(
+      /Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
-      /Run the scheduled\s+matrix-compaction pass before starting unrelated route-family work/.test(
+      /Resume with the next verified Rust-core extraction or\s+facade-retirement slice/.test(
         guide,
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-740 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement, conversation-artifact control facade-retirement, and\s+permanent agent-delete plus agent lifecycle\/status-control facade-retirement\s+seams/.test(guide) &&
-      /The next compaction pass is scheduled after Slice 740/.test(guide) &&
+      /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
+      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -328,16 +328,17 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: schedule and run the matrix-compaction pass now that\s+Slice 740 has clarified the next Rust-core extraction\/facade-retirement seam/.test(
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-740 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, runtime thread-fork control facade-retirement, and\s+conversation-artifact control facade-retirement, and permanent agent-delete\s+plus agent lifecycle\/status-control facade-retirement seams/.test(
+      /route-family slice ledger through Slice 740/.test(matrix) &&
+      /Slices 733-740 compacted the\s+runtime bridge thread\/turn, runtime subagent control facade-retirement and\s+legacy-body deletion/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 740 clarified how\s+Slices 733-740 can be compacted/.test(
+      /Next scheduled matrix-compaction pass: none pending after the Slice 733-740\s+compaction/.test(
         matrix,
       ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(

@@ -272,22 +272,19 @@ execution authority, no compatibility-shim semantics, and no duplicate truth
 path. The target transport shape is a temporary transport to the Rust daemon core
 with no independent authority or compatibility-shim behavior.
 
-Resume-goal scheduling marker: Slice 740 clarified the next Rust-core
-extraction/JS-facade retirement owner boundary. Run the scheduled
-matrix-compaction pass before starting unrelated route-family work, then resume
-the next verified Rust-core extraction or facade-retirement slice.
+Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
+complete. Resume with the next verified Rust-core extraction or
+facade-retirement slice, and schedule the next matrix-compaction pass only after
+that seam lands.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
-Slice 732 workspace snapshot/restore mutation compaction is complete. Slices
-733-740 are intentionally left expanded as the current runtime bridge thread/turn,
-runtime subagent control facade-retirement/legacy-body deletion, runtime
-task/job control facade-retirement, and runtime thread-fork control
-facade-retirement, conversation-artifact control facade-retirement, and
-permanent agent-delete plus agent lifecycle/status-control facade-retirement
-seams.
-The next compaction pass is scheduled after Slice 740 so the ledger preserves
-evidence, distinguishes interim bridge scaffolding and fail-closed JS facades
-from terminal Rust daemon-core shape, and avoids encoding command transport or
-read-only JS helpers as long-term substrate.
+Slice 732 workspace snapshot/restore mutation compaction is complete. The Slice
+733-740 runtime bridge thread/turn, runtime subagent, runtime task/job,
+thread-fork, conversation-artifact, permanent agent-delete, and agent
+lifecycle/status-control facade-retirement compaction is complete. No
+matrix-compaction pass is pending until the next seam lands; future compactions
+must preserve evidence, distinguish interim bridge scaffolding and fail-closed
+JS facades from terminal Rust daemon-core shape, and avoid encoding command
+transport or read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 
