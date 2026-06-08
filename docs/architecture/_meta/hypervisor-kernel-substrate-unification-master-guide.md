@@ -891,8 +891,9 @@ and direct Rust daemon-core APIs still need to own storage-backed projection
 reads, Agentgres projection watermarks, replay, wallet authority binding,
 SDK/IDE protocol coverage, and replacement of the bridge process boundary. The
 Slice 792 model_mount read-projection Rust-authoring matrix-compaction pass is
-scheduled for the next resume cycle before unrelated projection/route-family
-work continues.
+complete. No matrix-compaction pass is pending until the next Rust-core
+extraction or facade-retirement seam lands; do not encode the command bridge,
+JS transport wrappers, or local state materialization as terminal architecture.
 
 ## Part II: Target Execution Model
 
