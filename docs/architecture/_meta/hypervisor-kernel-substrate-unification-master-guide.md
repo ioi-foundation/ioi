@@ -510,6 +510,24 @@ terminal architecture.
 The Slice 766 conversation-artifact committer injection retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
+Slice 767 retired remaining MCP manager/catalog/helper camelCase config/source
+handoffs that kept compatibility-shaped fields inside the JS projection/control
+adapter. The
+runtime MCP catalog surface now passes `mcp_config_source_mode`,
+`workspace_root`, `source_scope`, and `config_compatibility` into the manager
+normalizer; MCP mutation/add helpers pass canonical `workspace_root` and
+`source_scope`; `mcp-manager.mjs` no longer consumes `sourcePath`,
+`sourceScope`, or `configCompatibility` from server config or context and no
+longer includes retired context source/config aliases in evidence refs. This
+does not claim terminal MCP migration: direct
+Rust daemon-core MCP control/admission/projection still needs to own registry
+truth, external-exit authority, transport containment, receipts, Agentgres
+expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
+conformance. Do not encode the remaining JS MCP read/config helpers or command
+transport as terminal architecture.
+Schedule a matrix-compaction pass after Slice 767 before starting unrelated
+route-family work, once this Rust-core extraction/facade-retirement seam is
+ready to collapse into compacted evidence.
 
 ## Part II: Target Execution Model
 

@@ -164,6 +164,96 @@ test("MCP manager server records ignore retired workspaceRoot context alias", ()
   assert.equal(Object.hasOwn(server.containment, "workspaceRoot"), false);
 });
 
+test("MCP manager server records ignore retired sourcePath and sourceScope aliases", () => {
+  const server = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      source_path: "/canonical/config.json",
+      sourcePath: "/retired/config.json",
+      source_scope: "workspace",
+      sourceScope: "retired",
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+      source_path: "/canonical/context.json",
+      sourcePath: "/retired/context.json",
+      source_scope: "thread",
+      sourceScope: "retired-context",
+    },
+  );
+
+  assert.equal(server.source_path, "/canonical/config.json");
+  assert.equal(server.source_scope, "workspace");
+  assert.notEqual(server.source_path, "/retired/config.json");
+  assert.notEqual(server.source_scope, "retired");
+  assert.equal(Object.hasOwn(server, "sourcePath"), false);
+  assert.equal(Object.hasOwn(server, "sourceScope"), false);
+
+  const retiredOnly = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      sourcePath: "/retired/config.json",
+      sourceScope: "retired",
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+      sourcePath: "/retired/context.json",
+      sourceScope: "retired-context",
+    },
+  );
+
+  assert.equal(retiredOnly.source_path, null);
+  assert.equal(retiredOnly.source_scope, "workspace");
+  assert.equal(retiredOnly.evidence_refs.includes("/retired/context.json"), false);
+  assert.equal(retiredOnly.evidence_refs.includes("retired-context"), false);
+});
+
+test("MCP manager server records ignore retired configCompatibility aliases", () => {
+  const server = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      config_compatibility: "canonical-config",
+      configCompatibility: "retired-config",
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+      config_compatibility: "canonical-context",
+      configCompatibility: "retired-context",
+    },
+  );
+
+  assert.equal(server.config_compatibility, "canonical-config");
+  assert.notEqual(server.config_compatibility, "retired-config");
+  assert.notEqual(server.config_compatibility, "retired-context");
+  assert.equal(Object.hasOwn(server, "configCompatibility"), false);
+
+  const retiredOnly = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "stdio",
+      command: "npx",
+      configCompatibility: "retired-config",
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+      configCompatibility: "retired-context",
+    },
+  );
+
+  assert.equal(retiredOnly.config_compatibility, null);
+  assert.equal(retiredOnly.evidence_refs.includes("retired-context"), false);
+});
+
 test("MCP stdio sessions ignore retired workspaceRoot cwd aliases", async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-mcp-cwd-"));
   const canonicalCwd = path.join(root, "canonical");

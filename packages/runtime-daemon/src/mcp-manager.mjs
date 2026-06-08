@@ -27,9 +27,9 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
           normalizeMcpServerRecord(label, config, {
             workspace_root: workspaceRoot,
             source: source.source,
-            sourcePath: source.path,
-            sourceScope: source.scope,
-            configCompatibility: source.compatibility,
+            source_path: source.path,
+            source_scope: source.scope,
+            config_compatibility: source.compatibility,
             status: "configured",
           }),
         );
@@ -42,8 +42,8 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
         normalizeMcpServerRecord(label, config, {
           workspace_root: workspaceRoot,
           source: "inline_options",
-          sourceScope: "thread",
-          configCompatibility: "inline",
+          source_scope: "thread",
+          config_compatibility: "inline",
           status: "configured",
         }),
       );
@@ -56,9 +56,9 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
           normalizeMcpServerRecord(label, config, {
             workspace_root: workspaceRoot,
             source: source.source,
-            sourcePath: source.path,
-            sourceScope: source.scope,
-            configCompatibility: source.compatibility,
+            source_path: source.path,
+            source_scope: source.scope,
+            config_compatibility: source.compatibility,
             status: "configured",
           }),
         );
@@ -98,7 +98,7 @@ export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
         {
           workspace_root: workspaceRoot,
           source: server.source ?? "validation_input",
-          sourceScope: server.sourceScope ?? server.source_scope ?? "validation",
+          source_scope: server.source_scope ?? "validation",
           status: server.status ?? "configured",
         },
       ),
@@ -108,7 +108,7 @@ export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
     normalizeMcpServerRecord(label, config, {
       workspace_root: workspaceRoot,
       source: "validation_input",
-      sourceScope: "validation",
+      source_scope: "validation",
       status: "configured",
     }),
   );
@@ -172,14 +172,14 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     env_secret_refs: envSecretRefs,
     source: optionalString(config.source) ?? context.source ?? "mcp.json",
     source_path:
-      optionalString(config.sourcePath ?? config.source_path) ?? context.sourcePath ?? null,
+      optionalString(config.source_path) ?? context.source_path ?? null,
     source_scope:
-      optionalString(config.sourceScope ?? config.source_scope) ??
-      optionalString(context.sourceScope ?? context.source_scope) ??
+      optionalString(config.source_scope) ??
+      optionalString(context.source_scope) ??
       "workspace",
     config_compatibility:
-      optionalString(config.configCompatibility ?? config.config_compatibility) ??
-      optionalString(context.configCompatibility ?? context.config_compatibility) ??
+      optionalString(config.config_compatibility) ??
+      optionalString(context.config_compatibility) ??
       null,
     workspace_root: context.workspace_root ?? null,
     allowed_tools: declaredTools,
@@ -222,9 +222,9 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     evidence_refs: uniqueStrings([
       "mcp.manager.catalog",
       context.source,
-      context.sourcePath,
-      context.sourceScope,
-      context.configCompatibility,
+      context.source_path,
+      context.source_scope,
+      context.config_compatibility,
       id,
     ]),
   };

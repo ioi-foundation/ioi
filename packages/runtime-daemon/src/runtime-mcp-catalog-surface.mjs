@@ -341,7 +341,7 @@ export function createRuntimeMcpCatalogSurface({
           ...mcpRegistryForWorkspaceDep(store.defaultCwd, {
             ...options,
             homeDir: store.homeDir,
-            mcpConfigSourceMode: sourceMode,
+            mcp_config_source_mode: sourceMode,
           }).servers,
         );
         for (const agent of store.agents.values()) {
@@ -351,10 +351,10 @@ export function createRuntimeMcpCatalogSurface({
       servers.push(
         ...store.modelMounting.listMcpServers().map((server) =>
           normalizeMcpServerRecordDep(server.label ?? server.id, server, {
-            workspaceRoot: store.defaultCwd,
+            workspace_root: store.defaultCwd,
             source: server.source ?? "model_mounting",
-            sourceScope: "model_mounting",
-            configCompatibility: "ioi_model_mounting",
+            source_scope: "model_mounting",
+            config_compatibility: "ioi_model_mounting",
             status: server.status ?? "registered",
           }),
         ),

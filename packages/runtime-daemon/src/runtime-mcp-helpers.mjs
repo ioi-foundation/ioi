@@ -291,15 +291,20 @@ export function mcpServerRecordsFromMutationInput(request = {}, workspaceRoot, f
       normalizeMcpServerRecord(
         server.label ?? server.name ?? server.id ?? `server_${index + 1}`,
         server,
-        { workspaceRoot, source, sourceScope: "thread", status: server.status ?? "configured" },
+        {
+          workspace_root: workspaceRoot,
+          source,
+          source_scope: "thread",
+          status: server.status ?? "configured",
+        },
       ),
     );
   }
   return Object.entries(servers ?? {}).map(([label, config]) =>
     normalizeMcpServerRecord(label, config, {
-      workspaceRoot,
+      workspace_root: workspaceRoot,
       source,
-      sourceScope: "thread",
+      source_scope: "thread",
       status: config?.status ?? "configured",
     }),
   );
@@ -318,9 +323,9 @@ export function mcpServerRecordFromAddRequest(request = {}, workspaceRoot) {
     "mcp";
   const source = optionalString(request.config_source ?? config.source) ?? "runtime_mcp_add";
   return normalizeMcpServerRecord(label, config, {
-    workspaceRoot,
+    workspace_root: workspaceRoot,
     source,
-    sourceScope: "thread",
+    source_scope: "thread",
     status: config.status ?? "configured",
   });
 }

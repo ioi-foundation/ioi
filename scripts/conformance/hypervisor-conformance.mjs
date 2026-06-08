@@ -415,6 +415,10 @@ function runDocs() {
       /Slice 766 retired the stale `ConversationArtifactStore` artifact-state\s+committer injection/.test(guide) &&
       /new ConversationArtifactStore\(this\.stateDir\)/.test(guide) &&
       /The Slice 766 conversation-artifact committer injection retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 767 retired remaining MCP manager\/catalog\/helper camelCase config\/source\s+handoffs/.test(guide) &&
+      /MCP mutation\/add helpers pass canonical `workspace_root` and\s+`source_scope`/.test(guide) &&
+      /mcp-manager\.mjs` no longer consumes `sourcePath`,\s+`sourceScope`, or `configCompatibility`/.test(guide) &&
+      /Schedule a matrix-compaction pass after Slice 767/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -445,7 +449,8 @@ function runDocs() {
       /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
       /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state\s+committer injection retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 767 retired remaining MCP manager\/catalog\/helper camelCase config\/source\s+handoffs/.test(matrix) &&
+      /Next resume instruction: compact Slice 767 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -649,10 +654,12 @@ function runDocs() {
       /model_mount_backend_log_js_writer_retired/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 766/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 766 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 766\s+`ConversationArtifactStore` committer injection retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 767/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 767 MCP\s+manager\/catalog\/helper config\/source handoff alias retirement/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
+      /MCP manager\/catalog\/helper source-mode, source metadata, and config-compatibility\s+handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
       ) &&
@@ -21637,6 +21644,7 @@ function runCompositor() {
       /options\.mcp_config_source_mode\s*\?\?\s*options\.config_source_mode/.test(
         runtimeMcpManager,
       ) &&
+      /mcp_config_source_mode:\s*sourceMode/.test(runtimeMcpCatalogSurface) &&
       /^\s*mcp_config_source_mode\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
       /^\s*config_source_mode\?: string;/m.test(runtimeMcpSdkListOptionsBlock) &&
       /configSource: "retired-camel-source"/.test(runtimeMcpHelpersTest) &&
@@ -21650,6 +21658,7 @@ function runCompositor() {
       ) &&
       !/server\.serverId\b/.test(runtimeMcpHelpers) &&
       !/options\.(?:mcpConfigSourceMode|configSourceMode)\b/.test(runtimeMcpManager) &&
+      !/mcpConfigSourceMode:\s*sourceMode/.test(runtimeMcpCatalogSurface) &&
       !/^\s*(?:threadId|agentId|serverId)\?:/m.test(runtimeMcpSdkListOptionsBlock) &&
       !/^\s*\[key: string\]: unknown;/m.test(runtimeMcpSdkListOptionsBlock),
     [
@@ -21882,6 +21891,8 @@ function runCompositor() {
       /raw\.mcp_servers/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
       /input\.mcp_json \?\? input/.test(runtimeMcpManagerValidationInputBlock) &&
       /raw\.mcp_servers \?\? raw\.servers/.test(runtimeMcpManagerValidationInputBlock) &&
+      /workspace_root:\s*workspaceRoot/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      /source_scope:\s*"thread"/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
       runtimeMcpControlFacadeRetired &&
       /mcpJson:\s*\{/.test(runtimeMcpHelpersTest) &&
       /mcpJson:\s*\{/.test(runtimeMcpManagerTest) &&
@@ -21890,6 +21901,7 @@ function runCompositor() {
         `${runtimeMcpServerRecordsFromMutationInputBlock}\n${runtimeMcpControlSurface}`,
       ) &&
       !/raw\.mcpServers\b/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      !/(?:workspaceRoot|sourceScope)\s*:/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
       !/input\.mcpJson\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/raw\.mcpServers\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/request\.mcpServers\b/.test(runtimeMcpControlSurface) &&
@@ -21942,8 +21954,11 @@ function runCompositor() {
     "runtime-mcp-add-server-request-alias-retired",
     /request\.server/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
       /request\.config/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      /workspace_root:\s*workspaceRoot/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      /source_scope:\s*"thread"/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
       /mcpServer:\s*\{/.test(runtimeMcpHelpersTest) &&
       !/request\.mcpServer\b/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
+      !/(?:workspaceRoot|sourceScope)\s*:/.test(runtimeMcpServerRecordFromAddRequestBlock) &&
       !/^\s*mcpServer\?:/m.test(runtimeMcpSdkServerMutationInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
@@ -22099,7 +22114,20 @@ function runCompositor() {
       /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerRegistryBlock) &&
       /server_count:\s*normalizedServers\.length/.test(runtimeMcpManagerRegistryBlock) &&
       /tool_count:\s*tools\.length/.test(runtimeMcpManagerRegistryBlock) &&
+      /source_path:\s*optionalString\(config\.source_path\)\s*\?\?\s*context\.source_path\s*\?\?\s*null/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
       /source_scope:/.test(runtimeMcpManagerServerRecordBlock) &&
+      /source_scope:\s*optionalString\(config\.source_scope\)\s*\?\?\s*optionalString\(context\.source_scope\)\s*\?\?\s*"workspace"/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      /config_compatibility:\s*optionalString\(config\.config_compatibility\)\s*\?\?\s*optionalString\(context\.config_compatibility\)/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      /source_path: source\.path/.test(runtimeMcpManagerRegistryBlock) &&
+      /source_scope: source\.scope/.test(runtimeMcpManagerRegistryBlock) &&
+      /config_compatibility: source\.compatibility/.test(runtimeMcpManagerRegistryBlock) &&
+      /config_compatibility: "inline"/.test(runtimeMcpManagerRegistryBlock) &&
       ((runtimeMcpManagerServerRecordBlock.match(
         /workspace_root:\s*context\.workspace_root \?\? null/g,
       ) ?? []).length >= 2) &&
@@ -22124,6 +22152,21 @@ function runCompositor() {
         runtimeMcpManagerTest,
       ) &&
       /Object\.hasOwn\(server,\s*"vaultBoundary"\),\s*false/.test(runtimeMcpManagerTest) &&
+      /MCP manager server records ignore retired sourcePath and sourceScope aliases/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /retiredOnly\.source_path,\s*null/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.source_scope,\s*"workspace"/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.evidence_refs\.includes\("\/retired\/context\.json"\),\s*false/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /MCP manager server records ignore retired configCompatibility aliases/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /retiredOnly\.config_compatibility,\s*null/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.evidence_refs\.includes\("retired-context"\),\s*false/.test(
+        runtimeMcpManagerTest,
+      ) &&
       /Object\.hasOwn\(record,\s*"sourceScope"\),\s*false/.test(runtimeMcpHelpersTest) &&
       /const sourceScope = optionalString\(server\.source_scope\) \?\? "workspace";/.test(
         runtimeMcpServerSourceModeBlock,
@@ -22139,6 +22182,12 @@ function runCompositor() {
         runtimeMcpManagerServerRecordBlock,
       ) &&
       !/context\.workspaceRoot\b/.test(runtimeMcpManagerServerRecordBlock) &&
+      !/(?:config|context)\.(?:sourcePath|sourceScope)\b/.test(runtimeMcpManagerServerRecordBlock) &&
+      !/(?:config|context)\.configCompatibility\b/.test(runtimeMcpManagerServerRecordBlock) &&
+      !/(?:sourcePath|sourceScope):\s*(?:source\.(?:path|scope)|"thread")/.test(
+        runtimeMcpManagerRegistryBlock,
+      ) &&
+      !/configCompatibility:\s*(?:source\.compatibility|"inline")/.test(runtimeMcpManagerRegistryBlock) &&
       !/^\s*(?:headerRefCount|envRefCount|secretValuesIncluded|runtimeResolution)\s*:/m.test(
         runtimeMcpManagerServerRecordBlock,
       ) &&
