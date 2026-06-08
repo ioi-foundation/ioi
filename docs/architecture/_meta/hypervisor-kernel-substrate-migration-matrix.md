@@ -23,10 +23,11 @@ facade-retirement evidence, then compacted Slice 732 into workspace
 snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail. The
 follow-up pass compacted Slice 741 thread-memory control facade-retirement
+evidence, then compacted Slice 742 thread runtime-control facade-retirement
 evidence.
-Next resume instruction: Slice 742 opened the next Rust-core extraction /
-facade-retirement seam; schedule the next matrix-compaction pass after Slice 742
-lands and before unrelated route-family work resumes.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -121,9 +122,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 742 so the thread
-  runtime-control facade-retirement evidence can be compacted without obscuring
-  terminal blockers. Run that pass before unrelated route-family work resumes.
+- Next scheduled matrix-compaction pass: none pending after the Slice 742
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13735,35 +13736,40 @@ above remain authoritative for current and target ownership.
   that seam lands, and do not encode the Rust planner bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice 742
+## Compacted Implementation Slice Evidence: 742
 
-status: verified
-date: 2026-06-08
-route_or_surface: runtime thread mode/model/thinking control
-goal_phase:
-  - Phase 10: Rust daemon core extraction
-  - Phase 11: authoritative JS facade retirement
-target_owner: Rust daemon core `authority`/`step_router`/`agentgres_admission`/`projection`
-current_owner_before_slice: Public thread mode, model, thinking, generic runtime-control, and direct runtime-control event paths still performed JS agent lookup, model-route selection, runtime-event construction/append, workspace-trust warning append from the mode path, Rust thread-control planner invocation from the JS facade, `agents` map mutation, and `writeAgent` persistence.
-implementation_notes:
-  - `updateThreadMode`, `updateThreadModel`, `updateThreadThinking`, `updateThreadRuntimeControls`, and `appendThreadRuntimeControlEvent` now fail closed with `runtime_thread_control_rust_core_required`.
-  - The guard runs before JS agent lookup, model-route resolution, runtime-event append, workspace-trust warning append from the mode path, Rust planner invocation from the JS facade, `agents` map mutation, or `writeAgent` persistence.
-  - The Rust `plan_thread_control_agent_state_update` planner and bridge remain migration plumbing only; terminal thread-control admission, model-route authority, receipt/state-root binding, workspace-trust policy integration, persistence, replay, and projection must move into direct Rust daemon-core APIs.
-  - Workspace-trust acknowledgement helpers remain a separate live seam and should be retired or moved behind direct Rust daemon-core workspace-trust admission in a later slice.
-  - Added `thread-control-js-facade-retired` bridge conformance so thread controls cannot silently regrow JS mutation/event/state-write authority while direct Rust daemon-core thread control is pending.
-verification:
-  - node --check packages/runtime-daemon/src/runtime-thread-control-surface.mjs
-  - node --check packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
-  - node --test packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
-  - hypervisor-conformance:bridge
-  - hypervisor-conformance:compositor
-  - hypervisor-conformance:docs
-  - hypervisor-conformance
-  - git diff --check
-test_gap:
-  - Terminal direct Rust daemon-core thread-control admission/projection APIs are still pending; this slice removes JS thread-control mutation/event/persistence authority and leaves helper projection/SDK alias guards as adapters.
-next_compaction:
-  - Schedule the matrix-compaction pass after this slice so future resumes preserve the thread-control facade-retirement evidence without encoding fail-closed JS surfaces or Rust bridge planners as terminal shape.
+The expanded Slice 742 ledger was compacted on 2026-06-08 after the runtime
+thread mode/model/thinking control facade-retirement seam landed. This slice
+remains active migration evidence, not terminal architecture. The
+`RuntimeThreadControl` implementation-matrix row, conformance command contract,
+and terminal blockers above remain authoritative for current and target
+ownership.
+
+- Slice 742 retired public thread runtime-control JS authority:
+  `updateThreadMode`, `updateThreadModel`, `updateThreadThinking`,
+  `updateThreadRuntimeControls`, and `appendThreadRuntimeControlEvent` now fail
+  closed at `runtime.thread_control` before JS agent lookup, model-route
+  selection, runtime-event append, workspace-trust warning append from the mode
+  path, Rust planner invocation from the JS facade, `agents` map mutation, or
+  `writeAgent` persistence.
+- The Rust `plan_thread_control_agent_state_update` planner and command bridge
+  remain migration plumbing only. Terminal thread-control admission,
+  model-route authority, receipt/state-root binding, workspace-trust policy
+  integration, persistence, replay, and projection must move into direct Rust
+  daemon-core APIs.
+- Workspace-trust acknowledgement helpers remain a separate live seam and should
+  be retired or moved behind direct Rust daemon-core workspace-trust admission in
+  a later slice.
+- Conformance anchors retained for this compacted slice include
+  `thread-control-js-facade-retired`, `thread-control-request-aliases-retired`,
+  `thread-control-error-detail-aliases-retired`,
+  `runtime-thread-control-surface-output-aliases-retired`, and
+  `runtime-thread-control-model-route-payload-aliases-retired`.
+- Scheduled matrix-compaction obligation from Slice 742 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the Rust planner bridge, read-only helper
+  adapters, or fail-closed JS surfaces as terminal architecture.
 
 ## Command State
 
