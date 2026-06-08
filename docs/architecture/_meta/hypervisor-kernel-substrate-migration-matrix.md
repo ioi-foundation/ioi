@@ -77,12 +77,13 @@ This pass compacted Slice 773 MCP manager validation `secretRefs`
 alias-retirement evidence.
 This pass compacted Slice 774 MCP server validation Rust-core evidence.
 This pass compacted Slice 775 MCP status validation Rust-core evidence.
+Slice 776 moved public MCP status readiness/count/projection into Rust
+daemon-core migration transport.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades, canonical input
-helpers, local projection helpers, and migration transport are not terminal
-substrate.
+facade-retirement implementation slice only after compacting the Slice 776 MCP
+status projection Rust-core evidence. Preserve the live owner map, terminal
+blockers, and the fact that fail-closed JS facades, canonical input helpers,
+local projection helpers, and migration transport are not terminal substrate.
 
 ## Purpose
 
@@ -189,8 +190,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 775 MCP status
-  validation Rust-core compaction.
+- Next scheduled matrix-compaction pass: pending for Slice 776 MCP status
+  projection Rust-core evidence.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15305,6 +15306,34 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode the command bridge, read-only helper
 adapters, or fail-closed JS surfaces as terminal architecture.
+
+## Implementation Slice Evidence: 776
+
+Slice 776 moved the public MCP status readiness/count/projection decision out of
+the JS facade. `McpManagerStatusProjectionCore` now lives beside
+`McpServerValidationCore` in the Rust daemon-core policy module, with
+`McpManagerStatusProjectionRequest` and `McpManagerStatusProjectionRecord`
+owning `ready`/`needs_review`, server/tool/resource/prompt counts,
+enabled-server counts, validation embedding, route projection, and canonical
+snake_case output shape. The daemon-core bridge exposes
+`plan_mcp_manager_status_projection`, and
+`runtime-context-policy-runner.mjs` exposes
+`planMcpManagerStatusProjection()`.
+
+`runtime-mcp-catalog-surface.mjs` still gathers normalized server, tool,
+resource, prompt, validation, and route adapter inputs during migration, but
+`mcpStatus()` no longer derives the public status envelope, counts, or readiness
+state in JS. Focused JS tests prove the status response carries
+`rust_mcp_manager_status_projection_command`, and Rust/bridge tests prove the
+projection record is produced by Rust without retired camelCase count/route
+fields.
+
+This does not claim terminal MCP migration: direct Rust daemon-core MCP
+registry truth, catalog row gathering, wallet authority, transport containment,
+StepModuleRouter dispatch, receipt binding, Agentgres expected-head/state-root
+binding, replay, SDK/IDE protocol coverage, and conformance still need to own
+the whole MCP control/projection path. Schedule and run a matrix-compaction pass
+for Slice 776 before unrelated route-family work resumes.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |

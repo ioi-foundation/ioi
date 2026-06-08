@@ -76,6 +76,38 @@ function harness() {
           warnings: [],
         };
       },
+      planMcpManagerStatusProjection(request) {
+        calls.push({ name: "planMcpManagerStatusProjection", request });
+        const validation = {
+          ...request.validation,
+          server_count: request.servers.length,
+          tool_count: request.tools.length,
+          resource_count: request.resources.length,
+          prompt_count: request.prompts.length,
+          servers: request.servers,
+          tools: request.tools,
+          resources: request.resources,
+          prompts: request.prompts,
+        };
+        return {
+          source: "rust_mcp_manager_status_projection_command",
+          backend: "rust_policy",
+          schema_version: request.status_schema_version,
+          object: "ioi.runtime_mcp_manager_status",
+          status: validation.ok ? "ready" : "needs_review",
+          server_count: request.servers.length,
+          tool_count: request.tools.length,
+          resource_count: request.resources.length,
+          prompt_count: request.prompts.length,
+          enabled_server_count: request.servers.filter((item) => item.enabled !== false).length,
+          servers: request.servers,
+          tools: request.tools,
+          resources: request.resources,
+          prompts: request.prompts,
+          validation,
+          routes: request.routes,
+        };
+      },
     },
     mcpToolsForServers(servers) {
       return servers.flatMap((item) =>
@@ -177,6 +209,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(status.resource_count, 3);
   assert.equal(status.prompt_count, 3);
   assert.equal(status.enabled_server_count, 3);
+  assert.equal(status.source, "rust_mcp_manager_status_projection_command");
   assert.equal(status.validation.source, "rust_mcp_server_validation_command");
   assert.equal(status.validation.server_count, 3);
   assert.equal(status.routes.search_tools, "/v1/mcp/tools/search");
@@ -212,6 +245,14 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.deepEqual(
     calls.find((call) => call.name === "validateMcpServers")?.request.servers.map((item) => item.id),
     ["mcp.agent.git", "mcp.workspace.docs", "model-search"],
+  );
+  assert.deepEqual(
+    calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.servers.map((item) => item.id),
+    ["mcp.agent.git", "mcp.workspace.docs", "model-search"],
+  );
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.routes.search_tools,
+    "/v1/mcp/tools/search",
   );
   assert.deepEqual(
     calls.filter((call) => call.name === "validateMcpServers").at(-1)?.request.servers.map((item) => item.id),

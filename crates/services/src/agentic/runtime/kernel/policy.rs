@@ -53,6 +53,10 @@ pub const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation-request.v1";
 pub const MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation.v1";
+pub const MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-status-projection-request.v1";
+pub const MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-status.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update-request.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -236,6 +240,14 @@ pub enum McpControlAgentStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum McpServerValidationError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum McpManagerStatusProjectionError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -953,6 +965,43 @@ pub struct McpServerValidationRecord {
     pub warning_count: usize,
     pub issues: Vec<Value>,
     pub warnings: Vec<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerStatusProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub status_schema_version: Option<String>,
+    pub validation: Value,
+    #[serde(default)]
+    pub servers: Vec<Value>,
+    #[serde(default)]
+    pub tools: Vec<Value>,
+    #[serde(default)]
+    pub resources: Vec<Value>,
+    #[serde(default)]
+    pub prompts: Vec<Value>,
+    #[serde(default)]
+    pub routes: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerStatusProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub server_count: usize,
+    pub tool_count: usize,
+    pub resource_count: usize,
+    pub prompt_count: usize,
+    pub enabled_server_count: usize,
+    pub servers: Vec<Value>,
+    pub tools: Vec<Value>,
+    pub resources: Vec<Value>,
+    pub prompts: Vec<Value>,
+    pub validation: Value,
+    pub routes: Value,
     pub generated_at: String,
 }
 
@@ -2602,6 +2651,67 @@ impl McpServerValidationCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct McpManagerStatusProjectionCore;
+
+impl McpManagerStatusProjectionCore {
+    pub fn project(
+        &self,
+        request: &McpManagerStatusProjectionRequest,
+    ) -> Result<McpManagerStatusProjectionRecord, McpManagerStatusProjectionError> {
+        request.validate()?;
+
+        let server_count = request.servers.len();
+        let tool_count = request.tools.len();
+        let resource_count = request.resources.len();
+        let prompt_count = request.prompts.len();
+        let enabled_server_count = request
+            .servers
+            .iter()
+            .filter(|server| server.get("enabled").and_then(Value::as_bool) != Some(false))
+            .count();
+        let ok = request
+            .validation
+            .get("ok")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let validation = extend_json_object(
+            request.validation.clone(),
+            json!({
+                "server_count": server_count,
+                "tool_count": tool_count,
+                "resource_count": resource_count,
+                "prompt_count": prompt_count,
+                "servers": request.servers.clone(),
+                "tools": request.tools.clone(),
+                "resources": request.resources.clone(),
+                "prompts": request.prompts.clone(),
+            }),
+        );
+
+        Ok(McpManagerStatusProjectionRecord {
+            schema_version: request
+                .status_schema_version
+                .clone()
+                .unwrap_or_else(|| MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION.to_string()),
+            object: "ioi.runtime_mcp_manager_status".to_string(),
+            status: if ok { "ready" } else { "needs_review" }.to_string(),
+            server_count,
+            tool_count,
+            resource_count,
+            prompt_count,
+            enabled_server_count,
+            servers: request.servers.clone(),
+            tools: request.tools.clone(),
+            resources: request.resources.clone(),
+            prompts: request.prompts.clone(),
+            validation,
+            routes: request.routes.clone(),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct ThreadMemoryAgentStateUpdateCore;
 
 impl ThreadMemoryAgentStateUpdateCore {
@@ -3213,6 +3323,18 @@ impl McpServerValidationRequest {
     }
 }
 
+impl McpManagerStatusProjectionRequest {
+    pub fn validate(&self) -> Result<(), McpManagerStatusProjectionError> {
+        if self.schema_version != MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(McpManagerStatusProjectionError::InvalidSchemaVersion {
+                expected: MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl ThreadMemoryAgentStateUpdateRequest {
     pub fn validate(&self) -> Result<(), ThreadMemoryAgentStateUpdateError> {
         if self.schema_version != THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -3706,6 +3828,17 @@ fn json_string_value(value: &Value, key: &str) -> Option<String> {
 
 fn optional_json_string(value: &Value, key: &str) -> Option<String> {
     json_string_value(value, key)
+}
+
+fn extend_json_object(base: Value, extension: Value) -> Value {
+    let mut object = match base {
+        Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    if let Value::Object(extension) = extension {
+        object.extend(extension);
+    }
+    Value::Object(object)
 }
 
 fn json_bool_path(value: &Value, path: &[&str]) -> Option<bool> {
@@ -5515,6 +5648,58 @@ mod tests {
         assert_eq!(record.warning_count, 0);
         assert!(record.issues.is_empty());
         assert!(record.warnings.is_empty());
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_manager_status() {
+        let validation = McpServerValidationCore
+            .validate(&mcp_server_validation_request())
+            .expect("mcp server validation");
+        let request = McpManagerStatusProjectionRequest {
+            schema_version: MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: Some("ioi.runtime.mcp-manager-status.v1".to_string()),
+            validation: serde_json::to_value(validation).expect("validation value"),
+            servers: vec![
+                json!({
+                    "id": "mcp.docs",
+                    "enabled": true,
+                }),
+                json!({
+                    "id": "mcp.disabled",
+                    "enabled": false,
+                }),
+            ],
+            tools: vec![json!({ "stable_tool_id": "mcp.docs.search" })],
+            resources: vec![json!({ "uri": "mcp.docs://root" })],
+            prompts: vec![json!({ "name": "ask" })],
+            routes: json!({
+                "search_tools": "/v1/mcp/tools/search",
+            }),
+        };
+
+        let record = McpManagerStatusProjectionCore
+            .project(&request)
+            .expect("mcp manager status projection");
+
+        assert_eq!(
+            record.schema_version,
+            MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_mcp_manager_status");
+        assert_eq!(record.status, "ready");
+        assert_eq!(record.server_count, 2);
+        assert_eq!(record.tool_count, 1);
+        assert_eq!(record.resource_count, 1);
+        assert_eq!(record.prompt_count, 1);
+        assert_eq!(record.enabled_server_count, 1);
+        assert_eq!(record.validation["server_count"], 2);
+        assert_eq!(
+            record.validation["tools"][0]["stable_tool_id"],
+            "mcp.docs.search"
+        );
+        assert_eq!(record.routes["search_tools"], "/v1/mcp/tools/search");
+        assert!(record.validation.get("serverCount").is_none());
+        assert!(record.routes.get("searchTools").is_none());
     }
 
     #[test]

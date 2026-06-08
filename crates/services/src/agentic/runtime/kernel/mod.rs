@@ -95,7 +95,9 @@ use policy::{
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
     DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
     McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
-    McpControlAgentStateUpdateRequest, McpServerValidationCore, McpServerValidationError,
+    McpControlAgentStateUpdateRequest, McpManagerStatusProjectionCore,
+    McpManagerStatusProjectionError, McpManagerStatusProjectionRecord,
+    McpManagerStatusProjectionRequest, McpServerValidationCore, McpServerValidationError,
     McpServerValidationRecord, McpServerValidationRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
@@ -281,6 +283,13 @@ impl RuntimeKernelService {
         request: &McpServerValidationRequest,
     ) -> Result<McpServerValidationRecord, McpServerValidationError> {
         McpServerValidationCore.validate(request)
+    }
+
+    pub fn plan_mcp_manager_status_projection(
+        &self,
+        request: &McpManagerStatusProjectionRequest,
+    ) -> Result<McpManagerStatusProjectionRecord, McpManagerStatusProjectionError> {
+        McpManagerStatusProjectionCore.project(request)
     }
 
     pub fn plan_thread_memory_agent_state_update(

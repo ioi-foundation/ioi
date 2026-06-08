@@ -115,48 +115,32 @@ export function createRuntimeMcpCatalogSurface({
       const resources = this.listMcpResources(store, options);
       const prompts = this.listMcpPrompts(store, options);
       const validation = contextPolicyRunner.validateMcpServers({ servers });
-      return {
-        schema_version: statusSchemaVersion,
-        object: "ioi.runtime_mcp_manager_status",
-        status: validation.ok ? "ready" : "needs_review",
-        server_count: servers.length,
-        tool_count: tools.length,
-        resource_count: resources.length,
-        prompt_count: prompts.length,
-        enabled_server_count: servers.filter((server) => server.enabled !== false).length,
+      const routes = {
+        servers: "/v1/mcp/servers",
+        tools: "/v1/mcp/tools",
+        search_tools: "/v1/mcp/tools/search",
+        get_tool: "/v1/mcp/tools/{tool_id}",
+        resources: "/v1/mcp/resources",
+        prompts: "/v1/mcp/prompts",
+        validate: "/v1/mcp/validate",
+        import_servers: "/v1/mcp/import",
+        add_server: "/v1/mcp/servers",
+        remove_server: "/v1/mcp/servers/{server_id}",
+        enable_server: "/v1/mcp/servers/{server_id}/enable",
+        disable_server: "/v1/mcp/servers/{server_id}/disable",
+        invoke_tool: "/v1/mcp/tools/{tool_id}/invoke",
+        serve: "/v1/mcp/serve",
+        serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
+      };
+      return contextPolicyRunner.planMcpManagerStatusProjection({
+        status_schema_version: statusSchemaVersion,
+        validation,
         servers,
         tools,
         resources,
         prompts,
-        validation: {
-          ...validation,
-          server_count: servers.length,
-          tool_count: tools.length,
-          resource_count: resources.length,
-          prompt_count: prompts.length,
-          servers,
-          tools,
-          resources,
-          prompts,
-        },
-        routes: {
-          servers: "/v1/mcp/servers",
-          tools: "/v1/mcp/tools",
-          search_tools: "/v1/mcp/tools/search",
-          get_tool: "/v1/mcp/tools/{tool_id}",
-          resources: "/v1/mcp/resources",
-          prompts: "/v1/mcp/prompts",
-          validate: "/v1/mcp/validate",
-          import_servers: "/v1/mcp/import",
-          add_server: "/v1/mcp/servers",
-          remove_server: "/v1/mcp/servers/{server_id}",
-          enable_server: "/v1/mcp/servers/{server_id}/enable",
-          disable_server: "/v1/mcp/servers/{server_id}/disable",
-          invoke_tool: "/v1/mcp/tools/{tool_id}/invoke",
-          serve: "/v1/mcp/serve",
-          serve_for_thread: "/v1/threads/{thread_id}/mcp/serve",
-        },
-      };
+        routes,
+      });
     },
     async searchThreadMcpTools(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);

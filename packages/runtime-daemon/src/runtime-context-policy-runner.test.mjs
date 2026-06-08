@@ -15,6 +15,7 @@ import {
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -938,6 +939,69 @@ test("MCP server validation runner sends Rust daemon-core validation request", (
   assert.equal(result.issue_count, 1);
   assert.equal(result.issues[0].server_id, "mcp.secret");
   assert.equal(Object.hasOwn(result.issues[0], "serverId"), false);
+});
+
+test("MCP manager status projection runner sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_mcp_manager_status_projection_command",
+            backend: "rust_policy",
+            status: "ready",
+            server_count: 2,
+            tool_count: 1,
+            resource_count: 1,
+            prompt_count: 1,
+            enabled_server_count: 1,
+            validation: {
+              ok: true,
+              server_count: 2,
+              tools: [{ stable_tool_id: "mcp.docs.search" }],
+            },
+            routes: {
+              search_tools: "/v1/mcp/tools/search",
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planMcpManagerStatusProjection({
+    status_schema_version: "ioi.runtime.mcp-manager-status.v1",
+    validation: { ok: true },
+    servers: [{ id: "mcp.docs", enabled: true }, { id: "mcp.disabled", enabled: false }],
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+    resources: [{ uri: "mcp.docs://root" }],
+    prompts: [{ name: "ask" }],
+    routes: { search_tools: "/v1/mcp/tools/search" },
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_mcp_manager_status_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.servers.length, 2);
+  assert.equal(result.source, "rust_mcp_manager_status_projection_command");
+  assert.equal(result.status, "ready");
+  assert.equal(result.server_count, 2);
+  assert.equal(result.enabled_server_count, 1);
+  assert.equal(result.validation.server_count, 2);
+  assert.equal(result.validation.tools[0].stable_tool_id, "mcp.docs.search");
+  assert.equal(result.routes.search_tools, "/v1/mcp/tools/search");
+  assert.equal(Object.hasOwn(result, "serverCount"), false);
+  assert.equal(Object.hasOwn(result.routes, "searchTools"), false);
 });
 
 test("thread memory agent state update runner sends Rust state update bridge request", () => {
