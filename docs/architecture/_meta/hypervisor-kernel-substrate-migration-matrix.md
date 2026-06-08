@@ -14832,6 +14832,77 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 724
+
+```yaml
+slice: 724
+phase: 10-authoritative-js-facade-retirement
+objective: retire public approval request/decision/revoke JS event and
+  agent/run-state persistence facades until direct Rust daemon-core approval
+  authority admission owns approval transitions
+owner_boundary:
+  route_or_surface: runtime approval request, decision, and revoke controls
+  authority_gate: approval request/decision/revoke now fail closed at
+    `runtime.approval_control` before agent/run/request lookup, runtime-event
+    append, Rust approval planner invocation from the JS facade, run/agent map
+    mutation, or `writeRun`/`writeAgent` persistence
+  execution_backend: none in JS for public approval control; the existing Rust
+    approval state-update planners remain migration plumbing only and must not
+    be used by the JS facade to persist accepted approval truth
+  truth_path: no JS `approval.required`/`approval.approved`/`approval.rejected`/
+    `approval.revoked` event append or agent/run record mutation from public
+    approval facades; Rust daemon-core must own wallet.network authority,
+    Agentgres admission, expected heads/state-root binding, receipt/event
+    materialization, projection, and persistence before approval control can
+    execute again
+  projection_path: direct Rust daemon-core approval projection APIs must
+    materialize approval, lease, run, and thread truth before public approval
+    surfaces can return accepted data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-approval-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps Rust approval state-update bridges available
+    as migration plumbing but requires public JS approval facades to fail closed
+    before lookup, event append, planner calls, map mutation, and persistence
+  - focused daemon tests prove canonical snake_case fail-closed details and no
+    runtime event stream, agent-state, or run-state writes for approval request,
+    decision, and revoke requests
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-approval-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public approval product/API routes may still call approval adapters, but
+      those adapters now fail closed until direct Rust daemon-core approval
+      authority/admission/projection APIs are verified
+    - Rust approval state-update planner bridges remain migration plumbing for
+      the future direct Rust approval-control API; they must not be mistaken for
+      terminal JS-owned approval event or state persistence after context
+      compaction
+    - schedule a matrix-compaction pass once the next context-policy,
+      diagnostics, budget-recovery, or event-append Rust-core extraction/
+      facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14847,8 +14918,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 723 and the operator interrupt/steer JS
-event/run persistence facade retirement pass:
+Current expected behavior after Slice 724 and the approval request/decision/
+revoke JS event/state persistence facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

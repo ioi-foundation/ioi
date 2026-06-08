@@ -937,6 +937,11 @@ function runBridge() {
   const runtimeApprovalSurfaceTest = exists("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-surface.test.mjs")
     : "";
+  const runtimeApprovalControlFacadeTest = exists(
+    "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs")
+    : "";
   const runtimeApprovalLease = exists("packages/runtime-daemon/src/runtime-approval-lease.mjs")
     ? read("packages/runtime-daemon/src/runtime-approval-lease.mjs")
     : "";
@@ -1100,6 +1105,12 @@ function runBridge() {
     runtimeDaemonIndex.match(/async interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  steerTurn\(/)?.[0] ?? "";
   const operatorSteerTurnBody =
     runtimeDaemonIndex.match(/steerTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  requestThreadApproval\(/)?.[0] ?? "";
+  const approvalRequestFacadeBody =
+    runtimeApprovalSurface.match(/function requestThreadApproval\(store, threadId, request = \{\}\) \{[\s\S]*?\n  function decideThreadApproval/)?.[0] ?? "";
+  const approvalDecisionFacadeBody =
+    runtimeApprovalSurface.match(/function decideThreadApproval\(store, threadId, approvalId, request = \{\}\) \{[\s\S]*?\n  function revokeThreadApproval/)?.[0] ?? "";
+  const approvalRevokeFacadeBody =
+    runtimeApprovalSurface.match(/function revokeThreadApproval\(store, threadId, approvalId, request = \{\}\) \{[\s\S]*?\n\n  return \{/)?.[0] ?? "";
   const computerUseToolIdentityBodies = [
     runtimeDaemonIndex.match(/invokeComputerUseBrowserDiscoveryTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  invokeComputerUseControlTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/invokeComputerUseControlTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseNativeBrowserTool/)?.[0] ?? "",
@@ -4171,21 +4182,28 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.required"/.test(
         runtimeApprovalStateRunner,
       ) &&
-      /approvalStateRunnerDep\.planApprovalRequestStateUpdate/.test(runtimeApprovalSurface) &&
-      /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
-      /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
-      /requiredApprovalOperationKind/.test(runtimeApprovalSurface) &&
-      /target_kind:\s*"agent"/.test(runtimeApprovalSurface) &&
-      /planApprovalRequestStateUpdate/.test(runtimeApprovalSurfaceTest) &&
-      /approval surface fails closed without Rust-planned run approval updates/.test(
-        runtimeApprovalSurfaceTest,
+      /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
+      /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
+      /approval_request_js_facade_retired/.test(runtimeApprovalSurface) &&
+      /rust_daemon_core_approval_request_required/.test(runtimeApprovalSurface) &&
+      /agentgres_approval_request_state_truth_required/.test(runtimeApprovalSurface) &&
+      !/approvalStateRunnerDep\.planApprovalRequestStateUpdate/.test(approvalRequestFacadeBody) &&
+      !/store\.agentForThread|resolveApprovalTarget|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
+        approvalRequestFacadeBody,
       ) &&
-      /approval surface fails closed without Rust-planned operation kinds/.test(
-        runtimeApprovalSurfaceTest,
+      /requestThreadApproval facade fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /approval surface routes runless agent approval updates through Rust planner/.test(
-        runtimeApprovalSurfaceTest,
+      /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /workflowGraphId:\s*"graph_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /idempotencyKey:\s*"approval_request_idempotency_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
+      /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /assert\.equal\(store\.agents\.size,\s*0\)/.test(runtimeApprovalControlFacadeTest) &&
+      /assert\.equal\(store\.runs\.size,\s*0\)/.test(runtimeApprovalControlFacadeTest) &&
       !/control:\s*"approval_request"|appendRunApprovalControl\(run,\s*control,\s*"approvalRequests"\)/.test(
         runtimeApprovalSurface,
       ) &&
@@ -4200,9 +4218,9 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: approval request run state updates must be planned by Rust authority core through the command bridge",
+    "Phase 9/10 is pending: approval request state-update bridge remains migration plumbing, but the public JS facade must fail closed until Rust daemon-core owns authority admission, event materialization, and persistence",
   );
   assertCheck(
     result,
@@ -4238,20 +4256,25 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.approve"/.test(
         runtimeApprovalStateRunner,
       ) &&
-      /approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(runtimeApprovalSurface) &&
-      /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
-      /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
-      /requiredApprovalOperationKind/.test(runtimeApprovalSurface) &&
-      /target_kind:\s*"agent"/.test(runtimeApprovalSurface) &&
-      /planApprovalDecisionStateUpdate/.test(runtimeApprovalSurfaceTest) &&
-      /approval surface fails closed without Rust-planned run approval updates/.test(
-        runtimeApprovalSurfaceTest,
+      /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
+      /approval_decision_js_facade_retired/.test(runtimeApprovalSurface) &&
+      /rust_daemon_core_approval_decision_required/.test(runtimeApprovalSurface) &&
+      /agentgres_approval_decision_state_truth_required/.test(runtimeApprovalSurface) &&
+      !/approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
+      !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
+        approvalDecisionFacadeBody,
       ) &&
-      /approval surface fails closed without Rust-planned operation kinds/.test(
-        runtimeApprovalSurfaceTest,
+      /decideThreadApproval facade fails closed before lookup, event append, Rust planning, or JS persistence/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /approval surface routes runless agent approval updates through Rust planner/.test(
-        runtimeApprovalSurfaceTest,
+      /workflowGraphId:\s*"graph_decision_retired"/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /idempotencyKey:\s*"approval_decision_idempotency_retired"/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /error\.details\.operation_kind,\s*"approval\.approve"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_decision"/.test(
         runtimeApprovalSurface,
@@ -4269,9 +4292,9 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: approval decision run state updates must be planned by Rust authority core through the command bridge",
+    "Phase 9/10 is pending: approval decision state-update bridge remains migration plumbing, but the public JS facade must fail closed until Rust daemon-core owns authority admission, event materialization, and persistence",
   );
   assertCheck(
     result,
@@ -4307,20 +4330,20 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?\s*"approval\.revoke"/.test(
         runtimeApprovalStateRunner,
       ) &&
-      /approvalStateRunnerDep\.planApprovalRevokeStateUpdate/.test(runtimeApprovalSurface) &&
-      /plannedApprovalRunRecord/.test(runtimeApprovalSurface) &&
-      /plannedApprovalAgentRecord/.test(runtimeApprovalSurface) &&
-      /requiredApprovalOperationKind/.test(runtimeApprovalSurface) &&
-      /target_kind:\s*"agent"/.test(runtimeApprovalSurface) &&
-      /planApprovalRevokeStateUpdate/.test(runtimeApprovalSurfaceTest) &&
-      /approval surface fails closed without Rust-planned run approval updates/.test(
-        runtimeApprovalSurfaceTest,
+      /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
+      /approval_revoke_js_facade_retired/.test(runtimeApprovalSurface) &&
+      /rust_daemon_core_approval_revoke_required/.test(runtimeApprovalSurface) &&
+      /agentgres_approval_revoke_state_truth_required/.test(runtimeApprovalSurface) &&
+      !/approvalStateRunnerDep\.planApprovalRevokeStateUpdate/.test(approvalRevokeFacadeBody) &&
+      !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|runtimeEventStream|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
+        approvalRevokeFacadeBody,
       ) &&
-      /approval surface fails closed without Rust-planned operation kinds/.test(
-        runtimeApprovalSurfaceTest,
+      /revokeThreadApproval facade fails closed before request lookup, event append, Rust planning, or JS persistence/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /approval surface routes runless agent approval updates through Rust planner/.test(
-        runtimeApprovalSurfaceTest,
+      /workflowGraphId:\s*"graph_revoke_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /idempotencyKey:\s*"approval_revoke_idempotency_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
       !/control:\s*"approval_revoke"|appendRunApprovalControl|appendOperatorControl/.test(
         runtimeApprovalSurface,
@@ -4336,78 +4359,45 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: approval revoke run state updates must be planned by Rust authority core through the command bridge",
+    "Phase 9/10 is pending: approval revoke state-update bridge remains migration plumbing, but the public JS facade must fail closed until Rust daemon-core owns authority admission, event materialization, and persistence",
   );
   assertCheck(
     result,
     "runtime-approval-request-aliases-retired",
-    /const requestedTurnId = optionalString\(request\.turn_id\);/.test(runtimeApprovalSurface) &&
-      /optionalString\(request\.workflow_node_id\)/.test(runtimeApprovalSurface) &&
-      /workflow_graph_id:\s*request\.workflow_graph_id \?\? null/.test(runtimeApprovalSurface) &&
-      /\.\.\.normalizeArray\(request\.receipt_refs\)/.test(runtimeApprovalSurface) &&
-      /approval surface ignores retired request identity aliases/.test(runtimeApprovalSurfaceTest) &&
-      /turnId: "turn_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /workflowGraphId: "graph_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /workflowNodeId: "node_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /idempotencyKey: "approval_request_idempotency_retired"/.test(
-        runtimeApprovalSurfaceTest,
+    /requestThreadApproval facade fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
+      runtimeApprovalControlFacadeTest,
+    ) &&
+      /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /workflowGraphId:\s*"graph_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /workflowNodeId:\s*"node_retired"/.test(runtimeApprovalControlFacadeTest) &&
+      /idempotencyKey:\s*"approval_request_idempotency_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /receiptRefs: \["receipt_retired"\]/.test(runtimeApprovalSurfaceTest) &&
-      /requestedBy: "operator_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /approvalAction: "shell\.run"/.test(runtimeApprovalSurfaceTest) &&
-      /toolId: "tool_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /effectClass: "effect_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /riskDomain: "risk_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /approvalId: "approval_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /contextPressure: 0\.99/.test(runtimeApprovalSurfaceTest) &&
-      /sourceEventId: "source_event_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /policyDecisionRefs: \["policy_retired"\]/.test(runtimeApprovalSurfaceTest) &&
-      /authorityScopeRequirements: \["authority_retired"\]/.test(
-        runtimeApprovalSurfaceTest,
+      /workflowGraphId:\s*"graph_decision_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /approvalManifest: \{ toolId: "manifest_retired" \}/.test(
-        runtimeApprovalSurfaceTest,
+      /workflowNodeId:\s*"node_decision_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /ttlMs: 60000/.test(runtimeApprovalSurfaceTest) &&
-      /expectedReceiptRefs: \["receipt_expected_retired"\]/.test(
-        runtimeApprovalSurfaceTest,
+      /idempotencyKey:\s*"approval_decision_idempotency_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /workflowGraphId: "graph_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /workflowNodeId: "node_decision_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /idempotencyKey: "approval_decision_idempotency_retired"/.test(
-        runtimeApprovalSurfaceTest,
+      /workflowGraphId:\s*"graph_revoke_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /workflowGraphId: "graph_revoke_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /workflowNodeId: "node_revoke_retired"/.test(runtimeApprovalSurfaceTest) &&
-      /idempotencyKey: "approval_revoke_idempotency_retired"/.test(
-        runtimeApprovalSurfaceTest,
+      /workflowNodeId:\s*"node_revoke_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /approval surface accepts canonical idempotency keys/.test(runtimeApprovalSurfaceTest) &&
-      /idempotency_key: "approval_request_idempotency_canonical"/.test(
-        runtimeApprovalSurfaceTest,
+      /idempotencyKey:\s*"approval_revoke_idempotency_retired"/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /idempotency_key: "approval_decision_idempotency_canonical"/.test(
-        runtimeApprovalSurfaceTest,
+      /assertNoRetiredApprovalControlDetailAliases\(error\.details\)/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /idempotency_key: "approval_revoke_idempotency_canonical"/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /store\.events\[0\]\.receipt_refs\.includes\("receipt_retired"\), false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /store\.events\[0\]\.policy_decision_refs\.includes\("policy_retired"\), false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /store\.events\[0\]\.payload_summary\.requested_by,\s*"operator"/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /store\.events\[0\]\.payload_summary\.approval_manifest,\s*null/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /store\.events\[0\]\.payload_summary\.approval_lease\.ttl_ms,\s*null/.test(
-        runtimeApprovalSurfaceTest,
+      /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
       /approval lease metadata for request ignores retired request aliases/.test(
         runtimeApprovalLeaseTest,
@@ -4417,24 +4407,6 @@ function runBridge() {
       ) &&
       /Object\.hasOwn\(metadata,\s*alias\),\s*false/.test(runtimeApprovalLeaseTest) &&
       /Object\.hasOwn\(state,\s*"leaseId"\),\s*false/.test(runtimeApprovalLeaseTest) &&
-      /Object\.hasOwn\(store\.events\[0\]\.payload_summary,\s*"approvalLease"\),\s*false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(result,\s*"approvalRequired"\),\s*false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(store\.events\[0\]\.payload_summary,\s*field\),\s*false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(store\.events\[1\]\.payload_summary,\s*field\),\s*false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(store\.events\[1\]\.payload_summary,\s*"approvalRequestEventId"\),\s*false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(store\.events\[2\]\.payload_summary,\s*"approvalDecisionEventId"\),\s*false/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
       !/^\s*(?:approvalRequired|approvalManifest|toolId|effectClass|riskDomain|pressureStatus|alertId|sourceEventId)\s*[:,]/m.test(
         runtimeApprovalSurface,
       ) &&
@@ -4459,38 +4431,36 @@ function runBridge() {
       ),
     [
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-lease.mjs",
       "packages/runtime-daemon/src/runtime-approval-lease.test.mjs",
     ],
-    "Phase 10/11 is pending: approval request, decision, and revoke surfaces must use canonical request and lease fields without retired request aliases",
+    "Phase 10/11 is pending: approval request, decision, and revoke facades must fail closed without reviving retired request aliases; approval lease helpers must keep canonical lease fields",
   );
   assertCheck(
     result,
     "runtime-approval-error-detail-aliases-retired",
-    /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(runtimeApprovalSurface) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*operation_kind:\s*operationKind\s*\}/.test(
+    /runtime_approval_control_rust_core_required/.test(runtimeApprovalSurface) &&
+      /rust_core_boundary:\s*"runtime\.approval_control"/.test(runtimeApprovalSurface) &&
+      /thread_id:\s*threadId/.test(runtimeApprovalSurface) &&
+      /approval_id:\s*normalizedApprovalId/.test(runtimeApprovalSurface) &&
+      /approval_id:\s*optionalString\(request\.approval_id\) \?\? null/.test(
         runtimeApprovalSurface,
       ) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*operation_kind:\s*operationKind\s*\}/.test(
-        runtimeApprovalSurface,
+      /assertNoRetiredApprovalControlDetailAliases\(error\.details\)/.test(
+        runtimeApprovalControlFacadeTest,
       ) &&
-      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeApprovalSurface) &&
-      /approval surface rejects unexpected Rust-planned operation kind with canonical details/.test(
-        runtimeApprovalSurfaceTest,
-      ) &&
-      /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeApprovalSurfaceTest) &&
-      /error\.details\.thread_id/.test(runtimeApprovalSurfaceTest) &&
-      /error\.details\.approval_id/.test(runtimeApprovalSurfaceTest) &&
-      /error\.details\.expected_operation_kind/.test(runtimeApprovalSurfaceTest) &&
+      /error\.details\.thread_id/.test(runtimeApprovalControlFacadeTest) &&
+      /error\.details\.approval_id/.test(runtimeApprovalControlFacadeTest) &&
+      /error\.details\.operation_kind/.test(runtimeApprovalControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|agentId|approvalId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
         runtimeApprovalSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
-      "packages/runtime-daemon/src/runtime-approval-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs",
     ],
-    "Phase 10/11 is pending: approval fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: approval facade failure details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   const runtimeContextBudgetEvaluationBlock =
     runtimeContextPolicySurface.match(
