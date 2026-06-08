@@ -92,10 +92,15 @@ projection evidence.
 This pass compacted Slice 787 memory projection input alias-retirement evidence.
 Slice 787 retired memory projection input compatibility aliases at the Rust
 boundary; its matrix-compaction pass is complete.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+Slice 788 retired memory projection envelope identity aliases at the
+Rust-backed status/validation wrapper boundary; its matrix-compaction pass is
+scheduled for the next resume cycle before unrelated route-family work.
+Next resume instruction: run the scheduled Slice 788 matrix-compaction pass
+before unrelated route-family work, then continue the next Rust-core extraction
+or facade-retirement implementation slice. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -202,13 +207,17 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending until the next Rust-core
-  extraction or facade-retirement seam lands.
-- Future-resumption trigger: resume the migration goal by continuing the next
-  concrete Rust-core extraction or facade-retirement seam and schedule the
-  following compaction pass only after that seam lands. Do not let context
-  compaction demote this to optional evidence pruning.
-- Next resume order is mandatory: clarify and implement the next concrete
+- Next scheduled matrix-compaction pass: Slice 788 memory projection envelope
+  alias-retirement evidence, to run before unrelated route-family work
+  continues.
+- Future-resumption trigger: resume the migration goal by running the scheduled
+  Slice 788 matrix-compaction pass before starting unrelated route-family work.
+  After that pass, continue with the next concrete Rust-core extraction or
+  facade-retirement seam and schedule the following compaction pass only after
+  that seam lands. Do not let context compaction demote this to optional
+  evidence pruning.
+- Next resume order is mandatory: compact the verified Slice 788 memory
+  projection envelope alias-retirement seam, then clarify the next concrete
   Rust-core extraction/facade-retirement seam before unrelated route-family
   work.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
@@ -15678,3 +15687,40 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport or JS wrapper calls as
 terminal architecture.
+
+## Implementation Slice Evidence: 788
+
+Slice 788 retired the top-level memory projection envelope identity aliases
+that still fed JS-wrapped Rust memory status/validation calls.
+`AgentMemoryStore.projection()` now emits canonical `schema_version`,
+`thread_id`, `agent_id`, and `total_matches`; `thread-memory-state` reads only
+`projection.thread_id` and `projection.agent_id` when forwarding projection
+identity around the Rust-backed `memoryStatusForProjection()` and
+`validateMemoryProjection()` wrappers.
+
+Retired top-level `schemaVersion`, `threadId`, `agentId`, and `totalMatches`
+fields can no longer appear on the memory projection envelope or steer
+status/validation identity. Runtime-daemon memory-store tests assert canonical
+projection output and absence of the retired envelope aliases, and
+thread-memory tests prove retired projection `threadId` / `agentId` inputs are
+ignored when canonical `thread_id` / `agent_id` are absent or present.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/memory-store.test.mjs packages/runtime-daemon/src/memory-manager.test.mjs packages/runtime-daemon/src/threads/thread-memory-state.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This does not claim terminal memory migration: direct Rust daemon-core memory
+truth, Agentgres expected-head/state-root admission, wallet authority,
+StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
+replay, SDK/IDE protocol coverage, and replacement of command transport with a
+direct Rust daemon-core API remain open terminal blockers.
+
+Scheduled matrix-compaction obligation from Slice 788 is now pending. The next
+resume should compact this evidence before unrelated route-family work, preserve
+the owner map and terminal blockers, and avoid encoding command transport or JS
+wrapper calls as terminal architecture.

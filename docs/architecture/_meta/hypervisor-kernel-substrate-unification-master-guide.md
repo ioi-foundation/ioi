@@ -800,6 +800,21 @@ ownership. The Slice 787 memory projection input alias-retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands; do not encode the
 command bridge or JS transport wrappers as terminal architecture.
+Slice 788 retired the memory projection envelope identity aliases that still
+fed JS-wrapped Rust memory status/validation calls. `AgentMemoryStore.projection()`
+now emits canonical `schema_version`, `thread_id`, `agent_id`, and
+`total_matches`, and `thread-memory-state` forwards only `projection.thread_id`
+and `projection.agent_id` into the Rust-backed memory status/validation
+projection wrappers. Retired top-level `schemaVersion`, `threadId`, `agentId`,
+and `totalMatches` fields can no longer appear on the memory projection
+envelope or steer status/validation identity. This still does not claim
+terminal memory migration: direct Rust daemon-core memory record truth,
+Agentgres admission/head/state-root binding, wallet authority, StepModuleRouter
+dispatch for admitted memory work, cTEE custody coupling, replay, SDK/IDE
+protocol coverage, and direct Rust API replacement for command transport still
+need ownership. The Slice 788 memory projection envelope alias-retirement
+matrix-compaction pass is scheduled for the next resume cycle before unrelated
+route-family work continues.
 
 ## Part II: Target Execution Model
 

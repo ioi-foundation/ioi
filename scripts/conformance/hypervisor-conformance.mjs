@@ -504,6 +504,9 @@ function runDocs() {
       /Slice 787 retired the memory projection input compatibility fallback at the\s+Rust boundary/.test(guide) &&
       /Retired `injectionEnabled`, `readOnly`,\s+`writeRequiresApproval`, `subagentInheritance`, `recordsPath`, `policiesPath`,\s+`effectivePolicyId`, `memoryKey`, and `factHash` fields can no longer steer/.test(guide) &&
       /Slice 787 memory projection input alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 788 retired the memory projection envelope identity aliases/.test(guide) &&
+      /`schema_version`, `thread_id`, `agent_id`, and\s+`total_matches`/.test(guide) &&
+      /Slice 788 memory projection envelope alias-retirement\s+matrix-compaction pass is scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -558,7 +561,8 @@ function runDocs() {
       /This pass compacted Slice 786 memory manager status\/validation Rust-core\s+projection evidence/.test(matrix) &&
       /This pass compacted Slice 787 memory projection input alias-retirement evidence/.test(matrix) &&
       /Slice 787 retired memory projection input compatibility aliases at the Rust\s+boundary/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 788 retired memory projection envelope identity aliases at the\s+Rust-backed status\/validation wrapper boundary/.test(matrix) &&
+      /Next resume instruction: run the scheduled Slice 788 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -839,11 +843,16 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 786 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 787/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 787 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 788/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 788 is now pending/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 788 memory projection envelope\s+alias-retirement evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
+      /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
+        implementationMatrix,
+      ) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
       /public MCP validation input projection now routes raw canonical `mcp_json`\/`mcp_servers`\s+input through Rust daemon-core `McpServerValidationInputCore`\/`project_mcp_server_validation_input` migration transport/.test(implementationMatrix) &&
       /public MCP validation decisions now send Rust-projected canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
@@ -855,7 +864,7 @@ function runDocs() {
       /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
       /public memory status\/validation projection now routes through Rust daemon-core\s+`MemoryManagerStatusProjectionCore` \/ `MemoryManagerValidationProjectionCore`/.test(implementationMatrix) &&
-      /Rust projection boundary now accepts only canonical memory policy\/path\/record fields\s+\(`injection_enabled`, `read_only`, `write_requires_approval`, `subagent_inheritance`,\s+`records_path`, `policies_path`, `effective_policy_id`, `memory_key`, `fact_hash`\)/.test(implementationMatrix) &&
+      /Rust projection boundary now accepts only canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`, `injection_enabled`,\s+`read_only`, `write_requires_approval`, `subagent_inheritance`, `records_path`,\s+`policies_path`, `effective_policy_id`, `memory_key`, `fact_hash`\)/.test(implementationMatrix) &&
       /live catalog discovery remains a read-only\/projection migration helper, and\s+validation-input projection now routes through Rust migration transport/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
@@ -16803,14 +16812,19 @@ function runCompositor() {
       /validateMemoryProjection\(projection, \{ contextPolicyRunner: runner \}\)/.test(
         runtimeThreadMemoryState,
       ) &&
-      /thread_id: projection\.threadId \?\? null/.test(runtimeThreadMemoryState) &&
-      /agent_id: projection\.agentId \?\? null/.test(runtimeThreadMemoryState) &&
+      /thread_id: projection\.thread_id \?\? null/.test(runtimeThreadMemoryState) &&
+      /agent_id: projection\.agent_id \?\? null/.test(runtimeThreadMemoryState) &&
       !/optionalString\(options\.thread_id \?\? options\.threadId\)/.test(
         runtimeThreadMemoryState,
       ) &&
       !/optionalString\(options\.agent_id \?\? options\.agentId\)/.test(
         runtimeThreadMemoryState,
       ) &&
+      /projection: \{ records: \[\], threadId: "thread_retired" \}/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /thread_id: "thread_x"/.test(runtimeThreadMemoryStateTest) &&
+      /agent_id: "agent_x"/.test(runtimeThreadMemoryStateTest) &&
       !/^\s*(?:schemaVersion|injectionEnabled|readOnly|writeRequiresApproval|writeBlockedReason|recordCount|scopeCount|memoryKeyCount|memoryKeys|evidenceRefs)\s*:/m.test(
         runtimeMemoryStatusForProjectionBlock,
       ) &&
@@ -16823,7 +16837,7 @@ function runCompositor() {
       !/memoryRecordId|memoryScope/.test(
         `${runtimeValidateMemoryProjectionBlock}\n${runtimeMemoryRowsForStatusBlock}`,
       ) &&
-      !/threadId: projection\.threadId|agentId: projection\.agentId/.test(runtimeThreadMemoryState),
+      !/thread_id: projection\.threadId|agent_id: projection\.agentId|threadId: projection\.threadId|agentId: projection\.agentId/.test(runtimeThreadMemoryState),
     [
       "packages/runtime-daemon/src/memory-manager.mjs",
       "packages/runtime-daemon/src/memory-manager.test.mjs",
@@ -16912,7 +16926,18 @@ function runCompositor() {
       ) &&
       /memory_key:\s*optionalMemoryString\(memory_key\)/.test(runtimeMemoryStoreListFiltersBlock) &&
       /memory\.retired\.alias/.test(runtimeMemoryStoreTest) &&
+      /schema_version:\s*AGENT_MEMORY_SCHEMA_VERSION/.test(runtimeMemoryStore) &&
+      /thread_id:\s*threadId \?\? null/.test(runtimeMemoryStore) &&
+      /agent_id:\s*agent\?\.id \?\? null/.test(runtimeMemoryStore) &&
+      /total_matches:\s*records\.length/.test(runtimeMemoryStore) &&
+      /projection\.schema_version,\s*"ioi\.agent-runtime\.memory\.v1"/.test(runtimeMemoryStoreTest) &&
+      /projection\.thread_id,\s*"thread\.memory"/.test(runtimeMemoryStoreTest) &&
+      /projection\.agent_id,\s*"agent\.memory"/.test(runtimeMemoryStoreTest) &&
+      /projection\.total_matches,\s*1/.test(runtimeMemoryStoreTest) &&
       /projection\.records\[0\]\.id,\s*record\.id/.test(runtimeMemoryStoreTest) &&
+      /Object\.hasOwn\(projection,\s*key\),\s*false,\s*`retired memory projection alias/.test(
+        runtimeMemoryStoreTest,
+      ) &&
       /Object\.hasOwn\(projection\.records\[0\],\s*key\),\s*false,\s*`retired memory record alias/.test(
         runtimeMemoryStoreTest,
       ) &&
@@ -16943,6 +16968,7 @@ function runCompositor() {
       !/record\.(?:threadId|agentId|memoryKey|workflowGraphId|workflowNodeId|workflowNodeType|createdAt|updatedAt|evidenceRefs)\b/.test(
         runtimeMemoryStore,
       ) &&
+      !/\b(?:schemaVersion|threadId|agentId|totalMatches)\s*:/.test(runtimeMemoryStore) &&
       !/\b(?:recordsPath|policiesPath|effectivePolicyId)\s*:/.test(runtimeMemoryStore) &&
       !/\boptions\.(?:memoryKey|memoryQuery|memoryScope|memoryLimit|memoryRedaction|q)\b/.test(
         `${runtimeMemoryListFiltersBlock}\n${runtimeMemoryExplicitSelectorBlock}`,

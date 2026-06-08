@@ -148,16 +148,16 @@ export class AgentMemoryStore {
     const records = this.list({ agent, threadId, workspace: workspace ?? agent?.cwd, ...filters });
     const normalizedFilters = memoryListFilters(filters);
     return {
-      schemaVersion: AGENT_MEMORY_SCHEMA_VERSION,
+      schema_version: AGENT_MEMORY_SCHEMA_VERSION,
       object: "ioi.agent_memory_projection",
-      threadId: threadId ?? null,
-      agentId: agent?.id ?? null,
+      thread_id: threadId ?? null,
+      agent_id: agent?.id ?? null,
       workspace: workspace ?? agent?.cwd ?? null,
       policy: this.effectivePolicy({ agent, threadId, workspace: workspace ?? agent?.cwd }),
       paths: this.pathProjection({ agent, threadId, workspace: workspace ?? agent?.cwd }),
       filters: normalizedFilters,
       records,
-      totalMatches: records.length,
+      total_matches: records.length,
     };
   }
 

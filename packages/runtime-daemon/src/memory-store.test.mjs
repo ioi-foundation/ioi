@@ -215,6 +215,10 @@ test("agent memory store projects canonical admitted memory without retired alia
     assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.memory" }).length, 1);
     assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.retired" }).length, 0);
     const projection = store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } });
+    assert.equal(projection.schema_version, "ioi.agent-runtime.memory.v1");
+    assert.equal(projection.thread_id, "thread.memory");
+    assert.equal(projection.agent_id, "agent.memory");
+    assert.equal(projection.total_matches, 1);
     assert.equal(projection.filters.memory_key, "launch");
     assert.equal(Object.hasOwn(projection.filters, "memoryKey"), false);
     assert.equal(projection.records[0].id, record.id);
@@ -223,6 +227,14 @@ test("agent memory store projects canonical admitted memory without retired alia
     assert.equal(projection.paths.policies_path, path.join(stateDir, "memory-policies"));
     assert.equal(projection.paths.effective_policy_id, "memory_policy_thread_thread.memory");
 
+    for (const key of [
+      "schemaVersion",
+      "threadId",
+      "agentId",
+      "totalMatches",
+    ]) {
+      assert.equal(Object.hasOwn(projection, key), false, `retired memory projection alias ${key} must be absent`);
+    }
     for (const key of [
       "schemaVersion",
       "threadId",

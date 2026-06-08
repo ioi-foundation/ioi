@@ -32,7 +32,7 @@ function createHarness(options = {}) {
       status: projection.records?.length ? "ready" : "empty",
       record_count: projection.records?.length ?? 0,
       records: projection.records ?? [],
-      policy: { id: `policy_${projection.threadId ?? "runtime"}` },
+      policy: { id: `policy_${projection.thread_id ?? "runtime"}` },
     }),
     memoryWorkflowNodeId: (operation) => `runtime.memory.${operation}`,
     memoryWriteBlockReason: (policy = {}, options = {}) => (options.blockMemory ? "blocked_by_test" : null),
@@ -133,8 +133,8 @@ function createHarness(options = {}) {
       projection({ agent, threadId, workspace, filters }) {
         calls.push({ type: "projection", agentId: agent?.id, threadId, workspace, filters });
         return {
-          agentId: agent?.id ?? null,
-          threadId: threadId ?? null,
+          agent_id: agent?.id ?? null,
+          thread_id: threadId ?? null,
           workspace,
           records: [{ id: "memory_1" }],
           filters,
@@ -206,8 +206,8 @@ test("thread memory state projects thread and agent memory", () => {
   const { calls, state, store } = createHarness();
 
   assert.deepEqual(state.listMemoryForThread(store, "thread_a", { query: "deploy" }), {
-    agentId: "agent_a",
-    threadId: "thread_a",
+    agent_id: "agent_a",
+    thread_id: "thread_a",
     workspace: "/workspace",
     records: [{ id: "memory_1" }],
     filters: { query: "deploy", scope: null },
@@ -216,8 +216,8 @@ test("thread memory state projects thread and agent memory", () => {
     query: null,
     scope: "workspace",
   });
-  assert.equal(state.listMemoryForAgent(store, "agent_a", { thread_id: "thread_custom" }).threadId, "thread_custom");
-  assert.equal(state.listMemoryForAgent(store, "agent_a", { threadId: "thread_retired" }).threadId, "thread_a");
+  assert.equal(state.listMemoryForAgent(store, "agent_a", { thread_id: "thread_custom" }).thread_id, "thread_custom");
+  assert.equal(state.listMemoryForAgent(store, "agent_a", { threadId: "thread_retired" }).thread_id, "thread_a");
   assert.deepEqual(calls.filter((call) => call.type === "projection").map((call) => call.threadId), [
     "thread_a",
     "thread_a",
@@ -268,13 +268,31 @@ test("thread memory state handles policies, paths, status, and validation", () =
     agent_id: null,
     workspace: "/default",
   });
-  assert.deepEqual(state.validateMemory(store, { projection: { records: [], threadId: "thread_x" } }), {
+  assert.deepEqual(state.validateMemory(store, { projection: { records: [], threadId: "thread_retired" } }), {
     ok: true,
     record_count: 0,
-    thread_id: "thread_x",
+    thread_id: null,
     agent_id: null,
     workspace: null,
   });
+  assert.deepEqual(
+    state.validateMemory(store, {
+      projection: {
+        records: [],
+        threadId: "thread_retired",
+        agentId: "agent_retired",
+        thread_id: "thread_x",
+        agent_id: "agent_x",
+      },
+    }),
+    {
+      ok: true,
+      record_count: 0,
+      thread_id: "thread_x",
+      agent_id: "agent_x",
+      workspace: null,
+    },
+  );
 });
 
 test("thread memory mutation and policy facades fail closed before JS store mutation", () => {

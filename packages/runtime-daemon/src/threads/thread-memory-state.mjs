@@ -197,8 +197,8 @@ export function createThreadMemoryState({
     const runner = store.contextPolicyRunner ?? contextPolicyRunner;
     return {
       ...memoryStatusForProjection(projection, { contextPolicyRunner: runner }),
-      thread_id: projection.threadId ?? null,
-      agent_id: projection.agentId ?? null,
+      thread_id: projection.thread_id ?? null,
+      agent_id: projection.agent_id ?? null,
       workspace: projection.workspace ?? null,
     };
   }
@@ -212,8 +212,8 @@ export function createThreadMemoryState({
     const validation = validateMemoryProjection(projection, { contextPolicyRunner: runner });
     return {
       ...validation,
-      thread_id: projection.threadId ?? null,
-      agent_id: projection.agentId ?? null,
+      thread_id: projection.thread_id ?? null,
+      agent_id: projection.agent_id ?? null,
       workspace: projection.workspace ?? null,
     };
   }
