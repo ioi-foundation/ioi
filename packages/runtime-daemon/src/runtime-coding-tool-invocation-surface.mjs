@@ -266,18 +266,25 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
         result = codingToolResultWithoutDrafts(result, materializedArtifacts);
         artifactRefs.push(...normalizeArray(result.artifact_refs));
       }
-      if (normalizedToolId === "file.apply_patch") {
-        workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
-          threadId,
-          turnId,
-          workspaceRoot: agent.cwd,
-          toolCallId,
-          workflowGraphId,
-          workflowNodeId,
-          result,
-        });
-        if (workspaceSnapshot) {
-          result = {
+	      if (normalizedToolId === "file.apply_patch") {
+	        try {
+	          workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
+	            threadId,
+	            turnId,
+	            workspaceRoot: agent.cwd,
+	            toolCallId,
+	            workflowGraphId,
+	            workflowNodeId,
+	            result,
+	          });
+	        } catch (snapshotError) {
+	          if (snapshotError?.code !== "runtime_workspace_snapshot_rust_core_required") {
+	            throw snapshotError;
+	          }
+	          workspaceSnapshot = null;
+	        }
+	        if (workspaceSnapshot) {
+	          result = {
             ...codingToolResultWithoutDrafts(result, []),
             workspace_snapshot: workspaceSnapshot.record,
             workspace_snapshot_id: workspaceSnapshot.record.snapshot_id,

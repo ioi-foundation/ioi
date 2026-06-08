@@ -69,7 +69,7 @@ function createShadowStepModuleRunner() {
   };
 }
 
-function createStore() {
+function createStore(options = {}) {
   const events = [];
   const idempotency = new Map();
   const calls = [];
@@ -130,10 +130,13 @@ function createStore() {
       calls.push({ name: "materializeArtifacts", input });
       return [{ id: "artifact_stdout" }];
     },
-    prepareWorkspaceSnapshotForPatch(input) {
-      calls.push({ name: "prepareSnapshot", input });
-      return {
-        record: {
+	    prepareWorkspaceSnapshotForPatch(input) {
+	      calls.push({ name: "prepareSnapshot", input });
+	      if (options.onPrepareSnapshot) {
+	        return options.onPrepareSnapshot(input);
+	      }
+	      return {
+	        record: {
           snapshot_id: "snapshot_alpha",
           artifact_refs: ["artifact_snapshot"],
           receipt_refs: ["receipt_snapshot"],
@@ -1075,10 +1078,40 @@ test("coding tool invocation surface runs file.apply_patch through rust workload
   ]) {
     assert.equal(Object.hasOwn(result, field), false);
   }
-  assert.equal(result.step_module.result.agentgres_operation_refs[0], "agentgres://operation/file.apply_patch/README.md/after");
-  assert.ok(store.calls.some((call) => call.name === "prepareSnapshot"));
-  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
-});
+	  assert.equal(result.step_module.result.agentgres_operation_refs[0], "agentgres://operation/file.apply_patch/README.md/after");
+	  assert.ok(store.calls.some((call) => call.name === "prepareSnapshot"));
+	  assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
+
+	  const retiredSnapshotStore = createStore({
+	    onPrepareSnapshot() {
+	      const error = new Error("Runtime workspace snapshot and restore mutation requires direct Rust daemon-core admission and persistence.");
+	      error.status = 501;
+	      error.code = "runtime_workspace_snapshot_rust_core_required";
+	      error.details = { rust_core_boundary: "runtime.workspace_snapshot" };
+	      throw error;
+	    },
+	  });
+	  const resultWithoutJsSnapshot = surface.invokeThreadTool(
+	    retiredSnapshotStore,
+	    "thread_alpha",
+	    "file.apply_patch",
+	    {
+	      tool_call_id: "tool_patch_no_js_snapshot",
+	      workflowGraphId: "graph_alpha",
+	      workflowNodeId: "node_patch",
+	      input: { path: "README.md", oldText: "before", newText: "after" },
+	    },
+	  );
+	  assert.equal(resultWithoutJsSnapshot.status, "completed");
+	  assert.equal(resultWithoutJsSnapshot.result.applied, true);
+	  assert.equal(resultWithoutJsSnapshot.workspace_snapshot, null);
+	  assert.equal(resultWithoutJsSnapshot.workspace_snapshot_event, null);
+	  assert.equal(
+	    resultWithoutJsSnapshot.receipt_refs.includes("receipt_snapshot"),
+	    false,
+	  );
+	  assert.ok(retiredSnapshotStore.calls.some((call) => call.name === "prepareSnapshot"));
+	});
 
 test("coding tool invocation surface runs artifact.read through rust workload live path", () => {
   const runnerCalls = [];

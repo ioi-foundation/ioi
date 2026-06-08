@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -7,76 +6,9 @@ import test from "node:test";
 
 import { createRuntimeWorkspaceSnapshotSurface } from "./runtime-workspace-snapshot-surface.mjs";
 
-const RETIRED_WORKSPACE_ARTIFACT_ALIASES = [
-  "schemaVersion",
-  "threadId",
-  "toolName",
-  "toolCallId",
-  "workspaceRoot",
-  "mediaType",
-  "receiptId",
-  "contentBytes",
-  "contentHash",
-  "createdAt",
-];
-
 const RETIRED_WORKSPACE_RESTORE_ERROR_DETAIL_ALIASES = [
   "threadId",
   "snapshotId",
-];
-
-const RETIRED_WORKSPACE_RESTORE_PREVIEW_RESULT_ALIASES = [
-  "schemaVersion",
-  "threadId",
-  "turnId",
-  "workspaceRoot",
-  "snapshotId",
-  "snapshotHash",
-  "previewStatus",
-  "previewSupported",
-  "applySupported",
-  "restoreApplySupported",
-  "fileCount",
-  "readyCount",
-  "noopCount",
-  "conflictCount",
-  "blockedCount",
-  "receiptRefs",
-  "artifactRefs",
-  "rollbackRefs",
-  "idempotencyKey",
-  "restorePreviewEvent",
-];
-
-const RETIRED_WORKSPACE_RESTORE_APPLY_RESULT_ALIASES = [
-  "schemaVersion",
-  "threadId",
-  "turnId",
-  "workspaceRoot",
-  "snapshotId",
-  "snapshotHash",
-  "previewStatus",
-  "applyStatus",
-  "applySupported",
-  "restoreApplySupported",
-  "approvalRequired",
-  "approvalSatisfied",
-  "conflictPolicy",
-  "fileCount",
-  "readyCount",
-  "noopCount",
-  "conflictCount",
-  "blockedCount",
-  "appliedCount",
-  "applyNoopCount",
-  "applyBlockedCount",
-  "failedCount",
-  "policyDecisionRefs",
-  "receiptRefs",
-  "artifactRefs",
-  "rollbackRefs",
-  "idempotencyKey",
-  "restoreApplyEvent",
 ];
 
 function assertNoRetiredWorkspaceRestoreErrorDetailAliases(details) {
@@ -85,19 +17,12 @@ function assertNoRetiredWorkspaceRestoreErrorDetailAliases(details) {
   }
 }
 
-function assertNoRetiredWorkspaceRestorePreviewResultAliases(result) {
-  for (const key of RETIRED_WORKSPACE_RESTORE_PREVIEW_RESULT_ALIASES) {
-    assert.equal(Object.hasOwn(result, key), false, `${key} alias must be absent`);
-  }
-}
-
-function assertNoRetiredWorkspaceRestoreApplyResultAliases(result) {
-  for (const key of RETIRED_WORKSPACE_RESTORE_APPLY_RESULT_ALIASES) {
-    assert.equal(Object.hasOwn(result, key), false, `${key} alias must be absent`);
-  }
-  for (const key of ["approvalRequired", "approvalSatisfied", "approvalSource", "conflictPolicy"]) {
-    assert.equal(Object.hasOwn(result.policy ?? {}, key), false, `policy.${key} alias must be absent`);
-  }
+function assertWorkspaceSnapshotRustCoreRequired(error, operationKind) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_workspace_snapshot_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.workspace_snapshot");
+  assert.equal(error.details.operation_kind, operationKind);
+  return true;
 }
 
 function runtimeError({ status, code, message, details }) {
@@ -112,195 +37,16 @@ function notFound(message, details) {
   return runtimeError({ status: 404, code: "not_found", message, details });
 }
 
-function hash(value) {
-  return crypto.createHash("sha256").update(String(value)).digest("hex");
-}
-
-function createSurface(options = {}) {
+function createSurface() {
   const writes = [];
-  const defaultWorkspaceRestoreRunner = {
-    planApplyPolicy(request = {}) {
-      const approval = {
-        required: true,
-        satisfied: request.confirm === true || request.confirm_restore_apply === true,
-        source: request.confirm === true || request.confirm_restore_apply === true ? "request_confirmed" : "approval_required",
-      };
-      const counts = request.counts;
-      const applyStatus = counts
-        ? counts.apply_blocked_count > 0
-          ? "blocked"
-          : counts.failed_count > 0
-            ? "failed"
-            : counts.applied_count === 0 && counts.apply_noop_count === counts.file_count
-              ? "noop"
-              : "applied"
-        : null;
-      return {
-        approval,
-        allow_conflicts: false,
-        conflict_policy: "clean_preview_only",
-        hard_blocked: false,
-        conflict_blocked: false,
-        apply_status: applyStatus,
-        policy_decision_refs: [
-          `policy_workspace_restore_apply_${request.snapshot_id}_${approval.satisfied ? "approval_satisfied" : "approval_required"}`,
-        ],
-        operation_policies: (request.operations ?? []).map((operation) => ({
-          path: operation.path,
-          apply_reason: approval.satisfied
-            ? "workspace_restore_apply_blocked_by_policy"
-            : "workspace_restore_apply_requires_approval",
-        })),
-        summary: counts ? `Restore apply ${applyStatus} for ${request.snapshot_id}.` : null,
-      };
-    },
-    previewOperations(request = {}) {
-      return (request.files ?? []).map((file) => previewOperation(request.workspace_root, file));
-    },
-    applyOperations(request = {}) {
-      return (request.files ?? []).map((file) => {
-        const preview = previewOperation(request.workspace_root, file);
-        if (preview.status === "noop") {
-          return {
-            ...preview,
-            apply_status: "noop",
-            applied_exists: preview.current_exists,
-            applied_hash: preview.current_hash,
-            applied_bytes: preview.current_bytes,
-            applied_matches_target: true,
-          };
-        }
-        fs.mkdirSync(path.dirname(path.join(request.workspace_root, file.path)), { recursive: true });
-        fs.writeFileSync(path.join(request.workspace_root, file.path), file.before.content ?? "", "utf8");
-        return {
-          ...preview,
-          apply_status: "applied",
-          applied_exists: true,
-          applied_hash: hash(file.before.content ?? ""),
-          applied_bytes: Buffer.byteLength(file.before.content ?? "", "utf8"),
-          applied_matches_target: true,
-        };
-      });
-    },
-    captureSnapshotFiles(request = {}) {
-      const draftsByPath = new Map((request.content_drafts ?? []).map((draft) => [draft.path, draft]));
-      const captures = (request.changed_files ?? [])
-        .filter((entry) => entry.path)
-        .map((entry) => snapshotCapture(entry, draftsByPath.get(entry.path) ?? {}));
-      const capturedFileCount = captures.filter((capture) => capture.content_captured).length;
-      return {
-        files: captures.map((capture) => capture.publicFile),
-        content_files: captures.map((capture) => capture.contentFile),
-        captured_file_count: capturedFileCount,
-        omitted_file_count: captures.length - capturedFileCount,
-        content_captured: capturedFileCount === captures.length,
-      };
-    },
-  };
   const surface = createRuntimeWorkspaceSnapshotSurface({
     notFound,
     runtimeError,
-    now: () => "2026-06-04T15:00:00.000Z",
-    workspaceRestoreRunner: Object.hasOwn(options, "workspaceRestoreRunner")
-      ? options.workspaceRestoreRunner
-      : defaultWorkspaceRestoreRunner,
     writeJson(filePath, value) {
       writes.push({ filePath, value });
     },
   });
   return { surface, writes };
-}
-
-function snapshotCapture(entry = {}, draft = {}) {
-  const beforeExists = Boolean(entry.before_exists);
-  const afterExists = Object.hasOwn(entry, "after_exists")
-    ? Boolean(entry.after_exists)
-    : true;
-  const beforeHash = entry.before_hash ?? null;
-  const afterHash = entry.after_hash ?? null;
-  const before = snapshotCaptureSide(beforeExists, beforeHash, draft.before_content);
-  const after = snapshotCaptureSide(afterExists, afterHash, draft.after_content);
-  const publicFile = {
-    path: entry.path,
-    created: Boolean(entry.created),
-    deleted: beforeExists && !afterExists,
-    changed: beforeHash !== afterHash,
-    before: before.publicSide,
-    after: after.publicSide,
-    receipt_refs: [],
-    artifact_refs: [],
-  };
-  return {
-    publicFile,
-    contentFile: {
-      ...publicFile,
-      before: before.contentSide,
-      after: after.contentSide,
-      encoding: "utf8",
-    },
-    content_captured: before.captured && after.captured,
-  };
-}
-
-function snapshotCaptureSide(exists, contentHash, content) {
-  if (!exists) {
-    const side = {
-      exists: false,
-      content_hash: contentHash,
-      size_bytes: 0,
-      mtime_ms: null,
-      content_captured: true,
-      content_bytes: 0,
-      omitted_reason: null,
-    };
-    return { publicSide: side, contentSide: { ...side, content: null }, captured: true };
-  }
-  const captured = typeof content === "string" && (!contentHash || hash(content) === contentHash);
-  const side = {
-    exists: true,
-    content_hash: contentHash,
-    size_bytes: content ? Buffer.byteLength(content, "utf8") : 0,
-    mtime_ms: null,
-    content_captured: captured,
-    content_bytes: content ? Buffer.byteLength(content, "utf8") : 0,
-    omitted_reason: captured ? null : "snapshot_content_missing",
-  };
-  return { publicSide: side, contentSide: { ...side, content: captured ? content : null }, captured };
-}
-
-function previewOperation(workspaceRoot, file = {}) {
-  const targetPath = path.join(workspaceRoot, file.path);
-  const currentExists = fs.existsSync(targetPath);
-  const currentContent = currentExists ? fs.readFileSync(targetPath, "utf8") : "";
-  const currentHash = currentExists ? hash(currentContent) : null;
-  const targetExists = Boolean(file.before?.exists);
-  const targetHash = targetExists ? file.before?.content_hash ?? null : null;
-  const snapshotAfterExists = Boolean(file.after?.exists);
-  const snapshotAfterHash = snapshotAfterExists ? file.after?.content_hash ?? null : null;
-  const currentMatchesSnapshotPost =
-    currentExists === snapshotAfterExists && (!snapshotAfterExists || currentHash === snapshotAfterHash);
-  const currentMatchesRestoreTarget =
-    currentExists === targetExists && (!targetExists || currentHash === targetHash);
-  const status = currentMatchesRestoreTarget ? "noop" : currentMatchesSnapshotPost ? "ready" : "conflict";
-  return {
-    path: file.path,
-    operation: currentMatchesRestoreTarget ? "noop" : targetExists ? "replace" : "delete",
-    status,
-    current_exists: currentExists,
-    current_hash: currentHash,
-    current_bytes: Buffer.byteLength(currentContent, "utf8"),
-    target_exists: targetExists,
-    target_hash: targetHash,
-    snapshot_after_exists: snapshotAfterExists,
-    snapshot_after_hash: snapshotAfterHash,
-    current_matches_snapshot_post: currentMatchesSnapshotPost,
-    current_matches_restore_target: currentMatchesRestoreTarget,
-    blocked_reason: null,
-    diff: status === "ready" ? "diff" : "",
-    diff_bytes: status === "ready" ? 4 : 0,
-    diff_hash: hash(status === "ready" ? "diff" : ""),
-    diff_truncated: false,
-  };
 }
 
 function createStore(cwd = "/workspace") {
@@ -310,10 +56,6 @@ function createStore(cwd = "/workspace") {
     codingArtifacts: new Map(),
     events,
     artifactCommits,
-    commitRuntimeArtifactState(request) {
-      artifactCommits.push(request);
-      return fakeArtifactStateCommit(request);
-    },
     agentForThread(threadId) {
       assert.equal(threadId, "thread_alpha");
       return { id: "agent_alpha", cwd };
@@ -336,140 +78,49 @@ function createStore(cwd = "/workspace") {
   };
 }
 
-function fakeArtifactStateCommit(request) {
-  return {
-    source: "rust_agentgres_runtime_artifact_state_commit_command",
-    backend: "rust_agentgres_storage",
-    record: {
-      schema_version: "ioi.runtime_artifact_state_commit.v1",
-      artifact_id: request.artifact_id,
-      operation_kind: request.operation_kind,
-      storage_backend_ref: request.storage_backend_ref,
-      record: {
-        record_path: `artifacts/${request.artifact_id}.json`,
-        object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
-        content_hash: "sha256:artifact-content",
-        payload_refs: [`payload://runtime/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`],
-        receipt_refs: request.receipt_refs,
-        admission: { admission_hash: "sha256:artifact-admission" },
-      },
-      commit_hash: "sha256:artifact-commit",
-    },
-    storage_record: {
-      record_path: `artifacts/${request.artifact_id}.json`,
-      object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
-      content_hash: "sha256:artifact-content",
-      payload_refs: [`payload://runtime/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`],
-      receipt_refs: request.receipt_refs,
-      admission: { admission_hash: "sha256:artifact-admission" },
-    },
-    artifact_id: request.artifact_id,
-    object_ref: `agentgres://runtime-state/artifacts/${request.artifact_id}/records/artifacts/${request.artifact_id}.json`,
-    content_hash: "sha256:artifact-content",
-    admission_hash: "sha256:artifact-admission",
-    commit_hash: "sha256:artifact-commit",
-    written_record: { record_path: `artifacts/${request.artifact_id}.json` },
-  };
-}
-
-test("workspace snapshot surface prepares snapshots and persists content artifact", () => {
+test("workspace snapshot surface fails closed before JS patch snapshot capture", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
 
-  const snapshot = surface.prepareWorkspaceSnapshotForPatch(store, {
-    threadId: "thread_alpha",
-    turnId: "turn_alpha",
-    workspaceRoot: "/workspace",
-    toolCallId: "tool_call_alpha",
-    workflowGraphId: "graph_alpha",
-    workflowNodeId: "node_alpha",
-    result: {
-      applied: true,
-      changed_files: [
-        {
-          path: "src/app.js",
-          before_hash: hash("old"),
-          after_hash: hash("newer"),
-          before_exists: true,
-          after_exists: true,
-          before_size_bytes: 3,
-          after_size_bytes: 5,
-        },
-      ],
-      workspace_snapshot_drafts: [
-        {
-          path: "src/app.js",
-          before_content: "old",
-          after_content: "newer",
-        },
-      ],
-    },
-  });
+  assert.equal(
+    surface.prepareWorkspaceSnapshotForPatch(store, {
+      threadId: "thread_alpha",
+      result: { applied: false },
+    }),
+    null,
+  );
 
-  assert.equal(snapshot.record.file_count, 1);
-  assert.equal(snapshot.record.changed_file_count, 1);
-  assert.equal(snapshot.record.restore.preview_supported, true);
-  assert.match(snapshot.record.snapshot_id, /^workspace_snapshot_tool_call_alpha_/);
-  for (const field of [
-    "schemaVersion",
-    "threadId",
-    "turnId",
-    "workspaceRoot",
-    "snapshotKind",
-    "snapshotId",
-    "snapshotHash",
-    "fileCount",
-    "changedFileCount",
-    "createdFileCount",
-    "deletedFileCount",
-    "receiptRefs",
-    "artifactRefs",
-    "contentArtifactRefs",
-    "evidenceRefs",
-  ]) {
-    assert.equal(Object.hasOwn(snapshot.record, field), false);
-  }
-  for (const field of ["toolName", "toolCallId", "workflowGraphId", "workflowNodeId"]) {
-    assert.equal(Object.hasOwn(snapshot.record.trigger, field), false);
-  }
-  for (const field of ["maxContentBytes", "capturedFileCount", "omittedFileCount"]) {
-    assert.equal(Object.hasOwn(snapshot.record.capture, field), false);
-  }
-  for (const field of ["previewSupported", "applySupported"]) {
-    assert.equal(Object.hasOwn(snapshot.record.restore, field), false);
-  }
-  for (const field of ["contentIncluded", "contentArtifactIncluded", "pathsIncluded"]) {
-    assert.equal(Object.hasOwn(snapshot.record.redaction, field), false);
-  }
-  assert.equal(snapshot.artifactRecord.channel, "workspace-snapshot");
-  assert.equal(snapshot.artifactRecord.created_at, "2026-06-04T15:00:00.000Z");
-  assert.equal(snapshot.artifactRecord.schema_version, "ioi.runtime.coding-tool-artifact.v1");
-  assert.equal(snapshot.artifactRecord.thread_id, "thread_alpha");
-  assert.equal(snapshot.artifactRecord.tool_name, "file.apply_patch");
-  assert.equal(snapshot.artifactRecord.tool_call_id, "tool_call_alpha");
-  assert.equal(snapshot.artifactRecord.workspace_root, "/workspace");
-  for (const field of RETIRED_WORKSPACE_ARTIFACT_ALIASES) {
-    assert.equal(Object.hasOwn(snapshot.artifactRecord, field), false);
-  }
-  const contentPayload = JSON.parse(snapshot.artifactRecord.content);
-  assert.equal(contentPayload.schema_version, "ioi.runtime.workspace-snapshot.v1");
-  assert.equal(contentPayload.thread_id, "thread_alpha");
-  assert.equal(contentPayload.turn_id, "turn_alpha");
-  assert.equal(contentPayload.workspace_root, "/workspace");
-  assert.equal(contentPayload.snapshot_id, snapshot.record.snapshot_id);
-  for (const field of ["schemaVersion", "threadId", "turnId", "workspaceRoot", "snapshotId", "snapshotHash"]) {
-    assert.equal(Object.hasOwn(contentPayload, field), false);
-  }
-  assert.equal(store.codingArtifacts.get(snapshot.artifactRecord.id), snapshot.artifactRecord);
+  assert.throws(
+    () =>
+      surface.prepareWorkspaceSnapshotForPatch(store, {
+        threadId: "thread_alpha",
+        turnId: "turn_alpha",
+        workspaceRoot: "/workspace",
+        toolCallId: "tool_call_alpha",
+        workflowGraphId: "graph_alpha",
+        workflowNodeId: "node_alpha",
+        result: {
+          applied: true,
+          changed_files: [{ path: "src/app.js" }],
+          workspace_snapshot_drafts: [{ path: "src/app.js" }],
+        },
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_snapshot.capture");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.tool_call_id, "tool_call_alpha");
+      assert.equal(error.details.changed_file_count, 1);
+      assert.equal(error.details.snapshot_draft_count, 1);
+      assert.ok(error.details.evidence_refs.includes("workspace_snapshot_js_capture_facade_retired"));
+      return true;
+    },
+  );
+  assert.equal(store.codingArtifacts.size, 0);
   assert.equal(writes.length, 0);
-  assert.equal(store.artifactCommits.length, 1);
-  assert.equal(store.artifactCommits[0].schema_version, "ioi.runtime_artifact_state_commit.v1");
-  assert.equal(store.artifactCommits[0].artifact_id, snapshot.artifactRecord.id);
-  assert.equal(store.artifactCommits[0].operation_kind, "artifact.workspace_snapshot");
-  assert.deepEqual(store.artifactCommits[0].receipt_refs, [snapshot.artifactRecord.receipt_id]);
+  assert.equal(store.artifactCommits.length, 0);
 });
 
-test("workspace snapshot surface appends and lists snapshot events", () => {
+test("workspace snapshot surface fails closed before JS snapshot event append and lists admitted projections", () => {
   const { surface } = createSurface();
   const store = createStore();
   const snapshot = {
@@ -488,19 +139,26 @@ test("workspace snapshot surface appends and lists snapshot events", () => {
     summary: "snapshot ready",
   };
 
-  const event = surface.appendWorkspaceSnapshotEvent(store, {
-    threadId: "thread_alpha",
-    turnId: "turn_alpha",
-    workspaceRoot: "/workspace",
-    snapshot,
+  assert.throws(
+    () =>
+      surface.appendWorkspaceSnapshotEvent(store, {
+        threadId: "thread_alpha",
+        turnId: "turn_alpha",
+        workspaceRoot: "/workspace",
+        snapshot,
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_snapshot.event");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_alpha");
+      assert.ok(error.details.evidence_refs.includes("workspace_snapshot_event_js_append_retired"));
+      return true;
+    },
+  );
+  assert.equal(store.events.length, 0);
+  store.events.push({
+    event_kind: "workspace.snapshot.created",
+    payload_summary: { snapshot },
   });
-
-  assert.equal(event.event_kind, "workspace.snapshot.created");
-  assert.equal(event.workflow_node_id, "runtime.workspace-snapshot");
-  assert.deepEqual(event.rollback_refs, ["workspace_snapshot_alpha"]);
-  assert.deepEqual(event.receipt_refs, ["receipt_alpha"]);
-  assert.equal(event.payload_summary.snapshot_id, "workspace_snapshot_alpha");
-  assert.equal(event.payload_summary.restore_preview_supported, true);
   const list = surface.listWorkspaceSnapshots(store, "thread_alpha");
   assert.equal(list.schema_version, "ioi.runtime.workspace-snapshot.v1");
   assert.equal(list.thread_id, "thread_alpha");
@@ -550,7 +208,7 @@ test("workspace snapshot surface reads content packages and fails closed when un
   );
 });
 
-test("workspace snapshot surface materializes restore artifacts and appends restore events", () => {
+test("workspace snapshot surface fails closed before JS restore artifact and event mutation", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
   const preview = {
@@ -571,171 +229,125 @@ test("workspace snapshot surface materializes restore artifacts and appends rest
     policy_decision_refs: ["policy_apply"],
   };
 
-  const previewArtifact = surface.materializeWorkspaceRestorePreviewArtifact(store, {
-    thread_id: "thread_alpha",
-    workspace_root: "/workspace",
-    snapshot_id: "workspace_snapshot_alpha",
-    artifact_id: "artifact_preview",
-    receipt_id: "receipt_preview",
-    preview,
-  });
-  const applyArtifact = surface.materializeWorkspaceRestoreApplyArtifact(store, {
-    thread_id: "thread_alpha",
-    workspace_root: "/workspace",
-    snapshot_id: "workspace_snapshot_alpha",
-    artifact_id: "artifact_apply",
-    receipt_id: "receipt_apply",
-    apply,
-  });
-  const previewEvent = surface.appendWorkspaceRestorePreviewEvent(store, {
-    thread_id: "thread_alpha",
-    turn_id: "turn_alpha",
-    workspace_root: "/workspace",
-    workflow_graph_id: "graph_alpha",
-    workflow_node_id: "restore_node",
-    preview,
-  });
-  const applyEvent = surface.appendWorkspaceRestoreApplyEvent(store, {
-    thread_id: "thread_alpha",
-    turn_id: "turn_alpha",
-    workspace_root: "/workspace",
-    workflow_graph_id: "graph_alpha",
-    workflow_node_id: "restore_node",
-    apply,
-  });
-
-  assert.equal(previewArtifact.channel, "restore-preview");
-  assert.equal(applyArtifact.channel, "restore-apply");
-  for (const artifactRecord of [previewArtifact, applyArtifact]) {
-    assert.equal(artifactRecord.schema_version, "ioi.runtime.coding-tool-artifact.v1");
-    assert.equal(artifactRecord.thread_id, "thread_alpha");
-    assert.equal(artifactRecord.tool_call_id, "workspace_snapshot_alpha");
-    assert.equal(artifactRecord.workspace_root, "/workspace");
-    for (const field of RETIRED_WORKSPACE_ARTIFACT_ALIASES) {
-      assert.equal(Object.hasOwn(artifactRecord, field), false);
-    }
-  }
-  assert.equal(previewEvent.status, "completed");
-  assert.equal(previewEvent.tool_call_id, "workspace_snapshot_alpha");
-  assert.deepEqual(previewEvent.artifact_refs, ["artifact_preview"]);
-  assert.equal(previewEvent.payload_schema_version, "ioi.runtime.workspace-restore-preview.v1");
-  assert.equal(applyEvent.status, "blocked");
-  assert.deepEqual(applyEvent.policy_decision_refs, ["policy_apply"]);
+  assert.throws(
+    () =>
+      surface.materializeWorkspaceRestorePreviewArtifact(store, {
+        thread_id: "thread_alpha",
+        workspace_root: "/workspace",
+        snapshot_id: "workspace_snapshot_alpha",
+        artifact_id: "artifact_preview",
+        receipt_id: "receipt_preview",
+        preview,
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "artifact.restore-preview");
+      assert.equal(error.details.artifact_id, "artifact_preview");
+      assert.ok(error.details.evidence_refs.includes("workspace_restore_artifact_js_materializer_retired"));
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      surface.materializeWorkspaceRestoreApplyArtifact(store, {
+        thread_id: "thread_alpha",
+        workspace_root: "/workspace",
+        snapshot_id: "workspace_snapshot_alpha",
+        artifact_id: "artifact_apply",
+        receipt_id: "receipt_apply",
+        apply,
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "artifact.restore-apply");
+      assert.equal(error.details.artifact_id, "artifact_apply");
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      surface.appendWorkspaceRestorePreviewEvent(store, {
+        thread_id: "thread_alpha",
+        turn_id: "turn_alpha",
+        workspace_root: "/workspace",
+        workflow_graph_id: "graph_alpha",
+        workflow_node_id: "restore_node",
+        preview,
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_restore.preview.event");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_alpha");
+      assert.ok(error.details.evidence_refs.includes("workspace_restore_preview_event_js_append_retired"));
+      return true;
+    },
+  );
+  assert.throws(
+    () =>
+      surface.appendWorkspaceRestoreApplyEvent(store, {
+        thread_id: "thread_alpha",
+        turn_id: "turn_alpha",
+        workspace_root: "/workspace",
+        workflow_graph_id: "graph_alpha",
+        workflow_node_id: "restore_node",
+        apply,
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_restore.apply.event");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_alpha");
+      assert.ok(error.details.evidence_refs.includes("workspace_restore_apply_event_js_append_retired"));
+      return true;
+    },
+  );
   assert.equal(writes.length, 0);
-  assert.equal(store.artifactCommits.length, 2);
-  assert.equal(store.artifactCommits[0].artifact_id, "artifact_preview");
-  assert.equal(store.artifactCommits[0].operation_kind, "artifact.restore-preview");
-  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_preview"]);
-  assert.equal(store.artifactCommits[1].artifact_id, "artifact_apply");
-  assert.equal(store.artifactCommits[1].operation_kind, "artifact.restore-apply");
-  assert.deepEqual(store.artifactCommits[1].receipt_refs, ["receipt_apply"]);
+  assert.equal(store.artifactCommits.length, 0);
+  assert.equal(store.codingArtifacts.size, 0);
+  assert.equal(store.events.length, 0);
 });
 
-test("workspace snapshot surface previews and applies snapshot restores", () => {
+test("workspace snapshot surface fails closed before JS restore preview/apply facade execution", () => {
   const { surface } = createSurface();
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-workspace-restore-"));
   fs.mkdirSync(path.join(cwd, "src"), { recursive: true });
   fs.writeFileSync(path.join(cwd, "src", "app.js"), "new");
-  const store = createStore(cwd);
-  store.codingArtifacts.set("artifact_snapshot", {
-    id: "artifact_snapshot",
-    thread_id: "thread_alpha",
-    channel: "workspace-snapshot",
-    content: JSON.stringify({
-      snapshot: {
-        snapshot_id: "workspace_snapshot_alpha",
-        snapshot_hash: "hash_alpha",
-        turn_id: "turn_alpha",
-        restore: { preview_supported: true },
-      },
-      files: [
-        {
-          path: "src/app.js",
-          before: {
-            exists: true,
-            content: "old",
-            content_hash: hash("old"),
-          },
-          after: {
-            exists: true,
-            content_hash: hash("new"),
-          },
-        },
-      ],
-    }),
-  });
+  const store = {
+    agentForThread() {
+      assert.fail("agent lookup must not run in the retired workspace restore JS facade");
+    },
+  };
 
-  const preview = surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
-    workflow_node_id: "restore_node",
-  });
-  assert.equal(preview.preview_status, "ready");
-  assert.equal(preview.turn_id, "turn_alpha");
-  assert.equal(preview.snapshot_hash, "hash_alpha");
-  assert.equal(preview.event.event_kind, "workspace.restore.previewed");
-  assert.equal(preview.event.workflow_node_id, "restore_node");
-  assert.equal(preview.artifact_refs.length, 1);
-  assert.match(preview.artifact_refs[0], /^artifact_workspace_restore_preview_workspace_snapshot_alpha_/);
-  assert.deepEqual(preview.rollback_refs, ["workspace_snapshot_alpha"]);
-  assert.equal(preview.restore_preview_event.event_id, preview.event.event_id);
-  assertNoRetiredWorkspaceRestorePreviewResultAliases(preview);
-
-  store.codingArtifacts.set("artifact_snapshot_retired_identity", {
-    id: "artifact_snapshot_retired_identity",
-    thread_id: "thread_alpha",
-    channel: "workspace-snapshot",
-    content: JSON.stringify({
-      snapshot: {
-        snapshot_id: "workspace_snapshot_retired_identity",
-        snapshotHash: "hash_retired",
-        turnId: "turn_retired",
-        restore: { preview_supported: true },
-      },
-      files: [
-        {
-          path: "src/app.js",
-          before: {
-            exists: true,
-            content: "old",
-            content_hash: hash("old"),
-          },
-          after: {
-            exists: true,
-            content_hash: hash("new"),
-          },
-        },
-      ],
-    }),
-  });
-  const retiredIdentityPreview = surface.previewWorkspaceSnapshotRestore(
-    store,
-    "thread_alpha",
-    "workspace_snapshot_retired_identity",
-    { workflow_node_id: "restore_node" },
+  assert.throws(
+    () =>
+      surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
+        workflow_graph_id: "graph_alpha",
+        workflow_node_id: "restore_node",
+        idempotency_key: "restore_preview_key",
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_restore.preview");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_alpha");
+      assert.equal(error.details.workflow_node_id, "restore_node");
+      assert.equal(error.details.idempotency_key, "restore_preview_key");
+      assert.ok(error.details.evidence_refs.includes("workspace_restore_preview_js_facade_retired"));
+      return true;
+    },
   );
-  assert.equal(retiredIdentityPreview.turn_id, null);
-  assert.equal(Object.hasOwn(retiredIdentityPreview, "turnId"), false);
-  assert.equal(retiredIdentityPreview.snapshot_hash, null);
-  assert.equal(Object.hasOwn(retiredIdentityPreview, "snapshotHash"), false);
-
-  const blocked = surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {});
-  assert.equal(blocked.apply_status, "blocked");
-  assert.equal(blocked.policy.approval_required, true);
-  assert.equal(blocked.policy.approval_satisfied, false);
-  assert.equal(blocked.policy.conflict_policy, "clean_preview_only");
-  assertNoRetiredWorkspaceRestoreApplyResultAliases(blocked);
+  assert.throws(
+    () =>
+      surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
+        workflow_graph_id: "graph_alpha",
+        workflow_node_id: "restore_node",
+        idempotency_key: "restore_apply_key",
+      }),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_restore.apply");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_alpha");
+      assert.equal(error.details.workflow_node_id, "restore_node");
+      assert.equal(error.details.idempotency_key, "restore_apply_key");
+      assert.ok(error.details.evidence_refs.includes("workspace_restore_apply_js_facade_retired"));
+      return true;
+    },
+  );
   assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "new");
-
-  const applied = surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_alpha", {
-    confirm: true,
-  });
-  assert.equal(applied.apply_status, "applied");
-  assert.equal(fs.readFileSync(path.join(cwd, "src", "app.js"), "utf8"), "old");
-  assert.equal(applied.event.event_kind, "workspace.restore.applied");
-  assert.equal(applied.restore_apply_event.event_id, applied.event.event_id);
-  assert.equal(applied.artifact_refs.length, 1);
-  assert.match(applied.artifact_refs[0], /^artifact_workspace_restore_apply_workspace_snapshot_alpha_/);
-  assert.deepEqual(applied.rollback_refs, ["workspace_snapshot_alpha"]);
-  assertNoRetiredWorkspaceRestoreApplyResultAliases(applied);
 });
 
 test("workspace snapshot restore fail-closed details use canonical fields", () => {
@@ -759,38 +371,20 @@ test("workspace snapshot restore fail-closed details use canonical fields", () =
     );
   }
 
-  store.codingArtifacts.set("artifact_snapshot_empty", {
-    id: "artifact_snapshot_empty",
-    thread_id: "thread_alpha",
-    channel: "workspace-snapshot",
-    content: JSON.stringify({
-      snapshot: {
-        snapshot_id: "workspace_snapshot_empty",
-        restore: { preview_supported: true },
-      },
-      files: [],
-    }),
-  });
-
   for (const [operation, expectedCode] of [
     [
       () => surface.previewWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_empty", {}),
-      "workspace_restore_preview_empty",
+      "workspace_restore.preview",
     ],
     [
       () => surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_empty", {}),
-      "workspace_restore_apply_empty",
+      "workspace_restore.apply",
     ],
   ]) {
     assert.throws(
       operation,
       (error) => {
-        assert.equal(error.status, 409);
-        assert.equal(error.code, expectedCode);
-        assert.deepEqual(error.details, {
-          thread_id: "thread_alpha",
-          snapshot_id: "workspace_snapshot_empty",
-        });
+        assertWorkspaceSnapshotRustCoreRequired(error, expectedCode);
         assert.equal(error.details.thread_id, "thread_alpha");
         assert.equal(error.details.snapshot_id, "workspace_snapshot_empty");
         assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
@@ -800,94 +394,33 @@ test("workspace snapshot restore fail-closed details use canonical fields", () =
   }
 });
 
-test("workspace restore policy bridge fail-closed details use canonical fields", () => {
-  const store = createStore();
-  store.codingArtifacts.set("artifact_snapshot_policy", {
-    id: "artifact_snapshot_policy",
-    thread_id: "thread_alpha",
-    channel: "workspace-snapshot",
-    content: JSON.stringify({
-      snapshot: {
-        snapshot_id: "workspace_snapshot_policy",
-        restore: { preview_supported: true },
+test("workspace restore policy bridge plumbing is not called by the retired JS facade", () => {
+  const surface = createRuntimeWorkspaceSnapshotSurface({
+    notFound,
+    runtimeError,
+    workspaceRestoreRunner: {
+      planApplyPolicy() {
+        assert.fail("policy bridge must not run in the retired workspace restore JS facade");
       },
-      files: [
-        {
-          path: "src/app.js",
-          before: { exists: true, content: "old", content_hash: hash("old") },
-          after: { exists: true, content_hash: hash("new") },
-        },
-      ],
-    }),
-  });
-  const previewOperations = () => [
-    {
-      path: "src/app.js",
-      operation: "replace",
-      status: "ready",
-      current_exists: true,
-      current_hash: hash("new"),
-      current_bytes: 3,
-      target_exists: true,
-      target_hash: hash("old"),
-      snapshot_after_exists: true,
-      snapshot_after_hash: hash("new"),
-      current_matches_snapshot_post: true,
-      current_matches_restore_target: false,
-      blocked_reason: null,
-      diff: "diff",
+      previewOperations() {
+        assert.fail("preview bridge must not run in the retired workspace restore JS facade");
+      },
+      applyOperations() {
+        assert.fail("apply bridge must not run in the retired workspace restore JS facade");
+      },
     },
-  ];
+  });
+  const store = createStore();
 
-  for (const [workspaceRestoreRunner, expectedCode] of [
-    [
-      { previewOperations },
-      "workspace_restore_bridge_unconfigured",
-    ],
-    [
-      { previewOperations, planApplyPolicy: () => ({ approval: null }) },
-      "workspace_restore_bridge_invalid_plan",
-    ],
-    [
-      {
-        previewOperations,
-        planApplyPolicy: (request = {}) =>
-          request.counts
-            ? { approval: { satisfied: false }, summary: "missing status" }
-            : {
-                approval: { satisfied: false },
-                operation_policies: [{ path: "src/app.js", apply_reason: "requires_approval" }],
-              },
-      },
-      "workspace_restore_bridge_invalid_status",
-    ],
-    [
-      {
-        previewOperations,
-        planApplyPolicy: (request = {}) =>
-          request.counts
-            ? { approval: { satisfied: false }, apply_status: "blocked" }
-            : {
-                approval: { satisfied: false },
-                operation_policies: [{ path: "src/app.js", apply_reason: "requires_approval" }],
-              },
-      },
-      "workspace_restore_bridge_invalid_summary",
-    ],
-  ]) {
-    const { surface } = createSurface({ workspaceRestoreRunner });
-    assert.throws(
-      () => surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_policy", {}),
-      (error) => {
-        assert.equal(error.status, 502);
-        assert.equal(error.code, expectedCode);
-        assert.deepEqual(error.details, { snapshot_id: "workspace_snapshot_policy" });
-        assert.equal(error.details.snapshot_id, "workspace_snapshot_policy");
-        assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
-        return true;
-      },
-    );
-  }
+  assert.throws(
+    () => surface.applyWorkspaceSnapshotRestore(store, "thread_alpha", "workspace_snapshot_policy", {}),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_restore.apply");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_policy");
+      assertNoRetiredWorkspaceRestoreErrorDetailAliases(error.details);
+      return true;
+    },
+  );
 });
 
 test("workspace snapshot restore rejects retired request aliases before agent lookup", () => {

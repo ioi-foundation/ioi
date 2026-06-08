@@ -276,11 +276,12 @@ Resume-goal scheduling marker: do not make matrix pruning the first action when
 the migration goal resumes. First complete a verified slice that clarifies the
 next Rust-core extraction or JS-facade retirement owner boundary; then run the
 scheduled matrix-compaction pass before starting unrelated route-family work.
-The Slice 731 coding-tool artifact mutation compaction is complete; the next
-compaction pass remains unscheduled until the next seam is clear enough to
-preserve evidence, distinguish interim bridge scaffolding and fail-closed JS
-facades from terminal Rust daemon-core shape, and avoid encoding command
-transport or read-only JS helpers as long-term substrate.
+The Slice 731 coding-tool artifact mutation compaction is complete. Slice 732
+retired workspace snapshot/restore JS mutation authority, so the next
+compaction pass is now scheduled before unrelated route-family work resumes.
+That pass must preserve evidence, distinguish interim bridge scaffolding and
+fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
+command transport or read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

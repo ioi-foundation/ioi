@@ -315,11 +315,12 @@ function runDocs() {
       ) &&
       /First complete a verified slice that clarifies the\s+next Rust-core extraction or JS-facade retirement owner boundary; then run the\s+scheduled matrix-compaction pass/.test(
         guide,
-      ) &&
-      /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
-      /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
-        guide,
-      ) &&
+	      ) &&
+	      /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
+	      /Slice 732\s+retired workspace snapshot\/restore JS mutation authority/.test(guide) &&
+	      /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
+	        guide,
+	      ) &&
       /`ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(
         matrix,
       ) &&
@@ -328,12 +329,15 @@ function runDocs() {
       /Schedule a matrix-compaction pass once the next Rust-core extraction\/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal/.test(
         matrix,
       ) &&
-      /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
-        matrix,
-      ) &&
-      /encoding the command bridge as\s+terminal shape/.test(
-        matrix,
-      ),
+	      /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
+	        matrix,
+	      ) &&
+	      /Next scheduled matrix-compaction pass: pending after Slice 732 retired the\s+workspace snapshot\/restore mutation JS facades/.test(
+	        matrix,
+	      ) &&
+	      /encoding the command bridge as\s+terminal shape/.test(
+	        matrix,
+	      ),
     [GUIDE, MATRIX],
     "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",
   );
@@ -8316,12 +8320,12 @@ function runBridge() {
     ],
     "Phase 10 is pending: workspace snapshot capture must be produced by the Rust daemon core and exposed through the command bridge",
   );
-  assertCheck(
-    result,
-    "workspace-restore-daemon-runner",
-    /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workspaceRestoreRunner) &&
-      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
+	  assertCheck(
+	    result,
+	    "workspace-restore-daemon-runner-migration-transport",
+	    /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
+	      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workspaceRestoreRunner) &&
+	      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
       !/IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(workspaceRestoreRunner) &&
       /RustWorkspaceRestoreRunner/.test(workspaceRestoreRunner) &&
@@ -8383,28 +8387,35 @@ function runBridge() {
       !/\bentry\.(?:beforeHash|afterHash|beforeExists|afterExists|beforeSizeBytes|afterSizeBytes|beforeMtimeMs|afterMtimeMs|beforeContent|afterContent)\b/.test(
         workspaceRestoreRunner,
       ) &&
-      !/function normalizeRestoreSideForBridge[\s\S]*?\bside\.contentHash\b[\s\S]*?function normalizeSnapshotCapturedFiles/.test(
-        workspaceRestoreRunner,
-      ) &&
-      /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&
-      /planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
-      /previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
-      /applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
-      /captureWorkspaceSnapshotFiles/.test(runtimeWorkspaceSnapshotSurface) &&
-      /workspace_restore_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/workspaceRestoreApplyApprovalForRequest/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/workspaceRestoreApplyAllowsConflicts/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/workspaceRestoreApplyPolicyDecisionRefs/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/function normalizeRestoreSideForBridge[\s\S]*?\bside\.contentHash\b[\s\S]*?function normalizeSnapshotCapturedFiles/.test(
+	        workspaceRestoreRunner,
+	      ) &&
+	      /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_core_boundary:\s*"runtime\.workspace_snapshot"/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_preview_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_apply_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/planWorkspaceRestoreApplyPolicy/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/previewWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/applyWorkspaceRestoreOperations/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/captureWorkspaceSnapshotFiles/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/workspace_restore_bridge_unconfigured/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/workspaceRestoreApplyApprovalForRequest/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/workspaceRestoreApplyAllowsConflicts/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/workspaceRestoreApplyPolicyDecisionRefs/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestorePreviewOperation/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestoreApplyOperations/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceSnapshotFileForPatch/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceSnapshotContentDraftsByPath/.test(runtimeWorkspaceSnapshotSurface) &&
       !/workspaceRestorePreviewOperation/.test(workspaceRestoreHelpers) &&
-      !/workspaceRestoreApplyOperations/.test(workspaceRestoreHelpers) &&
-      !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
-      !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
-      !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
-      /workspaceRestoreRunner/.test(runtimeWorkspaceSnapshotSurfaceTest),
+	      !/workspaceRestoreApplyOperations/.test(workspaceRestoreHelpers) &&
+	      !/applyWorkspaceRestoreFile/.test(workspaceRestoreHelpers) &&
+	      !/workspaceSnapshotFileForPatch/.test(workspaceRestoreHelpers) &&
+	      !/workspaceSnapshotCaptureSide/.test(workspaceRestoreHelpers) &&
+	      /workspace restore policy bridge plumbing is not called by the retired JS facade/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ),
     [
       "packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs",
       "packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs",
@@ -8413,19 +8424,16 @@ function runBridge() {
       "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10 is pending: daemon workspace restore facade must call the Rust bridge for policy and file operations without JS restore IO fallback",
-  );
-  assertCheck(
-    result,
-    "workspace-restore-daemon-facade-reader-aliases-retired",
-    /blocked_reason:\s*operation\.blocked_reason \?\? null/.test(runtimeWorkspaceSnapshotSurface) &&
-      /const reason = optionalString\(policy\?\.apply_reason\);/.test(runtimeWorkspaceSnapshotSurface) &&
-      /file_count:\s*Number\(counts\.file_count \?\? 0\)/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/fileCount:\s*counts\.file_count/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/\boperation\.blockedReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/\bpolicy\?\.applyReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/\bcounts\.(?:fileCount|readyCount|noopCount|conflictCount|blockedCount|appliedCount|applyNoopCount|applyBlockedCount|failedCount)\b/.test(
-        runtimeWorkspaceSnapshotSurface,
+	    "Phase 10/11 is pending: workspace restore runner may remain migration transport, but daemon workspace snapshot/restore JS mutation facades must fail closed until direct Rust daemon-core admission owns the path",
+	  );
+	  assertCheck(
+	    result,
+	    "workspace-restore-daemon-facade-reader-aliases-retired",
+	    !/fileCount:\s*counts\.file_count/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/\boperation\.blockedReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/\bpolicy\?\.applyReason\b/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/\bcounts\.(?:fileCount|readyCount|noopCount|conflictCount|blockedCount|appliedCount|applyNoopCount|applyBlockedCount|failedCount)\b/.test(
+	        runtimeWorkspaceSnapshotSurface,
       ) &&
       /const applyStatuses = list\.map\(\(operation\) => operation\.apply_status \?\? operation\.status\);/.test(
         workspaceRestoreHelpers,
@@ -8439,13 +8447,11 @@ function runBridge() {
         workspaceRestoreHelpersTest,
       ) &&
       /applyStatus: "applied"/.test(workspaceRestoreHelpersTest) &&
-      /Object\.hasOwn\(counts,\s*field\),\s*false/.test(workspaceRestoreHelpersTest) &&
-      !/function createSurface\(\)(?:(?!\nfunction snapshotCapture)[\s\S])*?\b(?:allowConflicts|conflictPolicy|hardBlocked|conflictBlocked|policyDecisionRefs|operationPolicies|contentFiles|capturedFileCount|omittedFileCount|contentCaptured|currentExists|currentHash|currentBytes|blockedReason|applyReason|applyStatus|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget)\s*:/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      !/function snapshotCapture\((?:(?!\nfunction createStore)[\s\S])*?\b(?:receiptRefs|artifactRefs|contentHash|sizeBytes|mtimeMs|contentBytes|omittedReason|targetHash|snapshotAfterHash|currentExists|currentHash|currentBytes|targetExists|snapshotAfterExists|currentMatchesSnapshotPost|currentMatchesRestoreTarget|blockedReason|diffBytes|diffHash|diffTruncated)\s*:/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ),
+	      /Object\.hasOwn\(counts,\s*field\),\s*false/.test(workspaceRestoreHelpersTest) &&
+	      !/function createSurface\(\)(?:(?!\nfunction createStore)[\s\S])*?\b(?:allowConflicts|conflictPolicy|hardBlocked|conflictBlocked|policyDecisionRefs|operationPolicies|contentFiles|capturedFileCount|omittedFileCount|contentCaptured|currentExists|currentHash|currentBytes|blockedReason|applyReason|applyStatus|appliedExists|appliedHash|appliedBytes|appliedMatchesTarget)\s*:/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      !/function snapshotCapture\(/.test(runtimeWorkspaceSnapshotSurfaceTest),
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
@@ -12543,26 +12549,28 @@ function runReceipts() {
       /store\.codingArtifacts\.has\("artifact_retired"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
-      /coding_tool_artifact_draft_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
-      /visual_observation_artifact_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
-      !/commitRuntimeArtifactRecord/.test(runtimeCodingToolArtifactSurface) &&
-      /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.workspace_snapshot"\)/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
-      /commitRuntimeArtifactRecord\(store, artifactRecord, `artifact\.\$\{channel\}`\)/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
-      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeCodingToolArtifactSurface) &&
-      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeWorkspaceSnapshotSurface) &&
-      /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /store\.artifactCommits\[0\]\.operation_kind, "artifact\.workspace_snapshot"/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /store\.artifactCommits\[1\]\.operation_kind, "artifact\.restore-apply"/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ),
+	      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+	      /coding_tool_artifact_draft_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
+	      /visual_observation_artifact_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
+	      !/commitRuntimeArtifactRecord/.test(runtimeCodingToolArtifactSurface) &&
+	      /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_snapshot_artifact_js_materializer_retired/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
+	      /workspace_restore_artifact_js_materializer_retired/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
+	      !/commitRuntimeArtifactRecord/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeCodingToolArtifactSurface) &&
+	      !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+	      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+	      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /workspace snapshot surface fails closed before JS restore artifact and event mutation/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ),
     [
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
@@ -19552,14 +19560,14 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace snapshot list output must expose canonical snake_case fields without duplicate camelCase aliases",
   );
-  assertCheck(
-    result,
-    "workspace-snapshot-capture-input-aliases-retired",
-    /changedFiles:\s*result\.changed_files/.test(runtimeWorkspaceSnapshotSurface) &&
-      /contentDrafts:\s*result\.workspace_snapshot_drafts/.test(runtimeWorkspaceSnapshotSurface) &&
-      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\bresult\.(?:changedFiles|workspaceSnapshotDrafts)\b/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
+	  assertCheck(
+	    result,
+	    "workspace-snapshot-capture-input-aliases-retired",
+	    /changed_file_count:\s*normalizeArray\(result\.changed_files\)\.length/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /snapshot_draft_count:\s*normalizeArray\(result\.workspace_snapshot_drafts\)\.length/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\bresult\.(?:changedFiles|workspaceSnapshotDrafts)\b/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
       /changed_files: \[/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
       /workspace_snapshot_drafts: \[/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
       /changed_files: \[/.test(runtimeCodingToolInvocationSurfaceTest) &&
@@ -19573,17 +19581,18 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace snapshot capture must consume canonical changed_files and workspace_snapshot_drafts without daemon-side camelCase fallbacks",
   );
-  assertCheck(
-    result,
-    "workspace-snapshot-artifact-output-aliases-retired",
-    /RETIRED_WORKSPACE_ARTIFACT_ALIASES/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /Object\.hasOwn\(snapshot\.artifactRecord,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(artifactRecord,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      !/function materializeWorkspaceSnapshotArtifact(?:(?!\n  function appendWorkspaceSnapshotEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
+	  assertCheck(
+	    result,
+	    "workspace-snapshot-artifact-output-aliases-retired",
+	    /workspace_snapshot_artifact_js_materializer_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_artifact_js_materializer_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface fails closed before JS restore artifact and event mutation/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /assertWorkspaceSnapshotRustCoreRequired\(error,\s*"artifact\.restore-preview"\)/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      !/function materializeWorkspaceSnapshotArtifact(?:(?!\n  function appendWorkspaceSnapshotEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
       !/function materializeWorkspaceRestoreArtifact(?:(?!\n  function appendWorkspaceRestorePreviewEvent)[\s\S])*?\b(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt)\s*:/.test(
@@ -19595,49 +19604,36 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace snapshot/restore artifact records must expose canonical snake_case metadata without duplicate camelCase aliases",
   );
-  assertCheck(
-    result,
-    "workspace-snapshot-content-payload-aliases-retired",
-    /const contentPayload = JSON\.parse\(snapshot\.artifactRecord\.content\);/.test(
-      runtimeWorkspaceSnapshotSurfaceTest,
-    ) &&
-      /Object\.hasOwn\(contentPayload,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"turnId"[\s\S]*"workspaceRoot"[\s\S]*"snapshotId"[\s\S]*"snapshotHash"/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      !/const artifactPayload = \{(?:(?!\n    const artifactRecord = materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotId|snapshotHash)\s*:/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ),
+	  assertCheck(
+	    result,
+	    "workspace-snapshot-content-payload-aliases-retired",
+	    /workspace_snapshot_js_capture_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface fails closed before JS patch snapshot capture/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /snapshot_draft_count/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      !/const artifactPayload = \{(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotId|snapshotHash)\s*:/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ),
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace snapshot content artifact payload must expose canonical snake_case top-level identity fields without duplicate camelCase aliases",
   );
-  assertCheck(
-    result,
-    "workspace-snapshot-record-output-aliases-retired",
-    /Object\.hasOwn\(snapshot\.record,\s*field\),\s*false/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"turnId"[\s\S]*"workspaceRoot"[\s\S]*"snapshotKind"[\s\S]*"snapshotId"[\s\S]*"snapshotHash"[\s\S]*"fileCount"[\s\S]*"changedFileCount"[\s\S]*"createdFileCount"[\s\S]*"deletedFileCount"[\s\S]*"receiptRefs"[\s\S]*"artifactRefs"[\s\S]*"contentArtifactRefs"[\s\S]*"evidenceRefs"/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(snapshot\.record\.trigger,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(snapshot\.record\.capture,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(snapshot\.record\.restore,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(snapshot\.record\.redaction,\s*field\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotKind|snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs|evidenceRefs|toolName|toolCallId|workflowGraphId|workflowNodeId|maxContentBytes|capturedFileCount|omittedFileCount|previewSupported|applySupported|contentIncluded|contentArtifactIncluded|pathsIncluded)\s*:/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
+	  assertCheck(
+	    result,
+	    "workspace-snapshot-record-output-aliases-retired",
+	    /runtime_workspace_snapshot_rust_core_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_daemon_core_workspace_snapshot_admission_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface fails closed before JS patch snapshot capture/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      !/function prepareWorkspaceSnapshotForPatch(?:(?!\n  function materializeWorkspaceSnapshotArtifact)[\s\S])*?\b(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotKind|snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs|evidenceRefs|toolName|toolCallId|workflowGraphId|workflowNodeId|maxContentBytes|capturedFileCount|omittedFileCount|previewSupported|applySupported|contentIncluded|contentArtifactIncluded|pathsIncluded)\s*:/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
       !/workspaceSnapshot\.record\.(?:snapshotId|snapshotHash|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs|contentArtifactRefs)\b/.test(
         runtimeCodingToolInvocationSurface,
       ),
@@ -19648,17 +19644,18 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace snapshot records must expose canonical snake_case fields without duplicate camelCase aliases",
   );
-  assertCheck(
-    result,
-    "workspace-snapshot-event-reader-aliases-retired",
-    /snapshot_id: "workspace_snapshot_alpha"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /restore: \{ status: "content_captured", preview_supported: true, apply_supported: true \}/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /event\.payload_summary\.snapshot_id,\s*"workspace_snapshot_alpha"/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(list\.snapshots\[0\],\s*"snapshotId"\),\s*false/.test(
+	  assertCheck(
+	    result,
+	    "workspace-snapshot-event-reader-aliases-retired",
+	    /snapshot_id: "workspace_snapshot_alpha"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /restore: \{ status: "content_captured", preview_supported: true, apply_supported: true \}/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /workspace_snapshot_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface fails closed before JS snapshot event append and lists admitted projections/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /Object\.hasOwn\(list\.snapshots\[0\],\s*"snapshotId"\),\s*false/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
       !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.(?:snapshotId|snapshotHash|snapshotKind|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs)\b/.test(
@@ -19676,15 +19673,17 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace snapshot event appender must read canonical snake_case snapshot fields without camelCase fallbacks",
   );
-  assertCheck(
-    result,
-    "workspace-restore-event-reader-aliases-retired",
-    /preview_status: "ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /apply_status: "blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /policy_decision_refs: \["policy_apply"\]/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /previewEvent\.tool_call_id,\s*"workspace_snapshot_alpha"/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
+	  assertCheck(
+	    result,
+	    "workspace-restore-event-reader-aliases-retired",
+	    /preview_status: "ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /apply_status: "blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /policy_decision_refs: \["policy_apply"\]/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      /workspace_restore_preview_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_apply_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface fails closed before JS restore artifact and event mutation/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
       !/function appendWorkspaceRestorePreviewEvent(?:(?!\n  function appendWorkspaceRestoreApplyEvent)[\s\S])*?\b(?:preview|apply)\.(?:snapshotId|previewStatus|applyStatus|artifactRefs|receiptRefs|rollbackRefs|policyDecisionRefs|idempotencyKey)\b/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
@@ -19697,37 +19696,27 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace restore preview/apply event appenders must read canonical snake_case result fields without camelCase fallbacks",
   );
-  const previewWorkspaceSnapshotRestoreBody =
-    runtimeWorkspaceSnapshotSurface.match(
-      /  function previewWorkspaceSnapshotRestore\(store, threadId, snapshotId, request = \{\}\) \{[\s\S]*?(?=\n  function applyWorkspaceSnapshotRestore)/,
-    )?.[0] ?? "";
-  const applyWorkspaceSnapshotRestoreBody =
-    runtimeWorkspaceSnapshotSurface.match(
-      /  function applyWorkspaceSnapshotRestore\(store, threadId, snapshotId, request = \{\}\) \{[\s\S]*?(?=\n  function assertCanonicalWorkspaceRestoreRequestBody)/,
-    )?.[0] ?? "";
+	  const previewWorkspaceSnapshotRestoreBody =
+	    runtimeWorkspaceSnapshotSurface.match(
+	      /  function previewWorkspaceSnapshotRestore\(_store, threadId, snapshotId, request = \{\}\) \{[\s\S]*?(?=\n  function applyWorkspaceSnapshotRestore)/,
+	    )?.[0] ?? "";
+	  const applyWorkspaceSnapshotRestoreBody =
+	    runtimeWorkspaceSnapshotSurface.match(
+	      /  function applyWorkspaceSnapshotRestore\(_store, threadId, snapshotId, request = \{\}\) \{[\s\S]*?(?=\n  function assertCanonicalWorkspaceRestoreRequestBody)/,
+	    )?.[0] ?? "";
   const workspaceRestoreResultAliasPattern =
     /^\s*(?:schemaVersion|threadId|turnId|workspaceRoot|snapshotId|snapshotHash|previewStatus|previewSupported|applySupported|restoreApplySupported|fileCount|readyCount|noopCount|conflictCount|blockedCount|receiptRefs|artifactRefs|rollbackRefs|idempotencyKey|restorePreviewEvent|applyStatus|approvalRequired|approvalSatisfied|conflictPolicy|appliedCount|applyNoopCount|applyBlockedCount|failedCount|policyDecisionRefs|restoreApplyEvent)\s*:/m;
-  assertCheck(
-    result,
-    "workspace-restore-result-output-aliases-retired",
-    /assertNoRetiredWorkspaceRestorePreviewResultAliases\(preview\)/.test(
-      runtimeWorkspaceSnapshotSurfaceTest,
-    ) &&
-      /assertNoRetiredWorkspaceRestoreApplyResultAliases\(blocked\)/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /assertNoRetiredWorkspaceRestoreApplyResultAliases\(applied\)/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /preview\.preview_status,\s*"ready"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /blocked\.apply_status,\s*"blocked"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /applied\.apply_status,\s*"applied"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /Object\.hasOwn\(retiredIdentityPreview,\s*"turnId"\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
-      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
-      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
+	  assertCheck(
+	    result,
+	    "workspace-restore-result-output-aliases-retired",
+	    /workspace_restore_preview_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace_restore_apply_js_facade_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface fails closed before JS restore preview\/apply facade execution/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      !workspaceRestoreResultAliasPattern.test(previewWorkspaceSnapshotRestoreBody) &&
+	      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
+	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
       !/\brestoreApplyEvent:\s*event\b/.test(applyWorkspaceSnapshotRestoreBody) &&
       !/\bpolicy:\s*\{[\s\S]*?\b(?:approvalRequired|approvalSatisfied|approvalSource|conflictPolicy)\s*:/.test(
         applyWorkspaceSnapshotRestoreBody,
@@ -19738,44 +19727,40 @@ function runCompositor() {
     ],
     "Phase 10/11 is pending: workspace restore preview/apply results must expose canonical snake_case output fields without duplicate camelCase aliases",
   );
-  assertCheck(
-    result,
-    "workspace-restore-snapshot-package-reader-aliases-retired",
-    /const snapshotTurnId = snapshotPackage\.snapshot\?\.turn_id \?\? null;/.test(
-      runtimeWorkspaceSnapshotSurface,
-    ) &&
-      /const snapshotHash = snapshotPackage\.snapshot\?\.snapshot_hash \?\? null;/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
-      /snapshotHash: "hash_retired"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /turnId: "turn_retired"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /retiredIdentityPreview\.turn_id,\s*null/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /retiredIdentityPreview\.snapshot_hash,\s*null/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      !/\bsnapshotPackage\.snapshot\?\.(?:turnId|snapshotHash)\b/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ),
+	  assertCheck(
+	    result,
+	    "workspace-restore-snapshot-package-reader-aliases-retired",
+	    /parsed\?\.snapshot_id/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /parsed\?\.snapshot\?\.snapshot_id/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot surface reads content packages and fails closed when unavailable/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /workspace_restore_preview_unavailable/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      !/\bsnapshotPackage\.snapshot\?\.(?:turnId|snapshotHash)\b/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ),
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
     "Phase 10/11 is pending: workspace restore preview/apply result assembly must read canonical snapshot package identity fields without retired camelCase fallbacks",
   );
-  assertCheck(
-    result,
-    "workspace-restore-error-detail-aliases-retired",
-    /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(runtimeWorkspaceSnapshotSurface) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*snapshot_id:\s*normalizedSnapshotId\s*\}/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
-      /details:\s*\{\s*snapshot_id:\s*snapshotId\s*\}/.test(
-        runtimeWorkspaceSnapshotSurface,
-      ) &&
-      /workspace snapshot restore fail-closed details use canonical fields/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
-      /workspace restore policy bridge fail-closed details use canonical fields/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
+	  assertCheck(
+	    result,
+	    "workspace-restore-error-detail-aliases-retired",
+	    /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /snapshot_id:\s*normalizedSnapshotId/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
+	      /snapshot_id:\s*snapshotId/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
+	      /workspace snapshot restore fail-closed details use canonical fields/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /workspace restore policy bridge plumbing is not called by the retired JS facade/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
       /assertNoRetiredWorkspaceRestoreErrorDetailAliases\(error\.details\)/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
