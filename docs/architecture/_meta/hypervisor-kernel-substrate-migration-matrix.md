@@ -59,15 +59,14 @@ This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory
 mutation path retirement evidence.
 This pass compacted Slice 765 backend registry local log writer retirement
 evidence.
-Slice 766 retired the stale `ConversationArtifactStore` artifact-state
-committer injection so the remaining read/projection adapter can no longer look
-like a JS writer forwarding accepted artifact truth.
-Next resume instruction: compact Slice 766 into the route-family ledger before
-starting unrelated route-family work, then continue the next Rust-core
-extraction or facade-retirement implementation slice. Preserve the live owner
-map, terminal blockers, and the fact that fail-closed JS facades, canonical
-input helpers, local projection helpers, and migration transport are not
-terminal substrate.
+This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state
+committer injection retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -174,12 +173,12 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 766
-  `ConversationArtifactStore` committer injection retirement.
-- Future-resumption trigger: compact Slice 766 before starting unrelated
-  route-family work, then resume the migration goal by carrying out the next
-  Rust-core extraction or facade-retirement slice. Do not let context compaction
-  demote this to optional evidence pruning.
+- Next scheduled matrix-compaction pass: none pending after Slice 766
+  `ConversationArtifactStore` committer injection retirement compaction.
+- Future-resumption trigger: resume the migration goal by carrying out the next
+  Rust-core extraction or facade-retirement slice, then schedule the next
+  matrix-compaction pass only after that seam lands. Do not let context
+  compaction demote this to optional evidence pruning.
 - Next resume order is mandatory: clarify a concrete Rust-core
   extraction/facade-retirement seam with a verified slice, then schedule and run
   the next matrix-compaction pass before starting unrelated route-family work.
@@ -14566,11 +14565,14 @@ above remain authoritative for current and target ownership.
   that seam lands, and do not encode the remaining JS process-supervision helper
   or command transport as terminal architecture.
 
-## Implementation Slice Evidence: 766
+## Compacted Implementation Slice Evidence: 766
 
-Date: 2026-06-08.
-Route family: `RuntimeConversationArtifactControl`.
-Current lane: Rust-core extraction plus JS-facade retirement.
+The expanded Slice 766 ledger was compacted on 2026-06-08 after stale
+`ConversationArtifactStore` artifact-state committer injection retirement
+landed. This slice remains active migration evidence, not terminal architecture.
+The `RuntimeConversationArtifactControl` implementation-matrix row, conformance
+command contract, and terminal blockers above remain authoritative for current
+and target ownership.
 
 - Retired the stale `ConversationArtifactStore` artifact-state committer
   injection left behind after direct store writer retirement.
@@ -14588,8 +14590,10 @@ Current lane: Rust-core extraction plus JS-facade retirement.
   to own lifecycle execution, receipt binding, ArtifactRef/PayloadRef admission,
   Agentgres expected-head/state-root binding, projection, replay, SDK/IDE
   protocol coverage, and conformance.
-- Schedule the next matrix-compaction pass to compact Slice 766 before starting
-  unrelated route-family work; do not encode the remaining JS read adapter or
+- Scheduled matrix-compaction obligation from Slice 766 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the remaining JS read adapter or
   artifact-state command transport as terminal architecture.
 
 ## Command State

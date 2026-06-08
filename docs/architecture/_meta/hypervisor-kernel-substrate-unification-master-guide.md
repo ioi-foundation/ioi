@@ -507,9 +507,9 @@ binding, ArtifactRef/PayloadRef admission, Agentgres expected-head/state-root
 binding, projection, replay, SDK/IDE protocol coverage, and conformance. Do not
 encode the remaining JS read adapter or artifact-state command transport as
 terminal architecture.
-Schedule a matrix-compaction pass after Slice 766 before starting unrelated
-route-family work, once this Rust-core extraction/facade-retirement seam is
-ready to collapse into compacted evidence.
+The Slice 766 conversation-artifact committer injection retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
