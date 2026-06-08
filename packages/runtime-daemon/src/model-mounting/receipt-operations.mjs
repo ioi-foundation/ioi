@@ -1,14 +1,8 @@
-import {
-  modelMountInstanceLifecycleBindingIssues,
-  modelMountInstanceLifecycleRequiresRust,
-} from "./model-instance-lifecycle.mjs";
-
-const MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES = new Map([
-  ["model_load", "loaded"],
-  ["model_unload", "unloaded"],
-  ["model_idle_evict", "evicted"],
-  ["model_supersede", "superseded"],
-]);
+const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "model_mount_lifecycle_receipt_js_facade_retired",
+  "rust_daemon_core_model_lifecycle_receipt_required",
+  "agentgres_model_lifecycle_receipt_truth_required",
+];
 
 export function listReceipts(state) {
   return state.store.listReceipts();
@@ -20,13 +14,12 @@ export function getReceipt(state, receiptId) {
 
 export function lifecycleReceipt(state, operation, details = {}) {
   assertNoRetiredLifecycleSubjectAliases(details);
-  assertModelInstanceLifecycleReceiptRustBound(state, operation, details);
-  const subject = details.model_id ?? details.endpoint_id ?? "model registry";
-  return state.receipt("model_lifecycle", {
-    summary: `${operation} recorded for ${subject}.`,
-    redaction: "redacted",
-    evidenceRefs: ["model_registry", "agentgres_receipt_projection_boundary", operation],
-    details: { operation, ...details },
+  throw modelLifecycleReceiptRustCoreRequiredError({
+    operation,
+    model_id: details.model_id ?? null,
+    endpoint_id: details.endpoint_id ?? null,
+    provider_id: details.provider_id ?? null,
+    backend_id: details.backend_id ?? null,
   });
 }
 
@@ -38,30 +31,6 @@ function assertNoRetiredLifecycleSubjectAliases(details = {}) {
   error.code = "model_lifecycle_receipt_detail_aliases_retired";
   error.details = { retired_aliases: retiredAliases };
   throw error;
-}
-
-function assertModelInstanceLifecycleReceiptRustBound(state, operation, details = {}) {
-  const status = MODEL_INSTANCE_LIFECYCLE_RECEIPT_STATUSES.get(operation);
-  if (!status) return;
-  const providerId = details.provider_id;
-  const provider = state.providers?.get?.(providerId);
-  if (!modelMountInstanceLifecycleRequiresRust(provider)) return;
-  const issues = modelMountInstanceLifecycleBindingIssues(details, {
-    prefix: details.instance_id ?? operation,
-    status,
-  });
-  if (issues.missing.length > 0 || issues.mismatches.length > 0) {
-    const error = new Error("Model instance lifecycle receipts for migrated local providers require Rust model_mount lifecycle bindings.");
-    error.status = 409;
-    error.code = "model_mount_instance_lifecycle_receipt_direct_write_forbidden";
-    error.details = {
-      operation,
-      provider_id: providerId ?? null,
-      missing: issues.missing,
-      mismatches: issues.mismatches,
-    };
-    throw error;
-  }
 }
 
 export function receipt(state, kind, { id, summary, redaction, evidenceRefs, details }, deps = {}) {
@@ -84,4 +53,18 @@ export function receipt(state, kind, { id, summary, redaction, evidenceRefs, det
   state.store.writeReceipt(record);
   state.writeProjection();
   return record;
+}
+
+export function modelLifecycleReceiptRustCoreRequiredError(details = {}) {
+  const error = new Error(
+    "Model lifecycle receipts require direct Rust daemon-core admission, binding, and projection.",
+  );
+  error.status = 501;
+  error.code = "model_mount_lifecycle_receipt_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.lifecycle_receipt",
+    ...details,
+    evidence_refs: MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+  };
+  return error;
 }

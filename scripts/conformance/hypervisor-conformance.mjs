@@ -337,6 +337,8 @@ function runDocs() {
       /Slice 747 model tokenizer\/context-fit facade-retirement matrix-compaction\s+pass is complete/.test(
         guide,
       ) &&
+      /Slice 748 retired the direct model lifecycle receipt helper/.test(guide) &&
+      /scheduled for Slice\s+748 and must run before unrelated route-family work resumes/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -355,7 +357,7 @@ function runDocs() {
       /Slice 745 MCP workflow facade-retirement compaction is complete/.test(guide) &&
       /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+complete/.test(guide) &&
       /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+complete/.test(guide) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /Slice 748 direct model lifecycle receipt helper facade-retirement\s+compaction is scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -370,7 +372,7 @@ function runDocs() {
       /then compacted Slice 747 model tokenizer\/context-fit\s+facade-retirement evidence/.test(
         matrix,
       ) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 748 has now landed, so\s+complete its scheduled matrix-compaction pass before starting unrelated\s+route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -417,6 +419,11 @@ function runDocs() {
       /model_mount_tokenizer_js_facade_retired/.test(matrix) &&
       /model_mount_context_fit_js_facade_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 747 is now satisfied/.test(matrix) &&
+      /Implementation Slice 748/.test(matrix) &&
+      /model_mount_lifecycle_receipt_rust_core_required/.test(matrix) &&
+      /model_mount_lifecycle_receipt_js_facade_retired/.test(matrix) &&
+      /rust_daemon_core_model_lifecycle_receipt_required/.test(matrix) &&
+      /compact Slice 748 before unrelated route-family work resumes/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
@@ -10319,14 +10326,7 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-instance-lifecycle-receipt-direct-write-guard",
-    /assertModelInstanceLifecycleReceiptRustBound/.test(
-      read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
-    ) &&
-      /model_mount_instance_lifecycle_receipt_direct_write_forbidden/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
-      ) &&
-      /model_supersede/.test(read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")) &&
-      /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
+    /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertModelInstanceLifecycleReceiptBound/.test(
         modelMountReceiptWriteGuards,
       ) &&
@@ -10340,17 +10340,20 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+      ) &&
+      !/providerLifecycleHash/.test(
+        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         modelMountReceiptWriteGuards,
       ) &&
       /model_mount_provider_lifecycle_hash/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
-      /providerLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
-      ) &&
       /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
       /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
-      /model instance lifecycle receipts require Rust binding/.test(
+      /model instance lifecycle receipt helper fails closed even with Rust binding details/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
       /model lifecycle receipt writes fail closed without provider kind/.test(
@@ -10379,8 +10382,10 @@ function runReceipts() {
         loadedInstances,
       ) &&
       /superseded_by:\s*keepInstanceId/.test(loadedInstances) &&
-      /const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
-      /provider_id:\s*providerId \?\? null/.test(modelMountReceiptOperations) &&
+      /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
+      /model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
+      /provider_id:\s*details\.provider_id \?\? null/.test(modelMountReceiptOperations) &&
+      !/const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
       /const providerKind = optionalNonEmptyString\(details\.provider_kind\)/.test(modelMountReceiptWriteGuards) &&
       /provider_kind:\s*providerKind/.test(modelMountReceiptWriteGuards) &&
       /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
@@ -10396,7 +10401,7 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(modelLoadingOperationsTest) &&
       /assert\.equal\(error\.details\.endpoint_id,\s*"endpoint_missing"\)/.test(loadedInstancesTest) &&
       /Object\.hasOwn\(error\.details,\s*"endpointId"\),\s*false/.test(loadedInstancesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\) === false/.test(modelMountReceiptOperationsTest) &&
+      /(?:Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false\)|Object\.hasOwn\(error\.details,\s*"providerId"\) === false)/.test(modelMountReceiptOperationsTest) &&
       /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&
       /retired_aliases\.includes\("providerKind"\)/.test(modelMountStoreTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerKind"\) === false/.test(modelMountStoreTest),
@@ -12073,10 +12078,20 @@ function runReceipts() {
       /model_mount\.backend_process\.stop/.test(backendLifecycleTest) &&
       /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
       /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
+      /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
+      /model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
+      /rust_core_boundary:\s*"model_mount\.lifecycle_receipt"/.test(modelMountReceiptOperations) &&
+      /model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
+      /rust_daemon_core_model_lifecycle_receipt_required/.test(modelMountReceiptOperations) &&
+      /agentgres_model_lifecycle_receipt_truth_required/.test(modelMountReceiptOperations) &&
+      !/state\.receipt\("model_lifecycle"/.test(modelMountReceiptOperations) &&
       !/details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
       !/details\.endpoint_id\s*\?\?\s*details\.endpointId/.test(modelMountReceiptOperations) &&
-      /lifecycle receipt summary accepts canonical snake_case subject fields/.test(modelMountReceiptOperationsTest) &&
+      /lifecycleReceipt fails closed before JS model_lifecycle receipt creation/.test(modelMountReceiptOperationsTest) &&
+      /lifecycleReceipt fails closed for canonical backend lifecycle receipt details/.test(modelMountReceiptOperationsTest) &&
       /lifecycle receipt subject aliases are retired/.test(modelMountReceiptOperationsTest) &&
+      /model instance lifecycle receipt helper fails closed even with Rust binding details/.test(modelMountReceiptOperationsTest) &&
+      /assert\.deepEqual\(created,\s*\[\]\)/.test(modelMountReceiptOperationsTest) &&
       /retired_aliases\.includes\("modelId"\)/.test(modelMountReceiptOperationsTest) &&
       /retired_aliases\.includes\("endpointId"\)/.test(modelMountReceiptOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
@@ -12469,7 +12484,7 @@ function runReceipts() {
       /local_receipt_projection_store/.test(modelMountStore) &&
       /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
       !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
-      /agentgres_receipt_projection_boundary/.test(modelMountReceiptOperations) &&
+      /model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
       /model invocation receipt writes persist only after Rust receipt and Agentgres admission without operation append/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
