@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -91,6 +91,31 @@ test("server control projects gateway status from mounted state", () => {
     assert.deepEqual(status.backendStates, { available: 1, degraded: 1 });
     assert.equal(state.evicted, 1);
     assert.equal(state.coalesced, 1);
+  } finally {
+    rmSync(state.stateDir, { recursive: true, force: true });
+  }
+});
+
+test("server control status ignores retired local server-state cache", () => {
+  const state = fakeState();
+  try {
+    writeFileSync(
+      join(state.stateDir, "server-state.json"),
+      JSON.stringify({
+        id: "server-control.default",
+        status: "stopped",
+        operation: "server_stop",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        receiptId: "receipt.legacy.server_stop",
+      }),
+    );
+
+    const status = serverStatus(state, "http://127.0.0.1:3200", { schema_version: SCHEMA });
+
+    assert.equal(status.controlStatus, "running");
+    assert.equal(status.lastServerOperation, "server_status");
+    assert.equal(status.lastServerOperationAt, null);
+    assert.equal(status.lastServerReceiptId, null);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }

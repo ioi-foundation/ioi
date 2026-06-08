@@ -345,7 +345,7 @@ remained after workflow-edit apply authority was fail-closed. Workflow-edit
 execution is still not terminal: approved apply still requires Rust daemon-core
 mutation admission, Agentgres expected-head/state-root binding, receipt/event
 materialization, projection, and replay before it can execute again. The Slice
-755 workflow-edit read-helper facade-retirement compaction is complete. No
+755 workflow-edit read-helper facade-retirement compaction is complete.
 Slice 756 retired backend-process plan/load-option compatibility aliases from
 the Rust model_mount process-plan boundary and local provider load paths:
 `contextLength`, `maxModelLen`, `tensorParallelSize`,
@@ -355,13 +355,19 @@ This does not claim terminal model_mount lifecycle migration: direct Rust
 daemon-core model_mount lifecycle/planning APIs still need to own backend
 process planning, provider lifecycle admission, receipt/state-root binding,
 Agentgres admission, projection, and replay. The Slice 756 backend-process
-plan/load-option alias-retirement matrix-compaction pass is complete. No
-matrix-compaction pass is pending until the next Rust-core extraction or
-facade-retirement seam lands. Future compactions must preserve evidence,
-distinguish interim bridge scaffolding, canonical JS input filtering, and
-fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
-command transport, canonical input helpers, or read-only JS helpers as
-long-term substrate.
+plan/load-option alias-retirement matrix-compaction pass is complete.
+Slice 757 retired local `server-state.json` readback from public model server
+status projection, so stale local cache files can no longer supply
+server-control status, operation, timestamp, or receipt truth. This does not
+claim terminal model_mount server-control migration: direct Rust daemon-core
+server-control/state/log/event/projection APIs still need to own server status,
+control state, log/event projection, receipt binding, Agentgres admission, and
+replay. The Slice 757 matrix-compaction pass is pending and must run before
+unrelated route-family work resumes. Future compactions must preserve evidence,
+distinguish interim bridge scaffolding, canonical JS input filtering,
+non-authoritative JS status projection, and fail-closed JS facades from terminal
+Rust daemon-core shape, and avoid encoding command transport, canonical input
+helpers, or read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

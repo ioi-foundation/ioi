@@ -384,7 +384,9 @@ function runDocs() {
       /The Slice 756 backend-process\s+plan\/load-option alias-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
-      /No\s+matrix-compaction pass is pending until the next Rust-core extraction or\s+facade-retirement seam lands/.test(
+      /Slice 757 retired local `server-state\.json` readback from public model server\s+status projection/.test(guide) &&
+      /stale local cache files can no longer supply\s+server-control status, operation, timestamp, or receipt truth/.test(guide) &&
+      /The Slice 757 matrix-compaction pass is pending and must run before\s+unrelated route-family work resumes/.test(
         guide,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -407,7 +409,8 @@ function runDocs() {
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 753\s+public model invocation dead JS body retirement evidence, then compacted Slice\s+754 model invocation migration-helper compatibility alias retirement evidence/.test(matrix) &&
       /then\s+compacted Slice 756 backend-process plan and provider load-option compatibility\s+alias-retirement evidence from the Rust model_mount process-plan boundary/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice\s+757 then retired local `server-state\.json` readback from public model server\s+status projection/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first by compacting Slice 757 evidence\s+before unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -550,8 +553,22 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 756 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 756\s+backend-process plan\/load-option alias retirement compaction/.test(
+      /Implementation Slice 757: Server-Control Local Cache Read Retirement/.test(
         matrix,
+      ) &&
+      /serverControlState\(\)` no longer imports `fs`, `path`, or `readJson`/.test(
+        matrix,
+      ) &&
+      /serverControlState\(\)` no longer checks for or reads\s+`\$\{state\.stateDir\}\/server-state\.json`/.test(matrix) &&
+      /serverStatus\(\)` no longer projects stale `server-state\.json` fields/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 757 server-control\s+local cache read retirement/.test(
+        matrix,
+      ) &&
+      /writing or reading `server-state\.json`/.test(implementationMatrix) &&
+      /JS status may remain only a non-authoritative gateway\/read adapter/.test(
+        implementationMatrix,
       ) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
@@ -11553,7 +11570,9 @@ function runReceipts() {
       /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_append"\)/.test(serverControl) &&
       /throwServerControlRustCoreRequired\("model_mount\.server_control\.write"/.test(serverControl) &&
       !/commitModelMountRecordState/.test(serverControl) &&
+      !/from "node:fs"|from "node:path"|readJson|server-state\.json/.test(serverControl) &&
       !/writeJson\(path\.join\(state\.stateDir,\s*"server-state\.json"\)/.test(serverControl) &&
+      !/fs\.existsSync\(statePath\)|readJson\(statePath\)/.test(serverControl) &&
       !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(serverControl) &&
       !/fs\.appendFileSync/.test(serverControl) &&
       !/readLines\(filePath\)/.test(serverControl) &&
@@ -11563,6 +11582,13 @@ function runReceipts() {
       /schema_version:\s*SCHEMA/.test(serverControlTest) &&
       /schemaVersion:\s*"schema\.retired"/.test(serverControlTest) &&
       /server control facade operations fail closed until Rust core owns control/.test(
+        serverControlTest,
+      ) &&
+      /server control status ignores retired local server-state cache/.test(
+        serverControlTest,
+      ) &&
+      /receipt\.legacy\.server_stop/.test(serverControlTest) &&
+      /assert\.equal\(status\.lastServerReceiptId,\s*null\)/.test(
         serverControlTest,
       ) &&
       /server control state writes fail closed before Rust admission or local cache writes/.test(

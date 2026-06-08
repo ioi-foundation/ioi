@@ -1,8 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
-import { readJson } from "./io.mjs";
-
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
 
 export function serverStatus(state, baseUrl, { schema_version } = {}) {
@@ -44,10 +39,7 @@ export function serverStatus(state, baseUrl, { schema_version } = {}) {
 }
 
 export function serverControlState(state, { schema_version } = {}) {
-  const statePath = path.join(state.stateDir, "server-state.json");
-  if (fs.existsSync(statePath)) {
-    return readJson(statePath);
-  }
+  void state;
   return {
     id: SERVER_CONTROL_RECORD_ID,
     schemaVersion: schema_version,
