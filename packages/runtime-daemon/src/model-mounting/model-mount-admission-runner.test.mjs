@@ -194,22 +194,22 @@ function providerResultRequest() {
     route_decision_ref: "model_mount://route_decision/test",
     route_receipt_ref: "receipt://route",
     route_ref: "route.local-first",
-    provider_ref: "provider.openai",
-    provider_kind: "openai",
-    endpoint_ref: "endpoint.openai",
-    model_ref: "model.openai",
+    provider_ref: "provider.autopilot.local",
+    provider_kind: "ioi_native_local",
+    endpoint_ref: "endpoint.autopilot.local",
+    model_ref: "model.autopilot.local",
     capability: "chat",
     invocation_kind: "responses",
     request_hash: "sha256:request",
-    output_text: "hosted provider answer",
+    output_text: "native-local stream answer",
     output_hash: "sha256:output",
     token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-    provider_response_kind: "openai.chat",
-    execution_backend: "js_provider_driver_observation",
-    backend_ref: "backend.openai-compatible",
+    provider_response_kind: "rust_model_mount.native_local.stream",
+    execution_backend: "rust_model_mount_native_local_stream",
+    backend_ref: "backend.autopilot.native-local.fixture",
     receipt_refs: ["receipt://route"],
-    provider_auth_evidence_refs: ["provider.auth"],
-    backend_evidence_refs: ["backend.openai-compatible"],
+    provider_auth_evidence_refs: [],
+    backend_evidence_refs: ["rust_model_mount_native_local_stream_backend"],
     evidence_refs: ["model_mount://provider_execution/test"],
     admitted_provider_execution: {
       ...providerExecutionRequest(),
@@ -685,7 +685,7 @@ test("Rust model_mount admission runner sends provider result admission bridge r
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_provider_result");
   assert.equal(calls[0].request.backend, "rust_model_mount_live");
-  assert.equal(calls[0].request.request.execution_backend, "js_provider_driver_observation");
+  assert.equal(calls[0].request.request.execution_backend, "rust_model_mount_native_local_stream");
   assert.equal(result.provider_result_ref, "model_mount://provider_result/test");
   assert.equal(result.provider_result_hash, "sha256:provider-result-test");
   assert.equal(Object.hasOwn(result, "providerResultRef"), false);

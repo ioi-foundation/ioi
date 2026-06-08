@@ -52,7 +52,8 @@ improvement daemon-core command-envelope evidence through slice 694, plus
 workspace restore daemon-core command-envelope evidence through slice 695, plus
 model-mount daemon-core command-envelope evidence through slice 696, plus
 worker/service package daemon-core command-envelope evidence through slice 697,
-plus runtime model-route JS fallback retirement evidence through slice 698.
+plus runtime model-route JS fallback retirement evidence through slice 698, plus
+model provider JS invocation retirement evidence through slice 699.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -97,6 +98,11 @@ Remaining terminal blockers:
 - `StepModuleRouter`, authority gates, receipt binding, Agentgres admission,
   projection, cTEE custody, replay, and conformance are not yet extracted as one
   authoritative Rust daemon core for every hot route family.
+- Hosted/openai-compatible, Ollama, LM Studio, llama.cpp, vLLM, and other
+  non-migrated provider execution backends now fail closed at model invocation
+  instead of executing through JS; they still require concrete Rust
+  workload_client/model_mount backend extraction before those routes are live
+  again.
 - Some route families still have JS live surfaces, supervision, persistence, or
   projection code that must be demoted to non-authoritative adapter behavior or
   deleted after Rust parity is verified.
@@ -681,6 +687,11 @@ Matrix compaction timing:
   the model-mounting and JS-facade-retirement rows while preserving fail-closed
   route-decision behavior and terminal direct Rust daemon-core API ownership as
   the remaining target.
+- One-hundred-thirty-fifth scheduled pass completed on 2026-06-08: model
+  provider JS invocation retirement evidence after slice 699 was compacted into
+  the model-mounting and JS-facade-retirement rows while preserving the new
+  fail-closed hosted/non-migrated provider boundary and concrete Rust hosted
+  provider backend extraction as the remaining target.
 
 ## Implementation Slice 0
 
@@ -2591,9 +2602,10 @@ ImplementationSlice:
       admission request with route decision refs, route receipt refs, policy/input
       hashes, wallet authority refs, cTEE custody refs, backend evidence, and
       stream status before calling the JS provider driver
-    execution_backend: provider drivers still execute in JS in this slice; the
-      provider execution envelope is admitted by Rust model_mount first and fails
-      closed when that admission path is missing
+    execution_backend: superseded by slice 699; provider drivers executed in JS
+      in this historical slice after Rust provider-execution admission, but
+      hosted/non-migrated model invocation now fails closed until Rust
+      workload_client/model_mount owns the concrete provider backend
     truth_path: model invocation and stream-start receipts carry the Rust
       provider_execution ref/hash alongside the existing invocation admission,
       receipt_binder, accepted_receipt_append, and Agentgres admission metadata
@@ -2755,11 +2767,10 @@ ImplementationSlice:
       admission first; non-migrated driver outputs now also require a Rust
       provider-result admission record bound to the same provider-execution
       ref/hash before receipt admission continues
-    execution_backend: concrete non-fixture provider request/response transport
-      may still run in JS during migration, but the result is explicitly marked
-      `js_provider_driver_observation` and is not accepted truth until Rust
-      validates the output hash, route receipt, request hash, stream status, and
-      admitted provider-execution record
+    execution_backend: superseded by slice 699; concrete non-fixture provider
+      request/response transport no longer runs in JS at model invocation and
+      now fails closed until a Rust workload_client/model_mount backend owns the
+      provider invocation
     truth_path: model invocation receipts now carry Rust provider-execution refs,
       migrated fixture invocation evidence, and for non-migrated drivers a Rust
       provider-result admission ref/hash before invocation admission,
@@ -2791,10 +2802,10 @@ ImplementationSlice:
     - Rust model_mount core exposes a provider-result schema, ref/hash, output
       hash validation, unsupported-backend guard, and provider-execution binding
     - Rust bridge exposes and tests `admit_model_mount_provider_result`
-    - JS non-migrated provider drivers fail closed before provider calls when
-      Rust provider-result admission is unavailable
+    - superseded by slice 699; JS non-migrated provider drivers fail closed
+      before provider calls regardless of provider-result admission support
     - accepted model invocation receipts include provider-result admission refs
-      for non-migrated driver observations
+      only for Rust-executed provider outputs and stream starts
     - conformance bridge and receipts tiers detect the Rust provider-result path
   verification:
     commands:
@@ -2811,9 +2822,9 @@ ImplementationSlice:
   cleanup:
     legacy_paths_removed: false
     compatibility_shims_remaining:
-      - hosted/openai-compatible, native-local streaming, Ollama, LM Studio,
-        llama.cpp, and vLLM request/response transports still run in JS as
-        explicitly admitted observations until each concrete backend moves
+      - superseded by slice 699; hosted/openai-compatible, Ollama, LM Studio,
+        llama.cpp, and vLLM request/response transports no longer run in JS at
+        model invocation and remain blocked until each concrete backend moves
         behind Rust workload_client/model_mount execution ownership
       - the JS store still writes the projection/cache receipt envelope after
         Rust admission; broader operation-log ownership remains to be moved to
@@ -2836,11 +2847,10 @@ ImplementationSlice:
     authority_gate: stream starts still require Rust provider-execution admission
       first; the daemon now also requires Rust provider-result admission support
       before any JS stream driver call can produce a stream handle
-    execution_backend: concrete provider stream transport may still run in JS
-      during migration, but the stream-start observation is explicitly marked
-      `js_provider_driver_observation` and is not accepted truth until Rust
-      validates empty-output hash, token envelope, stream status, request hash,
-      route receipt, and admitted provider-execution ref/hash
+    execution_backend: superseded by slice 699 for hosted/non-migrated streams;
+      stream transport no longer runs in JS at model invocation and now fails
+      closed until a Rust workload_client/model_mount stream backend owns the
+      provider invocation
     truth_path: stream-start model invocation receipts now carry Rust
       provider-execution refs plus Rust provider-result admission refs before
       invocation admission, receipt_binder, accepted_receipt_append, and

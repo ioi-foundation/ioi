@@ -273,14 +273,8 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     error.code = "model_mount_native_stream_backend_required";
     throw error;
   }
-  const driver = rustProviderStream ? null : state.driverForProvider(selection.provider);
   if (!rustProviderStream) {
-    if (typeof driver.streamInvoke !== "function" || (typeof driver.supportsStream === "function" && !driver.supportsStream(kind))) {
-      const error = new Error("Native model stream requires a provider driver with stream support.");
-      error.status = 501;
-      error.code = "model_mount_native_stream_capability_required";
-      throw error;
-    }
+    rejectUnmigratedProviderInvocationExecution(selection, { stream: true });
   }
   const routeReceipt = state.routeSelectionReceipt(selection, { body, capability, responseId, previousResponseId });
   const instance = await state.ensureLoaded(selection.endpoint);
@@ -317,16 +311,7 @@ export async function startModelStream(state, { authorization, requiredScope, ki
           selection,
         }),
       )
-    : await driver.streamInvoke({
-        state,
-        provider: selection.provider,
-        endpoint: selection.endpoint,
-        instance,
-        kind,
-        body: providerBody,
-        input,
-        token,
-      });
+    : null;
   if (rustProviderStream) {
     providerResult = withTextChunksReadableStream(providerResult);
   }
@@ -763,7 +748,10 @@ export function modelMountProviderResultAdmissionRequestForExecution({
     output_hash: hashRef(stableHash(outputText), "output_hash"),
     token_count: tokenCount,
     provider_response_kind: optionalRef(providerResult.providerResponseKind),
-    execution_backend: "js_provider_driver_observation",
+    execution_backend: requiredStringRef(
+      "providerResult.execution_backend",
+      providerResult.execution_backend ?? providerResult.executionBackend,
+    ),
     backend_ref: optionalRef(providerResult.backendId ?? instance.backendId ?? endpoint.backendId),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
@@ -978,30 +966,7 @@ async function executeModelProviderInvocation({
     rejectProviderCompatTranslation(providerResult);
     return providerResult;
   }
-  requireModelMountProviderResultAdmission(state);
-  const providerResult = await state.driverForProvider(selection.provider).invoke({
-    state,
-    provider: selection.provider,
-    endpoint: selection.endpoint,
-    instance,
-    kind,
-    body: providerBody,
-    input,
-    token,
-  });
-  rejectProviderCompatTranslation(providerResult);
-  const modelMountProviderResultAdmission = admitModelMountProviderResult(
-    state,
-    modelMountProviderResultAdmissionRequestForExecution({
-      input,
-      instance,
-      kind,
-      modelMountProviderExecutionAdmission,
-      providerResult,
-      selection,
-    }),
-  );
-  return withModelMountProviderResultAdmission(providerResult, modelMountProviderResultAdmission);
+  rejectUnmigratedProviderInvocationExecution(selection);
 }
 
 export function modelMountProviderInvocationRequiresRust(selection = {}, options = {}) {
@@ -1032,6 +997,29 @@ function nativeLocalProviderInvocationSelected(selection = {}) {
   const endpoint = selection.endpoint ?? {};
   const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
   return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.apiFormat === "ioi_native";
+}
+
+function rejectUnmigratedProviderInvocationExecution(selection = {}, { stream = false } = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const error = new Error(
+    stream
+      ? "Model provider stream execution requires a migrated Rust model_mount provider backend."
+      : "Model provider execution requires a migrated Rust model_mount provider backend.",
+  );
+  error.status = 501;
+  error.code = stream
+    ? "model_mount_provider_stream_invocation_backend_unmigrated"
+    : "model_mount_provider_invocation_backend_unmigrated";
+  error.details = {
+    provider_id: optionalRef(provider.id),
+    provider_kind: optionalRef(provider.kind),
+    endpoint_id: optionalRef(endpoint.id),
+    api_format: optionalRef(endpoint.apiFormat ?? provider.apiFormat),
+    driver: optionalRef(driver),
+  };
+  throw error;
 }
 
 function rejectProviderCompatTranslation(providerResult = {}) {

@@ -341,7 +341,7 @@ function providerInvocationBridgeResult(request, options = {}) {
       : ["rust_model_mount_fixture_backend", "deterministic_fixture"]),
   ];
   const invocationHash = options.invocationHash ?? "sha256:provider-invocation-test";
-  return {
+  const result = {
     source: "rust_model_mount_provider_invocation_command",
     backend: executionBackend,
     result: {
@@ -367,6 +367,13 @@ function providerInvocationBridgeResult(request, options = {}) {
     evidence_refs: evidenceRefs,
     backendEvidenceRefs: evidenceRefs,
   };
+  if (options.compatTranslation) {
+    result.compatTranslation = options.compatTranslation;
+  }
+  if (options.compat_translation) {
+    result.compat_translation = options.compat_translation;
+  }
+  return result;
 }
 
 function providerStreamInvocationBridgeResult(request, options = {}) {
@@ -864,7 +871,8 @@ test("startModelStream fails closed when selected Rust provider backend lacks na
   assert.deepEqual(state.appendOperations, []);
 });
 
-test("startModelStream fails closed when provider lacks native streaming", async () => {
+test("startModelStream fails closed for hosted providers without migrated Rust stream execution", async () => {
+  let streamCalls = 0;
   const state = fakeState({
     selectRoute(payload) {
       this.selectRoutePayload = payload;
@@ -883,7 +891,11 @@ test("startModelStream fails closed when provider lacks native streaming", async
       });
     },
     driver: {
-      supportsStream: () => false,
+      supportsStream: () => true,
+      async streamInvoke() {
+        streamCalls += 1;
+        return { providerResponseKind: "openai.responses.stream" };
+      },
     },
   });
 
@@ -899,15 +911,16 @@ test("startModelStream fails closed when provider lacks native streaming", async
         },
         deps(),
       ),
-    (error) => error.code === "model_mount_native_stream_capability_required",
+    (error) => error.code === "model_mount_provider_stream_invocation_backend_unmigrated",
   );
+  assert.equal(streamCalls, 0);
   assert.equal(state.providerExecutionRequests.length, 0);
   assert.equal(state.providerResultRequests.length, 0);
   assert.equal(state.fallbackInvocationArgs, undefined);
   assert.deepEqual(state.appendOperations, []);
 });
 
-test("startModelStream fails closed when admitted hosted stream path returns no stream", async () => {
+test("startModelStream does not admit hosted stream execution before Rust migration", async () => {
   let streamCalls = 0;
   const state = fakeState({
     selectRoute(payload) {
@@ -947,10 +960,10 @@ test("startModelStream fails closed when admitted hosted stream path returns no 
         },
         deps(),
       ),
-    (error) => error.code === "model_mount_native_stream_result_required",
+    (error) => error.code === "model_mount_provider_stream_invocation_backend_unmigrated",
   );
-  assert.equal(streamCalls, 1);
-  assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(streamCalls, 0);
+  assert.equal(state.providerExecutionRequests.length, 0);
   assert.equal(state.providerStreamInvocationRequests.length, 0);
   assert.equal(state.providerResultRequests.length, 0);
   assert.equal(state.fallbackInvocationArgs, undefined);
@@ -1496,7 +1509,7 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
   assert.equal(modelMountProviderStreamInvocationRequiresRust({ provider: { kind: "openai" }, endpoint: {} }), false);
 });
 
-test("modelMountProviderResultAdmissionRequestForExecution binds JS provider observation to provider admission", () => {
+test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider result to provider admission", () => {
   const admission = {
     source: "rust_model_mount_provider_execution_command",
     backend: "rust_model_mount_live",
@@ -1528,10 +1541,11 @@ test("modelMountProviderResultAdmissionRequestForExecution binds JS provider obs
     modelMountProviderExecutionAdmission: admission,
     providerResult: {
       outputText: "hosted provider answer",
-      providerResponseKind: "openai.chat",
+      providerResponseKind: "rust_model_mount.native_local",
+      execution_backend: "rust_model_mount_native_local_stream",
       tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
       providerAuthEvidenceRefs: ["provider.auth"],
-      backendEvidenceRefs: ["backend.openai-compatible"],
+      backendEvidenceRefs: ["rust_model_mount_native_local_stream_backend"],
     },
     selection: selection({
       endpoint: {
@@ -1551,13 +1565,13 @@ test("modelMountProviderResultAdmissionRequestForExecution binds JS provider obs
   assert.equal(request.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(request.provider_execution_hash, "sha256:provider-execution-test");
   assert.equal(request.provider_kind, "openai");
-  assert.equal(request.execution_backend, "js_provider_driver_observation");
-  assert.equal(request.provider_response_kind, "openai.chat");
+  assert.equal(request.execution_backend, "rust_model_mount_native_local_stream");
+  assert.equal(request.provider_response_kind, "rust_model_mount.native_local");
   assert.equal(request.output_text, "hosted provider answer");
   assert.equal(request.output_hash.startsWith("sha256:"), true);
   assert.deepEqual(request.token_count, { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 });
   assert.deepEqual(request.provider_auth_evidence_refs, ["provider.auth"]);
-  assert.deepEqual(request.backend_evidence_refs, ["backend.openai-compatible"]);
+  assert.deepEqual(request.backend_evidence_refs, ["rust_model_mount_native_local_stream_backend"]);
   assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
 });
 
@@ -1793,7 +1807,7 @@ test("invokeModel fails closed for migrated fixture backend without Rust provide
   assert.equal(providerCalls, 0);
 });
 
-test("invokeModel keeps unmigrated provider drivers behind provider execution admission", async () => {
+test("invokeModel fails closed for hosted providers without migrated Rust execution", async () => {
   let providerCalls = 0;
   const state = fakeState({
     executeModelMountProviderInvocation: undefined,
@@ -1803,65 +1817,6 @@ test("invokeModel keeps unmigrated provider drivers behind provider execution ad
         return {
           outputText: "hosted provider answer",
           providerResponseKind: "openai.chat",
-          tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-        };
-      },
-    },
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "openai",
-          providerId: "provider.openai",
-          backendId: "backend.openai-compatible",
-        },
-        provider: {
-          id: "provider.openai",
-          kind: "openai",
-          driver: "openai_compatible",
-        },
-      });
-    },
-  });
-
-  const result = await invokeModel(
-    state,
-    {
-      authorization: "Bearer token",
-      requiredScope: "model.chat:*",
-      kind: "responses",
-      body: { model: "model.local" },
-    },
-    deps(),
-  );
-
-  assert.equal(providerCalls, 1);
-  assert.equal(state.providerInvocationRequests.length, 0);
-  assert.equal(state.providerResultRequests.length, 1);
-  assert.equal(state.providerResultRequests[0].provider_execution_ref, "model_mount://provider_execution/1");
-  assert.equal(state.providerResultRequests[0].execution_backend, "js_provider_driver_observation");
-  assert.equal(result.outputText, "hosted provider answer");
-  assert.equal(result.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
-  assert.equal(result.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
-  assert.equal(result.receipt.details.model_mount_provider_result_admission_hash, "sha256:provider-result-1");
-  assert.equal(
-    result.receipt.details.model_mount_provider_result_admission.execution_backend,
-    "js_provider_driver_observation",
-  );
-  assert.ok(result.receipt.evidenceRefs.includes("model_mount://provider_result/1"));
-});
-
-test("invokeModel rejects provider compatibility translations before result admission", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    executeModelMountProviderInvocation: undefined,
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return {
-          outputText: "translated provider answer",
-          providerResponseKind: "openai.chat",
-          compat_translation: "chat_completions",
           tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
         };
       },
@@ -1895,19 +1850,60 @@ test("invokeModel rejects provider compatibility translations before result admi
         },
         deps(),
       ),
+    (error) => error.code === "model_mount_provider_invocation_backend_unmigrated",
+  );
+
+  assert.equal(providerCalls, 0);
+  assert.equal(state.providerInvocationRequests.length, 0);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.receipts.length, 0);
+});
+
+test("invokeModel rejects Rust provider compatibility translations before receipt admission", async () => {
+  let providerCalls = 0;
+  const state = fakeState({
+    executeModelMountProviderInvocation(request) {
+      this.providerInvocationRequests.push(request);
+      return providerInvocationBridgeResult(request, {
+        outputText: "translated provider answer",
+        providerResponseKind: "rust_model_mount.fixture",
+        compat_translation: "chat_completions",
+      });
+    },
+    driver: {
+      async invoke() {
+        providerCalls += 1;
+        return { outputText: "should not run" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local" },
+        },
+        deps(),
+      ),
     (error) =>
       error.code === "model_mount_provider_compat_translation_forbidden" &&
       error.details.compat_translation === "chat_completions" &&
       Object.hasOwn(error.details, "compatTranslation") === false &&
       Object.hasOwn(error.details, "retired_aliases") === false,
   );
-  assert.equal(providerCalls, 1);
+  assert.equal(providerCalls, 0);
   assert.equal(state.providerExecutionRequests.length, 1);
+  assert.equal(state.providerInvocationRequests.length, 1);
   assert.equal(state.providerResultRequests.length, 0);
   assert.equal(state.receipts.length, 0);
 });
 
-test("invokeModel fails closed for unmigrated provider drivers without Rust provider result admission", async () => {
+test("invokeModel fails closed for hosted providers before Rust provider result admission is relevant", async () => {
   let providerCalls = 0;
   const state = fakeState({
     admitModelMountProviderResult: undefined,
@@ -1947,7 +1943,7 @@ test("invokeModel fails closed for unmigrated provider drivers without Rust prov
         },
         deps(),
       ),
-    (error) => error.code === "model_mount_provider_result_admission_required",
+    (error) => error.code === "model_mount_provider_invocation_backend_unmigrated",
   );
   assert.equal(providerCalls, 0);
   assert.equal(state.providerResultRequests.length, 0);

@@ -8196,7 +8196,7 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-provider-result-admission-live-bridge",
+    "model-mount-provider-js-invocation-retired",
     /admit_model_mount_provider_result/.test(bridgeModule) &&
       /ModelMountProviderResultAdmissionRequest/.test(bridgeModule) &&
       /bridge_admits_model_mount_provider_result_through_rust_core/.test(bridgeModule) &&
@@ -8205,8 +8205,23 @@ function runBridge() {
       /admitModelMountProviderResult/.test(modelMountingState) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
-      /js_provider_driver_observation/.test(modelInvocationOps) &&
+      /model_mount_provider_invocation_backend_unmigrated/.test(modelInvocationOps) &&
+      /model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
+      /rejectUnmigratedProviderInvocationExecution\(selection\)/.test(modelInvocationOps) &&
+      /rejectUnmigratedProviderInvocationExecution\(selection,\s*\{\s*stream:\s*true\s*\}\)/.test(
+        modelInvocationOps,
+      ) &&
+      /providerResult\.execution_backend\s*\?\?\s*providerResult\.executionBackend/.test(modelInvocationOps) &&
+      !/js_provider_driver_observation/.test(modelInvocationOps) &&
+      !/state\.driverForProvider\(selection\.provider\)\.invoke/.test(modelInvocationOps) &&
+      !/await driver\.streamInvoke/.test(modelInvocationOps) &&
       /model_mount_provider_result_admission_ref/.test(modelInvocationOps) &&
+      /fails closed for hosted providers without migrated Rust execution/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /does not admit hosted stream execution before Rust migration/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
       !/modelMountProviderResultAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs|EvidenceRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -8214,7 +8229,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: non-migrated provider driver results must be Rust-admitted before accepted model invocation receipts",
+    "Phase 9/10 is pending: non-migrated provider execution must fail closed until a Rust model_mount backend owns the provider invocation",
   );
   assertCheck(
     result,
@@ -8244,7 +8259,7 @@ function runBridge() {
       !/error\.details = \{ compatTranslation \}/.test(modelInvocationOps) &&
       !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
       !/compatTranslation\??:/.test(agentSdkModelMounts) &&
-      /rejects provider compatibility translations before result admission/.test(
+      /rejects Rust provider compatibility translations before receipt admission/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /retired_aliases\.includes\("compatTranslation"\)/.test(
@@ -8340,7 +8355,10 @@ function runBridge() {
     result,
     "model-mount-native-stream-pre-admission-downgrade-retired",
     /model_mount_native_stream_backend_required/.test(modelInvocationOps) &&
-      /model_mount_native_stream_capability_required/.test(modelInvocationOps) &&
+      /model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
+      /startModelStream fails closed for hosted providers without migrated Rust stream execution/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
       !/state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
