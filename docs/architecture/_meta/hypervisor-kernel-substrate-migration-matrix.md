@@ -13388,6 +13388,61 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
+## Implementation Slice 672
+
+```yaml
+slice: 672
+phase: 10-authoritative-js-facade-retirement
+objective: retire Rust command-bridge `schemaVersion` intake aliases so
+  operation dispatch requires canonical `schema_version` before any bridge
+  request can enter Rust core planning/admission
+owner_boundary:
+  route_or_surface: Rust StepModule command bridge envelope and operation
+    request structs
+  authority_gate: unchanged; the bridge still validates the command schema
+    before dispatch, but alias-only command envelopes now fail deserialization
+    before operation-specific handlers can run
+  execution_backend: Rust command bridge remains migration transport, but it no
+    longer accepts retired camelCase schema-version ingress for any operation
+  truth_path: unchanged; admitted operations still bind through Rust
+    StepModuleRouter, receipt_binder, Agentgres admission, and projection paths
+    per route family
+  projection_path: unchanged; public result projections may still expose their
+    current API-facing schema fields, while the bridge command ingress is
+    canonical-only
+touched_files:
+  rust_bridge:
+    - crates/node/src/bin/ioi_step_module_bridge/mod.rs
+  tests:
+    - crates/node/src/bin/ioi_step_module_bridge/mod.rs
+    - scripts/conformance/hypervisor-conformance.mjs
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+conformance_checks:
+  - bridge conformance rejects reintroducing serde `alias = "schemaVersion"`
+    on the Rust command bridge
+  - focused Rust bridge test proves canonical `schema_version` envelopes
+    deserialize while alias-only `schemaVersion` envelopes fail before dispatch
+verification:
+  commands:
+    - cargo fmt -p ioi-node
+    - cargo test -p ioi-node bridge_command_schema_version_alias_is_retired
+    - npm run hypervisor-conformance:bridge
+  replay_or_shadow_comparison: Rust bridge envelope deserialization compares
+    canonical command schema ingress against retired alias-only ingress at the
+    first operation-dispatch gate
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public API result fields are unchanged for this slice
+    - the command bridge remains migration transport until route families
+      collapse into terminal Rust daemon-core protocol APIs
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 Current expected behavior after Slice 671 and the one-hundred-seventh 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future

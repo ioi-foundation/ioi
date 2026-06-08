@@ -103,14 +103,14 @@ const TEST_COMMAND_IDS: [&str; 4] = ["node.test", "npm.test", "cargo.test", "car
 
 #[derive(Debug, Deserialize)]
 struct BridgeEnvelope {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
 }
 
 #[derive(Debug, Deserialize)]
 struct StepModuleBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     backend: String,
@@ -123,7 +123,7 @@ struct StepModuleBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountRouteDecisionBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -133,7 +133,7 @@ struct ModelMountRouteDecisionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountInvocationAdmissionBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -143,7 +143,7 @@ struct ModelMountInvocationAdmissionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountProviderExecutionBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -153,7 +153,7 @@ struct ModelMountProviderExecutionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountProviderInvocationBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -163,7 +163,7 @@ struct ModelMountProviderInvocationBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountProviderLifecycleBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -173,7 +173,7 @@ struct ModelMountProviderLifecycleBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountProviderInventoryBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -183,7 +183,7 @@ struct ModelMountProviderInventoryBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountInstanceLifecycleBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -193,7 +193,7 @@ struct ModelMountInstanceLifecycleBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountProviderResultAdmissionBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -203,7 +203,7 @@ struct ModelMountProviderResultAdmissionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountBackendProcessPlanBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -213,7 +213,7 @@ struct ModelMountBackendProcessPlanBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountAcceptedReceiptHeadBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -223,7 +223,7 @@ struct ModelMountAcceptedReceiptHeadBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountAcceptedReceiptTransitionBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -233,7 +233,7 @@ struct ModelMountAcceptedReceiptTransitionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ModelMountInvocationReceiptBindingBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -250,7 +250,7 @@ struct ModelMountInvocationReceiptBindingBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct CteePrivateWorkspaceBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -263,7 +263,7 @@ struct CteePrivateWorkspaceBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct WorkerServicePackageInvocationBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -273,7 +273,7 @@ struct WorkerServicePackageInvocationBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct L1SettlementAdmissionBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -283,7 +283,7 @@ struct L1SettlementAdmissionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct GovernedRuntimeImprovementBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -293,7 +293,7 @@ struct GovernedRuntimeImprovementBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct WorkspaceRestoreApplyPolicyBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -303,7 +303,7 @@ struct WorkspaceRestoreApplyPolicyBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct WorkspaceRestoreOperationsBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -313,7 +313,7 @@ struct WorkspaceRestoreOperationsBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct WorkspaceSnapshotCaptureBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -323,7 +323,7 @@ struct WorkspaceSnapshotCaptureBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct CodingToolApprovalBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -333,7 +333,7 @@ struct CodingToolApprovalBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ApprovalRequestStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -343,7 +343,7 @@ struct ApprovalRequestStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ApprovalDecisionStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -353,7 +353,7 @@ struct ApprovalDecisionStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ApprovalRevokeStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -363,7 +363,7 @@ struct ApprovalRevokeStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ContextBudgetPolicyBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -373,7 +373,7 @@ struct ContextBudgetPolicyBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct CompactionPolicyBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -383,7 +383,7 @@ struct CompactionPolicyBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ContextCompactionPlanBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -393,7 +393,7 @@ struct ContextCompactionPlanBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ContextCompactionStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -403,7 +403,7 @@ struct ContextCompactionStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -413,7 +413,7 @@ struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -423,7 +423,7 @@ struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct OperatorInterruptStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -433,7 +433,7 @@ struct OperatorInterruptStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct OperatorSteerStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -443,7 +443,7 @@ struct OperatorSteerStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RunCancelStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -453,7 +453,7 @@ struct RunCancelStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ThreadControlAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -463,7 +463,7 @@ struct ThreadControlAgentStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct McpControlAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -473,7 +473,7 @@ struct McpControlAgentStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ThreadMemoryAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -483,7 +483,7 @@ struct ThreadMemoryAgentStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -493,7 +493,7 @@ struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -503,7 +503,7 @@ struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct SubagentRecordStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -513,7 +513,7 @@ struct SubagentRecordStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct AgentCreateStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -523,7 +523,7 @@ struct AgentCreateStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct AgentStatusStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -533,7 +533,7 @@ struct AgentStatusStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RunCreateStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -543,7 +543,7 @@ struct RunCreateStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct StorageBackendWriteBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -553,7 +553,7 @@ struct StorageBackendWriteBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeRunStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -564,7 +564,7 @@ struct RuntimeRunStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeAgentStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -575,7 +575,7 @@ struct RuntimeAgentStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeMemoryStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -586,7 +586,7 @@ struct RuntimeMemoryStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeSubagentStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -597,7 +597,7 @@ struct RuntimeSubagentStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeArtifactStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -608,7 +608,7 @@ struct RuntimeArtifactStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeModelMountRecordStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -619,7 +619,7 @@ struct RuntimeModelMountRecordStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct RuntimeModelMountReceiptStateCommitBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -630,7 +630,7 @@ struct RuntimeModelMountReceiptStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 struct ExternalCapabilityExitAuthorityBridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
+    #[serde(rename = "schema_version")]
     schema_version: String,
     operation: String,
     #[serde(default)]
@@ -6015,6 +6015,27 @@ mod tests {
     use serde_json::json;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn bridge_command_schema_version_alias_is_retired() {
+        let canonical: BridgeEnvelope = serde_json::from_value(json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "run_coding_tool_step_module"
+        }))
+        .expect("canonical bridge envelope");
+
+        assert_eq!(canonical.schema_version, COMMAND_SCHEMA_VERSION);
+
+        let retired_alias = serde_json::from_value::<BridgeEnvelope>(json!({
+            "schemaVersion": COMMAND_SCHEMA_VERSION,
+            "operation": "run_coding_tool_step_module"
+        }));
+
+        assert!(
+            retired_alias.is_err(),
+            "Rust bridge command intake must require canonical schema_version"
+        );
+    }
 
     fn temp_workspace(name: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(

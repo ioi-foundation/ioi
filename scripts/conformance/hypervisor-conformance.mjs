@@ -540,6 +540,16 @@ function runBridge() {
   const computerUseProviderRegistryTest = exists("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs")
     ? read("packages/runtime-daemon/src/computer-use-provider-registry.test.mjs")
     : "";
+  assertCheck(
+    result,
+    "bridge-command-schema-version-alias-retired",
+    /#\[serde\(rename = "schema_version"\)\]/.test(bridgeModule) &&
+      !/alias = "schemaVersion"/.test(bridgeModule) &&
+      /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
+      /"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
+    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
+  );
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
