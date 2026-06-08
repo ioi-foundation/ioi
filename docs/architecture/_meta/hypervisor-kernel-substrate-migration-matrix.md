@@ -651,6 +651,11 @@ Matrix compaction timing:
   into the route-family range while preserving the L1 settlement admission
   command boundary as migration transport and terminal direct Rust daemon-core
   API ownership as the remaining target.
+- One-hundred-thirtieth scheduled pass completed on 2026-06-08: the governed
+  improvement daemon-core command-envelope evidence after slice 694 was
+  compacted into the route-family range while preserving the governed proposal
+  admission command boundary as migration transport and terminal direct Rust
+  daemon-core API ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13491,61 +13496,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 694: Governed Improvement Daemon-Core Command Envelope
-
-```yaml
-objective: move governed runtime-improvement proposal admission off the generic
-  StepModule command envelope and retired governed-improvement command envs onto
-  the Rust daemon-core command envelope.
-owner_boundary:
-  route_or_surface: governed runtime-improvement proposal admission
-  authority_gate: Rust governed-evolution core requiring eval receipts,
-    verifier receipts, wallet approval, rollback, Agentgres expected heads, and
-    state-root binding
-  execution_backend: ioi.runtime.daemon_core.command.v1 through
-    IOI_RUNTIME_DAEMON_CORE_COMMAND as bounded migration transport
-  truth_path: admitted proposal records remain Rust-derived and Agentgres-bound;
-    direct EvolutionService manifest mutation remains retired fail-closed
-  projection_path: daemon runner and bridge conformance require daemon-core
-    command env/schema, ignore retired governed-improvement/StepModule command
-    envs, and reject retired StepModule envelopes for proposal admission
-touched_files:
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs
-  - packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs
-  - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  - scripts/conformance/hypervisor-conformance.mjs
-conformance_delta:
-  - bridge conformance now requires the governed-improvement runner to use
-    IOI_RUNTIME_DAEMON_CORE_COMMAND and ioi.runtime.daemon_core.command.v1
-  - Rust command parser classifies admit_governed_runtime_improvement_proposal
-    as a daemon-core operation
-  - focused Rust negative proof rejects the retired
-    ioi.step_module.command_bridge.v1 envelope for governed proposal admission
-  - focused JS runner proof ignores retired IOI_GOVERNED_IMPROVEMENT_COMMAND
-    and IOI_STEP_MODULE_COMMAND envs
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge governed_runtime_improvement -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge governed_improvement -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge test_run_node_test_reports_passed -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core governed-improvement API extraction
-      remains pending; the command binary is migration transport only until
-      proposal admission is exposed through the direct Rust daemon-core protocol
-      surface
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13561,7 +13511,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 694 and the one-hundred-twenty-ninth 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 694 and the one-hundred-thirtieth 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
