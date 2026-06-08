@@ -316,7 +316,7 @@ function runDocs() {
       /First complete a verified slice that clarifies the\s+next Rust-core extraction or JS-facade retirement owner boundary; then run the\s+scheduled matrix-compaction pass/.test(
         guide,
       ) &&
-      /The Slice 730 MCP control compaction is complete/.test(guide) &&
+      /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
