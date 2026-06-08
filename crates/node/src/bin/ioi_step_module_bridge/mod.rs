@@ -993,17 +993,25 @@ fn run_bridge() -> Result<Value, BridgeError> {
 }
 
 fn expected_command_schema_version(operation: &str) -> &'static str {
-    if is_daemon_core_policy_operation(operation) {
+    if is_daemon_core_operation(operation) {
         DAEMON_CORE_COMMAND_SCHEMA_VERSION
     } else {
         STEP_MODULE_COMMAND_SCHEMA_VERSION
     }
 }
 
-fn is_daemon_core_policy_operation(operation: &str) -> bool {
+fn is_daemon_core_operation(operation: &str) -> bool {
     matches!(
         operation,
-        "plan_coding_tool_approval_manifest"
+        "admit_storage_backend_write"
+            | "commit_runtime_run_state"
+            | "commit_runtime_agent_state"
+            | "commit_runtime_memory_state"
+            | "commit_runtime_subagent_state"
+            | "commit_runtime_artifact_state"
+            | "commit_runtime_model_mount_record_state"
+            | "commit_runtime_model_mount_receipt_state"
+            | "plan_coding_tool_approval_manifest"
             | "plan_approval_request_state_update"
             | "plan_approval_decision_state_update"
             | "plan_approval_revoke_state_update"
@@ -3039,12 +3047,12 @@ fn plan_run_create_state_update(
 fn admit_storage_backend_write(
     request: StorageBackendWriteBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3083,12 +3091,12 @@ fn admit_storage_backend_write(
 fn commit_runtime_run_state(
     request: RuntimeRunStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3143,12 +3151,12 @@ fn commit_runtime_run_state(
 fn commit_runtime_agent_state(
     request: RuntimeAgentStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3193,12 +3201,12 @@ fn commit_runtime_agent_state(
 fn commit_runtime_memory_state(
     request: RuntimeMemoryStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3244,12 +3252,12 @@ fn commit_runtime_memory_state(
 fn commit_runtime_subagent_state(
     request: RuntimeSubagentStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3297,12 +3305,12 @@ fn commit_runtime_subagent_state(
 fn commit_runtime_artifact_state(
     request: RuntimeArtifactStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3350,12 +3358,12 @@ fn commit_runtime_artifact_state(
 fn commit_runtime_model_mount_record_state(
     request: RuntimeModelMountRecordStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -3404,12 +3412,12 @@ fn commit_runtime_model_mount_record_state(
 fn commit_runtime_model_mount_receipt_state(
     request: RuntimeModelMountReceiptStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -9019,9 +9027,66 @@ mod tests {
     }
 
     #[test]
+    fn runtime_agentgres_storage_rejects_step_module_command_schema() {
+        let request: StorageBackendWriteBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "admit_storage_backend_write",
+            "backend": "rust_agentgres_storage",
+            "request": {
+                "schema_version": "ioi.storage_backend_write_admission.v1",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "object_ref": "agentgres://runtime-state/runs/run_1/records/runs/run_1.json",
+                "content_hash": "sha256:runtime-state-write",
+                "artifact_refs": [],
+                "payload_refs": ["payload://runtime/runs/run_1/records/runs/run_1.json"],
+                "receipt_refs": ["receipt_policy"]
+            }
+        }))
+        .expect("storage write bridge request");
+
+        let error = admit_storage_backend_write(request)
+            .expect_err("runtime Agentgres storage admission must reject StepModule bridge schema");
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
+    fn runtime_agentgres_commit_rejects_step_module_command_schema() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state_dir = temp.path().join("runtime-state");
+        let request: RuntimeAgentStateCommitBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "commit_runtime_agent_state",
+            "backend": "rust_agentgres_storage",
+            "state_dir": state_dir,
+            "request": {
+                "schema_version": "ioi.runtime_agent_state_commit.v1",
+                "agent_id": "agent_1",
+                "operation_kind": "agent.create",
+                "storage_backend_ref": "storage://runtime-agentgres/local-json",
+                "agent": {
+                    "id": "agent_1",
+                    "status": "active",
+                    "runtime": "local",
+                    "updated_at": "2026-06-06T00:00:00.000Z",
+                    "receipt_refs": ["receipt_agent"]
+                }
+            }
+        }))
+        .expect("runtime agent-state commit bridge request");
+
+        let error = commit_runtime_agent_state(request)
+            .expect_err("runtime Agentgres commit must reject StepModule bridge schema");
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
     fn bridge_admits_storage_backend_write_through_rust_core() {
         let request: StorageBackendWriteBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "admit_storage_backend_write",
             "backend": "rust_agentgres_storage",
             "request": {
@@ -9080,7 +9145,7 @@ mod tests {
         )
         .expect("previous transition file");
         let request: RuntimeRunStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "commit_runtime_run_state",
             "backend": "rust_agentgres_storage",
             "state_dir": state_dir,
@@ -9180,7 +9245,7 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
         let request: RuntimeAgentStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "commit_runtime_agent_state",
             "backend": "rust_agentgres_storage",
             "state_dir": state_dir,
@@ -9232,7 +9297,7 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
         let request: RuntimeMemoryStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "commit_runtime_memory_state",
             "backend": "rust_agentgres_storage",
             "state_dir": state_dir,
@@ -9288,7 +9353,7 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
         let request: RuntimeSubagentStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "commit_runtime_subagent_state",
             "backend": "rust_agentgres_storage",
             "state_dir": state_dir,
@@ -9342,7 +9407,7 @@ mod tests {
         let temp = tempfile::tempdir().expect("tempdir");
         let state_dir = temp.path().join("runtime-state");
         let request: RuntimeArtifactStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "commit_runtime_artifact_state",
             "backend": "rust_agentgres_storage",
             "state_dir": state_dir,
@@ -9401,7 +9466,7 @@ mod tests {
         let state_dir = temp.path().join("runtime-state");
         let request: RuntimeModelMountRecordStateCommitBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "commit_runtime_model_mount_record_state",
                 "backend": "rust_agentgres_storage",
                 "state_dir": state_dir,
@@ -9464,7 +9529,7 @@ mod tests {
         let state_dir = temp.path().join("runtime-state");
         let request: RuntimeModelMountReceiptStateCommitBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "commit_runtime_model_mount_receipt_state",
                 "backend": "rust_agentgres_storage",
                 "state_dir": state_dir,

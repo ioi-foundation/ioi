@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const RUNTIME_AGENTGRES_COMMAND_ENV = "IOI_RUNTIME_AGENTGRES_COMMAND";
-export const RUNTIME_AGENTGRES_COMMAND_ARGS_ENV = "IOI_RUNTIME_AGENTGRES_COMMAND_ARGS";
-export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const RUNTIME_AGENTGRES_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const RUNTIME_AGENTGRES_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_RUNTIME_AGENTGRES_BACKEND = "rust_runtime_agentgres";
 export const RUST_AGENTGRES_STORAGE_BACKEND = "rust_agentgres_storage";
 
@@ -123,7 +123,7 @@ export class RustRuntimeAgentgresAdmissionRunner {
     }
     if (!this.command) {
       throw new RuntimeAgentgresAdmissionRunnerError(
-        "Runtime Agentgres admission requires IOI_RUNTIME_AGENTGRES_COMMAND for Rust core admission.",
+        "Runtime Agentgres admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core admission.",
         "runtime_agentgres_admission_bridge_unconfigured",
         {
           env: RUNTIME_AGENTGRES_COMMAND_ENV,

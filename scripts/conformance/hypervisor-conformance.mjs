@@ -4485,7 +4485,7 @@ function runBridge() {
       /evaluate_context_budget_policy/.test(bridgeModule) &&
       /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
-      /is_daemon_core_policy_operation/.test(bridgeModule) &&
+      /is_daemon_core_operation/.test(bridgeModule) &&
       /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
@@ -12938,11 +12938,17 @@ function runReceipts() {
         agentgresAdmissionCore,
       ) &&
       /commit_runtime_run_state/.test(bridgeModule) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /runtime_agentgres_commit_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(bridgeModule) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&
       !/rust_runtime_agentgres_transition_command/.test(bridgeModule) &&
       /bridge_commits_runtime_run_state_through_rust_core/.test(bridgeModule) &&
       /RustRuntimeAgentgresAdmissionRunner/.test(runtimeAgentgresRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeAgentgresRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeAgentgresRunner) &&
+      !/IOI_RUNTIME_AGENTGRES_COMMAND/.test(runtimeAgentgresRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeAgentgresRunner) &&
       /commitRuntimeRunState/.test(runtimeAgentgresRunner) &&
       !/planRunStateTransition/.test(runtimeAgentgresRunner) &&
       !/persistRuntimeStateRecords/.test(runtimeAgentgresRunner) &&
@@ -12987,7 +12993,7 @@ function runReceipts() {
       /calls\[0\]\.request\.request\.agent\.id, "agent_1"/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
-      /runtime Agentgres runner requires explicit runtime admission command env/.test(
+      /runtime Agentgres runner env uses daemon-core command boundary/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ),
     [
@@ -13038,6 +13044,7 @@ function runReceipts() {
       /plans_runtime_state_persistence_with_materialization_and_storage_write_set/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&
       /commit_runtime_run_state/.test(bridgeModule) &&
+      /runtime_agentgres_storage_rejects_step_module_command_schema/.test(bridgeModule) &&
       !/materialize_runtime_state_records/.test(bridgeModule) &&
       !/plan_runtime_state_storage_writes/.test(bridgeModule) &&
       !/persist_runtime_state_records/.test(bridgeModule) &&

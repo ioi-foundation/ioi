@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  RUNTIME_AGENTGRES_COMMAND_ARGS_ENV,
   RUNTIME_AGENTGRES_COMMAND_ENV,
   RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
   RUST_AGENTGRES_STORAGE_BACKEND,
@@ -656,12 +657,18 @@ test("runtime Agentgres runner sends runtime model-mount receipt-state commit br
   assert.deepEqual(result.evidence_refs, ["rust_agentgres_runtime_model_mount_receipt_state_commit"]);
 });
 
-test("runtime Agentgres runner requires explicit runtime admission command env", () => {
+test("runtime Agentgres runner env uses daemon-core command boundary", () => {
   const runner = createRuntimeAgentgresAdmissionRunnerFromEnv({
-    [RUNTIME_AGENTGRES_COMMAND_ENV]: "mock-runtime-bridge",
+    [RUNTIME_AGENTGRES_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [RUNTIME_AGENTGRES_COMMAND_ARGS_ENV]: "--json",
+    IOI_RUNTIME_AGENTGRES_COMMAND: "retired-runtime-agentgres-bridge",
+    IOI_RUNTIME_AGENTGRES_COMMAND_ARGS: "--retired-agentgres",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-runtime-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("runtime Agentgres runner fails closed without command", () => {
