@@ -6281,7 +6281,7 @@ function runBridge() {
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /proposalEvent\.payload_summary\.code_diff,\s*null/.test(runtimeWorkflowEditSurfaceTest) &&
-      /applied\.event\.payload_summary\.requested_by,\s*"workflow-author"/.test(
+      /applied\.requested_by,\s*"workflow-author"/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /details:\s*\{ thread_id: threadId \}/.test(runtimeWorkflowEditSurface) &&
@@ -6320,8 +6320,20 @@ function runBridge() {
       /payload alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
       /manifest alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
       /result alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
-      /apply payload alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
       /apply result alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
+      /workflow-edit surface blocks approved proposals until Rust apply support exists/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /workflow_edit_apply_rust_core_required/.test(runtimeWorkflowEditSurface) &&
+      /fs\.existsSync\(path\.join\(store\.cwd,\s*"workflows\/apply\.json"\)\),\s*false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /event\.event_kind === "workflow\.edit_applied"/.test(runtimeWorkflowEditSurface) &&
+      !/writeJsonDep\(resolvedWorkflowPath,\s*workflowPatch\)/.test(runtimeWorkflowEditSurface) &&
+      !/writeJson: writeJsonDep/.test(runtimeWorkflowEditSurface) &&
+      !/from "\.\/runtime-http-utils\.mjs";[\s\S]*writeJson/.test(runtimeWorkflowEditSurface) &&
+      !/source_event_kind:\s*"WorkflowEdit\.Applied"/.test(runtimeWorkflowEditSurface) &&
+      !/event_kind:\s*"workflow\.edit_applied"/.test(runtimeWorkflowEditSurface) &&
       /latestWorkflowEditProposalEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?latestWorkflowEditApplyEvent/.test(
         runtimeWorkflowEditSurface,
       ) &&
@@ -6339,9 +6351,6 @@ function runBridge() {
       ) &&
       /optionalString\(proposalPayload\.approval_id\)/.test(runtimeWorkflowEditSurface) &&
       /const workflowPath = optionalString\(proposalPayload\.workflow_path\);/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /const workflowPatch = proposalPayload\.workflow_patch \?\? null;/.test(
         runtimeWorkflowEditSurface,
       ) &&
       /let workflowRelativePath = optionalString\(proposalPayload\.workflow_relative_path\);/.test(

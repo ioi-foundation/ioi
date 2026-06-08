@@ -7,7 +7,7 @@ import {
   runtimeSessionIdForAgent,
   turnIdForRun,
 } from "./runtime-identifiers.mjs";
-import { notFound, policyError, runtimeError, writeJson } from "./runtime-http-utils.mjs";
+import { notFound, policyError, runtimeError } from "./runtime-http-utils.mjs";
 import {
   doctorHash,
   normalizeArray,
@@ -29,7 +29,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     notFound: notFoundDep = notFound,
     policyError: policyErrorDep = policyError,
     runtimeError: runtimeErrorDep = runtimeError,
-    writeJson: writeJsonDep = writeJson,
   } = deps;
 
   function workflowEditThreadContext(store, threadId, request = {}) {
@@ -396,10 +395,8 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
       optionalString(proposalEvent.workflow_node_id) ??
       `runtime.workflow-edit-proposal.${safeId(normalizedProposalId)}`;
     const workflowPath = optionalString(proposalPayload.workflow_path);
-    const workflowPatch = proposalPayload.workflow_patch ?? null;
     let workflowRelativePath = optionalString(proposalPayload.workflow_relative_path);
-    let mutationExecuted = false;
-    if (workflowPath && workflowPatch && typeof workflowPatch === "object") {
+    if (workflowPath) {
       const resolvedWorkflowPath = path.resolve(agent.cwd, workflowPath);
       workflowRelativePath = relativePathForWorkspace(resolvedWorkflowPath, agent.cwd);
       if (!workflowRelativePath) {
@@ -409,74 +406,35 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
           proposal_id: normalizedProposalId,
         });
       }
-      writeJsonDep(resolvedWorkflowPath, workflowPatch);
-      mutationExecuted = true;
     }
-    const runOrAgentId = run?.id ?? agent.id;
-    const now = new Date().toISOString();
-    const event = store.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:workflow-edit-applied:${safeId(normalizedProposalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        `thread:${threadId}:workflow.edit.applied:${normalizedProposalId}:${approvalSatisfaction.approval_id}`,
-      source,
-      source_event_kind: "WorkflowEdit.Applied",
-      event_kind: "workflow.edit_applied",
-      status: "completed",
-      actor: "runtime",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "workflow_edit_proposal",
-      approval_id: approvalSatisfaction.approval_id,
-      payload_schema_version: "ioi.runtime.workflow-edit-apply.v1",
-      payload: {
-        event_kind: "WorkflowEdit.Applied",
-        proposal_id: normalizedProposalId,
-        proposal_event_id: proposalEvent.event_id,
-        approval_id: approvalSatisfaction.approval_id,
-        approval_satisfied: true,
-        approval_decision_event_id: approvalSatisfaction.decision_event_id,
-        requested_by: requestedBy,
-        control_surface: source,
-        workflow_path: workflowPath,
-        workflow_relative_path: workflowRelativePath,
-        patch_hash: proposalPayload.patch_hash ?? null,
-        mutation_allowed: true,
-        mutation_executed: mutationExecuted,
-        proposal_only: true,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [
-        ...normalizeArray(proposalEvent.receipt_refs),
-        `receipt_${runOrAgentId}_workflow_edit_applied_${safeId(normalizedProposalId)}`,
-      ],
-      policy_decision_refs: [
-        `policy_${runOrAgentId}_workflow_edit_apply_approval_satisfied`,
-      ],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
-    });
     return {
       schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-      status: "completed",
+      status: "blocked",
       proposal_id: normalizedProposalId,
       approval_id: approvalSatisfaction.approval_id,
       approval_satisfied: true,
-      mutation_allowed: true,
-      mutation_executed: mutationExecuted,
+      approval_decision_event_id: approvalSatisfaction.decision_event_id,
+      requested_by: requestedBy,
+      control_surface: source,
+      workflow_graph_id: workflowGraphId,
+      workflow_node_id: workflowNodeId,
+      workflow_path: workflowPath,
+      workflow_relative_path: workflowRelativePath,
+      patch_hash: proposalPayload.patch_hash ?? null,
+      mutation_allowed: false,
+      mutation_executed: false,
       idempotent_replay: false,
-      event,
+      reason: "workflow_edit_apply_rust_core_required",
+      error: {
+        code: "workflow_edit_apply_rust_core_required",
+        message: "Workflow edit apply requires Rust daemon-core workflow mutation support.",
+        details: {
+          proposal_id: normalizedProposalId,
+          approval_id: approvalSatisfaction.approval_id,
+          approval_decision_event_id: approvalSatisfaction.decision_event_id,
+          workflow_relative_path: workflowRelativePath,
+        },
+      },
     };
   }
 

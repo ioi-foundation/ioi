@@ -302,14 +302,13 @@ test("workflow-edit surface ignores retired request identity aliases", () => {
     idempotencyKey: "workflow_edit_apply_idempotency_retired",
   });
 
-  assert.equal(applied.event.workflow_graph_id, null);
-  assert.equal(applied.event.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
-  assert.equal(
-    applied.event.idempotency_key,
-    "thread:thread_alpha:workflow.edit.applied:proposal_retired_aliases:approval_retired_aliases",
-  );
-  assert.equal(applied.event.payload_summary.requested_by, "workflow-author");
-  assert.equal(applied.event.payload_summary.approval_id, "approval_retired_aliases");
+  assert.equal(applied.status, "blocked");
+  assert.equal(applied.workflow_graph_id, null);
+  assert.equal(applied.workflow_node_id, "runtime.workflow-edit-proposal.proposal_retired_aliases");
+  assert.equal(applied.requested_by, "workflow-author");
+  assert.equal(applied.approval_id, "approval_retired_aliases");
+  assert.equal(applied.mutation_executed, false);
+  assert.equal(applied.error.code, "workflow_edit_apply_rust_core_required");
 });
 
 test("workflow-edit surface accepts canonical idempotency keys", () => {
@@ -329,7 +328,9 @@ test("workflow-edit surface accepts canonical idempotency keys", () => {
   });
 
   assert.equal(store.events[0].idempotency_key, "workflow_edit_idempotency_canonical");
-  assert.equal(applied.event.idempotency_key, "workflow_edit_apply_idempotency_canonical");
+  assert.equal(applied.idempotent_replay, false);
+  assert.equal(applied.error.code, "workflow_edit_apply_rust_core_required");
+  assert.equal(store.events.some((event) => event.idempotency_key === "workflow_edit_apply_idempotency_canonical"), false);
 });
 
 test("workflow-edit surface blocks apply until proposal approval is satisfied", () => {
@@ -352,7 +353,7 @@ test("workflow-edit surface blocks apply until proposal approval is satisfied", 
   assert.equal(result.error.code, "workflow_edit_approval_required");
 });
 
-test("workflow-edit surface applies approved proposals and replays idempotently", () => {
+test("workflow-edit surface blocks approved proposals until Rust apply support exists", () => {
   const store = createStore();
   const surface = createSurface();
   const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
@@ -367,17 +368,17 @@ test("workflow-edit surface applies approved proposals and replays idempotently"
     source: "agent_studio",
     actor: "operator_one",
   });
-  const replay = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {});
-  const written = JSON.parse(fs.readFileSync(path.join(store.cwd, "workflows/apply.json"), "utf8"));
 
-  assert.equal(result.status, "completed");
+  assert.equal(result.status, "blocked");
   assert.equal(result.approval_satisfied, true);
-  assert.equal(result.mutation_allowed, true);
-  assert.equal(result.mutation_executed, true);
+  assert.equal(result.mutation_allowed, false);
+  assert.equal(result.mutation_executed, false);
   assert.equal(result.idempotent_replay, false);
-  assert.equal(result.event.event_kind, "workflow.edit_applied");
-  assert.equal(result.event.payload_summary.approval_decision_event_id, "event_3");
-  assert.equal(result.event.payload_summary.workflow_relative_path, "workflows/apply.json");
+  assert.equal(result.reason, "workflow_edit_apply_rust_core_required");
+  assert.equal(result.error.code, "workflow_edit_apply_rust_core_required");
+  assert.equal(result.error.details.approval_decision_event_id, "event_3");
+  assert.equal(result.workflow_relative_path, "workflows/apply.json");
+  assert.equal(fs.existsSync(path.join(store.cwd, "workflows/apply.json")), false);
   for (const field of [
     "schemaVersion",
     "proposalId",
@@ -388,28 +389,8 @@ test("workflow-edit surface applies approved proposals and replays idempotently"
     "idempotentReplay",
   ]) {
     assert.equal(Object.hasOwn(result, field), false, `${field} apply result alias must be absent`);
-    assert.equal(Object.hasOwn(replay, field), false, `${field} replay result alias must be absent`);
   }
-  for (const field of [
-    "proposalId",
-    "proposalEventId",
-    "approvalId",
-    "approvalSatisfied",
-    "approvalDecisionEventId",
-    "workflowPath",
-    "workflowRelativePath",
-    "patchHash",
-    "mutationAllowed",
-    "mutationExecuted",
-    "proposalOnly",
-  ]) {
-    assert.equal(Object.hasOwn(result.event.payload_summary, field), false, `${field} apply payload alias must be absent`);
-  }
-  assert.deepEqual(written, { name: "applied", nodes: [{ id: "node_apply" }] });
-  assert.equal(replay.status, "completed");
-  assert.equal(replay.idempotent_replay, true);
-  assert.equal(replay.event, result.event);
-  assert.equal(store.events.filter((event) => event.event_kind === "workflow.edit_applied").length, 1);
+  assert.equal(store.events.filter((event) => event.event_kind === "workflow.edit_applied").length, 0);
 });
 
 test("workflow-edit surface enforces workspace boundaries and required proposal ids", () => {

@@ -53,7 +53,8 @@ workspace restore daemon-core command-envelope evidence through slice 695, plus
 model-mount daemon-core command-envelope evidence through slice 696, plus
 worker/service package daemon-core command-envelope evidence through slice 697,
 plus runtime model-route JS fallback retirement evidence through slice 698, plus
-model provider JS invocation retirement evidence through slice 699.
+model provider JS invocation retirement evidence through slice 699, plus
+workflow-edit direct JS mutation retirement evidence through slice 700.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -103,6 +104,9 @@ Remaining terminal blockers:
   instead of executing through JS; they still require concrete Rust
   workload_client/model_mount backend extraction before those routes are live
   again.
+- Approved workflow-edit apply now fails closed instead of writing workflow JSON
+  or emitting a JS-created `workflow.edit_applied` event; Rust daemon-core
+  workflow mutation admission/execution remains the required terminal path.
 - Some route families still have JS live surfaces, supervision, persistence, or
   projection code that must be demoted to non-authoritative adapter behavior or
   deleted after Rust parity is verified.
@@ -692,6 +696,11 @@ Matrix compaction timing:
   the model-mounting and JS-facade-retirement rows while preserving the new
   fail-closed hosted/non-migrated provider boundary and concrete Rust hosted
   provider backend extraction as the remaining target.
+- One-hundred-thirty-sixth scheduled pass completed on 2026-06-08:
+  workflow-edit direct JS mutation retirement evidence after slice 700 was
+  compacted into the workflow-edit and JS-facade-retirement rows while
+  preserving approved apply as fail-closed until Rust daemon-core workflow
+  mutation admission/execution exists.
 
 ## Implementation Slice 0
 
