@@ -182,9 +182,9 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
       tool_name: toolId ?? null,
       tool_call_id: toolCallId ?? null,
       workspace_root: workspaceRoot ?? null,
-      has_screenshot_path: Boolean(input?.screenshot_path ?? input?.screenshotPath),
-      has_som_path: Boolean(input?.som_path ?? input?.somPath),
-      has_ax_path: Boolean(input?.ax_path ?? input?.axPath),
+      has_screenshot_path: Boolean(input?.screenshot_path),
+      has_som_path: Boolean(input?.som_path),
+      has_ax_path: Boolean(input?.ax_path),
       evidence_refs: [
         "visual_observation_artifact_js_materializer_retired",
         "rust_daemon_core_visual_artifact_admission_required",

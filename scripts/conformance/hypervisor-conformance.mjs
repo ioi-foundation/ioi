@@ -419,6 +419,9 @@ function runDocs() {
       /MCP mutation\/add helpers pass canonical `workspace_root` and\s+`source_scope`/.test(guide) &&
       /mcp-manager\.mjs` no longer consumes `sourcePath`,\s+`sourceScope`, or `configCompatibility`/.test(guide) &&
       /The Slice 767 MCP manager\/catalog\/helper config\/source handoff alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 768 retired visual observation artifact materialization path alias\s+fallback metadata/.test(guide) &&
+      /`has_screenshot_path`, `has_som_path`, and `has_ax_path` only from canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(guide) &&
+      /Schedule the Slice 768 matrix-compaction pass before unrelated route-family\s+work/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -450,7 +453,8 @@ function runDocs() {
       /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state\s+committer injection retirement evidence/.test(matrix) &&
       /This pass compacted Slice 767 MCP manager\/catalog\/helper config\/source handoff\s+alias-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 768 retired visual observation artifact materialization path alias\s+fallback metadata/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first only after compacting Slice 768/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -656,11 +660,14 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 766 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 767/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 767 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 767 MCP\s+manager\/catalog\/helper config\/source handoff alias-retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 768/.test(matrix) &&
+      /visual observation artifact materialization path alias\s+fallback metadata/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 768 visual artifact path alias\s+retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, and config-compatibility\s+handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
+      /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
       ) &&
@@ -2927,8 +2934,17 @@ function runBridge() {
       /visual_observation_artifact_js_materializer_retired/.test(codingToolVisualArtifactMaterializerBlock) &&
       /rust_daemon_core_visual_artifact_admission_required/.test(codingToolVisualArtifactMaterializerBlock) &&
       /agentgres_visual_artifact_state_truth_required/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /has_screenshot_path/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /has_screenshot_path:\s*Boolean\(input\?\.screenshot_path\)/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /has_som_path:\s*Boolean\(input\?\.som_path\)/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /has_ax_path:\s*Boolean\(input\?\.ax_path\)/.test(codingToolVisualArtifactMaterializerBlock) &&
       /fails closed before JS visual GUI artifact materialization/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /ignores retired visual GUI path aliases/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /screenshotPath:\s*"retired-screenshot\.png"/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /somPath:\s*"retired-som\.json"/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /axPath:\s*"retired-ax\.json"/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /error\.details\.has_screenshot_path,\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /error\.details\.has_som_path,\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /error\.details\.has_ax_path,\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /fails closed before local visual GUI file reads/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /fails closed before JS visual GUI size checks/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /Object\.hasOwn\(error\.details,\s*"source_path_hash"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
@@ -2939,6 +2955,9 @@ function runBridge() {
       !/\bmetadata\[spec\.refKey\]\s*=\s*artifactId/.test(codingToolVisualArtifactMaterializerBlock) &&
       !/return \{\s*metadata,\s*artifactRefs,\s*artifacts\s*\}/.test(codingToolVisualArtifactMaterializerBlock) &&
       !/computerUseVisualArtifactRefs:\s*materializedVisualArtifacts\.artifactRefs/.test(runtimeDaemonIndex) &&
+      !/input\?\.screenshotPath/.test(codingToolVisualArtifactMaterializerBlock) &&
+      !/input\?\.somPath/.test(codingToolVisualArtifactMaterializerBlock) &&
+      !/input\?\.axPath/.test(codingToolVisualArtifactMaterializerBlock) &&
       !/^\s*(?:sourcePathHash|contentBytes|maxBytes)\s*:/m.test(codingToolVisualArtifactMaterializerBlock),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs",

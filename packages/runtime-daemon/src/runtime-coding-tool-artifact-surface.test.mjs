@@ -400,6 +400,39 @@ test("coding-tool artifact surface fails closed before JS visual GUI artifact ma
   assert.equal(store.artifactCommits.length, 0);
 });
 
+test("coding-tool artifact surface ignores retired visual GUI path aliases", () => {
+  const { surface } = createSurface();
+  const store = createStore();
+
+  assert.throws(
+    () =>
+      surface.materializeVisualGuiObservationArtifacts(store, {
+        threadId: "thread_alpha",
+        toolId: "computer.visual_gui.observe",
+        toolCallId: "tool_call_alpha",
+        workspaceRoot: "/workspace",
+        input: {
+          screenshotPath: "retired-screenshot.png",
+          somPath: "retired-som.json",
+          axPath: "retired-ax.json",
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
+      assert.equal(error.details.operation_kind, "artifact.visual_observation");
+      assert.equal(error.details.has_screenshot_path, false);
+      assert.equal(error.details.has_som_path, false);
+      assert.equal(error.details.has_ax_path, false);
+      assert.equal(Object.hasOwn(error.details, "screenshotPath"), false);
+      assert.equal(Object.hasOwn(error.details, "somPath"), false);
+      assert.equal(Object.hasOwn(error.details, "axPath"), false);
+      return true;
+    },
+  );
+  assert.equal(store.codingArtifacts.size, 0);
+});
+
 test("coding-tool artifact surface requires Rust core for visual GUI paths with explicit refs", () => {
   const { surface } = createSurface();
   const store = createStore();

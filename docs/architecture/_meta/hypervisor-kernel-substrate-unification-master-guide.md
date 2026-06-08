@@ -526,8 +526,21 @@ expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
 conformance. Do not encode the remaining JS MCP read/config helpers or command
 transport as terminal architecture.
 The Slice 767 MCP manager/catalog/helper config/source handoff alias-retirement
-matrix-compaction pass is complete. No matrix-compaction pass is pending until
-the next Rust-core extraction or facade-retirement seam lands.
+matrix-compaction pass is complete.
+Slice 768 retired visual observation artifact materialization path alias
+fallback metadata in the coding-tool artifact mutation fail-closed surface.
+`runtime-coding-tool-artifact-surface.mjs` now derives
+`has_screenshot_path`, `has_som_path`, and `has_ax_path` only from canonical
+`screenshot_path`, `som_path`, and `ax_path`; retired `screenshotPath`,
+`somPath`, and `axPath` inputs no longer count as local path presence and do
+not appear in fail-closed error details. This does not claim terminal visual
+artifact migration: direct Rust daemon-core coding-tool artifact admission still
+needs to own visual artifact materialization, receipt binding,
+ArtifactRef/PayloadRef admission, Agentgres expected-head/state-root binding,
+projection, replay, SDK/IDE protocol coverage, and conformance. Do not encode
+the remaining fail-closed JS artifact facade as terminal architecture.
+Schedule the Slice 768 matrix-compaction pass before unrelated route-family
+work.
 
 ## Part II: Target Execution Model
 
