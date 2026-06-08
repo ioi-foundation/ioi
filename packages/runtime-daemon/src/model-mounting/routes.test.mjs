@@ -264,6 +264,58 @@ test("model mounting route helpers ignore retired hosted fallback policy alias",
   assert.equal(selectRoute({ ...base, policy: { allowHostedFallback: true } }).endpoint.id, "endpoint.local");
 });
 
+test("model mounting route helpers ignore retired cost and fixture-deny policy aliases", () => {
+  const routes = new Map([["route.local-first", {
+    id: "route.local-first",
+    fallback: ["endpoint.fixture", "endpoint.hosted"],
+    deniedProviders: [],
+    providerEligibility: [],
+    privacy: "hosted_allowed",
+    maxCostUsd: 0.01,
+  }]]);
+  const endpoints = new Map([
+    ["endpoint.fixture", {
+      id: "endpoint.fixture",
+      providerId: "provider.fixture",
+      modelId: "model.fixture",
+      capabilities: ["chat"],
+      estimatedCostUsd: 0,
+    }],
+    ["endpoint.hosted", {
+      id: "endpoint.hosted",
+      providerId: "provider.hosted",
+      modelId: "model.hosted",
+      capabilities: ["chat"],
+      estimatedCostUsd: 0.05,
+    }],
+  ]);
+  const providers = new Map([
+    ["provider.fixture", { id: "provider.fixture", kind: "local_folder", privacyClass: "local_private" }],
+    ["provider.hosted", { id: "provider.hosted", kind: "openai", privacyClass: "hosted" }],
+  ]);
+  const base = {
+    endpoint: (id) => endpoints.get(id),
+    endpointIdsForExplicitModel: () => [],
+    isAutoModelSelector: () => true,
+    isFixtureEndpointCandidate: (endpoint) => endpoint.id === "endpoint.fixture",
+    modelId: "auto",
+    provider: (id) => providers.get(id),
+    route: (id) => routes.get(id),
+    routes,
+    runtimeError,
+    truthy: Boolean,
+  };
+
+  assert.equal(
+    selectRoute({ ...base, policy: { deny_fixture_models: true, max_cost_usd: 0.1 } }).endpoint.id,
+    "endpoint.hosted",
+  );
+  assert.equal(
+    selectRoute({ ...base, policy: { denyFixtureModels: true, maxCostUsd: 0.1 } }).endpoint.id,
+    "endpoint.fixture",
+  );
+});
+
 test("model mounting route helpers report blocker details when no endpoint satisfies policy", () => {
   const routes = new Map([["route.local-first", {
     id: "route.local-first",

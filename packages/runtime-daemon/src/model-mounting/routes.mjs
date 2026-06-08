@@ -149,7 +149,7 @@ export function selectRoute({
       evaluatedCandidates.push(candidate);
       continue;
     }
-    if (truthy(policy?.deny_fixture_models ?? policy?.denyFixtureModels) && isFixtureEndpointCandidate(candidateEndpoint, candidateProvider)) {
+    if (truthy(policy?.deny_fixture_models) && isFixtureEndpointCandidate(candidateEndpoint, candidateProvider)) {
       candidate.reason = "fixture_model_denied_by_product_policy";
       evaluatedCandidates.push(candidate);
       continue;
@@ -168,7 +168,7 @@ export function selectRoute({
       evaluatedCandidates.push(candidate);
       continue;
     }
-    const costCeiling = Number(policy?.max_cost_usd ?? policy?.maxCostUsd ?? route.maxCostUsd ?? Infinity);
+    const costCeiling = Number(policy?.max_cost_usd ?? route.maxCostUsd ?? Infinity);
     const estimatedCost = Number(candidateEndpoint.estimatedCostUsd ?? candidateProvider.estimatedCostUsd ?? (candidateProvider.privacyClass === "hosted" ? 0.01 : 0));
     if (Number.isFinite(costCeiling) && estimatedCost > costCeiling) {
       candidate.reason = "estimated_cost_exceeds_policy";

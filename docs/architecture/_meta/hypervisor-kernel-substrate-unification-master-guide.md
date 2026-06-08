@@ -410,6 +410,17 @@ conformance. Do not encode the remaining JS helper as terminal architecture.
 The Slice 760 catalog download policy request-synonym retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
+Slice 761 retired remaining camelCase policy steering from model-mount route
+selection: `denyFixtureModels` and `maxCostUsd` can no longer affect endpoint
+selection before Rust model_mount route-decision admission. The selector now
+honors only canonical `deny_fixture_models` and `max_cost_usd` alongside the
+already canonical hosted-fallback policy. This does not claim terminal route
+selection migration: direct Rust daemon-core model_mount route-control and
+route-decision APIs still need to own route policy evaluation, authority gates,
+receipt binding, Agentgres admission, projection, replay, and conformance.
+Schedule the Slice 761 matrix-compaction pass on the next resume after this
+seam lands; do not encode the remaining JS selector helper as terminal
+architecture.
 
 ## Part II: Target Execution Model
 

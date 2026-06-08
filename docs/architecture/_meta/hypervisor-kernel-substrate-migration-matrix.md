@@ -49,9 +49,9 @@ This pass compacted Slice 759 catalog-provider runtime-material read-cache
 retirement evidence.
 This pass compacted Slice 760 catalog download policy request-synonym
 retirement evidence.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
+Slice 761 retired model-mount route-selection policy aliases from the remaining
+JS selector helper; schedule its matrix-compaction pass on the next resume
+before starting unrelated route-family work. Preserve the live owner map,
 terminal blockers, and the fact that fail-closed JS facades, canonical input
 helpers, local projection helpers, and migration transport are not terminal
 substrate.
@@ -161,8 +161,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 760 catalog
-  download policy request-synonym retirement compaction.
+- Next scheduled matrix-compaction pass: Slice 761 model-mount route-selection
+  policy alias retirement, after this verified seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14380,6 +14380,41 @@ target ownership.
   that seam lands, and do not encode catalog download helper request validation,
   fail-closed catalog/download facades, vault/custody helpers, or command
   transport as terminal architecture.
+
+## Implementation Slice 761: Route-Selection Policy Alias Retirement
+
+Status: implemented on 2026-06-08; compaction scheduled for the next resume
+before unrelated route-family work.
+
+Scope:
+
+- Retire remaining camelCase policy aliases from the model-mount route-selection
+  helper.
+- Keep route-selection receipts and Rust model_mount admission as the only
+  admitted path while direct Rust daemon-core route policy evaluation remains
+  pending.
+
+Implementation:
+
+- `selectRoute()` now reads only canonical `deny_fixture_models`.
+- Retired `denyFixtureModels` cannot deny fixture endpoints.
+- `selectRoute()` now reads only canonical `max_cost_usd` before falling back to
+  the admitted route record's `maxCostUsd`.
+- Retired `maxCostUsd` cannot widen the request policy cost ceiling.
+- Existing `allowHostedFallback` policy alias retirement remains guarded.
+
+Evidence:
+
+- `packages/runtime-daemon/src/model-mounting/routes.mjs`
+- `packages/runtime-daemon/src/model-mounting/routes.test.mjs`
+- Conformance anchor: `model-mount-route-decision-live-bridge`
+
+Terminal note:
+
+- This slice narrows JS selector policy input; it does not make the selector
+  terminal architecture. Rust daemon-core model_mount route control and
+  route-decision APIs still need to own policy evaluation, authority gates,
+  receipt binding, Agentgres admission, projection, replay, and conformance.
 
 ## Command State
 
