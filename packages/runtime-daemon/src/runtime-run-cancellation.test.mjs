@@ -425,7 +425,12 @@ test("cancelRun fails closed without Rust-planned run record", () => {
 
   assert.throws(
     () => cancelRun(state, run.id, deps(calls, { status: "planned", operation_kind: "run.cancel", run: null })),
-    (error) => error.code === "run_cancel_state_update_planner_invalid",
+    (error) => {
+      assert.equal(error.code, "run_cancel_state_update_planner_invalid");
+      assert.equal(error.details.run_id, run.id);
+      assert.equal(Object.hasOwn(error.details, "runId"), false);
+      return true;
+    },
   );
   assert.equal(calls.length, 1);
   assert.equal(state.writes.length, 0);
@@ -454,8 +459,47 @@ test("cancelRun fails closed without Rust-planned operation kind", () => {
     () => cancelRun(state, run.id, deps(calls, { status: "planned", run: plannedRun })),
     (error) => {
       assert.equal(error.code, "run_cancel_state_update_operation_kind_missing");
-      assert.equal(error.details.runId, run.id);
+      assert.equal(error.details.run_id, run.id);
       assert.equal(error.details.operation_kind, "run.cancel");
+      assert.equal(Object.hasOwn(error.details, "runId"), false);
+      return true;
+    },
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(state.writes.length, 0);
+  assert.equal(state.runs.get(run.id), run);
+});
+
+test("cancelRun fails closed with canonical details for mismatched Rust-planned operation kind", () => {
+  const run = {
+    id: "run_cancel_mismatched_operation_kind",
+    agentId: "agent_one",
+    status: "running",
+    objective: "Cancel with mismatched operation kind",
+    mode: "send",
+    createdAt: "2026-06-04T00:00:00.000Z",
+    updatedAt: "2026-06-04T00:00:01.000Z",
+    events: [],
+    trace: { events: [], receipts: [], qualityLedger: {} },
+    receipts: [],
+    artifacts: [],
+  };
+  const state = fakeState(run);
+  const calls = [];
+  const plannedRun = plannedCancellationRun(run, "2026-06-06T04:45:00.000Z");
+
+  assert.throws(
+    () => cancelRun(state, run.id, deps(calls, {
+      status: "planned",
+      operation_kind: "run.close",
+      run: plannedRun,
+    })),
+    (error) => {
+      assert.equal(error.code, "run_cancel_state_update_operation_kind_mismatch");
+      assert.equal(error.details.run_id, run.id);
+      assert.equal(error.details.expected_operation_kind, "run.cancel");
+      assert.equal(error.details.operation_kind, "run.close");
+      assert.equal(Object.hasOwn(error.details, "runId"), false);
       return true;
     },
   );

@@ -13317,6 +13317,60 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 658
+
+```yaml
+slice: 658
+phase: 10-authoritative-js-facade-retirement
+objective: retire run-cancel Rust-planning fail-closed detail aliases so
+  cancellation planner errors expose canonical snake_case identity fields only
+owner_boundary:
+  route_or_surface: daemon run cancellation state-update fail-closed surface
+  authority_gate: unchanged; run cancellation state updates remain Rust-planned
+    through the policy core bridge before JS persistence writes
+  execution_backend: unchanged; this slice keeps the existing Rust state-update
+    planner and removes only the retired JS facade detail shape
+  truth_path: run cancellation still writes only after a Rust-planned
+    `run.cancel` operation kind and run record are returned
+  projection_path: conformance now rejects `runId` in run-cancel planner error
+    details and requires canonical `run_id`, `operation_kind`, and
+    `expected_operation_kind` details for fail-closed cases
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-run-cancellation.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-run-cancellation.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance requires run-cancel planner invalid, missing operation
+    kind, and mismatched operation kind errors to expose canonical `run_id`
+    details without retired `runId`
+  - focused daemon tests prove failed Rust-planning responses do not write run
+    state and do not expose the retired detail alias
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-run-cancellation.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused fail-closed tests compare missing,
+    invalid, and mismatched Rust planner outputs against the same no-write
+    invariant with canonical detail fields
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      run-cancel fail-closed detail cleanup
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

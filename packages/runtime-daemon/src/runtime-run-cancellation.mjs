@@ -24,7 +24,7 @@ function plannedRunCancelRecord(stateUpdate, runId) {
   if (!updatedRun?.id) {
     const error = new Error("Rust run cancellation state planning did not return a run record.");
     error.code = "run_cancel_state_update_planner_invalid";
-    error.details = { runId };
+    error.details = { run_id: runId };
     throw error;
   }
   return updatedRun;
@@ -38,13 +38,13 @@ function plannedRunCancelOperationKind(stateUpdate, runId) {
   if (!operationKind) {
     const error = new Error("Rust run cancellation state planning did not return an operation kind.");
     error.code = "run_cancel_state_update_operation_kind_missing";
-    error.details = { runId, operation_kind: "run.cancel" };
+    error.details = { run_id: runId, operation_kind: "run.cancel" };
     throw error;
   }
   if (operationKind !== "run.cancel") {
     const error = new Error("Rust run cancellation state planning returned an unexpected operation kind.");
     error.code = "run_cancel_state_update_operation_kind_mismatch";
-    error.details = { runId, expected_operation_kind: "run.cancel", operation_kind: operationKind };
+    error.details = { run_id: runId, expected_operation_kind: "run.cancel", operation_kind: operationKind };
     throw error;
   }
   return operationKind;

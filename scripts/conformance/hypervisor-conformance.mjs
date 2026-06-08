@@ -4901,6 +4901,10 @@ function runBridge() {
       /contextPolicyRunner\.planRunCancelStateUpdate/.test(runtimeRunCancellation) &&
       /plannedRunCancelRecord/.test(runtimeRunCancellation) &&
       /plannedRunCancelOperationKind/.test(runtimeRunCancellation) &&
+      /details\s*=\s*\{\s*run_id:\s*runId\s*\}/.test(runtimeRunCancellation) &&
+      /details\s*=\s*\{\s*run_id:\s*runId,\s*operation_kind:\s*"run\.cancel"\s*\}/.test(runtimeRunCancellation) &&
+      /details\s*=\s*\{\s*run_id:\s*runId,\s*expected_operation_kind:\s*"run\.cancel",\s*operation_kind:\s*operationKind\s*\}/.test(runtimeRunCancellation) &&
+      !/details\s*=\s*\{[^}\n]*\brunId\s*:/.test(runtimeRunCancellation) &&
       !/runtimeTaskRecord|runtimeJobRecord|runtimeChecklistRecord|makeEvent|artifact\(/.test(
         runtimeRunCancellation,
       ) &&
@@ -4911,6 +4915,10 @@ function runBridge() {
       /cancelRun fails closed without Rust-planned operation kind/.test(
         runtimeRunCancellationTest,
       ) &&
+      /cancelRun fails closed with canonical details for mismatched Rust-planned operation kind/.test(
+        runtimeRunCancellationTest,
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
       /contextPolicyRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
