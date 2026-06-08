@@ -102,10 +102,6 @@ function harness() {
     pathResolve(value) {
       return `/resolved${value}`;
     },
-    validateMcpServerRecords(servers) {
-      const issues = servers.some((item) => item.invalid) ? [{ code: "invalid" }] : [];
-      return { ok: issues.length === 0, issues, warnings: [] };
-    },
   });
   const store = {
     defaultCwd: "/workspace",
@@ -181,6 +177,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(status.resource_count, 3);
   assert.equal(status.prompt_count, 3);
   assert.equal(status.enabled_server_count, 3);
+  assert.equal(status.validation.source, "rust_mcp_server_validation_command");
   assert.equal(status.validation.server_count, 3);
   assert.equal(status.routes.search_tools, "/v1/mcp/tools/search");
   assert.equal(Object.hasOwn(status, "schemaVersion"), false);
@@ -214,6 +211,10 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   );
   assert.deepEqual(
     calls.find((call) => call.name === "validateMcpServers")?.request.servers.map((item) => item.id),
+    ["mcp.agent.git", "mcp.workspace.docs", "model-search"],
+  );
+  assert.deepEqual(
+    calls.filter((call) => call.name === "validateMcpServers").at(-1)?.request.servers.map((item) => item.id),
     ["mcp.valid", "mcp.invalid"],
   );
 

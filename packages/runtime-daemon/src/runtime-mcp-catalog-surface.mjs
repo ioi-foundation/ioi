@@ -15,7 +15,6 @@ import {
   mcpServerRecordsFromValidationInput,
   mcpToolsForServers,
   normalizeMcpServerRecord,
-  validateMcpServerRecords,
 } from "./mcp-manager.mjs";
 import {
   mcpCatalogPreviewLimit,
@@ -66,7 +65,6 @@ export function createRuntimeMcpCatalogSurface({
   pathResolve = path.resolve,
   resolveMcpServerRecord: resolveMcpServerRecordDep = resolveMcpServerRecord,
   contextPolicyRunner = createContextPolicyRunnerFromEnv(),
-  validateMcpServerRecords: validateMcpServerRecordsDep = validateMcpServerRecords,
 } = {}) {
   return {
     listMcpServers(store, options = {}) {
@@ -116,7 +114,7 @@ export function createRuntimeMcpCatalogSurface({
       const tools = this.listMcpTools(store, options);
       const resources = this.listMcpResources(store, options);
       const prompts = this.listMcpPrompts(store, options);
-      const validation = validateMcpServerRecordsDep(servers);
+      const validation = contextPolicyRunner.validateMcpServers({ servers });
       return {
         schema_version: statusSchemaVersion,
         object: "ioi.runtime_mcp_manager_status",

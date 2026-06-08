@@ -615,6 +615,18 @@ MCP control/admission/projection ownership before terminal migration is claimed.
 The Slice 774 MCP server validation Rust-core matrix-compaction pass is complete.
 No matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
+Slice 775 retired the public MCP status JS validation decision path. The runtime
+MCP catalog surface no longer imports or injects `validateMcpServerRecords`;
+both `mcpStatus()` and `validateMcp()` now send normalized canonical server
+records through `contextPolicyRunner.validateMcpServers({ servers })` so public
+MCP status/validation pass-block decisions come from Rust
+`McpServerValidationCore` via `validate_mcp_servers` migration transport. This
+still does not claim terminal MCP migration: catalog normalization/projection,
+registry truth, wallet authority, transport containment, receipt binding,
+Agentgres admission, replay, and SDK/IDE protocol coverage still need direct
+Rust daemon-core ownership. The Slice 775 MCP status validation Rust-core
+matrix-compaction pass is pending and must run before unrelated route-family
+work resumes.
 
 ## Part II: Target Execution Model
 
