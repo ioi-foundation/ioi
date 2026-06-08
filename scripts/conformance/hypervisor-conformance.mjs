@@ -529,10 +529,15 @@ function runDocs() {
       /Slice 793\s+model_mount projection-persistence Rust-plan matrix-compaction pass is\s+complete/.test(guide) &&
       /Slice 794 retired the store-level model_mount map writer/.test(guide) &&
       /`model_mount_store_map_write_retired`/.test(guide) &&
-      /Slice 794\s+model_mount store map-writer retirement\s+matrix-compaction pass is\s+scheduled/.test(guide) &&
+      /Slice 794\s+model_mount store map-writer retirement\s+matrix-compaction pass is\s+complete/.test(guide) &&
+      /Slice 795 retired direct model_mount projection-cache reads/.test(guide) &&
+      /`model_mount_projection_cache_read_retired`/.test(guide) &&
+      /`rust_plan_gated_receipt_projection_adapter`/.test(guide) &&
+      /Slice 795\s+model_mount\s+projection-cache read retirement matrix-compaction pass is\s+scheduled/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
-      /Implementation Slice Evidence: 794/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
+      /Implementation Slice Evidence: 795/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -13551,7 +13556,8 @@ function runReceipts() {
       /Model-mount receipt persistence requires Rust Agentgres receipt-state commit/.test(modelMountStore) &&
       /commitModelMountReceiptState\(receipt\)/.test(modelMountStore) &&
       !/writeJson\(path\.join\(this\.stateDir,\s*"receipts"/.test(modelMountStore) &&
-      /local_receipt_projection_store/.test(modelMountStore) &&
+      /rust_plan_gated_receipt_projection_adapter/.test(modelMountStore) &&
+      !/local_receipt_projection_store/.test(modelMountStore) &&
       /notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receipt_id: receiptId \}\)/.test(modelMountStore) &&
       !/notFound\(`Receipt not found: \$\{receiptId\}`,\s*\{ receiptId \}\)/.test(modelMountStore) &&
       /model_mount_lifecycle_receipt_js_facade_retired/.test(modelMountReceiptOperations) &&
@@ -13630,6 +13636,22 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 5/10 is pending: store-level model_mount map writes must fail closed instead of writing local JSON records outside Rust Agentgres record-state commits",
+  );
+  assertCheck(
+    result,
+    "model-mount-projection-cache-read-retired",
+    /readProjection\(name\)\s*\{[\s\S]*model_mount_projection_cache_read_retired/.test(modelMountStore) &&
+      /rust_daemon_core_model_mount_projection_plan/.test(modelMountStore) &&
+      /rust_plan_gated_receipt_projection_adapter/.test(modelMountStore) &&
+      /rust_daemon_core_model_mount_projection_required/.test(modelMountStore) &&
+      !/readProjection\(name\)\s*\{[\s\S]*return readJson\(filePath\)/.test(modelMountStore) &&
+      /projection cache reads fail closed as a retired direct read path/.test(modelMountStoreTest) &&
+      /adapter status identifies Rust-plan-gated projection ownership/.test(modelMountStoreTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 5/10 is pending: direct model_mount projection-cache reads must fail closed and the store adapter must advertise Rust-plan-gated projection ownership",
   );
   assertCheck(
     result,

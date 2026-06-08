@@ -419,6 +419,27 @@ test("canonical projection writes persist only after Rust projection planning", 
   assert.deepEqual(appended, []);
 });
 
+test("projection cache reads fail closed as a retired direct read path", () => {
+  const { store } = testStore();
+
+  assert.throws(
+    () => store.readProjection("model-mounting-canonical"),
+    (error) =>
+      error.code === "model_mount_projection_cache_read_retired" &&
+      error.details.projection === "model-mounting-canonical" &&
+      error.details.canonical_projection === "rust_daemon_core_model_mount_projection_plan",
+  );
+});
+
+test("adapter status identifies Rust-plan-gated projection ownership", () => {
+  const { store } = testStore();
+  const status = store.adapterStatus();
+
+  assert.equal(status.implementation, "rust_plan_gated_receipt_projection_adapter");
+  assert.equal(status.evidenceRefs.includes("model_mount_projection_cache_read_retired"), true);
+  assert.equal(status.evidenceRefs.includes("rust_daemon_core_model_mount_projection_required"), true);
+});
+
 test("model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding", () => {
   const { appended, stateDir, store } = testStore();
 

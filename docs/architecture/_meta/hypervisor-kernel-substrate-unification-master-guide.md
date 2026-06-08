@@ -920,9 +920,22 @@ does not claim terminal model_mount migration: JS still loads local
 materialized records into in-memory maps as migration input, and direct Rust
 daemon-core Agentgres read/materialization APIs still need to replace local JSON
 map state. The Slice 794 model_mount store map-writer retirement
-matrix-compaction pass is scheduled once this verified slice lands; do not
-encode the command bridge, JS transport wrappers, or local map/projection
-materialization as terminal architecture.
+matrix-compaction pass is complete.
+
+Slice 795 retired direct model_mount projection-cache reads and removed the
+store adapter's local projection-store identity.
+`AgentgresModelMountingStore.readProjection()` now fails closed with
+`model_mount_projection_cache_read_retired` instead of reading local
+`projections/*.json` cache files, and `adapterStatus()` now reports
+`rust_plan_gated_receipt_projection_adapter` with evidence that Rust
+daemon-core projection ownership is required. This still does not claim
+terminal model_mount migration: canonical projections are still locally
+materialized after Rust planning, JS still prepares state input for the planner,
+and direct Rust daemon-core Agentgres projection/read APIs still need to replace
+local cache files and command transport. The Slice 795 model_mount
+projection-cache read retirement matrix-compaction pass is scheduled once this
+verified slice lands; do not encode the command bridge, JS transport wrappers,
+or local map/projection materialization as terminal architecture.
 
 ## Part II: Target Execution Model
 

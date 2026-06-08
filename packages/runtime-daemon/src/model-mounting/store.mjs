@@ -184,21 +184,30 @@ export class AgentgresModelMountingStore {
   }
 
   readProjection(name) {
-    const filePath = path.join(this.stateDir, "projections", `${safeFileName(name)}.json`);
-    if (!fs.existsSync(filePath)) {
-      throw notFound(`Projection not found: ${name}`, { projection: name });
-    }
-    return readJson(filePath);
+    throw runtimeError({
+      status: 403,
+      code: "model_mount_projection_cache_read_retired",
+      message: "Model-mounting projection cache reads are retired; use Rust daemon-core projection planning.",
+      details: {
+        projection: name ?? null,
+        canonical_projection: "rust_daemon_core_model_mount_projection_plan",
+      },
+    });
   }
 
   adapterStatus() {
     return {
       port: "AgentgresModelMountingStorePort",
-      implementation: "local_receipt_projection_store",
+      implementation: "rust_plan_gated_receipt_projection_adapter",
       remoteAdapter: process.env.IOI_AGENTGRES_URL
         ? { configured: true, urlHash: stableHash(process.env.IOI_AGENTGRES_URL) }
         : { configured: false, failClosed: true },
-      evidenceRefs: ["agentgres_receipt_projection_boundary", "typed_agentgres_projection_boundary"],
+      evidenceRefs: [
+        "agentgres_receipt_projection_boundary",
+        "typed_agentgres_projection_boundary",
+        "model_mount_projection_cache_read_retired",
+        "rust_daemon_core_model_mount_projection_required",
+      ],
     };
   }
 

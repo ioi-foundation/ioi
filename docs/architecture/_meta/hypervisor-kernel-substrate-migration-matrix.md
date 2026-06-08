@@ -100,6 +100,7 @@ This pass compacted Slice 792 model_mount read-projection Rust-authoring
 evidence.
 This pass compacted Slice 793 model_mount projection-persistence Rust-plan
 evidence.
+This pass compacted Slice 794 model_mount store map-writer retirement evidence.
 Slice 787 retired memory projection input compatibility aliases at the Rust
 boundary; its matrix-compaction pass is complete.
 Slice 788 retired memory projection envelope identity aliases at the
@@ -116,9 +117,11 @@ projection planning; its matrix-compaction pass is complete.
 Slice 793 moved canonical model_mount projection persistence behind Rust
 projection-plan evidence; its matrix-compaction pass is complete.
 Slice 794 retired the store-level model_mount map writer; its
+matrix-compaction pass is complete.
+Slice 795 retired direct model_mount projection-cache reads; its
 matrix-compaction pass is scheduled after this verified slice.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice, then compact Slice 794 evidence once
+facade-retirement implementation slice, then compact Slice 795 evidence once
 the next seam is clear. Preserve the live owner map, terminal blockers, and the
 fact that fail-closed JS facades, canonical input helpers, local projection
 helpers, and migration transport are not terminal substrate.
@@ -15940,7 +15943,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 794
+## Compacted Implementation Slice Evidence: 794
 
 Slice 794 retired the store-level model_mount map writer that remained below
 the already retired state-level map persistence facade.
@@ -15962,7 +15965,36 @@ materialized records into in-memory maps as migration input, and direct Rust
 daemon-core Agentgres read/materialization APIs still need to replace local JSON
 map state as a substrate.
 
-Scheduled matrix-compaction obligation from Slice 794 is pending after this
+Scheduled matrix-compaction obligation from Slice 794 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 795
+
+Slice 795 retired direct model_mount projection-cache reads and renamed the
+store adapter status away from local projection-store identity.
+`AgentgresModelMountingStore.readProjection()` now fails closed with
+`model_mount_projection_cache_read_retired` and points callers to Rust
+daemon-core projection planning instead of reading local
+`projections/*.json` cache files. `adapterStatus()` now reports
+`rust_plan_gated_receipt_projection_adapter` and includes evidence that direct
+projection-cache reads are retired and Rust daemon-core projection ownership is
+required.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/store.test.mjs` | passed |
+
+This does not claim terminal model_mount migration: canonical projection writes
+are still locally materialized after Rust planning, JS still prepares state
+input for the planner, and direct Rust daemon-core Agentgres projection/read
+APIs still need to replace local cache files and command transport.
+
+Scheduled matrix-compaction obligation from Slice 795 is pending after this
 verified slice. The next resume should either compact this evidence once the
 next Rust-core extraction/facade-retirement seam is clear or continue with that
 next seam while preserving the non-terminal status of command transport, JS
