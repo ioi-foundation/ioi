@@ -666,8 +666,8 @@ migration: direct Rust daemon-core MCP registry truth, live transport
 containment, wallet authority, StepModuleRouter dispatch, receipt binding,
 Agentgres admission, replay, and SDK/IDE protocol coverage still need direct
 Rust daemon-core ownership. The Slice 778 MCP status catalog-projection
-Rust-core matrix-compaction pass is pending and must run before unrelated
-route-family work resumes.
+Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
+pending until the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
