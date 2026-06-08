@@ -319,7 +319,10 @@ function runDocs() {
       /Slice 742 thread runtime-control\s+facade-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
-      /Slice 743 has opened the\s+next verified Rust-core extraction \/\s+facade-retirement seam/.test(guide) &&
+      /Slice 743\s+workspace-trust control facade-retirement matrix-compaction pass is complete/.test(
+        guide,
+      ) &&
+      /Resume with the next\s+verified Rust-core extraction or facade-retirement slice/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -329,7 +332,10 @@ function runDocs() {
       /The Slice 742\s+thread runtime-control facade-retirement compaction is complete/.test(
         guide,
       ) &&
-      /The next compaction pass is\s+scheduled after Slice 743/.test(guide) &&
+      /The Slice 743\s+workspace-trust control facade-retirement compaction is complete/.test(
+        guide,
+      ) &&
+      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -338,7 +344,7 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: Slice 743 opened the next Rust-core extraction \/\s+facade-retirement seam/.test(
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -354,7 +360,12 @@ function runDocs() {
         matrix,
       ) &&
       /thread-control-js-facade-retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 743/.test(
+      /Compacted Implementation Slice Evidence: 743/.test(matrix) &&
+      /Slice 743 retired workspace-trust warning and acknowledgement JS authority/.test(
+        matrix,
+      ) &&
+      /workspace-trust-control-js-facade-retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after the Slice 743\s+compaction/.test(
         matrix,
       ) &&
       /encoding the command bridge as\s+terminal shape/.test(

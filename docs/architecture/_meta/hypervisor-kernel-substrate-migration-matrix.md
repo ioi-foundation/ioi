@@ -6,7 +6,7 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 740. Slices 733-740 compacted the
+route-family slice ledger through Slice 743. Slices 733-740 compacted the
 runtime bridge thread/turn, runtime subagent control facade-retirement and
 legacy-body deletion, runtime task/job control facade-retirement, runtime
 thread-fork control facade-retirement, conversation-artifact control
@@ -24,10 +24,11 @@ snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail. The
 follow-up pass compacted Slice 741 thread-memory control facade-retirement
 evidence, then compacted Slice 742 thread runtime-control facade-retirement
-evidence.
-Next resume instruction: Slice 743 opened the next Rust-core extraction /
-facade-retirement seam; schedule the next matrix-compaction pass after Slice 743
-lands and before unrelated route-family work resumes.
+evidence. This pass compacted Slice 743 workspace-trust control
+facade-retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -122,10 +123,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 743 so the
-  workspace-trust control facade-retirement evidence can be compacted without
-  obscuring terminal blockers. Run that pass before unrelated route-family work
-  resumes.
+- Next scheduled matrix-compaction pass: none pending after the Slice 743
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13758,9 +13758,9 @@ ownership.
   model-route authority, receipt/state-root binding, workspace-trust policy
   integration, persistence, replay, and projection must move into direct Rust
   daemon-core APIs.
-- Workspace-trust acknowledgement helpers remain a separate live seam and should
-  be retired or moved behind direct Rust daemon-core workspace-trust admission in
-  a later slice.
+- Workspace-trust warning and acknowledgement helpers were retired as direct JS
+  authority in Slice 743. Terminal workspace-trust admission still requires
+  direct Rust daemon-core APIs.
 - Conformance anchors retained for this compacted slice include
   `thread-control-js-facade-retired`, `thread-control-request-aliases-retired`,
   `thread-control-error-detail-aliases-retired`,
@@ -13772,34 +13772,35 @@ ownership.
   that seam lands, and do not encode the Rust planner bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice 743
+## Compacted Implementation Slice Evidence: 743
 
-status: verified
-date: 2026-06-08
-route_or_surface: workspace-trust warning/acknowledgement control
-goal_phase:
-  - Phase 10: Rust daemon core extraction
-  - Phase 11: authoritative JS facade retirement
-target_owner: Rust daemon core `authority`/`ctee`/`agentgres_admission`/`projection`
-current_owner_before_slice: Workspace-trust warning and acknowledgement helpers still constructed warning and acknowledgement payloads in JS, read agent/thread and runtime-event stream state, appended runtime events, synthesized receipt/policy refs, and projected acknowledgement results from JS.
-implementation_notes:
-  - `appendWorkspaceTrustWarningEvent` and `acknowledgeWorkspaceTrustWarning` now fail closed with `runtime_workspace_trust_control_rust_core_required`.
-  - The guard runs before JS warning payload construction, `agentForThread`, runtime-event stream reads, `appendRuntimeEvent`, acknowledgement payload construction, receipt/policy ref synthesis, or `threadForAgent` projection.
-  - Workspace-trust control now aligns with the retired thread-control mode path: thread mode/model/thinking controls cannot append workspace-trust warnings from JS, and direct workspace-trust warning/acknowledgement helpers cannot append accepted trust truth from JS.
-  - Terminal workspace-trust admission, wallet/cTEE workspace authority, receipt/state-root binding, replay, and projection must move into direct Rust daemon-core APIs before these controls can execute again.
-verification:
-  - node --check packages/runtime-daemon/src/threads/workspace-trust-state.mjs
-  - node --check packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs
-  - node --test packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs
-  - hypervisor-conformance:compositor
-  - hypervisor-conformance:bridge
-  - hypervisor-conformance:docs
-  - hypervisor-conformance
-  - git diff --check
-test_gap:
-  - Terminal direct Rust daemon-core workspace-trust admission/projection APIs are still pending; this slice removes JS workspace-trust event/persistence/projection authority.
-next_compaction:
-  - Schedule the matrix-compaction pass after this slice so future resumes preserve the workspace-trust control facade-retirement evidence without encoding fail-closed JS surfaces as terminal shape.
+The expanded Slice 743 ledger was compacted on 2026-06-08 after the
+workspace-trust warning/acknowledgement control facade-retirement seam landed.
+This slice remains active migration evidence, not terminal architecture. The
+`RuntimeWorkspaceTrustControl` implementation-matrix row, conformance command
+contract, and terminal blockers above remain authoritative for current and
+target ownership.
+
+- Slice 743 retired workspace-trust warning and acknowledgement JS authority:
+  `appendWorkspaceTrustWarningEvent` and `acknowledgeWorkspaceTrustWarning` now
+  fail closed at `runtime.workspace_trust_control` before JS warning payload
+  construction, `agentForThread`, runtime-event stream reads,
+  `appendRuntimeEvent`, acknowledgement payload construction, receipt/policy ref
+  synthesis, or `threadForAgent` projection.
+- Terminal direct Rust daemon-core workspace-trust admission/projection APIs are
+  still pending. Wallet/cTEE workspace authority, Agentgres expected-head and
+  state-root binding, receipt/event materialization, replay, and projection must
+  move into direct Rust daemon-core APIs before these controls can execute again.
+- Conformance anchors retained for this compacted slice include
+  `workspace-trust-control-js-facade-retired`,
+  `runtime_workspace_trust_control_rust_core_required`,
+  `runtime_workspace_trust_event_append_js_retired`, and
+  `agentgres_workspace_trust_truth_required`.
+- Scheduled matrix-compaction obligation from Slice 743 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS surfaces as terminal
+  architecture.
 
 ## Command State
 
@@ -13816,8 +13817,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-740 runtime facade-retirement
-matrix-compaction pass:
+Current expected behavior after the Slice 733-743 runtime facade-retirement
+matrix-compaction passes:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
