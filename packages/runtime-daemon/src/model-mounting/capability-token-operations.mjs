@@ -1,63 +1,20 @@
-import crypto from "node:crypto";
-
-import { sanitizeVaultRefs } from "./provider-auth.mjs";
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
 import {
   hashToken,
   notFound,
-  normalizeScopes,
   publicToken,
   runtimeError,
 } from "./io.mjs";
 
 export function createToken(state, body = {}, deps = {}) {
-  const {
-    generateTokenValue = () => `ioi_mnt_${crypto.randomBytes(24).toString("base64url")}`,
-    hashToken: hashTokenDep = hashToken,
-    normalizeScopes: normalizeScopesDep = normalizeScopes,
-    publicToken: publicTokenDep = publicToken,
-    randomUUID = () => crypto.randomUUID(),
-    sanitizeVaultRefs: sanitizeVaultRefsDep = sanitizeVaultRefs,
-  } = deps;
-  const now = state.nowIso();
-  const tokenValue = generateTokenValue();
-  const token = state.walletAuthority.createGrant({
-    id: `grant_${randomUUID()}`,
-    audience: body.audience ?? "autopilot-local-server",
-    allowed: normalizeScopesDep(body.allowed, [
-      "model.chat:*",
-      "model.responses:*",
-      "model.embeddings:*",
-      "model.tokenize:*",
-      "model.context:*",
-      "route.use:*",
-    ]),
-    denied: normalizeScopesDep(body.denied, ["connector.gmail.send", "filesystem.write", "shell.exec"]),
-    expiresAt:
-      body.expires_at ??
-      body.expiresAt ??
-      new Date(state.now().getTime() + 24 * 60 * 60 * 1000).toISOString(),
-    revocationEpoch: Number(body.revocation_epoch ?? body.revocationEpoch ?? 0),
-    grantId: body.grant_id ?? body.grantId ?? `wallet.grant.${randomUUID()}`,
-    vaultRefs: sanitizeVaultRefsDep(body.vault_refs ?? body.vaultRefs ?? {}),
-    auditReceiptIds: [],
-    tokenHash: hashTokenDep(tokenValue),
-    createdAt: now,
-    lastUsedAt: null,
-    lastUsedScope: null,
-    revokedAt: null,
-    receiptId: null,
-  });
-  const receipt = state.receipt("permission_token", {
-    summary: `Capability token ${token.id} created for ${token.audience}.`,
-    redaction: "redacted",
-    evidenceRefs: ["wallet.network.capability_grant", token.grantId],
-    details: publicTokenDep(token),
-  });
-  const stored = { ...token, receiptId: receipt.id };
-  commitCapabilityTokenRecordState(state, stored, "model_mount.capability_token.create", [receipt.id]);
-  state.tokens.set(stored.id, stored);
-  return { ...publicTokenDep(stored), token: tokenValue };
+  void state;
+  throwCapabilityTokenRustCoreRequired(
+    "model_mount.capability_token.create",
+    {
+      ...(body.audience ? { audience: body.audience } : {}),
+      ...(body.grant_id ? { grant_id: body.grant_id } : {}),
+    },
+    deps,
+  );
 }
 
 export function listTokens(state, deps = {}) {
@@ -68,29 +25,13 @@ export function listTokens(state, deps = {}) {
 }
 
 export function revokeToken(state, tokenId, deps = {}) {
-  const {
-    notFound: notFoundDep = notFound,
-    publicToken: publicTokenDep = publicToken,
-  } = deps;
-  const token = state.tokens.get(tokenId);
-  if (!token) throw notFoundDep(`Token not found: ${tokenId}`, { token_id: tokenId });
-  const revoked = state.walletAuthority.revokeGrant(token);
-  const receipt = state.receipt("permission_token_revocation", {
-    summary: `Capability token ${tokenId} revoked.`,
-    redaction: "redacted",
-    evidenceRefs: ["wallet.network.revocation", token.grantId],
-    details: publicTokenDep(revoked),
-  });
-  const stored = {
-    ...revoked,
-    auditReceiptIds: [...(Array.isArray(revoked.auditReceiptIds) ? revoked.auditReceiptIds : []), receipt.id],
-  };
-  commitCapabilityTokenRecordState(state, stored, "model_mount.capability_token.revoke", [
-    stored.receiptId,
-    receipt.id,
-  ]);
-  state.tokens.set(tokenId, stored);
-  return publicTokenDep(stored);
+  const { notFound: notFoundDep = notFound } = deps;
+  if (!state.tokens.has(tokenId)) throw notFoundDep(`Token not found: ${tokenId}`, { token_id: tokenId });
+  throwCapabilityTokenRustCoreRequired(
+    "model_mount.capability_token.revoke",
+    { token_id: tokenId },
+    deps,
+  );
 }
 
 export function authorize(state, authorization, requiredScope, deps = {}) {
@@ -116,26 +57,35 @@ export function authorize(state, authorization, requiredScope, deps = {}) {
       details: { required_scope: requiredScope },
     });
   }
-  const authorized = state.walletAuthority.authorizeScope(token, requiredScope);
-  commitCapabilityTokenRecordState(state, authorized, "model_mount.capability_token.authorize", [
-    authorized.receiptId,
-  ]);
-  state.tokens.set(authorized.id, authorized);
-  return authorized;
+  throwCapabilityTokenRustCoreRequired(
+    "model_mount.capability_token.authorize",
+    {
+      token_id: token.id,
+      grant_id: token.grantId ?? null,
+      required_scope: requiredScope,
+    },
+    deps,
+  );
 }
 
-function commitCapabilityTokenRecordState(state, record, operation_kind, receipt_refs) {
-  return commitModelMountRecordState(state, {
-    recordDir: "tokens",
-    record,
-    operation_kind,
-    receipt_refs,
-    unconfiguredCode: "model_mount_capability_token_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Model-mount capability token persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: {
-      token_id: record?.id ?? null,
-      grant_id: record?.grantId ?? null,
+function throwCapabilityTokenRustCoreRequired(operation_kind, details = {}, deps = {}) {
+  throw (deps.runtimeError ?? defaultRuntimeError)({
+    status: 501,
+    code: "model_mount_capability_token_rust_core_required",
+    message:
+      "Capability token mutation and authorization facades require Rust daemon-core wallet authority ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.capability_token",
+      evidence_refs: [
+        "public_capability_token_js_facade_retired",
+        "rust_daemon_core_wallet_authority_required",
+      ],
+      ...details,
     },
   });
+}
+
+function defaultRuntimeError({ code, message, details, status }) {
+  return Object.assign(new Error(message), { code, details, status });
 }

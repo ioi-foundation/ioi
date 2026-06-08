@@ -12,42 +12,27 @@ function createState() {
   const calls = [];
   const receipts = [];
   const recordStateCommits = [];
-  const now = new Date("2026-06-04T14:00:00.000Z");
   const state = {
     calls,
     receipts,
     recordStateCommits,
     tokens: new Map(),
-    now: () => now,
-    nowIso: () => now.toISOString(),
+    nowIso() {
+      this.timestamped = true;
+      return "2026-06-04T14:00:00.000Z";
+    },
     walletAuthority: {
       createGrant(token) {
         calls.push({ name: "createGrant", token });
-        return {
-          ...token,
-          authority: "agentgres_wallet_authority",
-          walletNetworkShape: {
-            grantId: token.grantId,
-            revocationEpoch: token.revocationEpoch,
-            vaultRefs: token.vaultRefs,
-          },
-        };
+        return token;
       },
       revokeGrant(token) {
         calls.push({ name: "revokeGrant", tokenId: token.id });
-        return {
-          ...token,
-          revokedAt: "2026-06-04T14:00:00.000Z",
-          revocationEpoch: Number(token.revocationEpoch ?? 0) + 1,
-        };
+        return token;
       },
       authorizeScope(token, requiredScope) {
         calls.push({ name: "authorizeScope", tokenId: token.id, requiredScope });
-        return {
-          ...token,
-          lastUsedAt: "2026-06-04T14:00:00.000Z",
-          lastUsedScope: requiredScope,
-        };
+        return token;
       },
     },
     receipt(kind, payload) {
@@ -66,149 +51,135 @@ function createState() {
       recordStateCommits.push(request);
       return {
         record_id: request.record_id,
-        object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
-        content_hash: `sha256:${request.record_id}`,
-        admission_hash: `admit:${request.record_id}`,
         commit_hash: `commit:${request.record_id}`,
-        written_record: request.record,
-        storage_record: {
-          object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
-          content_hash: `sha256:${request.record_id}`,
-          admission: { admission_hash: `admit:${request.record_id}` },
-        },
       };
     },
   };
   return state;
 }
 
-const deps = {
-  generateTokenValue: () => "ioi_mnt_test_token",
-  hashToken: (value) => `hash:${value}`,
-  randomUUID: (() => {
-    let index = 0;
-    return () => {
-      index += 1;
-      return `uuid-${index}`;
-    };
-  })(),
-};
-
-test("capability token operations create public token envelopes and persist grants", () => {
-  const state = createState();
-
-  const result = createToken(state, {
-    audience: "agent-studio",
-    allowed: "model.chat:*",
-    denied: ["shell.exec"],
-    vaultRefs: {
-      openai: "vault://provider.openai/api-key",
-      unsafe: "plain-secret",
-    },
-    expiresAt: "2026-06-05T14:00:00.000Z",
-  }, deps);
-  const stored = state.tokens.get("grant_uuid-1");
-
-  assert.equal(result.id, "grant_uuid-1");
-  assert.equal(result.audience, "agent-studio");
-  assert.deepEqual(result.allowed, ["model.chat:*"]);
-  assert.deepEqual(result.denied, ["shell.exec"]);
-  assert.equal(result.token, "ioi_mnt_test_token");
-  assert.equal(result.receiptId, "receipt-1");
-  assert.equal(result.tokenHash, undefined);
-  assert.equal(JSON.stringify(result).includes("vault://provider.openai/api-key"), false);
-  assert.equal(stored.tokenHash, "hash:ioi_mnt_test_token");
-  assert.equal(stored.grantId, "wallet.grant.uuid-2");
-  assert.equal(state.receipts[0].kind, "permission_token");
-  assert.equal(state.receipts[0].redaction, "redacted");
-  assert.deepEqual(state.receipts[0].evidenceRefs, [
-    "wallet.network.capability_grant",
-    "wallet.grant.uuid-2",
-  ]);
-  assert.equal(state.calls.some((call) => call.name === "writeMap" && call.dir === "tokens"), false);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "tokens");
-  assert.equal(state.recordStateCommits[0].record_id, "grant_uuid-1");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.capability_token.create");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt-1"]);
-  assert.equal(state.recordStateCommits[0].record.tokenHash, "hash:ioi_mnt_test_token");
-});
-
-test("capability token operations list, authorize, and revoke tokens", () => {
-  const state = createState();
-  const first = createToken(state, { audience: "b", expiresAt: "2026-06-05T14:00:00.000Z" }, deps);
-  const second = createToken(
-    state,
-    {
-      audience: "a",
-      allowed: ["model.responses:*"],
-      expiresAt: "2026-06-05T14:00:00.000Z",
-    },
-    {
-      ...deps,
-      generateTokenValue: () => "ioi_mnt_second",
-    },
-  );
-
-  assert.deepEqual(listTokens(state).map((token) => token.id), [first.id, second.id]);
-
-  const authorized = authorize(state, "Bearer ioi_mnt_second", "model.responses:create", {
+function deps(overrides = {}) {
+  return {
     hashToken: (value) => `hash:${value}`,
-  });
-  assert.equal(authorized.id, second.id);
-  assert.equal(authorized.lastUsedScope, "model.responses:create");
-  assert.equal(state.tokens.get(second.id).lastUsedAt, "2026-06-04T14:00:00.000Z");
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.capability_token.authorize");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, [second.receiptId]);
-
-  const revoked = revokeToken(state, second.id);
-  assert.equal(revoked.revocationEpoch, 1);
-  assert.equal(revoked.revokedAt, "2026-06-04T14:00:00.000Z");
-  assert.equal(state.receipts.at(-1).kind, "permission_token_revocation");
-  assert.equal(state.receipts.at(-1).redaction, "redacted");
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.capability_token.revoke");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, [second.receiptId, "receipt-3"]);
-  assert.deepEqual(state.tokens.get(second.id).auditReceiptIds, ["receipt-3"]);
-});
-
-test("capability token state persistence fails closed without Rust Agentgres record-state commit", () => {
-  const state = createState();
-  delete state.commitRuntimeModelMountRecordState;
-  const localDeps = {
-    ...deps,
-    randomUUID: (() => {
-      let index = 0;
-      return () => {
-        index += 1;
-        return `local-uuid-${index}`;
-      };
-    })(),
+    runtimeError({ status, code, message, details }) {
+      return Object.assign(new Error(message), { status, code, details });
+    },
+    ...overrides,
   };
+}
+
+function assertNoCapabilityTokenMutation(state) {
+  assert.deepEqual(state.calls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.timestamped, undefined);
+}
+
+test("capability token mutation and authorization facades fail closed until Rust wallet authority owns them", () => {
+  const createStateValue = createState();
 
   assert.throws(
-    () => createToken(state, { expiresAt: "2026-06-05T14:00:00.000Z" }, localDeps),
+    () =>
+      createToken(
+        createStateValue,
+        {
+          audience: "agent-studio",
+          allowed: "model.chat:*",
+          denied: ["shell.exec"],
+          vault_refs: {
+            openai: "vault://provider.openai/api-key",
+          },
+          expires_at: "2026-06-05T14:00:00.000Z",
+          grant_id: "wallet.grant.test",
+        },
+        deps(),
+      ),
     (error) => {
-      assert.equal(error.status, 500);
-      assert.equal(error.code, "model_mount_capability_token_state_commit_unconfigured");
-      assert.equal(error.details.token_id, "grant_local-uuid-1");
-      assert.equal(error.details.grant_id, "wallet.grant.local-uuid-2");
-      assert.equal(error.details.receipt_id, "receipt-1");
-      assert.equal(Object.hasOwn(error.details, "tokenId"), false);
-      assert.equal(Object.hasOwn(error.details, "grantId"), false);
-      assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_capability_token_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.capability_token.create");
+      assert.equal(error.details.rust_core_boundary, "model_mount.capability_token");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_capability_token_js_facade_retired",
+        "rust_daemon_core_wallet_authority_required",
+      ]);
+      assert.equal(error.details.audience, "agent-studio");
+      assert.equal(error.details.grant_id, "wallet.grant.test");
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
       return true;
     },
   );
-  assert.equal(state.tokens.size, 0);
+  assertNoCapabilityTokenMutation(createStateValue);
+  assert.equal(createStateValue.tokens.size, 0);
+
+  const token = {
+    id: "grant-1",
+    audience: "agent-studio",
+    allowed: ["model.chat:*"],
+    denied: [],
+    tokenHash: "hash:ioi_mnt_test_token",
+    grantId: "wallet.grant.test",
+    createdAt: "2026-06-04T14:00:00.000Z",
+  };
+
+  const revokeStateValue = createState();
+  revokeStateValue.tokens.set(token.id, token);
+  assert.throws(
+    () => revokeToken(revokeStateValue, token.id, deps()),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_capability_token_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.capability_token.revoke");
+      assert.equal(error.details.token_id, token.id);
+      return true;
+    },
+  );
+  assertNoCapabilityTokenMutation(revokeStateValue);
+  assert.equal(revokeStateValue.tokens.get(token.id), token);
+
+  const authorizeStateValue = createState();
+  authorizeStateValue.tokens.set(token.id, token);
+  assert.throws(
+    () => authorize(authorizeStateValue, "Bearer ioi_mnt_test_token", "model.chat:complete", deps()),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_capability_token_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.capability_token.authorize");
+      assert.equal(error.details.token_id, token.id);
+      assert.equal(error.details.grant_id, "wallet.grant.test");
+      assert.equal(error.details.required_scope, "model.chat:complete");
+      assert.equal(Object.hasOwn(error.details, "requiredScope"), false);
+      return true;
+    },
+  );
+  assertNoCapabilityTokenMutation(authorizeStateValue);
+  assert.equal(authorizeStateValue.tokens.get(token.id), token);
 });
 
-test("capability token operations preserve auth and not-found errors", () => {
+test("capability token list remains a read-only projection adapter", () => {
   const state = createState();
-  createToken(state, { expiresAt: "2026-06-05T14:00:00.000Z" }, deps);
+  state.tokens.set("grant-b", {
+    id: "grant-b",
+    createdAt: "2026-06-04T14:00:01.000Z",
+    tokenHash: "hash:b",
+  });
+  state.tokens.set("grant-a", {
+    id: "grant-a",
+    createdAt: "2026-06-04T14:00:00.000Z",
+    tokenHash: "hash:a",
+  });
+
+  assert.deepEqual(listTokens(state).map((token) => token.id), ["grant-a", "grant-b"]);
+  assert.equal(listTokens(state).some((token) => Object.hasOwn(token, "tokenHash")), false);
+  assertNoCapabilityTokenMutation(state);
+});
+
+test("capability token authorization and revoke preserve auth and not-found errors", () => {
+  const state = createState();
 
   assert.throws(
-    () => authorize(state, "", "model.chat:complete", { hashToken: (value) => `hash:${value}` }),
+    () => authorize(state, "", "model.chat:complete", deps()),
     (error) => {
       assert.equal(error.status, 401);
       assert.equal(error.code, "auth");
@@ -218,7 +189,7 @@ test("capability token operations preserve auth and not-found errors", () => {
     },
   );
   assert.throws(
-    () => authorize(state, "Bearer missing", "model.chat:complete", { hashToken: (value) => `hash:${value}` }),
+    () => authorize(state, "Bearer missing", "model.chat:complete", deps()),
     (error) => {
       assert.equal(error.status, 401);
       assert.equal(error.code, "auth");
@@ -238,4 +209,5 @@ test("capability token operations preserve auth and not-found errors", () => {
       return true;
     },
   );
+  assertNoCapabilityTokenMutation(state);
 });

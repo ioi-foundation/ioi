@@ -12349,27 +12349,39 @@ function runReceipts() {
     result,
     "model-mount-wallet-authority-audit-append-retired",
     !/\bappendOperation\b/.test(walletAuthority) &&
-      /wallet authority creates grants and records authorization use without local operation append/.test(walletAuthorityTest),
+      !/\b(?:createGrant|authorizeScope|revokeGrant|recordLastUsed)\b/.test(walletAuthority) &&
+      /wallet authority resolves vault refs without local operation append/.test(walletAuthorityTest) &&
+      /wallet authority adapter status reflects vault-ref boundary only/.test(walletAuthorityTest) &&
+      /implementation,\s*"wallet_network_vault_ref_boundary"/.test(walletAuthorityTest) &&
+      /methods,\s*\["resolveVaultRef",\s*"auditEvent"\]/.test(walletAuthorityTest),
     [
       "packages/runtime-daemon/src/model-mounting/wallet-authority.mjs",
       "packages/runtime-daemon/src/model-mounting/wallet-authority.test.mjs",
     ],
-    "Phase 7/11 is pending: wallet authority audit mirroring must not append JS operation-like records outside wallet.network and admitted receipt paths",
+    "Phase 7/11 is pending: JS wallet authority grant lifecycle methods must stay retired; only vault-ref boundary/status helpers may remain until Rust wallet authority owns grants",
   );
   assertCheck(
     result,
-    "model-mount-capability-token-error-detail-aliases-retired",
+    "model-mount-capability-token-js-facade-retired",
     /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
       /notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*token_id:\s*tokenId\s*\}\)/.test(
         capabilityTokenOperations,
       ) &&
-      /commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
-      /commitModelMountRecordState/.test(capabilityTokenOperations) &&
-      /recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
+      /throwCapabilityTokenRustCoreRequired/.test(capabilityTokenOperations) &&
+      /model_mount_capability_token_rust_core_required/.test(capabilityTokenOperations) &&
+      /rust_core_boundary:\s*"model_mount\.capability_token"/.test(capabilityTokenOperations) &&
+      /public_capability_token_js_facade_retired/.test(capabilityTokenOperations) &&
+      /rust_daemon_core_wallet_authority_required/.test(capabilityTokenOperations) &&
       /model_mount\.capability_token\.create/.test(capabilityTokenOperations) &&
       /model_mount\.capability_token\.authorize/.test(capabilityTokenOperations) &&
       /model_mount\.capability_token\.revoke/.test(capabilityTokenOperations) &&
-      /model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
+      !/commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
+      !/commitModelMountRecordState/.test(capabilityTokenOperations) &&
+      !/recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
+      !/model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
+      !/state\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(capabilityTokenOperations) &&
+      !/state\.receipt\("permission_token/.test(capabilityTokenOperations) &&
+      !/state\.tokens\.set/.test(capabilityTokenOperations) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
       !/normalizeCapabilityTokenRecordStateCommit/.test(capabilityTokenOperations) &&
       !/state\.writeMap\("tokens"/.test(capabilityTokenOperations) &&
@@ -12378,25 +12390,26 @@ function runReceipts() {
         capabilityTokenOperations,
       ) &&
       /recordStateCommits/.test(capabilityTokenOperationsTest) &&
-      /capability token state persistence fails closed without Rust Agentgres record-state commit/.test(
+      /capability token mutation and authorization facades fail closed until Rust wallet authority owns them/.test(
         capabilityTokenOperationsTest,
       ) &&
+      /capability token list remains a read-only projection adapter/.test(capabilityTokenOperationsTest) &&
+      /assertNoCapabilityTokenMutation/.test(capabilityTokenOperationsTest) &&
+      /model_mount_capability_token_rust_core_required/.test(capabilityTokenOperationsTest) &&
+      /public_capability_token_js_facade_retired/.test(capabilityTokenOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(capabilityTokenOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"tokenId"\),\s*false/.test(capabilityTokenOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs",
     ],
-    "Phase 7/11 is pending: capability token fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 7/11 is pending: capability token mutation/authorization must fail closed until Rust daemon-core wallet authority owns grant, revocation, authorization, receipt, record-state, and projection semantics",
   );
   assertCheck(
     result,
     "model-mount-wallet-vault-error-detail-aliases-retired",
-    /details:\s*\{\s*required_scope:\s*requiredScope,\s*grant_id:\s*token\.grantId,\s*revocation_epoch:\s*token\.revocationEpoch\s*\}/.test(
-      walletAuthority,
-    ) &&
-      /details:\s*\{\s*required_scope:\s*requiredScope,\s*grant_id:\s*token\.grantId\s*\}/.test(walletAuthority) &&
-      /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION\s*\}/.test(walletAuthority) &&
+    /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION\s*\}/.test(walletAuthority) &&
+      !/\b(?:createGrant|authorizeScope|revokeGrant|recordLastUsed)\b/.test(walletAuthority) &&
       !/details:\s*\{[^}]*\b(?:requiredScope|grantId|revocationEpoch|vaultRef)\s*:/.test(walletAuthority) &&
       /details:\s*\{\s*adapter:\s*"encrypted_keychain_vault_adapter",\s*path_hash:\s*stableHash\(this\.filePath\),\s*error:/.test(
         vaultPort,
@@ -12406,9 +12419,6 @@ function runReceipts() {
       /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION,\s*purpose\s*\}/.test(vaultPort) &&
       /details:\s*\{\s*vault_ref:\s*SECRET_REDACTION,\s*material:\s*SECRET_REDACTION\s*\}/.test(vaultPort) &&
       !/details:\s*\{[^}]*\b(?:pathHash|pathConfigured|keyConfigured|vaultRef)\s*:/.test(vaultPort) &&
-      /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(walletAuthorityTest) &&
-      /Object\.hasOwn\(error\.details,\s*"grantId"\),\s*false/.test(walletAuthorityTest) &&
-      /Object\.hasOwn\(error\.details,\s*"revocationEpoch"\),\s*false/.test(walletAuthorityTest) &&
       /Object\.hasOwn\(error\.details,\s*"vaultRef"\),\s*false/.test(walletAuthorityTest) &&
       /Object\.hasOwn\(error\.details,\s*"pathConfigured"\),\s*false/.test(vaultPortTest) &&
       /Object\.hasOwn\(error\.details,\s*"keyConfigured"\),\s*false/.test(vaultPortTest) &&
