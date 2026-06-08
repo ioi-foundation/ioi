@@ -3753,6 +3753,9 @@ function runBridge() {
       /ExternalCapabilityExitAuthorityBridgeRequest/.test(bridgeModule) &&
       /authorize_external_capability_exit/.test(bridgeModule) &&
       /rust_external_capability_exit_authority_command/.test(bridgeModule) &&
+      /external_capability_authority_rejects_step_module_command_schema/.test(
+        bridgeModule,
+      ) &&
       /bridge_authorizes_external_capability_exit_through_rust_authority_core/.test(
         bridgeModule,
       ) &&
@@ -3769,7 +3772,10 @@ function runBridge() {
     result,
     "external-capability-exit-authority-daemon-runner",
     /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
-      /IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND/.test(externalCapabilityAuthorityRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(externalCapabilityAuthorityRunner) &&
+      !/IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND/.test(externalCapabilityAuthorityRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
       /RustExternalCapabilityAuthorityRunner/.test(externalCapabilityAuthorityRunner) &&
       /createExternalCapabilityAuthorityRunnerFromEnv/.test(externalCapabilityAuthorityRunner) &&
       /createExternalCapabilityAuthorityRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -3779,6 +3785,9 @@ function runBridge() {
       /rust_authority/.test(externalCapabilityAuthorityRunner) &&
       /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
       /external capability authority runner sends Rust authority bridge request/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner env uses daemon-core command boundary/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /external capability authority runner fails closed without command/.test(

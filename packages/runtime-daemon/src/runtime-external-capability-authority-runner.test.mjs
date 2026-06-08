@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV,
   EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
   EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION,
   ExternalCapabilityAuthorityRunnerError,
@@ -77,12 +78,18 @@ test("external capability authority runner sends Rust authority bridge request",
   assert.equal(result.authority_hash, "sha256:external-capability-authority");
 });
 
-test("external capability authority runner can be configured from env", () => {
+test("external capability authority runner env uses daemon-core command boundary", () => {
   const runner = createExternalCapabilityAuthorityRunnerFromEnv({
-    [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV]: "mock-external-capability-authority-bridge",
+    [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV]: "--json",
+    IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND: "retired-external-capability-bridge",
+    IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS: "--retired-external",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-external-capability-authority-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("external capability authority runner fails closed without command", () => {

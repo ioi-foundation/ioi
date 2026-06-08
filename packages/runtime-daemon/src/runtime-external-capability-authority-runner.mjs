@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV = "IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND";
-export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV = "IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS";
-export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND = "rust_authority";
 
 export function createExternalCapabilityAuthorityRunnerFromEnv(env = process.env, options = {}) {
@@ -45,7 +45,7 @@ export class RustExternalCapabilityAuthorityRunner {
     }
     if (!this.command) {
       throw new ExternalCapabilityAuthorityRunnerError(
-        "External capability exits require IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND for Rust wallet.network authority.",
+        "External capability exits require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core wallet.network authority.",
         "external_capability_authority_bridge_unconfigured",
         {
           env: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,

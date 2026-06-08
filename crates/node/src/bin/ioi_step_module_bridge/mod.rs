@@ -1011,6 +1011,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "commit_runtime_artifact_state"
             | "commit_runtime_model_mount_record_state"
             | "commit_runtime_model_mount_receipt_state"
+            | "authorize_external_capability_exit"
             | "plan_coding_tool_approval_manifest"
             | "plan_approval_request_state_update"
             | "plan_approval_decision_state_update"
@@ -2285,12 +2286,12 @@ fn plan_approval_revoke_state_update(
 fn authorize_external_capability_exit(
     request: ExternalCapabilityExitAuthorityBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7388,7 +7389,7 @@ mod tests {
     #[test]
     fn bridge_authorizes_external_capability_exit_through_rust_authority_core() {
         let request: ExternalCapabilityExitAuthorityBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "authorize_external_capability_exit",
             "backend": "rust_authority",
             "request": {
@@ -7433,7 +7434,7 @@ mod tests {
     #[test]
     fn bridge_rejects_external_capability_exit_without_wallet_network_authority() {
         let request: ExternalCapabilityExitAuthorityBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "authorize_external_capability_exit",
             "request": {
                 "schema_version": "ioi.external_capability_exit_authority.v1",
@@ -7455,6 +7456,39 @@ mod tests {
 
         assert_eq!(error.code, "external_capability_exit_authority_invalid");
         assert!(error.message.contains("MissingWalletNetworkAuthority"));
+    }
+
+    #[test]
+    fn external_capability_authority_rejects_step_module_command_schema() {
+        let request: ExternalCapabilityExitAuthorityBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "authorize_external_capability_exit",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.external_capability_exit_authority.v1",
+                "exit_ref": "exit://aiip/slack-post-message",
+                "capability_ref": "capability://connector/slack.postMessage",
+                "target_ref": "aiip://workspace/channel/runtime",
+                "policy_hash": "sha256:external-capability-policy",
+                "idempotency_key": "idem:external-capability-exit",
+                "authority_grant_refs": [
+                    "wallet.network://grant/external-capability/slack-post-message"
+                ],
+                "authority_receipt_refs": [
+                    "receipt://wallet.network/authority/slack-post-message"
+                ]
+            }
+        }))
+        .expect("external capability exit bridge request");
+
+        let error = authorize_external_capability_exit(request)
+            .expect_err("daemon-core authority rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
