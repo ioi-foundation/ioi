@@ -14139,6 +14139,73 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 714
+
+```yaml
+slice: 714
+phase: 10-authoritative-js-facade-retirement
+objective: retire public model-provider upsert JS mutation before wallet vault
+  resolution, provider record-state persistence, or provider-map mutation
+owner_boundary:
+  route_or_surface: model-mounting provider configuration/control
+  authority_gate: provider upsert now fails closed at
+    `model_mount.provider_control` after canonical alias validation; provider
+    start/stop already use the same Rust-core-required boundary
+  execution_backend: none in JS for provider configuration mutation; Rust
+    daemon-core model_mount must own provider configuration, wallet/cTEE vault
+    authority, provider-control receipts, record-state admission, and provider
+    projection
+  truth_path: no JS provider vault-ref resolution, `model-providers`
+    record-state commit, provider-map mutation, provider-control receipt, or
+    projection write from public provider upsert
+  projection_path: provider list/get and Rust-bound lifecycle/inventory
+    adapters still read current state until direct Rust provider projection APIs
+    land
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires
+    `model_mount_provider_control_rust_core_required` for provider upsert and
+    rejects reintroducing JS provider vault-ref normalization or provider
+    record-state commits in the upsert body
+  - focused daemon tests prove provider upsert fails before wallet vault
+    resolution, record-state commit, writeMap/projection, or `state.providers`
+    mutation while retired request aliases still fail before vault resolution
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - Rust-bound provider health and local provider inventory/lifecycle adapters
+      still persist through current JS store surfaces after Rust
+      lifecycle/inventory hash evidence; extract direct Rust projection/control
+      APIs before terminal conformance
+    - provider read adapters still expose current provider records until Rust
+      daemon-core provider projection owns this surface
+    - schedule a matrix-compaction pass once the next provider/control or
+      model-instance Rust-core extraction seam is clear, so provider-control
+      retirement remains migration evidence rather than terminal JS shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14154,7 +14221,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 713 and the model route-control JS mutation-facade retirement pass:
+Current expected behavior after Slice 714 and the provider upsert JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

@@ -23,47 +23,18 @@ const CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS = [
 
 export function upsertProvider(state, body = {}, deps = {}) {
   const {
-    driverForProviderKind,
-    normalizeProviderAuthHeaderName,
-    normalizeProviderAuthScheme,
-    normalizeScopes,
-    providerRequiresVaultSecret,
-    publicProvider,
     safeId,
   } = deps;
   assertCanonicalProviderUpsertRequestBody(body);
-  const checkedAt = state.nowIso();
   const id = body.id ?? `provider.${safeId(body.kind ?? body.label ?? "custom")}`;
   const existing = state.providers.get(id) ?? {};
   const kind = body.kind ?? existing.kind ?? "custom_http";
-  const secretRef = state.normalizeProviderSecretRef(kind, body, existing.secretRef ?? null);
-  const authScheme = normalizeProviderAuthScheme(body.auth_scheme ?? existing.authScheme);
-  const authHeaderName = normalizeProviderAuthHeaderName(
-    body.auth_header_name ?? existing.authHeaderName,
-  );
-  const requestedStatus = body.status ?? existing.status ?? "configured";
-  const provider = {
+  throw providerControlRustCoreRequired({
     id,
     kind,
-    label: body.label ?? existing.label ?? id,
-    apiFormat: body.api_format ?? existing.apiFormat ?? "custom",
-    driver: body.driver ?? existing.driver ?? driverForProviderKind(kind),
-    baseUrl: body.base_url ?? existing.baseUrl ?? null,
-    status: providerRequiresVaultSecret(kind) && !secretRef ? "blocked" : requestedStatus,
-    privacyClass: body.privacy_class ?? existing.privacyClass ?? "workspace",
-    capabilities: normalizeScopes(body.capabilities, existing.capabilities ?? ["chat"]),
-    discovery: {
-      ...existing.discovery,
-      checkedAt,
-      evidenceRefs: normalizeScopes(body.evidence_refs, existing.discovery?.evidenceRefs ?? ["operator_provider_config"]),
-    },
-    secretRef,
-    authScheme,
-    authHeaderName,
-  };
-  commitProviderRecordState(state, provider, "model_mount.provider.write", []);
-  state.providers.set(provider.id, provider);
-  return publicProvider(provider);
+  }, "provider_upsert", {
+    operation_kind: "model_mount.provider.write",
+  });
 }
 
 function assertCanonicalProviderUpsertRequestBody(body = {}) {
@@ -323,14 +294,21 @@ function assertProviderOperationInventoryBound(provider, result, operation) {
   throw error;
 }
 
-function providerControlRustCoreRequired(provider, operation) {
-  const error = new Error("Provider start/stop control requires direct Rust daemon-core support.");
+function providerControlRustCoreRequired(provider, operation, details = {}) {
+  const error = new Error("Provider control requires direct Rust daemon-core support.");
   error.status = 501;
   error.code = "model_mount_provider_control_rust_core_required";
   error.details = {
+    rust_core_boundary: "model_mount.provider_control",
     operation,
+    ...details,
     provider_id: provider?.id ?? null,
     provider_kind: provider?.kind ?? null,
+    evidence_refs: [
+      "model_mount_provider_control_js_facade_retired",
+      "rust_daemon_core_provider_control_required",
+      "wallet_network_vault_authority_required",
+    ],
   };
   return error;
 }

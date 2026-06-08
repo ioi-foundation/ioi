@@ -170,52 +170,8 @@ function providerDeps(overrides = {}) {
   return { ...deps, ...overrides };
 }
 
-test("provider upsert normalizes hosted provider state and keeps secret refs vault-bound", () => {
+test("provider upsert fails closed before vault resolution, record-state commit, or provider mutation", () => {
   const state = fakeState();
-  const result = upsertProvider(
-    state,
-    {
-      id: "provider.openai",
-      kind: "openai",
-      label: "OpenAI",
-      api_key_vault_ref: "vault://provider/openai",
-      auth_header_name: "X-API-Key",
-      api_format: "openai",
-      base_url: "https://api.openai.example/v1",
-      privacy_class: "hosted_private",
-      evidence_refs: ["operator_provider_config", "wallet.network.vault_ref_boundary"],
-      capabilities: ["chat", "responses"],
-    },
-    providerDeps(),
-  );
-
-  assert.equal(result.id, "provider.openai");
-  assert.equal(result.status, "configured");
-  assert.deepEqual(result.secretRef, { redacted: true, hash: "hash:vault://provider/openai" });
-  assert.equal(state.providers.get("provider.openai").driver, "driver.openai");
-  assert.equal(state.providers.get("provider.openai").authHeaderName, "x-api-key");
-  assert.equal(state.providers.get("provider.openai").apiFormat, "openai");
-  assert.equal(state.providers.get("provider.openai").baseUrl, "https://api.openai.example/v1");
-  assert.equal(state.providers.get("provider.openai").privacyClass, "hosted_private");
-  assert.deepEqual(state.providers.get("provider.openai").discovery.evidenceRefs, [
-    "operator_provider_config",
-    "wallet.network.vault_ref_boundary",
-  ]);
-  assert.deepEqual(state.providers.get("provider.openai").capabilities, ["chat", "responses"]);
-  assert.deepEqual(state.resolvedVaultRefs, ["vault://provider/openai"]);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-providers");
-  assert.equal(state.recordStateCommits[0].record_id, "provider.openai");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.provider.write");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
-  assert.equal(state.recordStateCommits[0].record.kind, "openai");
-});
-
-test("provider upsert fails closed without Rust Agentgres provider record-state commit", () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
     () =>
@@ -224,20 +180,34 @@ test("provider upsert fails closed without Rust Agentgres provider record-state 
         {
           id: "provider.openai",
           kind: "openai",
+          label: "OpenAI",
           api_key_vault_ref: "vault://provider/openai",
+          auth_header_name: "X-API-Key",
+          api_format: "openai",
+          base_url: "https://api.openai.example/v1",
+          privacy_class: "hosted_private",
+          evidence_refs: ["operator_provider_config", "wallet.network.vault_ref_boundary"],
+          capabilities: ["chat", "responses"],
         },
         providerDeps(),
       ),
     (error) => {
-      assert.equal(error.code, "model_mount_provider_state_commit_unconfigured");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_provider_control_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.provider_control");
+      assert.equal(error.details.operation, "provider_upsert");
+      assert.equal(error.details.operation_kind, "model_mount.provider.write");
       assert.equal(error.details.provider_id, "provider.openai");
       assert.equal(error.details.provider_kind, "openai");
-      assert.equal(error.details.record_dir, "model-providers");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
       return true;
     },
   );
 
   assert.equal(state.providers.has("provider.openai"), false);
+  assert.deepEqual(state.resolvedVaultRefs, []);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 

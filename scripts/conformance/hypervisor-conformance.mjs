@@ -12261,22 +12261,32 @@ function runReceipts() {
     /RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES/.test(providerOperations) &&
       /CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS/.test(providerOperations) &&
       /provider_upsert_request_aliases_retired/.test(providerOperations) &&
-      /assertCanonicalProviderUpsertRequestBody\(body\);[\s\S]*state\.normalizeProviderSecretRef/.test(
+      /assertCanonicalProviderUpsertRequestBody\(body\);/.test(
         providerUpsertBlock,
       ) &&
-      /normalizeProviderAuthScheme\(body\.auth_scheme \?\? existing\.authScheme\)/.test(providerUpsertBlock) &&
-      /normalizeProviderAuthHeaderName\(\s*body\.auth_header_name \?\? existing\.authHeaderName,\s*\)/.test(
+      /providerControlRustCoreRequired/.test(providerUpsertBlock) &&
+      /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
+      /rust_core_boundary:\s*"model_mount\.provider_control"/.test(providerOperations) &&
+      /model_mount_provider_control_js_facade_retired/.test(providerOperations) &&
+      /rust_daemon_core_provider_control_required/.test(providerOperations) &&
+      /wallet_network_vault_authority_required/.test(providerOperations) &&
+      /operation_kind:\s*"model_mount\.provider\.write"/.test(providerUpsertBlock) &&
+      !/state\.normalizeProviderSecretRef/.test(
         providerUpsertBlock,
       ) &&
-      /apiFormat:\s*body\.api_format \?\? existing\.apiFormat \?\? "custom"/.test(providerUpsertBlock) &&
-      /baseUrl:\s*body\.base_url \?\? existing\.baseUrl \?\? null/.test(providerUpsertBlock) &&
-      /privacyClass:\s*body\.privacy_class \?\? existing\.privacyClass \?\? "workspace"/.test(
+      !/normalizeProviderAuthScheme\(body\.auth_scheme \?\? existing\.authScheme\)/.test(providerUpsertBlock) &&
+      !/normalizeProviderAuthHeaderName\(\s*body\.auth_header_name \?\? existing\.authHeaderName,\s*\)/.test(
         providerUpsertBlock,
       ) &&
-      /evidenceRefs:\s*normalizeScopes\(body\.evidence_refs,\s*existing\.discovery\?\.evidenceRefs/.test(
+      !/apiFormat:\s*body\.api_format \?\? existing\.apiFormat \?\? "custom"/.test(providerUpsertBlock) &&
+      !/baseUrl:\s*body\.base_url \?\? existing\.baseUrl \?\? null/.test(providerUpsertBlock) &&
+      !/privacyClass:\s*body\.privacy_class \?\? existing\.privacyClass \?\? "workspace"/.test(
         providerUpsertBlock,
       ) &&
-      /commitProviderRecordState\(state,\s*provider,\s*"model_mount\.provider\.write",\s*\[\]\)/.test(
+      !/evidenceRefs:\s*normalizeScopes\(body\.evidence_refs,\s*existing\.discovery\?\.evidenceRefs/.test(
+        providerUpsertBlock,
+      ) &&
+      !/commitProviderRecordState\(state,\s*provider,\s*"model_mount\.provider\.write",\s*\[\]\)/.test(
         providerUpsertBlock,
       ) &&
       /recordDir:\s*"model-providers"/.test(providerOperations) &&
@@ -12288,14 +12298,16 @@ function runReceipts() {
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
         providerUpsertBlock,
       ) &&
-      /provider upsert fails closed without Rust Agentgres provider record-state commit/.test(
+      /provider upsert fails closed before vault resolution, record-state commit, or provider mutation/.test(
         providerOperationsTest,
       ) &&
+      !/provider upsert fails closed without Rust Agentgres provider record-state commit/.test(providerOperationsTest) &&
       /provider upsert rejects retired request aliases before vault resolution or state write/.test(
         providerOperationsTest,
       ) &&
       /recordStateCommits/.test(providerOperationsTest) &&
       /model_mount\.provider\.write/.test(providerOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(providerOperationsTest) &&
       /model_mount\.provider\.health_update/.test(providerOperationsTest) &&
       /provider start and stop fail closed until direct Rust core control exists/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
