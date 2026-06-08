@@ -609,6 +609,11 @@ Matrix compaction timing:
   compacted into the route-family range while preserving IDE proof projection as
   adapter behavior and terminal Rust daemon-core proof/projection ownership as
   the remaining target.
+- One-hundred-twenty-third scheduled pass completed on 2026-06-08: the
+  authority-boundary proof/visualizer alias-retirement evidence after slice 687
+  was compacted into the route-family range while preserving IDE authority
+  boundary visualization as adapter behavior and terminal Rust daemon-core
+  authority/projection ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13449,79 +13454,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 687: Authority-Boundary Proof and Visualizer Alias Retirement
-
-```yaml
-slice: 687
-phase: 10-authoritative-js-facade-retirement
-objective: retire authority-boundary proof camelCase aliases so sandbox proof
-  production, visualizer proof wrapping, and IDE boundary projection consume
-  only canonical snake_case proof fields
-owner_boundary:
-  route_or_surface: authority-boundary sandbox proof and IDE visualizer
-    projection
-  authority_gate: unchanged; this slice does not grant execution authority and
-    keeps boundary evidence as projection over daemon/Rust-admitted behavior
-  execution_backend: unchanged; sandbox boundary enforcement remains daemon/Rust
-    owned, while JS/TS proof and IDE code act as canonical protocol adapters
-  truth_path: canonical sandbox proof fields must be supplied before IDE
-    authority-boundary visualization can show denied or approval-required
-    status
-  projection_path: compositor conformance requires canonical snake_case proof,
-    check, result, authority-scope, and evidence fields and rejects retired
-    camelCase authority-boundary proof aliases
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  ide_projection:
-    - packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts
-  proof_scripts:
-    - scripts/lib/workflow-sandbox-boundary-proof.mjs
-    - scripts/lib/workflow-authority-boundary-visualizer-proof.mjs
-  tests:
-    - packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - compositor conformance requires authority-boundary visualizer readers to use
-    canonical `workspace_root`, `outside_root`, snake_case check keys, snake_case
-    result objects, and snake_case result fields
-  - compositor conformance rejects reintroducing retired visualizer proof readers
-    for `workspaceRoot`, `outsideRoot`, `absolutePathEscapeDenied`,
-    `symlinkReadEscapeDenied`, `symlinkWriteEscapeDenied`,
-    `disallowedShellNetworkCommandDenied`,
-    `secretEnvFilteredFromSubprocess`,
-    `computerUseActRequiresApprovalBeforeExecution`, `absoluteEscape`,
-    `symlinkReadEscape`, `symlinkWriteEscape`, `disallowedShell`,
-    `computerUseActLease`, `errorCode`, `resolvedPath`,
-    `outsideContentPreserved`, `authorityScope`, and `requestRef`
-  - sandbox proof producer emits canonical snake_case proof envelopes
-  - visualizer proof wrapper requires an explicit source proof path instead of
-    defaulting to stale historical camelCase evidence
-verification:
-  commands:
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - node --check scripts/lib/workflow-sandbox-boundary-proof.mjs
-    - node --check scripts/lib/workflow-authority-boundary-visualizer-proof.mjs
-    - node --import tsx --test packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts
-    - node --import tsx scripts/lib/workflow-authority-boundary-visualizer-proof.mjs <output> <canonical-source-proof>
-    - npm run hypervisor-conformance:compositor
-    - npm run build --workspace=@ioi/agent-ide
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core authority/projection ownership remains pending
-      beyond this IDE/proof projection facade cleanup
-    - UI view-model fields remain camelCase as local IDE API shape, but
-      proof/protocol input fields no longer accept retired camelCase aliases
-closeout:
-  git_diff_check: required
-  commit: required after verification
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13537,7 +13469,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 687 and the one-hundred-twenty-second 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 687 and the one-hundred-twenty-third 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
