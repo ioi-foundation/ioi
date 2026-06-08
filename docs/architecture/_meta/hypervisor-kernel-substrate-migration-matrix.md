@@ -58,7 +58,8 @@ workflow-edit direct JS mutation retirement evidence through slice 700, plus
 provider-control JS fallback retirement evidence through slice 701, plus
 model load/unload JS provider-driver fallback retirement evidence through slice
 702, plus public backend lifecycle JS facade retirement evidence through slice
-703.
+703, plus workflow-edit legacy applied-event replay retirement evidence through
+slice 704.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -113,8 +114,10 @@ Remaining terminal blockers:
   local backend logs; direct Rust daemon-core backend lifecycle/control/projection
   ownership remains the required terminal path.
 - Approved workflow-edit apply now fails closed instead of writing workflow JSON
-  or emitting a JS-created `workflow.edit_applied` event; Rust daemon-core
-  workflow mutation admission/execution remains the required terminal path.
+  or emitting a JS-created `workflow.edit_applied` event, and legacy
+  `workflow.edit_applied` replay cannot satisfy apply idempotency; Rust
+  daemon-core workflow mutation admission/execution remains the required
+  terminal path.
 - Some route families still have JS live surfaces, supervision, persistence, or
   projection code that must be demoted to non-authoritative adapter behavior or
   deleted after Rust parity is verified.

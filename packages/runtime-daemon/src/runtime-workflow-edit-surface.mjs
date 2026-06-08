@@ -269,23 +269,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     );
   }
 
-  function latestWorkflowEditApplyEvent(store, threadId, proposalId) {
-    const normalizedProposalId = optionalString(proposalId);
-    if (!normalizedProposalId) return null;
-    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter((event) => {
-          const payload = event.payload_summary ?? event.payload ?? {};
-          return (
-            event.event_kind === "workflow.edit_applied" &&
-            payload.proposal_id === normalizedProposalId
-          );
-        })
-        .at(-1) ?? null
-    );
-  }
-
   function workflowEditApprovalSatisfaction(store, { threadId, approval_id: approvalId, proposal_event: proposalEvent }) {
     const normalizedApprovalId = optionalString(approvalId);
     if (!normalizedApprovalId) return { satisfied: false, reason: "approval_id_missing" };
@@ -370,20 +353,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
         },
       };
     }
-    const duplicateApply = latestWorkflowEditApplyEvent(store, threadId, normalizedProposalId);
-    if (duplicateApply) {
-      return {
-        schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-        status: "completed",
-        proposal_id: normalizedProposalId,
-        approval_id: approvalSatisfaction.approval_id,
-        approval_satisfied: true,
-        mutation_allowed: true,
-        mutation_executed: Boolean(duplicateApply.payload_summary?.mutation_executed),
-        idempotent_replay: true,
-        event: duplicateApply,
-      };
-    }
     const source = operatorControlSource(request.source);
     const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "workflow-author";
     const workflowGraphId =
@@ -443,7 +412,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     resolveWorkflowEditTarget,
     proposeWorkflowEdit,
     latestWorkflowEditProposalEvent,
-    latestWorkflowEditApplyEvent,
     workflowEditApprovalSatisfaction,
     applyWorkflowEditProposal,
   };

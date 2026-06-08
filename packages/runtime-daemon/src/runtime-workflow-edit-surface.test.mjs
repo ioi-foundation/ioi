@@ -393,6 +393,42 @@ test("workflow-edit surface blocks approved proposals until Rust apply support e
   assert.equal(store.events.filter((event) => event.event_kind === "workflow.edit_applied").length, 0);
 });
 
+test("workflow-edit surface ignores legacy JS applied events until Rust apply support exists", () => {
+  const store = createStore();
+  const surface = createSurface();
+  const proposal = surface.proposeWorkflowEdit(store, "thread_alpha", {
+    proposal_id: "proposal_legacy_apply",
+    approval_id: "approval_legacy_apply",
+    workflow_path: "workflows/legacy-apply.json",
+    workflow_patch: { nodes: [{ id: "node_legacy_apply" }] },
+  });
+  store.approve(proposal.approval_id);
+  store.appendRuntimeEvent({
+    event_stream_id: "thread_alpha:events",
+    thread_id: "thread_alpha",
+    turn_id: "turn_alpha",
+    event_kind: "workflow.edit_applied",
+    status: "completed",
+    approval_id: proposal.approval_id,
+    payload: {
+      proposal_id: proposal.proposal_id,
+      mutation_executed: true,
+    },
+    receipt_refs: ["receipt_legacy_apply"],
+    policy_decision_refs: ["policy_legacy_apply"],
+  });
+
+  const result = surface.applyWorkflowEditProposal(store, "thread_alpha", proposal.proposal_id, {});
+
+  assert.equal(result.status, "blocked");
+  assert.equal(result.reason, "workflow_edit_apply_rust_core_required");
+  assert.equal(result.mutation_allowed, false);
+  assert.equal(result.mutation_executed, false);
+  assert.equal(result.idempotent_replay, false);
+  assert.equal(Object.hasOwn(result, "event"), false);
+  assert.equal(Object.hasOwn(surface, "latestWorkflowEditApplyEvent"), false);
+});
+
 test("workflow-edit surface enforces workspace boundaries and required proposal ids", () => {
   const store = createStore();
   const surface = createSurface();

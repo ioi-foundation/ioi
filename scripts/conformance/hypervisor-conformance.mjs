@@ -6328,16 +6328,21 @@ function runBridge() {
       /fs\.existsSync\(path\.join\(store\.cwd,\s*"workflows\/apply\.json"\)\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /event\.event_kind === "workflow\.edit_applied"/.test(runtimeWorkflowEditSurface) &&
+      /workflow-edit surface ignores legacy JS applied events until Rust apply support exists/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /event_kind:\s*"workflow\.edit_applied"/.test(runtimeWorkflowEditSurfaceTest) &&
+      /Object\.hasOwn\(surface,\s*"latestWorkflowEditApplyEvent"\),\s*false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      !/latestWorkflowEditApplyEvent/.test(runtimeWorkflowEditSurface) &&
+      !/latestWorkflowEditApplyEvent/.test(runtimeDaemonIndex) &&
       !/writeJsonDep\(resolvedWorkflowPath,\s*workflowPatch\)/.test(runtimeWorkflowEditSurface) &&
       !/writeJson: writeJsonDep/.test(runtimeWorkflowEditSurface) &&
       !/from "\.\/runtime-http-utils\.mjs";[\s\S]*writeJson/.test(runtimeWorkflowEditSurface) &&
       !/source_event_kind:\s*"WorkflowEdit\.Applied"/.test(runtimeWorkflowEditSurface) &&
       !/event_kind:\s*"workflow\.edit_applied"/.test(runtimeWorkflowEditSurface) &&
-      /latestWorkflowEditProposalEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?latestWorkflowEditApplyEvent/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /latestWorkflowEditApplyEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?workflowEditApprovalSatisfaction/.test(
+      /latestWorkflowEditProposalEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?workflowEditApprovalSatisfaction/.test(
         runtimeWorkflowEditSurface,
       ) &&
       /const requestedManifest = approvalPayload\.approval_manifest \?\? \{\};/.test(
@@ -6360,7 +6365,7 @@ function runBridge() {
       !new RegExp(`^\\s+(?:${workflowEditAliasFields})\\s*[:,]`, "m").test(
         runtimeWorkflowEditSurface,
       ) &&
-      !/\b(?:payload|proposalPayload|approvalPayload|requestedManifest|duplicateApply\.payload_summary)\.(?:proposalId|approvalId|approvalManifest|mutationExecuted|workflowPath|workflowRelativePath|workflowPatch|patchHash)\b/.test(
+      !/\b(?:payload|proposalPayload|approvalPayload|requestedManifest)\.(?:proposalId|approvalId|approvalManifest|mutationExecuted|workflowPath|workflowRelativePath|workflowPatch|patchHash)\b/.test(
         runtimeWorkflowEditSurface,
       ),
     [

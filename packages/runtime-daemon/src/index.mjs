@@ -1838,10 +1838,6 @@ export class AgentgresRuntimeStateStore {
     return this.workflowEditSurface.latestWorkflowEditProposalEvent(this, threadId, proposalId);
   }
 
-  latestWorkflowEditApplyEvent(threadId, proposalId) {
-    return this.workflowEditSurface.latestWorkflowEditApplyEvent(this, threadId, proposalId);
-  }
-
   workflowEditApprovalSatisfaction({ threadId, approvalId, proposalEvent }) {
     return this.workflowEditSurface.workflowEditApprovalSatisfaction(this, {
       threadId,
