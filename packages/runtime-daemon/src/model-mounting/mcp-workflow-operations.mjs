@@ -1,4 +1,14 @@
-import { commitMcpServerRecordState } from "./mcp-server-record-state.mjs";
+const MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS = [
+  "model_mount_mcp_workflow_js_facade_retired",
+  "model_mount_mcp_import_js_facade_retired",
+  "model_mount_ephemeral_mcp_registration_js_facade_retired",
+  "model_mount_mcp_tool_invocation_js_facade_retired",
+  "model_mount_workflow_node_execution_js_facade_retired",
+  "model_mount_mcp_workflow_receipt_synthesis_js_retired",
+  "model_mount_mcp_workflow_record_state_js_retired",
+  "rust_daemon_core_model_mount_mcp_workflow_required",
+  "agentgres_mcp_workflow_truth_required",
+];
 
 const RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES = [
   "nodeType",
@@ -61,63 +71,22 @@ const CANONICAL_MCP_SERVER_CONFIG_FIELDS = [
 ];
 
 export function compileEphemeralMcpIntegrations(state, { authorization, body = {}, input }, deps = {}) {
-  const {
-    requiredString,
-    safeId,
-    stableHash,
-  } = deps;
+  void state;
+  void authorization;
+  void input;
   const integrations = Array.isArray(body.integrations) ? body.integrations : [];
   const ephemeral = integrations.filter((integration) => integration?.type === "ephemeral_mcp");
+  for (const integration of ephemeral) {
+    assertCanonicalEphemeralMcpIntegration(integration);
+  }
+  if (ephemeral.length > 0) {
+    throwMcpWorkflowRustCoreRequired("model_mount.mcp_server.ephemeral_register", {
+      integration_count: ephemeral.length,
+    }, deps);
+  }
   const toolReceiptIds = [];
   const serverIds = [];
   const evidenceRefs = [];
-  for (const integration of ephemeral) {
-    assertCanonicalEphemeralMcpIntegration(integration);
-    const label = requiredString(integration.server_label, "server_label");
-    const server = state.normalizeMcpServer(label, {
-      ...integration,
-      url: integration.server_url,
-      allowed_tools: integration.allowed_tools,
-      source: "ephemeral_mcp",
-    });
-    const stored = {
-      ...server,
-      id: `mcp.ephemeral.${safeId(label)}.${stableHash(integration.server_url ?? label).slice(0, 10)}`,
-      status: "ephemeral_registered",
-    };
-    const serverReceipt = state.receipt("mcp_ephemeral_registration", {
-      summary: `Ephemeral MCP server ${label} registered for one model request.`,
-      redaction: "redacted",
-      evidenceRefs: ["ephemeral_mcp", "RuntimeToolContract", stored.id],
-      details: mcpServerReceiptDetails(stored),
-    });
-    const storedWithReceipt = { ...stored, receiptId: serverReceipt.id };
-    commitMcpServerRecordState(
-      state,
-      storedWithReceipt,
-      "model_mount.mcp_server.ephemeral_register",
-      [serverReceipt.id],
-    );
-    state.mcpServers.set(storedWithReceipt.id, storedWithReceipt);
-    serverIds.push(storedWithReceipt.id);
-    evidenceRefs.push(serverReceipt.id, stored.id);
-    const allowedTools = storedWithReceipt.allowedTools.length > 0 ? storedWithReceipt.allowedTools : [];
-    for (const tool of allowedTools) {
-      const result = state.invokeMcpTool({
-        authorization,
-        body: {
-          server_id: storedWithReceipt.id,
-          tool,
-          input: {
-            source: "ephemeral_mcp",
-            requestInputHash: stableHash(input),
-          },
-        },
-      });
-      toolReceiptIds.push(result.receipt.id);
-      evidenceRefs.push(result.receipt.id);
-    }
-  }
   return { toolReceiptIds, serverIds, evidenceRefs };
 }
 
@@ -136,29 +105,10 @@ function assertCanonicalEphemeralMcpIntegration(integration = {}) {
   throw error;
 }
 
-export function importMcpJson(state, body = {}) {
+export function importMcpJson(state, body = {}, deps = {}) {
+  void state;
   assertCanonicalMcpImportRequestBody(body);
-  const raw = body.mcp_json ?? body;
-  const servers = raw.mcp_servers ?? raw.servers ?? {};
-  const imported = [];
-  for (const [label, config] of Object.entries(servers)) {
-    const server = state.normalizeMcpServer(label, config);
-    const receipt = state.receipt("mcp_server_import", {
-      summary: `MCP server ${label} imported with governed tool narrowing.`,
-      redaction: "redacted",
-      evidenceRefs: ["mcp.json", "RuntimeToolContract", server.id],
-      details: mcpServerReceiptDetails(server),
-    });
-    const stored = { ...server, receiptId: receipt.id };
-    commitMcpServerRecordState(state, stored, "model_mount.mcp_server.import", [receipt.id]);
-    state.mcpServers.set(stored.id, stored);
-    imported.push(stored);
-  }
-  return {
-    imported,
-    count: imported.length,
-    empty: imported.length === 0,
-  };
+  throwMcpWorkflowRustCoreRequired("model_mount.mcp_server.import", {}, deps);
 }
 
 function assertCanonicalMcpImportRequestBody(body = {}) {
@@ -242,43 +192,13 @@ export function listMcpServers(state, deps = {}) {
 }
 
 export function invokeMcpTool(state, { authorization, body = {} }, deps = {}) {
-  const {
-    notFound,
-    requiredString,
-    runtimeError,
-    stableHash,
-  } = deps;
+  void state;
+  void authorization;
   assertCanonicalMcpToolInvocationRequestBody(body);
-  const serverId = requiredString(body.server_id, "server_id");
-  const server = state.mcpServers.get(serverId);
-  if (!server) throw notFound(`MCP server not found: ${serverId}`, { server_id: serverId });
-  const tool = requiredString(body.tool, "tool");
-  state.authorize(authorization, `mcp.call:${server.label}.${tool}`);
-  if (server.allowedTools.length > 0 && !server.allowedTools.includes(tool)) {
-    throw runtimeError({
-      status: 403,
-      code: "policy",
-      message: "MCP tool is not included in allowed_tools.",
-      details: { server_id: serverId, tool },
-    });
-  }
-  const receipt = state.receipt("mcp_tool_invocation", {
-    summary: `MCP tool ${server.label}.${tool} executed through governed RuntimeToolContract path.`,
-    redaction: "redacted",
-    evidenceRefs: ["RuntimeToolContract", server.id, `tool:${tool}`],
-    details: {
-      server_id: serverId,
-      tool,
-      input_hash: stableHash(body.input ?? {}),
-      output_hash: stableHash({ ok: true, tool }),
-    },
-  });
-  return {
-    server: server.label,
-    tool,
-    result: { ok: true, fixture: true, tool },
-    receipt,
-  };
+  throwMcpWorkflowRustCoreRequired("model_mount.mcp_tool.invoke", {
+    server_id: body.server_id ?? null,
+    tool: body.tool ?? null,
+  }, deps);
 }
 
 function assertCanonicalMcpToolInvocationRequestBody(body = {}) {
@@ -294,108 +214,15 @@ function assertCanonicalMcpToolInvocationRequestBody(body = {}) {
   throw error;
 }
 
-function mcpServerReceiptDetails(server) {
-  return {
-    id: server.id,
-    label: server.label,
-    transport: server.transport,
-    command: server.command ?? null,
-    args: Array.isArray(server.args) ? [...server.args] : [],
-    server_url: server.serverUrl ?? null,
-    allowed_tools: Array.isArray(server.allowedTools) ? [...server.allowedTools] : [],
-    secret_refs: { ...(server.secretRefs ?? {}) },
-    redacted_headers: { ...(server.redactedHeaders ?? {}) },
-    status: server.status,
-    source: server.source ?? null,
-    imported_at: server.importedAt ?? null,
-  };
-}
-
 export async function executeWorkflowNode(state, { authorization, body = {} }, deps = {}) {
-  const {
-    capabilityForWorkflowNode,
-    nativeInvocationResponseShape,
-    requiredString,
-    runtimeError,
-    workflowKindForNode,
-    workflowMemoryOptionsFromBody,
-    workflowMemoryWriteBlockReason,
-  } = deps;
+  void state;
+  void authorization;
   assertCanonicalWorkflowNodeExecutionRequestBody(body);
-  const node = requiredString(body.node ?? body.node_type, "node");
-  const capability = body.capability ?? capabilityForWorkflowNode(node);
-  const memoryOptions = workflowMemoryOptionsFromBody(body);
-  const base = {
-    model: body.model_id ?? body.model,
-    route_id: body.route_id,
-    model_policy: body.model_policy ?? {},
-    input: body.input ?? body.prompt ?? "",
-    messages: body.messages,
-    max_tokens: body.max_tokens,
-    temperature: body.temperature,
-    workflow_graph_id: body.workflow_graph_id,
-    workflow_node_id: body.workflow_node_id,
-    workflow_node_type: body.workflow_node_type ?? node,
-  };
-  if (memoryOptions) {
-    base.memory = memoryOptions;
-    base.send_options = { memory: memoryOptions };
-  }
-  if (node === "Model Router") {
-    const routeId = base.route_id ?? "route.local-first";
-    state.authorize(authorization, `route.use:${routeId}`);
-    return {
-      node,
-      status: "selected",
-      ...(state.testRoute(routeId, { ...base, capability })),
-    };
-  }
-  if (node === "Local Tool/MCP" || node === "Local Tool / MCP") {
-    return {
-      node,
-      status: "executed",
-      ...(state.invokeMcpTool({ authorization, body: body.mcp ?? body })),
-    };
-  }
-  if (node === "Receipt Gate") {
-    return state.validateReceiptGate(body);
-  }
-  const kind = workflowKindForNode(node);
-  const requiredScope =
-    kind === "embeddings"
-      ? "model.embeddings:*"
-      : kind === "rerank"
-        ? "model.rerank:*"
-        : kind === "responses"
-          ? "model.responses:*"
-          : "model.chat:*";
-  const memoryWriteBlockReason = workflowMemoryWriteBlockReason(memoryOptions);
-  if (memoryWriteBlockReason) {
-    throw runtimeError({
-      status: 403,
-      code: "policy",
-      message: "Workflow memory write blocked by policy.",
-      details: {
-        reason: memoryWriteBlockReason,
-        memory: memoryOptions,
-        workflow_node_id: base.workflow_node_id ?? null,
-      },
-    });
-  }
-  const invocation = await state.invokeModel({
-    authorization,
-    requiredScope,
-    kind,
-    body: base,
-  });
-  return {
-    node,
-    status: "executed",
-    capability,
-    invocation: nativeInvocationResponseShape(invocation),
-    receipt: invocation.receipt,
-    routeReceipt: invocation.routeReceipt,
-  };
+  throwMcpWorkflowRustCoreRequired("model_mount.workflow_node.execute", {
+    node: body.node ?? body.node_type ?? null,
+    workflow_graph_id: body.workflow_graph_id ?? null,
+    workflow_node_id: body.workflow_node_id ?? null,
+  }, deps);
 }
 
 function assertCanonicalWorkflowNodeExecutionRequestBody(body = {}) {
@@ -424,4 +251,28 @@ function assertCanonicalWorkflowNodeExecutionRequestBody(body = {}) {
     ],
   };
   throw error;
+}
+
+function throwMcpWorkflowRustCoreRequired(operation_kind, details = {}, deps = {}) {
+  const runtimeError =
+    typeof deps.runtimeError === "function"
+      ? deps.runtimeError
+      : ({ status, code, message, details: errorDetails }) => {
+          const error = new Error(message);
+          error.status = status;
+          error.code = code;
+          error.details = errorDetails;
+          return error;
+        };
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_mcp_workflow_rust_core_required",
+    message: "Model-mount MCP workflow mutation and execution require Rust daemon core.",
+    details: {
+      rust_core_boundary: "model_mount.mcp_workflow",
+      operation_kind,
+      ...details,
+      evidence_refs: MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS,
+    },
+  });
 }

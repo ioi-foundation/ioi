@@ -184,65 +184,57 @@ test("normalizeMcpServer rejects retired config aliases before vault resolution"
   assert.deepEqual(state.walletAuthority.resolved, []);
 });
 
-test("importMcpJson stores servers, emits receipts, and listMcpServers projects public rows", () => {
-  const state = fakeState();
-
-  const result = importMcpJson(state, {
-    mcp_servers: {
-      Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
-      Remote: { url: "https://example.test/mcp", allowed_tools: ["search"] },
-    },
-  });
-
-  assert.equal(result.count, 2);
-  assert.equal(result.empty, false);
-  assert.equal(state.mcpServers.size, 2);
-  assert.equal(state.receipts.length, 2);
-  assert.deepEqual(state.receipts[0].payload.details.allowed_tools, ["run"]);
-  assert.equal(state.receipts[1].payload.details.server_url, "https://example.test/mcp");
-  assert.equal(state.receipts[0].payload.details.imported_at, "2026-06-04T02:00:00.000Z");
-  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "allowedTools"), false);
-  assert.equal(Object.hasOwn(state.receipts[1].payload.details, "serverUrl"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "importedAt"), false);
+function assertNoMcpWorkflowMutation(state) {
+  assert.equal(state.mcpServers.size, 0);
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.modelInvocations, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.routeTests, []);
   assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.length, 2);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
-  assert.equal(state.recordStateCommits[0].record_id, "mcp.Local");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.mcp_server.import");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.mcp_server_import.1"]);
-  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.mcp_server_import.1");
-  assert.equal(state.recordStateCommits[1].record_dir, "mcp-servers");
-  assert.equal(state.recordStateCommits[1].record_id, "mcp.Remote");
-  assert.equal(state.recordStateCommits[1].operation_kind, "model_mount.mcp_server.import");
-  assert.deepEqual(state.recordStateCommits[1].receipt_refs, ["receipt.mcp_server_import.2"]);
-  assert.deepEqual(listMcpServers(state, deps).map((server) => server.id), ["mcp.Local", "mcp.Remote"]);
-});
+}
 
-test("importMcpJson fails closed without Rust Agentgres MCP server record-state commit", () => {
+function assertMcpWorkflowRustCoreRequired(error, operationKind, details = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "model_mount_mcp_workflow_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "model_mount.mcp_workflow");
+  assert.equal(error.details.operation_kind, operationKind);
+  for (const [key, value] of Object.entries(details)) {
+    assert.deepEqual(error.details[key], value);
+  }
+  assert.deepEqual(error.details.evidence_refs, [
+    "model_mount_mcp_workflow_js_facade_retired",
+    "model_mount_mcp_import_js_facade_retired",
+    "model_mount_ephemeral_mcp_registration_js_facade_retired",
+    "model_mount_mcp_tool_invocation_js_facade_retired",
+    "model_mount_workflow_node_execution_js_facade_retired",
+    "model_mount_mcp_workflow_receipt_synthesis_js_retired",
+    "model_mount_mcp_workflow_record_state_js_retired",
+    "rust_daemon_core_model_mount_mcp_workflow_required",
+    "agentgres_mcp_workflow_truth_required",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+  return true;
+}
+
+test("importMcpJson facade fails closed before JS receipts, record-state commits, or projections", () => {
   const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
     () =>
       importMcpJson(state, {
         mcp_servers: {
           Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
+          Remote: { url: "https://example.test/mcp", allowed_tools: ["search"] },
         },
-      }),
-    (error) => {
-      assert.equal(error.status, 500);
-      assert.equal(error.code, "model_mount_mcp_server_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "mcp-servers");
-      assert.equal(error.details.record_id, "mcp.Local");
-      assert.equal(error.details.server_id, "mcp.Local");
-      assert.equal(error.details.source, "mcp.json");
-      return true;
-    },
+      }, deps),
+    (error) => assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_server.import"),
   );
 
-  assert.equal(state.mcpServers.size, 0);
-  assert.deepEqual(state.writes, []);
+  assertNoMcpWorkflowMutation(state);
+  state.mcpServers.set("mcp.Projected", { id: "mcp.Projected", label: "Projected", status: "registered" });
+  assert.deepEqual(listMcpServers(state, deps).map((server) => server.id), ["mcp.Projected"]);
 });
 
 test("importMcpJson rejects retired request aliases before state mutation", () => {
@@ -292,7 +284,7 @@ test("importMcpJson rejects retired request aliases before state mutation", () =
   assert.deepEqual(state.writes, []);
 });
 
-test("invokeMcpTool enforces allowed tools and emits redacted fixture result", () => {
+test("invokeMcpTool facade fails closed before authorization, fixture execution, or receipt synthesis", () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {
     id: "mcp.Local",
@@ -300,29 +292,23 @@ test("invokeMcpTool enforces allowed tools and emits redacted fixture result", (
     allowedTools: ["run"],
   });
 
-  const result = invokeMcpTool(
-    state,
-    { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
-    deps,
-  );
-
-  assert.equal(result.server, "Local");
-  assert.deepEqual(result.result, { ok: true, fixture: true, tool: "run" });
-  assert.deepEqual(state.authorizations.at(-1), ["auth", "mcp.call:Local.run"]);
-  assert.equal(result.receipt.payload.details.server_id, "mcp.Local");
-  assert.equal(result.receipt.payload.details.input_hash, 'hash:{"prompt":"hello"}');
-  assert.equal(Object.hasOwn(result.receipt.payload.details, "serverId"), false);
-  assert.equal(Object.hasOwn(result.receipt.payload.details, "inputHash"), false);
-  assert.equal(Object.hasOwn(result.receipt.payload.details, "outputHash"), false);
-
   assert.throws(
-    () => invokeMcpTool(state, { authorization: "auth", body: { server_id: "mcp.Local", tool: "delete" } }, deps),
+    () =>
+      invokeMcpTool(
+        state,
+        { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
+        deps,
+      ),
     (error) =>
-      error.status === 403 &&
-      error.code === "policy" &&
-      error.details.server_id === "mcp.Local" &&
-      Object.hasOwn(error.details, "serverId") === false,
+      assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_tool.invoke", {
+        server_id: "mcp.Local",
+        tool: "run",
+      }),
   );
+
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("invokeMcpTool rejects retired request aliases before authorization", () => {
@@ -361,7 +347,7 @@ test("invokeMcpTool rejects retired request aliases before authorization", () =>
   assert.deepEqual(state.receipts, []);
 });
 
-test("compileEphemeralMcpIntegrations registers ephemeral servers and invokes allowed tools", () => {
+test("compileEphemeralMcpIntegrations returns empty projection for no ephemeral MCP integrations", () => {
   const state = fakeState();
 
   const result = compileEphemeralMcpIntegrations(
@@ -369,41 +355,17 @@ test("compileEphemeralMcpIntegrations registers ephemeral servers and invokes al
     {
       authorization: "auth",
       input: "question",
-      body: {
-        integrations: [
-          {
-            type: "ephemeral_mcp",
-            server_label: "Search",
-            server_url: "https://example.test/mcp",
-            allowed_tools: ["search", "read"],
-          },
-          { type: "other" },
-        ],
-      },
+      body: { integrations: [{ type: "other" }] },
     },
     deps,
   );
 
-  assert.equal(result.serverIds.length, 1);
-  assert.equal(result.toolReceiptIds.length, 2);
-  assert.equal(result.evidenceRefs.length, 4);
-  assert.equal(state.mcpServers.get(result.serverIds[0]).status, "ephemeral_registered");
-  assert.equal(state.receipts[0].payload.details.server_url, "https://example.test/mcp");
-  assert.deepEqual(state.receipts[0].payload.details.allowed_tools, ["search", "read"]);
-  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "serverUrl"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].payload.details, "allowedTools"), false);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].record_dir, "mcp-servers");
-  assert.equal(state.recordStateCommits[0].record_id, result.serverIds[0]);
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.mcp_server.ephemeral_register");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.mcp_ephemeral_registration.1"]);
-  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.mcp_ephemeral_registration.1");
+  assert.deepEqual(result, { toolReceiptIds: [], serverIds: [], evidenceRefs: [] });
+  assertNoMcpWorkflowMutation(state);
 });
 
-test("compileEphemeralMcpIntegrations fails closed without Rust Agentgres MCP server record-state commit", () => {
+test("compileEphemeralMcpIntegrations facade fails closed before registration, tool invocation, or receipts", () => {
   const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
     () =>
@@ -426,19 +388,14 @@ test("compileEphemeralMcpIntegrations fails closed without Rust Agentgres MCP se
         deps,
       ),
     (error) => {
-      assert.equal(error.status, 500);
-      assert.equal(error.code, "model_mount_mcp_server_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "mcp-servers");
-      assert.match(error.details.record_id, /^mcp\.ephemeral\.Search\./);
-      assert.match(error.details.server_id, /^mcp\.ephemeral\.Search\./);
-      assert.equal(error.details.source, "ephemeral_mcp");
+      assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_server.ephemeral_register", {
+        integration_count: 1,
+      });
       return true;
     },
   );
 
-  assert.equal(state.mcpServers.size, 0);
-  assert.deepEqual(state.authorizations, []);
-  assert.deepEqual(state.writes, []);
+  assertNoMcpWorkflowMutation(state);
 });
 
 test("compileEphemeralMcpIntegrations rejects retired integration aliases before mutation", () => {
@@ -478,7 +435,7 @@ test("compileEphemeralMcpIntegrations rejects retired integration aliases before
   assert.deepEqual(state.authorizations, []);
 });
 
-test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memory policy branches", async () => {
+test("executeWorkflowNode facade fails closed before route, MCP, receipt-gate, or model dispatch", async () => {
   const state = fakeState();
   state.mcpServers.set("mcp.Local", {
     id: "mcp.Local",
@@ -486,82 +443,37 @@ test("executeWorkflowNode dispatches router, MCP, receipt gate, model, and memor
     allowedTools: ["run"],
   });
 
-  const router = await executeWorkflowNode(
-    state,
-    {
-      authorization: "auth",
-      body: {
-        node: "Model Router",
-        route_id: "route.local-first",
-        model: "llama-test",
-        model_policy: { privacy: "local_only" },
-      },
-    },
-    deps,
-  );
-  assert.equal(router.status, "selected");
-  assert.deepEqual(state.authorizations.at(-1), ["auth", "route.use:route.local-first"]);
-  assert.equal(state.routeTests.at(-1)[1].model_policy.privacy, "local_only");
-  assert.equal(Object.hasOwn(state.routeTests.at(-1)[1], "modelPolicy"), false);
-
-  const mcp = await executeWorkflowNode(
-    state,
-    { authorization: "auth", body: { node: "Local Tool/MCP", mcp: { server_id: "mcp.Local", tool: "run" } } },
-    deps,
-  );
-  assert.equal(mcp.status, "executed");
-  assert.equal(mcp.tool, "run");
-
-  const receiptGate = await executeWorkflowNode(
-    state,
-    { authorization: "auth", body: { node: "Receipt Gate", receipt_id: "receipt.1" } },
-    deps,
-  );
-  assert.equal(receiptGate.status, "passed");
-
-  const model = await executeWorkflowNode(
-    state,
-    {
-      authorization: "auth",
-      body: {
+  await assert.rejects(
+    () =>
+      executeWorkflowNode(
+        state,
+        {
+          authorization: "auth",
+          body: {
+            node: "Embed",
+            model_id: "embedding.local",
+            route_id: "route.local-first",
+            input: "hello",
+            max_tokens: 32,
+            workflow_graph_id: "graph.workflow",
+            workflow_node_id: "node.embed",
+            workflow_node_type: "Embedding",
+          },
+        },
+        deps,
+      ),
+    (error) =>
+      assertMcpWorkflowRustCoreRequired(error, "model_mount.workflow_node.execute", {
         node: "Embed",
-        model_id: "embedding.local",
-        route_id: "route.local-first",
-        input: "hello",
-        max_tokens: 32,
         workflow_graph_id: "graph.workflow",
         workflow_node_id: "node.embed",
-        workflow_node_type: "Embedding",
-      },
-    },
-    deps,
+      }),
   );
-  assert.equal(model.status, "executed");
-  assert.equal(model.capability, "embeddings");
-  assert.deepEqual(model.invocation, { outputText: "invoked:model.embeddings:*", kind: "embeddings" });
-  assert.deepEqual(state.modelInvocations.at(-1).body, {
-    model: "embedding.local",
-    route_id: "route.local-first",
-    model_policy: {},
-    input: "hello",
-    messages: undefined,
-    max_tokens: 32,
-    temperature: undefined,
-    workflow_graph_id: "graph.workflow",
-    workflow_node_id: "node.embed",
-    workflow_node_type: "Embedding",
-  });
-  assert.equal(Object.hasOwn(state.modelInvocations.at(-1).body, "routeId"), false);
-  assert.equal(Object.hasOwn(state.modelInvocations.at(-1).body, "modelPolicy"), false);
-  assert.equal(Object.hasOwn(state.modelInvocations.at(-1).body, "workflowNodeId"), false);
-
-  await assert.rejects(
-    () => executeWorkflowNode(state, { authorization: "auth", body: { node: "Model", memory: { write: true } } }, deps),
-    (error) =>
-      error.status === 403 &&
-      error.code === "policy" &&
-      Object.hasOwn(error.details, "workflowNodeId") === false,
-  );
+  assert.equal(state.mcpServers.size, 1);
+  assert.deepEqual(state.authorizations, []);
+  assert.deepEqual(state.routeTests, []);
+  assert.deepEqual(state.modelInvocations, []);
+  assert.deepEqual(state.receipts, []);
 });
 
 test("executeWorkflowNode rejects retired request aliases before authorization", async () => {

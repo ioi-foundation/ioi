@@ -325,7 +325,12 @@ function runDocs() {
       /Slice 744 workspace-change and managed-session control facade-retirement\s+matrix-compaction pass is complete/.test(
         guide,
       ) &&
-      /Resume with the next\s+verified Rust-core\s+extraction or facade-retirement slice/.test(guide) &&
+      /Slice 745 retired the MCP workflow\s+import\/ephemeral-registration\/tool-invocation\/workflow-node execution JS\s+facades/.test(
+        guide,
+      ) &&
+      /The next resume must run the scheduled Slice 745 matrix-compaction pass before\s+unrelated route-family work resumes/.test(
+        guide,
+      ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -341,7 +346,7 @@ function runDocs() {
       /The Slice 744\s+workspace-change and managed-session control facade-retirement compaction is\s+complete/.test(
         guide,
       ) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /Slice 745 MCP workflow facade-retirement has landed and its\s+matrix-compaction pass is pending/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -350,7 +355,7 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 745 MCP\s+workflow evidence/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -381,7 +386,13 @@ function runDocs() {
       /runtime_managed_session_control_rust_core_required/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 744\s+compaction/.test(
+      /Implementation Slice 745/.test(matrix) &&
+      /Scope: retire the remaining JS-authoritative MCP workflow control surface/.test(
+        matrix,
+      ) &&
+      /model_mount_mcp_workflow_rust_core_required/.test(matrix) &&
+      /model_mount_mcp_workflow_js_facade_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 745 MCP workflow\s+facade retirement/.test(
         matrix,
       ) &&
       /encoding the command bridge as\s+terminal shape/.test(
@@ -10669,54 +10680,55 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-mcp-receipt-detail-aliases-retired",
-    /details:\s*mcpServerReceiptDetails\(stored\)/.test(mcpWorkflowOperations) &&
-      /details:\s*mcpServerReceiptDetails\(server\)/.test(mcpWorkflowOperations) &&
-      /server_url:\s*server\.serverUrl/.test(mcpServerReceiptDetailsHelper) &&
-      /allowed_tools:\s*Array\.isArray\(server\.allowedTools\)/.test(mcpServerReceiptDetailsHelper) &&
-      /secret_refs:\s*\{ \.\.\.\(server\.secretRefs/.test(mcpServerReceiptDetailsHelper) &&
-      /redacted_headers:\s*\{ \.\.\.\(server\.redactedHeaders/.test(mcpServerReceiptDetailsHelper) &&
-      /imported_at:\s*server\.importedAt/.test(mcpServerReceiptDetailsHelper) &&
-      /server_id:\s*serverId/.test(mcpToolReceiptDetailsObject) &&
-      /input_hash:\s*stableHash\(body\.input/.test(mcpToolReceiptDetailsObject) &&
-      /output_hash:\s*stableHash\(\{ ok: true, tool \}\)/.test(mcpToolReceiptDetailsObject) &&
-      /notFound\(`MCP server not found: \$\{serverId\}`,\s*\{ server_id: serverId \}\)/.test(mcpWorkflowOperations) &&
-      /details:\s*\{ server_id: serverId, tool \}/.test(mcpWorkflowOperations) &&
-      /workflow_node_id:\s*base\.workflow_node_id/.test(mcpWorkflowOperations) &&
-      /commitMcpServerRecordState/.test(mcpServerRecordState) &&
-      /recordDir:\s*"mcp-servers"/.test(mcpServerRecordState) &&
-      /model_mount_mcp_server_state_commit_unconfigured/.test(mcpServerRecordState) &&
+    /model_mount_mcp_workflow_rust_core_required/.test(mcpWorkflowOperations) &&
+      /rust_core_boundary:\s*"model_mount\.mcp_workflow"/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_workflow_js_facade_retired/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_import_js_facade_retired/.test(mcpWorkflowOperations) &&
+      /model_mount_ephemeral_mcp_registration_js_facade_retired/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_tool_invocation_js_facade_retired/.test(mcpWorkflowOperations) &&
+      /model_mount_workflow_node_execution_js_facade_retired/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_workflow_receipt_synthesis_js_retired/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_workflow_record_state_js_retired/.test(mcpWorkflowOperations) &&
+      /rust_daemon_core_model_mount_mcp_workflow_required/.test(mcpWorkflowOperations) &&
+      /agentgres_mcp_workflow_truth_required/.test(mcpWorkflowOperations) &&
       /model_mount\.mcp_server\.import/.test(mcpImportJsonBlock) &&
       /model_mount\.mcp_server\.ephemeral_register/.test(mcpCompileEphemeralBlock) &&
-      !/state\.writeMap\("mcp-servers"/.test(mcpImportJsonBlock) &&
-      !/state\.writeMap\("mcp-servers"/.test(mcpCompileEphemeralBlock) &&
-      /recordStateCommits/.test(mcpWorkflowOperationsTest) &&
-      /importMcpJson fails closed without Rust Agentgres MCP server record-state commit/.test(
+      /model_mount\.mcp_tool\.invoke/.test(mcpInvokeToolBlock) &&
+      /model_mount\.workflow_node\.execute/.test(mcpWorkflowOperations) &&
+      /throwMcpWorkflowRustCoreRequired/.test(mcpWorkflowOperations) &&
+      !/mcpServerReceiptDetails/.test(mcpWorkflowOperations) &&
+      !/state\.receipt\("mcp_(?:server_import|ephemeral_registration|tool_invocation)"/.test(mcpWorkflowOperations) &&
+      !/commitMcpServerRecordState/.test(mcpWorkflowOperations) &&
+      !/commitMcpServerRecordState/.test(mcpImportJsonBlock) &&
+      !/commitMcpServerRecordState/.test(mcpCompileEphemeralBlock) &&
+      !/state\.mcpServers\.set/.test(mcpWorkflowOperations) &&
+      !/state\.authorize\(/.test(mcpWorkflowOperations) &&
+      !/state\.invokeModel/.test(mcpWorkflowOperations) &&
+      !/state\.testRoute/.test(mcpWorkflowOperations) &&
+      !/state\.validateReceiptGate/.test(mcpWorkflowOperations) &&
+      /assertMcpWorkflowRustCoreRequired/.test(mcpWorkflowOperationsTest) &&
+      /importMcpJson facade fails closed before JS receipts, record-state commits, or projections/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /compileEphemeralMcpIntegrations fails closed without Rust Agentgres MCP server record-state commit/.test(
+      /invokeMcpTool facade fails closed before authorization, fixture execution, or receipt synthesis/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      !/\b(?:serverUrl|allowedTools|secretRefs|redactedHeaders|importedAt)\s*:/.test(mcpServerReceiptDetailsHelper) &&
-      !/\b(?:serverId|inputHash|outputHash)\s*:/.test(mcpToolReceiptDetailsObject) &&
-      !/details:\s*\{ serverId/.test(mcpWorkflowOperations) &&
-      !/details:\s*\{\s*serverId/m.test(mcpWorkflowOperations) &&
-      !/workflowNodeId:\s*base\.workflow_node_id/.test(mcpWorkflowOperations) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"allowedTools"\),\s*false/.test(
+      /compileEphemeralMcpIntegrations facade fails closed before registration, tool invocation, or receipts/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /Object\.hasOwn\(state\.receipts\[1\]\.payload\.details,\s*"serverUrl"\),\s*false/.test(
+      /executeWorkflowNode facade fails closed before route, MCP, receipt-gate, or model dispatch/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /Object\.hasOwn\(result\.receipt\.payload\.details,\s*"serverId"\),\s*false/.test(mcpWorkflowOperationsTest) &&
-      /Object\.hasOwn\(result\.receipt\.payload\.details,\s*"inputHash"\),\s*false/.test(mcpWorkflowOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"serverId"\)\s*===\s*false/.test(mcpWorkflowOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"workflowNodeId"\)\s*===\s*false/.test(mcpWorkflowOperationsTest),
+      /assertNoMcpWorkflowMutation\(state\)/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(mcpWorkflowOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: MCP registration, import, tool invocation receipts, and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: MCP registration, import, tool invocation, and workflow-node execution must fail closed until Rust daemon-core owns receipts, record-state, authority, and Agentgres truth",
   );
   assertCheck(
     result,
@@ -10724,12 +10736,16 @@ function runReceipts() {
     /RETIRED_MCP_IMPORT_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_IMPORT_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpImportRequestBody\(body\);/.test(mcpImportJsonBlock) &&
-      /const raw = body\.mcp_json \?\? body;/.test(mcpImportJsonBlock) &&
-      /const servers = raw\.mcp_servers \?\? raw\.servers \?\? \{\};/.test(mcpImportJsonBlock) &&
+      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.import",\s*\{\},\s*deps\)/.test(
+        mcpImportJsonBlock,
+      ) &&
       /model_mount_mcp_import_request_aliases_retired/.test(mcpWorkflowOperations) &&
       /mcp_json\.mcpServers/.test(mcpWorkflowOperations) &&
       !/body\.mcpJson\b/.test(mcpImportJsonBlock) &&
       !/raw\.mcpServers\b/.test(mcpImportJsonBlock) &&
+      !/state\.receipt\("mcp_server_import"/.test(mcpImportJsonBlock) &&
+      !/commitMcpServerRecordState/.test(mcpImportJsonBlock) &&
+      !/state\.mcpServers\.set/.test(mcpImportJsonBlock) &&
       /importMcpJson rejects retired request aliases before state mutation/.test(
         mcpWorkflowOperationsTest,
       ) &&
@@ -10749,12 +10765,15 @@ function runReceipts() {
     /RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalEphemeralMcpIntegration\(integration\);/.test(mcpCompileEphemeralBlock) &&
-      /requiredString\(integration\.server_label,\s*"server_label"\)/.test(mcpCompileEphemeralBlock) &&
-      /url:\s*integration\.server_url/.test(mcpCompileEphemeralBlock) &&
-      /allowed_tools:\s*integration\.allowed_tools/.test(mcpCompileEphemeralBlock) &&
-      /stableHash\(integration\.server_url \?\? label\)/.test(mcpCompileEphemeralBlock) &&
+      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.ephemeral_register"/.test(
+        mcpCompileEphemeralBlock,
+      ) &&
+      /integration_count:\s*ephemeral\.length/.test(mcpCompileEphemeralBlock) &&
       /model_mount_ephemeral_mcp_integration_aliases_retired/.test(mcpWorkflowOperations) &&
       !/integration\.(?:serverLabel|serverUrl|allowedTools)\b/.test(mcpCompileEphemeralBlock) &&
+      !/state\.receipt\("mcp_ephemeral_registration"/.test(mcpCompileEphemeralBlock) &&
+      !/commitMcpServerRecordState/.test(mcpCompileEphemeralBlock) &&
+      !/state\.invokeMcpTool/.test(mcpCompileEphemeralBlock) &&
       /compileEphemeralMcpIntegrations rejects retired integration aliases before mutation/.test(
         mcpWorkflowOperationsTest,
       ) &&
@@ -10774,10 +10793,14 @@ function runReceipts() {
     /RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpToolInvocationRequestBody\(body\);/.test(mcpInvokeToolBlock) &&
-      /requiredString\(body\.server_id,\s*"server_id"\)/.test(mcpInvokeToolBlock) &&
+      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_tool\.invoke"/.test(mcpInvokeToolBlock) &&
+      /server_id:\s*body\.server_id/.test(mcpInvokeToolBlock) &&
       /model_mount_mcp_tool_invocation_request_aliases_retired/.test(mcpWorkflowOperations) &&
       !/body\.(?:serverId|server_label|serverLabel)\b/.test(mcpInvokeToolBlock) &&
       !/safeId\(body\.(?:server_label|serverLabel)/.test(mcpInvokeToolBlock) &&
+      !/state\.authorize\(/.test(mcpInvokeToolBlock) &&
+      !/state\.receipt\("mcp_tool_invocation"/.test(mcpInvokeToolBlock) &&
+      !/fixture:\s*true/.test(mcpInvokeToolBlock) &&
       /invokeMcpTool rejects retired request aliases before authorization/.test(
         mcpWorkflowOperationsTest,
       ) &&
@@ -10823,28 +10846,29 @@ function runReceipts() {
     /RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /model_mount_workflow_node_request_aliases_retired/.test(mcpWorkflowOperations) &&
       /assertCanonicalWorkflowNodeExecutionRequestBody\(body\);/.test(mcpWorkflowOperations) &&
-      /const node = requiredString\(body\.node \?\? body\.node_type,\s*"node"\);/.test(
+      /throwMcpWorkflowRustCoreRequired\("model_mount\.workflow_node\.execute"/.test(
         mcpWorkflowOperations,
       ) &&
-      /model:\s*body\.model_id \?\? body\.model/.test(mcpWorkflowOperations) &&
-      /route_id:\s*body\.route_id/.test(mcpWorkflowOperations) &&
-      /model_policy:\s*body\.model_policy \?\? \{\}/.test(mcpWorkflowOperations) &&
-      /max_tokens:\s*body\.max_tokens/.test(mcpWorkflowOperations) &&
       /workflow_graph_id:\s*body\.workflow_graph_id/.test(mcpWorkflowOperations) &&
       /workflow_node_id:\s*body\.workflow_node_id/.test(mcpWorkflowOperations) &&
-      /workflow_node_type:\s*body\.workflow_node_type \?\? node/.test(mcpWorkflowOperations) &&
       !/body\.(?:nodeType|modelId|routeId|modelPolicy|maxTokens|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(
         mcpWorkflowOperations,
       ) &&
+      !/state\.authorize\(/.test(mcpWorkflowOperations) &&
+      !/state\.testRoute/.test(mcpWorkflowOperations) &&
+      !/state\.invokeMcpTool/.test(mcpWorkflowOperations) &&
+      !/state\.validateReceiptGate/.test(mcpWorkflowOperations) &&
+      !/state\.invokeModel/.test(mcpWorkflowOperations) &&
       /executeWorkflowNode rejects retired request aliases before authorization/.test(
         mcpWorkflowOperationsTest,
       ) &&
       /retired_aliases,\s*\[\s*"nodeType",\s*"modelId",\s*"routeId",\s*"modelPolicy",\s*"maxTokens",\s*"workflowGraphId",\s*"workflowNodeId",\s*"nodeId",\s*"node_id",\s*"workflowNodeType",\s*\]/.test(
         mcpWorkflowOperationsTest,
       ) &&
-      /Object\.hasOwn\(state\.modelInvocations\.at\(-1\)\.body,\s*"workflowNodeId"\),\s*false/.test(
+      /executeWorkflowNode facade fails closed before route, MCP, receipt-gate, or model dispatch/.test(
         mcpWorkflowOperationsTest,
-      ),
+      ) &&
+      /assert\.deepEqual\(state\.modelInvocations,\s*\[\]\)/.test(mcpWorkflowOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
