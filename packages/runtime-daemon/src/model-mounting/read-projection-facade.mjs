@@ -3,7 +3,6 @@ import {
   downloadList,
   endpointList,
   instanceList,
-  modelCapabilityList,
   modelMountingSnapshot,
   oauthSessionList,
   oauthStateList,
@@ -45,7 +44,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listArtifacts(state) {
-    return artifactList(state);
+    return rustProjectionField(state, "artifacts");
   }
 
   function listProductArtifacts(state) {
@@ -56,52 +55,39 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listProviders(state) {
-    return providerList(state, {
-      providerHasVaultRef,
-      publicProvider,
-    });
+    return rustProjectionField(state, "providers");
   }
 
   function listEndpoints(state) {
-    return endpointList(state);
+    return rustProjectionField(state, "endpoints");
   }
 
   function listInstances(state) {
-    return instanceList(state);
+    return rustProjectionField(state, "instances");
   }
 
   function listRoutes(state) {
-    return routeList(state);
+    return rustProjectionField(state, "routes");
   }
 
   function listModelCapabilities(state) {
-    return modelCapabilityList(state, {
-      buildModelCapabilities,
-    });
+    return rustProjectionField(state, "modelCapabilities");
   }
 
   function listDownloads(state) {
-    return downloadList(state);
+    return rustProjectionField(state, "downloads");
   }
 
   function listOAuthSessions(state) {
-    return oauthSessionList(state, {
-      publicOAuthSession,
-    });
+    return rustProjectionField(state, "oauthSessions");
   }
 
   function listOAuthStates(state) {
-    return oauthStateList(state, {
-      publicOAuthState,
-    });
+    return rustProjectionField(state, "oauthStates");
   }
 
   function listProviderHealth(state) {
-    return providerHealthList(state, {
-      listJson,
-      path,
-      readJson,
-    });
+    return rustProjectionField(state, "providerHealth");
   }
 
   function snapshot(state, baseUrl) {
@@ -186,6 +172,12 @@ export function createModelMountingReadProjectionFacade({
     return result.projection;
   }
 
+  function rustProjectionField(state, field) {
+    const projection = rustReadProjection(state, "projection");
+    const value = projection?.[field];
+    return Array.isArray(value) ? value : [];
+  }
+
   function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
     if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
       throwReadProjectionRustCoreRequired(projectionKind, {
@@ -212,35 +204,49 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function readProjectionInput(state, baseUrl = null) {
+    const artifacts = artifactList(state);
+    const endpoints = endpointList(state);
+    const instances = instanceList(state);
+    const providers = providerList(state, {
+      providerHasVaultRef,
+      publicProvider,
+    });
+    const routes = routeList(state);
+    const downloads = downloadList(state);
+    const oauthSessions = oauthSessionList(state, {
+      publicOAuthSession,
+    });
+    const oauthStates = oauthStateList(state, {
+      publicOAuthState,
+    });
+    const providerHealth = providerHealthList(state, {
+      listJson,
+      path,
+      readJson,
+    });
+    const modelCapabilities = buildModelCapabilities({
+      routes,
+      endpoints,
+      providers,
+      artifacts,
+      instances,
+    });
     return {
       server: state.serverStatus(baseUrl),
       catalog: state.catalogStatus(),
       catalog_provider_configs: state.listCatalogProviderConfigs(),
-      oauth_sessions: oauthSessionList(state, {
-        publicOAuthSession,
-      }),
-      oauth_states: oauthStateList(state, {
-        publicOAuthState,
-      }),
-      artifacts: artifactList(state),
+      oauth_sessions: oauthSessions,
+      oauth_states: oauthStates,
+      artifacts,
       backends: state.listBackends(),
       backend_processes: state.listBackendProcesses(),
-      endpoints: endpointList(state),
-      instances: instanceList(state),
-      providers: providerList(state, {
-        providerHasVaultRef,
-        publicProvider,
-      }),
-      routes: routeList(state),
-      model_capabilities: modelCapabilityList(state, {
-        buildModelCapabilities,
-      }),
-      downloads: downloadList(state),
-      provider_health: providerHealthList(state, {
-        listJson,
-        path,
-        readJson,
-      }),
+      endpoints,
+      instances,
+      providers,
+      routes,
+      model_capabilities: modelCapabilities,
+      downloads,
+      provider_health: providerHealth,
       runtime_engines: state.listRuntimeEngines(),
       runtime_engine_profiles: state.listRuntimeEngineProfiles(),
       runtime_preference: state.runtimePreference(),

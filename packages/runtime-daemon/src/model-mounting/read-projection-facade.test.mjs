@@ -260,17 +260,37 @@ function routeDecisionsFromReceipts(receipts) {
 }
 
 test("read projection facade delegates product-safe lists and capabilities", () => {
-  const { facade, state } = createState();
+  const { facade, state, readProjectionRequests } = createState();
 
   assert.deepEqual(facade.runtimeModelCatalogList(state).map((model) => model.id), ["model.local"]);
   assert.deepEqual(facade.openAiModelList(state).data.map((model) => model.id), ["model.local"]);
   assert.deepEqual(facade.listProductArtifacts(state).map((artifact) => artifact.id), ["artifact.local"]);
+  assert.deepEqual(facade.listArtifacts(state).map((artifact) => artifact.id), ["artifact.fixture", "artifact.local"]);
   assert.deepEqual(facade.listProviders(state), [
     { id: "provider.local", vaultMetadata: { secretRef: "vault://provider.local/api-key", configured: true } },
   ]);
+  assert.deepEqual(facade.listEndpoints(state).map((endpoint) => endpoint.id), ["endpoint.local"]);
+  assert.deepEqual(facade.listInstances(state).map((instance) => instance.id), []);
+  assert.deepEqual(facade.listRoutes(state).map((route) => route.id), ["route.local-first"]);
   assert.deepEqual(facade.listModelCapabilities(state), [
     { modelId: "fixture" },
     { modelId: "model.local" },
+  ]);
+  assert.deepEqual(facade.listDownloads(state).map((download) => download.id), ["download.one"]);
+  assert.deepEqual(facade.listOAuthSessions(state), []);
+  assert.deepEqual(facade.listOAuthStates(state), []);
+  assert.deepEqual(facade.listProviderHealth(state), []);
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
   ]);
   assert.equal(facade.workflowNodeBindings(state).find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(facade.workflowNodeBindings(state).find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
@@ -312,6 +332,15 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet.port, "WalletAuthorityPort");
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
+    "projection",
     "projection_summary",
     "projection",
     "projection",

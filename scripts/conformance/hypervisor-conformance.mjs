@@ -533,11 +533,15 @@ function runDocs() {
       /Slice 795 retired direct model_mount projection-cache reads/.test(guide) &&
       /`model_mount_projection_cache_read_retired`/.test(guide) &&
       /`rust_plan_gated_receipt_projection_adapter`/.test(guide) &&
-      /Slice 795\s+model_mount\s+projection-cache read retirement matrix-compaction pass is\s+scheduled/.test(guide) &&
+      /Slice 795\s+model_mount\s+projection-cache read retirement matrix-compaction pass is\s+complete/.test(guide) &&
+      /Slice 796 moved public model_mount projection-field list reads through the Rust\s+read-projection plan/.test(guide) &&
+      /`listArtifacts\(\)`[\s\S]*`listProviders\(\)`[\s\S]*`listEndpoints\(\)`[\s\S]*`listInstances\(\)`[\s\S]*`listRoutes\(\)`[\s\S]*`listModelCapabilities\(\)`[\s\S]*`listDownloads\(\)`[\s\S]*`listOAuthSessions\(\)`[\s\S]*`listOAuthStates\(\)`[\s\S]*`listProviderHealth\(\)`/.test(guide) &&
+      /`rustProjectionField\(\)`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
-      /Implementation Slice Evidence: 795/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 795/.test(matrix) &&
+      /Implementation Slice Evidence: 796/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -893,7 +897,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 796 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7673,8 +7677,21 @@ function runBridge() {
     "model-mount-read-projection-rust-core",
     /readProjectionPlanner:\s*this\.modelMountAdmissionRunner/.test(modelMountingState) &&
       /function rustReadProjection/.test(modelMountingReadProjectionFacade) &&
+      /function rustProjectionField/.test(modelMountingReadProjectionFacade) &&
       /readProjectionPlanner\.planReadProjection/.test(modelMountingReadProjectionFacade) &&
       /model_mount_js_read_projection_authoring_retired/.test(modelMountingReadProjectionFacade) &&
+      /listArtifacts\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
+      /listProviders\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
+      /listEndpoints\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
+      /listInstances\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"instances"\)/.test(modelMountingReadProjectionFacade) &&
+      /listRoutes\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
+      /listModelCapabilities\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"modelCapabilities"\)/.test(modelMountingReadProjectionFacade) &&
+      /listDownloads\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
+      /listOAuthSessions\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"oauthSessions"\)/.test(modelMountingReadProjectionFacade) &&
+      /listOAuthStates\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"oauthStates"\)/.test(modelMountingReadProjectionFacade) &&
+      /listProviderHealth\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"providerHealth"\)/.test(modelMountingReadProjectionFacade) &&
+      /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Rust model_mount admission runner sends read projection plan request/.test(modelMountAdmissionRunnerTest) &&
       /planReadProjection\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_read_projection"/.test(modelMountAdmissionRunner) &&

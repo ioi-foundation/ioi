@@ -933,9 +933,21 @@ terminal model_mount migration: canonical projections are still locally
 materialized after Rust planning, JS still prepares state input for the planner,
 and direct Rust daemon-core Agentgres projection/read APIs still need to replace
 local cache files and command transport. The Slice 795 model_mount
-projection-cache read retirement matrix-compaction pass is scheduled once this
-verified slice lands; do not encode the command bridge, JS transport wrappers,
-or local map/projection materialization as terminal architecture.
+projection-cache read retirement matrix-compaction pass is complete.
+
+Slice 796 moved public model_mount projection-field list reads through the Rust
+read-projection plan instead of returning direct JS-composed list arrays.
+`listArtifacts()`, `listProviders()`, `listEndpoints()`, `listInstances()`,
+`listRoutes()`, `listModelCapabilities()`, `listDownloads()`,
+`listOAuthSessions()`, `listOAuthStates()`, and `listProviderHealth()` now read
+their public arrays from `rustProjectionField()` over the canonical
+`plan_model_mount_read_projection` projection. The JS read-model helpers remain
+only as current-state input materializers for the migration planner. This still
+does not claim terminal model_mount migration: direct Rust daemon-core
+Agentgres-backed projection APIs still need to replace JS state materialization,
+command transport, and local map/projection materialization; do not encode the
+command bridge, JS transport wrappers, or local projection helpers as terminal
+architecture.
 
 ## Part II: Target Execution Model
 
