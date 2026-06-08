@@ -153,7 +153,7 @@ test("managed session control builds normalized bridge command and inspection en
           inspection: {
             bridge_id: "bridge_runtime",
             managed_sessions: {
-              sessions: [{ id: input.managedSessionId, control_state: "take_over" }],
+              sessions: [{ id: input.managed_session_id, control_state: "take_over" }],
             },
           },
         };
@@ -168,8 +168,15 @@ test("managed session control builds normalized bridge command and inspection en
   }, deps());
 
   assert.equal(bridgeCalls[0].action, "take_over_session");
-  assert.equal(bridgeCalls[0].sessionId, "session_runtime");
-  assert.equal(bridgeCalls[0].managedSessionId, "sandbox_browser:test");
+  assert.equal(bridgeCalls[0].session_id, "session_runtime");
+  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
+  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
+  assert.equal(bridgeCalls[0].request_hash, "hash-78".padEnd(24, "0").slice(0, 16));
+  assert.equal(bridgeCalls[0].managed_session_id, "sandbox_browser:test");
+  assert.equal(bridgeCalls[0].created_at, "2026-06-03T00:00:00.000Z");
+  for (const field of ["sessionId", "threadId", "workspaceRoot", "requestHash", "managedSessionId", "createdAt"]) {
+    assert.equal(Object.hasOwn(bridgeCalls[0], field), false, `retired managed session control bridge alias ${field}`);
+  }
   assert.equal(controlled.schema_version, "ioi.runtime.managed-session-control.daemon.v1");
   assert.equal(controlled.inspection.managed_sessions.sessions[0].control_state, "take_over");
   for (const field of ["threadId", "sessionId", "managedSessionId", "bridgeResult"]) {
@@ -209,7 +216,7 @@ test("managed session control rejects retired request aliases", async () => {
     },
   });
 
-  for (const alias of ["managedSessionId", "sessionCardId", "createdAt", "requestHash"]) {
+  for (const alias of ["managedSessionId", "sessionCardId", "session_card_id", "createdAt", "requestHash"]) {
     await assert.rejects(
       controlManagedSessionForThread(store, "thread_runtime", {
         [alias]: "retired",

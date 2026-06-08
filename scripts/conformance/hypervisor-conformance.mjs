@@ -19409,6 +19409,15 @@ function runCompositor() {
       /projection:\s*"managed_sessions"/.test(managedSessionInspectionStateBlock) &&
       /managed_session_control_request_aliases_retired/.test(managedSessionState) &&
       /retiredManagedSessionControlAliases/.test(managedSessionState) &&
+      /const managedSessionId = optionalString\(request\.managed_session_id\)/.test(
+        managedSessionState,
+      ) &&
+      /session_id:\s*sessionId/.test(managedSessionState) &&
+      /thread_id:\s*threadId/.test(managedSessionState) &&
+      /workspace_root:\s*agent\.cwd/.test(managedSessionState) &&
+      /request_hash:/.test(managedSessionState) &&
+      /managed_session_id:\s*managedSessionId/.test(managedSessionState) &&
+      /created_at:\s*createdAt/.test(managedSessionState) &&
       /runtime_profile:\s*agent\.runtime_profile \?\? "fixture"/.test(managedSessionState) &&
       /const managedSessions =\s*[\r\n\s]*bridgeResult\?\.managed_sessions \?\?/.test(
         managedSessionInspection,
@@ -19440,6 +19449,13 @@ function runCompositor() {
       /assertNoRetiredContractDetailAliases\(error\.details\)/.test(managedSessionStateTest) &&
       /error\.details\.thread_id/.test(managedSessionStateTest) &&
       /managed session control rejects retired request aliases/.test(managedSessionStateTest) &&
+      /Object\.hasOwn\(bridgeCalls\[0\],\s*field\),\s*false/.test(
+        managedSessionStateTest,
+      ) &&
+      /session_card_id/.test(managedSessionStateTest) &&
+      /bridgeCalls\[0\]\.managed_session_id,\s*"sandbox_browser:test"/.test(
+        managedSessionStateTest,
+      ) &&
       /Object\.hasOwn\(controlled,\s*field\),\s*false/.test(managedSessionStateTest) &&
       !/details:\s*\{\s*threadId\s*(?:,|:)/.test(managedSessionState) &&
       !/^\s*(?:threadId|sessionId|productLane|bridgeId|workspaceRoot|managedSessions|managedSessionId|bridgeResult)\s*:/m.test(
@@ -19457,7 +19473,7 @@ function runCompositor() {
       !/\brequest\.(?:sessionId|threadId|workspaceRoot|managedSessionsOnly|requestedAt)\b/.test(
         managedSessionInspectionStateBlock,
       ) &&
-      !/\brequest\.(?:managedSessionId|sessionCardId|createdAt|requestHash)\b/.test(
+      !/\brequest\.(?:managedSessionId|sessionCardId|session_card_id|createdAt|requestHash)\b/.test(
         managedSessionState,
       ),
     [

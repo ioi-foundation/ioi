@@ -13313,6 +13313,66 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 657
+
+```yaml
+slice: 657
+phase: 10-authoritative-js-facade-retirement
+objective: retire managed-session control bridge request aliases so session
+  control reaches the runtime bridge through canonical snake_case fields only
+owner_boundary:
+  route_or_surface: daemon managed-session control bridge request envelope
+  authority_gate: unchanged; managed-session control remains daemon-owned and
+    this slice removes compatibility request aliases before runtime bridge
+    control dispatch
+  execution_backend: unchanged; the runtime bridge remains migration transport
+    for this route family and is not the terminal Rust daemon-core API shape
+  truth_path: managed-session control identity now comes only from canonical
+    `managed_session_id`, and the bridge control request carries canonical
+    `session_id`, `thread_id`, `workspace_root`, `request_hash`,
+    `managed_session_id`, and `created_at` fields without duplicate camelCase
+    bridge aliases
+  projection_path: compositor conformance rejects retired control request
+    aliases before managed-session control result normalization
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/threads/managed-session-state.mjs
+  tests:
+    - packages/runtime-daemon/src/threads/managed-session-state.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires managed-session control to read
+    `request.managed_session_id` without falling back to retired
+    `request.session_card_id`
+  - compositor conformance requires canonical snake_case runtime bridge control
+    request fields and focused tests proving retired camelCase bridge fields are
+    absent
+  - focused daemon tests prove retired request aliases fail closed before
+    managed-session control dispatch
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/threads/managed-session-state.test.mjs packages/runtime-daemon/src/managed-session-inspection.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused bridge tests compare canonical
+    managed-session control requests against poisoned retired alias input that
+    now fails closed or remains absent from the bridge request
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      managed-session control bridge-envelope cleanup
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
