@@ -14246,6 +14246,10 @@ function runCompositor() {
     runtimeMcpManager.match(
       /export function validateMcpServerRecords\(servers = \[\]\) \{[\s\S]*?\n}\n\nexport async function discoverMcpStdioCatalog/,
     )?.[0] ?? "";
+  const runtimeMcpManagerValidationInputBlock =
+    runtimeMcpManager.match(
+      /export function mcpServerRecordsFromValidationInput\(input = \{\}, workspaceRoot\) \{[\s\S]*?\n}\n\nexport function normalizeMcpServerRecord/,
+    )?.[0] ?? "";
   const runtimeMcpManagerRegistryBlock =
     runtimeMcpManager.match(
       /export function mcpRegistryForWorkspace\(cwd, options = \{\}\) \{[\s\S]*?\n}\n\nexport function mcpServerRecordsFromValidationInput/,
@@ -21021,14 +21025,19 @@ function runCompositor() {
     "runtime-mcp-json-shape-request-aliases-retired",
     /request\.mcp_json/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
       /raw\.mcp_servers/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      /input\.mcp_json \?\? input/.test(runtimeMcpManagerValidationInputBlock) &&
+      /raw\.mcp_servers \?\? raw\.servers/.test(runtimeMcpManagerValidationInputBlock) &&
       /request\.mcp_json \|\| request\.servers/.test(runtimeMcpControlSurface) &&
       /mcpJson:\s*\{/.test(runtimeMcpHelpersTest) &&
+      /mcpJson:\s*\{/.test(runtimeMcpManagerTest) &&
       /mcpServers:\s*\[server\("mcp\.invalid"/.test(runtimeMcpControlSurfaceTest) &&
       /^\s*mcp_json\?: Record<string, unknown>;/m.test(runtimeMcpSdkValidationInputBlock) &&
       !/request\.mcpJson\b/.test(
         `${runtimeMcpServerRecordsFromMutationInputBlock}\n${runtimeMcpControlSurface}`,
       ) &&
       !/raw\.mcpServers\b/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
+      !/input\.mcpJson\b/.test(runtimeMcpManagerValidationInputBlock) &&
+      !/raw\.mcpServers\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/request\.mcpServers\b/.test(runtimeMcpControlSurface) &&
       !/^\s*(?:mcpJson|mcpServers)\?:/m.test(
         `${runtimeMcpSdkValidationInputBlock}\n${runtimeMcpSdkServerMutationInputBlock}`,
@@ -21036,6 +21045,8 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-mcp-helpers.mjs",
       "packages/runtime-daemon/src/runtime-mcp-helpers.test.mjs",
+      "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/runtime-daemon/src/mcp-manager.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",

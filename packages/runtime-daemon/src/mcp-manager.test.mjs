@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   discoverMcpStdioCatalog,
   mcpRegistryForWorkspace,
+  mcpServerRecordsFromValidationInput,
   normalizeMcpServerRecord,
   validateMcpServerRecords,
 } from "./mcp-manager.mjs";
@@ -27,6 +28,31 @@ test("MCP manager validation emits canonical output fields only", () => {
   assert.equal(Object.hasOwn(validation, "schemaVersion"), false);
   assert.equal(Object.hasOwn(validation.issues[0], "serverId"), false);
   assert.equal(Object.hasOwn(validation.warnings[0], "serverId"), false);
+});
+
+test("MCP manager validation input consumes canonical MCP JSON fields only", () => {
+  const canonicalRecords = mcpServerRecordsFromValidationInput({
+    mcp_json: {
+      mcp_servers: {
+        canonical: { transport: "stdio", command: "npx" },
+      },
+    },
+    mcpJson: {
+      mcpServers: {
+        retired: { transport: "stdio", command: "retired" },
+      },
+    },
+  }, "/workspace");
+  assert.deepEqual(canonicalRecords.map((record) => record.label), ["canonical"]);
+
+  const retiredRecords = mcpServerRecordsFromValidationInput({
+    mcpJson: {
+      mcpServers: {
+        retired: { transport: "stdio", command: "retired" },
+      },
+    },
+  }, "/workspace");
+  assert.deepEqual(retiredRecords, []);
 });
 
 test("MCP manager registry and server records emit canonical output fields only", () => {

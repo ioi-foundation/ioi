@@ -88,8 +88,8 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
 }
 
 export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
-  const raw = input.mcp_json ?? input.mcpJson ?? input;
-  const servers = raw.mcpServers ?? raw.servers ?? (Array.isArray(raw) ? raw : null);
+  const raw = input.mcp_json ?? input;
+  const servers = raw.mcp_servers ?? raw.servers ?? (Array.isArray(raw) ? raw : null);
   if (Array.isArray(servers)) {
     return servers.map((server, index) =>
       normalizeMcpServerRecord(

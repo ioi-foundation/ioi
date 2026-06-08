@@ -18,7 +18,8 @@ through slice 659, plus computer-use route authority-scope alias evidence
 through slice 660, plus computer-use route observation-retention alias evidence
 through slice 661, plus coding-tool input-summary alias evidence through slice
 662, plus computer-use route workflow-node alias evidence through slice 663,
-plus computer-use control-action alias evidence through slice 664.
+plus computer-use control-action alias evidence through slice 664, plus MCP
+manager validation input alias evidence through slice 665.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -55,7 +56,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, model-mount accepted-receipt transition/head bridge-field retirement, runtime usage request-metadata alias-retirement, workspace-change control/inspection bridge request alias-retirement, managed-session inspection/control bridge request alias-retirement, run-cancel fail-closed detail alias-retirement, diagnostics operator-override not-found detail alias-retirement, computer-use route authority-scope alias-retirement, computer-use route observation-retention alias-retirement, computer-use route workflow-node alias-retirement, and computer-use control-action alias-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, model-mount accepted-receipt transition/head bridge-field retirement, runtime usage request-metadata alias-retirement, workspace-change control/inspection bridge request alias-retirement, managed-session inspection/control bridge request alias-retirement, run-cancel fail-closed detail alias-retirement, diagnostics operator-override not-found detail alias-retirement, computer-use route authority-scope alias-retirement, computer-use route observation-retention alias-retirement, computer-use route workflow-node alias-retirement, computer-use control-action alias-retirement, and MCP manager validation input alias-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -13356,6 +13357,63 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 665
+
+```yaml
+slice: 665
+phase: 10-authoritative-js-facade-retirement
+objective: retire MCP manager validation `mcpJson` and `mcpServers`
+  compatibility aliases before validation records are created
+owner_boundary:
+  route_or_surface: runtime MCP manager validation input parser
+  authority_gate: unchanged; this slice changes validation input parsing only
+    and does not grant MCP authority or mutate accepted truth
+  execution_backend: unchanged; MCP validation remains a daemon facade helper
+    pending terminal Rust daemon-core ownership
+  truth_path: canonical `mcp_json.mcp_servers` or `mcp_json.servers` can
+    produce validation records; retired `mcpJson.mcpServers` no longer feeds
+    validation records and fails closed to an empty record set when supplied
+    alone
+  projection_path: compositor conformance now scans the MCP manager parser
+    alongside the existing runtime MCP helper/control-surface JSON-shape guard
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon_facade:
+    - packages/runtime-daemon/src/mcp-manager.mjs
+  tests:
+    - packages/runtime-daemon/src/mcp-manager.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires the MCP manager validation parser to read
+    canonical `input.mcp_json` and `raw.mcp_servers`
+  - compositor conformance rejects direct `input.mcpJson` and `raw.mcpServers`
+    validation parser fallbacks
+  - focused MCP manager tests prove canonical MCP JSON wins and retired-only
+    MCP JSON input produces no validation records
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/mcp-manager.test.mjs
+    - node --check packages/runtime-daemon/src/mcp-manager.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this MCP
+      manager validation facade cleanup
+    - broader MCP manager output and control surfaces remain migration
+      transport until Rust daemon-core ownership is extracted for the full MCP
+      route family
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13371,7 +13429,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 664 and the one-hundredth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 665 and the one-hundredth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13692,7 +13750,10 @@ reconstruct the active seam without carrying every per-slice paragraph.
   `context.workspaceRoot` cannot materialize server workspace state, and MCP
   stdio live transport cwd selection now ignores retired server and containment
   `workspaceRoot` fields so poisoned camelCase workspace roots cannot steer a
-  spawned stdio session cwd;
+  spawned stdio session cwd; MCP manager validation input now consumes only
+  canonical `mcp_json.mcp_servers` or `mcp_json.servers`, so retired
+  `mcpJson.mcpServers` validation input cannot create manager validation
+  records;
   diagnostics feedback post-edit repair context now derives snapshot and
   rollback refs only from canonical `workspace_snapshot_id`,
   `workspace_snapshot.snapshot_id`, and `rollback_refs`, so poisoned
