@@ -663,6 +663,12 @@ Matrix compaction timing:
   compacted into the route-family range while preserving the restore/snapshot
   command boundary as migration transport and terminal direct Rust daemon-core
   API ownership as the remaining target.
+- One-hundred-thirty-second scheduled pass completed on 2026-06-08: the
+  model-mount daemon-core command-envelope evidence after slice 696 was
+  compacted into the route-family range while preserving the model_mount
+  admission/invocation/lifecycle/inventory/receipt-binding command boundary as
+  migration transport and terminal direct Rust daemon-core API ownership as the
+  remaining target.
 
 ## Implementation Slice 0
 
@@ -13503,65 +13509,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 696: Model-Mount Daemon-Core Command Envelope
-
-```yaml
-objective: move model_mount route decision, invocation admission, provider
-  execution/invocation/result, provider lifecycle/inventory, instance lifecycle,
-  accepted-receipt head/transition, and receipt-binding bridge operations off the
-  generic StepModule command envelope and retired model-mount command envs onto
-  the Rust daemon-core command envelope.
-owner_boundary:
-  route_or_surface: model-mounting admission runner and Rust command parser
-  authority_gate: Rust model_mount, receipt_binder, StepModuleRouter, Agentgres
-    admission, and projection cores make the consequential model route,
-    provider-execution, receipt-binding, and lifecycle planning decisions before
-    daemon JS can adapt responses or persist facade state
-  execution_backend: ioi.runtime.daemon_core.command.v1 through
-    IOI_RUNTIME_DAEMON_CORE_COMMAND as bounded migration transport
-  truth_path: model invocation and stream-completion receipts remain
-    Rust-bound/admitted before JS store persistence; retired StepModule command
-    envelopes fail before model_mount route-decision admission
-  projection_path: bridge conformance requires daemon-core env/schema for the
-    model_mount runner and a focused Rust negative proof rejects the retired
-    StepModule command envelope for route-decision admission
-touched_files:
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs
-  - packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs
-  - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  - scripts/conformance/hypervisor-conformance.mjs
-conformance_delta:
-  - bridge conformance now requires the model_mount admission runner to use
-    IOI_RUNTIME_DAEMON_CORE_COMMAND and ioi.runtime.daemon_core.command.v1
-  - Rust command parser classifies the model_mount route-decision, invocation,
-    provider execution/invocation/result, lifecycle/inventory, accepted-receipt,
-    and receipt-binding operations as daemon-core operations
-  - focused Rust negative proof rejects the retired
-    ioi.step_module.command_bridge.v1 envelope before model_mount route-decision
-    admission
-  - focused JS runner proof ignores retired IOI_MODEL_MOUNT_ADMISSION_COMMAND
-    and IOI_STEP_MODULE_COMMAND envs
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge model_mount -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core model_mount API extraction remains
-      pending; the command binary is migration transport only until model_mount
-      admission, provider execution, lifecycle, inventory, and receipt-binding
-      operations are exposed through the direct Rust daemon-core protocol surface
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13577,7 +13524,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 696 and the one-hundred-thirty-first 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 696 and the one-hundred-thirty-second 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
