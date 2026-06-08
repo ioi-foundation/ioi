@@ -14340,6 +14340,85 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 717
+
+```yaml
+slice: 717
+phase: 10-authoritative-js-facade-retirement
+objective: retire model-instance lifecycle JS mutation facades for public
+  load/unload and loaded-instance maintenance transitions
+owner_boundary:
+  route_or_surface: model-mounting model load/unload, idle eviction, duplicate
+    loaded-instance coalescing, and explicit supersede maintenance
+  authority_gate: real instance lifecycle transitions now fail closed at
+    `model_mount.instance_lifecycle` before JS provider driver execution,
+    lifecycle receipt creation, `model-instances` record-state commit, or
+    `state.instances` mutation; estimate-only load remains a projection-only
+    calculation with no JS receipt
+  execution_backend: none in JS for load/unload/evict/supersede transitions;
+    direct Rust daemon-core instance lifecycle/control/projection APIs must own
+    provider driver execution, transition planning, Agentgres admission, and
+    projection materialization
+  truth_path: no JS `model_load`, `model_unload`, `model_idle_evict`, or
+    `model_supersede` lifecycle receipt creation, no JS model-instance
+    record-state commit from these facades, no supersede helper mutation, and
+    no `state.instances` writes from model-loading or loaded-instance
+    maintenance surfaces
+  projection_path: loaded-instance lookup remains a read adapter over current
+    projections; estimate-only load returns canonical snake_case projection
+    data with `receipt_id: null` until Rust projection owns the surface
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs
+    - packages/runtime-daemon/src/model-mounting/loaded-instances.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs
+    - packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance rejects reintroducing model-loading or
+    loaded-instance JS driver calls, lifecycle receipts, instance record-state
+    commits, supersede helper calls, or `state.instances` writes
+  - focused daemon tests prove load/unload/evict/coalesce/supersede fail closed
+    before JS mutation, driver execution, receipt creation, record-state
+    commits, or instance-map writes
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs
+    - node --test packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/loaded-instances.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - estimate-only load and loaded-instance lookup remain JS read/projection
+      adapters until direct Rust daemon-core projection APIs own these surfaces
+    - provider health still persists provider status and provider-health
+      projections through current JS-adapted record-state commit helpers after
+      Rust lifecycle evidence; extract direct Rust provider health/control next
+    - route handlers still enter model loading through JS protocol adapters,
+      but real mutation now fails closed until the direct Rust core API is
+      verified
+    - schedule a matrix-compaction pass once the next provider-health or MCP
+      Rust-core extraction/facade-retirement seam is clear, so the now-retired
+      instance lifecycle facades remain migration evidence rather than terminal
+      Node/MJS shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14355,7 +14434,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 716 and the provider-inventory JS artifact materialization retirement pass:
+Current expected behavior after Slice 717 and the model-instance lifecycle JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

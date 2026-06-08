@@ -1,10 +1,3 @@
-import {
-  modelMountInstanceLifecycleFields,
-  modelMountInstanceLifecycleRequiresRust,
-  planModelMountInstanceLifecycleForMigratedProvider,
-} from "./model-instance-lifecycle.mjs";
-import { commitModelInstanceRecordState } from "./model-instance-record-state.mjs";
-
 export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = true, deps = {}) {
   const { notFound } = deps;
   const instance = [...state.instances.values()].find(
@@ -18,36 +11,16 @@ export function loadedInstanceForEndpoint(state, endpointId, failIfMissing = tru
 
 export function evictExpiredInstances(state) {
   const nowMs = state.now().getTime();
-  let changed = false;
   for (const instance of state.instances.values()) {
     if (instance.status !== "loaded" || !instance.expiresAt || Date.parse(instance.expiresAt) > nowMs) {
       continue;
     }
-    const instanceLifecycle = planStateInstanceLifecycle(state, instance, {
-      action: "evict",
-      targetStatus: "evicted",
-      evidenceRefs: ["model_idle_evict"],
+    throwInstanceMaintenanceRustCoreRequired("model_idle_evict", instance, {
+      operation_kind: "model_mount.instance.evict",
+      reason: "idle_ttl",
     });
-    const evicted = {
-      ...instance,
-      status: "evicted",
-      evictedAt: state.nowIso(),
-      evictionReason: "idle_ttl",
-      ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    };
-    const receipt = state.lifecycleReceipt("model_idle_evict", {
-      instance_id: instance.id,
-      endpoint_id: instance.endpointId,
-      model_id: instance.modelId,
-      provider_id: instance.providerId,
-      ...lifecycleReceiptFields(state, evicted, instanceLifecycle),
-    });
-    const stored = { ...evicted, receiptId: receipt.id };
-    commitModelInstanceRecordState(state, stored, "model_mount.instance.evict", [receipt.id]);
-    state.instances.set(instance.id, stored);
-    changed = true;
   }
-  return changed;
+  return false;
 }
 
 export function coalesceLoadedInstances(state) {
@@ -59,122 +32,48 @@ export function coalesceLoadedInstances(state) {
       loadedByEndpoint.set(instance.endpointId, instance);
     }
   }
-  let changed = false;
   for (const instance of state.instances.values()) {
     if (instance.status !== "loaded" || !instance.endpointId) continue;
     const keeper = loadedByEndpoint.get(instance.endpointId);
     if (!keeper || keeper.id === instance.id) continue;
-    const instanceLifecycle = planStateInstanceLifecycle(state, instance, {
-      action: "supersede",
-      targetStatus: "superseded",
-      evidenceRefs: ["model_supersede", keeper.id],
-    });
-    const superseded = {
-      ...instance,
-      status: "superseded",
-      supersededAt: state.nowIso(),
-      supersededBy: keeper.id,
-      supersededReason: "endpoint_reload",
-      ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    };
-    const receipt = state.lifecycleReceipt("model_supersede", {
-      instance_id: instance.id,
-      endpoint_id: instance.endpointId,
-      model_id: instance.modelId,
-      provider_id: instance.providerId,
+    throwInstanceMaintenanceRustCoreRequired("model_supersede", instance, {
+      operation_kind: "model_mount.instance.supersede",
       superseded_by: keeper.id,
-      ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
+      reason: "endpoint_reload",
     });
-    const stored = { ...superseded, receiptId: receipt.id };
-    commitModelInstanceRecordState(state, stored, "model_mount.instance.supersede", [receipt.id]);
-    state.instances.set(instance.id, stored);
-    changed = true;
   }
-  return changed;
+  return false;
 }
 
 export function supersedeLoadedInstances(state, endpointId, keepInstanceId) {
-  let changed = false;
   for (const instance of state.instances.values()) {
     if (instance.id === keepInstanceId || instance.endpointId !== endpointId || instance.status !== "loaded") continue;
-    const instanceLifecycle = planStateInstanceLifecycle(state, instance, {
-      action: "supersede",
-      targetStatus: "superseded",
-      evidenceRefs: ["model_supersede", keepInstanceId],
-    });
-    const superseded = {
-      ...instance,
-      status: "superseded",
-      supersededAt: state.nowIso(),
-      supersededBy: keepInstanceId,
-      supersededReason: "endpoint_reload",
-      ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    };
-    const receipt = state.lifecycleReceipt("model_supersede", {
-      instance_id: instance.id,
-      endpoint_id: instance.endpointId,
-      model_id: instance.modelId,
-      provider_id: instance.providerId,
+    throwInstanceMaintenanceRustCoreRequired("model_supersede", instance, {
+      operation_kind: "model_mount.instance.supersede",
       superseded_by: keepInstanceId,
-      ...lifecycleReceiptFields(state, superseded, instanceLifecycle),
+      reason: "endpoint_reload",
     });
-    const stored = { ...superseded, receiptId: receipt.id };
-    commitModelInstanceRecordState(state, stored, "model_mount.instance.supersede", [receipt.id]);
-    state.instances.set(instance.id, stored);
-    changed = true;
   }
-  return changed;
+  return false;
 }
 
-function planStateInstanceLifecycle(state, instance, { action, targetStatus, evidenceRefs = [] }) {
-  const provider = providerForInstance(state, instance);
-  if (!modelMountInstanceLifecycleRequiresRust(provider)) return null;
-  const endpoint = endpointForInstance(state, instance);
-  return planModelMountInstanceLifecycleForMigratedProvider({
-    state,
-    action,
-    targetStatus,
-    instanceId: instance.id,
-    endpoint,
-    provider,
-    backendId: instance.backendId ?? endpoint.backendId ?? null,
-    driver: instance.driver ?? provider.driver ?? "fixture",
-    model_mount_provider_lifecycle_hash: instance.model_mount_provider_lifecycle_hash,
-    evidenceRefs: [
-      ...(Array.isArray(instance.providerEvidenceRefs) ? instance.providerEvidenceRefs : []),
-      ...(Array.isArray(instance.model_mount_instance_lifecycle_evidence_refs)
-        ? instance.model_mount_instance_lifecycle_evidence_refs
-        : []),
-      ...evidenceRefs,
+function throwInstanceMaintenanceRustCoreRequired(operation, instance, details = {}) {
+  const error = new Error("Model instance lifecycle maintenance requires Rust daemon-core ownership.");
+  error.status = 501;
+  error.code = "model_mount_instance_lifecycle_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.instance_lifecycle",
+    operation,
+    ...details,
+    instance_id: instance?.id ?? null,
+    endpoint_id: instance?.endpointId ?? null,
+    model_id: instance?.modelId ?? null,
+    provider_id: instance?.providerId ?? null,
+    evidence_refs: [
+      "model_mount_instance_lifecycle_js_maintenance_retired",
+      "rust_daemon_core_instance_lifecycle_required",
+      "agentgres_model_instance_record_truth_required",
     ],
-  });
-}
-
-function providerForInstance(state, instance) {
-  const provider = state.providers?.get?.(instance.providerId);
-  if (provider) return provider;
-  if (typeof state.provider === "function" && instance.providerId) {
-    return state.provider(instance.providerId);
-  }
-  return null;
-}
-
-function endpointForInstance(state, instance) {
-  if (typeof state.endpoint === "function" && instance.endpointId) {
-    return state.endpoint(instance.endpointId);
-  }
-  return {
-    id: instance.endpointId,
-    modelId: instance.modelId,
-    backendId: instance.backendId ?? null,
   };
-}
-
-function lifecycleReceiptFields(state, instance, instanceLifecycle) {
-  if (!instanceLifecycle) return {};
-  return {
-    provider_kind: providerForInstance(state, instance)?.kind ?? null,
-    model_mount_provider_lifecycle_hash: instance.model_mount_provider_lifecycle_hash ?? null,
-    ...modelMountInstanceLifecycleFields(instanceLifecycle),
-  };
+  throw error;
 }

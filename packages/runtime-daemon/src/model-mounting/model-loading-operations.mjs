@@ -1,10 +1,3 @@
-import {
-  modelMountProviderKindRequiresRustInstanceLifecycle,
-  modelMountInstanceLifecycleFields,
-  planModelMountInstanceLifecycleForMigratedProvider,
-} from "./model-instance-lifecycle.mjs";
-import { commitModelInstanceRecordState } from "./model-instance-record-state.mjs";
-
 const RETIRED_MODEL_LOADING_REQUEST_ALIASES = [
   "endpointId",
   "modelId",
@@ -28,12 +21,9 @@ const CANONICAL_MODEL_LOADING_REQUEST_FIELDS = [
 export async function loadModel(state, body = {}, deps = {}) {
   const {
     defaultBackendForProvider,
-    driverNameForProvider,
-    expiresAt,
     hasExplicitTtlOption,
     normalizeLoadOptions,
     normalizeLoadPolicy,
-    safeId,
     schemaVersion,
   } = deps;
   assertCanonicalModelLoadingRequestBody(body);
@@ -41,7 +31,6 @@ export async function loadModel(state, body = {}, deps = {}) {
   const provider = state.provider(endpoint.providerId);
   const loadPolicy = normalizeLoadPolicy(body.load_policy ?? endpoint.loadPolicy);
   const runtimePreference = state.runtimePreferenceForEndpoint(endpoint);
-  assertModelLoadingRustBackend(provider, "model_load");
   const requestLoadOptions = body.load_options ?? {};
   const runtimeDefaults = { ...state.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
   if (body.load_policy && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
@@ -56,102 +45,32 @@ export async function loadModel(state, body = {}, deps = {}) {
   const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
   const runtimeEngineProfile = state.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null;
   if (loadOptions.estimateOnly) {
-    const receipt = state.lifecycleReceipt("model_load_estimate", {
-      endpointId: endpoint.id,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-      backendId,
-      runtimeEngineId: runtimePreference.selectedEngineId,
-      runtimeEngineProfile,
-      loadPolicy,
-      loadOptions,
-      estimate,
-    });
     return {
       schemaVersion,
       status: "estimate_only",
-      endpointId: endpoint.id,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-      backendId,
-      runtimeEngineId: runtimePreference.selectedEngineId,
-      runtimeEngineProfile,
-      loadPolicy,
-      loadOptions,
+      endpoint_id: endpoint.id,
+      model_id: endpoint.modelId,
+      provider_id: endpoint.providerId,
+      provider_kind: provider.kind,
+      backend_id: backendId,
+      runtime_engine_id: runtimePreference.selectedEngineId,
+      runtime_engine_profile: runtimeEngineProfile,
+      load_policy: loadPolicy,
+      load_options: loadOptions,
       estimate,
-      receiptId: receipt.id,
+      receipt_id: null,
+      evidence_refs: [
+        "model_mount_model_loading_js_facade_retired",
+        "model_load_estimate_projection_only",
+      ],
     };
   }
-  const driverResult = await state.driverForProvider(provider).load({
-    state,
-    provider,
-    endpoint,
-    body: { ...body, loadOptions, load_policy: loadPolicy },
-  });
-  const now = state.nowIso();
-  const instanceId = body.id ?? `instance.${safeId(endpoint.id)}.${Date.now()}`;
-  const instanceLifecycle = planModelMountInstanceLifecycleForMigratedProvider({
-    state,
-    action: "load",
-    targetStatus: "loaded",
-    instanceId,
-    endpoint,
-    provider,
-    backendId: driverResult.backendId ?? backendId,
-    driver: driverNameForProvider(provider),
-    model_mount_provider_lifecycle_hash: driverResult.lifecycleHash,
-    evidenceRefs: driverResult.evidenceRefs ?? [],
-  });
-  const instance = {
-    id: instanceId,
-    endpointId: endpoint.id,
-    providerId: endpoint.providerId,
-    modelId: endpoint.modelId,
-    status: "loaded",
-    backend: driverResult.backend ?? endpoint.apiFormat,
-    backendId: driverResult.backendId ?? backendId,
-    driver: driverNameForProvider(provider),
-    loadPolicy,
-    loadOptions,
-    runtimeEngineId: runtimePreference.selectedEngineId,
-    runtimeEngineProfile,
-    identifier: loadOptions.identifier ?? null,
-    contextLength: loadOptions.contextLength ?? endpoint.contextWindow ?? null,
-    parallelism: loadOptions.parallel ?? null,
-    gpuOffload: loadOptions.gpu ?? null,
-    estimate: driverResult.estimate ?? estimate,
-    backendProcess: driverResult.process ?? null,
-    backendProcessId: driverResult.process?.id ?? null,
-    backendProcessPidHash: driverResult.process?.pidHash ?? null,
-    loadedAt: now,
-    lastUsedAt: now,
-    expiresAt: expiresAt(now, loadPolicy),
-    workflowScope: body.workflow_scope ?? null,
-    agentScope: body.agent_scope ?? null,
-    providerEvidenceRefs: driverResult.evidenceRefs ?? [],
-    ...modelMountInstanceLifecycleFields(instanceLifecycle),
-  };
-  const receipt = state.lifecycleReceipt("model_load", {
-    instance_id: instance.id,
+  throwModelLoadingRustCoreRequired("model_load", provider, {
+    operation_kind: "model_mount.instance.load",
     endpoint_id: endpoint.id,
     model_id: endpoint.modelId,
-    provider_id: endpoint.providerId,
-    provider_kind: provider.kind,
-    backend_id: instance.backendId,
-    runtime_engine_id: runtimePreference.selectedEngineId,
-    load_policy: loadPolicy,
-    load_options: loadOptions,
-    estimate: instance.estimate,
-    provider_evidence_refs: driverResult.evidenceRefs ?? [],
-    ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    backend_process: driverResult.process ?? null,
-    command_args_hash: driverResult.commandArgsHash ?? null,
+    backend_id: backendId,
   });
-  const stored = { ...instance, receiptId: receipt.id };
-  commitModelInstanceRecordState(state, stored, "model_mount.instance.load", [receipt.id]);
-  state.instances.set(stored.id, stored);
-  state.supersedeLoadedInstances(endpoint.id, stored.id);
-  return stored;
 }
 
 export function loadEstimate(state, endpoint, loadOptions = {}, runtimePreference = state.runtimePreference(), deps = {}) {
@@ -190,62 +109,34 @@ export async function unloadModel(state, body = {}, deps = {}) {
     : state.loadedInstanceForEndpoint(state.resolveEndpoint(body.endpoint_id, body.model_id).id);
   const endpoint = state.endpoint(instance.endpointId);
   const provider = state.provider(instance.providerId);
-  assertModelLoadingRustBackend(provider, "model_unload");
-  const driverResult = await state.driverForProvider(provider).unload({ state, provider, endpoint, instance, body });
-  const instanceLifecycle = planModelMountInstanceLifecycleForMigratedProvider({
-    state,
-    action: "unload",
-    targetStatus: "unloaded",
-    instanceId: instance.id,
-    endpoint,
-    provider,
-    backendId: driverResult.backendId ?? instance.backendId ?? endpoint.backendId,
-    driver: driverResult.driver ?? instance.driver ?? deps.driverNameForProvider?.(provider) ?? provider.driver ?? "fixture",
-    model_mount_provider_lifecycle_hash: driverResult.lifecycleHash,
-    evidenceRefs: driverResult.evidenceRefs ?? [],
-  });
-  const updated = {
-    ...instance,
-    status: "unloaded",
-    unloadedAt: state.nowIso(),
-    providerEvidenceRefs: driverResult.evidenceRefs ?? instance.providerEvidenceRefs ?? [],
-    ...modelMountInstanceLifecycleFields(instanceLifecycle),
-  };
-  const receipt = state.lifecycleReceipt("model_unload", {
+  throwModelLoadingRustCoreRequired("model_unload", provider, {
+    operation_kind: "model_mount.instance.unload",
     instance_id: instance.id,
-    endpoint_id: instance.endpointId,
+    endpoint_id: endpoint.id,
     model_id: instance.modelId,
-    provider_id: instance.providerId,
-    provider_kind: provider.kind,
-    provider_evidence_refs: driverResult.evidenceRefs ?? [],
-    ...modelMountInstanceLifecycleFields(instanceLifecycle),
-    backend_process: driverResult.process ?? null,
+    backend_id: instance.backendId ?? endpoint.backendId ?? null,
   });
-  const stored = { ...updated, receiptId: receipt.id };
-  commitModelInstanceRecordState(state, stored, "model_mount.instance.unload", [receipt.id]);
-  state.instances.set(instance.id, stored);
-  return stored;
 }
 
-function assertModelLoadingRustBackend(provider = {}, operation) {
-  if (providerHasRustModelLoadingBackend(provider)) return;
+function throwModelLoadingRustCoreRequired(operation, provider = {}, details = {}) {
   const error = new Error("Model load/unload requires a Rust model_mount provider lifecycle backend.");
   error.status = 501;
-  error.code = "model_mount_model_loading_backend_unmigrated";
+  error.code = "model_mount_model_loading_rust_core_required";
   error.details = {
+    rust_core_boundary: "model_mount.instance_lifecycle",
     operation,
+    ...details,
     provider_id: provider?.id ?? null,
     provider_kind: provider?.kind ?? null,
     provider_driver: provider?.driver ?? null,
     api_format: provider?.apiFormat ?? null,
+    evidence_refs: [
+      "model_mount_model_loading_js_facade_retired",
+      "rust_daemon_core_instance_lifecycle_required",
+      "agentgres_model_instance_record_truth_required",
+    ],
   };
   throw error;
-}
-
-function providerHasRustModelLoadingBackend(provider = {}) {
-  return modelMountProviderKindRequiresRustInstanceLifecycle(provider.kind) ||
-    provider.driver === "native_local" ||
-    provider.apiFormat === "ioi_native";
 }
 
 function assertCanonicalModelLoadingRequestBody(body = {}) {

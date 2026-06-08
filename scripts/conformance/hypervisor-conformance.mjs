@@ -565,6 +565,12 @@ function runBridge() {
   const modelMountReceiptOperationsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
     : "";
+  const modelLoadingOperations = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
+    : "";
+  const loadedInstances = exists("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")
+    : "";
   const backendProcesses = exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
     : "";
@@ -8150,7 +8156,7 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-instance-lifecycle-live-bridge",
+    "model-mount-instance-lifecycle-js-facade-retired",
     /plan_model_mount_instance_lifecycle/.test(bridgeModule) &&
       /ModelMountInstanceLifecycleRequest/.test(bridgeModule) &&
       /bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(bridgeModule) &&
@@ -8186,33 +8192,43 @@ function runBridge() {
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /model_mount_provider_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
-      ) &&
+      /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
+      /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
+      /rust_daemon_core_instance_lifecycle_required/.test(loadedInstances) &&
+      /agentgres_model_instance_record_truth_required/.test(loadedInstances) &&
       !/providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
       ) &&
-      /model_mount_provider_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
-      ) &&
+      /model_mount_model_loading_rust_core_required/.test(modelLoadingOperations) &&
+      /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
+      /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
+      !/commitModelInstanceRecordState/.test(modelLoadingOperations) &&
+      !/state\.driverForProvider\(provider\)\.(?:load|unload)/.test(modelLoadingOperations) &&
+      !/state\.lifecycleReceipt\("model_(?:load|unload)"/.test(modelLoadingOperations) &&
+      !/state\.instances\.set/.test(modelLoadingOperations) &&
+      !/state\.supersedeLoadedInstances/.test(modelLoadingOperations) &&
+      !/commitModelInstanceRecordState/.test(loadedInstances) &&
+      !/state\.lifecycleReceipt\("model_(?:idle_evict|supersede)"/.test(loadedInstances) &&
+      !/state\.instances\.set/.test(loadedInstances) &&
       !/providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
       ) &&
-      /action: "evict"/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
-      /action: "supersede"/.test(read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")) &&
-      /idle TTL eviction plans Rust lifecycle/.test(
+      /idle TTL eviction fails closed before JS lifecycle receipt or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
-      /explicit supersede plans Rust lifecycle/.test(
+      /explicit supersede fails closed before JS supersede mutation when state would change/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
-      /fails closed for migrated local provider without Rust instance lifecycle plan/.test(
+      /loadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /unloadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ),
     [
@@ -8225,7 +8241,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider model load/unload/evict/supersede instance transitions must be planned and hash-bound by Rust model_mount before JS writes model-instance state",
+    "Phase 9/10 is pending: migrated local provider model load/unload/evict/supersede JS mutation facades must stay retired while Rust model_mount owns direct instance lifecycle transition planning/admission/projection",
   );
   assertCheck(
     result,
@@ -10408,24 +10424,41 @@ function runReceipts() {
       /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
       /model_mount\.instance\.load/.test(modelLoadingOperations) &&
       /model_mount\.instance\.unload/.test(modelLoadingOperations) &&
-      /model_mount_model_loading_backend_unmigrated/.test(modelLoadingOperations) &&
-      /assertModelLoadingRustBackend\(provider,\s*"model_load"\)[\s\S]*?state\.driverForProvider\(provider\)\.load/.test(
-        modelLoadingOperations,
-      ) &&
-      /assertModelLoadingRustBackend\(provider,\s*"model_unload"\)[\s\S]*?state\.driverForProvider\(provider\)\.unload/.test(
-        modelLoadingOperations,
-      ) &&
+      /model_mount_model_loading_rust_core_required/.test(modelLoadingOperations) &&
+      /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
+      /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
+      /rust_daemon_core_instance_lifecycle_required/.test(modelLoadingOperations) &&
+      /agentgres_model_instance_record_truth_required/.test(modelLoadingOperations) &&
+      !/commitModelInstanceRecordState/.test(modelLoadingOperations) &&
+      !/state\.driverForProvider\(provider\)\.load/.test(modelLoadingOperations) &&
+      !/state\.driverForProvider\(provider\)\.unload/.test(modelLoadingOperations) &&
+      !/state\.lifecycleReceipt\("model_load"/.test(modelLoadingOperations) &&
+      !/state\.lifecycleReceipt\("model_unload"/.test(modelLoadingOperations) &&
+      !/state\.instances\.set/.test(modelLoadingOperations) &&
+      !/state\.supersedeLoadedInstances/.test(modelLoadingOperations) &&
       /model_mount\.instance\.evict/.test(loadedInstances) &&
       /model_mount\.instance\.supersede/.test(loadedInstances) &&
+      /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
+      /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
+      !/commitModelInstanceRecordState/.test(loadedInstances) &&
+      !/state\.lifecycleReceipt\("model_idle_evict"/.test(loadedInstances) &&
+      !/state\.lifecycleReceipt\("model_supersede"/.test(loadedInstances) &&
+      !/state\.instances\.set/.test(loadedInstances) &&
       /model_mount_instance_state_commit_unconfigured/.test(modelInstanceRecordState) &&
       !/state\.writeMap\("model-instances"/.test(modelLoadingOperations) &&
       !/state\.writeMap\("model-instances"/.test(loadedInstances) &&
       /recordStateCommits/.test(modelLoadingOperationsTest) &&
       /recordStateCommits/.test(loadedInstancesTest) &&
-      /loadModel fails closed without Rust Agentgres instance record-state commit/.test(
+      /loadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
         modelLoadingOperationsTest,
       ) &&
-      /unloadModel fails closed without Rust Agentgres instance record-state commit/.test(
+      /unloadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /loadModel fails closed before Rust planning or Agentgres commit shims are used/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /unloadModel fails closed before Rust planning or Agentgres commit shims are used/.test(
         modelLoadingOperationsTest,
       ) &&
       /loadModel fails closed for non-migrated provider before JS driver execution/.test(
@@ -10435,7 +10468,16 @@ function runReceipts() {
         modelLoadingOperationsTest,
       ) &&
       /assert\.deepEqual\(state\.driverCalls,\s*\[\]\)/.test(modelLoadingOperationsTest) &&
-      /instance lifecycle maintenance fails closed without Rust Agentgres record-state commit/.test(
+      /idle TTL eviction fails closed before JS lifecycle receipt or instance write/.test(
+        loadedInstancesTest,
+      ) &&
+      /coalescing duplicate loaded instances fails closed before JS supersede mutation/.test(
+        loadedInstancesTest,
+      ) &&
+      /explicit supersede fails closed before JS supersede mutation when state would change/.test(
+        loadedInstancesTest,
+      ) &&
+      /instance lifecycle maintenance does not depend on retired JS Agentgres commit shim/.test(
         loadedInstancesTest,
       ) &&
       /reject lifecycle action\/status drift through retired per-map persistence/.test(
@@ -10455,7 +10497,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: direct JS model-instance and bulk map persistence must fail closed without Rust model_mount lifecycle or record-state admission",
+    "Phase 9/10 is pending: public JS model-instance load/unload and maintenance mutation facades must fail closed before driver execution, lifecycle receipts, record-state commits, or instance-map mutation",
   );
   assertCheck(
     result,
@@ -10490,7 +10532,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
       /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
-      /provider_kind:\s*providerForInstance\(state,\s*instance\)\?\.kind/.test(loadedInstances) &&
+      /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
       /model instance lifecycle receipts require Rust binding/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
@@ -10514,16 +10556,12 @@ function runReceipts() {
     /instance_id:\s*instance\.id/.test(modelLoadingOperations) &&
       /endpoint_id:\s*endpoint\.id/.test(modelLoadingOperations) &&
       /model_id:\s*endpoint\.modelId/.test(modelLoadingOperations) &&
-      /provider_id:\s*endpoint\.providerId/.test(modelLoadingOperations) &&
       /provider_kind:\s*provider\.kind/.test(modelLoadingOperations) &&
-      /backend_process:\s*driverResult\.process/.test(modelLoadingOperations) &&
-      /command_args_hash:\s*driverResult\.commandArgsHash/.test(modelLoadingOperations) &&
-      /instance_id:\s*instance\.id/.test(loadedInstances) &&
+      /instance_id:\s*instance\?\.id/.test(loadedInstances) &&
       /notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpoint_id: endpointId \}\)/.test(
         loadedInstances,
       ) &&
       /superseded_by:\s*keepInstanceId/.test(loadedInstances) &&
-      /provider_kind:\s*providerForInstance\(state,\s*instance\)\?\.kind/.test(loadedInstances) &&
       /const providerId = details\.provider_id;/.test(modelMountReceiptOperations) &&
       /provider_id:\s*providerId \?\? null/.test(modelMountReceiptOperations) &&
       /const providerKind = optionalNonEmptyString\(details\.provider_kind\)/.test(modelMountReceiptWriteGuards) &&
@@ -10538,9 +10576,8 @@ function runReceipts() {
       !/notFound\(`No loaded model instance for endpoint: \$\{endpointId\}`,\s*\{ endpointId \}\)/.test(
         loadedInstances,
       ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"providerKind"\),\s*false/.test(modelLoadingOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(modelLoadingOperationsTest) &&
       /assert\.equal\(error\.details\.endpoint_id,\s*"endpoint_missing"\)/.test(loadedInstancesTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\[1\],\s*"providerKind"\),\s*false/.test(loadedInstancesTest) &&
       /Object\.hasOwn\(error\.details,\s*"endpointId"\),\s*false/.test(loadedInstancesTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\) === false/.test(modelMountReceiptOperationsTest) &&
       /receipt\.legacy-model-lifecycle/.test(modelMountStoreTest) &&

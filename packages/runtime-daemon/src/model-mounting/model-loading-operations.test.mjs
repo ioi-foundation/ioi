@@ -300,72 +300,57 @@ test("loadModel returns estimate-only envelope without invoking provider driver"
 
   assert.equal(result.schemaVersion, "schema.model-loading.test");
   assert.equal(result.status, "estimate_only");
-  assert.equal(result.backendId, "backend.native");
-  assert.equal(result.runtimeEngineProfile.id, "engine.native");
+  assert.equal(result.backend_id, "backend.native");
+  assert.equal(result.provider_kind, "ioi_native_local");
+  assert.equal(result.runtime_engine_profile.id, "engine.native");
   assert.equal(result.estimate.contextLength, 2048);
-  assert.equal(result.receiptId, "receipt.model_load_estimate.1");
+  assert.equal(result.receipt_id, null);
+  assert.deepEqual(result.evidence_refs, [
+    "model_mount_model_loading_js_facade_retired",
+    "model_load_estimate_projection_only",
+  ]);
   assert.deepEqual(state.driverCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(Object.hasOwn(result, "backendId"), false);
+  assert.equal(Object.hasOwn(result, "runtimeEngineProfile"), false);
+  assert.equal(Object.hasOwn(result, "receiptId"), false);
 });
 
-test("loadModel persists loaded instance, supersedes previous instances, and records receipt", async () => {
+test("loadModel mutation facade fails closed before JS driver, receipt, or instance write", async () => {
   const state = fakeState();
 
-  const instance = await loadModel(
-    state,
-    { endpoint_id: "endpoint.local.llama", id: "instance.explicit", load_options: { identifier: "llama-test" } },
-    deps,
+  await assert.rejects(
+    () =>
+      loadModel(
+        state,
+        { endpoint_id: "endpoint.local.llama", id: "instance.explicit", load_options: { identifier: "llama-test" } },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_model_loading_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.instance_lifecycle");
+      assert.equal(error.details.operation, "model_load");
+      assert.equal(error.details.operation_kind, "model_mount.instance.load");
+      assert.equal(error.details.endpoint_id, "endpoint.local.llama");
+      assert.equal(error.details.model_id, "llama-test");
+      assert.equal(error.details.provider_id, "provider.local");
+      assert.equal(error.details.provider_kind, "ioi_native_local");
+      assert.equal(error.details.backend_id, "backend.native");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      return true;
+    },
   );
 
-  assert.equal(instance.id, "instance.explicit");
-  assert.equal(instance.status, "loaded");
-  assert.equal(instance.backendId, "backend.native");
-  assert.equal(instance.driver, "native_local");
-  assert.equal(instance.runtimeEngineId, "engine.native");
-  assert.equal(instance.backendProcessId, "process.1");
-  assert.deepEqual(instance.providerEvidenceRefs, ["driver.load"]);
-  assert.equal(instance.model_mount_provider_lifecycle_hash, "sha256:provider-load");
-  assert.equal(instance.model_mount_instance_lifecycle_action, "load");
-  assert.equal(instance.model_mount_instance_lifecycle_status, "loaded");
-  assert.equal(instance.model_mount_instance_lifecycle_hash, "sha256:load:instance.explicit");
-  assert.ok(instance.model_mount_instance_lifecycle_evidence_refs.includes("rust_model_mount_instance_lifecycle"));
-  assert.equal(instance.receiptId, "receipt.model_load.1");
-  assert.equal(state.instances.get(instance.id), instance);
-  assert.deepEqual(state.superseded, [["endpoint.local.llama", "instance.explicit"]]);
+  assert.deepEqual(state.driverCalls, []);
+  assert.equal(state.instances.has("instance.explicit"), false);
+  assert.deepEqual(state.superseded, []);
   assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
-  assert.equal(state.recordStateCommits[0].record_id, "instance.explicit");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.load");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_load.1"]);
-  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.model_load.1");
-  assert.equal(state.receipts.at(-1).kind, "model_load");
-  assert.equal(state.receipts.at(-1).details.instance_id, "instance.explicit");
-  assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.local.llama");
-  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
-  assert.equal(state.receipts.at(-1).details.provider_id, "provider.local");
-  assert.equal(state.receipts.at(-1).details.provider_kind, "ioi_native_local");
-  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
-  assert.equal(state.receipts.at(-1).details.runtime_engine_id, "engine.native");
-  assert.deepEqual(state.receipts.at(-1).details.provider_evidence_refs, ["driver.load"]);
-  assert.equal(state.receipts.at(-1).details.backend_process.id, "process.1");
-  assert.equal(state.receipts.at(-1).details.command_args_hash, "args.hash");
-  assert.equal(state.receipts.at(-1).details.model_mount_provider_lifecycle_hash, "sha256:provider-load");
-  assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_action, "load");
-  assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_status, "loaded");
-  assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_hash, "sha256:load:instance.explicit");
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "instanceId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerKind"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "runtimeEngineId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerEvidenceRefs"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendProcess"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "commandArgsHash"), false);
-  assert.equal(state.transitionRequests.at(-1).action, "load");
-  assert.equal(state.transitionRequests.at(-1).provider_lifecycle_hash, "sha256:provider-load");
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.transitionRequests, []);
 });
 
 test("loadEstimate derives native resource estimate and backend defaults", () => {
@@ -407,7 +392,7 @@ test("loadModel fails closed for non-migrated provider before JS driver executio
     () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.remote" }, deps),
     (error) => {
       assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_model_loading_backend_unmigrated");
+      assert.equal(error.code, "model_mount_model_loading_rust_core_required");
       assert.equal(error.details.operation, "model_load");
       assert.equal(error.details.provider_id, "provider.remote");
       assert.equal(error.details.provider_kind, "openai_compatible");
@@ -445,7 +430,7 @@ test("unloadModel fails closed for non-migrated provider before JS driver execut
     () => unloadModel(state, { instance_id: "instance.remote" }, deps),
     (error) => {
       assert.equal(error.status, 501);
-      assert.equal(error.code, "model_mount_model_loading_backend_unmigrated");
+      assert.equal(error.code, "model_mount_model_loading_rust_core_required");
       assert.equal(error.details.operation, "model_unload");
       assert.equal(error.details.provider_id, "provider.remote");
       assert.equal(error.details.provider_kind, "custom_http");
@@ -463,97 +448,7 @@ test("unloadModel fails closed for non-migrated provider before JS driver execut
   assert.deepEqual(state.recordStateCommits, []);
 });
 
-test("unloadModel updates loaded instance and records provider evidence", async () => {
-  const state = fakeState();
-  state.instances.set("instance.loaded", {
-    id: "instance.loaded",
-    endpointId: "endpoint.local.llama",
-    providerId: "provider.local",
-    modelId: "llama-test",
-    status: "loaded",
-    providerEvidenceRefs: ["previous"],
-  });
-
-  const result = await unloadModel(state, { instance_id: "instance.loaded" }, deps);
-
-  assert.equal(result.status, "unloaded");
-  assert.equal(result.unloadedAt, state.now);
-  assert.deepEqual(result.providerEvidenceRefs, ["driver.unload"]);
-  assert.equal(result.model_mount_provider_lifecycle_hash, "sha256:provider-unload");
-  assert.equal(result.model_mount_instance_lifecycle_action, "unload");
-  assert.equal(result.model_mount_instance_lifecycle_status, "unloaded");
-  assert.equal(result.model_mount_instance_lifecycle_hash, "sha256:unload:instance.loaded");
-  assert.equal(result.receiptId, "receipt.model_unload.1");
-  assert.equal(state.instances.get("instance.loaded"), result);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-instances");
-  assert.equal(state.recordStateCommits[0].record_id, "instance.loaded");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.instance.unload");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_unload.1"]);
-  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt.model_unload.1");
-  assert.equal(state.receipts.at(-1).kind, "model_unload");
-  assert.equal(state.receipts.at(-1).details.instance_id, "instance.loaded");
-  assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.local.llama");
-  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
-  assert.equal(state.receipts.at(-1).details.provider_id, "provider.local");
-  assert.equal(state.receipts.at(-1).details.provider_kind, "ioi_native_local");
-  assert.deepEqual(state.receipts.at(-1).details.provider_evidence_refs, ["driver.unload"]);
-  assert.equal(state.receipts.at(-1).details.backend_process.id, "process.1");
-  assert.equal(state.receipts.at(-1).details.model_mount_provider_lifecycle_hash, "sha256:provider-unload");
-  assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_action, "unload");
-  assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_status, "unloaded");
-  assert.equal(state.receipts.at(-1).details.model_mount_instance_lifecycle_hash, "sha256:unload:instance.loaded");
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "instanceId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerKind"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerEvidenceRefs"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendProcess"), false);
-  assert.equal(state.transitionRequests.at(-1).action, "unload");
-});
-
-test("loadModel fails closed for migrated local provider without Rust instance lifecycle plan", async () => {
-  const state = fakeState();
-  state.planModelMountInstanceLifecycle = () => ({ status: "loaded" });
-
-  await assert.rejects(
-    () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.fail" }, deps),
-    (error) => error.code === "model_mount_instance_lifecycle_planning_required",
-  );
-
-  assert.equal(state.instances.has("instance.fail"), false);
-  assert.equal(state.writes.length, 0);
-  assert.equal(state.receipts.length, 0);
-});
-
-test("loadModel fails closed without Rust Agentgres instance record-state commit", async () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
-
-  await assert.rejects(
-    () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.fail" }, deps),
-    (error) => {
-      assert.equal(error.status, 500);
-      assert.equal(error.code, "model_mount_instance_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "model-instances");
-      assert.equal(error.details.record_id, "instance.fail");
-      assert.equal(error.details.instance_id, "instance.fail");
-      assert.equal(error.details.endpoint_id, "endpoint.local.llama");
-      assert.equal(error.details.model_id, "llama-test");
-      assert.equal(error.details.provider_id, "provider.local");
-      return true;
-    },
-  );
-
-  assert.equal(state.instances.has("instance.fail"), false);
-  assert.deepEqual(state.superseded, []);
-  assert.deepEqual(state.writes, []);
-});
-
-test("unloadModel fails closed without Rust Agentgres instance record-state commit", async () => {
+test("unloadModel mutation facade fails closed before JS driver, receipt, or instance write", async () => {
   const state = fakeState();
   const loaded = {
     id: "instance.loaded",
@@ -564,23 +459,75 @@ test("unloadModel fails closed without Rust Agentgres instance record-state comm
     providerEvidenceRefs: ["previous"],
   };
   state.instances.set("instance.loaded", loaded);
-  delete state.commitRuntimeModelMountRecordState;
 
   await assert.rejects(
     () => unloadModel(state, { instance_id: "instance.loaded" }, deps),
     (error) => {
-      assert.equal(error.status, 500);
-      assert.equal(error.code, "model_mount_instance_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "model-instances");
-      assert.equal(error.details.record_id, "instance.loaded");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_model_loading_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.instance_lifecycle");
+      assert.equal(error.details.operation, "model_unload");
+      assert.equal(error.details.operation_kind, "model_mount.instance.unload");
       assert.equal(error.details.instance_id, "instance.loaded");
       assert.equal(error.details.endpoint_id, "endpoint.local.llama");
       assert.equal(error.details.model_id, "llama-test");
       assert.equal(error.details.provider_id, "provider.local");
+      assert.equal(error.details.provider_kind, "ioi_native_local");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "instanceId"), false);
       return true;
     },
   );
 
+  assert.deepEqual(state.driverCalls, []);
   assert.deepEqual(state.instances.get("instance.loaded"), loaded);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.transitionRequests, []);
+});
+
+test("loadModel fails closed before Rust planning or Agentgres commit shims are used", async () => {
+  const state = fakeState();
+  state.planModelMountInstanceLifecycle = () => ({ status: "loaded" });
+  delete state.commitRuntimeModelMountRecordState;
+
+  await assert.rejects(
+    () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.fail" }, deps),
+    (error) => error.code === "model_mount_model_loading_rust_core_required",
+  );
+
+  assert.equal(state.instances.has("instance.fail"), false);
+  assert.deepEqual(state.driverCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.writes.length, 0);
+});
+
+test("unloadModel fails closed before Rust planning or Agentgres commit shims are used", async () => {
+  const state = fakeState();
+  const loaded = {
+    id: "instance.loaded",
+    endpointId: "endpoint.local.llama",
+    providerId: "provider.local",
+    modelId: "llama-test",
+    status: "loaded",
+    providerEvidenceRefs: ["previous"],
+  };
+  state.instances.set("instance.loaded", {
+    ...loaded,
+  });
+  state.planModelMountInstanceLifecycle = () => ({ status: "unloaded" });
+  delete state.commitRuntimeModelMountRecordState;
+
+  await assert.rejects(
+    () => unloadModel(state, { instance_id: "instance.loaded" }, deps),
+    (error) => error.code === "model_mount_model_loading_rust_core_required",
+  );
+
+  assert.deepEqual(state.instances.get("instance.loaded"), loaded);
+  assert.deepEqual(state.driverCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.writes.length, 0);
 });
