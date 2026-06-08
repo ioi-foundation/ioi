@@ -125,9 +125,7 @@ export function createRuntimeMcpServeSurface({
           }
           const input = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
             ? params.arguments
-            : params.args && typeof params.args === "object" && !Array.isArray(params.args)
-              ? params.args
-              : {};
+            : {};
           const invocation = await store.invokeThreadToolAsync(threadId, toolId, {
             source: "mcp_serve",
             workflow_graph_id:

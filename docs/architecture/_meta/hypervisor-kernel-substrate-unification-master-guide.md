@@ -542,6 +542,18 @@ the remaining fail-closed JS artifact facade as terminal architecture.
 The Slice 768 visual artifact path alias-retirement matrix-compaction pass is
 complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
+Slice 769 retired the MCP serve `tools/call` `params.args` fallback before
+served runtime tool invocation input crosses into the daemon. The MCP serve
+surface now consumes canonical MCP `params.arguments` only; retired `params.args`
+can no longer populate runtime tool input, while canonical `params.arguments`
+continues to pass through the governed thread-tool invocation path. This does
+not claim terminal MCP serve migration: direct Rust daemon-core MCP
+serve/control/admission/projection still needs to own wallet authority,
+transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
+expected-head/state-root binding, projection, replay, SDK/IDE protocol coverage,
+and conformance. Do not encode the remaining JS MCP serve facade as terminal
+architecture. Schedule the Slice 769 matrix-compaction pass before unrelated
+route-family work.
 
 ## Part II: Target Execution Model
 

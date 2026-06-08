@@ -422,6 +422,9 @@ function runDocs() {
       /Slice 768 retired visual observation artifact materialization path alias\s+fallback metadata/.test(guide) &&
       /`has_screenshot_path`, `has_som_path`, and `has_ax_path` only from canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(guide) &&
       /The Slice 768 visual artifact path alias-retirement matrix-compaction pass is\s+complete/.test(guide) &&
+      /Slice 769 retired the MCP serve `tools\/call` `params\.args` fallback/.test(guide) &&
+      /consumes canonical MCP `params\.arguments` only/.test(guide) &&
+      /Schedule the Slice 769 matrix-compaction pass before unrelated\s+route-family work/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -454,7 +457,8 @@ function runDocs() {
       /This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state\s+committer injection retirement evidence/.test(matrix) &&
       /This pass compacted Slice 767 MCP manager\/catalog\/helper config\/source handoff\s+alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 768 visual observation artifact materialization path\s+alias fallback metadata retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 769 retired the MCP serve `tools\/call` `params\.args` fallback/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first only after compacting Slice 769/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -663,11 +667,14 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 768/.test(matrix) &&
       /visual observation artifact materialization path alias\s+fallback metadata/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 768 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 768 visual\s+artifact path alias retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 769/.test(matrix) &&
+      /MCP serve `tools\/call` `params\.args` fallback/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 769 MCP serve `params\.args`\s+retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, and config-compatibility\s+handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
+      /MCP serve `tools\/call` now consumes canonical `params\.arguments` only/.test(implementationMatrix) &&
       /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
@@ -22042,10 +22049,14 @@ function runCompositor() {
       /workflowGraphId: "retired\.graph"/.test(runtimeMcpServeSurfaceTest) &&
       /workflowNodeId: "retired\.node"/.test(runtimeMcpServeSurfaceTest) &&
       /toolName: "git\.diff"/.test(runtimeMcpServeSurfaceTest) &&
+      /args:\s*\{\s*includeStat:\s*"retired"\s*\}/.test(runtimeMcpServeSurfaceTest) &&
+      /structuredContent\.input,\s*\{\}/.test(runtimeMcpServeSurfaceTest) &&
       /workflow_graph_id: "runtime\.mcp-serve"/.test(runtimeMcpServeSurfaceTest) &&
+      /params\.arguments/.test(runtimeMcpServeSurface) &&
       !/(?:options|request)\.threadId\b/.test(runtimeMcpServeSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface) &&
-      !/params\.toolName\b/.test(runtimeMcpServeSurface),
+      !/params\.toolName\b/.test(runtimeMcpServeSurface) &&
+      !/params\.args\b/.test(runtimeMcpServeSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",

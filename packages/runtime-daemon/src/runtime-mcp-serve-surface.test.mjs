@@ -202,6 +202,21 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
   );
   assert.equal(retiredOnlyResponse.result.structuredContent.workflow_graph_id, "runtime.mcp-serve");
   assert.equal(retiredOnlyResponse.result.structuredContent.workflow_node_id, "runtime.mcp-serve.git.diff");
+
+  const retiredArgsResponse = await surface.handleSingleMcpServeJsonRpc(
+    store,
+    "thread-one",
+    {
+      jsonrpc: "2.0",
+      id: 10,
+      method: "tools/call",
+      params: { name: "git.diff", args: { includeStat: "retired" } },
+    },
+    { onlyDiff: true },
+  );
+  assert.equal(retiredArgsResponse.result.structuredContent.workflow_graph_id, "runtime.mcp-serve");
+  assert.deepEqual(retiredArgsResponse.result.structuredContent.input, {});
+
   assert.deepEqual(invocations, [
     {
       threadId: "thread-one",
@@ -221,6 +236,16 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
         workflow_graph_id: "runtime.mcp-serve",
         workflow_node_id: "runtime.mcp-serve.git.diff",
         input: { summary: true },
+      },
+    },
+    {
+      threadId: "thread-one",
+      toolId: "git.diff",
+      request: {
+        source: "mcp_serve",
+        workflow_graph_id: "runtime.mcp-serve",
+        workflow_node_id: "runtime.mcp-serve.git.diff",
+        input: {},
       },
     },
   ]);
