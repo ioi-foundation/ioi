@@ -333,7 +333,10 @@ function runDocs() {
       ) &&
       /Slice 746 retired the model-mount conversation-state write and\s+stream-completion finalization JS facades/.test(guide) &&
       /Slice 746 model conversation\/stream completion facade-retirement\s+matrix-compaction pass is complete/.test(guide) &&
-      /Resume with the next verified Rust-core extraction or facade-retirement slice/.test(guide) &&
+      /Slice 747 retired model-mount tokenizer\/count\/context-fit JS utility facades/.test(guide) &&
+      /scheduled for Slice 747 and must run before unrelated route-family work resumes/.test(
+        guide,
+      ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -351,7 +354,7 @@ function runDocs() {
       ) &&
       /Slice 745 MCP workflow facade-retirement compaction is complete/.test(guide) &&
       /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+complete/.test(guide) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -363,7 +366,7 @@ function runDocs() {
       /This pass compacted Slice 746\s+model-mount conversation-state write and stream-completion finalization\s+facade-retirement evidence/.test(
         matrix,
       ) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Next resume instruction: complete the scheduled Slice 747 matrix-compaction\s+pass before starting unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -404,6 +407,11 @@ function runDocs() {
       /model_mount_conversation_rust_core_required/.test(matrix) &&
       /model_mount_stream_completion_js_facade_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 746 is now satisfied/.test(matrix) &&
+      /Implementation Slice 747/.test(matrix) &&
+      /model_mount_tokenizer_rust_core_required/.test(matrix) &&
+      /model_mount_tokenizer_js_facade_retired/.test(matrix) &&
+      /model_mount_context_fit_js_facade_retired/.test(matrix) &&
+      /compact Slice 747 before unrelated route-family work resumes/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
@@ -6931,7 +6939,7 @@ function runBridge() {
       /route upsert rejects retired request aliases before state write/.test(modelRoutesTest) &&
       /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
       /route selection state persistence fails closed before JS route map mutation/.test(modelRoutesTest) &&
-      /does not require JS route record-state commit/.test(modelTokenizerOperationsTest) &&
+      /does not fall back to JS route record-state commit/.test(modelTokenizerOperationsTest) &&
       /avoids JS route state mutation/.test(modelInvocationOpsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelInvocationOpsTest) &&
@@ -9725,8 +9733,6 @@ function runReceipts() {
     loadedInstances.match(/state\.lifecycleReceipt\("model_idle_evict",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     loadedInstances.match(/state\.lifecycleReceipt\("model_supersede",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
-  const modelTokenizerReceiptDetailsObject =
-    modelTokenizerOperations.match(/details:\s*\{[\s\S]*?context_window:\s*contextWindow,\n\s+\},/)?.[0] ?? "";
   const artifactEndpointReceiptBlocks = [
     artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_import_dry_run",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
     artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_import",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
@@ -10427,42 +10433,59 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-tokenizer-receipt-detail-aliases-retired",
-    /route_id:\s*selection\.route\.id/.test(modelTokenizerReceiptDetailsObject) &&
-      /route_receipt_id:\s*routeReceipt\.id/.test(modelTokenizerReceiptDetailsObject) &&
-      /selected_model:\s*selection\.endpoint\.modelId/.test(modelTokenizerReceiptDetailsObject) &&
-      /endpoint_id:\s*selection\.endpoint\.id/.test(modelTokenizerReceiptDetailsObject) &&
-      /provider_id:\s*selection\.endpoint\.providerId/.test(modelTokenizerReceiptDetailsObject) &&
-      /backend_id:\s*selection\.endpoint\.backendId/.test(modelTokenizerReceiptDetailsObject) &&
-      /selected_backend:\s*selection\.endpoint\.backendId/.test(modelTokenizerReceiptDetailsObject) &&
-      /grant_id:\s*token\.grantId/.test(modelTokenizerReceiptDetailsObject) &&
-      /tokenizer_source:\s*"deterministic_estimator"/.test(modelTokenizerReceiptDetailsObject) &&
-      /input_hash:\s*stableHash\(input\)/.test(modelTokenizerReceiptDetailsObject) &&
-      /token_count:\s*\{/.test(modelTokenizerReceiptDetailsObject) &&
-      /context_window:\s*contextWindow/.test(modelTokenizerReceiptDetailsObject) &&
-      !/\b(?:routeId|routeReceiptId|selectedModel|endpointId|providerId|backendId|selectedBackend|grantId|tokenizerSource|inputHash|tokenCount|contextWindow)\s*:/.test(
-        modelTokenizerReceiptDetailsObject,
+    "model-mount-tokenizer-js-facade-retired",
+    /modelTokenizerRustCoreRequiredError/.test(modelTokenizerOperations) &&
+      /model_mount_tokenizer_rust_core_required/.test(modelTokenizerOperations) &&
+      /rust_core_boundary:\s*"model_mount\.tokenizer"/.test(modelTokenizerOperations) &&
+      /model_mount_tokenizer_js_facade_retired/.test(modelTokenizerOperations) &&
+      /model_mount_context_fit_js_facade_retired/.test(modelTokenizerOperations) &&
+      /rust_daemon_core_model_tokenizer_required/.test(modelTokenizerOperations) &&
+      /rust_daemon_core_model_context_fit_required/.test(modelTokenizerOperations) &&
+      /agentgres_model_tokenizer_truth_required/.test(modelTokenizerOperations) &&
+      /return modelTokenizerUtility\(state,\s*\{ authorization,\s*requiredScope,\s*body,\s*operation:\s*"tokenize" \},\s*deps\);/.test(
+        modelTokenizerOperations,
       ) &&
-      /Object\.hasOwn\(utility\.receipt\.payload\.details,\s*"routeId"\),\s*false/.test(modelTokenizerOperationsTest) &&
-      /Object\.hasOwn\(utility\.receipt\.payload\.details,\s*"tokenCount"\),\s*false/.test(modelTokenizerOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"contextWindow"\),\s*false/.test(
+      /return modelTokenizerUtility\(state,\s*\{ authorization,\s*requiredScope,\s*body,\s*operation:\s*"count_tokens" \},\s*deps\);/.test(
+        modelTokenizerOperations,
+      ) &&
+      /return modelTokenizerUtility\(state,\s*\{ authorization,\s*requiredScope,\s*body,\s*operation:\s*"context_fit" \},\s*deps\);/.test(
+        modelTokenizerOperations,
+      ) &&
+      !/state\.authorize\(/.test(modelTokenizerOperations) &&
+      !/state\.selectRoute\(/.test(modelTokenizerOperations) &&
+      !/state\.routeSelectionReceipt\(/.test(modelTokenizerOperations) &&
+      !/state\.receipt\("model_tokenization"/.test(modelTokenizerOperations) &&
+      !/state\.receipt\("model_context_fit"/.test(modelTokenizerOperations) &&
+      !/deterministic_context_estimator/.test(modelTokenizerOperations) &&
+      !/utility\.selection/.test(modelTokenizerOperations) &&
+      !/utility\.receipt/.test(modelTokenizerOperations) &&
+      /modelTokenizerUtility fails closed before JS tokenization receipt or route mutation/.test(
         modelTokenizerOperationsTest,
-      ),
+      ) &&
+      /tokenizeModel and countModelTokens fail closed before public JS response envelopes/.test(
+        modelTokenizerOperationsTest,
+      ) &&
+      /fitModelContext fails closed before JS context-fit receipt or truncation envelope/.test(
+        modelTokenizerOperationsTest,
+      ) &&
+      /assert\.deepEqual\(state\.authorizationCalls,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
+      /assert\.equal\(state\.routeReceiptCount,\s*0\)/.test(modelTokenizerOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: tokenizer and context-fit receipts must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: tokenizer and context-fit public JS facades must fail closed before JS authorization, route selection, receipt synthesis, route mutation, or response-envelope shaping",
   );
   assertCheck(
     result,
     "model-mount-tokenizer-request-aliases-retired",
-    /RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES/.test(modelTokenizerOperations) &&
+      /RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES/.test(modelTokenizerOperations) &&
       /model_mount_tokenizer_request_aliases_retired/.test(modelTokenizerOperations) &&
       /assertCanonicalModelTokenizerRequestBody\(body\);/.test(modelTokenizerOperations) &&
-      /routeId:\s*body\.route_id/.test(modelTokenizerOperations) &&
-      /policy:\s*body\.model_policy \?\? \{\}/.test(modelTokenizerOperations) &&
-      /body\.max_output_tokens,\s*\n\s*0/.test(modelTokenizerOperations) &&
+      /route_id:\s*body\.route_id \?\? null/.test(modelTokenizerOperations) &&
+      /requested_scope:\s*requiredScope \?\? null/.test(modelTokenizerOperations) &&
       /const explicit = Number\(body\.context_length\);/.test(modelTokenizerOperations) &&
       !/body\.(?:routeId|modelPolicy|contextLength|contextWindow|maxOutputTokens|reserveOutputTokens|reserve_output_tokens)\b/.test(
         modelTokenizerOperations,

@@ -108,65 +108,66 @@ const deps = {
   },
 };
 
-test("modelTokenizerUtility records route and redacted tokenization receipt", () => {
+test("modelTokenizerUtility fails closed before JS tokenization receipt or route mutation", () => {
   const state = fakeState();
 
-  const utility = modelTokenizerUtility(
-    state,
-    { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "tokenize" },
-    deps,
+  assert.throws(
+    () =>
+      modelTokenizerUtility(
+        state,
+        {
+          authorization: "auth",
+          requiredScope: "model.tokenize:*",
+          body: { input: "one two three", model: "llama-test", route_id: "route.local-first" },
+          operation: "tokenize",
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.tokenizer");
+      assert.equal(error.details.operation, "tokenize");
+      assert.equal(error.details.model, "llama-test");
+      assert.equal(error.details.route_id, "route.local-first");
+      assert.equal(error.details.requested_scope, "model.tokenize:*");
+      assert.ok(error.details.evidence_refs.includes("model_mount_tokenizer_js_facade_retired"));
+      assert.ok(error.details.evidence_refs.includes("rust_daemon_core_model_tokenizer_required"));
+      assert.ok(error.details.evidence_refs.includes("agentgres_model_tokenizer_truth_required"));
+      return true;
+    },
   );
 
-  assert.deepEqual(utility.tokens, ["one", "two", "three"]);
-  assert.equal(utility.promptTokens, 3);
-  assert.equal(utility.contextWindow, 4);
-  assert.equal(utility.receipt.kind, "model_tokenization");
-  assert.equal(utility.receipt.payload.details.route_id, "route.local-first");
-  assert.equal(utility.receipt.payload.details.route_receipt_id, "route-receipt.1");
-  assert.equal(utility.receipt.payload.details.selected_model, "llama-test");
-  assert.equal(utility.receipt.payload.details.endpoint_id, "endpoint.local.llama");
-  assert.equal(utility.receipt.payload.details.provider_id, "provider.local");
-  assert.equal(utility.receipt.payload.details.backend_id, "backend.native");
-  assert.equal(utility.receipt.payload.details.selected_backend, "backend.native");
-  assert.equal(utility.receipt.payload.details.grant_id, "grant.model.tokenize:*");
-  assert.equal(utility.receipt.payload.details.tokenizer_source, "deterministic_estimator");
-  assert.equal(utility.receipt.payload.details.input_hash, "hash:one two three");
-  assert.deepEqual(utility.receipt.payload.details.token_count, {
-    prompt_tokens: 3,
-    completion_tokens: 0,
-    total_tokens: 3,
-  });
-  assert.equal(utility.receipt.payload.details.context_window, 4);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "routeId"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "routeReceiptId"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "selectedModel"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "endpointId"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "providerId"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "backendId"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "selectedBackend"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "grantId"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "tokenizerSource"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "inputHash"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "tokenCount"), false);
-  assert.equal(Object.hasOwn(utility.receipt.payload.details, "contextWindow"), false);
+  assert.deepEqual(state.authorizationCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.equal(state.routeReceiptCount, 0);
   assert.equal(state.routes.get("route.local-first").lastSelectedModel, undefined);
-  assert.equal(state.writes.length, 0);
+  assert.deepEqual(state.writes, []);
   assert.deepEqual(state.recordStateCommits, []);
 });
 
-test("modelTokenizerUtility does not require JS route record-state commit", () => {
+test("modelTokenizerUtility does not fall back to JS route record-state commit", () => {
   const state = fakeState();
   delete state.commitRuntimeModelMountRecordState;
 
-  const utility = modelTokenizerUtility(
-    state,
-    { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "tokenize" },
-    deps,
+  assert.throws(
+    () =>
+      modelTokenizerUtility(
+        state,
+        { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "count_tokens" },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
+      assert.equal(error.details.operation, "count_tokens");
+      assert.ok(error.details.evidence_refs.includes("model_mount_tokenizer_js_facade_retired"));
+      return true;
+    },
   );
 
-  assert.equal(utility.receipt.kind, "model_tokenization");
   assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
   assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.receipts, []);
 });
 
 test("modelTokenizerUtility rejects retired request aliases before authorization", () => {
@@ -220,52 +221,66 @@ test("modelTokenizerUtility rejects retired request aliases before authorization
   assert.deepEqual(state.writes, []);
 });
 
-test("tokenizeModel and countModelTokens preserve public response envelopes", () => {
+test("tokenizeModel and countModelTokens fail closed before public JS response envelopes", () => {
   const state = fakeState();
 
-  const tokenized = tokenizeModel(
-    state,
-    { authorization: "auth", body: { input: "alpha beta" } },
-    { schemaVersion: deps.schemaVersion },
+  assert.throws(
+    () =>
+      tokenizeModel(
+        state,
+        { authorization: "auth", body: { input: "alpha beta" } },
+        { schemaVersion: deps.schemaVersion },
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
+      assert.equal(error.details.operation, "tokenize");
+      return true;
+    },
   );
-  const counted = countModelTokens(
-    state,
-    { authorization: "auth", body: { input: "alpha beta gamma" } },
-    { schemaVersion: deps.schemaVersion, stableHash: deps.stableHash },
+  assert.throws(
+    () =>
+      countModelTokens(
+        state,
+        { authorization: "auth", body: { input: "alpha beta gamma" } },
+        { schemaVersion: deps.schemaVersion, stableHash: deps.stableHash },
+      ),
+    (error) => {
+      assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
+      assert.equal(error.details.operation, "count_tokens");
+      return true;
+    },
   );
 
-  assert.equal(tokenized.schemaVersion, "schema.tokenizer.test");
-  assert.deepEqual(tokenized.tokens, ["alpha", "beta"]);
-  assert.equal(tokenized.token_count, 2);
-  assert.equal(tokenized.usage.total_tokens, 2);
-  assert.equal(counted.input_hash, "hash:alpha beta gamma");
-  assert.equal(counted.token_count, 3);
-  assert.equal(counted.route_receipt_id, "route-receipt.2");
+  assert.deepEqual(state.authorizationCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.equal(state.routeReceiptCount, 0);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
-test("fitModelContext reports fit and keep-tail truncation", () => {
+test("fitModelContext fails closed before JS context-fit receipt or truncation envelope", () => {
   const state = fakeState();
 
-  const result = fitModelContext(
-    state,
-    { authorization: "auth", body: { input: "one two three four five", max_output_tokens: 1 } },
-    deps,
+  assert.throws(
+    () =>
+      fitModelContext(
+        state,
+        { authorization: "auth", body: { input: "one two three four five", max_output_tokens: 1 } },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
+      assert.equal(error.details.operation, "context_fit");
+      assert.ok(error.details.evidence_refs.includes("model_mount_context_fit_js_facade_retired"));
+      assert.ok(error.details.evidence_refs.includes("rust_daemon_core_model_context_fit_required"));
+      return true;
+    },
   );
 
-  assert.equal(result.schemaVersion, "schema.tokenizer.test");
-  assert.equal(result.context_window, 4);
-  assert.equal(result.reserved_output_tokens, 1);
-  assert.equal(result.available_input_tokens, 3);
-  assert.equal(result.prompt_tokens, 5);
-  assert.equal(result.fits, false);
-  assert.equal(result.overflow_tokens, 2);
-  assert.equal(result.truncation.applied, true);
-  assert.equal(result.fitted_input, "three four five");
-  assert.equal(result.fitted_input_hash, "hash:three four five");
-  assert.equal(state.receipts.at(-1).kind, "model_context_fit");
-  assert.equal(state.receipts.at(-1).payload.details.operation, "context_fit");
-  assert.equal(state.receipts.at(-1).payload.details.context_window, 4);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).payload.details, "contextWindow"), false);
+  assert.deepEqual(state.authorizationCalls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.equal(state.routeReceiptCount, 0);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("contextWindowForEndpoint honors explicit, artifact, metadata, and default fallbacks", () => {
