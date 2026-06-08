@@ -341,6 +341,10 @@ function runDocs() {
       /Slice 748 direct model lifecycle receipt helper facade-retirement\s+matrix-compaction pass is complete/.test(
         guide,
       ) &&
+      /Slice 749 retired the public model invocation and stream invocation JS facades/.test(
+        guide,
+      ) &&
+      /scheduled for Slice\s+749 and must run before unrelated route-family work resumes/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -360,7 +364,7 @@ function runDocs() {
       /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+complete/.test(guide) &&
       /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+complete/.test(guide) &&
       /Slice 748 direct model lifecycle receipt helper facade-retirement\s+compaction is complete/.test(guide) &&
-      /No matrix-compaction pass is pending until the next seam\s+lands/.test(guide) &&
+      /Slice 749 public model invocation facade-retirement\s+compaction is scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -376,7 +380,7 @@ function runDocs() {
         matrix,
       ) &&
       /then compacted Slice 748 direct model lifecycle\s+receipt helper facade-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 749 has now landed, so\s+complete its scheduled matrix-compaction pass before starting unrelated\s+route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -433,6 +437,15 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 748 is now satisfied/.test(
         matrix,
       ) &&
+      /Implementation Slice 749/.test(matrix) &&
+      /retire the public JS model invocation and stream invocation facades/.test(
+        matrix,
+      ) &&
+      /model_mount_invocation_rust_core_required/.test(matrix) &&
+      /model_mount_invocation_js_facade_retired/.test(matrix) &&
+      /rust_daemon_core_model_invocation_required/.test(matrix) &&
+      /compact Slice 749 before unrelated route-family work resumes/.test(matrix) &&
+      /`ModelInvocationControl`/.test(implementationMatrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
@@ -6961,7 +6974,9 @@ function runBridge() {
       /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
       /route selection state persistence fails closed before JS route map mutation/.test(modelRoutesTest) &&
       /does not fall back to JS route record-state commit/.test(modelTokenizerOperationsTest) &&
-      /avoids JS route state mutation/.test(modelInvocationOpsTest) &&
+      /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+        modelInvocationOpsTest,
+      ) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelInvocationOpsTest) &&
       !/route upsert fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
@@ -7227,9 +7242,12 @@ function runBridge() {
       !/receipt\.details\?\.(?:backendId|sendOptions|selectedBackend|providerResponseKind|backendEvidenceRefs)/.test(
         modelWorkflowNode + openAiCompatRoutes,
       ) &&
-      /Object\.hasOwn\(result\.receipt\.details,\s*"routeId"\),\s*false/.test(modelInvocationOpsTest) &&
-      /Object\.hasOwn\(result\.receipt\.details,\s*"toolReceiptIds"\),\s*false/.test(modelInvocationOpsTest) &&
-      /Object\.hasOwn\(secondResult\.receipt\.details,\s*"coalesceKeyHash"\),\s*false/.test(modelInvocationOpsTest) &&
+      /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
+      /rust_daemon_core_model_invocation_required/.test(modelInvocationOps) &&
+      /agentgres_model_invocation_truth_required/.test(modelInvocationOps) &&
+      /public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+        modelInvocationOpsTest,
+      ) &&
       /recordModelStreamCompleted fails closed before JS stream receipt or conversation mutation/.test(
         modelConversationOpsTest,
       ) &&
@@ -7725,7 +7743,9 @@ function runBridge() {
       /recordConversationState fails closed before JS conversation projection mutation/.test(
         modelConversationOpsTest,
       ) &&
-      /result\.conversationState,\s*null/.test(modelInvocationOpsTest) &&
+      /public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
+        modelInvocationOpsTest,
+      ) &&
       /assert\.deepEqual\(state\.recordedConversations,\s*\[\]\)/.test(modelInvocationOpsTest) &&
       !/commitConversationRecordState/.test(modelConversationOps) &&
       !/state\.conversations\.set/.test(modelConversationOps) &&
@@ -8099,6 +8119,8 @@ function runBridge() {
       /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
       /model_mount_provider_invocation_backend_unmigrated/.test(modelInvocationOps) &&
       /model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
+      /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
+      /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
       /rejectUnmigratedProviderInvocationExecution\(selection\)/.test(modelInvocationOps) &&
       /rejectUnmigratedProviderInvocationExecution\(selection,\s*\{\s*stream:\s*true\s*\}\)/.test(
         modelInvocationOps,
@@ -8108,10 +8130,10 @@ function runBridge() {
       !/state\.driverForProvider\(selection\.provider\)\.invoke/.test(modelInvocationOps) &&
       !/await driver\.streamInvoke/.test(modelInvocationOps) &&
       /model_mount_provider_result_admission_ref/.test(modelInvocationOps) &&
-      /fails closed for hosted providers without migrated Rust execution/.test(
+      /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
-      /does not admit hosted stream execution before Rust migration/.test(
+      /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       !/modelMountProviderResultAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs|EvidenceRefs)?\s*:/.test(modelInvocationOps),
@@ -8151,16 +8173,11 @@ function runBridge() {
       !/error\.details = \{ compatTranslation \}/.test(modelInvocationOps) &&
       !/compat_translation:\s*invocation\.compatTranslation/.test(openAiCompatRoutes) &&
       !/compatTranslation\??:/.test(agentSdkModelMounts) &&
-      /rejects Rust provider compatibility translations before receipt admission/.test(
+      /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
-      /retired_aliases\.includes\("compatTranslation"\)/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      /Object\.hasOwn\(error\.details,\s*"compatTranslation"\)\s*===\s*false/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
-      ) &&
-      /rejects provider compatibility translations before admission/.test(
+      /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
+      /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ),
     [
@@ -8248,7 +8265,7 @@ function runBridge() {
     "model-mount-native-stream-pre-admission-downgrade-retired",
     /model_mount_native_stream_backend_required/.test(modelInvocationOps) &&
       /model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
-      /startModelStream fails closed for hosted providers without migrated Rust stream execution/.test(
+      /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       !/state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),

@@ -560,567 +560,104 @@ test("model invocations reject retired authority request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
-test("invokeModel routes provider calls, records receipts, avoids JS route state mutation, and skips JS conversation projection mutation", async () => {
+test("invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation", async () => {
   const state = fakeState();
 
-  const result = await invokeModel(
-    state,
-    {
-      authorization: "Bearer token",
-      requiredScope: "model.chat:*",
-      kind: "responses",
-      body: { model: "model.local", response_id: "resp.custom", memory: { enabled: true } },
+  await assert.rejects(
+    () =>
+      invokeModel(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.chat:*",
+          kind: "responses",
+          body: { model: "model.local", response_id: "resp.custom", memory: { enabled: true } },
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_invocation_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.invocation");
+      assert.equal(error.details.operation_kind, "model_mount.invocation.invoke");
+      assert.equal(error.details.kind, "responses");
+      assert.equal(error.details.model_id, "model.local");
+      assert.equal(error.details.route_id, null);
+      assert.equal(error.details.required_scope, "model.chat:*");
+      assert.equal(error.details.stream, false);
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_mount_invocation_js_facade_retired",
+        "rust_daemon_core_model_invocation_required",
+        "agentgres_model_invocation_truth_required",
+      ]);
+      return true;
     },
-    deps(),
   );
 
-  assert.equal(result.outputText, "provider answer");
-  assert.equal(result.responseId, "resp.custom");
-  assert.equal(result.receipt.kind, "model_invocation");
-  assert.equal(result.receipt.id, "receipt.1.model_invocation");
-  assert.equal(result.receipt.details.route_id, "route.local-first");
-  assert.equal(result.receipt.details.selected_model, "model.local");
-  assert.equal(result.receipt.details.endpoint_id, "endpoint.local");
-  assert.deepEqual(result.receipt.details.tool_receipt_ids, ["receipt.tool"]);
-  assert.equal(result.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
-  assert.equal(result.receipt.details.model_mount_invocation_admission.route_decision_ref, "model_mount://route_decision/test");
-  assert.equal(result.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
-  assert.equal(result.receipt.details.model_mount_provider_execution.request_hash.startsWith("sha256:"), true);
-  assert.equal(result.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
-  assert.equal(result.receipt.details.model_mount_accepted_receipt_append_hash, "sha256:append-1");
-  assert.equal(result.receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
-  assert.equal(result.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation");
-  assert.equal(result.receipt.details.model_mount_step_module_result.state_root_after.startsWith("sha256:"), true);
-  assert.equal(result.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation");
-  assert.equal(result.receipt.details.model_mount_step_module_invocation.module_ref.kind, "model_mount");
-  assert.equal(result.receipt.details.model_mount_step_module_result.workflow_projection.status, "live");
-  assert.equal(result.receipt.details.previous_response_id, null);
-  assert.equal(Object.hasOwn(result, "compatTranslation"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "compatTranslation"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "routeId"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "selectedModel"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "endpointId"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "toolReceiptIds"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "previousResponseId"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "modelMountReceiptBindingRef"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "modelMountAgentgresAdmission"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "modelMountStepModuleResult"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "modelMountInvocationAdmissionRef"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "modelMountProviderExecutionRef"), false);
-  assert.equal(state.receiptBindingRequests[0].receiptRef, "receipt://receipt.1.model_invocation");
-  assert.equal(state.providerExecutionRequests[0].route_decision_ref, "model_mount://route_decision/test");
-  assert.equal(state.providerExecutionRequests[0].route_receipt_ref, "receipt://receipt.route");
-  assert.equal(state.providerExecutionRequests[0].stream_status, null);
-  assert.equal(state.providerInvocationRequests[0].provider_execution_ref, "model_mount://provider_execution/1");
-  assert.equal(state.providerInvocationRequests[0].execution_backend, "rust_model_mount_fixture");
-  assert.equal(state.providerInvocationRequests[0].admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-1");
-  assert.deepEqual(state.receiptBindingRequests[0].acceptedReceiptTransition.expected_heads, [
-    "agentgres://model-mounting/accepted-receipts/head/0",
-  ]);
-  assert.deepEqual(result.receipt.details.model_mount_invocation_admission_receipt_refs, [
-    "receipt://receipt.route",
-    "receipt://receipt.1.model_invocation",
-    "receipt://receipt.tool",
-  ]);
-  assert.equal(result.receipt.details.memory.enabled, true);
-  assert.equal(result.receipt.details.coalesced, false);
-  assert.equal(result.conversationState, null);
-  assert.deepEqual(state.recordedConversations, []);
-  assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
-  assert.equal(state.writes.some(([name]) => name === "model-routes"), false);
-  assert.deepEqual(state.recordStateCommits, []);
-});
-
-test("invokeModel routes native-local non-stream provider invocation through Rust model_mount", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    async ensureLoaded(endpoint) {
-      this.loadedEndpointId = endpoint.id;
-      return {
-        id: "instance.native-local",
-        backendId: "backend.autopilot.native-local.fixture",
-      };
-    },
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        route: { id: "route.native-local" },
-        endpoint: {
-          id: "endpoint.native-local",
-          apiFormat: "ioi_native",
-          driver: "native_local",
-          modelId: "model://qwen/qwen3.5-9b",
-          providerId: "provider.autopilot.local",
-          backendId: "backend.autopilot.native-local.fixture",
-        },
-        provider: {
-          id: "provider.autopilot.local",
-          kind: "ioi_native_local",
-          driver: "native_local",
-        },
-      });
-    },
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return { outputText: "should not run" };
-      },
-    },
-  });
-
-  const result = await invokeModel(
-    state,
-    {
-      authorization: "Bearer token",
-      requiredScope: "model.responses:*",
-      kind: "responses",
-      body: { model: "model://qwen/qwen3.5-9b", response_id: "resp.native-local" },
-    },
-    deps(),
-  );
-
-  assert.equal(providerCalls, 0);
-  assert.equal(result.outputText.startsWith("Autopilot native local model response"), true);
-  assert.equal(result.providerResponseKind, "rust_model_mount.native_local");
-  assert.equal(state.providerInvocationRequests.length, 1);
-  assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.providerInvocationRequests[0].execution_backend, "rust_model_mount_native_local");
-  assert.equal(state.providerInvocationRequests[0].provider_kind, "ioi_native_local");
-  assert.equal(state.providerInvocationRequests[0].api_format, "ioi_native");
-  assert.equal(state.providerInvocationRequests[0].driver, "native_local");
-  assert.equal(
-    state.providerInvocationRequests[0].backend_ref,
-    "backend.autopilot.native-local.fixture",
-  );
-  assert.equal(result.receipt.details.provider_response_kind, "rust_model_mount.native_local");
-  assert.equal(result.receipt.details.backend_id, "backend.autopilot.native-local.fixture");
-  assert.equal(result.receipt.details.selected_backend, "backend.autopilot.native-local.fixture");
-  assert.ok(result.receipt.details.backend_evidence_refs.includes("rust_model_mount_native_local_backend"));
-  assert.equal(Object.hasOwn(result.receipt.details, "providerResponseKind"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "backendId"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "selectedBackend"), false);
-  assert.equal(Object.hasOwn(result.receipt.details, "backendEvidenceRefs"), false);
-});
-
-test("invokeModel reuses identical in-flight provider execution and marks coalesced receipts", async () => {
-  let resolveProvider;
-  let providerInvocationCalls = 0;
-  const state = fakeState({
-    async executeModelMountProviderInvocation(request) {
-      this.providerInvocationRequests.push(request);
-      providerInvocationCalls += 1;
-      await new Promise((resolve) => {
-        resolveProvider = resolve;
-      });
-      return providerInvocationBridgeResult(request, {
-        outputText: "shared answer",
-        invocationHash: "sha256:provider-invocation-shared",
-      });
-    },
-  });
-  const operation = { authorization: "Bearer token", requiredScope: "model.chat:*", kind: "chat.completions", body: { model: "model.local" } };
-  const depSet = deps({ modelInvocationCoalesceKey: () => "coalesce-key" });
-
-  const first = invokeModel(state, operation, depSet);
-  const second = invokeModel(state, operation, depSet);
-  await Promise.resolve();
-  resolveProvider();
-  const [firstResult, secondResult] = await Promise.all([first, second]);
-
-  assert.equal(providerInvocationCalls, 1);
-  assert.equal(firstResult.receipt.kind, "model_invocation");
-  assert.equal(secondResult.receipt.kind, "model_invocation_coalesced");
-  assert.equal(secondResult.receipt.details.coalesced, true);
-  assert.equal(secondResult.receipt.details.coalesce_key_hash, "hash:coalesce-key");
-  assert.equal(Object.hasOwn(secondResult.receipt.details, "coalesceKeyHash"), false);
-  assert.equal(secondResult.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/2");
-  assert.equal(secondResult.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
-  assert.equal(secondResult.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-2");
-  assert.equal(secondResult.receipt.details.model_mount_step_module_result.agentgres_operation_refs[0], "agentgres://model-mounting/accepted-receipts/op_00000002_model_invocation_coalesced");
-  assert.equal(state.inflightModelInvocations.size, 0);
-});
-
-test("startModelStream returns native stream invocations with stream-only receipt fields", async () => {
-  let streamCalls = 0;
-  const state = fakeState({
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "ioi_native",
-          driver: "native_local",
-          providerId: "provider.autopilot.local",
-          backendId: "backend.autopilot.native-local.fixture",
-        },
-        provider: {
-          id: "provider.autopilot.local",
-          kind: "ioi_native_local",
-          driver: "native_local",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        throw new Error("native-local stream production must execute through Rust model_mount");
-      },
-    },
-  });
-
-  const result = await startModelStream(
-    state,
-    {
-      authorization: "Bearer token",
-      requiredScope: "model.responses:*",
-      kind: "responses",
-      body: { model: "model.local", response_id: "resp.stream", stream: true },
-    },
-    deps(),
-  );
-
-  assert.equal(result.native, true);
-  assert.equal(streamCalls, 0);
-  assert.equal(typeof result.providerStream.getReader, "function");
-  assert.equal((await readReadableStreamText(result.providerStream)).includes("rust stream answer"), true);
-  assert.equal(result.providerResult.providerResponseKind, "rust_model_mount.native_local.stream");
-  assert.equal(result.providerResult.streamFormat, "ioi_jsonl");
-  assert.equal(result.providerResult.streamKind, "openai_responses_native_local");
-  assert.equal(result.providerResult.streamChunks.some((chunk) => chunk.includes("\"done\":true")), true);
-  assert.equal(result.invocation.responseId, "resp.stream");
-  assert.equal(result.invocation.receipt.details.stream_status, "started");
-  assert.equal(result.invocation.receipt.details.stream_source, "provider_native");
-  assert.equal(result.invocation.receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
-  assert.equal(result.invocation.receipt.details.model_mount_provider_execution_ref, "model_mount://provider_execution/1");
-  assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission_ref, "model_mount://provider_result/1");
-  assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission_hash, "sha256:provider-result-1");
-  assert.equal(result.invocation.receipt.details.model_mount_provider_result_admission.stream_status, "started");
-  assert.equal(result.invocation.receipt.details.model_mount_invocation_admission.stream_status, "started");
-  assert.equal(result.invocation.receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
-  assert.equal(result.invocation.receipt.details.model_mount_accepted_receipt_append.receipt_ref, "receipt://receipt.1.model_invocation");
-  assert.equal(result.invocation.receipt.details.model_mount_agentgres_admission.operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation");
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountAcceptedReceiptAppend"), false);
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountAgentgresOperationRef"), false);
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "modelMountProviderResultAdmissionRef"), false);
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "coalesced"), false);
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "sendOptions"), false);
-  assert.deepEqual(state.appendOperations, []);
-  assert.equal(state.providerExecutionRequests[0].stream_status, "started");
-  assert.equal(state.providerStreamInvocationRequests.length, 1);
-  assert.equal(state.providerStreamInvocationRequests[0].execution_backend, "rust_model_mount_native_local_stream");
-  assert.equal(state.providerStreamInvocationRequests[0].stream_status, "started");
-  assert.equal(state.providerStreamInvocationRequests[0].provider_kind, "ioi_native_local");
-  assert.equal(state.providerStreamInvocationRequests[0].api_format, "ioi_native");
-  assert.equal(state.providerStreamInvocationRequests[0].driver, "native_local");
+  assert.deepEqual(state.authorizationCalls, []);
+  assert.equal(state.selectRoutePayload, undefined);
+  assert.equal(state.routeSelectionPayload, undefined);
+  assert.equal(state.loadedEndpointId, undefined);
+  assert.equal(state.providerExecutionRequests.length, 0);
   assert.equal(state.providerInvocationRequests.length, 0);
-  assert.equal(state.providerResultRequests[0].stream_status, "started");
-  assert.equal(state.providerResultRequests[0].output_text, "rust stream answer");
-  assert.equal(state.providerResultRequests[0].provider_response_kind, "rust_model_mount.native_local.stream");
-  assert.equal(result.invocation.receipt.details.provider_response_kind, "rust_model_mount.native_local.stream");
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "streamStatus"), false);
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "streamSource"), false);
-  assert.equal(Object.hasOwn(result.invocation.receipt.details, "providerResponseKind"), false);
-  assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
-});
-
-test("startModelStream fails closed when selected Rust provider backend lacks native stream execution", async () => {
-  const state = fakeState({
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "ioi_fixture",
-          driver: "fixture",
-          providerId: "provider.fixture",
-          backendId: "backend.fixture",
-        },
-        provider: {
-          id: "provider.fixture",
-          kind: "local_folder",
-          driver: "fixture",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "chat.completions",
-          body: { model: "model.local", stream: true },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_native_stream_backend_required",
-  );
-  assert.equal(state.providerExecutionRequests.length, 0);
   assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.fallbackInvocationArgs, undefined);
-  assert.deepEqual(state.appendOperations, []);
-});
-
-test("startModelStream fails closed for hosted providers without migrated Rust stream execution", async () => {
-  let streamCalls = 0;
-  const state = fakeState({
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "openai_chat_completions",
-          driver: "openai_compatible",
-          providerId: "provider.openai-compatible",
-          backendId: "backend.openai-compatible",
-        },
-        provider: {
-          id: "provider.openai-compatible",
-          kind: "openai_compatible",
-          driver: "openai_compatible",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        return { providerResponseKind: "openai.responses.stream" };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "chat.completions",
-          body: { model: "model.local", stream: true },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_stream_invocation_backend_unmigrated",
-  );
-  assert.equal(streamCalls, 0);
-  assert.equal(state.providerExecutionRequests.length, 0);
-  assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.fallbackInvocationArgs, undefined);
-  assert.deepEqual(state.appendOperations, []);
-});
-
-test("startModelStream does not admit hosted stream execution before Rust migration", async () => {
-  let streamCalls = 0;
-  const state = fakeState({
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "openai_chat_completions",
-          driver: "openai_compatible",
-          providerId: "provider.openai-compatible",
-          backendId: "backend.openai-compatible",
-        },
-        provider: {
-          id: "provider.openai-compatible",
-          kind: "openai_compatible",
-          driver: "openai_compatible",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        return { providerResponseKind: "openai.responses.stream" };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.responses:*",
-          kind: "responses",
-          body: { model: "model.local", response_id: "resp.stream", stream: true },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_stream_invocation_backend_unmigrated",
-  );
-  assert.equal(streamCalls, 0);
-  assert.equal(state.providerExecutionRequests.length, 0);
-  assert.equal(state.providerStreamInvocationRequests.length, 0);
-  assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.fallbackInvocationArgs, undefined);
-  assert.deepEqual(state.appendOperations, []);
-});
-
-test("startModelStream fails closed without Rust provider execution admission before stream call", async () => {
-  let streamCalls = 0;
-  const state = fakeState({
-    admitModelMountProviderExecution: undefined,
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "ioi_native",
-          driver: "native_local",
-          providerId: "provider.autopilot.local",
-          backendId: "backend.autopilot.native-local.fixture",
-        },
-        provider: {
-          id: "provider.autopilot.local",
-          kind: "ioi_native_local",
-          driver: "native_local",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        return {
-          stream: { [Symbol.asyncIterator]: async function* noop() {} },
-        };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.responses:*",
-          kind: "responses",
-          body: { model: "model.local", response_id: "resp.stream", stream: true },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_execution_admission_required",
-  );
-  assert.equal(streamCalls, 0);
-  assert.equal(state.providerStreamInvocationRequests.length, 0);
-  assert.deepEqual(state.appendOperations, []);
-});
-
-test("startModelStream fails closed without Rust provider result admission before stream call", async () => {
-  let streamCalls = 0;
-  const state = fakeState({
-    admitModelMountProviderResult: undefined,
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "ioi_native",
-          driver: "native_local",
-          providerId: "provider.autopilot.local",
-          backendId: "backend.autopilot.native-local.fixture",
-        },
-        provider: {
-          id: "provider.autopilot.local",
-          kind: "ioi_native_local",
-          driver: "native_local",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        return {
-          stream: { [Symbol.asyncIterator]: async function* noop() {} },
-        };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.responses:*",
-          kind: "responses",
-          body: { model: "model.local", response_id: "resp.stream", stream: true },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_result_admission_required",
-  );
-  assert.equal(streamCalls, 0);
-  assert.equal(state.providerExecutionRequests.length, 1);
-  assert.equal(state.providerStreamInvocationRequests.length, 0);
-  assert.deepEqual(state.appendOperations, []);
-});
-
-test("startModelStream rejects provider compatibility translations before admission", async () => {
-  let streamCalls = 0;
-  const state = fakeState({
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "ioi_native",
-          driver: "native_local",
-          providerId: "provider.autopilot.local",
-          backendId: "backend.autopilot.native-local.fixture",
-        },
-        provider: {
-          id: "provider.autopilot.local",
-          kind: "ioi_native_local",
-          driver: "native_local",
-        },
-      });
-    },
-    driver: {
-      supportsStream: () => true,
-      async streamInvoke() {
-        streamCalls += 1;
-        throw new Error("native-local stream production must execute through Rust model_mount");
-      },
-    },
-    executeModelMountProviderStreamInvocation(request) {
-      this.providerStreamInvocationRequests.push(request);
-      return providerStreamInvocationBridgeResult(request, { compatTranslation: "chat_completions" });
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      startModelStream(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.responses:*",
-          kind: "responses",
-          body: { model: "model.local", response_id: "resp.stream", stream: true },
-        },
-        deps(),
-      ),
-    (error) =>
-      error.code === "model_mount_provider_compat_translation_forbidden" &&
-      error.details.compat_translation === "chat_completions" &&
-      error.details.retired_aliases.includes("compatTranslation") &&
-      Object.hasOwn(error.details, "compatTranslation") === false,
-  );
-  assert.equal(streamCalls, 0);
-  assert.equal(state.providerExecutionRequests.length, 1);
-  assert.equal(state.providerStreamInvocationRequests.length, 1);
-  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.receiptBindingRequests.length, 0);
+  assert.equal(state.transitionRequests.length, 0);
   assert.equal(state.receipts.length, 0);
+  assert.deepEqual(state.recordedConversations, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.appendOperations, []);
+});
+
+test("startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback", async () => {
+  let streamCalls = 0;
+  const state = fakeState({
+    driver: {
+      supportsStream: () => true,
+      async streamInvoke() {
+        streamCalls += 1;
+        return { providerResponseKind: "openai.responses.stream" };
+      },
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      startModelStream(
+        state,
+        {
+          authorization: "Bearer token",
+          requiredScope: "model.responses:*",
+          kind: "responses",
+          body: { model: "model.local", route_id: "route.local-first", response_id: "resp.stream", stream: true },
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_invocation_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.invocation");
+      assert.equal(error.details.operation_kind, "model_mount.invocation.stream_start");
+      assert.equal(error.details.kind, "responses");
+      assert.equal(error.details.model_id, "model.local");
+      assert.equal(error.details.route_id, "route.local-first");
+      assert.equal(error.details.required_scope, "model.responses:*");
+      assert.equal(error.details.stream, true);
+      return true;
+    },
+  );
+
+  assert.equal(streamCalls, 0);
+  assert.deepEqual(state.authorizationCalls, []);
+  assert.equal(state.selectRoutePayload, undefined);
+  assert.equal(state.routeSelectionPayload, undefined);
+  assert.equal(state.providerExecutionRequests.length, 0);
+  assert.equal(state.providerStreamInvocationRequests.length, 0);
+  assert.equal(state.providerResultRequests.length, 0);
+  assert.equal(state.fallbackInvocationArgs, undefined);
+  assert.equal(state.receipts.length, 0);
+  assert.deepEqual(state.appendOperations, []);
 });
 
 test("modelMountInvocationAdmissionRequestForReceipt binds route decision and invocation receipts", () => {
@@ -1722,281 +1259,5 @@ test("model invocation Agentgres transition rejects retired camelCase head field
         receiptKind: "model_invocation",
       }),
     /agentgresHead\.head_ref/,
-  );
-});
-
-test("invokeModel fails closed without invocation receipt id support", async () => {
-  const state = fakeState({ nextReceiptId: undefined });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_invocation_receipt_id_required",
-  );
-});
-
-test("invokeModel fails closed without Rust provider execution admission before provider call", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    admitModelMountProviderExecution: undefined,
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return { outputText: "should not run" };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_execution_admission_required",
-  );
-  assert.equal(providerCalls, 0);
-});
-
-test("invokeModel fails closed for migrated fixture backend without Rust provider invocation execution", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    executeModelMountProviderInvocation: undefined,
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return { outputText: "should not run" };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_invocation_execution_required",
-  );
-  assert.equal(providerCalls, 0);
-});
-
-test("invokeModel fails closed for hosted providers without migrated Rust execution", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    executeModelMountProviderInvocation: undefined,
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return {
-          outputText: "hosted provider answer",
-          providerResponseKind: "openai.chat",
-          tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-        };
-      },
-    },
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "openai",
-          providerId: "provider.openai",
-          backendId: "backend.openai-compatible",
-        },
-        provider: {
-          id: "provider.openai",
-          kind: "openai",
-          driver: "openai_compatible",
-        },
-      });
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_invocation_backend_unmigrated",
-  );
-
-  assert.equal(providerCalls, 0);
-  assert.equal(state.providerInvocationRequests.length, 0);
-  assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.receipts.length, 0);
-});
-
-test("invokeModel rejects Rust provider compatibility translations before receipt admission", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    executeModelMountProviderInvocation(request) {
-      this.providerInvocationRequests.push(request);
-      return providerInvocationBridgeResult(request, {
-        outputText: "translated provider answer",
-        providerResponseKind: "rust_model_mount.fixture",
-        compat_translation: "chat_completions",
-      });
-    },
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return { outputText: "should not run" };
-      },
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) =>
-      error.code === "model_mount_provider_compat_translation_forbidden" &&
-      error.details.compat_translation === "chat_completions" &&
-      Object.hasOwn(error.details, "compatTranslation") === false &&
-      Object.hasOwn(error.details, "retired_aliases") === false,
-  );
-  assert.equal(providerCalls, 0);
-  assert.equal(state.providerExecutionRequests.length, 1);
-  assert.equal(state.providerInvocationRequests.length, 1);
-  assert.equal(state.providerResultRequests.length, 0);
-  assert.equal(state.receipts.length, 0);
-});
-
-test("invokeModel fails closed for hosted providers before Rust provider result admission is relevant", async () => {
-  let providerCalls = 0;
-  const state = fakeState({
-    admitModelMountProviderResult: undefined,
-    executeModelMountProviderInvocation: undefined,
-    driver: {
-      async invoke() {
-        providerCalls += 1;
-        return { outputText: "should not run" };
-      },
-    },
-    selectRoute(payload) {
-      this.selectRoutePayload = payload;
-      return selection({
-        endpoint: {
-          apiFormat: "openai",
-          providerId: "provider.openai",
-          backendId: "backend.openai-compatible",
-        },
-        provider: {
-          id: "provider.openai",
-          kind: "openai",
-          driver: "openai_compatible",
-        },
-      });
-    },
-  });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_provider_invocation_backend_unmigrated",
-  );
-  assert.equal(providerCalls, 0);
-  assert.equal(state.providerResultRequests.length, 0);
-});
-
-test("invokeModel fails closed without Rust receipt binding support", async () => {
-  const state = fakeState({ bindModelMountInvocationReceipt: undefined });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_invocation_receipt_binding_required",
-  );
-});
-
-test("invokeModel fails closed without Rust accepted receipt transition planning", async () => {
-  const state = fakeState({ planModelMountAcceptedReceiptTransition: undefined });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_accepted_receipt_transition_planner_required",
-  );
-});
-
-test("invokeModel fails closed without Agentgres operation head support", async () => {
-  const state = fakeState({ agentgresModelMountingHead: undefined });
-
-  await assert.rejects(
-    () =>
-      invokeModel(
-        state,
-        {
-          authorization: "Bearer token",
-          requiredScope: "model.chat:*",
-          kind: "responses",
-          body: { model: "model.local" },
-        },
-        deps(),
-      ),
-    (error) => error.code === "model_mount_agentgres_head_required",
   );
 });

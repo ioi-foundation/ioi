@@ -33,8 +33,9 @@ facade-retirement evidence, then compacted Slice 747 model tokenizer/context-fit
 facade-retirement evidence, then compacted Slice 748 direct model lifecycle
 receipt helper facade-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands.
+facade-retirement implementation slice first; Slice 749 has now landed, so
+complete its scheduled matrix-compaction pass before starting unrelated
+route-family work.
 
 ## Purpose
 
@@ -129,9 +130,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after the Slice 748
-  compaction. Schedule the next pass only after a new concrete Rust-core
-  extraction or JS-facade retirement seam lands.
+- Next scheduled matrix-compaction pass: Slice 749 public model invocation
+  facade-retirement evidence, after verification and commit. Preserve direct
+  Rust daemon-core model invocation ownership as the terminal target.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13969,6 +13970,70 @@ target ownership.
   JS-facade retirement seam; schedule the next matrix-compaction pass only after
   that seam lands, and do not encode fail-closed JS lifecycle receipt helpers,
   read/projection helpers, or migration transport as terminal architecture.
+
+## Implementation Slice 749
+
+```yaml
+slice:
+  id: 749
+  status: verified
+  objective: retire the public JS model invocation and stream invocation facades
+    as authoritative execution and receipt paths
+  migration_direction: direct Rust daemon-core model_mount invocation API owns
+    route decision, provider execution, receipt binding, Agentgres admission,
+    replay, projection, and stream lifecycle
+  current_transport: JS invokeModel/startModelStream facades fail closed with
+    model_mount_invocation_rust_core_required after canonical request alias
+    validation and before any JS hot-path execution
+  terminal_shape: direct Rust daemon-core model invocation API owns admitted
+    execution and projection; lower-level JS request-shape helpers are deleted
+    or become non-authoritative protocol fixtures after the Rust API lands
+  touched_files:
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
+  retired_js_authority:
+    - public non-stream model invocation JS authorization and route selection
+    - public stream model invocation JS authorization and route selection
+    - JS route-selection receipt creation from invocation facades
+    - JS continuation validation from invocation facades
+    - JS provider loading and provider execution dispatch from invocation
+      facades
+    - JS ephemeral MCP integration compilation from invocation facades
+    - JS model_invocation and model_invocation_coalesced receipt creation
+    - JS receipt-binding request execution from invocation facades
+    - JS Agentgres transition planning from invocation facades
+    - JS conversation projection and route-state persistence from invocation
+      facades
+    - JS stream fallback and downgrade behavior from invocation facades
+  evidence_refs:
+    - model_mount_invocation_js_facade_retired
+    - rust_daemon_core_model_invocation_required
+    - agentgres_model_invocation_truth_required
+  conformance:
+    - model-mount-invocation-request-aliases-retired
+    - model-mount-provider-js-invocation-retired
+    - model-mount-native-stream-pre-admission-downgrade-retired
+    - model-mount-conversation-state-js-facade-retired
+    - model-mount-invocation-receipt-binding-live-bridge
+  verification:
+    - node --check packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs
+    - node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+    - node scripts/conformance/hypervisor-conformance.mjs bridge
+    - node scripts/conformance/hypervisor-conformance.mjs receipts
+    - node scripts/conformance/hypervisor-conformance.mjs docs
+    - node scripts/conformance/hypervisor-conformance.mjs
+    - git diff --check
+  compaction:
+    scheduled: true
+    instruction: compact Slice 749 before unrelated route-family work resumes;
+      preserve direct Rust daemon-core model invocation ownership as the
+      terminal target and do not treat fail-closed JS invocation helpers,
+      request-shape builders, or bridge transport as final architecture
+```
 
 ## Command State
 

@@ -28,6 +28,12 @@ const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
   "nodePlaintextAllowed",
 ];
 
+const MODEL_INVOCATION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "model_mount_invocation_js_facade_retired",
+  "rust_daemon_core_model_invocation_required",
+  "agentgres_model_invocation_truth_required",
+];
+
 export async function invokeModel(state, { authorization, requiredScope, kind, body = {} }, deps = {}) {
   const {
     estimateTokens: estimateTokenCounts = estimateTokens,
@@ -39,6 +45,13 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     supportsResponseState: responseStateSupported = supportsResponseState,
   } = deps;
   assertCanonicalModelInvocationRequestBody(body);
+  throwModelInvocationRustCoreRequired("model_mount.invocation.invoke", {
+    kind,
+    model_id: body.model ?? body.model_id ?? null,
+    route_id: body.route_id ?? null,
+    required_scope: requiredScope ?? null,
+    stream: false,
+  });
   const token = state.authorize(authorization, requiredScope);
   const started = state.now().getTime();
   const input = textFromInput(body);
@@ -257,6 +270,13 @@ export async function startModelStream(state, { authorization, requiredScope, ki
     supportsResponseState: responseStateSupported = supportsResponseState,
   } = deps;
   assertCanonicalModelInvocationRequestBody(body);
+  throwModelInvocationRustCoreRequired("model_mount.invocation.stream_start", {
+    kind,
+    model_id: body.model ?? body.model_id ?? null,
+    route_id: body.route_id ?? null,
+    required_scope: requiredScope ?? null,
+    stream: true,
+  });
   const token = state.authorize(authorization, requiredScope);
   const started = state.now().getTime();
   const input = textFromInput(body);
@@ -1203,6 +1223,23 @@ function assertCanonicalModelInvocationRequestBody(body = {}) {
     ],
   };
   throw error;
+}
+
+export function modelInvocationRustCoreRequiredError(operation_kind, details = {}) {
+  const error = new Error("Model invocation execution requires Rust daemon-core ownership.");
+  error.status = 501;
+  error.code = "model_mount_invocation_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.invocation",
+    operation_kind,
+    ...details,
+    evidence_refs: MODEL_INVOCATION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+  };
+  return error;
+}
+
+function throwModelInvocationRustCoreRequired(operation_kind, details = {}) {
+  throw modelInvocationRustCoreRequiredError(operation_kind, details);
 }
 
 function policyHashRef(value) {
