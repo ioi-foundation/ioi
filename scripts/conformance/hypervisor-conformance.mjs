@@ -418,7 +418,7 @@ function runDocs() {
       /Slice 767 retired remaining MCP manager\/catalog\/helper camelCase config\/source\s+handoffs/.test(guide) &&
       /MCP mutation\/add helpers pass canonical `workspace_root` and\s+`source_scope`/.test(guide) &&
       /mcp-manager\.mjs` no longer consumes `sourcePath`,\s+`sourceScope`, or `configCompatibility`/.test(guide) &&
-      /Schedule a matrix-compaction pass after Slice 767/.test(guide) &&
+      /The Slice 767 MCP manager\/catalog\/helper config\/source handoff alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -449,8 +449,8 @@ function runDocs() {
       /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
       /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state\s+committer injection retirement evidence/.test(matrix) &&
-      /Slice 767 retired remaining MCP manager\/catalog\/helper camelCase config\/source\s+handoffs/.test(matrix) &&
-      /Next resume instruction: compact Slice 767 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
+      /This pass compacted Slice 767 MCP manager\/catalog\/helper config\/source handoff\s+alias-retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -654,8 +654,9 @@ function runDocs() {
       /model_mount_backend_log_js_writer_retired/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 766/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 766 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 767/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 767 MCP\s+manager\/catalog\/helper config\/source handoff alias retirement/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 767/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 767 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 767 MCP\s+manager\/catalog\/helper config\/source handoff alias-retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&

@@ -61,15 +61,14 @@ This pass compacted Slice 765 backend registry local log writer retirement
 evidence.
 This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state
 committer injection retirement evidence.
-Slice 767 retired remaining MCP manager/catalog/helper camelCase config/source
-handoffs for source-mode, source metadata, and config-compatibility projection
-plumbing.
-Next resume instruction: compact Slice 767 into the route-family ledger before
-starting unrelated route-family work, then continue the next Rust-core
-extraction or facade-retirement implementation slice. Preserve the live owner
-map, terminal blockers, and the fact that fail-closed JS facades, canonical
-input helpers, local projection helpers, and migration transport are not
-terminal substrate.
+This pass compacted Slice 767 MCP manager/catalog/helper config/source handoff
+alias-retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -176,12 +175,12 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 767 MCP
-  manager/catalog/helper config/source handoff alias retirement.
-- Future-resumption trigger: compact Slice 767 before starting unrelated
-  route-family work, then resume the migration goal by carrying out the next
-  Rust-core extraction or facade-retirement slice. Do not let context compaction
-  demote this to optional evidence pruning.
+- Next scheduled matrix-compaction pass: none pending after Slice 767 MCP
+  manager/catalog/helper config/source handoff alias-retirement compaction.
+- Future-resumption trigger: resume the migration goal by carrying out the next
+  Rust-core extraction or facade-retirement slice, then schedule the next
+  matrix-compaction pass only after that seam lands. Do not let context
+  compaction demote this to optional evidence pruning.
 - Next resume order is mandatory: clarify a concrete Rust-core
   extraction/facade-retirement seam with a verified slice, then schedule and run
   the next matrix-compaction pass before starting unrelated route-family work.
@@ -14599,11 +14598,14 @@ and target ownership.
   that seam lands, and do not encode the remaining JS read adapter or
   artifact-state command transport as terminal architecture.
 
-## Implementation Slice Evidence: 767
+## Compacted Implementation Slice Evidence: 767
 
-Date: 2026-06-08.
-Route family: `RuntimeMcpControl`.
-Current lane: Rust-core extraction plus JS-facade retirement.
+The expanded Slice 767 ledger was compacted on 2026-06-08 after MCP
+manager/catalog/helper config/source handoff alias retirement landed. This
+slice remains active migration evidence, not terminal architecture. The
+`RuntimeMcpControl` implementation-matrix row, conformance command contract,
+and terminal blockers above remain authoritative for current and target
+ownership.
 
 - Retired MCP manager/catalog/helper camelCase config/source handoffs that still
   preserved compatibility-shaped fields inside JS read/config projection
@@ -14624,9 +14626,11 @@ Current lane: Rust-core extraction plus JS-facade retirement.
   truth, external-exit authority, transport containment, receipts, Agentgres
   expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
   conformance.
-- Schedule the next matrix-compaction pass to compact Slice 767 before starting
-  unrelated route-family work; do not encode the remaining JS MCP read/config
-  helpers or command transport as terminal architecture.
+- Scheduled matrix-compaction obligation from Slice 767 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the remaining JS MCP read/config helpers
+  or command transport as terminal architecture.
 
 ## Command State
 

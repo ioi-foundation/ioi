@@ -525,9 +525,9 @@ truth, external-exit authority, transport containment, receipts, Agentgres
 expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
 conformance. Do not encode the remaining JS MCP read/config helpers or command
 transport as terminal architecture.
-Schedule a matrix-compaction pass after Slice 767 before starting unrelated
-route-family work, once this Rust-core extraction/facade-retirement seam is
-ready to collapse into compacted evidence.
+The Slice 767 MCP manager/catalog/helper config/source handoff alias-retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
