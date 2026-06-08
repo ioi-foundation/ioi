@@ -779,9 +779,10 @@ record truth, Agentgres admission/head/state-root binding, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
 replay, SDK/IDE protocol coverage, and direct Rust API replacement for command
 transport still need ownership. The Slice 786 memory manager projection
-Rust-core matrix-compaction pass is scheduled for the next resume cycle before
-unrelated route-family work continues; do not encode the command bridge or JS
-transport wrappers as terminal architecture.
+Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
+pending until the next Rust-core extraction or facade-retirement seam lands; do
+not encode the command bridge or JS transport wrappers as terminal
+architecture.
 
 ## Part II: Target Execution Model
 

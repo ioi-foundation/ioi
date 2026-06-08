@@ -500,7 +500,7 @@ function runDocs() {
       /Slice 786 moved public memory manager status and validation projection into the\s+Rust daemon-core migration transport/.test(guide) &&
       /MemoryManagerStatusProjectionCore/.test(guide) &&
       /planMemoryManagerStatusProjection/.test(guide) &&
-      /Slice 786 memory manager projection\s+Rust-core matrix-compaction pass is scheduled/.test(guide) &&
+      /The Slice 786 memory manager projection\s+Rust-core matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -552,8 +552,8 @@ function runDocs() {
       /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 785 MCP JS validation helper-retirement evidence/.test(matrix) &&
-      /Slice 786 moved public memory manager status\/validation projection into Rust\s+daemon-core migration transport/.test(matrix) &&
-      /Next resume instruction: run the scheduled Slice 786 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
+      /This pass compacted Slice 786 memory manager status\/validation Rust-core\s+projection evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -828,11 +828,11 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 785/.test(matrix) &&
       /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 785 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 786/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 786/.test(matrix) &&
       /MemoryManagerStatusProjectionCore/.test(matrix) &&
       /plan_memory_manager_status_projection/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 786 is now pending/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 786 memory manager\s+status\/validation Rust-core projection evidence/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 786 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
