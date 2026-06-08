@@ -1,7 +1,6 @@
 import {
   MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
   assertConfigurableCatalogProvider,
-  catalogProviderConfigUpdate,
   catalogProviderHasSourceMaterial,
   catalogProviderMaterialPurpose,
   catalogProviderMaterialVaultRef,
@@ -13,7 +12,6 @@ import {
   normalizeScopes,
   stableHash,
 } from "./io.mjs";
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 export function listCatalogProviderConfigs(state, deps = {}) {
   const {
@@ -50,44 +48,14 @@ export function getCatalogProviderConfig(state, providerId, deps = {}) {
 export function configureCatalogProvider(state, providerId, body = {}, deps = {}) {
   const {
     assertConfigurableCatalogProvider: assertConfigurableCatalogProviderDep = assertConfigurableCatalogProvider,
-    catalogProviderConfigUpdate: catalogProviderConfigUpdateDep = catalogProviderConfigUpdate,
-    catalogProviderStatus: catalogProviderStatusDep = catalogProviderStatus,
-    publicCatalogProviderConfig: publicCatalogProviderConfigDep = publicCatalogProviderConfig,
   } = deps;
+  void state;
   assertConfigurableCatalogProviderDep(providerId);
-  const existing = state.catalogProviderConfigs.get(providerId);
-  const update = catalogProviderConfigUpdateDep(providerId, body, existing, state.nowIso(), state);
-  const { record, runtimeMaterial, evidenceRefs } = update;
-  const publicRecord = publicCatalogProviderConfigDep(
-    providerId,
-    record,
-    runtimeMaterial,
+  throwCatalogProviderControlRustCoreRequired(
+    "model_mount.catalog_provider_configuration.write",
+    { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+    deps,
   );
-  const receipt = state.receipt("model_catalog_provider_configuration", {
-    summary: `${providerId} catalog configuration updated through the governed catalog provider path.`,
-    redaction: "redacted",
-    evidenceRefs: ["ModelCatalogProviderPort.configure", providerId, ...evidenceRefs],
-    details: publicRecord,
-  });
-  commitModelMountRecordState(state, {
-    recordDir: "model-catalog-providers",
-    record: { ...record, receiptId: receipt.id },
-    operation_kind: "model_mount.catalog_provider_configuration.write",
-    receipt_refs: [receipt.id],
-    unconfiguredCode: "model_mount_catalog_provider_configuration_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Catalog provider configuration persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: { provider_id: providerId },
-  });
-  state.catalogProviderConfigs.set(providerId, { ...record, receiptId: receipt.id });
-  if (runtimeMaterial) state.catalogProviderRuntimeMaterials.set(providerId, runtimeMaterial);
-  else state.catalogProviderRuntimeMaterials.delete(providerId);
-  state.writeProjection();
-  return {
-    ...publicRecord,
-    receiptId: receipt.id,
-    provider: catalogProviderStatusDep(state.catalogProviderPorts().find((port) => port.id === providerId)),
-  };
 }
 
 export function catalogProviderConfig(state, providerId) {
@@ -154,4 +122,27 @@ export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
     state.catalogProviderRuntimeMaterials.set(providerId, failed);
     return failed;
   }
+}
+
+export function throwCatalogProviderControlRustCoreRequired(operation_kind, details = {}, deps = {}) {
+  throw (deps.runtimeError ?? defaultRuntimeError)({
+    status: 501,
+    code: "model_mount_catalog_provider_control_rust_core_required",
+    message:
+      "Catalog provider configuration and OAuth mutation facades require Rust daemon-core wallet/cTEE custody ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.catalog_provider_control",
+      evidence_refs: [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function defaultRuntimeError({ code, message, details, status }) {
+  return Object.assign(new Error(message), { code, details, status });
 }

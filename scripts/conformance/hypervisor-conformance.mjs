@@ -628,6 +628,9 @@ function runBridge() {
   )
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs")
     : "";
+  const catalogProviderConfigureBlock =
+    catalogProviderConfigurationOperations.match(/export function configureCatalogProvider[\s\S]*?export function catalogProviderConfig/)?.[0] ??
+    "";
   const catalogProviderConfigurationOperationsTest = exists(
     "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
   )
@@ -7101,61 +7104,70 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-catalog-provider-configuration-rust-record-state",
-    /export function commitModelMountRecordState/.test(modelMountRecordStateCommits) &&
-      /ioi\.runtime_model_mount_record_state_commit\.v1/.test(modelMountRecordStateCommits) &&
-      /storage:\/\/runtime-agentgres\/local-json/.test(modelMountRecordStateCommits) &&
-      /commitModelMountRecordState\(state,\s*\{[\s\S]*recordDir:\s*"model-catalog-providers"/.test(
+    "model-mount-catalog-provider-control-js-facade-retired",
+    /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderConfigurationOperations) &&
+      /model_mount_catalog_provider_control_rust_core_required/.test(
         catalogProviderConfigurationOperations,
       ) &&
-      /model_mount\.catalog_provider_configuration\.write/.test(
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_control"/.test(
         catalogProviderConfigurationOperations,
       ) &&
-      /model_mount_catalog_provider_configuration_state_commit_unconfigured/.test(
-        catalogProviderConfigurationOperations,
-      ) &&
+      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderConfigurationOperations) &&
+      /rust_daemon_core_catalog_provider_control_required/.test(catalogProviderConfigurationOperations) &&
+      /rust_daemon_core_wallet_ctee_custody_required/.test(catalogProviderConfigurationOperations) &&
+      /model_mount\.catalog_provider_configuration\.write/.test(catalogProviderConfigureBlock) &&
+      !/state\.receipt\("model_catalog_provider_configuration"/.test(catalogProviderConfigureBlock) &&
+      !/commitModelMountRecordState/.test(catalogProviderConfigurationOperations) &&
+      !/state\.catalogProviderConfigs\.set/.test(catalogProviderConfigureBlock) &&
+      !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(catalogProviderConfigureBlock) &&
       !/state\.writeMap\("model-catalog-providers"/.test(
-        catalogProviderConfigurationOperations,
+        catalogProviderConfigureBlock,
       ) &&
-      /catalog provider configuration fails closed without Rust Agentgres record-state commit/.test(
+      !/state\.writeProjection\(\)/.test(catalogProviderConfigureBlock) &&
+      /catalog provider configuration mutation facade fails closed until Rust core owns catalog provider control/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
+      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfigurationOperationsTest) &&
+      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderConfigurationOperationsTest) &&
       /recordStateCommits/.test(catalogProviderConfigurationOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderConfigurationOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderConfigurationOperationsTest) &&
       /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "writeMap"\), false\)/.test(
         catalogProviderConfigurationOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
     ],
-    "Phase 9/10 is pending: catalog provider configuration state must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
+    "Phase 9/10 is pending: public catalog provider configuration mutations must fail closed until Rust daemon-core catalog provider control owns receipts, wallet/cTEE custody, record-state, and projection semantics",
   );
   assertCheck(
     result,
-    "model-mount-catalog-provider-oauth-rust-record-state",
-    /commitModelMountRecordState/.test(catalogProviderOAuthOperations) &&
-      /commitOAuthStateRecordState/.test(catalogProviderOAuthOperations) &&
-      /commitOAuthSessionRecordState/.test(catalogProviderOAuthOperations) &&
+    "model-mount-catalog-provider-oauth-js-facade-retired",
+    /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderOAuthOperations) &&
+      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfigurationOperations) &&
       /recordDir:\s*"oauth-states"/.test(oauthRecordState) &&
       /recordDir:\s*"oauth-sessions"/.test(oauthRecordState) &&
       /model_mount_oauth_state_commit_unconfigured/.test(oauthRecordState) &&
       /model_mount_oauth_session_commit_unconfigured/.test(oauthRecordState) &&
-      /recordDir:\s*"model-catalog-providers"/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.start/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.callback/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.exchange/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.refresh/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_oauth\.revoke/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.oauth_state\.start/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.oauth_state\.callback/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.oauth_session\.callback/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.oauth_session\.exchange/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.oauth_session\.refresh/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.oauth_session\.revoke/.test(catalogProviderOAuthOperations) &&
-      /model_mount_catalog_provider_oauth_state_commit_unconfigured/.test(
+      !/state\.receipt\("catalog_oauth_/.test(catalogProviderOAuthOperations) &&
+      !/commitModelMountRecordState/.test(catalogProviderOAuthOperations) &&
+      !/commitOAuthStateRecordState/.test(catalogProviderOAuthOperations) &&
+      !/commitOAuthSessionRecordState/.test(catalogProviderOAuthOperations) &&
+      !/state\.oauthCredentialProvider\.(?:startAuthorization|completeAuthorization|exchangeAuthorizationCode|refreshAccessToken|revokeSession)/.test(
         catalogProviderOAuthOperations,
       ) &&
+      !/state\.oauthStates\.set/.test(catalogProviderOAuthOperations) &&
+      !/state\.oauthSessions\.set/.test(catalogProviderOAuthOperations) &&
+      !/state\.catalogProviderConfigs\.set/.test(catalogProviderOAuthOperations) &&
+      !/state\.catalogProviderRuntimeMaterials\.set/.test(catalogProviderOAuthOperations) &&
+      !/state\.writeVaultRefs\(\)/.test(catalogProviderOAuthOperations) &&
+      !/state\.writeProjection\(\)/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
       /model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
       /model_mount_catalog_provider_auth_header_state_commit_unconfigured/.test(
@@ -7168,19 +7180,18 @@ function runBridge() {
       !/writeMap\("model-catalog-providers"/.test(catalogProviderConfig) &&
       !/writeMap\?\.\("oauth-sessions"/.test(catalogProviderConfig) &&
       !/writeMap\("oauth-sessions"/.test(catalogProviderConfig) &&
-      /catalog OAuth provider config updates fail closed without Rust Agentgres record-state commit/.test(
+      /catalog OAuth mutation facades fail closed until Rust core owns catalog provider control/.test(
         catalogProviderOAuthOperationsTest,
       ) &&
-      /catalog OAuth state persistence fails closed before local state mutation without Rust Agentgres record-state commit/.test(
-        catalogProviderOAuthOperationsTest,
-      ) &&
-      /catalog OAuth session persistence fails closed before local session mutation without Rust Agentgres record-state commit/.test(
-        catalogProviderOAuthOperationsTest,
-      ) &&
+      /catalog OAuth callback still validates required callback state before Rust boundary/.test(catalogProviderOAuthOperationsTest) &&
+      /assertNoCatalogOAuthMutation/.test(catalogProviderOAuthOperationsTest) &&
+      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderOAuthOperationsTest) &&
+      /public_catalog_provider_control_js_facade_retired/.test(catalogProviderOAuthOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
       /catalog provider auth refresh fails closed before provider config mutation without Rust Agentgres record-state commit/.test(
         catalogProviderConfigTest,
       ) &&
-      /recordStateCommits/.test(catalogProviderOAuthOperationsTest) &&
       /recordStateCommits/.test(catalogProviderConfigTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest),
     [
@@ -7191,7 +7202,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
-    "Phase 9/10 is pending: catalog provider OAuth state, sessions, and boundary updates must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
+    "Phase 9/10 is pending: public catalog provider OAuth mutations must fail closed until Rust daemon-core catalog provider control owns OAuth state/session receipts, wallet/cTEE custody, record-state, and projection semantics",
   );
   assertCheck(
     result,
@@ -12084,27 +12095,26 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-oauth-receipt-detail-aliases-retired",
-    /provider_id:\s*providerId/.test(catalogProviderOAuth) &&
-      /oauth_state:\s*started\.evidence/.test(catalogProviderOAuth) &&
-      /authorization_url_hash:\s*started\.authorizationUrlHash/.test(catalogProviderOAuth) &&
-      /authorization_url_redacted:\s*started\.authorizationUrlRedacted/.test(catalogProviderOAuth) &&
-      /catalog_provider:\s*publicRecord/.test(catalogProviderOAuth) &&
-      /oauth_session:\s*(?:completed\.sessionEvidence|evidence|publicOAuthSession)/.test(catalogProviderOAuth) &&
-      /oauth_session_hash:\s*config\?\.oauthSessionId/.test(catalogProviderOAuth) &&
+    /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderOAuth) &&
+      /provider_id:\s*providerId/.test(catalogProviderOAuth) &&
+      /state_present:\s*true/.test(catalogProviderOAuth) &&
+      /model_mount\.catalog_provider_oauth\.(?:start|callback|exchange|refresh|revoke)/.test(catalogProviderOAuth) &&
+      !/state\.receipt\("catalog_oauth_/.test(catalogProviderOAuth) &&
+      !/oauth_state:\s*started\.evidence/.test(catalogProviderOAuth) &&
+      !/authorization_url_hash:\s*started\.authorizationUrlHash/.test(catalogProviderOAuth) &&
+      !/authorization_url_redacted:\s*started\.authorizationUrlRedacted/.test(catalogProviderOAuth) &&
+      !/catalog_provider:\s*publicRecord/.test(catalogProviderOAuth) &&
+      !/oauth_session:\s*(?:completed\.sessionEvidence|evidence|publicOAuthSession)/.test(catalogProviderOAuth) &&
+      !/oauth_session_hash:\s*config\?\.oauthSessionId/.test(catalogProviderOAuth) &&
       !/details:\s*\{\s*providerId\b/.test(catalogProviderOAuth) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"providerId"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"oauthState"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"authorizationUrlHash"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"authorizationUrlRedacted"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.payload\.details,\s*"catalogProvider"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"oauthSession"\),\s*false/.test(catalogProviderOAuthTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(catalogProviderOAuthTest) &&
-      /Object\.hasOwn\(error\.details,\s*"oauthSessionHash"\),\s*false/.test(catalogProviderOAuthTest),
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(catalogProviderOAuthTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
     ],
-    "Phase 7/11 is pending: catalog OAuth accepted receipts and missing-session errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 7/11 is pending: catalog OAuth JS accepted receipts must stay retired and Rust-core-required fail-closed details must use canonical snake_case metadata",
   );
   assertCheck(
     result,

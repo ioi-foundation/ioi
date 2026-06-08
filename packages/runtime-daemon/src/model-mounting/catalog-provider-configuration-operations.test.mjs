@@ -96,37 +96,19 @@ function createState() {
   return state;
 }
 
-test("catalog provider configuration operations list, get, and configure public records", () => {
+test("catalog provider configuration operations list and get public records", () => {
   const state = createState();
 
-  const configured = configureCatalogProvider(state, "catalog.custom_http", {
-    base_url: "https://catalog.example.test/",
+  state.catalogProviderConfigs.set("catalog.custom_http", {
+    id: "catalog.custom_http",
+    enabled: true,
+    baseUrlHash: "hash:base-url",
+    updatedAt: state.nowIso(),
   });
-
-  assert.equal(configured.id, "catalog.custom_http");
-  assert.equal(configured.enabled, true);
-  assert.equal(configured.baseUrlHash !== null, true);
-  assert.equal(configured.runtimeMaterialStatus, "bound_runtime_session");
-  assert.equal(configured.receiptId, "receipt-1");
-  assert.equal(configured.provider.id, "catalog.custom_http");
-  assert.equal(catalogProviderConfig(state, "catalog.custom_http").id, "catalog.custom_http");
-  assert.equal(catalogProviderConfig(state, "catalog.custom_http").receiptId, "receipt-1");
-  assert.equal(state.catalogProviderRuntimeMaterials.get("catalog.custom_http").baseUrl, "https://catalog.example.test");
-  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(
-    state.recordStateCommits[0].schema_version,
-    "ioi.runtime_model_mount_record_state_commit.v1",
-  );
-  assert.equal(state.recordStateCommits[0].record_dir, "model-catalog-providers");
-  assert.equal(state.recordStateCommits[0].record_id, "catalog.custom_http");
-  assert.equal(
-    state.recordStateCommits[0].operation_kind,
-    "model_mount.catalog_provider_configuration.write",
-  );
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt-1"]);
-  assert.equal(state.recordStateCommits[0].record.receiptId, "receipt-1");
-  assert.equal(state.calls.some((call) => call.name === "writeProjection"), true);
+  state.catalogProviderRuntimeMaterials.set("catalog.custom_http", {
+    baseUrl: "https://catalog.example.test",
+    runtimeMaterialStatus: "bound_runtime_session",
+  });
 
   const listed = listCatalogProviderConfigs(state).find((record) => record.id === "catalog.custom_http");
   assert.equal(listed.runtimeMaterialStatus, "bound_runtime_session");
@@ -136,9 +118,8 @@ test("catalog provider configuration operations list, get, and configure public 
   assert.throws(() => getCatalogProviderConfig(state, "catalog.fixture"), /not configurable/);
 });
 
-test("catalog provider configuration fails closed without Rust Agentgres record-state commit", () => {
+test("catalog provider configuration mutation facade fails closed until Rust core owns catalog provider control", () => {
   const state = createState();
-  delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
     () =>
@@ -146,9 +127,17 @@ test("catalog provider configuration fails closed without Rust Agentgres record-
         base_url: "https://catalog.example.test/",
       }),
     (error) => {
-      assert.equal(error.code, "model_mount_catalog_provider_configuration_state_commit_unconfigured");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.write");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
       assert.equal(error.details.provider_id, "catalog.custom_http");
-      assert.equal(error.details.record_dir, "model-catalog-providers");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
       return true;
     },
   );
@@ -157,6 +146,9 @@ test("catalog provider configuration fails closed without Rust Agentgres record-
   assert.equal(state.catalogProviderRuntimeMaterials.has("catalog.custom_http"), false);
   assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
   assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
+  assert.equal(state.calls.some((call) => call.name === "bindVaultRef"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("catalog provider runtime material resolves vault material and preserves fail-closed states", () => {
