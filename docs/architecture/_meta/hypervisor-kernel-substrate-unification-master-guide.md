@@ -328,11 +328,11 @@ complete. Slice 747 model tokenizer/context-fit facade-retirement compaction is
 complete. Slice 748 direct model lifecycle receipt helper facade-retirement
 compaction is complete. Slice 749 public model invocation facade-retirement
 compaction is complete. Slice 750 runtime model-route selection facade
-retirement has landed; schedule and run the next matrix-compaction pass before
-unrelated route-family work resumes. Future compactions must preserve evidence,
-distinguish interim bridge scaffolding and fail-closed JS facades from terminal
-Rust daemon-core shape, and avoid encoding command transport or read-only JS
-helpers as long-term substrate.
+retirement compaction is complete. No matrix-compaction pass is pending until
+the next seam lands; future compactions must preserve evidence, distinguish
+interim bridge scaffolding and fail-closed JS facades from terminal Rust
+daemon-core shape, and avoid encoding command transport or read-only JS helpers
+as long-term substrate.
 
 ## Part II: Target Execution Model
 

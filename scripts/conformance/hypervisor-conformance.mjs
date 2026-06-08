@@ -367,8 +367,8 @@ function runDocs() {
       /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+complete/.test(guide) &&
       /Slice 748 direct model lifecycle receipt helper facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 749 public model invocation facade-retirement\s+compaction is complete/.test(guide) &&
-      /Slice 750 runtime model-route selection facade\s+retirement has landed/.test(guide) &&
-      /schedule and run the next matrix-compaction pass before\s+unrelated route-family work resumes/.test(guide) &&
+      /Slice 750 runtime model-route selection facade\s+retirement compaction is complete/.test(guide) &&
+      /No matrix-compaction pass is pending until\s+the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -385,8 +385,8 @@ function runDocs() {
       ) &&
       /then compacted Slice 748 direct model lifecycle\s+receipt helper facade-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
-      /Slice 750 runtime model-route\s+selection facade retirement has landed and scheduled the next compaction pass/.test(matrix) &&
-      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
+      /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -453,14 +453,17 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 749 is now satisfied/.test(
         matrix,
       ) &&
-      /Implementation Slice 750: Runtime Model-Route Selection Facade Retirement/.test(
+      /Compacted Implementation Slice Evidence: 750/.test(
         matrix,
       ) &&
       /runtime_model_route_selection_rust_core_required/.test(matrix) &&
       /runtime_model_route_selection_js_facade_retired/.test(matrix) &&
       /rust_daemon_core_model_route_selection_required/.test(matrix) &&
       /agentgres_model_route_selection_truth_required/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 750/.test(
+      /Scheduled matrix-compaction obligation from Slice 750 is now satisfied/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: none pending after the Slice 750/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
