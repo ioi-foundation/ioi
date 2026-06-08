@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const APPROVAL_STATE_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
-export const APPROVAL_STATE_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
-export const APPROVAL_STATE_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const APPROVAL_STATE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const APPROVAL_STATE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const APPROVAL_STATE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-request-state-update-request.v1";
 export const APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -77,7 +77,7 @@ export class RustRuntimeApprovalStateRunner {
     }
     if (!this.command) {
       throw new RuntimeApprovalStateRunnerError(
-        "Runtime approval state updates require IOI_STEP_MODULE_COMMAND for Rust authority planning.",
+        "Runtime approval state updates require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
         "approval_state_bridge_unconfigured",
         {
           env: APPROVAL_STATE_COMMAND_ENV,

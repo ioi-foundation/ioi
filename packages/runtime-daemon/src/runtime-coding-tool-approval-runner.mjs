@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const CODING_TOOL_APPROVAL_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
-export const CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
-export const CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const CODING_TOOL_APPROVAL_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-approval-request.v1";
 export const RUST_CODING_TOOL_APPROVAL_BACKEND = "rust_authority";
@@ -50,7 +50,7 @@ export class RustCodingToolApprovalRunner {
     }
     if (!this.command) {
       throw new CodingToolApprovalRunnerError(
-        "Coding-tool approval requires IOI_STEP_MODULE_COMMAND for Rust authority planning.",
+        "Coding-tool approval requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
         "coding_tool_approval_bridge_unconfigured",
         {
           env: CODING_TOOL_APPROVAL_COMMAND_ENV,

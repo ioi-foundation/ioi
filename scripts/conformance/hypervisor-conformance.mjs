@@ -3705,11 +3705,19 @@ function runBridge() {
       /rust_authority_plans_coding_tool_approval_manifest/.test(approvalCore) &&
       /plan_coding_tool_approval_manifest/.test(bridgeModule) &&
       /CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_coding_tool_approval_command/.test(bridgeModule) &&
       /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
       /createCodingToolApprovalRunnerFromEnv/.test(runtimeCodingToolApprovalRunner) &&
       /RustCodingToolApprovalRunner/.test(runtimeCodingToolApprovalRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeCodingToolApprovalRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
       /planApprovalManifest/.test(runtimeCodingToolApprovalRunner) &&
+      /coding tool approval runner env uses daemon-core command boundary/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
       /coding tool approval runner sends Rust authority bridge request/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
@@ -4103,6 +4111,8 @@ function runBridge() {
       ) &&
       /plan_approval_request_state_update/.test(bridgeModule) &&
       /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_approval_request_state_update_command/.test(bridgeModule) &&
       /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
@@ -4112,7 +4122,13 @@ function runBridge() {
       /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(bridgeModule) &&
       /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
       /RustRuntimeApprovalStateRunner/.test(runtimeApprovalStateRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeApprovalStateRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeApprovalStateRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateRunner) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalStateRunner) &&
+      /approval state runner env uses daemon-core command boundary/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
       /approval request state runner sends Rust authority bridge request/.test(
         runtimeApprovalStateRunnerTest,
       ) &&

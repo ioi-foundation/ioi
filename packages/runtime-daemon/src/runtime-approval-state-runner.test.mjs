@@ -5,17 +5,32 @@ import {
   APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  APPROVAL_STATE_COMMAND_ARGS_ENV,
+  APPROVAL_STATE_COMMAND_ENV,
   APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
   RustRuntimeApprovalStateRunner,
+  createRuntimeApprovalStateRunnerFromEnv,
   normalizeApprovalDecisionStateUpdateBridgeResult,
   normalizeApprovalRequestStateUpdateBridgeResult,
   normalizeApprovalRevokeStateUpdateBridgeResult,
 } from "./runtime-approval-state-runner.mjs";
 
+test("approval state runner env uses daemon-core command boundary", () => {
+  const runner = createRuntimeApprovalStateRunnerFromEnv({
+    [APPROVAL_STATE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [APPROVAL_STATE_COMMAND_ARGS_ENV]: "--json",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
+  });
+
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
+});
+
 test("approval request state runner sends Rust authority bridge request", () => {
   let captured = null;
   const runner = new RustRuntimeApprovalStateRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -89,7 +104,7 @@ test("approval request state runner sends Rust authority bridge request", () => 
 test("approval request state runner normalizes Rust agent target updates", () => {
   let captured = null;
   const runner = new RustRuntimeApprovalStateRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -146,7 +161,7 @@ test("approval request state runner fails closed without bridge command", () => 
 
   assert.throws(
     () => runner.planApprovalRequestStateUpdate({ run: {}, approval_id: "approval_alpha" }),
-    /Runtime approval state updates require IOI_STEP_MODULE_COMMAND/,
+    /Runtime approval state updates require IOI_RUNTIME_DAEMON_CORE_COMMAND/,
   );
 });
 
@@ -198,7 +213,7 @@ test("approval state runner fails closed without Rust-planned operation kinds", 
 test("approval decision state runner sends Rust authority bridge request", () => {
   let captured = null;
   const runner = new RustRuntimeApprovalStateRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -283,7 +298,7 @@ test("approval decision state runner sends Rust authority bridge request", () =>
 test("approval revoke state runner sends Rust authority bridge request", () => {
   let captured = null;
   const runner = new RustRuntimeApprovalStateRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {

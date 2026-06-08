@@ -1003,7 +1003,11 @@ fn expected_command_schema_version(operation: &str) -> &'static str {
 fn is_daemon_core_policy_operation(operation: &str) -> bool {
     matches!(
         operation,
-        "evaluate_context_budget_policy"
+        "plan_coding_tool_approval_manifest"
+            | "plan_approval_request_state_update"
+            | "plan_approval_decision_state_update"
+            | "plan_approval_revoke_state_update"
+            | "evaluate_context_budget_policy"
             | "evaluate_coding_tool_budget_policy"
             | "evaluate_compaction_policy"
             | "plan_context_compaction"
@@ -2119,12 +2123,12 @@ fn capture_workspace_snapshot_files(
 fn plan_coding_tool_approval_manifest(
     request: CodingToolApprovalBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2156,12 +2160,12 @@ fn plan_coding_tool_approval_manifest(
 fn plan_approval_request_state_update(
     request: ApprovalRequestStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2196,12 +2200,12 @@ fn plan_approval_request_state_update(
 fn plan_approval_decision_state_update(
     request: ApprovalDecisionStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2236,12 +2240,12 @@ fn plan_approval_decision_state_update(
 fn plan_approval_revoke_state_update(
     request: ApprovalRevokeStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7663,7 +7667,7 @@ mod tests {
     #[test]
     fn bridge_plans_coding_tool_approval_manifest_through_rust_core() {
         let request: CodingToolApprovalBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_coding_tool_approval_manifest",
             "backend": "rust_authority",
             "request": {
@@ -7729,7 +7733,7 @@ mod tests {
     #[test]
     fn bridge_plans_approval_request_state_update_through_rust_core() {
         let request: ApprovalRequestStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_approval_request_state_update",
             "backend": "rust_authority",
             "request": {
@@ -7786,7 +7790,7 @@ mod tests {
     #[test]
     fn bridge_plans_approval_request_agent_state_update_through_rust_core() {
         let request: ApprovalRequestStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_approval_request_state_update",
             "backend": "rust_authority",
             "request": {
@@ -7830,7 +7834,7 @@ mod tests {
     #[test]
     fn bridge_plans_approval_decision_state_update_through_rust_core() {
         let request: ApprovalDecisionStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_approval_decision_state_update",
             "backend": "rust_authority",
             "request": {
@@ -7889,7 +7893,7 @@ mod tests {
     #[test]
     fn bridge_plans_approval_revoke_state_update_through_rust_core() {
         let request: ApprovalRevokeStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_approval_revoke_state_update",
             "backend": "rust_authority",
             "request": {
@@ -7940,6 +7944,58 @@ mod tests {
             response["run"]["trace"]["approvalRevocations"][0]["event_id"],
             "event_revoke"
         );
+    }
+
+    #[test]
+    fn approval_authority_rejects_step_module_command_schema() {
+        let request: CodingToolApprovalBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_coding_tool_approval_manifest",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.runtime.coding-tool-approval-request.v1",
+                "thread_id": "thread_approval",
+                "tool_id": "file.apply_patch",
+                "tool_call_id": "call_approval",
+                "effect_class": "workspace_write",
+                "input": { "path": "src/app.js" }
+            }
+        }))
+        .expect("coding-tool approval bridge request");
+
+        let error = plan_coding_tool_approval_manifest(request)
+            .expect_err("approval authority must reject StepModule bridge schema");
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
+    fn approval_state_rejects_step_module_command_schema() {
+        let request: ApprovalRequestStateUpdateBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_approval_request_state_update",
+            "backend": "rust_authority",
+            "request": {
+                "schema_version": "ioi.runtime.approval-request-state-update-request.v1",
+                "thread_id": "thread_alpha",
+                "run_id": "run_alpha",
+                "run": { "id": "run_alpha", "trace": {} },
+                "event_id": "event_approval",
+                "seq": 3,
+                "created_at": "2026-06-06T04:30:00.000Z",
+                "approval_id": "approval_alpha",
+                "source": "runtime_auto",
+                "reason": "Need permission"
+            }
+        }))
+        .expect("approval request state update bridge request");
+
+        let error = plan_approval_request_state_update(request)
+            .expect_err("approval state must reject StepModule bridge schema");
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

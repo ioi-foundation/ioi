@@ -2,15 +2,30 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV,
+  CODING_TOOL_APPROVAL_COMMAND_ENV,
   CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION,
   CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
   RustCodingToolApprovalRunner,
+  createCodingToolApprovalRunnerFromEnv,
 } from "./runtime-coding-tool-approval-runner.mjs";
+
+test("coding tool approval runner env uses daemon-core command boundary", () => {
+  const runner = createCodingToolApprovalRunnerFromEnv({
+    [CODING_TOOL_APPROVAL_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV]: "--json",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
+  });
+
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
+});
 
 test("coding tool approval runner sends Rust authority bridge request", () => {
   let captured = null;
   const runner = new RustCodingToolApprovalRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(command, args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -64,6 +79,6 @@ test("coding tool approval runner fails closed without bridge command", () => {
 
   assert.throws(
     () => runner.planApprovalManifest({ thread_id: "thread_1", tool_id: "file.apply_patch", tool_call_id: "call_1" }),
-    /Coding-tool approval requires IOI_STEP_MODULE_COMMAND/,
+    /Coding-tool approval requires IOI_RUNTIME_DAEMON_CORE_COMMAND/,
   );
 });
