@@ -318,7 +318,7 @@ function runDocs() {
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-734 are intentionally left expanded as the current runtime bridge thread\/turn\s+and runtime subagent control facade-retirement seams/.test(guide) &&
+      /Slices\s+733-735 are intentionally left expanded as the current runtime bridge thread\/turn\s+and runtime subagent control facade-retirement\/legacy-body deletion seams/.test(guide) &&
       /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
@@ -334,7 +334,7 @@ function runDocs() {
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-734 are intentionally\s+left expanded as the current runtime bridge thread\/turn and runtime subagent\s+control facade-retirement seams/.test(
+      /Slices 733-735 are intentionally\s+left expanded as the current runtime bridge thread\/turn and runtime subagent\s+control facade-retirement\/legacy-body deletion seams/.test(
         matrix,
       ) &&
       /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
@@ -14225,6 +14225,49 @@ function runCompositor() {
   const runtimeSubagentSavedRecordWriteCalls = (
     runtimeSubagentSurface.match(/store\.writeSubagent\(saved,\s*"subagent\./g) ?? []
   ).length;
+  const runtimeSubagentLifecycleMutationLegacyRemoved =
+    /runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_control_js_facade_retired/.test(runtimeSubagentSurface) &&
+    /rust_daemon_core_runtime_subagent_control_required/.test(runtimeSubagentSurface) &&
+    /agentgres_runtime_subagent_truth_required/.test(runtimeSubagentSurface) &&
+    !/store\.createAgent\(/.test(runtimeSubagentSurface) &&
+    !/store\.createRun\(/.test(runtimeSubagentSurface) &&
+    !/store\.cancelRun\(/.test(runtimeSubagentSurface) &&
+    !/store\.appendRuntimeEvent\(/.test(runtimeSubagentSurface) &&
+    !/store\.writeSubagent\(/.test(runtimeSubagentSurface) &&
+    !/planSubagentRecordStateUpdate/.test(runtimeSubagentSurface) &&
+    !/subagent_record_state_update/.test(runtimeSubagentSurface) &&
+    !/subagent_prompt_required/.test(runtimeSubagentSurface) &&
+    !/subagent_input_required/.test(runtimeSubagentSurface) &&
+    !/requiredSubagentAgentId/.test(runtimeSubagentSurface) &&
+    !/requiredPlannedSubagentOperationKind/.test(runtimeSubagentSurface) &&
+    /subagent lifecycle mutation facades fail closed before JS truth mutation/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /subagent control event append facade fails closed before JS runtime event append/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /subagent surface reads result with validated output contract projection/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    /subagent result reads ignore retired camelCase record aliases/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    !/subagent surface spawns subagents with source and context metadata/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    !/subagent surface sends input, persists history, and returns event/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    !/subagent surface resumes subagents and clears cancellation metadata/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    !/subagent surface assigns role metadata and persists assignment history/.test(
+      runtimeSubagentSurfaceTest,
+    ) &&
+    !/subagent surface cancels subagents with inherited cancellation metadata/.test(
+      runtimeSubagentSurfaceTest,
+    );
   const runtimeEventEnvelopes = exists("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.mjs")
     : "";
@@ -17348,6 +17391,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-surface-usage-input-alias-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     !/record\.usageTelemetry/.test(runtimeSubagentSurface) &&
       /subagent surface ignores retired usageTelemetry previous usage fallback/.test(
         runtimeSubagentSurfaceTest,
@@ -17361,6 +17405,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-budget-usage-output-alias-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     !/^\s*budgetUsageTelemetry,?\s*$/m.test(runtimeSubagentSurface) &&
       /budget_usage_telemetry:\s*budgetUsageTelemetry/.test(runtimeSubagentSurface) &&
       /assertCanonicalSubagentBudgetUsageTelemetry/.test(
@@ -17378,6 +17423,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-usage-output-alias-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     !/^\s*usageTelemetry:\s*budgetStatus\.usage,?\s*$/m.test(
       runtimeSubagentSurface,
     ) &&
@@ -17395,6 +17441,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-record-output-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentProjectionBlock.length > 0 &&
       !runtimeSubagentRecordOutputAliasPattern.test(runtimeSubagentProjectionBlock) &&
       /retiredSubagentRecordOutputAliasKeys/.test(runtimeSubagentSurface) &&
@@ -17413,6 +17460,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-record-write-output-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSavedRecordWriteCalls === 0 &&
       runtimeSubagentCanonicalSavedRecordWrites === 6 &&
       /assertCanonicalSubagentStoreWrites/.test(runtimeSubagentSurfaceTest) &&
@@ -17467,7 +17515,18 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-control-legacy-js-bodies-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved,
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent lifecycle mutation bodies must stay deleted from the JS facade after fail-closed Rust daemon-core retirement",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-wait-state-update-live-bridge",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /SubagentRecordStateUpdateCore/.test(policyCore) &&
       /SubagentRecordStateUpdateRequest/.test(policyCore) &&
       /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -17516,6 +17575,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-spawn-state-update-live-bridge",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
       /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
@@ -17546,6 +17606,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-input-state-update-live-bridge",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
       /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
@@ -17573,6 +17634,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-resume-state-update-live-bridge",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
       /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
@@ -17600,6 +17662,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-model-route-payload-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /model:\s*\{\s*id: parentAgent\.requestedModelId \?\? parentAgent\.modelId \?\? "auto",\s*route_id: parentAgent\.modelRouteId \?\? "route\.local-first",\s*\}/.test(
       runtimeSubagentSurface,
     ) &&
@@ -17624,6 +17687,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-assign-state-update-live-bridge",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
       /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
@@ -17651,6 +17715,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-cancel-state-update-live-bridge",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
       /contextPolicyRunner\.planSubagentRecordStateUpdate/.test(
         runtimeSubagentSurface,
@@ -17743,6 +17808,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-propagation-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
       !runtimeSubagentPropagationRecordAliasReadPattern.test(
         runtimeSubagentPropagationEnvelopeBlock,
@@ -17765,6 +17831,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-propagation-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
       !runtimeSubagentPropagationRequestAliasPattern.test(
         runtimeSubagentPropagationEnvelopeBlock,
@@ -17784,6 +17851,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-wait-result-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentWaitResultReadBlocks.length > 0 &&
       !runtimeSubagentWaitResultRecordAliasReadPattern.test(
         runtimeSubagentWaitResultReadBlocks,
@@ -17804,6 +17872,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-spawn-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSpawnBlock.length > 0 &&
       !runtimeSubagentSpawnRequestAliasReadPattern.test(
         runtimeSubagentSpawnBlock,
@@ -17836,6 +17905,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-send-input-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSendInputBlock.length > 0 &&
       !runtimeSubagentSendInputRecordAliasReadPattern.test(
         runtimeSubagentSendInputBlock,
@@ -17860,6 +17930,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-send-input-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSendInputBlock.length > 0 &&
       !runtimeSubagentSendInputRequestAliasReadPattern.test(
         runtimeSubagentSendInputBlock,
@@ -17885,6 +17956,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-resume-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentResumeBlock.length > 0 &&
       !runtimeSubagentResumeRecordAliasReadPattern.test(
         runtimeSubagentResumeBlock,
@@ -17915,6 +17987,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-resume-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentResumeBlock.length > 0 &&
       !runtimeSubagentResumeRequestAliasReadPattern.test(
         runtimeSubagentResumeBlock,
@@ -17960,6 +18033,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-budget-record-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSendInputBlock.length > 0 &&
       runtimeSubagentResumeBlock.length > 0 &&
       !runtimeSubagentBudgetRecordRequestAliasReadPattern.test(
@@ -17978,6 +18052,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-assign-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentAssignBlock.length > 0 &&
       !runtimeSubagentAssignRecordAliasReadPattern.test(
         runtimeSubagentAssignBlock,
@@ -18006,6 +18081,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-assign-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentAssignBlock.length > 0 &&
       !runtimeSubagentAssignRequestAliasReadPattern.test(
         runtimeSubagentAssignBlock,
@@ -18037,6 +18113,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-lifecycle-agent-id-fallback-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSendInputBlock.length > 0 &&
       runtimeSubagentResumeBlock.length > 0 &&
       runtimeSubagentAssignBlock.length > 0 &&
@@ -18066,6 +18143,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-cancel-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentCancelBlock.length > 0 &&
       !runtimeSubagentCancelRecordAliasReadPattern.test(
         runtimeSubagentCancelBlock,
@@ -18086,6 +18164,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-cancel-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentCancelBlock.length > 0 &&
       runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
       !runtimeSubagentCancelRequestAliasReadPattern.test(
@@ -18106,6 +18185,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-nested-helper-output-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentInputRecordBlock.length > 0 &&
       runtimeSubagentResumeRecordBlock.length > 0 &&
       runtimeSubagentAssignmentRecordBlock.length > 0 &&
@@ -18145,6 +18225,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-error-detail-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentErrorDetailBlocks.length > 0 &&
       runtimeSubagentBudgetErrorDetailBlocks.length === 3 &&
       !runtimeSubagentErrorDetailAliasPattern.test(
@@ -18170,6 +18251,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-lifecycle-result-envelope-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentLifecycleResultEnvelopeBlocks.length > 0 &&
       !runtimeSubagentLifecycleResultEnvelopeAliasPattern.test(
         runtimeSubagentLifecycleResultEnvelopeBlocks,
@@ -18196,6 +18278,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-post-spawn-lifecycle-staging-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentPostSpawnLifecycleStagingBlocks.length === 5 &&
       !runtimeSubagentRecordOutputAliasPattern.test(
         runtimeSubagentPostSpawnLifecycleStagingBlocks.join("\n"),
@@ -18217,6 +18300,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-spawn-staging-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentSpawnStagingBlock.length > 0 &&
       !runtimeSubagentRecordOutputAliasPattern.test(
         runtimeSubagentSpawnStagingBlock,
@@ -18238,6 +18322,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-control-event-record-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentControlEventBlock.length > 0 &&
       !runtimeSubagentControlEventRecordAliasReadPattern.test(
         runtimeSubagentControlEventBlock,
@@ -18259,6 +18344,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-subagent-control-event-request-aliases-retired",
+    runtimeSubagentLifecycleMutationLegacyRemoved ||
     runtimeSubagentControlEventBlock.length > 0 &&
       !runtimeSubagentControlEventRequestAliasReadPattern.test(
         runtimeSubagentControlEventBlock,
