@@ -109,11 +109,6 @@ function createState() {
   };
   const facade = createModelMountingReadProjectionFacade({
     buildModelCapabilities: ({ artifacts }) => artifacts.map((artifact) => ({ modelId: artifact.modelId })),
-    capabilityForWorkflowNode(node) {
-      if (node === "Embedding") return "embeddings";
-      if (node === "Receipt Gate") return "receipt_gate";
-      return "chat";
-    },
     internalFixtureModelsEnabled: () => false,
     isFixtureModelRecord: (artifact) => artifact.family === "fixture",
     listJson: () => ["/state/provider-health/provider.local.json"],
@@ -176,7 +171,7 @@ function rustProjectionFixture(request) {
     vaultRefs: state.vault_refs,
     mcpServers: state.mcp_servers,
     conversationStates: state.conversation_states,
-    workflowBindings: state.workflow_bindings,
+    workflowBindings: workflowBindingsFromRust(),
     adapterBoundaries: adapterBoundariesFromState(state),
     lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
     routeReceipts: receipts.filter((receipt) => receipt.kind === "model_route_selection"),
@@ -213,7 +208,7 @@ function rustProjectionFixture(request) {
       vaultRefs: state.vault_refs,
       mcpServers: state.mcp_servers,
       conversationStates: state.conversation_states,
-      workflowNodes: state.workflow_bindings,
+      workflowNodes: workflowBindingsFromRust(),
       receipts: receipts.slice(-25),
       projection: {
         schemaVersion: projection.schemaVersion,
@@ -351,6 +346,30 @@ function adapterBoundariesFromState(state) {
   };
 }
 
+function workflowBindingsFromRust() {
+  return [
+    ["Model Call", "chat"],
+    ["Structured Output", "responses"],
+    ["Verifier", "chat"],
+    ["Planner", "chat"],
+    ["Embedding", "embeddings"],
+    ["Reranker", "rerank"],
+    ["Vision", "vision"],
+    ["Local Tool/MCP", "mcp"],
+    ["Model Router", "chat"],
+    ["Receipt Gate", "receipt_gate"],
+  ].map(([node, capability]) => ({
+    node,
+    modelId: null,
+    supportsExplicitModelId: true,
+    supportsModelPolicy: true,
+    capability,
+    receiptRequired: true,
+    routeId: "route.local-first",
+    daemonApi: node === "Receipt Gate" ? "/api/v1/workflows/receipt-gate" : "/api/v1/workflows/nodes/execute",
+  }));
+}
+
 function routeDecisionsFromReceipts(receipts) {
   return receipts
     .filter((receipt) => receipt.kind === "model_route_selection")
@@ -397,10 +416,12 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   ]);
   const workflowBindings = facade.workflowNodeBindings(state);
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
+  assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
   assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
   assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
   assert.equal(readProjectionRequests.every((request) => request.state.agentgres_store.port === "AgentgresStorePort"), true);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "adapter_boundaries")), false);
+  assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "workflow_bindings")), false);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind).slice(-2), [
     "projection",
     "projection",

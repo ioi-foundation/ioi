@@ -1008,6 +1008,17 @@ projection migration: JS still prepares broad current-state input and command
 transport remains migration transport until direct Rust daemon-core Agentgres
 projection APIs replace it.
 
+Slice 802 retired the JS workflow-node binding materializer from the model_mount
+read-projection facade. `readProjectionInput()` no longer imports or calls
+`workflowNodeBindingsProjection()` and no longer passes a `workflow_bindings`
+list into the Rust planner. `plan_model_mount_read_projection` now authors the
+public `workflowBindings` and snapshot `workflowNodes` lists inside Rust,
+including canonical node names, capability bindings, route, receipt, and daemon
+API metadata. This still does not claim terminal model_mount projection
+migration: JS still prepares broad current-state input and command transport
+remains migration transport until direct Rust daemon-core Agentgres projection
+APIs replace it.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

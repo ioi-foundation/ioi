@@ -11,13 +11,11 @@ import {
   providerList,
   routeList,
   runtimeModelCatalogList as runtimeModelCatalogListProjection,
-  workflowNodeBindings as workflowNodeBindingsProjection,
 } from "./read-model.mjs";
 import { notFound } from "./io.mjs";
 
 export function createModelMountingReadProjectionFacade({
   buildModelCapabilities,
-  capabilityForWorkflowNode,
   internalFixtureModelsEnabled,
   isFixtureModelRecord,
   listJson,
@@ -253,7 +251,6 @@ export function createModelMountingReadProjectionFacade({
       vault_refs: state.listVaultRefs(),
       mcp_servers: state.listMcpServers(),
       conversation_states: state.listConversations(),
-      workflow_bindings: workflowNodeBindingsProjection({ capabilityForWorkflowNode }),
       agentgres_store: state.store.adapterStatus(),
       receipts: state.listReceipts(),
       wallet: state.walletAuthority.adapterStatus(),

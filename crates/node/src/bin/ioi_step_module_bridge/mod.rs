@@ -2118,7 +2118,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": array_field(state, "mcp_servers"),
         "conversationStates": array_field(state, "conversation_states"),
-        "workflowNodes": array_field(state, "workflow_bindings"),
+        "workflowNodes": model_mount_workflow_bindings(),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": model_mount_projection_summary(request),
         "adapterBoundaries": projection.get("adapterBoundaries").cloned().unwrap_or_else(|| model_mount_adapter_boundaries(state)),
@@ -2155,7 +2155,7 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": array_field(state, "mcp_servers"),
         "conversationStates": array_field(state, "conversation_states"),
-        "workflowBindings": array_field(state, "workflow_bindings"),
+        "workflowBindings": model_mount_workflow_bindings(),
         "adapterBoundaries": model_mount_adapter_boundaries(state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
@@ -2193,6 +2193,41 @@ fn model_mount_adapter_boundaries(state: &Value) -> Value {
         },
         "agentgres": object_or_null(state.get("agentgres_store")),
     })
+}
+
+fn model_mount_workflow_bindings() -> Value {
+    Value::Array(
+        [
+            ("Model Call", "chat"),
+            ("Structured Output", "responses"),
+            ("Verifier", "chat"),
+            ("Planner", "chat"),
+            ("Embedding", "embeddings"),
+            ("Reranker", "rerank"),
+            ("Vision", "vision"),
+            ("Local Tool/MCP", "mcp"),
+            ("Model Router", "chat"),
+            ("Receipt Gate", "receipt_gate"),
+        ]
+        .into_iter()
+        .map(|(node, capability)| {
+            json!({
+                "node": node,
+                "modelId": Value::Null,
+                "supportsExplicitModelId": true,
+                "supportsModelPolicy": true,
+                "capability": capability,
+                "receiptRequired": true,
+                "routeId": "route.local-first",
+                "daemonApi": if node == "Receipt Gate" {
+                    "/api/v1/workflows/receipt-gate"
+                } else {
+                    "/api/v1/workflows/nodes/execute"
+                },
+            })
+        })
+        .collect(),
+    )
 }
 
 fn model_mount_projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
@@ -7929,7 +7964,6 @@ mod tests {
             "vault_refs": [],
             "mcp_servers": [],
             "conversation_states": [],
-            "workflow_bindings": [],
             "wallet": {"port": "WalletAuthorityPort"},
             "vault": {"port": "VaultPort"},
             "agentgres_store": {"port": "AgentgresStorePort"},
@@ -8016,6 +8050,21 @@ mod tests {
             false
         );
         assert_eq!(
+            response["projection"]["workflowBindings"]
+                .as_array()
+                .expect("workflow bindings")
+                .len(),
+            10
+        );
+        assert_eq!(
+            response["projection"]["workflowBindings"][4]["capability"],
+            "embeddings"
+        );
+        assert_eq!(
+            response["projection"]["workflowBindings"][9]["daemonApi"],
+            "/api/v1/workflows/receipt-gate"
+        );
+        assert_eq!(
             response["projection"]["routeDecisions"][0]["selected_model"],
             "model.local"
         );
@@ -8057,7 +8106,7 @@ mod tests {
                 .as_array()
                 .expect("snapshot workflow nodes")
                 .len(),
-            0
+            10
         );
         assert!(snapshot_response["projection"]
             .get("workflow_bindings")
