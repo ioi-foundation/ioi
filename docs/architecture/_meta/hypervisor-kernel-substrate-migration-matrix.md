@@ -13412,6 +13412,67 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 681
+
+```yaml
+slice: 681
+title: Runtime bridge message data alias retirement
+status: in_review
+date: 2026-06-07
+phase: 10
+objective: retire duplicate camelCase projection aliases from runtime bridge
+  message `data` so bridge events expose canonical snake_case fields before
+  downstream trace/compositor projection
+owner_boundary:
+  route_or_surface: runtime bridge run-record event projection
+  authority_gate: unchanged; this slice does not execute work or admit accepted
+    truth, but removes duplicate facade fields from bridge event projection data
+  execution_backend: unchanged; runtime bridge run records remain migration
+    projection/facade output pending terminal Rust daemon-core projection
+    ownership
+  truth_path: bridge event data carries canonical `event_kind`,
+    `workflow_graph_id`, `workflow_node_id`, `component_kind`,
+    `payload_schema_version`, runtime event identity, receipt refs, artifact
+    refs, and policy decision refs without duplicate camelCase aliases
+  projection_path: compositor conformance requires the bridge message boundary
+    to scrub retired camelCase payload aliases before computer-use trace
+    materialization consumes canonical fields
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  runtime_projection:
+    - packages/runtime-daemon/src/runtime-record-projections.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-record-projections.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires `canonicalRuntimeBridgeEventPayload(event)`
+    at the bridge message boundary
+  - compositor conformance rejects duplicate camelCase bridge message `data`
+    aliases such as `eventKind`, `workflowGraphId`, `runtimeEventId`,
+    `receiptRefs`, and `policyDecisionRefs`
+  - focused runtime record projection tests prove poisoned payload aliases are
+    scrubbed while canonical snake_case fields remain available to downstream
+    trace projection
+verification:
+  commands:
+    - node --test --test-name-pattern "runtime bridge" packages/runtime-daemon/src/runtime-record-projections.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-record-projections.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core projection ownership remains pending beyond
+      this JS facade alias-retirement slice
+    - runtime bridge run records remain migration transport/projection output,
+      not terminal Rust core architecture
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

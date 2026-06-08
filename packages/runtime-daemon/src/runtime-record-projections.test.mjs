@@ -8,6 +8,20 @@ const retiredRuntimeBridgeUsageAliasKeys = [
   "runtimeUsage",
 ];
 
+const retiredRuntimeBridgeMessageDataAliasKeys = [
+  "eventKind",
+  "workflowGraphId",
+  "workflowNodeId",
+  "componentKind",
+  "payloadSchemaVersion",
+  "runtimeEventId",
+  "runtimeEventKind",
+  "sourceEventKind",
+  "receiptRefs",
+  "artifactRefs",
+  "policyDecisionRefs",
+];
+
 function assertMissingKeys(record, keys) {
   for (const key of keys) {
     assert.equal(Object.hasOwn(record, key), false, `retired alias key ${key} must be absent`);
@@ -81,6 +95,50 @@ test("runtime bridge run record emits canonical usage telemetry only", () => {
   assert.ok(traceArtifact);
   assert.equal(traceArtifact.content.usage_telemetry, run.usage);
   assertMissingKeys(traceArtifact.content, retiredRuntimeBridgeUsageAliasKeys);
+});
+
+test("runtime bridge messages emit canonical event data fields only", () => {
+  const [message] = projections().runtimeBridgeMessagesForProjection({
+    agent: { id: "agent_bridge" },
+    projection: {
+      runId: "run_bridge",
+      updatedAt: "2026-06-05T00:00:01.000Z",
+      createdAt: "2026-06-05T00:00:00.000Z",
+      events: [
+        {
+          event_id: "event-canonical",
+          event_kind: "turn.completed",
+          source_event_kind: "runtime.completed",
+          workflow_graph_id: "graph-canonical",
+          workflow_node_id: "node-canonical",
+          component_kind: "runtime",
+          payload_schema_version: "payload.v1",
+          receipt_refs: ["receipt-canonical"],
+          artifact_refs: ["artifact-canonical"],
+          policy_decision_refs: ["policy-canonical"],
+          payload_summary: {
+            event_kind: "payload.canonical",
+            eventKind: "payload.retired",
+            workflow_graph_id: "graph-payload",
+            workflowGraphId: "graph-payload-retired",
+          },
+        },
+      ],
+    },
+  });
+
+  assert.equal(message.data.event_kind, "payload.canonical");
+  assert.equal(message.data.workflow_graph_id, "graph-canonical");
+  assert.equal(message.data.workflow_node_id, "node-canonical");
+  assert.equal(message.data.component_kind, "runtime");
+  assert.equal(message.data.payload_schema_version, "payload.v1");
+  assert.equal(message.data.runtime_event_id, "event-canonical");
+  assert.equal(message.data.runtime_event_kind, "turn.completed");
+  assert.equal(message.data.source_event_kind, "runtime.completed");
+  assert.deepEqual(message.data.receipt_refs, ["receipt-canonical"]);
+  assert.deepEqual(message.data.artifact_refs, ["artifact-canonical"]);
+  assert.deepEqual(message.data.policy_decision_refs, ["policy-canonical"]);
+  assertMissingKeys(message.data, retiredRuntimeBridgeMessageDataAliasKeys);
 });
 
 test("runtime bridge computer-use trace emits canonical projection fields only", () => {

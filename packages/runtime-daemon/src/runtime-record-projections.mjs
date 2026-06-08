@@ -281,7 +281,7 @@ function runtimeBridgeMessagesForProjection({ agent, projection }) {
 }
 
 function runtimeBridgeMessageForEvent({ agent, projection, event, index }) {
-  const payload = runtimeBridgeEventPayload(event);
+  const payload = canonicalRuntimeBridgeEventPayload(event);
   const type = runtimeBridgeRunEventType(event);
   const summary =
     optionalString(payload.summary) ??
@@ -299,26 +299,16 @@ function runtimeBridgeMessageForEvent({ agent, projection, event, index }) {
     summary,
     data: {
       ...payload,
-      eventKind: payload.event_kind ?? event.source_event_kind ?? event.event_kind ?? type,
-      workflowGraphId: event.workflow_graph_id ?? payload.workflow_graph_id ?? null,
+      event_kind: payload.event_kind ?? event.source_event_kind ?? event.event_kind ?? type,
       workflow_graph_id: event.workflow_graph_id ?? payload.workflow_graph_id ?? null,
-      workflowNodeId: event.workflow_node_id ?? payload.workflow_node_id ?? null,
       workflow_node_id: event.workflow_node_id ?? payload.workflow_node_id ?? null,
-      componentKind: event.component_kind ?? payload.component_kind ?? null,
       component_kind: event.component_kind ?? payload.component_kind ?? null,
-      payloadSchemaVersion: event.payload_schema_version ?? payload.schema_version ?? null,
       payload_schema_version: event.payload_schema_version ?? payload.schema_version ?? null,
-      runtimeEventId: event.event_id ?? null,
       runtime_event_id: event.event_id ?? null,
-      runtimeEventKind: event.event_kind ?? null,
       runtime_event_kind: event.event_kind ?? null,
-      sourceEventKind: event.source_event_kind ?? null,
       source_event_kind: event.source_event_kind ?? null,
-      receiptRefs: normalizeArray(event.receipt_refs),
       receipt_refs: normalizeArray(event.receipt_refs),
-      artifactRefs: normalizeArray(event.artifact_refs),
       artifact_refs: normalizeArray(event.artifact_refs),
-      policyDecisionRefs: normalizeArray(event.policy_decision_refs),
       policy_decision_refs: normalizeArray(event.policy_decision_refs),
     },
   };
@@ -328,6 +318,28 @@ function runtimeBridgeEventPayload(event = {}) {
   const payloadSummary = objectRecord(event.payload_summary);
   const payload = objectRecord(event.payload);
   return Object.keys(payloadSummary).length > 0 ? payloadSummary : payload;
+}
+
+function canonicalRuntimeBridgeEventPayload(event = {}) {
+  return withoutKeys(runtimeBridgeEventPayload(event), [
+    "eventKind",
+    "workflowGraphId",
+    "workflowNodeId",
+    "componentKind",
+    "payloadSchemaVersion",
+    "runtimeEventId",
+    "runtimeEventKind",
+    "sourceEventKind",
+    "receiptRefs",
+    "artifactRefs",
+    "policyDecisionRefs",
+  ]);
+}
+
+function withoutKeys(record, keys) {
+  const output = { ...record };
+  for (const key of keys) delete output[key];
+  return output;
 }
 
 function objectRecord(value) {

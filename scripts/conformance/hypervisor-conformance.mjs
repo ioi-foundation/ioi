@@ -15081,6 +15081,11 @@ function runCompositor() {
     "function runtimeBridgeComputerUseTrace",
     "function runtimeBridgeRunStateFromTrace",
   );
+  const runtimeBridgeMessageForEventBlock = blockBetween(
+    runtimeRecordProjections,
+    "function runtimeBridgeMessageForEvent",
+    "function runtimeBridgeEventPayload",
+  );
   const runtimeBridgeComputerUseTrajectoryBlock = blockBetween(
     runtimeRecordProjections,
     "function runtimeBridgeTrajectoryFromComputerUseEvents",
@@ -16867,6 +16872,36 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge run records must not emit retired usage telemetry aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-message-data-aliases-retired",
+    runtimeBridgeMessageForEventBlock.length > 0 &&
+      /const payload = canonicalRuntimeBridgeEventPayload\(event\);/.test(
+        runtimeBridgeMessageForEventBlock,
+      ) &&
+      /event_kind:\s*payload\.event_kind \?\? event\.source_event_kind \?\? event\.event_kind \?\? type/.test(
+        runtimeBridgeMessageForEventBlock,
+      ) &&
+      !/^\s*(?:eventKind|workflowGraphId|workflowNodeId|componentKind|payloadSchemaVersion|runtimeEventId|runtimeEventKind|sourceEventKind|receiptRefs|artifactRefs|policyDecisionRefs):/m.test(
+        runtimeBridgeMessageForEventBlock,
+      ) &&
+      /function canonicalRuntimeBridgeEventPayload/.test(runtimeRecordProjections) &&
+      /"eventKind",\s*[\r\n\s]*"workflowGraphId",\s*[\r\n\s]*"workflowNodeId",\s*[\r\n\s]*"componentKind",\s*[\r\n\s]*"payloadSchemaVersion"/.test(
+        runtimeRecordProjections,
+      ) &&
+      /runtime bridge messages emit canonical event data fields only/.test(
+        runtimeRecordProjectionsTest,
+      ) &&
+      /retiredRuntimeBridgeMessageDataAliasKeys/.test(runtimeRecordProjectionsTest) &&
+      /assertMissingKeys\(message\.data,\s*retiredRuntimeBridgeMessageDataAliasKeys\)/.test(
+        runtimeRecordProjectionsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-record-projections.mjs",
+      "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge message data must emit canonical snake_case fields without retired camelCase projection aliases",
   );
   assertCheck(
     result,
