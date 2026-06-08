@@ -12433,10 +12433,19 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-vault-operation-request-aliases-retired",
+    "model-mount-vault-js-facade-retired",
     /RETIRED_VAULT_OPERATION_REQUEST_ALIASES/.test(vaultOperations) &&
       /CANONICAL_VAULT_OPERATION_REQUEST_FIELDS/.test(vaultOperations) &&
       /vault_operation_request_aliases_retired/.test(vaultOperations) &&
+      /throwVaultRustCoreRequired/.test(vaultOperations) &&
+      /model_mount_vault_rust_core_required/.test(vaultOperations) &&
+      /rust_core_boundary:\s*"model_mount\.vault"/.test(vaultOperations) &&
+      /public_vault_js_facade_retired/.test(vaultOperations) &&
+      /rust_daemon_core_wallet_vault_required/.test(vaultOperations) &&
+      /rust_daemon_core_ctee_custody_required/.test(vaultOperations) &&
+      /model_mount\.vault_ref\.bind/.test(vaultOperations) &&
+      /model_mount\.vault\.health/.test(vaultOperations) &&
+      /model_mount\.vault_ref\.remove/.test(vaultOperations) &&
       /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredStringDep\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredStringDep\(body\.material,\s*"material"\);/.test(
         vaultOperationsRequestBlocks,
       ) &&
@@ -12447,6 +12456,21 @@ function runReceipts() {
         vaultOperationsRequestBlocks,
       ) &&
       !/body\.(?:vaultRef|secret|value)\b/.test(vaultOperationsRequestBlocks) &&
+      !/state\.receipt\("vault_ref_binding"/.test(vaultOperations) &&
+      !/state\.receipt\("vault_adapter_health"/.test(vaultOperations) &&
+      !/state\.receipt\("vault_ref_removal"/.test(vaultOperations) &&
+      !/state\.writeVaultRefs\(\)/.test(vaultOperations) &&
+      !/state\.writeProjection\(\)/.test(vaultOperations) &&
+      !/state\.vault\.bindVaultRef/.test(vaultOperations) &&
+      !/state\.vault\.removeVaultRef/.test(vaultOperations) &&
+      !/state\.vault\.health/.test(vaultOperations) &&
+      /vault mutation and health receipt facades fail closed until Rust wallet\/cTEE custody owns them/.test(
+        vaultOperationsTest,
+      ) &&
+      /vault list, metadata, and status remain read-only projection adapters/.test(vaultOperationsTest) &&
+      /assertNoVaultMutation/.test(vaultOperationsTest) &&
+      /model_mount_vault_rust_core_required/.test(vaultOperationsTest) &&
+      /public_vault_js_facade_retired/.test(vaultOperationsTest) &&
       /vault operations reject retired request aliases before vault access/.test(vaultOperationsTest) &&
       /retired_aliases,\s*\[\s*"vaultRef",\s*"secret",\s*"value"\s*\]/.test(vaultOperationsTest) &&
       /canonical_fields,\s*\[\s*"vault_ref",\s*"material"\s*\]/.test(vaultOperationsTest) &&
@@ -12472,7 +12496,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
-    "Phase 7/11 is pending: vault operation request bodies and metadata persistence must fail closed before retired aliases or direct JS vault-ref map writes",
+    "Phase 7/11 is pending: public vault mutation and health receipt facades must fail closed until Rust daemon-core wallet/cTEE custody owns vault binding, removal, health receipt, record-state, and projection semantics",
   );
   assertCheck(
     result,

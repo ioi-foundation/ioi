@@ -9,7 +9,6 @@ import {
   vaultRefMetadata,
   vaultStatus,
 } from "./vault-operations.mjs";
-import { writeModelMountingVaultRefs } from "./state-persistence.mjs";
 
 function createState() {
   const calls = [];
@@ -100,7 +99,6 @@ function createState() {
     },
     writeVaultRefs() {
       calls.push({ name: "writeVaultRefs" });
-      writeModelMountingVaultRefs(this);
     },
     writeProjection() {
       calls.push({ name: "writeProjection" });
@@ -109,31 +107,99 @@ function createState() {
   return state;
 }
 
-test("vault operations bind refs, persist metadata, and emit redacted receipts", () => {
+function deps(overrides = {}) {
+  return {
+    runtimeError({ status, code, message, details }) {
+      return Object.assign(new Error(message), { status, code, details });
+    },
+    ...overrides,
+  };
+}
+
+function assertNoVaultMutation(state) {
+  assert.deepEqual(state.calls, []);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+}
+
+test("vault mutation and health receipt facades fail closed until Rust wallet/cTEE custody owns them", () => {
   const state = createState();
 
-  const result = bindVaultRef(state, {
-    vault_ref: "vault://provider/custom/api-key",
+  assert.throws(
+    () =>
+      bindVaultRef(
+        state,
+        {
+          vault_ref: "vault://provider/custom/api-key",
+          material: "custom-secret",
+          purpose: "provider.auth:custom",
+          label: "Custom auth",
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_vault_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.vault_ref.bind");
+      assert.equal(error.details.rust_core_boundary, "model_mount.vault");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_vault_js_facade_retired",
+        "rust_daemon_core_wallet_vault_required",
+        "rust_daemon_core_ctee_custody_required",
+      ]);
+      assert.equal(error.details.vault_ref_hash_required, true);
+      assert.equal(error.details.vault_ref_present, true);
+      assert.equal(error.details.material, "[redacted]");
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "vaultRef"), false);
+      return true;
+    },
+  );
+  assertNoVaultMutation(state);
+
+  assert.throws(
+    () => vaultHealth(state, deps()),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_vault_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.vault.health");
+      return true;
+    },
+  );
+  assertNoVaultMutation(state);
+
+  assert.throws(
+    () =>
+      removeVaultRef(
+        state,
+        {
+          vault_ref: "vault://provider/custom/api-key",
+          purpose: "operator_provider_auth_remove:test",
+        },
+        deps(),
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_vault_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.vault_ref.remove");
+      assert.equal(error.details.vault_ref_hash_required, true);
+      assert.equal(error.details.purpose, "operator_provider_auth_remove:test");
+      assert.equal(error.details.vault_ref_present, true);
+      return true;
+    },
+  );
+  assertNoVaultMutation(state);
+});
+
+test("vault list, metadata, and status remain read-only projection adapters", () => {
+  const state = createState();
+  state.vault.bindVaultRef({
+    vaultRef: "vault://provider/custom/api-key",
     material: "custom-secret",
     purpose: "provider.auth:custom",
     label: "Custom auth",
   });
-
-  assert.equal(result.vaultRefHash, "hash:vault://provider/custom/api-key");
-  assert.equal(result.configured, true);
-  assert.equal(result.receiptId, "receipt-1");
-  assert.equal(state.receipts[0].kind, "vault_ref_binding");
-  assert.equal(state.receipts[0].redaction, "redacted");
-  assert.deepEqual(state.receipts[0].evidenceRefs, [
-    "VaultPort.bindVaultRef",
-    "hash:vault://provider/custom/api-key",
-  ]);
-  assert.deepEqual(
-    state.calls.map((call) => call.name),
-    ["bindVaultRef", "writeVaultRefs", "commitRuntimeModelMountRecordState", "writeProjection"],
-  );
-  assert.equal(state.recordStateCommits[0].record_dir, "vault-refs");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.vault_ref.write");
+  state.calls.length = 0;
 
   assert.deepEqual(listVaultRefs(state), [{
     id: "vault_ref.hash:vault://provider/custom/api-key",
@@ -146,40 +212,11 @@ test("vault operations bind refs, persist metadata, and emit redacted receipts",
     vaultRefMetadata(state, { vault_ref: "vault://provider/custom/api-key" }).label,
     "Custom auth",
   );
-});
-
-test("vault operations project status, health receipt, and removal receipt", () => {
-  const state = createState();
-  bindVaultRef(state, {
-    vault_ref: "vault://provider/custom/api-key",
-    material: "custom-secret",
-  });
-  state.calls.length = 0;
-  state.receipts.length = 0;
-
   const status = vaultStatus(state);
   assert.equal(status.implementation, "runtime_memory_vault");
   assert.equal(status.configured, true);
-
-  const health = vaultHealth(state);
-  assert.equal(health.status, "healthy");
-  assert.equal(health.receiptId, "receipt-1");
-  assert.equal(state.receipts[0].kind, "vault_adapter_health");
-  assert.deepEqual(state.receipts[0].evidenceRefs, ["VaultPort.health"]);
-
-  const removed = removeVaultRef(state, {
-    vault_ref: "vault://provider/custom/api-key",
-    purpose: "operator_provider_auth_remove:test",
-  });
-  assert.equal(removed.configured, false);
-  assert.equal(removed.receiptId, "receipt-2");
-  assert.equal(state.receipts[1].kind, "vault_ref_removal");
-  assert.deepEqual(
-    state.calls.map((call) => call.name),
-    ["adapterStatus", "health", "removeVaultRef", "writeVaultRefs", "commitRuntimeModelMountRecordState", "writeProjection"],
-  );
-  assert.equal(listVaultRefs(state).length, 1);
-  assert.equal(listVaultRefs(state)[0].configured, false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("vault operations reject retired request aliases before vault access", () => {

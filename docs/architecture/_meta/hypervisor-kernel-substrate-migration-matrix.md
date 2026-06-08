@@ -13846,6 +13846,74 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 710
+
+```yaml
+slice: 710
+phase: 10-authoritative-js-facade-retirement
+objective: retire public vault JS mutation and health receipt facades until
+  Rust daemon-core wallet/cTEE custody owns vault truth
+owner_boundary:
+  route_or_surface: model-mounting vault bind/remove/list/status/metadata/health
+    helpers
+  authority_gate: fail closed at `model_mount.vault` for public vault binding,
+    removal, and health-receipt mutation after canonical request-field checks;
+    vault list/status/metadata remain read adapters only
+  execution_backend: none in JS for public vault mutation; Rust daemon-core
+    wallet/cTEE custody must own the eventual bind, remove, health receipt,
+    record-state, and projection APIs
+  truth_path: no JS-created `vault_ref_binding`, `vault_ref_removal`, or
+    `vault_adapter_health` receipts from the public vault facade; no JS
+    `writeVaultRefs`, `writeProjection`, vault bind/remove calls, or vault
+    health probe receipt creation from that facade
+  projection_path: existing vault list/status/metadata reads still project the
+    current JS vault-port state until direct Rust daemon-core vault projection
+    ownership lands
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/vault-operations.mjs
+    - packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs
+  tests:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts conformance requires `model_mount_vault_rust_core_required`
+  - receipts conformance rejects reintroducing JS vault binding/removal/health
+    receipt creation, vault-ref record writes, projection writes, or direct
+    vault-port mutation calls in the public vault facade
+  - focused daemon tests prove public vault bind/remove/health fail with
+    canonical snake_case details and leave vault calls, receipts, record-state
+    commits, and projections untouched
+  - focused daemon tests prove vault list/status/metadata remain read-only
+    projection adapters
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/vault-operations.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - vault list/status/metadata still read current JS vault-port state until
+      direct Rust daemon-core vault projection ownership lands
+    - OAuth and catalog-provider internals still bind/refresh/remove vault
+      material through JS custody plumbing; those are the next wallet/cTEE
+      Rust-core extraction seams and must not be encoded as terminal shape
+    - schedule a matrix-compaction pass once the next Rust-core extraction or
+      facade-retirement seam is clear, so this vault facade retirement remains
+      migration evidence rather than a bridge endpoint
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13861,7 +13929,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 709 and the capability-token JS mutation-facade retirement pass:
+Current expected behavior after Slice 710 and the public vault JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

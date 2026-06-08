@@ -12,25 +12,23 @@ const CANONICAL_VAULT_OPERATION_REQUEST_FIELDS = [
 ];
 
 export function bindVaultRef(state, body = {}, deps = {}) {
+  void state;
   const { requiredString: requiredStringDep = requiredString } = deps;
   assertCanonicalVaultOperationRequestBody(body);
   const vaultRef = requiredStringDep(body.vault_ref, "vault_ref");
   const material = requiredStringDep(body.material, "material");
-  const metadata = state.vault.bindVaultRef({
-    vaultRef,
-    material,
-    purpose: body.purpose ?? "operator_provider_auth_binding",
-    label: body.label ?? null,
-  });
-  state.writeVaultRefs();
-  const receipt = state.receipt("vault_ref_binding", {
-    summary: `Vault material bound for ${metadata.vaultRefHash}.`,
-    redaction: "redacted",
-    evidenceRefs: ["VaultPort.bindVaultRef", metadata.vaultRefHash],
-    details: metadata,
-  });
-  state.writeProjection();
-  return { ...metadata, receiptId: receipt.id };
+  throwVaultRustCoreRequired(
+    "model_mount.vault_ref.bind",
+    {
+      vault_ref_hash_required: true,
+      purpose: body.purpose ?? "operator_provider_auth_binding",
+      label: body.label ?? null,
+      request_fields: ["vault_ref", "material"],
+      vault_ref_present: Boolean(vaultRef),
+      material: material ? "[redacted]" : null,
+    },
+    deps,
+  );
 }
 
 export function listVaultRefs(state) {
@@ -48,34 +46,25 @@ export function vaultStatus(state) {
   return state.vault.adapterStatus();
 }
 
-export function vaultHealth(state) {
-  const health = state.vault.health();
-  const receipt = state.receipt("vault_adapter_health", {
-    summary: `Vault adapter health is ${health.status}.`,
-    redaction: "redacted",
-    evidenceRefs: health.evidenceRefs,
-    details: health,
-  });
-  return { ...health, receiptId: receipt.id };
+export function vaultHealth(state, deps = {}) {
+  void state;
+  throwVaultRustCoreRequired("model_mount.vault.health", {}, deps);
 }
 
 export function removeVaultRef(state, body = {}, deps = {}) {
+  void state;
   const { requiredString: requiredStringDep = requiredString } = deps;
   assertCanonicalVaultOperationRequestBody(body);
   const vaultRef = requiredStringDep(body.vault_ref, "vault_ref");
-  const metadata = state.vault.removeVaultRef(
-    vaultRef,
-    body.purpose ?? "operator_provider_auth_remove",
+  throwVaultRustCoreRequired(
+    "model_mount.vault_ref.remove",
+    {
+      vault_ref_hash_required: true,
+      purpose: body.purpose ?? "operator_provider_auth_remove",
+      vault_ref_present: Boolean(vaultRef),
+    },
+    deps,
   );
-  state.writeVaultRefs();
-  const receipt = state.receipt("vault_ref_removal", {
-    summary: `Vault material removed for ${metadata.vaultRefHash}.`,
-    redaction: "redacted",
-    evidenceRefs: ["VaultPort.removeVaultRef", metadata.vaultRefHash],
-    details: metadata,
-  });
-  state.writeProjection();
-  return { ...metadata, receiptId: receipt.id };
 }
 
 function assertCanonicalVaultOperationRequestBody(body = {}) {
@@ -91,4 +80,27 @@ function assertCanonicalVaultOperationRequestBody(body = {}) {
     canonical_fields: CANONICAL_VAULT_OPERATION_REQUEST_FIELDS,
   };
   throw error;
+}
+
+function throwVaultRustCoreRequired(operation_kind, details = {}, deps = {}) {
+  throw (deps.runtimeError ?? defaultRuntimeError)({
+    status: 501,
+    code: "model_mount_vault_rust_core_required",
+    message:
+      "Vault mutation and health receipt facades require Rust daemon-core wallet/cTEE custody ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.vault",
+      evidence_refs: [
+        "public_vault_js_facade_retired",
+        "rust_daemon_core_wallet_vault_required",
+        "rust_daemon_core_ctee_custody_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function defaultRuntimeError({ code, message, details, status }) {
+  return Object.assign(new Error(message), { code, details, status });
 }
