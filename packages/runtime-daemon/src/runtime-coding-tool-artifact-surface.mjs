@@ -1,12 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import { CODING_TOOL_RESULT_SCHEMA_VERSION, retiredArtifactReadRangeAliases } from "./coding-tools.mjs";
-import { firstOptionalString, snakeCaseKey, visualGuiMediaTypeForPath } from "./computer-use-inputs.mjs";
-import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
   CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-  COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
   TERMINAL_EVENT_TYPES,
 } from "./runtime-contract-constants.mjs";
 import {
@@ -14,12 +8,10 @@ import {
   policyError as defaultPolicyError,
   runtimeError as defaultRuntimeError,
 } from "./runtime-http-utils.mjs";
-import { commitRuntimeArtifactRecord } from "./runtime-artifact-state-commit.mjs";
 import { createRuntimeCodingToolResultHelpers } from "./runtime-coding-tool-results.mjs";
 import {
   doctorHash,
   normalizeArray,
-  operatorControlSource,
   optionalString,
   safeId,
   uniqueStrings,
@@ -43,49 +35,42 @@ const {
 
 export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   const {
-    now = () => new Date().toISOString(),
     notFound = defaultNotFound,
     policyError = defaultPolicyError,
     runtimeError = defaultRuntimeError,
-    maxVisualArtifactBytes = COMPUTER_USE_VISUAL_ARTIFACT_MAX_BYTES,
   } = deps;
 
+  function throwCodingToolArtifactRustCoreRequired(operation, operationKind, details = {}) {
+    throw runtimeError({
+      status: 501,
+      code: "runtime_coding_tool_artifact_rust_core_required",
+      message: "Runtime coding-tool artifact mutation requires direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.coding_tool_artifact",
+        operation,
+        operation_kind: operationKind,
+        ...details,
+      },
+    });
+  }
+
   function materializeCodingToolArtifactDrafts(
-    store,
+    _store,
     { threadId, toolId, toolCallId, workspaceRoot, result, receiptId },
   ) {
-    const drafts = normalizeArray(result?.artifact_drafts);
-    const createdAt = now();
-    return drafts
-      .map((draft, index) => {
-        if (!draft || typeof draft !== "object" || Array.isArray(draft)) return null;
-        const content = String(draft.content ?? "");
-        const channel = optionalString(draft.channel) ?? `artifact-${index + 1}`;
-        const mediaType = optionalString(draft.media_type) ?? "text/plain";
-        const contentBytes = Buffer.byteLength(content, "utf8");
-        const contentHash = doctorHash(content);
-        const artifactRecord = {
-          schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-          id: `artifact_coding_tool_${safeId(toolCallId)}_${safeId(channel)}`,
-          thread_id: threadId,
-          tool_name: toolId,
-          tool_call_id: toolCallId,
-          workspace_root: workspaceRoot,
-          name: optionalString(draft.name) ?? `${safeId(toolId)}-${channel}.txt`,
-          channel,
-          media_type: mediaType,
-          redaction: optionalString(draft.redaction) ?? "none",
-          receipt_id: receiptId,
-          content,
-          content_bytes: contentBytes,
-          content_hash: contentHash,
-          created_at: createdAt,
-        };
-        store.codingArtifacts.set(artifactRecord.id, artifactRecord);
-        commitRuntimeArtifactRecord(store, artifactRecord, "artifact.coding_tool_draft");
-        return artifactRecord;
-      })
-      .filter(Boolean);
+    throwCodingToolArtifactRustCoreRequired("coding_tool_artifact_draft_materialization", "artifact.coding_tool_draft", {
+      thread_id: threadId ?? null,
+      tool_name: toolId ?? null,
+      tool_call_id: toolCallId ?? null,
+      workspace_root: workspaceRoot ?? null,
+      receipt_id: receiptId ?? null,
+      artifact_draft_count: normalizeArray(result?.artifact_drafts).length,
+      evidence_refs: [
+        "coding_tool_artifact_draft_js_materializer_retired",
+        "rust_daemon_core_artifact_admission_required",
+        "agentgres_artifact_state_truth_required",
+      ],
+    });
   }
 
   function readCodingToolArtifact(store, threadId, artifactId, range = {}) {
@@ -153,7 +138,7 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
   }
 
   function appendCodingToolCommandStreamEvents(
-    store,
+    _store,
     {
       agent,
       threadId,
@@ -170,190 +155,42 @@ export function createRuntimeCodingToolArtifactSurface(deps = {}) {
     } = {},
   ) {
     if (!codingToolCommandStreamRequested(request)) return [];
-    const streamId = `command_stream_${safeId(toolCallId)}`;
     const chunks = codingToolCommandStreamChunks(result);
     if (chunks.length === 0) return [];
-    const events = [];
-    let chunkSeq = 0;
-    for (const chunk of chunks) {
-      chunkSeq += 1;
-      events.push(store.appendRuntimeEvent({
-        event_stream_id: eventStreamIdForThread(threadId),
-        thread_id: threadId,
-        turn_id: turnId,
-        item_id: `${turnId || threadId}:item:command-stream:${doctorHash(`${toolCallId}:${chunk.channel}:${chunkSeq}`).slice(0, 12)}`,
-        idempotency_key: `thread:${threadId}:command-stream:${toolCallId}:${chunk.channel}:${chunkSeq}`,
-        source: operatorControlSource(request.source),
-        source_event_kind: "CodingTool.Stream",
-        event_kind: "COMMAND_STREAM",
-        status: "streaming",
-        actor: "runtime",
-        workspace_root: agent.cwd,
-        workflow_graph_id: workflowGraphId,
-        workflow_node_id: workflowNodeId,
-        component_kind: "terminal_stream",
-        tool_call_id: toolCallId,
-        tool_name: toolId,
-        artifact_refs: artifactRefs,
-        receipt_refs: uniqueStrings(receiptRefs),
-        rollback_refs: [],
-        payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        payload_summary: {
-          schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-          event_kind: "COMMAND_STREAM",
-          stream_id: streamId,
-          stream_seq: chunkSeq,
-          channel: chunk.channel,
-          output_text: chunk.text,
-          is_final: false,
-          command: optionalString(result?.command) ?? toolId,
-          tool_name: toolId,
-          tool_call_id: toolCallId,
-          truncated: Boolean(result?.truncated),
-          status,
-          artifact_refs: artifactRefs,
-          receipt_refs: uniqueStrings(receiptRefs),
-        },
-      }));
-    }
-    events.push(store.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:command-stream:${doctorHash(`${toolCallId}:final`).slice(0, 12)}`,
-      idempotency_key: `thread:${threadId}:command-stream:${toolCallId}:final`,
-      source: operatorControlSource(request.source),
-      source_event_kind: "CodingTool.Stream",
-      event_kind: "COMMAND_STREAM",
-      status: "completed",
-      actor: "runtime",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "terminal_stream",
-      tool_call_id: toolCallId,
-      tool_name: toolId,
-      artifact_refs: artifactRefs,
+    throwCodingToolArtifactRustCoreRequired("coding_tool_command_stream_event_append", "artifact.command_stream", {
+      thread_id: threadId ?? null,
+      turn_id: turnId ?? null,
+      tool_name: toolId ?? null,
+      tool_call_id: toolCallId ?? null,
+      workspace_root: agent?.cwd ?? null,
+      workflow_graph_id: workflowGraphId ?? null,
+      workflow_node_id: workflowNodeId ?? null,
+      stream_chunk_count: chunks.length,
       receipt_refs: uniqueStrings(receiptRefs),
-      rollback_refs: [],
-      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      payload_summary: {
-        schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-        event_kind: "COMMAND_STREAM",
-        stream_id: streamId,
-        stream_seq: chunkSeq + 1,
-        channel: "control",
-        output_text: "",
-        is_final: true,
-        command: optionalString(result?.command) ?? toolId,
-        tool_name: toolId,
-        tool_call_id: toolCallId,
-        truncated: Boolean(result?.truncated),
-        status,
-        artifact_refs: artifactRefs,
-        receipt_refs: uniqueStrings(receiptRefs),
-      },
-    }));
-    return events;
+      artifact_refs: uniqueStrings(artifactRefs),
+      evidence_refs: [
+        "coding_tool_command_stream_js_event_append_retired",
+        "rust_daemon_core_command_stream_receipt_required",
+        "agentgres_command_stream_expected_head_required",
+      ],
+    });
   }
 
-  function materializeVisualGuiObservationArtifacts(store, { threadId, toolId, toolCallId, workspaceRoot, input }) {
-    const specs = [
-      {
-        pathKeys: ["screenshotPath", "screenshot_path", "screenshotFile", "screenshot_file"],
-        refKey: "screenshotRef",
-        channel: "visual-gui-screenshot",
-        defaultName: "visual-gui-screenshot.png",
-        defaultMediaType: "image/png",
-      },
-      {
-        pathKeys: ["somPath", "som_path", "setOfMarksPath", "set_of_marks_path"],
-        refKey: "somRef",
-        channel: "visual-gui-som",
-        defaultName: "visual-gui-som.json",
-        defaultMediaType: "application/json",
-      },
-      {
-        pathKeys: ["axPath", "ax_path", "accessibilityTreePath", "accessibility_tree_path"],
-        refKey: "axRef",
-        channel: "visual-gui-ax",
-        defaultName: "visual-gui-ax.json",
-        defaultMediaType: "application/json",
-      },
-    ];
-    const createdAt = now();
-    const metadata = {};
-    const artifactRefs = [];
-    const artifacts = [];
-    for (const spec of specs) {
-      const explicitRef = optionalString(input[spec.refKey] ?? input[snakeCaseKey(spec.refKey)]);
-      if (explicitRef) continue;
-      const sourcePath = firstOptionalString(spec.pathKeys.map((key) => input[key]));
-      if (!sourcePath) continue;
-      const resolvedPath = path.resolve(workspaceRoot ?? process.cwd(), sourcePath);
-      let contentBuffer;
-      try {
-        contentBuffer = fs.readFileSync(resolvedPath);
-      } catch (error) {
-        throw runtimeError({
-          status: 400,
-          code: "computer_use_visual_artifact_unreadable",
-          message: `Visual GUI observation artifact could not be read for ${spec.channel}.`,
-          details: {
-            channel: spec.channel,
-            source_path_hash: doctorHash(resolvedPath),
-            error: error?.code ?? error?.message ?? "read_failed",
-          },
-        });
-      }
-      if (contentBuffer.byteLength > maxVisualArtifactBytes) {
-        throw runtimeError({
-          status: 413,
-          code: "computer_use_visual_artifact_too_large",
-          message: `Visual GUI observation artifact exceeds ${maxVisualArtifactBytes} bytes.`,
-          details: {
-            channel: spec.channel,
-            source_path_hash: doctorHash(resolvedPath),
-            content_bytes: contentBuffer.byteLength,
-            max_bytes: maxVisualArtifactBytes,
-          },
-        });
-      }
-      const content = contentBuffer.toString("base64");
-      const extension = path.extname(resolvedPath);
-      const mediaType =
-        optionalString(input[`${spec.refKey}MediaType`] ?? input[`${snakeCaseKey(spec.refKey)}_media_type`]) ??
-        visualGuiMediaTypeForPath(resolvedPath) ??
-        spec.defaultMediaType;
-      const artifactId = `artifact_computer_use_visual_${safeId(toolCallId)}_${safeId(spec.channel)}`;
-      const receiptId = `receipt_${safeId(toolCallId)}_${safeId(spec.channel)}`;
-      const artifactRecord = {
-        schema_version: CODING_TOOL_ARTIFACT_SCHEMA_VERSION,
-        id: artifactId,
-        thread_id: threadId,
-        tool_name: toolId,
-        tool_call_id: toolCallId,
-        workspace_root: workspaceRoot,
-        name: extension ? `${spec.channel}${extension}` : spec.defaultName,
-        channel: spec.channel,
-        media_type: mediaType,
-        encoding: "base64",
-        redaction: "local_redacted_artifacts",
-        receipt_id: receiptId,
-        content,
-        content_bytes: contentBuffer.byteLength,
-        content_hash: doctorHash(content),
-        source_path_hash: doctorHash(resolvedPath),
-        source_path_included: false,
-        created_at: createdAt,
-      };
-      store.codingArtifacts.set(artifactRecord.id, artifactRecord);
-      commitRuntimeArtifactRecord(store, artifactRecord, "artifact.visual_observation");
-      metadata[snakeCaseKey(spec.refKey)] = artifactId;
-      artifactRefs.push(artifactId);
-      artifacts.push(artifactRecord);
-    }
-    return { metadata, artifact_refs: artifactRefs, artifacts };
+  function materializeVisualGuiObservationArtifacts(_store, { threadId, toolId, toolCallId, workspaceRoot, input } = {}) {
+    throwCodingToolArtifactRustCoreRequired("computer_use_visual_observation_artifact_materialization", "artifact.visual_observation", {
+      thread_id: threadId ?? null,
+      tool_name: toolId ?? null,
+      tool_call_id: toolCallId ?? null,
+      workspace_root: workspaceRoot ?? null,
+      has_screenshot_path: Boolean(input?.screenshot_path ?? input?.screenshotPath),
+      has_som_path: Boolean(input?.som_path ?? input?.somPath),
+      has_ax_path: Boolean(input?.ax_path ?? input?.axPath),
+      evidence_refs: [
+        "visual_observation_artifact_js_materializer_retired",
+        "rust_daemon_core_visual_artifact_admission_required",
+        "agentgres_visual_artifact_state_truth_required",
+      ],
+    });
   }
 
   return {

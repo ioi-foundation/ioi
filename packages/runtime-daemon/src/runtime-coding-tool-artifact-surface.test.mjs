@@ -1,6 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
@@ -99,52 +97,6 @@ function fakeArtifactStateCommit(request) {
   };
 }
 
-const retiredArtifactRecordAliasKeys = [
-  "schemaVersion",
-  "threadId",
-  "toolName",
-  "toolCallId",
-  "workspaceRoot",
-  "mediaType",
-  "receiptId",
-  "contentBytes",
-  "contentHash",
-  "createdAt",
-  "sourcePathHash",
-  "sourcePathIncluded",
-];
-
-function assertNoRetiredArtifactRecordAliases(record) {
-  for (const key of retiredArtifactRecordAliasKeys) {
-    assert.equal(Object.hasOwn(record, key), false, `retired artifact record alias ${key} must be absent`);
-  }
-}
-
-const retiredCommandStreamPayloadAliasKeys = [
-  "streamId",
-  "streamSeq",
-  "outputText",
-  "isFinal",
-  "artifactRefs",
-  "receiptRefs",
-];
-
-function assertNoRetiredCommandStreamPayloadAliases(payloadSummary) {
-  for (const key of retiredCommandStreamPayloadAliasKeys) {
-    assert.equal(Object.hasOwn(payloadSummary, key), false, `retired command-stream payload alias ${key} must be absent`);
-  }
-}
-
-const retiredVisualArtifactOutputAliasKeys = [
-  "artifactRefs",
-];
-
-const retiredVisualArtifactMetadataAliasKeys = [
-  "screenshotRef",
-  "somRef",
-  "axRef",
-];
-
 const retiredArtifactErrorDetailAliasKeys = [
   "threadId",
   "artifactId",
@@ -152,75 +104,51 @@ const retiredArtifactErrorDetailAliasKeys = [
   "toolCallId",
 ];
 
-function assertNoRetiredVisualArtifactOutputAliases(result) {
-  for (const key of retiredVisualArtifactOutputAliasKeys) {
-    assert.equal(Object.hasOwn(result, key), false, `retired visual artifact output alias ${key} must be absent`);
-  }
-  for (const key of retiredVisualArtifactMetadataAliasKeys) {
-    assert.equal(
-      Object.hasOwn(result.metadata, key),
-      false,
-      `retired visual artifact metadata alias ${key} must be absent`,
-    );
-  }
-}
-
 function assertNoRetiredArtifactErrorDetailAliases(details) {
   for (const key of retiredArtifactErrorDetailAliasKeys) {
     assert.equal(Object.hasOwn(details, key), false, `retired artifact error detail alias ${key} must be absent`);
   }
 }
 
-test("coding-tool artifact surface materializes drafts with stable artifact records", () => {
+test("coding-tool artifact surface fails closed before JS artifact draft materialization", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
 
-  const records = surface.materializeCodingToolArtifactDrafts(store, {
-    threadId: "thread_alpha",
-    toolId: "file.read",
-    toolCallId: "tool_call_alpha",
-    workspaceRoot: "/workspace",
-    receiptId: "receipt_alpha",
-    result: {
-      artifactDrafts: [
-        {
-          channel: "retired",
-          content: "retired",
-          mediaType: "application/retired",
-          name: "retired.txt",
+  assert.throws(
+    () =>
+      surface.materializeCodingToolArtifactDrafts(store, {
+        threadId: "thread_alpha",
+        toolId: "file.read",
+        toolCallId: "tool_call_alpha",
+        workspaceRoot: "/workspace",
+        receiptId: "receipt_alpha",
+        result: {
+          artifact_drafts: [
+            {
+              channel: "stdout",
+              content: "hello",
+              media_type: "text/markdown",
+              name: "stdout.txt",
+              redaction: "none",
+            },
+          ],
         },
-      ],
-      artifact_drafts: [
-        {
-          channel: "stdout",
-          content: "hello",
-          mediaType: "application/retired",
-          media_type: "text/markdown",
-          name: "stdout.txt",
-          redaction: "none",
-        },
-        null,
-      ],
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.coding_tool_artifact");
+      assert.equal(error.details.operation_kind, "artifact.coding_tool_draft");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.tool_call_id, "tool_call_alpha");
+      assert.equal(error.details.artifact_draft_count, 1);
+      assert.ok(error.details.evidence_refs.includes("coding_tool_artifact_draft_js_materializer_retired"));
+      return true;
     },
-  });
-
-  assert.equal(records.length, 1);
-  assert.equal(records[0].id, "artifact_coding_tool_tool_call_alpha_stdout");
-  assert.equal(records[0].schema_version, "ioi.runtime.coding-tool-artifact.v1");
-  assert.equal(records[0].thread_id, "thread_alpha");
-  assert.equal(records[0].tool_call_id, "tool_call_alpha");
-  assert.equal(records[0].media_type, "text/markdown");
-  assert.equal(records[0].content_bytes, 5);
-  assert.equal(records[0].created_at, "2026-06-04T14:00:00.000Z");
-  assertNoRetiredArtifactRecordAliases(records[0]);
-  assert.equal(store.codingArtifacts.get(records[0].id), records[0]);
+  );
+  assert.equal(store.codingArtifacts.size, 0);
   assert.equal(writes.length, 0);
-  assert.equal(store.artifactCommits.length, 1);
-  assert.equal(store.artifactCommits[0].schema_version, "ioi.runtime_artifact_state_commit.v1");
-  assert.equal(store.artifactCommits[0].artifact_id, "artifact_coding_tool_tool_call_alpha_stdout");
-  assert.equal(store.artifactCommits[0].operation_kind, "artifact.coding_tool_draft");
-  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_alpha"]);
-  assertNoRetiredArtifactRecordAliases(store.artifactCommits[0].artifact);
+  assert.equal(store.artifactCommits.length, 0);
 });
 
 test("coding-tool artifact surface reads artifacts inside the owning thread", () => {
@@ -388,45 +316,42 @@ test("coding-tool artifact surface requires retrieve targets", () => {
   );
 });
 
-test("coding-tool artifact surface appends command-stream event envelopes", () => {
+test("coding-tool artifact surface fails closed before JS command-stream event append", () => {
   const { surface } = createSurface();
   const store = createStore();
 
-  const events = surface.appendCodingToolCommandStreamEvents(store, {
-    agent: { cwd: "/workspace" },
-    threadId: "thread_alpha",
-    turnId: "turn_alpha",
-    toolId: "shell.exec",
-    toolCallId: "tool_call_alpha",
-    workflowGraphId: "graph_alpha",
-    workflowNodeId: "node_alpha",
-    request: { stream_output: true, source: "operator" },
-    result: {
-      command: "npm test",
-      stdout: "ok",
-      stderr: "warn",
-      truncated: true,
+  assert.throws(
+    () =>
+      surface.appendCodingToolCommandStreamEvents(store, {
+        agent: { cwd: "/workspace" },
+        threadId: "thread_alpha",
+        turnId: "turn_alpha",
+        toolId: "shell.exec",
+        toolCallId: "tool_call_alpha",
+        workflowGraphId: "graph_alpha",
+        workflowNodeId: "node_alpha",
+        request: { stream_output: true, source: "operator" },
+        result: {
+          command: "npm test",
+          stdout: "ok",
+          stderr: "warn",
+          truncated: true,
+        },
+        status: "completed",
+        receiptRefs: ["receipt_alpha", "receipt_alpha"],
+        artifactRefs: ["artifact_alpha"],
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
+      assert.equal(error.details.operation_kind, "artifact.command_stream");
+      assert.equal(error.details.stream_chunk_count, 2);
+      assert.deepEqual(error.details.receipt_refs, ["receipt_alpha"]);
+      assert.ok(error.details.evidence_refs.includes("coding_tool_command_stream_js_event_append_retired"));
+      return true;
     },
-    status: "completed",
-    receiptRefs: ["receipt_alpha", "receipt_alpha"],
-    artifactRefs: ["artifact_alpha"],
-  });
-
-  assert.equal(events.length, 3);
-  assert.equal(store.events.length, 3);
-  assert.equal(events[0].event_kind, "COMMAND_STREAM");
-  assert.equal(events[0].source_event_kind, "CodingTool.Stream");
-  assert.equal(events[0].payload_summary.channel, "stdout");
-  assert.equal(events[0].payload_summary.output_text, "ok");
-  assert.deepEqual(events[0].receipt_refs, ["receipt_alpha"]);
-  assert.equal(events[1].payload_summary.channel, "stderr");
-  assert.equal(events[2].status, "completed");
-  assert.equal(events[2].payload_summary.channel, "control");
-  assert.equal(events[2].payload_summary.is_final, true);
-  assert.equal(events[2].payload_summary.stream_seq, 3);
-  for (const event of events) {
-    assertNoRetiredCommandStreamPayloadAliases(event.payload_summary);
-  }
+  );
+  assert.equal(store.events.length, 0);
 });
 
 test("coding-tool artifact surface skips command-stream events without stream request", () => {
@@ -446,62 +371,36 @@ test("coding-tool artifact surface skips command-stream events without stream re
   assert.equal(store.events.length, 0);
 });
 
-test("coding-tool artifact surface materializes visual GUI observation artifacts", () => {
+test("coding-tool artifact surface fails closed before JS visual GUI artifact materialization", () => {
   const { surface, writes } = createSurface();
   const store = createStore();
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-visual-artifacts-"));
-  fs.writeFileSync(path.join(cwd, "screenshot.png"), Buffer.from([1, 2, 3]));
 
-  const result = surface.materializeVisualGuiObservationArtifacts(store, {
-    threadId: "thread_alpha",
-    toolId: "computer.visual_gui.observe",
-    toolCallId: "tool_call_alpha",
-    workspaceRoot: cwd,
-    input: {
-      screenshotPath: "screenshot.png",
-      somRef: "artifact_existing_som",
+  assert.throws(
+    () =>
+      surface.materializeVisualGuiObservationArtifacts(store, {
+        threadId: "thread_alpha",
+        toolId: "computer.visual_gui.observe",
+        toolCallId: "tool_call_alpha",
+        workspaceRoot: "/workspace",
+        input: {
+          screenshot_path: "screenshot.png",
+          som_ref: "artifact_existing_som",
+        },
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_artifact_rust_core_required");
+      assert.equal(error.details.operation_kind, "artifact.visual_observation");
+      assert.equal(error.details.has_screenshot_path, true);
+      assert.ok(error.details.evidence_refs.includes("visual_observation_artifact_js_materializer_retired"));
+      return true;
     },
-  });
-
-  assert.deepEqual(result.artifact_refs, [
-    "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot",
-  ]);
-  assert.equal(result.metadata.screenshot_ref, "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot");
-  assert.equal(result.metadata.som_ref, undefined);
-  assertNoRetiredVisualArtifactOutputAliases(result);
-  assert.equal(result.artifacts[0].media_type, "image/png");
-  assert.equal(result.artifacts[0].encoding, "base64");
-  assert.equal(result.artifacts[0].content, Buffer.from([1, 2, 3]).toString("base64"));
-  assert.equal(result.artifacts[0].source_path_included, false);
-  assertNoRetiredArtifactRecordAliases(result.artifacts[0]);
+  );
   assert.equal(writes.length, 0);
-  assert.equal(store.artifactCommits.length, 1);
-  assert.equal(store.artifactCommits[0].artifact_id, "artifact_computer_use_visual_tool_call_alpha_visual-gui-screenshot");
-  assert.equal(store.artifactCommits[0].operation_kind, "artifact.visual_observation");
-  assert.deepEqual(store.artifactCommits[0].receipt_refs, ["receipt_tool_call_alpha_visual-gui-screenshot"]);
-  assertNoRetiredArtifactRecordAliases(store.artifactCommits[0].artifact);
+  assert.equal(store.artifactCommits.length, 0);
 });
 
-test("coding-tool artifact surface skips visual GUI paths with explicit refs", () => {
-  const { surface } = createSurface();
-  const store = createStore();
-
-  const result = surface.materializeVisualGuiObservationArtifacts(store, {
-    threadId: "thread_alpha",
-    toolId: "computer.visual_gui.observe",
-    toolCallId: "tool_call_alpha",
-    workspaceRoot: "/missing",
-    input: {
-      screenshotPath: "missing.png",
-      screenshotRef: "artifact_existing",
-    },
-  });
-
-  assert.deepEqual(result, { metadata: {}, artifact_refs: [], artifacts: [] });
-  assertNoRetiredVisualArtifactOutputAliases(result);
-});
-
-test("coding-tool artifact surface fails closed for unreadable visual GUI artifacts", () => {
+test("coding-tool artifact surface requires Rust core for visual GUI paths with explicit refs", () => {
   const { surface } = createSurface();
   const store = createStore();
 
@@ -512,21 +411,44 @@ test("coding-tool artifact surface fails closed for unreadable visual GUI artifa
         toolId: "computer.visual_gui.observe",
         toolCallId: "tool_call_alpha",
         workspaceRoot: "/missing",
-        input: { screenshotPath: "missing.png" },
+        input: {
+          screenshot_path: "missing.png",
+          screenshot_ref: "artifact_existing",
+        },
       }),
     (error) =>
-      error.status === 400 &&
-      error.code === "computer_use_visual_artifact_unreadable" &&
-      Object.hasOwn(error.details, "source_path_hash") &&
-      Object.hasOwn(error.details, "sourcePathHash") === false,
+      error.status === 501 &&
+      error.code === "runtime_coding_tool_artifact_rust_core_required" &&
+      error.details.operation_kind === "artifact.visual_observation",
   );
+  assert.equal(store.codingArtifacts.size, 0);
 });
 
-test("coding-tool artifact surface enforces visual GUI artifact size limit", () => {
+test("coding-tool artifact surface fails closed before local visual GUI file reads", () => {
+  const { surface } = createSurface();
+  const store = createStore();
+
+  assert.throws(
+    () =>
+      surface.materializeVisualGuiObservationArtifacts(store, {
+        threadId: "thread_alpha",
+        toolId: "computer.visual_gui.observe",
+          toolCallId: "tool_call_alpha",
+          workspaceRoot: "/missing",
+          input: { screenshot_path: "missing.png" },
+        }),
+    (error) =>
+      error.status === 501 &&
+      error.code === "runtime_coding_tool_artifact_rust_core_required" &&
+      error.details.operation_kind === "artifact.visual_observation" &&
+      Object.hasOwn(error.details, "source_path_hash") === false,
+  );
+  assert.equal(store.codingArtifacts.size, 0);
+});
+
+test("coding-tool artifact surface fails closed before JS visual GUI size checks", () => {
   const { surface } = createSurface({ maxVisualArtifactBytes: 2 });
   const store = createStore();
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "runtime-visual-artifacts-"));
-  fs.writeFileSync(path.join(cwd, "screenshot.png"), Buffer.from([1, 2, 3]));
 
   assert.throws(
     () =>
@@ -534,15 +456,15 @@ test("coding-tool artifact surface enforces visual GUI artifact size limit", () 
         threadId: "thread_alpha",
         toolId: "computer.visual_gui.observe",
         toolCallId: "tool_call_alpha",
-        workspaceRoot: cwd,
-        input: { screenshotPath: "screenshot.png" },
+        workspaceRoot: "/workspace",
+        input: { screenshot_path: "screenshot.png" },
       }),
     (error) =>
-      error.status === 413 &&
-      error.code === "computer_use_visual_artifact_too_large" &&
-      error.details.max_bytes === 2 &&
-      error.details.content_bytes === 3 &&
-      Object.hasOwn(error.details, "maxBytes") === false &&
-      Object.hasOwn(error.details, "contentBytes") === false,
+      error.status === 501 &&
+      error.code === "runtime_coding_tool_artifact_rust_core_required" &&
+      error.details.operation_kind === "artifact.visual_observation" &&
+      Object.hasOwn(error.details, "max_bytes") === false &&
+      Object.hasOwn(error.details, "content_bytes") === false,
   );
+  assert.equal(store.codingArtifacts.size, 0);
 });

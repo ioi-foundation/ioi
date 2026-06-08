@@ -2480,52 +2480,30 @@ function runBridge() {
   assertCheck(
     result,
     "coding-tool-artifact-record-storage-aliases-retired",
-    /const drafts = normalizeArray\(result\?\.artifact_drafts\);/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /const mediaType = optionalString\(draft\.media_type\) \?\? "text\/plain";/.test(
-        codingToolArtifactDraftMaterializerBlock,
-      ) &&
+    /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+      /rust_core_boundary:\s*"runtime\.coding_tool_artifact"/.test(runtimeCodingToolArtifactSurface) &&
+      /operation_kind:\s*operationKind/.test(runtimeCodingToolArtifactSurface) &&
+      /coding_tool_artifact_draft_materialization/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /artifact\.coding_tool_draft/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /coding_tool_artifact_draft_js_materializer_retired/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /rust_daemon_core_artifact_admission_required/.test(codingToolArtifactDraftMaterializerBlock) &&
+      /agentgres_artifact_state_truth_required/.test(codingToolArtifactDraftMaterializerBlock) &&
       /const liveArtifactDrafts = normalizeArray\(result\?\.artifact_drafts\);/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
-      /artifactDrafts: \[\{ channel: "retired", content: "retired draft" \}\]/.test(
-        runtimeCodingToolInvocationSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(materializeCall\.input\.result,\s*"artifactDrafts"\),\s*false/.test(
-        runtimeCodingToolInvocationSurfaceTest,
-      ) &&
-      /mediaType: "application\/retired"/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /media_type: "text\/markdown"/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /assert\.equal\(records\[0\]\.media_type,\s*"text\/markdown"\)/.test(
+      /fails closed before JS artifact draft materialization/.test(
         runtimeCodingToolArtifactSurfaceTest,
       ) &&
+      /assert\.equal\(error\.details\.operation_kind,\s*"artifact\.coding_tool_draft"\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.codingArtifacts\.size,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       !/result\?\.artifactDrafts/.test(runtimeCodingToolArtifactSurface) &&
       !/result\?\.artifactDrafts/.test(runtimeCodingToolInvocationSurface) &&
       !/draft\.mediaType/.test(runtimeCodingToolArtifactSurface) &&
-      /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /thread_id:\s*threadId/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /tool_name:\s*toolId/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /tool_call_id:\s*toolCallId/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /workspace_root:\s*workspaceRoot/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /media_type:\s*mediaType/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /receipt_id:\s*receiptId/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /content_bytes:\s*contentBytes/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /content_hash:\s*contentHash/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /created_at:\s*createdAt/.test(codingToolArtifactDraftMaterializerBlock) &&
-      /schema_version:\s*CODING_TOOL_ARTIFACT_SCHEMA_VERSION/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /thread_id:\s*threadId/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /tool_name:\s*toolId/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /tool_call_id:\s*toolCallId/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /workspace_root:\s*workspaceRoot/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /media_type:\s*mediaType/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /receipt_id:\s*receiptId/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /content_bytes:\s*contentBuffer\.byteLength/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /content_hash:\s*doctorHash\(content\)/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /source_path_hash:\s*doctorHash\(resolvedPath\)/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /source_path_included:\s*false/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /created_at:\s*createdAt/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /assertNoRetiredArtifactRecordAliases\(records\[0\]\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /assertNoRetiredArtifactRecordAliases\(store\.artifactCommits\[0\]\.artifact\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /assertNoRetiredArtifactRecordAliases\(result\.artifacts\[0\]\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/store\.codingArtifacts\.set/.test(codingToolArtifactDraftMaterializerBlock) &&
+      !/commitRuntimeArtifactRecord/.test(codingToolArtifactDraftMaterializerBlock) &&
       !/^\s*(?:schemaVersion|threadId|toolName|toolCallId|workspaceRoot|mediaType|receiptId|contentBytes|contentHash|createdAt|sourcePathHash|sourcePathIncluded)\s*[:,]/m.test(
         codingToolArtifactRecordBlocks,
       ),
@@ -2538,16 +2516,20 @@ function runBridge() {
   assertCheck(
     result,
     "coding-tool-command-stream-payload-aliases-retired",
-    /payload_summary:\s*\{/.test(codingToolCommandStreamBlock) &&
-      /stream_id:\s*streamId/.test(codingToolCommandStreamPayloadBlocks) &&
-      /stream_seq:\s*chunkSeq/.test(codingToolCommandStreamPayloadBlocks) &&
-      /output_text:\s*chunk\.text/.test(codingToolCommandStreamPayloadBlocks) &&
-      /is_final:\s*false/.test(codingToolCommandStreamPayloadBlocks) &&
-      /artifact_refs:\s*artifactRefs/.test(codingToolCommandStreamPayloadBlocks) &&
-      /receipt_refs:\s*uniqueStrings\(receiptRefs\)/.test(codingToolCommandStreamPayloadBlocks) &&
-      /stream_seq:\s*chunkSeq \+ 1/.test(codingToolCommandStreamPayloadBlocks) &&
-      /is_final:\s*true/.test(codingToolCommandStreamPayloadBlocks) &&
-      /assertNoRetiredCommandStreamPayloadAliases\(event\.payload_summary\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+    /coding_tool_command_stream_event_append/.test(codingToolCommandStreamBlock) &&
+      /artifact\.command_stream/.test(codingToolCommandStreamBlock) &&
+      /coding_tool_command_stream_js_event_append_retired/.test(codingToolCommandStreamBlock) &&
+      /rust_daemon_core_command_stream_receipt_required/.test(codingToolCommandStreamBlock) &&
+      /agentgres_command_stream_expected_head_required/.test(codingToolCommandStreamBlock) &&
+      /if \(!codingToolCommandStreamRequested\(request\)\) return \[\];/.test(codingToolCommandStreamBlock) &&
+      /if \(chunks\.length === 0\) return \[\];/.test(codingToolCommandStreamBlock) &&
+      /fails closed before JS command-stream event append/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /assert\.equal\(error\.details\.operation_kind,\s*"artifact\.command_stream"\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.events\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/store\.appendRuntimeEvent/.test(codingToolCommandStreamBlock) &&
+      !/payload_summary:\s*\{/.test(codingToolCommandStreamBlock) &&
       !/^\s*(?:streamId|streamSeq|outputText|isFinal|artifactRefs|receiptRefs)\s*[:,]/m.test(
         codingToolCommandStreamPayloadBlocks,
       ),
@@ -2586,15 +2568,20 @@ function runBridge() {
   assertCheck(
     result,
     "coding-tool-visual-artifact-output-aliases-retired",
-    /metadata\[snakeCaseKey\(spec\.refKey\)\]\s*=\s*artifactId/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /return \{\s*metadata,\s*artifact_refs:\s*artifactRefs,\s*artifacts\s*\}/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /source_path_hash:\s*doctorHash\(resolvedPath\)/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /content_bytes:\s*contentBuffer\.byteLength/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /max_bytes:\s*maxVisualArtifactBytes/.test(codingToolVisualArtifactMaterializerBlock) &&
-      /computerUseVisualArtifactRefs:\s*materializedVisualArtifacts\.artifact_refs/.test(runtimeDaemonIndex) &&
-      /assertNoRetiredVisualArtifactOutputAliases\(result\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /Object\.hasOwn\(error\.details,\s*"sourcePathHash"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /Object\.hasOwn\(error\.details,\s*"maxBytes"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+    /computer_use_visual_observation_artifact_materialization/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /artifact\.visual_observation/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /visual_observation_artifact_js_materializer_retired/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /rust_daemon_core_visual_artifact_admission_required/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /agentgres_visual_artifact_state_truth_required/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /has_screenshot_path/.test(codingToolVisualArtifactMaterializerBlock) &&
+      /fails closed before JS visual GUI artifact materialization/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /fails closed before local visual GUI file reads/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /fails closed before JS visual GUI size checks/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /Object\.hasOwn\(error\.details,\s*"source_path_hash"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      /Object\.hasOwn\(error\.details,\s*"max_bytes"\)\s*===\s*false/.test(runtimeCodingToolArtifactSurfaceTest) &&
+      !/fs\.readFileSync/.test(codingToolVisualArtifactMaterializerBlock) &&
+      !/store\.codingArtifacts\.set/.test(codingToolVisualArtifactMaterializerBlock) &&
+      !/commitRuntimeArtifactRecord/.test(codingToolVisualArtifactMaterializerBlock) &&
       !/\bmetadata\[spec\.refKey\]\s*=\s*artifactId/.test(codingToolVisualArtifactMaterializerBlock) &&
       !/return \{\s*metadata,\s*artifactRefs,\s*artifacts\s*\}/.test(codingToolVisualArtifactMaterializerBlock) &&
       !/computerUseVisualArtifactRefs:\s*materializedVisualArtifacts\.artifactRefs/.test(runtimeDaemonIndex) &&
@@ -12556,12 +12543,10 @@ function runReceipts() {
       /store\.codingArtifacts\.has\("artifact_retired"\), false/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
-      /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.coding_tool_draft"\)/.test(
-        runtimeCodingToolArtifactSurface,
-      ) &&
-      /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.visual_observation"\)/.test(
-        runtimeCodingToolArtifactSurface,
-      ) &&
+      /runtime_coding_tool_artifact_rust_core_required/.test(runtimeCodingToolArtifactSurface) &&
+      /coding_tool_artifact_draft_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
+      /visual_observation_artifact_js_materializer_retired/.test(runtimeCodingToolArtifactSurface) &&
+      !/commitRuntimeArtifactRecord/.test(runtimeCodingToolArtifactSurface) &&
       /commitRuntimeArtifactRecord\(store, artifactRecord, "artifact\.workspace_snapshot"\)/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
@@ -12571,10 +12556,7 @@ function runReceipts() {
       !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeCodingToolArtifactSurface) &&
       !/writeJson\(store\.pathFor\("artifacts"/.test(runtimeWorkspaceSnapshotSurface) &&
       /assert\.equal\(writes\.length, 0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /store\.artifactCommits\[0\]\.schema_version/.test(runtimeCodingToolArtifactSurfaceTest) &&
-      /store\.artifactCommits\[0\]\.operation_kind, "artifact\.coding_tool_draft"/.test(
-        runtimeCodingToolArtifactSurfaceTest,
-      ) &&
+      /assert\.equal\(store\.artifactCommits\.length,\s*0\)/.test(runtimeCodingToolArtifactSurfaceTest) &&
       /store\.artifactCommits\[0\]\.operation_kind, "artifact\.workspace_snapshot"/.test(
         runtimeWorkspaceSnapshotSurfaceTest,
       ) &&
@@ -12597,7 +12579,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 5/11 is pending: coding-tool, visual GUI, workspace snapshot, and restore artifacts must be persisted through Rust Agentgres storage admission instead of direct JS file writes",
+    "Phase 5/11 is pending: workspace snapshot and restore artifacts must persist through Rust Agentgres storage admission, while retired coding-tool/visual artifact JS mutation callers must fail closed before direct JS artifact writes",
   );
   assertCheck(
     result,
