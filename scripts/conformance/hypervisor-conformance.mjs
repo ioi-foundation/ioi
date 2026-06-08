@@ -318,7 +318,7 @@ function runDocs() {
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-737 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement seams/.test(guide) &&
+      /Slices\s+733-738 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement, plus conversation-artifact control facade-retirement seams/.test(guide) &&
       /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
@@ -334,7 +334,7 @@ function runDocs() {
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-737 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, and runtime thread-fork control facade-retirement seams/.test(
+      /Slices 733-738 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, runtime thread-fork control facade-retirement, and\s+conversation-artifact control facade-retirement seams/.test(
         matrix,
       ) &&
       /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
@@ -15409,6 +15409,30 @@ function runCompositor() {
     "async listConversationArtifacts",
     "async createConversationArtifact",
   );
+  const runtimeConversationArtifactMutationFacadeRetired =
+    /runtime_conversation_artifact_control_rust_core_required/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /runtime_conversation_artifact_control_js_facade_retired/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /conversation_artifact_create_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_action_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_export_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_promote_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /rust_daemon_core_conversation_artifact_control_required/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /agentgres_conversation_artifact_truth_required/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.create\(/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.action\(/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.exportArtifact\(/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.promoteArtifact\(/.test(runtimeConversationArtifactSurface) &&
+    /conversation artifact mutation facades fail closed before JS artifact mutation/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /assertConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactSurfaceTest) &&
+    /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeConversationArtifactSurfaceTest);
   assertCheck(
     result,
     "rust-projection-core",
@@ -15463,7 +15487,8 @@ function runCompositor() {
       /output_modality:\s*input\.output_modality \?\? null/.test(conversationArtifacts) &&
       /const threadId = query\.thread_id \?\? null/.test(conversationArtifacts) &&
       /\.filter\(\(record\) => !threadId \|\| record\.thread_id === threadId\)/.test(conversationArtifacts) &&
-      /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface) &&
+      (runtimeConversationArtifactMutationFacadeRetired ||
+        /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface)) &&
       /store\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(runtimeRouteHandlers) &&
       /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutes) &&
       /listConversationArtifacts\(input\?: \{ thread_id\?: string \}\)/.test(agentSdkSubstrateClient) &&
@@ -15526,6 +15551,16 @@ function runCompositor() {
       "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
     ],
     "Phase 10/11 is pending: conversation artifact records, refs, revisions, actions, routes, and SDK queries must use the canonical snake_case contract without duplicate compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "conversation-artifact-control-js-facade-retired",
+    runtimeConversationArtifactMutationFacadeRetired,
+    [
+      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: conversation artifact create/action/export/promote facades must stay retired before JS artifact mutation",
   );
   assertCheck(
     result,
