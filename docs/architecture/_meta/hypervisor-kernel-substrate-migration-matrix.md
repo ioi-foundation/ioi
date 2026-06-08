@@ -73,13 +73,14 @@ This pass compacted Slice 771 MCP manager `allowedResources`/`allowedPrompts`
 server config/catalog alias-retirement evidence.
 This pass compacted Slice 772 MCP manager transport/containment alias-retirement
 evidence.
-Slice 773 retired the MCP manager validation `secretRefs` fallback.
+This pass compacted Slice 773 MCP manager validation `secretRefs`
+alias-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice only after compacting the Slice 773 MCP
-manager validation secret-ref alias-retirement evidence. Preserve the live owner
-map, terminal blockers, and the fact that fail-closed JS facades, canonical
-input helpers, local projection helpers, and migration transport are not
-terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -186,8 +187,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending for Slice 773 MCP manager
-  validation `secretRefs` alias-retirement evidence.
+- Next scheduled matrix-compaction pass: none pending after Slice 773 MCP
+  manager validation `secretRefs` alias-retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15228,26 +15229,27 @@ readers.
   that seam lands, and do not encode the command bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice Evidence: 773
+## Compacted Implementation Slice Evidence: 773
 
-Slice 773 retired the MCP manager validation `secretRefs` fallback.
-`packages/runtime-daemon/src/mcp-manager.mjs` now validates secret-reference
-records only from canonical `secret_refs`; retired `secretRefs` can no longer
-feed vault-ref validation, satisfy or suppress `mcp_secret_not_vault_ref`
-diagnostics, or create duplicate secret truth at the manager validation
-boundary. The focused `mcp-manager.test.mjs` regression poisons canonical
-`secret_refs` beside retired `secretRefs` and proves canonical invalid vault
-refs still fail closed while alias-only `secretRefs` is ignored. The conformance
-harness forbids `server.secretRefs` in the validation path and requires the
-poisoned regression.
+The expanded Slice 773 ledger was compacted on 2026-06-08 after MCP manager
+validation `secretRefs` alias retirement landed. The evidence is now carried in
+the owner map and conformance rows: `mcp-manager.mjs` validates
+secret-reference records only from canonical `secret_refs`, focused tests poison
+canonical `secret_refs` beside retired `secretRefs` and alias-only inputs, and
+conformance forbids `server.secretRefs` from the manager validation path.
 
-This does not claim terminal MCP migration: direct Rust daemon-core MCP
-control/admission/projection still needs to own wallet authority, transport
-containment, StepModuleRouter dispatch, receipt binding, Agentgres
-expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
-coverage, and conformance. Do not encode the remaining JS MCP manager/catalog
-helpers as terminal architecture. Schedule and run a matrix-compaction pass for
-Slice 773 before unrelated route-family work resumes.
+- Terminal MCP migration is still not claimed. Direct Rust daemon-core MCP
+  control/admission/projection still needs to own wallet authority, transport
+  containment, StepModuleRouter dispatch, receipt binding, Agentgres
+  expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
+  coverage, and conformance.
+- Do not encode the remaining JS MCP manager/catalog helpers as terminal
+  architecture.
+- Scheduled matrix-compaction obligation from Slice 773 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the command bridge, read-only helper
+  adapters, or fail-closed JS surfaces as terminal architecture.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
