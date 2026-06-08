@@ -14632,6 +14632,16 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts")
     : "";
+  const agentIdeAuthStreamFailurePanel = exists(
+    "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts")
+    : "";
+  const agentIdeAuthStreamFailurePanelTest = exists(
+    "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts")
+    : "";
   const agentIdeRuntimeEventProjection = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
   )
@@ -23902,6 +23912,43 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-receipt-gate-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE receipt gate panel must ignore retired camelCase receipt, route, backend, tool-receipt, and evidence aliases",
+  );
+  assertCheck(
+    result,
+    "ide-auth-stream-failure-panel-aliases-retired",
+    /cleanString\(details\.invocation_receipt_id\)/.test(agentIdeAuthStreamFailurePanel) &&
+      /cleanString\(details\.stream_kind\)/.test(agentIdeAuthStreamFailurePanel) &&
+      /cleanString\(details\.route_id\)/.test(agentIdeAuthStreamFailurePanel) &&
+      /cleanString\(details\.selected_model\)/.test(agentIdeAuthStreamFailurePanel) &&
+      /numberField\(details,\s*"frames_written",\s*"chunks_forwarded"\)/.test(
+        agentIdeAuthStreamFailurePanel,
+      ) &&
+      !/details\.(?:invocationReceiptId|streamKind|routeId|selectedModel)\b/.test(
+        agentIdeAuthStreamFailurePanel,
+      ) &&
+      !/numberField\(details,[^)]*"(?:framesWritten|chunksForwarded)"[^)]*\)/.test(
+        agentIdeAuthStreamFailurePanel,
+      ) &&
+      /auth stream failure panel reads canonical stream receipt details/.test(
+        agentIdeAuthStreamFailurePanelTest,
+      ) &&
+      /auth stream failure panel ignores retired stream receipt detail aliases/.test(
+        agentIdeAuthStreamFailurePanelTest,
+      ) &&
+      /routeId: "route-retired"/.test(agentIdeAuthStreamFailurePanelTest) &&
+      /selectedModel: "model-retired"/.test(agentIdeAuthStreamFailurePanelTest) &&
+      /framesWritten: 13/.test(agentIdeAuthStreamFailurePanelTest) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.routeId,\s*null\)/.test(
+        agentIdeAuthStreamFailurePanelTest,
+      ) &&
+      /assert\.equal\(panel\.rows\[0\]\?\.framesWritten,\s*null\)/.test(
+        agentIdeAuthStreamFailurePanelTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.ts",
+      "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts",
+    ],
+    "Phase 10/11 is pending: IDE auth stream failure panel must ignore retired camelCase stream receipt route/model/detail aliases",
   );
   assertCheck(
     result,

@@ -109,11 +109,11 @@ function streamReceiptRow(receipt: Record<string, unknown>): WorkflowAuthStreamF
     code: cleanString(details.reason) ?? (canceled ? "client_disconnect" : null),
     message: cleanString(receipt.summary),
     receiptId: cleanString(receipt.id),
-    invocationReceiptId: cleanString(details.invocationReceiptId),
-    streamKind: cleanString(details.streamKind),
-    routeId: cleanString(details.routeId),
-    selectedModel: cleanString(details.selectedModel),
-    framesWritten: numberField(details, "framesWritten", "chunksForwarded"),
+    invocationReceiptId: cleanString(details.invocation_receipt_id),
+    streamKind: cleanString(details.stream_kind),
+    routeId: cleanString(details.route_id),
+    selectedModel: cleanString(details.selected_model),
+    framesWritten: numberField(details, "frames_written", "chunks_forwarded"),
     tokenValueIncluded: JSON.stringify(receipt).includes("sk-") || JSON.stringify(receipt).includes("Bearer "),
   };
 }
