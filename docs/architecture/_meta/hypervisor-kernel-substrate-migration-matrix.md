@@ -645,6 +645,11 @@ Matrix compaction timing:
   compacted into the route-family range while preserving the cTEE custody
   command boundary as migration transport and terminal direct Rust daemon-core
   API ownership as the remaining target.
+- One-hundred-twenty-ninth scheduled pass completed on 2026-06-08: the L1
+  settlement daemon-core command-envelope evidence after slice 693 was compacted
+  into the route-family range while preserving the L1 settlement admission
+  command boundary as migration transport and terminal direct Rust daemon-core
+  API ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13485,58 +13490,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 693: L1 Settlement Daemon-Core Command Envelope
-
-```yaml
-objective: move L1 settlement trigger admission off the generic StepModule
-  command envelope and retired L1-specific command envs onto the Rust
-  daemon-core command envelope.
-owner_boundary:
-  route_or_surface: L1 settlement trigger admission
-  authority_gate: Rust settlement trigger guard under daemon-core operation
-    classification
-  execution_backend: ioi.runtime.daemon_core.command.v1 through
-    IOI_RUNTIME_DAEMON_CORE_COMMAND as bounded migration transport
-  truth_path: only trigger-admitted settlement attempts can proceed; default or
-    triggerless L1 settlement remains fail-closed
-  projection_path: daemon runner and bridge conformance require daemon-core
-    command env/schema, ignore retired L1/StepModule command envs, and reject
-    retired StepModule envelopes for settlement admission
-touched_files:
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs
-  - packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs
-  - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  - scripts/conformance/hypervisor-conformance.mjs
-conformance_delta:
-  - bridge conformance now requires the L1 settlement runner to use
-    IOI_RUNTIME_DAEMON_CORE_COMMAND and ioi.runtime.daemon_core.command.v1
-  - Rust command parser classifies admit_l1_settlement_attempt as a daemon-core
-    operation
-  - focused Rust negative proof rejects the retired
-    ioi.step_module.command_bridge.v1 envelope for L1 settlement admission
-  - focused JS runner proof ignores retired IOI_L1_SETTLEMENT_COMMAND and
-    IOI_STEP_MODULE_COMMAND envs
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge l1_settlement -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge test_run_node_test_reports_passed -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core settlement API extraction remains
-      pending; the command binary is migration transport only until settlement
-      admission is exposed through the direct Rust daemon-core protocol surface
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13552,7 +13505,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 693 and the one-hundred-twenty-eighth 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 693 and the one-hundred-twenty-ninth 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
