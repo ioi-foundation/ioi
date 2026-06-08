@@ -552,8 +552,9 @@ serve/control/admission/projection still needs to own wallet authority,
 transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, projection, replay, SDK/IDE protocol coverage,
 and conformance. Do not encode the remaining JS MCP serve facade as terminal
-architecture. Schedule the Slice 769 matrix-compaction pass before unrelated
-route-family work.
+architecture. The Slice 769 MCP serve `params.args` alias-retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

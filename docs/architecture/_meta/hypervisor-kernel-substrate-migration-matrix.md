@@ -65,13 +65,14 @@ This pass compacted Slice 767 MCP manager/catalog/helper config/source handoff
 alias-retirement evidence.
 This pass compacted Slice 768 visual observation artifact materialization path
 alias fallback metadata retirement evidence.
-Slice 769 retired the MCP serve `tools/call` `params.args` fallback before
-served runtime tool invocation input crosses into the daemon.
+This pass compacted Slice 769 MCP serve `tools/call` `params.args` fallback
+retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first only after compacting Slice 769.
-Preserve the live owner map, terminal blockers, and the fact that fail-closed
-JS facades, canonical input helpers, local projection helpers, and migration
-transport are not terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -178,8 +179,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: Slice 769 MCP serve `params.args`
-  retirement compaction, before unrelated route-family work.
+- Next scheduled matrix-compaction pass: none pending after Slice 769 MCP serve
+  `params.args` retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -14665,70 +14666,33 @@ above remain authoritative for current and target ownership.
   that seam lands, and do not encode the fail-closed JS artifact facade as a
   terminal artifact materializer.
 
-## Implementation Slice Evidence: 769
+## Compacted Implementation Slice Evidence: 769
 
-```yaml
-slice: 769
-phase: 10-authoritative-js-facade-retirement
-objective: retire MCP serve `tools/call` `params.args` fallback before served
-  runtime tool invocation input crosses into the daemon
-owner_boundary:
-  route_or_surface: runtime MCP serve JSON-RPC `tools/call`
-  authority_gate: unchanged; the served tool call still enters the governed
-    thread-tool invocation path and must emit receipt-backed runtime evidence
-  execution_backend: no new JS execution backend; this slice removes a
-    compatibility input fallback before dispatch into the existing invocation
-    facade
-  truth_path: admitted tool effects still require the migrated Rust-live
-    coding-tool and Rust daemon-core admission paths; MCP serve remains a
-    protocol facade
-  projection_path: MCP serve result projection remains canonical and
-    non-authoritative
-touched_files:
-  docs:
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
-  js_facade:
-    - packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires MCP serve `tools/call` to consume canonical
-    `params.arguments`
-  - bridge conformance rejects reintroducing `params.args` fallback reads in the
-    MCP serve surface
-  - focused daemon test proves retired `params.args` cannot populate runtime
-    tool input while canonical `params.arguments` still works
-verification:
-  commands:
-    - node --check packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs
-    - node --check packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - node --test packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - direct Rust daemon-core MCP serve/control/admission/projection APIs remain
-      pending beyond this input fallback cleanup
-    - the JS MCP serve facade remains protocol migration scaffolding until Rust
-      daemon-core APIs own wallet authority, transport containment, dispatch,
-      receipt binding, Agentgres admission, projection, and replay
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
+The expanded Slice 769 ledger was compacted on 2026-06-08 after MCP serve
+`tools/call` `params.args` fallback retirement landed. This slice remains active
+migration evidence, not terminal architecture. The `RuntimeMcpControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
 
-Matrix compaction is scheduled after Slice 769 and before unrelated
-route-family work. The compaction must preserve that this slice retired only a
-served-tool input compatibility fallback; it does not make the JS MCP serve
-facade terminal architecture.
+- Retired the MCP serve `tools/call` `params.args` fallback before served
+  runtime tool invocation input crosses into the daemon.
+- `runtime-mcp-serve-surface.mjs` now consumes canonical MCP
+  `params.arguments` only; retired `params.args` cannot populate runtime tool
+  input.
+- Focused MCP serve tests prove canonical `params.arguments` still passes
+  through while alias-only `params.args` produces an empty tool input.
+- Bridge/compositor conformance rejects reintroducing `params.args` fallback
+  reads in the MCP serve surface.
+- This slice intentionally does not claim terminal MCP serve migration. Direct
+  Rust daemon-core MCP serve/control/admission/projection still needs to own
+  wallet authority, transport containment, StepModuleRouter dispatch, receipt
+  binding, Agentgres expected-head/state-root binding, projection, replay,
+  SDK/IDE protocol coverage, and conformance.
+- Scheduled matrix-compaction obligation from Slice 769 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the JS MCP serve facade as terminal
+  architecture.
 
 ## Command State
 
