@@ -633,6 +633,11 @@ Matrix compaction timing:
   into the route-family range while preserving the runtime Agentgres
   admission/commit command boundary as migration transport and terminal direct
   Rust daemon-core API ownership as the remaining target.
+- One-hundred-twenty-seventh scheduled pass completed on 2026-06-08: the
+  external capability authority daemon-core command-envelope evidence after
+  slice 691 was compacted into the route-family range while preserving the
+  wallet.network authority command boundary as migration transport and terminal
+  direct Rust daemon-core API ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13473,73 +13478,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 691: External Capability Authority Daemon-Core Command Envelope
-
-```yaml
-slice: 691
-phase: 9-rust-daemon-core-extraction
-objective: move external capability exit authorization off the generic
-  StepModule command envelope and old external-capability-specific command env
-  onto the Rust daemon-core command envelope
-owner_boundary:
-  route_or_surface: external capability exit wallet.network authority
-    authorization
-  authority_gate: Rust authority core plus wallet.network remain the external
-    effect gate; JS can only submit canonical authorization requests through
-    the daemon-core command envelope
-  execution_backend: Rust daemon-core authority through
-    `ioi.runtime.daemon_core.command.v1`; the existing command binary remains
-    temporary transport only
-  truth_path: external capability exits must have Rust authority/wallet.network
-    authorization before any external effect boundary can be crossed
-  projection_path: bridge conformance requires the JS runner to use
-    `IOI_RUNTIME_DAEMON_CORE_COMMAND`, emit
-    `ioi.runtime.daemon_core.command.v1`, ignore retired
-    `IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND`/`IOI_STEP_MODULE_COMMAND` envs,
-    and reject retired StepModule command envelopes for wallet.network
-    authority operations
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs
-  rust_core_transport:
-    - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  tests:
-    - packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires daemon-core command env/schema in the external
-    capability authority runner
-  - bridge conformance requires the Rust command parser to classify external
-    capability authorization as a daemon-core operation
-  - focused Rust tests prove retired `ioi.step_module.command_bridge.v1`
-    authorization envelopes fail closed
-  - focused JS tests prove retired external-capability and StepModule envs no
-    longer configure wallet.network authority authorization
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge external_capability -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge test_run_node_test_reports_passed -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core API extraction remains pending beyond
-      this external capability authority command-envelope split
-    - the command binary remains migration transport until wallet.network
-      authority APIs are exposed through the direct Rust daemon-core protocol
-closeout:
-  git_diff_check: required
-  commit: required after verification
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13555,7 +13493,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 691 and the one-hundred-twenty-sixth 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 691 and the one-hundred-twenty-seventh 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
