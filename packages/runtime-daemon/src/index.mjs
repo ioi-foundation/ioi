@@ -1613,18 +1613,6 @@ export class AgentgresRuntimeStateStore {
     return this.l1SettlementSurface.admitL1SettlementAttempt(this, threadId, request);
   }
 
-  latestWorkflowEditProposalEvent(threadId, proposalId) {
-    return this.workflowEditSurface.latestWorkflowEditProposalEvent(this, threadId, proposalId);
-  }
-
-  workflowEditApprovalSatisfaction({ threadId, approvalId, proposalEvent }) {
-    return this.workflowEditSurface.workflowEditApprovalSatisfaction(this, {
-      threadId,
-      approvalId,
-      proposalEvent,
-    });
-  }
-
   applyWorkflowEditProposal(threadId, proposalId, request = {}) {
     return this.workflowEditSurface.applyWorkflowEditProposal(this, threadId, proposalId, request);
   }

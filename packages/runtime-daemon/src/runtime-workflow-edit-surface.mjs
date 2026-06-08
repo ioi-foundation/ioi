@@ -1,16 +1,8 @@
-import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
-import { notFound, runtimeError } from "./runtime-http-utils.mjs";
+import { runtimeError } from "./runtime-http-utils.mjs";
 import { optionalString } from "./runtime-value-helpers.mjs";
-
-function defaultApprovalReasonForDecisionEvent(event) {
-  const payload = event?.payload_summary ?? event?.payload ?? {};
-  return optionalString(payload.reason ?? event?.reason) ?? "approval_not_satisfied";
-}
 
 export function createRuntimeWorkflowEditSurface(deps = {}) {
   const {
-    approvalReasonForDecisionEvent = defaultApprovalReasonForDecisionEvent,
-    notFound: notFoundDep = notFound,
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;
 
@@ -71,57 +63,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     });
   }
 
-  function latestWorkflowEditProposalEvent(store, threadId, proposalId) {
-    const normalizedProposalId = optionalString(proposalId);
-    if (!normalizedProposalId) return null;
-    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter((event) => {
-          const payload = event.payload_summary ?? event.payload ?? {};
-          return (
-            event.event_kind === "workflow.edit_proposed" &&
-            payload.proposal_id === normalizedProposalId
-          );
-        })
-        .at(-1) ?? null
-    );
-  }
-
-  function workflowEditApprovalSatisfaction(store, { threadId, approval_id: approvalId, proposal_event: proposalEvent }) {
-    const normalizedApprovalId = optionalString(approvalId);
-    if (!normalizedApprovalId) return { satisfied: false, reason: "approval_id_missing" };
-    const approvalRequestEvent = store.latestApprovalRequestEvent(threadId, normalizedApprovalId);
-    if (!approvalRequestEvent) return { satisfied: false, approval_id: normalizedApprovalId, reason: "approval_request_missing" };
-    const proposalPayload = proposalEvent?.payload_summary ?? proposalEvent?.payload ?? {};
-    const approvalPayload = approvalRequestEvent.payload_summary ?? approvalRequestEvent.payload ?? {};
-    const requestedManifest = approvalPayload.approval_manifest ?? {};
-    const proposalId = proposalPayload.proposal_id ?? null;
-    const manifestProposalId = requestedManifest.proposal_id ?? null;
-    if (proposalId && manifestProposalId && proposalId !== manifestProposalId) {
-      return { satisfied: false, approval_id: normalizedApprovalId, reason: "approval_manifest_mismatch" };
-    }
-    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
-    const latestDecision = stream.events
-      .filter(
-        (event) =>
-          event.approval_id === normalizedApprovalId &&
-          event.seq > approvalRequestEvent.seq &&
-          (event.event_kind === "approval.approved" ||
-            event.event_kind === "approval.rejected" ||
-            event.event_kind === "approval.revoked"),
-      )
-      .at(-1);
-    if (!latestDecision) return { satisfied: false, approval_id: normalizedApprovalId, reason: "approval_decision_missing" };
-    return {
-      satisfied: latestDecision.event_kind === "approval.approved",
-      approval_id: normalizedApprovalId,
-      decision_event_id: latestDecision.event_id,
-      decision_seq: latestDecision.seq,
-      reason: approvalReasonForDecisionEvent(latestDecision),
-    };
-  }
-
   function applyWorkflowEditProposal(store, threadId, proposalId, request = {}) {
     const normalizedProposalId = optionalString(proposalId ?? request.proposal_id);
     if (!normalizedProposalId) {
@@ -151,8 +92,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     workflowEditThreadContext,
     resolveWorkflowEditTarget,
     proposeWorkflowEdit,
-    latestWorkflowEditProposalEvent,
-    workflowEditApprovalSatisfaction,
     applyWorkflowEditProposal,
   };
 }

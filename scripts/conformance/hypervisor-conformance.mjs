@@ -373,7 +373,8 @@ function runDocs() {
       /Slice 753 public model invocation dead JS\s+body-retirement compaction is complete/.test(guide) &&
       /Slice 754 retired model invocation\s+migration-helper compatibility aliases/.test(guide) &&
       /its compaction is complete/.test(guide) &&
-      /No\s+matrix-compaction pass is pending until the next Rust-core extraction or\s+facade-retirement seam lands/.test(guide) &&
+      /Slice\s+755 retired the daemon workflow-edit proposal\/approval read-helper facades/.test(guide) &&
+      /next\s+matrix-compaction pass is scheduled for Slice 755/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -509,9 +510,22 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 754 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 754/.test(
+      /Implementation Slice 755: Workflow Edit Read Helper Facade Retirement/.test(
         matrix,
       ) &&
+      /latestWorkflowEditProposalEvent facade body over JS runtime event streams/.test(
+        matrix,
+      ) &&
+      /workflowEditApprovalSatisfaction facade body over JS approval\/proposal events/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 755/.test(
+        matrix,
+      ) &&
+      /Slice\s+755 retired the daemon workflow-edit proposal\/approval read-helper facades/.test(
+        guide,
+      ) &&
+      /next\s+matrix-compaction pass is scheduled for Slice 755/.test(guide) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
       /`ModelReceiptGateControl`/.test(implementationMatrix) &&
       /`ModelInvocationControl`/.test(implementationMatrix) &&
@@ -6292,18 +6306,22 @@ function runBridge() {
       /workflow-edit apply still validates canonical proposal id before the Rust-core boundary/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /workflow-edit read helpers remain canonical and non-authoritative until Rust projection owns them/.test(
+      /workflow-edit read helper facades are retired with the JS apply path/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /assertNoRetiredWorkflowEditDetailAliases\(error\.details\)/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /decision_event_id: "event_decision"/.test(
+      /Object\.hasOwn\(surface,\s*"latestWorkflowEditProposalEvent"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /Object\.hasOwn\(approval,\s*field\),\s*false/.test(
+      /Object\.hasOwn\(surface,\s*"workflowEditApprovalSatisfaction"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
+      !/latestWorkflowEditProposalEvent\(threadId, proposalId\)/.test(runtimeDaemonIndex) &&
+      !/workflowEditApprovalSatisfaction\(\{ threadId, approvalId, proposalEvent \}\)/.test(runtimeDaemonIndex) &&
+      !/function latestWorkflowEditProposalEvent/.test(runtimeWorkflowEditSurface) &&
+      !/function workflowEditApprovalSatisfaction/.test(runtimeWorkflowEditSurface) &&
       !/latestWorkflowEditApplyEvent/.test(runtimeWorkflowEditSurface) &&
       !/latestWorkflowEditApplyEvent/.test(runtimeDaemonIndex) &&
       !/writeJsonDep\(resolvedWorkflowPath,\s*workflowPatch\)/.test(runtimeWorkflowEditSurface) &&
@@ -6316,18 +6334,6 @@ function runBridge() {
         runtimeWorkflowEditSurface,
       ) &&
       !/schema_version:\s*"ioi\.runtime\.workflow-edit-apply-result\.v1"/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /latestWorkflowEditProposalEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?workflowEditApprovalSatisfaction/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /const requestedManifest = approvalPayload\.approval_manifest \?\? \{\};/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /const proposalId = proposalPayload\.proposal_id \?\? null;/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /const manifestProposalId = requestedManifest\.proposal_id \?\? null;/.test(
         runtimeWorkflowEditSurface,
       ) &&
       !new RegExp(`^\\s+(?:${workflowEditAliasFields})\\s*[:,]`, "m").test(

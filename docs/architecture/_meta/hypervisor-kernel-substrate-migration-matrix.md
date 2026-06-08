@@ -38,6 +38,8 @@ stream-cancel receipt facade-retirement evidence, then compacted Slice 752
 receipt-gate receipt facade-retirement evidence, then compacted Slice 753
 public model invocation dead JS body retirement evidence, then compacted Slice
 754 model invocation migration-helper compatibility alias retirement evidence.
+Slice 755 retired the daemon workflow-edit proposal/approval read-helper
+facades after workflow-edit apply authority was already fail-closed.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule the next
 matrix-compaction pass only after that seam lands. Preserve the live owner map,
@@ -137,8 +139,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 754 model
-  invocation migration-helper compatibility alias retirement compaction.
+- Next scheduled matrix-compaction pass: pending after Slice 755 workflow-edit
+  read-helper facade retirement lands and verifies.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13699,7 +13701,7 @@ The expanded Slice 727-732 ledger was compacted on 2026-06-08 after Slice 732 ve
 
 - Slice 727 retired public coding-tool budget recovery JS authority: budget recovery control and blocked-event projection now fail closed before JS run/agent lookup, accepted event projection, approval request/decision calls, runtime-event append, Rust planner invocation from the JS facade, run-map mutation, or `writeRun` persistence. Rust daemon-core budget recovery admission/projection must still own wallet authority, Agentgres expected-head/state-root binding, policy/approval receipts, retry-event materialization, projection, and persistence before this control can execute again.
 - Slice 728 retired coding-tool governance approval-block and budget-block JS authority: those facades now fail closed before JS approval request persistence, runtime-event append, JS-created blocked result envelopes, receipt/policy ref assembly, or duplicate response-truth construction. Approval-satisfaction remains only a canonical read helper until direct Rust approval/governance projection APIs replace it.
-- Slice 729 retired workflow-edit proposal/apply JS authority: proposal, target/context, approval-request, and apply controls now fail closed before JS agent/run lookup, workspace path resolution, `workflow.edit_proposed` append, approval persistence, proposal/apply envelope construction, workflow JSON writes, or legacy `workflow.edit_applied` replay as accepted truth. Proposal and approval read helpers remain temporary non-terminal adapters.
+- Slice 729 retired workflow-edit proposal/apply JS authority: proposal, target/context, approval-request, and apply controls now fail closed before JS agent/run lookup, workspace path resolution, `workflow.edit_proposed` append, approval persistence, proposal/apply envelope construction, workflow JSON writes, or legacy `workflow.edit_applied` replay as accepted truth. Slice 755 then retired the remaining daemon proposal/approval read-helper facades so workflow-edit projection reads cannot remain a JS-owned apply-support adapter.
 - Slice 730 retired MCP control JS authority: MCP import/add/remove/enable/disable, validate/status-record, live discovery, live invocation, control event append, Rust state-planner invocation from the JS facade, agent registry mutation, and `writeAgent` persistence now fail closed at `runtime.mcp_control`. `mcpStatusForAgent` remains a read-only canonical helper over current registry records until direct Rust MCP projection APIs own the status surface.
 - Slice 731 retired runtime coding-tool artifact mutation JS authority: artifact draft materialization, visual observation artifact materialization, and command-stream event append helpers now fail closed before JS artifact record construction, local visual artifact file reads, Agentgres artifact-state commits from JS, `codingArtifacts` map mutation, or `appendRuntimeEvent`. Artifact read/retrieve helpers remain temporary data-plane projection adapters for migrated Rust-live tools until Rust daemon-core coding-tool artifact/event admission owns materialization, receipt binding, Agentgres expected-head/state-root binding, ArtifactRef/PayloadRef admission, and projection.
 - Slice 732 retired workspace snapshot/restore JS mutation authority: snapshot capture, snapshot artifact materialization, snapshot event append, restore preview/apply, restore artifact materialization, and restore event append now fail closed before JS file capture, restore bridge dispatch, filesystem restore writes, artifact records, Agentgres artifact-state commits from JS, `codingArtifacts` map mutation, or `appendRuntimeEvent`. List/content-package helpers remain read/projection adapters only, and Rust-live `file.apply_patch` remains completed when retired JS snapshot admission fails without adding JS snapshot receipt/artifact refs. Direct Rust daemon-core workspace snapshot/restore admission still must own capture, preview/apply, policy/approval, receipt/state-root binding, ArtifactRef/PayloadRef admission, projection, and replay before the route family is terminal.
@@ -14168,6 +14170,51 @@ target ownership.
   JS invocation wrappers, exported request-shape builders, or command transport
   as terminal architecture.
 
+## Implementation Slice 755: Workflow Edit Read Helper Facade Retirement
+
+```yaml
+date: 2026-06-08
+phase: 10/11 rust core extraction and authoritative JS facade retirement
+route_family: RuntimeWorkflowEditControl
+objective: retire daemon workflow-edit proposal/approval read-helper facades
+status: implemented
+files:
+  runtime_daemon:
+    - packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs
+    - packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
+    - packages/runtime-daemon/src/index.mjs
+  conformance:
+    - scripts/conformance/hypervisor-conformance.mjs
+legacy_paths_removed:
+  - latestWorkflowEditProposalEvent facade body over JS runtime event streams
+  - workflowEditApprovalSatisfaction facade body over JS approval/proposal events
+  - RuntimeStore wrapper methods exposing those helper facades
+compatibility_shims_remaining: []
+current_behavior:
+  - workflow-edit proposal, target/context, and apply controls still fail closed
+    before JS accepted-truth mutation.
+  - the daemon workflow-edit surface no longer exposes proposal/approval
+    read-helper facades as a JS-owned projection adapter for the retired apply
+    path.
+target_behavior:
+  - direct Rust daemon-core workflow-edit admission/projection APIs own proposal,
+    approval, mutation, replay, and materialized projection reads.
+conformance:
+  - workflow-edit-envelope-aliases-retired now guards that the helper function
+    bodies and RuntimeStore wrapper methods are absent.
+  - focused workflow-edit surface tests assert the helper properties are absent.
+matrix_compaction:
+  schedule after this slice verifies, before starting unrelated route-family
+  work.
+```
+
+This slice intentionally does not claim terminal workflow-edit migration. The
+approved apply path still requires Rust daemon-core workflow mutation admission,
+Agentgres expected-head/state-root binding, receipt/event materialization,
+projection, and replay before it can execute again. The slice removes the
+remaining JS read-helper adapter that existed only to support the retired JS
+apply/proposal surface.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14183,8 +14230,9 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-753 runtime facade-retirement
-matrix-compaction and implementation passes:
+Current expected behavior after the Slice 733-754 runtime/model-mount
+facade-retirement matrix-compaction passes and the Slice 755 workflow-edit
+read-helper facade-retirement implementation pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

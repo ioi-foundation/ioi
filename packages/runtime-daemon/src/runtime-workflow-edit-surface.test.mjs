@@ -55,9 +55,6 @@ function createStore() {
 
 function createSurface() {
   return createRuntimeWorkflowEditSurface({
-    approvalReasonForDecisionEvent(event) {
-      return event?.payload_summary?.reason ?? "approval_not_satisfied";
-    },
     runtimeError,
   });
 }
@@ -206,55 +203,9 @@ test("workflow-edit apply still validates canonical proposal id before the Rust-
   );
 });
 
-test("workflow-edit read helpers remain canonical and non-authoritative until Rust projection owns them", () => {
-  const store = createStore();
+test("workflow-edit read helper facades are retired with the JS apply path", () => {
   const surface = createSurface();
-  const proposalEvent = {
-    event_id: "event_proposal",
-    seq: 1,
-    thread_id: "thread_alpha",
-    approval_id: "approval_one",
-    event_kind: "workflow.edit_proposed",
-    payload_summary: {
-      proposal_id: "proposal_one",
-      approval_id: "approval_one",
-    },
-  };
-  const approvalEvent = {
-    event_id: "event_approval",
-    seq: 2,
-    thread_id: "thread_alpha",
-    approval_id: "approval_one",
-    event_kind: "approval.required",
-    payload_summary: {
-      approval_id: "approval_one",
-      approval_manifest: { proposal_id: "proposal_one" },
-    },
-  };
-  const decisionEvent = {
-    event_id: "event_decision",
-    seq: 3,
-    thread_id: "thread_alpha",
-    approval_id: "approval_one",
-    event_kind: "approval.approved",
-    payload_summary: { reason: "approved" },
-  };
-  store.events.push(proposalEvent, approvalEvent, decisionEvent);
 
-  assert.equal(surface.latestWorkflowEditProposalEvent(store, "thread_alpha", "proposal_one"), proposalEvent);
-  const approval = surface.workflowEditApprovalSatisfaction(store, {
-    threadId: "thread_alpha",
-    approval_id: "approval_one",
-    proposal_event: proposalEvent,
-  });
-  assert.deepEqual(approval, {
-    satisfied: true,
-    approval_id: "approval_one",
-    decision_event_id: "event_decision",
-    decision_seq: 3,
-    reason: "approved",
-  });
-  for (const field of ["approvalId", "decisionEventId", "decisionSeq"]) {
-    assert.equal(Object.hasOwn(approval, field), false);
-  }
+  assert.equal(Object.hasOwn(surface, "latestWorkflowEditProposalEvent"), false);
+  assert.equal(Object.hasOwn(surface, "workflowEditApprovalSatisfaction"), false);
 });

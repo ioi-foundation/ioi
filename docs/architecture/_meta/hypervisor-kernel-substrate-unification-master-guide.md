@@ -339,9 +339,14 @@ retirement compaction is complete. Slice 751 stream-cancel receipt facade
 retirement compaction is complete. Slice 752 receipt-gate receipt facade
 retirement compaction is complete. Slice 753 public model invocation dead JS
 body-retirement compaction is complete. Slice 754 retired model invocation
-migration-helper compatibility aliases and its compaction is complete. No
-matrix-compaction pass is pending until the next Rust-core extraction or
-facade-retirement seam lands. Future
+migration-helper compatibility aliases and its compaction is complete. Slice
+755 retired the daemon workflow-edit proposal/approval read-helper facades that
+remained after workflow-edit apply authority was fail-closed. Workflow-edit
+execution is still not terminal: approved apply still requires Rust daemon-core
+mutation admission, Agentgres expected-head/state-root binding, receipt/event
+materialization, projection, and replay before it can execute again. The next
+matrix-compaction pass is scheduled for Slice 755 before unrelated route-family
+work resumes. Future
 compactions must preserve evidence, distinguish interim bridge scaffolding and
 fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
 command transport or read-only JS helpers as long-term substrate.
