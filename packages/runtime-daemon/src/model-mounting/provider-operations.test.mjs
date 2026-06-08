@@ -560,11 +560,8 @@ test("local provider model and loaded list receipts carry Rust inventory binding
   await listProviderModels(state, "provider.local");
   await listProviderLoaded(state, "provider.local");
 
-  assert.equal(state.artifacts.get("artifact.native").providerId, "provider.local");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-artifacts");
-  assert.equal(state.recordStateCommits[0].record_id, "artifact.native");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.artifact.provider_inventory");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
+  assert.equal(state.artifacts.has("artifact.native"), false);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
   assert.equal(state.receipts.at(-2).details.provider_kind, "ioi_native_local");
   assert.equal(state.receipts.at(-2).details.model_mount_provider_inventory_action, "list_models");
@@ -575,7 +572,7 @@ test("local provider model and loaded list receipts carry Rust inventory binding
   assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerKind"), false);
 });
 
-test("provider model inventory artifacts fail closed without Rust Agentgres record-state commit", async () => {
+test("provider model inventory projections do not require JS artifact record-state commit", async () => {
   const state = fakeState();
   delete state.commitRuntimeModelMountRecordState;
   state.providers.set("provider.local", {
@@ -600,20 +597,15 @@ test("provider model inventory artifacts fail closed without Rust Agentgres reco
     },
   });
 
-  await assert.rejects(
-    () => listProviderModels(state, "provider.local"),
-    (error) => {
-      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "model-artifacts");
-      assert.equal(error.details.artifact_id, "artifact.native");
-      assert.equal(error.details.model_id, "native");
-      return true;
-    },
-  );
+  const models = await listProviderModels(state, "provider.local");
 
+  assert.deepEqual([...models], [{ id: "artifact.native", providerId: "provider.local", modelId: "native" }]);
+  assert.equal(models.model_mount_provider_inventory.inventory_hash, "sha256:list-models");
   assert.equal(state.artifacts.has("artifact.native"), false);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
-  assert.deepEqual(state.receipts, []);
+  assert.equal(state.receipts.at(-1).kind, "provider_models_list");
+  assert.equal(state.receipts.at(-1).details.model_mount_provider_inventory_hash, "sha256:list-models");
 });
 
 test("provider start and stop fail closed until direct Rust core control exists", async () => {

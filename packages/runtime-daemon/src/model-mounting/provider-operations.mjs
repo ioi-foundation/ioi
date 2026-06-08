@@ -1,5 +1,4 @@
 import { runtimeError } from "./io.mjs";
-import { commitModelArtifactRecordState } from "./model-artifact-record-state.mjs";
 import { modelMountProviderKindRequiresRustInstanceLifecycle } from "./model-instance-lifecycle.mjs";
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
@@ -177,10 +176,6 @@ export async function listProviderModels(state, providerId) {
   assertProviderRustInventoryBackend(provider, "provider_models_list");
   const models = await state.driverForProvider(provider).listModels({ state, provider });
   assertProviderOperationInventoryBound(provider, models, "provider_models_list");
-  for (const artifact of models) {
-    commitModelArtifactRecordState(state, artifact, "model_mount.artifact.provider_inventory", []);
-    state.artifacts.set(artifact.id, artifact);
-  }
   const resolved = models.length > 0
     ? models
     : state.listArtifacts().filter((artifact) => artifact.providerId === providerId);

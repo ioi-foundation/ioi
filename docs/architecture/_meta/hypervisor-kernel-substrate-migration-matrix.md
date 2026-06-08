@@ -14274,6 +14274,72 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 716
+
+```yaml
+slice: 716
+phase: 10-authoritative-js-facade-retirement
+objective: retire provider inventory JS artifact materialization while
+  preserving Rust-backed provider inventory projection reads
+owner_boundary:
+  route_or_surface: model-mounting provider model inventory
+  authority_gate: hosted/custom inventory still fails closed before JS driver
+    execution; Rust-backed local/fixture inventory may be returned only as
+    projection data and may not create JS artifact truth
+  execution_backend: Rust-backed provider inventory drivers remain the temporary
+    source of inventory envelopes; direct Rust daemon-core provider inventory
+    projection/admission API is still the terminal target
+  truth_path: no provider-discovered artifact record-state commit,
+    `model-artifacts` write, or `state.artifacts` mutation occurs from
+    `listProviderModels`; Agentgres-admitted Rust projection must own artifact
+    truth
+  projection_path: `listProviderModels` returns Rust-backed inventory envelopes
+    directly when present, otherwise falls back to existing read-only artifact
+    projection adapters for already-admitted records
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires provider inventory to stay free of
+    `commitModelArtifactRecordState`, `state.artifacts.set`, and
+    `model_mount.artifact.provider_inventory` JS operation materialization
+  - focused daemon tests prove local Rust-backed model inventory returns
+    projection data without JS artifact commits or artifact-map mutation, even
+    when the JS record-state commit hook is absent
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - provider inventory still returns through JS protocol adapters until direct
+      Rust daemon-core provider inventory projection APIs own list/read surfaces
+    - provider health still persists provider status and provider-health
+      projections through current JS-adapted record-state commit helpers after
+      Rust lifecycle evidence; extract direct Rust control/projection next
+    - schedule a matrix-compaction pass once the next provider-health,
+      model-instance, or MCP Rust-core extraction/facade-retirement seam is
+      clear, so provider inventory remains migration evidence rather than a
+      terminal Node/MJS substrate shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14289,7 +14355,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 715 and the state-accessor JS mutation-facade retirement pass:
+Current expected behavior after Slice 716 and the provider-inventory JS artifact materialization retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

@@ -12339,23 +12339,25 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-provider-inventory-artifact-record-state",
-    /commitModelArtifactRecordState/.test(providerOperations) &&
-      /model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
+    "model-mount-provider-inventory-artifact-js-mutation-retired",
+    !/commitModelArtifactRecordState/.test(providerOperations) &&
+      !/model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
       /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
       /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
+      !/state\.artifacts\.set/.test(providerOperations) &&
       !/state\.writeMap\("model-artifacts"/.test(providerOperations) &&
-      /provider model inventory artifacts fail closed without Rust Agentgres record-state commit/.test(
+      /provider model inventory projections do not require JS artifact record-state commit/.test(
         providerOperationsTest,
       ) &&
-      /model_mount\.artifact\.provider_inventory/.test(providerOperationsTest) &&
+      /assert\.equal\(state\.artifacts\.has\("artifact\.native"\),\s*false\)/.test(providerOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(providerOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
     ],
-    "Phase 9/10 is pending: provider-discovered model artifacts must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
+    "Phase 9/10 is pending: provider-discovered model inventory must not materialize JS artifact truth; Rust daemon-core projection/admission owns provider inventory artifacts",
   );
   assertCheck(
     result,
