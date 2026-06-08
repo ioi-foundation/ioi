@@ -151,7 +151,7 @@ test("catalog provider configuration mutation facade fails closed until Rust cor
   assert.deepEqual(state.recordStateCommits, []);
 });
 
-test("catalog provider runtime material resolves vault material and preserves fail-closed states", () => {
+test("catalog provider runtime material resolves without writing local material cache", () => {
   const state = createState();
   const providerId = "catalog.custom_http";
   state.catalogProviderConfigs.set(providerId, {
@@ -164,9 +164,9 @@ test("catalog provider runtime material resolves vault material and preserves fa
   assert.equal(resolved.baseUrl, "https://catalog.example.test");
   assert.equal(resolved.runtimeMaterialStatus, "resolved_from_vault");
   assert.equal(resolved.materialVaultRefHash, `hash:${catalogProviderMaterialVaultRef(providerId)}`);
-  assert.equal(state.calls.some((call) => call.name === "writeVaultRefs"), true);
+  assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
+  assert.equal(state.calls.some((call) => call.name === "writeVaultRefs"), false);
 
-  state.catalogProviderRuntimeMaterials.delete(providerId);
   state.vault.resolveVaultRef = (vaultRef) => ({
     resolvedMaterial: false,
     material: "",
@@ -177,8 +177,8 @@ test("catalog provider runtime material resolves vault material and preserves fa
   const missing = catalogProviderRuntimeMaterial(state, providerId);
   assert.equal(missing.runtimeMaterialStatus, "missing_runtime_material");
   assert.equal(missing.materialSource, "unbound");
+  assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
 
-  state.catalogProviderRuntimeMaterials.delete(providerId);
   state.vault.resolveVaultRef = () => {
     throw new Error("keychain unavailable");
   };
@@ -186,4 +186,9 @@ test("catalog provider runtime material resolves vault material and preserves fa
   assert.equal(failed.runtimeMaterialStatus, "vault_material_unavailable");
   assert.equal(failed.materialVaultRefHash, "known-material-hash");
   assert.deepEqual(failed.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_provider_source_material_fail_closed"]);
+  assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
+  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });

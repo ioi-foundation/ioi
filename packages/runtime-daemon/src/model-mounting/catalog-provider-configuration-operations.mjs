@@ -86,9 +86,8 @@ export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
   const purpose = catalogProviderMaterialPurposeDep(providerId);
   try {
     const resolved = state.vault.resolveVaultRef(vaultRef, purpose);
-    state.writeVaultRefs();
     if (!resolved.resolvedMaterial || typeof resolved.material !== "string" || !resolved.material.trim()) {
-      const missing = {
+      return {
         runtimeMaterialStatus: "missing_runtime_material",
         materialSource: resolved.materialSource ?? "unbound",
         materialVaultRefHash: resolved.vaultRefHash,
@@ -97,10 +96,8 @@ export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
           ["VaultPort.resolveVaultRef", "catalog_provider_source_material_unbound"],
         ),
       };
-      state.catalogProviderRuntimeMaterials.set(providerId, missing);
-      return missing;
     }
-    const material = {
+    return {
       ...catalogProviderRuntimeMaterialFromValueDep(providerId, resolved.material),
       runtimeMaterialStatus: "resolved_from_vault",
       materialSource: resolved.materialSource ?? "vault_material_adapter",
@@ -110,17 +107,13 @@ export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
         ["VaultPort.resolveVaultRef", "catalog_provider_source_material_resolved"],
       ),
     };
-    state.catalogProviderRuntimeMaterials.set(providerId, material);
-    return material;
   } catch (error) {
-    const failed = {
+    return {
       runtimeMaterialStatus: "vault_material_unavailable",
       materialSource: "unavailable",
       materialVaultRefHash: config.materialVaultRefHash ?? stableHashDep(vaultRef),
       errorHash: stableHashDep(error?.message ?? "catalog source vault resolution failed"),
       evidenceRefs: ["VaultPort.resolveVaultRef", "catalog_provider_source_material_fail_closed"],
     };
-    state.catalogProviderRuntimeMaterials.set(providerId, failed);
-    return failed;
   }
 }
