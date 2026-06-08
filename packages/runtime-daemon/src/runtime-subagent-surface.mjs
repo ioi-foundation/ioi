@@ -108,6 +108,20 @@ const retiredSubagentRecordOutputAliasKeys = new Set([
   "canceledAt",
 ]);
 
+const runtimeSubagentControlFacadeRetirementEvidenceRefs = [
+  "runtime_subagent_control_js_facade_retired",
+  "runtime_subagent_spawn_js_facade_retired",
+  "runtime_subagent_wait_js_facade_retired",
+  "runtime_subagent_input_js_facade_retired",
+  "runtime_subagent_resume_js_facade_retired",
+  "runtime_subagent_assign_js_facade_retired",
+  "runtime_subagent_cancel_js_facade_retired",
+  "runtime_subagent_cancel_propagation_js_facade_retired",
+  "runtime_subagent_control_event_js_facade_retired",
+  "rust_daemon_core_runtime_subagent_control_required",
+  "agentgres_runtime_subagent_truth_required",
+];
+
 function withoutRetiredSubagentRecordOutputAliases(record = {}) {
   return Object.fromEntries(
     Object.entries(record).filter(([key]) => !retiredSubagentRecordOutputAliasKeys.has(key)),
@@ -179,6 +193,33 @@ export function createRuntimeSubagentSurface({
     return agentId;
   }
 
+  function throwRuntimeSubagentRustCoreRequired({
+    operation,
+    operationKind,
+    threadId,
+    subagentId = null,
+    details = {},
+  }) {
+    throw runtimeErrorDep({
+      status: 501,
+      code: "runtime_subagent_control_rust_core_required",
+      message:
+        "Runtime subagent lifecycle mutations require direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.subagent_control",
+        operation,
+        operation_kind: operationKind,
+        thread_id: threadId,
+        ...(subagentId ? { subagent_id: subagentId } : {}),
+        evidence_refs: [
+          ...runtimeSubagentControlFacadeRetirementEvidenceRefs,
+          `${operation}_js_facade_retired`,
+        ],
+        ...details,
+      },
+    });
+  }
+
   return {
     listSubagents(store, threadId, options = {}) {
       const parentAgent = store.agentForThread(threadId);
@@ -214,6 +255,13 @@ export function createRuntimeSubagentSurface({
       return record;
     },
     spawnSubagent(store, threadId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_spawn",
+        operationKind: "subagent.spawn",
+        threadId,
+      });
       const parentAgent = store.agentForThread(threadId);
       const parentThread = store.threadForAgent(parentAgent);
       const prompt = optionalStringDep(request.prompt);
@@ -430,6 +478,14 @@ export function createRuntimeSubagentSurface({
       };
     },
     waitSubagent(store, threadId, subagentId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_wait",
+        operationKind: "subagent.wait",
+        threadId,
+        subagentId,
+      });
       const record = store.getSubagent(threadId, subagentId);
       const run = store.getRun(record.run_id);
       const output = subagentContractOutputForRunDep(run, record.output_contract);
@@ -519,6 +575,14 @@ export function createRuntimeSubagentSurface({
       };
     },
     sendSubagentInput(store, threadId, subagentId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_input",
+        operationKind: "subagent.input",
+        threadId,
+        subagentId,
+      });
       const record = store.getSubagent(threadId, subagentId);
       if ((record.lifecycle_status ?? record.status) === "canceled") {
         throw policyErrorDep("Cannot send input to a canceled subagent.", {
@@ -683,6 +747,14 @@ export function createRuntimeSubagentSurface({
       };
     },
     resumeSubagent(store, threadId, subagentId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_resume",
+        operationKind: "subagent.resume",
+        threadId,
+        subagentId,
+      });
       const record = store.getSubagent(threadId, subagentId);
       const previousRunId = record.run_id;
       const previousStatus = record.lifecycle_status ?? record.status ?? null;
@@ -855,6 +927,14 @@ export function createRuntimeSubagentSurface({
       };
     },
     assignSubagent(store, threadId, subagentId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_assign",
+        operationKind: "subagent.assign",
+        threadId,
+        subagentId,
+      });
       const record = store.getSubagent(threadId, subagentId);
       const previousRole = record.role ?? "general";
       const role = normalizeSubagentRoleDep(request.role ?? previousRole);
@@ -984,6 +1064,14 @@ export function createRuntimeSubagentSurface({
       };
     },
     cancelSubagent(store, threadId, subagentId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_cancel",
+        operationKind: "subagent.cancel",
+        threadId,
+        subagentId,
+      });
       const record = store.getSubagent(threadId, subagentId);
       const previousStatus = record.lifecycle_status ?? record.status ?? null;
       const reason =
@@ -1100,6 +1188,13 @@ export function createRuntimeSubagentSurface({
       };
     },
     propagateSubagentCancellation(store, threadId, request = {}) {
+      void store;
+      void request;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_cancel_propagation",
+        operationKind: "subagent.cancel.propagate",
+        threadId,
+      });
       const parentAgent = store.agentForThread(threadId);
       const reason =
         optionalStringDep(request.reason ?? request.cancellation_reason) ??
@@ -1195,6 +1290,17 @@ export function createRuntimeSubagentSurface({
       operation,
       status,
     }) {
+      void store;
+      void parentAgent;
+      void record;
+      void request;
+      void status;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_control_event",
+        operationKind: `subagent.${operation}`,
+        threadId,
+        subagentId: record?.subagent_id ?? null,
+      });
       const thread = store.threadForAgent(parentAgent);
       const source = operatorControlSourceDep(request.source);
       const eventHash = doctorHash(

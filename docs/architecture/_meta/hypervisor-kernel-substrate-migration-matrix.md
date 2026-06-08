@@ -6,8 +6,9 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 732; Slice 733 is intentionally left
-expanded as the current runtime bridge thread/turn facade-retirement seam.
+route-family slice ledger through Slice 732; Slices 733-734 are intentionally
+left expanded as the current runtime bridge thread/turn and runtime subagent
+control facade-retirement seams.
 Earlier 2026-06-08 compaction
 passes compacted IDE, MCP, thread-control, coding-tool, Agentgres state-commit,
 model-mount, workspace-restore, command-envelope, route fallback, provider,
@@ -20,7 +21,7 @@ snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
-matrix-compaction pass once the post-Slice-733 seam is concrete, before
+matrix-compaction pass once the post-Slice-734 seam is concrete, before
 unrelated route-family work resumes.
 
 ## Purpose
@@ -117,9 +118,9 @@ Matrix compaction timing:
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
 - Next scheduled matrix-compaction pass: pending after the next concrete
-  Rust-core extraction or JS-facade retirement seam clarifies how Slice 733 can be
-  compacted without obscuring terminal blockers. Schedule that pass only after
-  the next seam verifies and lands.
+  Rust-core extraction or JS-facade retirement seam clarifies how Slices 733-734
+  can be compacted without obscuring terminal blockers. Schedule that pass only
+  after the next seam verifies and lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13713,6 +13714,35 @@ verification:
 next_compaction:
   - Schedule a matrix-compaction pass once the next Rust-core extraction or JS-facade retirement seam is clearer; do not compact immediately unless the next slice expands this ledger enough to obscure the owner map.
 
+## Implementation Slice 734
+
+status: verified
+date: 2026-06-08
+route_or_surface: runtime subagent lifecycle control
+goal_phase:
+  - Phase 10: Rust daemon core extraction
+  - Phase 11: authoritative JS facade retirement
+target_owner: Rust daemon core `step_router`/`agentgres_admission`/`projection`
+current_owner_before_slice: JS runtime-daemon subagent surface created child agents, created or canceled runs, staged subagent lifecycle records, appended runtime subagent control events, invoked Rust state planners as migration plumbing, and persisted accepted subagent truth through `writeSubagent`.
+implementation_notes:
+  - Subagent spawn, wait lifecycle update, send-input, resume, assign, cancel, cancellation propagation, and direct subagent control-event append now fail closed with `runtime_subagent_control_rust_core_required`.
+  - The fail-closed guard runs before JS child-agent creation, run creation/cancellation, runtime-event append, Rust planner invocation from the facade, `writeSubagent`, or duplicate receipt/policy evidence synthesis.
+  - List/get/result helpers remain read/projection adapters over already-admitted records only.
+  - Historical staging and alias-normalization code remains below the guards as cleanup debt for a follow-up deletion/refactor pass; the live mutation entry points are no longer authoritative JS paths.
+  - The implementation matrix now carries `RuntimeSubagentControl` so future resumes target direct Rust daemon-core subagent admission, event materialization, persistence, replay, and projection rather than preserving the Node/MJS helper as architecture.
+verification:
+  - node --check packages/runtime-daemon/src/runtime-subagent-surface.mjs
+  - node --check packages/runtime-daemon/src/runtime-subagent-surface.test.mjs
+  - hypervisor-conformance:compositor
+  - hypervisor-conformance:bridge
+  - hypervisor-conformance:docs
+  - hypervisor-conformance
+  - git diff --check
+test_gap:
+  - The historical `runtime-subagent-surface.test.mjs` behavior suite still contains pre-retirement success-path cases that now describe unreachable JS staging behavior. This slice adds fail-closed evidence tests and conformance guards, but a follow-up cleanup pass should delete or refactor the stale behavior tests once the next subagent Rust-core extraction seam is clearer.
+next_compaction:
+  - Schedule the matrix-compaction pass after the next Rust-core extraction or JS-facade retirement seam clarifies whether Slices 733-734 should be compacted together.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13728,8 +13758,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 733 and the runtime bridge thread/turn
-mutation facade retirement pass:
+Current expected behavior after Slice 734 and the runtime subagent lifecycle
+control facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

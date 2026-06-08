@@ -318,7 +318,7 @@ function runDocs() {
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slice 733\s+is intentionally left expanded as the current runtime bridge thread\/turn\s+facade-retirement seam/.test(guide) &&
+      /Slices\s+733-734 are intentionally left expanded as the current runtime bridge thread\/turn\s+and runtime subagent control facade-retirement seams/.test(guide) &&
       /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
@@ -334,7 +334,7 @@ function runDocs() {
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slice 733 is intentionally left\s+expanded as the current runtime bridge thread\/turn facade-retirement seam/.test(
+      /Slices 733-734 are intentionally\s+left expanded as the current runtime bridge thread\/turn and runtime subagent\s+control facade-retirement seams/.test(
         matrix,
       ) &&
       /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
@@ -17428,6 +17428,45 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-control-js-facade-retired",
+    /runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_control_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /rust_daemon_core_runtime_subagent_control_required/.test(runtimeSubagentSurface) &&
+      /agentgres_runtime_subagent_truth_required/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_spawn_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_input_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_resume_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_assign_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_cancel_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /runtime_subagent_control_event_js_facade_retired/.test(runtimeSubagentSurface) &&
+      /subagent lifecycle mutation facades fail closed before JS truth mutation/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /subagent control event append facade fails closed before JS runtime event append/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assertRuntimeSubagentControlRustCoreRequired/.test(runtimeSubagentSurfaceTest) &&
+      /assert\.equal\(store\.agents\.size,\s*baseline\.agents\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.runs\.size,\s*baseline\.runs\)/.test(runtimeSubagentSurfaceTest) &&
+      /assert\.equal\(store\.events\.length,\s*baseline\.events\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.writes\.length,\s*baseline\.writes\)/.test(
+        runtimeSubagentSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.stateUpdates\.length,\s*baseline\.stateUpdates\)/.test(
+        runtimeSubagentSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent lifecycle mutation facades must stay retired before JS agent/run/event/subagent truth writes while Rust daemon-core admission is extracted",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-wait-state-update-live-bridge",
     /SubagentRecordStateUpdateCore/.test(policyCore) &&
       /SubagentRecordStateUpdateRequest/.test(policyCore) &&
@@ -17640,25 +17679,25 @@ function runCompositor() {
     result,
     "runtime-subagent-list-propagation-envelope-aliases-retired",
     runtimeSubagentListEnvelopeBlock.length > 0 &&
-      runtimeSubagentPropagationEnvelopeBlock.length > 0 &&
       !runtimeSubagentListEnvelopeAliasPattern.test(runtimeSubagentListEnvelopeBlock) &&
-      !runtimeSubagentPropagationEnvelopeAliasPattern.test(
+      /runtime_subagent_cancel_propagation_js_facade_retired/.test(
+        runtimeSubagentSurface,
+      ) &&
+      /throwRuntimeSubagentRustCoreRequired/.test(
         runtimeSubagentPropagationEnvelopeBlock,
       ) &&
       /retiredSubagentListEnvelopeAliasKeys/.test(runtimeSubagentSurfaceTest) &&
-      /retiredSubagentPropagationEnvelopeAliasKeys/.test(runtimeSubagentSurfaceTest) &&
-      /retiredSubagentSkippedRecordAliasKeys/.test(runtimeSubagentSurfaceTest) &&
       /assertNoOwnKeys\(listed,\s*retiredSubagentListEnvelopeAliasKeys\)/.test(
         runtimeSubagentSurfaceTest,
       ) &&
-      /assertNoOwnKeys\(result,\s*retiredSubagentPropagationEnvelopeAliasKeys\)/.test(
+      /subagent lifecycle mutation facades fail closed before JS truth mutation/.test(
         runtimeSubagentSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime subagent list and propagation envelopes must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: runtime subagent list envelopes must expose canonical snake_case fields while retired propagation mutation facades fail closed before returning JS-authored envelopes",
   );
   assertCheck(
     result,

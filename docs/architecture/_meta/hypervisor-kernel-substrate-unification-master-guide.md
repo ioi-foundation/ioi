@@ -277,12 +277,12 @@ the migration goal resumes. First complete a verified slice that clarifies the
 next Rust-core extraction or JS-facade retirement owner boundary; then run the
 scheduled matrix-compaction pass before starting unrelated route-family work.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
-Slice 732 workspace snapshot/restore mutation compaction is complete. Slice 733
-is intentionally left expanded as the current runtime bridge thread/turn
-facade-retirement seam. The next compaction pass is pending after the next seam
-is clear enough to preserve evidence, distinguish interim bridge scaffolding and
-fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
-command transport or read-only JS helpers as long-term substrate.
+Slice 732 workspace snapshot/restore mutation compaction is complete. Slices
+733-734 are intentionally left expanded as the current runtime bridge thread/turn
+and runtime subagent control facade-retirement seams. The next compaction pass is pending after the next seam is clear enough to preserve evidence, distinguish
+interim bridge scaffolding and fail-closed JS facades from terminal Rust
+daemon-core shape, and avoid encoding command transport or read-only JS helpers
+as long-term substrate.
 
 ## Part II: Target Execution Model
 

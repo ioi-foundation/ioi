@@ -298,6 +298,29 @@ function assertNoOwnKeys(record, keys) {
   }
 }
 
+function assertRuntimeSubagentControlRustCoreRequired(error, {
+  operation,
+  operationKind,
+  threadId = "thread_1",
+  subagentId = null,
+}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_subagent_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.subagent_control");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.thread_id, threadId);
+  if (subagentId) assert.equal(error.details.subagent_id, subagentId);
+  assert.equal(error.details.evidence_refs.includes("runtime_subagent_control_js_facade_retired"), true);
+  assert.equal(error.details.evidence_refs.includes(`${operation}_js_facade_retired`), true);
+  assert.equal(
+    error.details.evidence_refs.includes("rust_daemon_core_runtime_subagent_control_required"),
+    true,
+  );
+  assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys);
+  return true;
+}
+
 const retiredSubagentListEnvelopeAliasKeys = [
   "schemaVersion",
   "threadId",
@@ -323,6 +346,107 @@ const retiredSubagentSkippedRecordAliasKeys = [
   "skipReason",
   "cancellationInheritance",
 ];
+
+test("subagent lifecycle mutation facades fail closed before JS truth mutation", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface();
+  store.surface = surface;
+  const baseline = {
+    agents: store.agents.size,
+    runs: store.runs.size,
+    events: store.events.length,
+    writes: store.writes.length,
+    stateUpdates: store.stateUpdates.length,
+  };
+
+  const cases = [
+    {
+      operation: "runtime_subagent_spawn",
+      operationKind: "subagent.spawn",
+      call: () => surface.spawnSubagent(store, "thread_1", { prompt: "Plan the migration" }),
+    },
+    {
+      operation: "runtime_subagent_wait",
+      operationKind: "subagent.wait",
+      subagentId: "subagent_1",
+      call: () => surface.waitSubagent(store, "thread_1", "subagent_1"),
+    },
+    {
+      operation: "runtime_subagent_input",
+      operationKind: "subagent.input",
+      subagentId: "subagent_1",
+      call: () => surface.sendSubagentInput(store, "thread_1", "subagent_1", { input: "Follow up" }),
+    },
+    {
+      operation: "runtime_subagent_resume",
+      operationKind: "subagent.resume",
+      subagentId: "subagent_1",
+      call: () => surface.resumeSubagent(store, "thread_1", "subagent_1", { prompt: "Resume" }),
+    },
+    {
+      operation: "runtime_subagent_assign",
+      operationKind: "subagent.assign",
+      subagentId: "subagent_1",
+      call: () => surface.assignSubagent(store, "thread_1", "subagent_1", { role: "reviewer" }),
+    },
+    {
+      operation: "runtime_subagent_cancel",
+      operationKind: "subagent.cancel",
+      subagentId: "subagent_1",
+      call: () => surface.cancelSubagent(store, "thread_1", "subagent_1", { reason: "operator_cancel" }),
+    },
+    {
+      operation: "runtime_subagent_cancel_propagation",
+      operationKind: "subagent.cancel.propagate",
+      call: () => surface.propagateSubagentCancellation(store, "thread_1", { reason: "parent_cancel" }),
+    },
+  ];
+
+  for (const testCase of cases) {
+    assert.throws(
+      testCase.call,
+      (error) => assertRuntimeSubagentControlRustCoreRequired(error, testCase),
+    );
+  }
+
+  assert.equal(store.agents.size, baseline.agents);
+  assert.equal(store.runs.size, baseline.runs);
+  assert.equal(store.events.length, baseline.events);
+  assert.equal(store.writes.length, baseline.writes);
+  assert.equal(store.stateUpdates.length, baseline.stateUpdates);
+});
+
+test("subagent control event append facade fails closed before JS runtime event append", () => {
+  const store = createStore();
+  const surface = createRuntimeSubagentSurface();
+  store.surface = surface;
+
+  assert.throws(
+    () =>
+      surface.appendThreadSubagentControlEvent(store, {
+        threadId: "thread_1",
+        parentAgent: store.parentAgent,
+        record: {
+          subagent_id: "subagent_1",
+          agent_id: "agent_child_1",
+          parent_thread_id: "thread_1",
+          role: "reviewer",
+          lifecycle_status: "running",
+        },
+        request: { source: "agent_studio" },
+        operation: "cancel",
+        status: "canceled",
+      }),
+    (error) =>
+      assertRuntimeSubagentControlRustCoreRequired(error, {
+        operation: "runtime_subagent_control_event",
+        operationKind: "subagent.cancel",
+        subagentId: "subagent_1",
+      }),
+  );
+
+  assert.equal(store.events.length, 0);
+});
 
 const retiredSubagentNestedInputAliasKeys = [
   "schemaVersion",
