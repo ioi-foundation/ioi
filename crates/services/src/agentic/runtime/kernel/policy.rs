@@ -65,6 +65,10 @@ pub const MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-catalog-projection-request.v1";
 pub const MCP_MANAGER_CATALOG_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-catalog-projection.v1";
+pub const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-catalog-summary-projection-request.v1";
+pub const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-catalog-summary.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update-request.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -272,6 +276,14 @@ pub enum McpManagerStatusProjectionError {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum McpManagerCatalogProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum McpManagerCatalogSummaryProjectionError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1094,6 +1106,56 @@ pub struct McpManagerCatalogProjectionRecord {
     pub resources: Vec<Value>,
     pub prompts: Vec<Value>,
     pub enabled_tools: Vec<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerCatalogSummaryProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub status_schema_version: Option<String>,
+    #[serde(default)]
+    pub server: Value,
+    #[serde(default)]
+    pub tools: Vec<Value>,
+    #[serde(default)]
+    pub resources: Vec<Value>,
+    #[serde(default)]
+    pub prompts: Vec<Value>,
+    #[serde(default)]
+    pub live_mode: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub error_code: Option<String>,
+    #[serde(default)]
+    pub preview_limit: Option<usize>,
+    #[serde(default)]
+    pub deferred: Option<bool>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerCatalogSummaryProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub server_id: Option<String>,
+    pub server_label: Option<String>,
+    pub transport: Option<String>,
+    pub execution_mode: Option<String>,
+    pub catalog_hash: String,
+    pub tool_count: usize,
+    pub resource_count: usize,
+    pub prompt_count: usize,
+    pub namespace_count: usize,
+    pub namespaces: Vec<String>,
+    pub preview_limit: usize,
+    pub preview_tool_names: Vec<String>,
+    pub deferred: bool,
+    pub full_catalog_included: bool,
+    pub error_code: Option<String>,
+    pub search_route: String,
+    pub fetch_route: String,
     pub generated_at: String,
 }
 
@@ -2851,6 +2913,74 @@ impl McpManagerCatalogProjectionCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct McpManagerCatalogSummaryProjectionCore;
+
+impl McpManagerCatalogSummaryProjectionCore {
+    pub fn project(
+        &self,
+        request: &McpManagerCatalogSummaryProjectionRequest,
+    ) -> Result<McpManagerCatalogSummaryProjectionRecord, McpManagerCatalogSummaryProjectionError>
+    {
+        request.validate()?;
+
+        let mut tool_names = request
+            .tools
+            .iter()
+            .filter_map(|tool| mcp_catalog_field_string(tool, &["tool_name", "name"]))
+            .collect::<Vec<_>>();
+        tool_names.sort();
+
+        let namespaces = mcp_tool_namespaces(&tool_names);
+        let preview_limit = request.preview_limit.unwrap_or(25).clamp(1, 100);
+        let deferred = request
+            .deferred
+            .unwrap_or_else(|| request.tools.len() > preview_limit);
+        let preview_tool_names = tool_names
+            .iter()
+            .take(preview_limit.min(20))
+            .cloned()
+            .collect::<Vec<_>>();
+        let catalog_hash = mcp_catalog_summary_hash(
+            &request.server,
+            &request.tools,
+            &request.resources,
+            &request.prompts,
+        );
+
+        Ok(McpManagerCatalogSummaryProjectionRecord {
+            schema_version: request.status_schema_version.clone().unwrap_or_else(|| {
+                MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_RESULT_SCHEMA_VERSION.to_string()
+            }),
+            object: "ioi.runtime_mcp_catalog_summary".to_string(),
+            status: request
+                .status
+                .clone()
+                .unwrap_or_else(|| "completed".to_string()),
+            server_id: json_string_value(&request.server, "id"),
+            server_label: json_string_value(&request.server, "label")
+                .or_else(|| json_string_value(&request.server, "name"))
+                .or_else(|| json_string_value(&request.server, "id")),
+            transport: json_string_value(&request.server, "transport"),
+            execution_mode: request.live_mode.clone(),
+            catalog_hash,
+            tool_count: request.tools.len(),
+            resource_count: request.resources.len(),
+            prompt_count: request.prompts.len(),
+            namespace_count: namespaces.len(),
+            namespaces,
+            preview_limit,
+            preview_tool_names,
+            deferred,
+            full_catalog_included: !deferred,
+            error_code: request.error_code.clone(),
+            search_route: "/v1/mcp/tools/search".to_string(),
+            fetch_route: "/v1/mcp/tools/{tool_id}".to_string(),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct McpManagerStatusProjectionCore;
 
 impl McpManagerStatusProjectionCore {
@@ -3565,6 +3695,20 @@ impl McpManagerCatalogProjectionRequest {
     }
 }
 
+impl McpManagerCatalogSummaryProjectionRequest {
+    pub fn validate(&self) -> Result<(), McpManagerCatalogSummaryProjectionError> {
+        if self.schema_version != MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(
+                McpManagerCatalogSummaryProjectionError::InvalidSchemaVersion {
+                    expected: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        Ok(())
+    }
+}
+
 impl ThreadMemoryAgentStateUpdateRequest {
     pub fn validate(&self) -> Result<(), ThreadMemoryAgentStateUpdateError> {
         if self.schema_version != THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -4165,6 +4309,60 @@ fn mcp_catalog_prompt_key(prompt: &Value) -> String {
             mcp_catalog_field_string(prompt, &["name"]).unwrap_or_else(|| "prompt".to_string())
         )
     })
+}
+
+fn mcp_catalog_summary_hash(
+    server: &Value,
+    tools: &[Value],
+    resources: &[Value],
+    prompts: &[Value],
+) -> String {
+    let payload = json!({
+        "server_id": json_string_value(server, "id"),
+        "tools": tools.iter().map(|tool| {
+            json!({
+                "stable_tool_id": json_string_value(tool, "stable_tool_id"),
+                "tool_name": json_string_value(tool, "tool_name"),
+                "description": json_string_value(tool, "description"),
+                "input_schema": tool.get("input_schema").cloned().unwrap_or(Value::Null),
+            })
+        }).collect::<Vec<_>>(),
+        "resources": resources.iter().map(|resource| {
+            json!({
+                "stable_resource_id": json_string_value(resource, "stable_resource_id"),
+                "uri": json_string_value(resource, "uri"),
+                "name": json_string_value(resource, "name"),
+            })
+        }).collect::<Vec<_>>(),
+        "prompts": prompts.iter().map(|prompt| {
+            json!({
+                "stable_prompt_id": json_string_value(prompt, "stable_prompt_id"),
+                "name": json_string_value(prompt, "name"),
+            })
+        }).collect::<Vec<_>>(),
+    });
+    let bytes = serde_json::to_vec(&payload).unwrap_or_else(|_| payload.to_string().into_bytes());
+    hex::encode(Sha256::digest(bytes))
+}
+
+fn mcp_tool_namespaces(tool_names: &[String]) -> Vec<String> {
+    let mut namespaces = tool_names
+        .iter()
+        .filter_map(|name| {
+            let namespace = name
+                .split("__")
+                .next()
+                .unwrap_or(name)
+                .split(['.', ':', '/', '-'])
+                .next()
+                .unwrap_or(name);
+            optional_trimmed(Some(namespace))
+        })
+        .collect::<Vec<_>>();
+    namespaces.sort();
+    namespaces.dedup();
+    namespaces.truncate(25);
+    namespaces
 }
 
 fn budget_hash(value: &Value) -> Result<String, ContextBudgetPolicyError> {
@@ -6235,6 +6433,62 @@ mod tests {
         assert!(record.tools[0].get("stableToolId").is_none());
         assert!(record.resources[0].get("stableResourceId").is_none());
         assert!(record.prompts[0].get("stablePromptId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_manager_catalog_summary() {
+        let catalog = McpManagerCatalogProjectionCore
+            .project(&McpManagerCatalogProjectionRequest {
+                schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                status_schema_version: None,
+                servers: vec![json!({
+                    "id": "mcp.docs",
+                    "label": "Docs",
+                    "transport": "stdio",
+                    "enabled": true,
+                    "allowed_tools": [{ "name": "search.index" }],
+                    "resources": [{ "uri": "docs://index" }],
+                    "prompts": [{ "name": "summarize" }]
+                })],
+            })
+            .expect("mcp catalog projection");
+        let request = McpManagerCatalogSummaryProjectionRequest {
+            schema_version: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            status_schema_version: None,
+            server: catalog.servers[0].clone(),
+            tools: catalog.tools.clone(),
+            resources: catalog.resources.clone(),
+            prompts: catalog.prompts.clone(),
+            live_mode: Some("declared_catalog".to_string()),
+            status: None,
+            error_code: None,
+            preview_limit: Some(25),
+            deferred: Some(false),
+        };
+
+        let record = McpManagerCatalogSummaryProjectionCore
+            .project(&request)
+            .expect("mcp catalog summary projection");
+
+        assert_eq!(
+            record.schema_version,
+            MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_mcp_catalog_summary");
+        assert_eq!(record.status, "completed");
+        assert_eq!(record.server_id.as_deref(), Some("mcp.docs"));
+        assert_eq!(record.server_label.as_deref(), Some("Docs"));
+        assert_eq!(record.execution_mode.as_deref(), Some("declared_catalog"));
+        assert_eq!(record.tool_count, 1);
+        assert_eq!(record.resource_count, 1);
+        assert_eq!(record.prompt_count, 1);
+        assert_eq!(record.namespace_count, 1);
+        assert_eq!(record.namespaces[0], "search");
+        assert_eq!(record.preview_tool_names[0], "search.index");
+        assert_eq!(record.search_route, "/v1/mcp/tools/search");
+        assert_eq!(record.fetch_route, "/v1/mcp/tools/{tool_id}");
+        assert!(!record.catalog_hash.is_empty());
     }
 
     #[test]

@@ -97,6 +97,34 @@ function harness() {
           enabled_tools: tools,
         };
       },
+      planMcpManagerCatalogSummaryProjection(request) {
+        calls.push({ name: "planMcpManagerCatalogSummaryProjection", request });
+        const toolNames = request.tools.map((tool) => tool.tool_name).filter(Boolean).sort();
+        return {
+          source: "rust_mcp_manager_catalog_summary_projection_command",
+          backend: "rust_policy",
+          schema_version: "ioi.runtime.mcp-manager-catalog-summary.v1",
+          object: "ioi.runtime_mcp_catalog_summary",
+          status: request.status ?? "completed",
+          server_id: request.server.id,
+          server_label: request.server.label ?? request.server.id,
+          transport: request.server.transport ?? null,
+          execution_mode: request.live_mode ?? null,
+          catalog_hash: `summary:${request.server.id}:${request.tools.length}`,
+          tool_count: request.tools.length,
+          resource_count: request.resources.length,
+          prompt_count: request.prompts.length,
+          namespace_count: toolNames.length,
+          namespaces: toolNames,
+          preview_limit: request.preview_limit ?? 25,
+          preview_tool_names: toolNames.slice(0, 20),
+          deferred: request.deferred ?? false,
+          full_catalog_included: !(request.deferred ?? false),
+          error_code: request.error_code ?? null,
+          search_route: "/v1/mcp/tools/search",
+          fetch_route: "/v1/mcp/tools/{tool_id}",
+        };
+      },
       planMcpManagerValidationProjection(request) {
         calls.push({ name: "planMcpManagerValidationProjection", request });
         return {
@@ -337,6 +365,10 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(globalSearch.server_count, 3);
   assert.deepEqual(globalSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(globalSearch.routes.get_tool, "/v1/mcp/tools/{tool_id}");
+  assert.equal(
+    globalSearch.catalog_summaries[0].source,
+    "rust_mcp_manager_catalog_summary_projection_command",
+  );
   assert.equal(Object.hasOwn(globalSearch, "schemaVersion"), false);
   assert.equal(Object.hasOwn(globalSearch, "liveDiscovery"), false);
   assert.equal(Object.hasOwn(globalSearch, "serverCount"), false);
@@ -353,6 +385,10 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   assert.equal(threadSearch.server_count, 2);
   assert.deepEqual(threadSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(calls.some((call) => call.name === "agentForThread"), true);
+  assert.equal(
+    calls.some((call) => call.name === "planMcpManagerCatalogSummaryProjection"),
+    true,
+  );
 
   const fetched = await surface.getMcpTool(store, "mcp.agent.git.diff", {
     thread_id: "thread-agent-one",

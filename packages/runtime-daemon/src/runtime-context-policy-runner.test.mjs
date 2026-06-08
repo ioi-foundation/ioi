@@ -16,6 +16,7 @@ import {
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
@@ -1059,6 +1060,63 @@ test("MCP manager catalog projection runner sends Rust daemon-core projection re
   assert.equal(result.prompts[0].stable_prompt_id, "mcp.docs.prompt.summarize");
   assert.equal(Object.hasOwn(result, "toolCount"), false);
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
+});
+
+test("MCP manager catalog summary projection runner sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_mcp_manager_catalog_summary_projection_command",
+            backend: "rust_policy",
+            status: "completed",
+            server_id: "mcp.docs",
+            server_label: "Docs",
+            execution_mode: "declared_catalog",
+            catalog_hash: "abc123",
+            tool_count: 1,
+            resource_count: 0,
+            prompt_count: 0,
+            namespace_count: 1,
+            namespaces: ["search"],
+            preview_limit: 25,
+            preview_tool_names: ["search"],
+            deferred: false,
+            full_catalog_included: true,
+            search_route: "/v1/mcp/tools/search",
+            fetch_route: "/v1/mcp/tools/{tool_id}",
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planMcpManagerCatalogSummaryProjection({
+    server: { id: "mcp.docs", label: "Docs" },
+    tools: [{ stable_tool_id: "mcp.docs.search", tool_name: "search" }],
+    live_mode: "declared_catalog",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_mcp_manager_catalog_summary_projection");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(result.source, "rust_mcp_manager_catalog_summary_projection_command");
+  assert.equal(result.object, "ioi.runtime_mcp_catalog_summary");
+  assert.equal(result.tool_count, 1);
+  assert.equal(result.namespaces[0], "search");
+  assert.equal(result.search_route, "/v1/mcp/tools/search");
+  assert.equal(Object.hasOwn(result, "toolCount"), false);
+  assert.equal(Object.hasOwn(result, "catalogHash"), false);
 });
 
 test("MCP manager validation projection runner sends Rust daemon-core projection request", () => {

@@ -697,6 +697,20 @@ SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
 Slice 780 MCP public catalog Rust-core matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
+Slice 781 moved MCP catalog summary projection into Rust daemon-core migration
+transport. `searchMcpToolCatalog()` still performs live MCP transport discovery
+in JS during migration, but declared and live-discovered tool/resource/prompt
+rows now pass through `McpManagerCatalogSummaryProjectionCore` /
+`plan_mcp_manager_catalog_summary_projection` before public search/fetch
+responses expose `ioi.runtime_mcp_catalog_summary` records; the JS catalog
+surface no longer imports, injects, or calls `mcpCatalogSummaryForServer()` for
+those public summaries. This still does not claim terminal MCP migration:
+direct Rust daemon-core MCP registry truth, live transport discovery and
+containment, wallet authority, StepModuleRouter dispatch, receipt binding,
+Agentgres admission, replay, and SDK/IDE protocol coverage still need direct
+Rust daemon-core ownership. The Slice 781 MCP catalog summary Rust-core
+matrix-compaction pass is pending and must run before unrelated route-family
+work resumes.
 
 ## Part II: Target Execution Model
 

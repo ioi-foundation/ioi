@@ -97,7 +97,9 @@ use policy::{
     McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
     McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionCore,
     McpManagerCatalogProjectionError, McpManagerCatalogProjectionRecord,
-    McpManagerCatalogProjectionRequest, McpManagerStatusProjectionCore,
+    McpManagerCatalogProjectionRequest, McpManagerCatalogSummaryProjectionCore,
+    McpManagerCatalogSummaryProjectionError, McpManagerCatalogSummaryProjectionRecord,
+    McpManagerCatalogSummaryProjectionRequest, McpManagerStatusProjectionCore,
     McpManagerStatusProjectionError, McpManagerStatusProjectionRecord,
     McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
     McpManagerValidationProjectionError, McpManagerValidationProjectionRecord,
@@ -308,6 +310,14 @@ impl RuntimeKernelService {
         request: &McpManagerCatalogProjectionRequest,
     ) -> Result<McpManagerCatalogProjectionRecord, McpManagerCatalogProjectionError> {
         McpManagerCatalogProjectionCore.project(request)
+    }
+
+    pub fn plan_mcp_manager_catalog_summary_projection(
+        &self,
+        request: &McpManagerCatalogSummaryProjectionRequest,
+    ) -> Result<McpManagerCatalogSummaryProjectionRecord, McpManagerCatalogSummaryProjectionError>
+    {
+        McpManagerCatalogSummaryProjectionCore.project(request)
     }
 
     pub fn plan_thread_memory_agent_state_update(

@@ -29,6 +29,8 @@ export const MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status-projection-request.v1";
 export const MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-catalog-projection-request.v1";
+export const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-manager-catalog-summary-projection-request.v1";
 export const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-memory-agent-state-update-request.v1";
 export const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -194,6 +196,14 @@ export class RustContextPolicyRunner {
     return normalizeMcpManagerCatalogProjectionBridgeResult(this.evaluateRawPolicy({
       operation: "plan_mcp_manager_catalog_projection",
       schemaVersion: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planMcpManagerCatalogSummaryProjection(request = {}) {
+    return normalizeMcpManagerCatalogSummaryProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_mcp_manager_catalog_summary_projection",
+      schemaVersion: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -802,6 +812,49 @@ export function normalizeMcpManagerCatalogProjectionBridgeResult(value = {}) {
     resources,
     prompts,
     enabled_tools: enabledTools,
+  };
+}
+
+export function normalizeMcpManagerCatalogSummaryProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const namespaces = arrayValue(result.namespaces ?? record.namespaces);
+  const previewToolNames = arrayValue(result.preview_tool_names ?? record.preview_tool_names);
+  const deferred = Boolean(result.deferred ?? record.deferred);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_mcp_manager_catalog_summary_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object:
+      optionalString(result.object ?? record.object) ??
+      "ioi.runtime_mcp_catalog_summary",
+    status: optionalString(result.status ?? record.status) ?? "completed",
+    server_id: optionalString(result.server_id ?? record.server_id) ?? null,
+    server_label: optionalString(result.server_label ?? record.server_label) ?? null,
+    transport: optionalString(result.transport ?? record.transport) ?? null,
+    execution_mode: optionalString(result.execution_mode ?? record.execution_mode) ?? null,
+    catalog_hash: optionalString(result.catalog_hash ?? record.catalog_hash) ?? null,
+    tool_count: numberValue(result.tool_count ?? record.tool_count) ?? 0,
+    resource_count: numberValue(result.resource_count ?? record.resource_count) ?? 0,
+    prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? 0,
+    namespace_count:
+      numberValue(result.namespace_count ?? record.namespace_count) ?? namespaces.length,
+    namespaces,
+    preview_limit: numberValue(result.preview_limit ?? record.preview_limit) ?? 25,
+    preview_tool_names: previewToolNames,
+    deferred,
+    full_catalog_included: Boolean(result.full_catalog_included ?? record.full_catalog_included ?? !deferred),
+    error_code: optionalString(result.error_code ?? record.error_code) ?? null,
+    search_route:
+      optionalString(result.search_route ?? record.search_route) ??
+      "/v1/mcp/tools/search",
+    fetch_route:
+      optionalString(result.fetch_route ?? record.fetch_route) ??
+      "/v1/mcp/tools/{tool_id}",
   };
 }
 

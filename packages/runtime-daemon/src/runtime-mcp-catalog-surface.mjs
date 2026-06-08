@@ -15,7 +15,6 @@ import {
 } from "./mcp-manager.mjs";
 import {
   mcpCatalogPreviewLimit,
-  mcpCatalogSummaryForServer,
   mcpConfigSourceModeForRequest,
   mcpLiveExecutionModeForServer,
   mcpServerMatchesConfigSourceMode,
@@ -42,7 +41,6 @@ export function createRuntimeMcpCatalogSurface({
   discoverMcpHttpCatalog: discoverMcpHttpCatalogDep = discoverMcpHttpCatalog,
   discoverMcpStdioCatalog: discoverMcpStdioCatalogDep = discoverMcpStdioCatalog,
   mcpCatalogPreviewLimit: mcpCatalogPreviewLimitDep = mcpCatalogPreviewLimit,
-  mcpCatalogSummaryForServer: mcpCatalogSummaryForServerDep = mcpCatalogSummaryForServer,
   mcpConfigSourceModeForRequest: mcpConfigSourceModeForRequestDep = mcpConfigSourceModeForRequest,
   mcpLiveExecutionModeForServer: mcpLiveExecutionModeForServerDep = mcpLiveExecutionModeForServer,
   mcpRegistryForWorkspace: mcpRegistryForWorkspaceDep = mcpRegistryForWorkspace,
@@ -223,7 +221,7 @@ export function createRuntimeMcpCatalogSurface({
             tools = liveCatalog.tools;
             resources = liveCatalog.resources;
             prompts = liveCatalog.prompts;
-            catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
+            catalogSummaries.push(this.mcpCatalogSummaryForRows(server, { tools, resources, prompts }, {
               live_mode: liveMode,
               deferred: tools.length > mcpCatalogPreviewLimitDep(request),
               preview_limit: mcpCatalogPreviewLimitDep(request),
@@ -235,14 +233,14 @@ export function createRuntimeMcpCatalogSurface({
               error_code: optionalStringDep(error?.code) ?? "mcp_tool_search_discovery_failed",
               message: String(error?.message ?? error),
             });
-            catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
+            catalogSummaries.push(this.mcpCatalogSummaryForRows(server, { tools, resources, prompts }, {
               live_mode: liveMode,
               status: "failed",
               error_code: optionalStringDep(error?.code) ?? "mcp_tool_search_discovery_failed",
             }));
           }
         } else {
-          catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
+          catalogSummaries.push(this.mcpCatalogSummaryForRows(server, { tools, resources, prompts }, {
             live_mode: liveMode ?? "declared_catalog",
             deferred: false,
             preview_limit: mcpCatalogPreviewLimitDep(request),
@@ -307,6 +305,19 @@ export function createRuntimeMcpCatalogSurface({
         prompts: normalizeArrayDep(catalog.prompts),
         enabled_tools: normalizeArrayDep(catalog.enabled_tools),
       };
+    },
+    mcpCatalogSummaryForRows(server, catalog = {}, options = {}) {
+      return contextPolicyRunner.planMcpManagerCatalogSummaryProjection({
+        server,
+        tools: normalizeArrayDep(catalog.tools),
+        resources: normalizeArrayDep(catalog.resources),
+        prompts: normalizeArrayDep(catalog.prompts),
+        live_mode: options.live_mode,
+        status: options.status,
+        error_code: options.error_code,
+        preview_limit: options.preview_limit,
+        deferred: options.deferred,
+      });
     },
     mcpServersForContext(store, options = {}) {
       const threadId = optionalStringDep(options.thread_id);
