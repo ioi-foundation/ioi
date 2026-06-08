@@ -6,7 +6,7 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-08.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 747. Slices 733-740 compacted the
+route-family slice ledger through Slice 748. Slices 733-740 compacted the
 runtime bridge thread/turn, runtime subagent control facade-retirement and
 legacy-body deletion, runtime task/job control facade-retirement, runtime
 thread-fork control facade-retirement, conversation-artifact control
@@ -30,12 +30,11 @@ managed-session control facade-retirement evidence, then compacted Slice 745 MCP
 workflow facade-retirement evidence. This pass compacted Slice 746
 model-mount conversation-state write and stream-completion finalization
 facade-retirement evidence, then compacted Slice 747 model tokenizer/context-fit
-facade-retirement evidence.
+facade-retirement evidence, then compacted Slice 748 direct model lifecycle
+receipt helper facade-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Slice 748 has now landed, so
-complete its scheduled matrix-compaction pass before starting unrelated
-route-family work.
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -130,10 +129,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: Slice 748 direct model lifecycle
-  receipt helper facade-retirement evidence, after verification and commit.
-  Preserve direct Rust daemon-core lifecycle receipt admission/projection as the
-  terminal target.
+- Next scheduled matrix-compaction pass: none pending after the Slice 748
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13944,51 +13942,33 @@ above remain authoritative for current and target ownership.
   that seam lands, and do not encode fail-closed JS facades, tokenizer
   projection/read helpers, or migration transport as terminal architecture.
 
-## Implementation Slice 748
+## Compacted Implementation Slice Evidence: 748
 
-```yaml
-slice:
-  id: 748
-  status: verified
-  objective: retire the direct JS model lifecycle receipt helper as an
-    authoritative model_lifecycle receipt constructor
-  migration_direction: Rust daemon-core model_mount lifecycle receipt admission,
-    receipt binding, Agentgres truth, and projection
-  current_transport: JS lifecycleReceipt facade fails closed with
-    model_mount_lifecycle_receipt_rust_core_required after retired subject alias
-    validation and before any model_lifecycle receipt construction
-  terminal_shape: direct Rust daemon-core lifecycle receipt API owns lifecycle
-    receipt admission, binding, state-root/expected-head validation, projection,
-    and replay
-  touched_files:
-    - packages/runtime-daemon/src/model-mounting/receipt-operations.mjs
-    - packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
-  retired_js_authority:
-    - direct JS model_lifecycle receipt construction
-    - direct lifecycle helper delegation into state.receipt
-    - direct lifecycle helper projection refresh through receipt persistence
-    - migrated instance lifecycle helper binding checks as a JS receipt
-      allocation precondition
-  evidence_refs:
-    - model_mount_lifecycle_receipt_js_facade_retired
-    - rust_daemon_core_model_lifecycle_receipt_required
-    - agentgres_model_lifecycle_receipt_truth_required
-  conformance:
-    - model-mount-backend-lifecycle-detail-aliases-retired
-    - model-mount-instance-lifecycle-receipt-direct-write-guard
-    - model-mount-instance-lifecycle-detail-aliases-retired
-    - model-mount-receipt-store-operation-append-retired
-  compaction:
-    scheduled: true
-    instruction: compact Slice 748 before unrelated route-family work resumes;
-      preserve direct Rust daemon-core lifecycle receipt ownership as the
-      terminal target and do not treat the fail-closed JS helper as final
-      architecture
-```
+The expanded Slice 748 ledger was compacted on 2026-06-08 after the direct
+model lifecycle receipt helper facade-retirement seam landed. This slice remains
+active migration evidence, not terminal architecture. The
+`ModelLifecycleReceiptControl` implementation-matrix row, conformance command
+contract, and terminal blockers above remain authoritative for current and
+target ownership.
+
+- Slice 748 retired JS-authoritative `model_lifecycle` receipt construction in
+  `packages/runtime-daemon/src/model-mounting/receipt-operations.mjs`. The
+  direct `lifecycleReceipt` helper now fails closed with
+  `model_mount_lifecycle_receipt_rust_core_required` after retired subject alias
+  validation and before JS receipt construction, state receipt delegation, store
+  writes, or projection refresh.
+- Conformance anchors include
+  `model_mount_lifecycle_receipt_js_facade_retired`,
+  `rust_daemon_core_model_lifecycle_receipt_required`,
+  `agentgres_model_lifecycle_receipt_truth_required`,
+  `model_mount_lifecycle_receipt_rust_core_required`,
+  `model-mount-backend-lifecycle-detail-aliases-retired`, and
+  `model-mount-receipt-store-operation-append-retired`.
+- Scheduled matrix-compaction obligation from Slice 748 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS lifecycle receipt helpers,
+  read/projection helpers, or migration transport as terminal architecture.
 
 ## Command State
 
