@@ -409,6 +409,9 @@ function runDocs() {
       /Slice 764 retired the hidden `AgentMemoryStore` JS mutation writers/.test(guide) &&
       /`AgentMemoryStore` no longer receives a\s+`commitRuntimeMemoryState` injection/.test(guide) &&
       /The Slice 764 direct `AgentMemoryStore` writer and run-memory mutation path\s+retirement matrix-compaction pass is complete/.test(guide) &&
+      /Slice 765 retired the private backend registry local log writer/.test(guide) &&
+      /`writeBackendLog\(\)` no longer\s+imports filesystem APIs, creates `backend-logs\/\*\.jsonl`/.test(guide) &&
+      /Schedule a matrix-compaction pass after Slice 765/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -437,7 +440,8 @@ function runDocs() {
       /This pass compacted Slice 762 catalog-provider config-update helper retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 763 direct conversation-artifact store writer\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 765 retired the private backend registry local log writer/.test(matrix) &&
+      /Next resume instruction: compact Slice 765 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -636,8 +640,11 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 764 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 764/.test(matrix) &&
       /runtime_run_memory_mutation_rust_core_required/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 764 direct\s+`AgentMemoryStore` writer and run-memory mutation path retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 765/.test(matrix) &&
+      /model_mount_backend_log_js_writer_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 765 backend\s+registry local log writer retirement/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
+      /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
       ) &&
@@ -9992,6 +9999,12 @@ function runReceipts() {
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     : "";
+  const backendRegistryState = exists("packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs")
+    : "";
+  const backendRegistryStateTest = exists("packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs")
+    : "";
   const backendProcesses = exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-processes.mjs")
     : "";
@@ -12470,6 +12483,12 @@ function runReceipts() {
       /model_mount\.backend_process\.start/.test(backendLifecycle) &&
       /model_mount\.backend_process\.exit/.test(backendLifecycle) &&
       /model_mount\.backend_process\.stop/.test(backendLifecycle) &&
+      /model_mount_backend_log_js_writer_retired/.test(backendRegistryState) &&
+      /persistenceStatus:\s*"not_persisted"/.test(backendRegistryState) &&
+      !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
+      /writeBackendLog returns redacted telemetry without local backend log files/.test(backendRegistryStateTest) &&
+      /existsSync\(endpointLog\),\s*false/.test(backendRegistryStateTest) &&
+      /existsSync\(backendLog\),\s*false/.test(backendRegistryStateTest) &&
       /model_mount_backend_process_state_commit_unconfigured/.test(backendLifecycle) &&
       /model_mount_backend_state_commit_unconfigured/.test(backendLifecycle) &&
       !/state\.writeMap\("backend-processes"/.test(backendLifecycle) &&
@@ -12527,6 +12546,8 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs",
+      "packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],

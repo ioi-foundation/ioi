@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
 export function seedBackends(state, checkedAt) {
   for (const backend of state.deriveBackendRegistry(checkedAt)) {
     const previous = state.backends.get(backend.id);
@@ -109,7 +106,6 @@ export function writeBackendLog(state, endpointId, event, deps = {}) {
   const {
     randomUUID,
     redact,
-    safeFileName,
   } = deps;
   const record = {
     id: `backend_log_${randomUUID()}`,
@@ -117,13 +113,12 @@ export function writeBackendLog(state, endpointId, event, deps = {}) {
     backendId: event.backendId ?? event.backend ?? endpointId,
     createdAt: state.nowIso(),
     ...redact(event),
+    persistenceStatus: "not_persisted",
+    evidenceRefs: [
+      "model_mount_backend_log_js_writer_retired",
+      "rust_daemon_core_backend_lifecycle_required",
+      "agentgres_backend_lifecycle_truth_required",
+    ],
   };
-  const filePath = path.join(state.stateDir, "backend-logs", `${safeFileName(endpointId)}.jsonl`);
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.appendFileSync(filePath, `${JSON.stringify(record)}\n`);
-  if (record.backendId && record.backendId !== endpointId) {
-    const backendPath = path.join(state.stateDir, "backend-logs", `${safeFileName(record.backendId)}.jsonl`);
-    fs.appendFileSync(backendPath, `${JSON.stringify(record)}\n`);
-  }
   return record;
 }

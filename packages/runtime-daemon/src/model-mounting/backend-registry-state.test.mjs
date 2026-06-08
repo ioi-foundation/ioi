@@ -167,17 +167,21 @@ test("listBackendProcesses reconciles stale boot records and backendProcessForBa
   assert.equal(reconciledBackendProcess(state, null, deps), null);
 });
 
-test("writeBackendLog redacts event and mirrors backend-specific log files", () => {
+test("writeBackendLog returns redacted telemetry without local backend log files", () => {
   const state = fakeState();
 
   const record = writeBackendLog(state, "endpoint.local", { backendId: "backend.llama_cpp", secret: "token", status: "started" }, deps);
 
   assert.equal(record.id, "backend_log_uuid-1");
   assert.equal(record.secret, "[REDACTED]");
+  assert.equal(record.persistenceStatus, "not_persisted");
+  assert.deepEqual(record.evidenceRefs, [
+    "model_mount_backend_log_js_writer_retired",
+    "rust_daemon_core_backend_lifecycle_required",
+    "agentgres_backend_lifecycle_truth_required",
+  ]);
   const endpointLog = path.join(state.stateDir, "backend-logs", "endpoint.local.jsonl");
   const backendLog = path.join(state.stateDir, "backend-logs", "backend.llama_cpp.jsonl");
-  assert.equal(fs.existsSync(endpointLog), true);
-  assert.equal(fs.existsSync(backendLog), true);
-  assert.match(fs.readFileSync(endpointLog, "utf8"), /backend_log_uuid-1/);
-  assert.match(fs.readFileSync(backendLog, "utf8"), /backend_log_uuid-1/);
+  assert.equal(fs.existsSync(endpointLog), false);
+  assert.equal(fs.existsSync(backendLog), false);
 });

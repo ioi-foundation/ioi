@@ -476,6 +476,23 @@ run-memory projection helper as terminal architecture.
 The Slice 764 direct `AgentMemoryStore` writer and run-memory mutation path
 retirement matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands.
+Slice 765 retired the private backend registry local log writer behind
+model-mount backend lifecycle migration plumbing. `writeBackendLog()` no longer
+imports filesystem APIs, creates `backend-logs/*.jsonl`, mirrors endpoint logs
+to backend-specific files, or lets backend process supervision create a local
+log truth path outside Rust daemon-core lifecycle/projection ownership. The
+helper now returns redacted non-persistent telemetry marked with
+`model_mount_backend_log_js_writer_retired`, while public backend
+health/start/stop/log facades remain fail-closed at the Rust-core-required
+boundary. This does not claim terminal backend lifecycle migration: direct Rust
+daemon-core backend lifecycle/control/projection still needs to own process
+control, log/event projection, Agentgres expected-head/state-root binding,
+receipt/event materialization, replay, SDK/IDE protocol coverage, and
+conformance. Do not encode the remaining JS process-supervision helper as
+terminal architecture.
+Schedule a matrix-compaction pass after Slice 765 before starting unrelated
+route-family work, once this Rust-core extraction/facade-retirement seam is
+ready to collapse into compacted evidence.
 
 ## Part II: Target Execution Model
 
