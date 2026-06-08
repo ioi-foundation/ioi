@@ -5,7 +5,9 @@ import {
   RustWorkspaceRestoreRunner,
   WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
   WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
+  WORKSPACE_RESTORE_COMMAND_ARGS_ENV,
   WORKSPACE_RESTORE_COMMAND_ENV,
+  WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION,
   WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
   WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
   createWorkspaceRestoreRunnerFromEnv,
@@ -95,6 +97,7 @@ test("workspace restore runner sends apply policy bridge request", () => {
 
   assert.equal(calls[0].command, "mock-workspace-restore-bridge");
   assert.deepEqual(calls[0].args, ["--restore"]);
+  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].bridgeRequest.operation, "plan_workspace_restore_apply_policy");
   assert.equal(calls[0].bridgeRequest.backend, "rust_workspace_restore");
   assert.equal(
@@ -169,6 +172,7 @@ test("workspace restore runner sends preview operations bridge request", () => {
   const operations = runner.previewOperations(operationsRequest());
 
   assert.equal(calls[0].bridgeRequest.operation, "preview_workspace_restore_operations");
+  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(
     calls[0].bridgeRequest.request.schema_version,
     WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
@@ -245,6 +249,7 @@ test("workspace restore runner sends apply operations bridge request", () => {
   const operations = runner.applyOperations({ ...operationsRequest(), allow_conflicts: false });
 
   assert.equal(calls[0].bridgeRequest.operation, "apply_workspace_restore_operations");
+  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(
     calls[0].bridgeRequest.request.schema_version,
     WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
@@ -362,6 +367,7 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
   });
 
   assert.equal(calls[0].bridgeRequest.operation, "capture_workspace_snapshot_files");
+  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(
     calls[0].bridgeRequest.request.schema_version,
     WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
@@ -579,12 +585,18 @@ test("workspace restore runner ignores retired request aliases", () => {
   assert.equal(calls[1].request.files[0].after.content_hash, null);
 });
 
-test("workspace restore runner can be configured from env", () => {
+test("workspace restore runner env uses daemon-core command boundary", () => {
   const runner = createWorkspaceRestoreRunnerFromEnv({
-    [WORKSPACE_RESTORE_COMMAND_ENV]: "mock-workspace-restore-bridge",
+    [WORKSPACE_RESTORE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [WORKSPACE_RESTORE_COMMAND_ARGS_ENV]: "--json",
+    IOI_WORKSPACE_RESTORE_COMMAND: "retired-workspace-restore-bridge",
+    IOI_WORKSPACE_RESTORE_COMMAND_ARGS: "--retired-restore",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-workspace-restore-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("workspace restore runner fails closed without command", () => {

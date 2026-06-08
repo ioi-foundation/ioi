@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const WORKSPACE_RESTORE_COMMAND_ENV = "IOI_WORKSPACE_RESTORE_COMMAND";
-export const WORKSPACE_RESTORE_COMMAND_ARGS_ENV = "IOI_WORKSPACE_RESTORE_COMMAND_ARGS";
-export const WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const WORKSPACE_RESTORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const WORKSPACE_RESTORE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_preview_operations_request.v1";
 export const WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION =
@@ -99,7 +99,7 @@ export class RustWorkspaceRestoreRunner {
     }
     if (!this.command) {
       throw new WorkspaceRestoreRunnerError(
-        "Workspace restore requires IOI_WORKSPACE_RESTORE_COMMAND for Rust restore planning and execution.",
+        "Workspace restore requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core restore planning and execution.",
         "workspace_restore_bridge_unconfigured",
         {
           env: WORKSPACE_RESTORE_COMMAND_ENV,

@@ -1015,6 +1015,10 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "execute_private_workspace_ctee_action"
             | "admit_l1_settlement_attempt"
             | "admit_governed_runtime_improvement_proposal"
+            | "plan_workspace_restore_apply_policy"
+            | "preview_workspace_restore_operations"
+            | "apply_workspace_restore_operations"
+            | "capture_workspace_snapshot_files"
             | "plan_coding_tool_approval_manifest"
             | "plan_approval_request_state_update"
             | "plan_approval_decision_state_update"
@@ -1995,12 +1999,12 @@ fn admit_governed_runtime_improvement_proposal(
 fn plan_workspace_restore_apply_policy(
     request: WorkspaceRestoreApplyPolicyBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2038,12 +2042,12 @@ fn plan_workspace_restore_apply_policy(
 fn preview_workspace_restore_operations(
     request: WorkspaceRestoreOperationsBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2069,12 +2073,12 @@ fn preview_workspace_restore_operations(
 fn apply_workspace_restore_operations(
     request: WorkspaceRestoreOperationsBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2100,12 +2104,12 @@ fn apply_workspace_restore_operations(
 fn capture_workspace_snapshot_files(
     request: WorkspaceSnapshotCaptureBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7706,7 +7710,7 @@ mod tests {
     #[test]
     fn bridge_plans_workspace_restore_apply_policy_through_rust_core() {
         let request: WorkspaceRestoreApplyPolicyBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_workspace_restore_apply_policy",
             "backend": "rust_workspace_restore",
             "request": {
@@ -7757,7 +7761,7 @@ mod tests {
         let old_hash = sha256_hex(b"old").expect("old hash");
         let new_hash = sha256_hex(b"new").expect("new hash");
         let request: WorkspaceRestoreOperationsBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "apply_workspace_restore_operations",
             "backend": "rust_workspace_restore",
             "request": {
@@ -7799,11 +7803,58 @@ mod tests {
     }
 
     #[test]
+    fn workspace_restore_apply_rejects_step_module_command_schema() {
+        let workspace = temp_workspace("apply-retired-schema");
+        let target = workspace.join("src/app.js");
+        fs::create_dir_all(target.parent().expect("parent")).expect("mkdir");
+        fs::write(&target, "new").expect("write current");
+        let old_hash = sha256_hex(b"old").expect("old hash");
+        let new_hash = sha256_hex(b"new").expect("new hash");
+        let request: WorkspaceRestoreOperationsBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "apply_workspace_restore_operations",
+            "backend": "rust_workspace_restore",
+            "request": {
+                "schema_version": "ioi.workspace_restore_apply_operations_request.v1",
+                "workspace_root": workspace.to_string_lossy(),
+                "max_diff_bytes": 4096,
+                "allow_conflicts": false,
+                "files": [
+                    {
+                        "path": "src/app.js",
+                        "before": {
+                            "exists": true,
+                            "content_hash": old_hash,
+                            "content": "old"
+                        },
+                        "after": {
+                            "exists": true,
+                            "content_hash": new_hash
+                        }
+                    }
+                ]
+            }
+        }))
+        .expect("workspace restore operations bridge request");
+
+        let error = apply_workspace_restore_operations(request)
+            .expect_err("daemon-core workspace restore rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(fs::read_to_string(&target).expect("not restored"), "new");
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
     fn bridge_captures_workspace_snapshot_files_through_rust_core() {
         let old_hash = sha256_hex(b"old").expect("old hash");
         let new_hash = sha256_hex(b"new").expect("new hash");
         let request: WorkspaceSnapshotCaptureBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "capture_workspace_snapshot_files",
             "backend": "rust_workspace_restore",
             "request": {

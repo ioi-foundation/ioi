@@ -8435,7 +8435,8 @@ function runBridge() {
       /apply_workspace_restore_operations/.test(bridgeModule) &&
       /rust_workspace_restore_operations_command/.test(bridgeModule) &&
       /workspace_restore_operations_invalid/.test(bridgeModule) &&
-      /bridge_applies_workspace_restore_operations_through_rust_core/.test(bridgeModule),
+      /bridge_applies_workspace_restore_operations_through_rust_core/.test(bridgeModule) &&
+      /workspace_restore_apply_rejects_step_module_command_schema/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -8464,7 +8465,10 @@ function runBridge() {
     result,
     "workspace-restore-daemon-runner",
     /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
-      /IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workspaceRestoreRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
+      !/IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(workspaceRestoreRunner) &&
       /RustWorkspaceRestoreRunner/.test(workspaceRestoreRunner) &&
       /createWorkspaceRestoreRunnerFromEnv/.test(workspaceRestoreRunner) &&
       /createWorkspaceRestoreRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -8495,6 +8499,9 @@ function runBridge() {
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner ignores retired request aliases/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner env uses daemon-core command boundary/.test(
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner fails closed without command/.test(
