@@ -86,6 +86,7 @@ This pass compacted Slice 781 MCP catalog summary Rust-core evidence.
 This pass compacted Slice 782 MCP helper summary-retirement evidence.
 This pass compacted Slice 783 MCP helper mutation/registry-retirement evidence.
 This pass compacted Slice 784 MCP validation-input Rust-core evidence.
+Slice 785 retired the helper-level JS MCP validation decision path.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice. Preserve the live owner map, terminal
 blockers, and the fact that fail-closed JS facades, canonical input helpers,
@@ -196,8 +197,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending until the next concrete
-  Rust-core extraction or facade-retirement seam lands.
+- Next scheduled matrix-compaction pass: pending for Slice 785 MCP JS
+  validation helper-retirement evidence.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15574,3 +15575,34 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode the command bridge, read-only helper
 adapters, or fail-closed JS surfaces as terminal architecture.
+
+## Implementation Slice Evidence: 785
+
+Slice 785 retired the remaining helper-level JS MCP validation decision path.
+`mcp-manager.mjs` no longer exports `validateMcpServerRecords()` or the
+`RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION` constant, and
+`mcp-manager.test.mjs` no longer preserves focused local validation diagnostics
+or secret-ref alias behavior for that helper. Public MCP status and validation
+had already moved to Rust `McpServerValidationCore` through
+`contextPolicyRunner.validateMcpServers({ servers })`; this slice removes the
+last local helper body that could be mistaken for a second validation truth path.
+
+Rust policy tests remain the validation proof for unsupported transports,
+missing stdio commands, invalid remote URLs, blocked remote network egress,
+invalid vault refs, empty allowed-tool warnings, and retired `secretRefs`
+alias rejection. The conformance guard now requires the JS helper and helper
+constant to stay absent while Rust validation coverage remains present.
+
+This does not claim terminal MCP migration: direct Rust daemon-core MCP
+registry truth, live transport discovery and containment, wallet authority,
+StepModuleRouter dispatch, receipt binding, Agentgres expected-head/state-root
+binding, replay, SDK/IDE protocol coverage, and conformance still need to own
+the whole MCP control/projection path. Schedule and run a matrix-compaction pass
+for Slice 785 before unrelated route-family work resumes.
+
+| Command | Expected status now | Reason |
+| --- | --- | --- |
+| `node --test packages/runtime-daemon/src/mcp-manager.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs` | pass | Focused JS tests no longer import the retired validator and still cover Rust-runner validation/projection surfaces. |
+| `cargo test -p ioi-services rust_policy_rejects_invalid_mcp_server_records`; `cargo test -p ioi-services rust_policy_validates_mcp_servers`; `cargo test -p ioi-services mcp_server_validation` | pass | Rust remains the MCP validation decision owner and rejects retired validation schema/alias paths. |
+| `npm run hypervisor-conformance:bridge` | pass | Bridge/compositor guards require the JS helper to stay retired while Rust MCP validation coverage remains. |
+| `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal MCP registry/control/admission/replay migration is still not claimed. |

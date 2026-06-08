@@ -752,6 +752,17 @@ coverage still need direct Rust daemon-core ownership. The Slice 784 MCP
 validation-input Rust-core matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
+Slice 785 retired the remaining helper-level JS MCP validation decision path.
+`mcp-manager.mjs` no longer exports `validateMcpServerRecords()` or the
+`RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION` helper constant, and focused
+MCP manager tests no longer preserve local JS validation diagnostics after
+public status/validation already route through Rust `McpServerValidationCore`.
+This still does not claim terminal MCP migration: direct Rust daemon-core MCP
+registry truth, live transport discovery and containment, wallet authority,
+StepModuleRouter dispatch, receipt binding, Agentgres admission, replay, and
+SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
+Slice 785 MCP JS validation helper-retirement matrix-compaction pass is pending
+until the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

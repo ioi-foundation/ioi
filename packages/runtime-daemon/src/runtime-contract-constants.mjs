@@ -23,6 +23,8 @@ export const RUNTIME_MCP_SERVE_DEFAULT_ALLOWED_TOOL_IDS = [
   "git.diff",
   "file.inspect",
 ];
+export const RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION =
+  "ioi.runtime.mcp-manager-validation.v1";
 export const RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION = "ioi.runtime.mcp-tool-search.v1";
 export const RUNTIME_USAGE_DELTA_SCHEMA_VERSION = "ioi.runtime.usage-delta.v1";
 export const RUNTIME_CONTEXT_PRESSURE_DELTA_SCHEMA_VERSION = "ioi.runtime.context-pressure-delta.v1";

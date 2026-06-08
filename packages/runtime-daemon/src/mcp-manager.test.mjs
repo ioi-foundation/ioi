@@ -9,60 +9,7 @@ import {
   mcpRegistryForWorkspace,
   mcpServerRecordsFromValidationInput,
   normalizeMcpServerRecord,
-  validateMcpServerRecords,
 } from "./mcp-manager.mjs";
-
-test("MCP manager validation emits canonical output fields only", () => {
-  const validation = validateMcpServerRecords([
-    {
-      id: "mcp.invalid",
-      transport: "socket",
-      allowed_tools: [],
-    },
-  ]);
-
-  assert.equal(validation.schema_version, "ioi.runtime.mcp-manager-validation.v1");
-  assert.equal(validation.ok, false);
-  assert.equal(validation.issues[0].server_id, "mcp.invalid");
-  assert.equal(validation.warnings[0].server_id, "mcp.invalid");
-  assert.equal(Object.hasOwn(validation, "schemaVersion"), false);
-  assert.equal(Object.hasOwn(validation.issues[0], "serverId"), false);
-  assert.equal(Object.hasOwn(validation.warnings[0], "serverId"), false);
-});
-
-test("MCP manager validation ignores retired secretRefs aliases", () => {
-  const canonical = validateMcpServerRecords([
-    {
-      id: "mcp.secret",
-      transport: "stdio",
-      command: "npx",
-      secret_refs: {
-        Authorization: { invalidVaultRef: true },
-      },
-      secretRefs: {
-        Authorization: { invalidVaultRef: false },
-      },
-    },
-  ]);
-
-  assert.equal(canonical.ok, false);
-  assert.equal(canonical.issues[0].code, "mcp_secret_not_vault_ref");
-  assert.equal(canonical.issues[0].server_id, "mcp.secret");
-  assert.equal(Object.hasOwn(canonical.issues[0], "serverId"), false);
-
-  const retiredOnly = validateMcpServerRecords([
-    {
-      id: "mcp.retired-secret",
-      transport: "stdio",
-      command: "npx",
-      secretRefs: {
-        Authorization: { invalidVaultRef: true },
-      },
-    },
-  ]);
-
-  assert.equal(retiredOnly.ok, true);
-});
 
 test("MCP manager validation input consumes canonical MCP JSON fields only", () => {
   const calls = [];
@@ -346,11 +293,6 @@ test("MCP manager server records ignore retired transport and containment aliase
   assert.equal(retiredOnly.containment.mode, "sandboxed");
   assert.equal(retiredOnly.containment.allow_network_egress, false);
   assert.equal(retiredOnly.containment.allow_child_processes, false);
-
-  const validation = validateMcpServerRecords([retiredOnly]);
-  assert.equal(validation.ok, false);
-  assert.equal(validation.issues[0].code, "mcp_server_transport_missing");
-  assert.equal(Object.hasOwn(validation.issues[0], "serverUrl"), false);
 });
 
 test("MCP manager server records ignore retired workspaceRoot context alias", () => {

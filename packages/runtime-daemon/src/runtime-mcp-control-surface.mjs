@@ -1,9 +1,11 @@
 import {
   RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION,
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-  RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   mcpRegistryForWorkspace,
 } from "./mcp-manager.mjs";
+import {
+  RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
+} from "./runtime-contract-constants.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   normalizeArray,

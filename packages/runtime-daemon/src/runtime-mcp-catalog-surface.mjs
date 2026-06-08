@@ -2,11 +2,11 @@ import path from "node:path";
 
 import {
   MCP_LIVE_CATALOG_MAX_PREVIEW_LIMIT,
+  RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   RUNTIME_MCP_TOOL_SEARCH_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 import {
   RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION,
-  RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   discoverMcpHttpCatalog,
   discoverMcpStdioCatalog,
   mcpRegistryForWorkspace,

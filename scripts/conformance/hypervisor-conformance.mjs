@@ -494,6 +494,9 @@ function runDocs() {
       /McpServerValidationInputCore/.test(guide) &&
       /project_mcp_server_validation_input/.test(guide) &&
       /The Slice 784 MCP\s+validation-input Rust-core matrix-compaction pass is complete/.test(guide) &&
+      /Slice 785 retired the remaining helper-level JS MCP validation decision path/.test(guide) &&
+      /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(guide) &&
+      /The\s+Slice 785 MCP JS validation helper-retirement matrix-compaction pass is pending/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -544,6 +547,7 @@ function runDocs() {
       /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
+      /Slice 785 retired the helper-level JS MCP validation decision path/.test(matrix) &&
       /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
@@ -816,10 +820,14 @@ function runDocs() {
       /McpServerValidationInputCore/.test(matrix) &&
       /project_mcp_server_validation_input/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 784 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 785/.test(matrix) &&
+      /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(matrix) &&
+      /Schedule and run a matrix-compaction pass\s+for Slice 785 before unrelated route-family work resumes/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 785 MCP JS\s+validation helper-retirement evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
+      /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
       /public MCP validation input projection now routes raw canonical `mcp_json`\/`mcp_servers`\s+input through Rust daemon-core `McpServerValidationInputCore`\/`project_mcp_server_validation_input` migration transport/.test(implementationMatrix) &&
       /public MCP validation decisions now send Rust-projected canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
@@ -22477,27 +22485,21 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "runtime-mcp-manager-validation-output-aliases-retired",
-    /schema_version:\s*RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
-      runtimeMcpManagerValidationBlock,
-    ) &&
-      /server_id:\s*server\.id/.test(runtimeMcpManagerValidationBlock) &&
-      /Object\.hasOwn\(validation,\s*"schemaVersion"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(validation\.issues\[0\],\s*"serverId"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /Object\.hasOwn\(validation\.warnings\[0\],\s*"serverId"\),\s*false/.test(runtimeMcpManagerTest) &&
-      /MCP manager validation ignores retired secretRefs aliases/.test(runtimeMcpManagerTest) &&
-      /secretRefs:\s*\{\s*[\r\n\s]*Authorization:\s*\{ invalidVaultRef: true \}/.test(
-        runtimeMcpManagerTest,
-      ) &&
-      /retiredOnly\.ok,\s*true/.test(runtimeMcpManagerTest) &&
-      !/^\s*schemaVersion\s*:/.test(runtimeMcpManagerValidationBlock) &&
-      !/server\.secretRefs\b/.test(runtimeMcpManagerValidationBlock) &&
-      !/^\s*serverId\s*:/.test(runtimeMcpManagerValidationBlock),
+    "runtime-mcp-manager-js-validation-helper-retired",
+    !/validateMcpServerRecords/.test(runtimeMcpManager) &&
+      !/validateMcpServerRecords/.test(runtimeMcpManagerTest) &&
+      !/RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION/.test(runtimeMcpManager) &&
+      /McpServerValidationCore/.test(policyCore) &&
+      /rust_policy_rejects_invalid_mcp_server_records/.test(policyCore) &&
+      /mcp_secret_not_vault_ref/.test(policyCore) &&
+      /mcp_remote_network_blocked/.test(policyCore) &&
+      /mcp_allowed_tools_empty/.test(policyCore),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
       "packages/runtime-daemon/src/mcp-manager.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
     ],
-    "Phase 10/11 is pending: MCP manager validation output must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: MCP manager JS validation helper must be retired so Rust MCP validation remains the only validation decision path",
   );
   assertCheck(
     result,

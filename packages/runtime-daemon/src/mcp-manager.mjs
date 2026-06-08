@@ -7,8 +7,6 @@ import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runne
 
 export const RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status.v1";
-export const RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION =
-  "ioi.runtime.mcp-manager-validation.v1";
 export const RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-invocation.v1";
 
@@ -237,85 +235,6 @@ export function mcpPromptsForServers(servers = []) {
       server,
     ),
   );
-}
-
-export function validateMcpServerRecords(servers = []) {
-  const issues = [];
-  const warnings = [];
-  for (const server of servers) {
-    const transport = normalizeMcpTransport(server.transport);
-    const serverUrl = optionalString(server.server_url ?? server.endpoint);
-    if (!["stdio", "http", "sse"].includes(transport)) {
-      issues.push({
-        code: "mcp_transport_unsupported",
-        severity: "error",
-        server_id: server.id,
-        transport,
-        message: "MCP server transport must be stdio, http, or sse.",
-      });
-    }
-    if (transport === "stdio" && !server.command) {
-      issues.push({
-        code: "mcp_server_transport_missing",
-        severity: "error",
-        server_id: server.id,
-        message: "MCP stdio server must declare a command.",
-      });
-    }
-    if ((transport === "http" || transport === "sse") && !serverUrl) {
-      issues.push({
-        code: "mcp_server_transport_missing",
-        severity: "error",
-        server_id: server.id,
-        message: "MCP HTTP/SSE server must declare a remote URL.",
-      });
-    }
-    if ((transport === "http" || transport === "sse") && serverUrl && !/^https?:\/\//i.test(serverUrl)) {
-      issues.push({
-        code: "mcp_remote_url_invalid",
-        severity: "error",
-        server_id: server.id,
-        message: "MCP HTTP/SSE server URL must use http:// or https://.",
-      });
-    }
-    if (
-      (transport === "http" || transport === "sse") &&
-      server.containment?.allow_network_egress === false
-    ) {
-      issues.push({
-        code: "mcp_remote_network_blocked",
-        severity: "error",
-        server_id: server.id,
-        message: "MCP HTTP/SSE server requires network egress in containment policy.",
-      });
-    }
-    const secretRefs = server.secret_refs ?? {};
-    for (const [key, value] of Object.entries(secretRefs)) {
-      if (value?.invalidVaultRef) {
-        issues.push({
-          code: "mcp_secret_not_vault_ref",
-          severity: "error",
-          server_id: server.id,
-          key,
-          message: "MCP env/header secrets must be represented as vault:// refs before activation.",
-        });
-      }
-    }
-    if (normalizeArray(server.allowed_tools).length === 0) {
-      warnings.push({
-        code: "mcp_allowed_tools_empty",
-        severity: "warning",
-        server_id: server.id,
-        message: "No allowed_tools list is declared; invocation remains unavailable until tools are narrowed.",
-      });
-    }
-  }
-  return {
-    schema_version: RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
-    ok: issues.length === 0,
-    issues,
-    warnings,
-  };
 }
 
 export async function discoverMcpStdioCatalog(server, options = {}) {
