@@ -20,7 +20,7 @@ export async function completeCatalogProviderOAuth(state, providerId, body = {},
   } = deps;
   void state;
   assertConfigurableCatalogProvider(providerId);
-  requiredString(body.state ?? body.oauth_state ?? body.oauthState, "state");
+  requiredString(body.state, "state");
   throwCatalogProviderControlRustCoreRequired(
     "model_mount.catalog_provider_oauth.callback",
     { provider_id: providerId, state_present: true },

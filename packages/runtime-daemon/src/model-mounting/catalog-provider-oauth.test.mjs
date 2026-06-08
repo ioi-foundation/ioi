@@ -170,6 +170,20 @@ test("catalog OAuth callback still validates required callback state before Rust
   assertNoCatalogOAuthMutation(state);
 });
 
+test("catalog OAuth callback rejects retired OAuth state compatibility aliases", async () => {
+  for (const body of [
+    { oauth_state: "callback-state" },
+    { oauthState: "callback-state" },
+  ]) {
+    const state = fakeState();
+    await assert.rejects(
+      () => completeCatalogProviderOAuth(state, "catalog.huggingface", body, deps),
+      /missing state/,
+    );
+    assertNoCatalogOAuthMutation(state);
+  }
+});
+
 test("catalog OAuth facades preserve configurable provider validation", () => {
   const state = fakeState();
 

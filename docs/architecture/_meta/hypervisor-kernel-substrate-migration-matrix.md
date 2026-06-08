@@ -43,12 +43,14 @@ evidence after workflow-edit apply authority was already fail-closed, then
 compacted Slice 756 backend-process plan and provider load-option compatibility
 alias-retirement evidence from the Rust model_mount process-plan boundary, then
 compacted Slice 757 server-control local cache read-retirement evidence.
+Slice 758 then retired public catalog-provider OAuth callback state
+compatibility aliases before the Rust-core-required catalog-provider control
+boundary.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades, canonical input
-helpers, local projection helpers, and migration transport are not terminal
-substrate.
+facade-retirement implementation slice first by compacting Slice 758 evidence
+before unrelated route-family work. Preserve the live owner map, terminal
+blockers, and the fact that fail-closed JS facades, canonical input helpers,
+local projection helpers, and migration transport are not terminal substrate.
 
 ## Purpose
 
@@ -105,6 +107,13 @@ Remaining terminal blockers:
   stale local `server-state.json` cache truth, or projecting log/event reads as
   accepted truth; direct Rust daemon-core server-control/state/log/event/
   projection ownership remains the required terminal path.
+- Public catalog-provider OAuth callback handling now fails closed with only the
+  OAuth-standard `state` callback field accepted before the Rust-core-required
+  boundary; retired `oauth_state` and `oauthState` compatibility aliases can no
+  longer satisfy the facade preflight. Direct Rust daemon-core catalog-provider
+  control still needs to own OAuth state/session custody, wallet/cTEE vault
+  binding, auth-header refresh, receipts, record-state, projection, Agentgres
+  admission, and replay.
 - Public runtime-engine select/profile/remove mutations now fail closed instead
   of creating JS-authored `runtime_engine_*` receipts, mutating runtime
   preference/profile maps, or committing record-state from the JS facade; direct
@@ -143,16 +152,17 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 757
-  server-control local cache read-retirement compaction.
+- Next scheduled matrix-compaction pass: pending after Slice 758 catalog-provider
+  OAuth callback state alias retirement.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
   route-family work; do not let context compaction demote this to optional
   evidence pruning.
-- Next resume order is mandatory: clarify a concrete Rust-core
-  extraction/facade-retirement seam with a verified slice, then schedule and run
-  the next matrix-compaction pass before starting unrelated route-family work.
+- Next resume order is mandatory: compact Slice 758 catalog-provider OAuth
+  callback state alias-retirement evidence before starting unrelated
+  route-family work, then continue the next concrete Rust-core extraction or
+  facade-retirement seam.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -14265,6 +14275,60 @@ target ownership.
   that seam lands, and do not encode non-authoritative JS status projection,
   fail-closed model_mount facades, local cache helpers, or command transport as
   terminal architecture.
+
+## Implementation Slice 758: Catalog Provider OAuth Callback State Alias Retirement
+
+Date: 2026-06-08.
+Objective: remove the remaining public catalog-provider OAuth callback
+compatibility aliases that could satisfy the callback-state preflight before the
+Rust-core-required catalog-provider control boundary.
+
+Files changed:
+
+- `packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs`
+- `packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs`
+- conformance and source-of-truth docs.
+
+Legacy paths removed:
+
+- `completeCatalogProviderOAuth()` no longer accepts `body.oauth_state`.
+- `completeCatalogProviderOAuth()` no longer accepts `body.oauthState`.
+
+Current behavior:
+
+- Public catalog-provider OAuth callback still validates the OAuth-standard
+  `state` callback field before reaching the fail-closed Rust-core-required
+  boundary.
+- Retired `oauth_state` and `oauthState` compatibility aliases can no longer
+  satisfy callback-state presence.
+- Start, callback, exchange, refresh, revoke, and auth-header refresh mutation
+  facades remain fail-closed at `model_mount.catalog_provider_control` until
+  Rust daemon-core owns catalog-provider control.
+- Focused tests prove alias-only callback bodies fail before Rust boundary and
+  do not create receipts, Agentgres record-state commits, map writes,
+  projections, vault writes, OAuth states, or OAuth sessions.
+
+Target behavior:
+
+- Direct Rust daemon-core catalog-provider control owns OAuth state/session
+  custody, wallet/cTEE vault binding, auth-header refresh, receipts,
+  Agentgres admission, record-state, projection, and replay. JS callback
+  preflight remains migration adapter code only and must not become terminal
+  architecture.
+
+Conformance:
+
+- `model-mount-catalog-provider-oauth-js-facade-retired` and
+  `model-mount-catalog-oauth-receipt-detail-aliases-retired` now guard that the
+  public OAuth callback facade reads only `body.state` for callback-state
+  presence and does not read retired `body.oauth_state` or `body.oauthState`.
+
+Compaction:
+
+- Schedule the next matrix-compaction pass after Slice 758. On resume, compact
+  this slice before unrelated route-family work while preserving the terminal
+  Rust daemon-core target and the fact that OAuth callback JS validation is
+  temporary migration scaffolding, not a long-term compatibility surface.
 
 ## Command State
 

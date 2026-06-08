@@ -370,6 +370,17 @@ canonical JS input filtering, non-authoritative JS status projection, and
 fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
 command transport, canonical input helpers, or read-only JS helpers as
 long-term substrate.
+Slice 758 retired the public catalog-provider OAuth callback's retired
+`oauth_state` and `oauthState` compatibility aliases before the Rust-core
+required boundary. The fail-closed OAuth facade now preflights only the
+OAuth-standard `state` callback field before rejecting at
+`model_mount.catalog_provider_control`, so duplicate OAuth-state request shapes
+can no longer satisfy the public catalog-provider control surface. This does
+not claim terminal catalog-provider control migration: direct Rust daemon-core
+catalog-provider control still needs to own OAuth state/session custody,
+wallet/cTEE vault binding, auth-header refresh, receipts, Agentgres admission,
+record-state, projection, and replay. The Slice 758 matrix-compaction pass is
+pending and must run before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 
