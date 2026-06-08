@@ -64,11 +64,21 @@ test("backend process planning is delegated to Rust model_mount", () => {
     const options = {
       endpoint: { modelId: "model.local", artifactPath: "/models/private/model.gguf" },
       loadOptions: {
-        contextLength: 4096,
+        context_length: 4096,
+        contextLength: 9999,
+        max_model_len: 8192,
+        maxModelLen: 7777,
         parallel: 2,
+        tensor_parallel_size: 1,
+        tensorParallelSize: 8,
         gpu: "auto",
+        gpu_memory_utilization: 0.7,
+        gpuMemoryUtilization: 0.99,
         identifier: "llama profile",
+        model_path: "/models/canonical.gguf",
+        modelPath: "/models/retired.gguf",
         embeddings: true,
+        embedding: false,
       },
     };
 
@@ -81,9 +91,36 @@ test("backend process planning is delegated to Rust model_mount", () => {
     assert.equal(calls[0].artifact_path, "/models/private/model.gguf");
     assert.equal(calls[0].binary_configured, true);
     assert.equal(calls[0].load_options.context_length, 4096);
+    assert.equal(calls[0].load_options.max_model_len, 8192);
+    assert.equal(calls[0].load_options.tensor_parallel_size, 1);
+    assert.equal(calls[0].load_options.gpu_memory_utilization, 0.7);
+    assert.equal(calls[0].load_options.model_path, "/models/canonical.gguf");
     assert.equal(calls[0].load_options.embeddings, true);
     assert.equal(Object.hasOwn(calls[0], "backendRef"), false);
     assert.equal(Object.hasOwn(calls[0].load_options, "contextLength"), false);
+    assert.equal(Object.hasOwn(calls[0].load_options, "maxModelLen"), false);
+    assert.equal(Object.hasOwn(calls[0].load_options, "tensorParallelSize"), false);
+    assert.equal(Object.hasOwn(calls[0].load_options, "gpuMemoryUtilization"), false);
+    assert.equal(Object.hasOwn(calls[0].load_options, "modelPath"), false);
+    assert.equal(Object.hasOwn(calls[0].load_options, "embedding"), false);
+
+    state.backendProcessArgs({ id: "backend.alias-poison", kind: "llama_cpp" }, {
+      loadOptions: {
+        contextLength: 1234,
+        maxModelLen: 2345,
+        tensorParallelSize: 3,
+        gpuMemoryUtilization: 0.42,
+        modelPath: "/models/alias-only.gguf",
+        embedding: true,
+      },
+    });
+    const aliasOnlyCall = calls.at(-1);
+    assert.equal(aliasOnlyCall.load_options.context_length, null);
+    assert.equal(aliasOnlyCall.load_options.max_model_len, null);
+    assert.equal(aliasOnlyCall.load_options.tensor_parallel_size, null);
+    assert.equal(aliasOnlyCall.load_options.gpu_memory_utilization, null);
+    assert.equal(aliasOnlyCall.load_options.model_path, null);
+    assert.equal(aliasOnlyCall.load_options.embeddings, false);
   } finally {
     state.close();
   }

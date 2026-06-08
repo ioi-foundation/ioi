@@ -18,6 +18,7 @@ function fakeState(backends = {}) {
         id: `process.${backendId}.${processes.length + 1}`,
         backendId,
         reason: details.reason,
+        loadOptions: details.loadOptions,
         evidenceRefs: [`${backendId}.process`],
       };
       processes.push(record);
@@ -66,12 +67,24 @@ test("vLLM backend driver promotes configured backend and records supervised loa
   assert.equal(effective.status, "configured");
   assert.equal(effective.baseUrl, "http://127.0.0.1:8000/v1");
 
-  const load = await driver.load({ state, provider, endpoint });
+  const load = await driver.load({
+    state,
+    provider,
+    endpoint,
+    body: {
+      load_options: { context_length: 4096, model_path: "/models/vllm" },
+      loadOptions: { context_length: 9999 },
+      contextLength: 8888,
+      modelPath: "/models/retired",
+    },
+  });
   assert.equal(load.status, "loaded");
   assert.equal(load.backend, "vllm");
   assert.equal(load.backendId, "backend.vllm");
   assert.ok(load.evidenceRefs.includes("vllm_process_supervisor"));
   assert.equal(state.processes.at(-1).reason, "vllm_model_load");
+  assert.equal(state.processes.at(-1).loadOptions.contextLength, 4096);
+  assert.equal(state.processes.at(-1).loadOptions.modelPath, "/models/vllm");
 
   const loaded = await driver.listLoaded({ state, provider });
   assert.equal(loaded.length, 1);
@@ -99,11 +112,24 @@ test("llama.cpp backend driver records supervised load/unload evidence", async (
   const effective = driver.providerWithBackendBaseUrl(provider);
   assert.equal(effective.baseUrl, "http://127.0.0.1:8080/v1");
 
-  const load = await driver.load({ state, provider, endpoint, body: { idle_ttl_seconds: 90 } });
+  const load = await driver.load({
+    state,
+    provider,
+    endpoint,
+    body: {
+      ttl_seconds: 90,
+      loadOptions: { context_length: 9999 },
+      contextLength: 8888,
+      modelPath: "/models/retired",
+    },
+  });
   assert.equal(load.status, "loaded");
   assert.equal(load.backend, "llama_cpp");
   assert.ok(load.evidenceRefs.includes("llama_cpp_process_supervisor"));
   assert.equal(load.process.reason, "llama_cpp_model_load");
+  assert.equal(state.processes.at(-1).loadOptions.ttlSeconds, 90);
+  assert.equal(state.processes.at(-1).loadOptions.contextLength, null);
+  assert.equal(state.processes.at(-1).loadOptions.modelPath, null);
 
   const unload = await driver.unload({ state, provider, endpoint });
   assert.equal(unload.status, "unloaded");

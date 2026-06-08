@@ -1,5 +1,5 @@
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
-import { normalizeLoadOptions } from "./load-policy.mjs";
+import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
 import { normalizeScopes, stableHash } from "./io.mjs";
 import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
 
@@ -61,7 +61,7 @@ export class VllmModelProviderDriver {
   }
 
   async load({ state, provider, endpoint, body = {} }) {
-    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
     const backend = state.backend(backendId);
     const processRecord =
@@ -219,7 +219,7 @@ export class LlamaCppModelProviderDriver {
   }
 
   async load({ state, provider, endpoint, body = {} }) {
-    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
     const processRecord = state.ensureBackendProcess(backendId, {
       endpoint,

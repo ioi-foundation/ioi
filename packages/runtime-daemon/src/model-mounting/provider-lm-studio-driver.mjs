@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { lmStudioLoadOptionArgs, normalizeLoadOptions } from "./load-policy.mjs";
+import { canonicalLoadOptionsInput, lmStudioLoadOptionArgs, normalizeLoadOptions } from "./load-policy.mjs";
 import {
   lmStudioArtifact,
   parseLmStudioList,
@@ -76,7 +76,7 @@ export class LmStudioModelProviderDriver {
 
   async load({ provider, endpoint, body = {} }) {
     const lmsPath = this.requireLmsPath(provider);
-    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const args = ["load", endpoint.modelId, ...lmStudioLoadOptionArgs(loadOptions)];
     const result = runPublicCommand(lmsPath, args, { timeout: 20000 });
     if (result.status !== 0) {

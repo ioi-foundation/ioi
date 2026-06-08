@@ -39,12 +39,14 @@ receipt-gate receipt facade-retirement evidence, then compacted Slice 753
 public model invocation dead JS body retirement evidence, then compacted Slice
 754 model invocation migration-helper compatibility alias retirement evidence.
 This pass compacted Slice 755 workflow-edit read-helper facade-retirement
-evidence after workflow-edit apply authority was already fail-closed.
+evidence after workflow-edit apply authority was already fail-closed. Slice 756
+then retired backend-process plan and provider load-option compatibility aliases
+from the Rust model_mount process-plan boundary.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades and migration
-helpers are not terminal substrate.
+facade-retirement implementation slice first by compacting Slice 756 evidence
+before unrelated route-family work. Preserve the live owner map, terminal
+blockers, and the fact that fail-closed JS facades, canonical input helpers, and
+migration transport are not terminal substrate.
 
 ## Purpose
 
@@ -139,16 +141,17 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 755
-  workflow-edit read-helper facade retirement compaction.
+- Next scheduled matrix-compaction pass: pending after Slice 756 backend-process
+  plan/load-option alias retirement.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
   route-family work; do not let context compaction demote this to optional
   evidence pruning.
-- Next resume order is mandatory: clarify a concrete Rust-core
-  extraction/facade-retirement seam with a verified slice, then schedule and run
-  the next matrix-compaction pass before starting unrelated route-family work.
+- Next resume order is mandatory: compact Slice 756 backend-process
+  plan/load-option alias-retirement evidence before starting unrelated
+  route-family work, then continue the next concrete Rust-core extraction or
+  facade-retirement seam.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -14198,6 +14201,68 @@ above remain authoritative for current and target ownership.
   that seam lands, and do not encode read-helper adapters, fail-closed
   workflow-edit facades, or command transport as terminal architecture.
 
+## Implementation Slice 756: Backend Process Plan Load-Option Alias Retirement
+
+Date: 2026-06-08.
+Objective: remove backend-process planning compatibility aliases that could let
+retired camelCase request shapes steer Rust `model_mount` process-plan inputs or
+provider load lifecycle metadata.
+
+Files changed:
+
+- `packages/runtime-daemon/src/model-mounting/load-policy.mjs`
+- `packages/runtime-daemon/src/model-mounting.mjs`
+- `packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs`
+- `packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs`
+- `packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs`
+- `packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs`
+- focused model-mount load-policy, provider, and product-default tests.
+
+Legacy paths removed:
+
+- Rust backend process-plan request assembly no longer reads
+  `contextLength`, `maxModelLen`, `tensorParallelSize`,
+  `gpuMemoryUtilization`, `modelPath`, `embedding`, or
+  `defaults.contextLength`.
+- Local, vLLM, llama.cpp, Ollama, and LM Studio provider load paths no longer
+  read `body.loadOptions`.
+- Provider load paths now use a canonical load-option input picker before
+  normalization, so alias-only request fields do not become Rust process-plan or
+  provider lifecycle metadata.
+
+Current behavior:
+
+- Canonical `load_options` / snake_case option fields still flow through
+  provider load control and backend process planning.
+- Internal normalized load options still expose camelCase compatibility fields
+  for not-yet-migrated estimators and CLI helpers, but Rust-facing process-plan
+  requests read only canonical snake_case fields.
+- Poison tests prove alias-only `contextLength`, `maxModelLen`,
+  `tensorParallelSize`, `gpuMemoryUtilization`, `modelPath`, `embedding`, and
+  `body.loadOptions` values do not steer Rust process-plan requests or provider
+  load behavior.
+
+Target behavior:
+
+- Direct Rust daemon-core model_mount lifecycle/planning APIs own backend
+  process planning, provider lifecycle admission, receipt/state-root binding,
+  Agentgres admission, and projection. The JS load-policy picker remains
+  migration adapter code only and must not become terminal architecture.
+
+Conformance:
+
+- `model-mount-backend-process-load-option-aliases-retired` guards this slice.
+- Focused tests cover load-policy canonical input filtering, Rust process-plan
+  alias-only nulling, and local/vLLM/llama.cpp/Ollama/LM Studio provider load
+  alias rejection.
+
+Compaction:
+
+- Schedule the next matrix-compaction pass after Slice 756. On resume, compact
+  this slice before unrelated route-family work while preserving the terminal
+  Rust daemon-core target and the fact that command transport and canonical
+  JS input filtering are temporary migration scaffolding.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14213,8 +14278,9 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-755 runtime/model-mount/
-workflow-edit facade-retirement matrix-compaction and implementation passes:
+Current expected behavior after the Slice 733-756 runtime/model-mount/
+workflow-edit facade-retirement and load-option alias-retirement implementation
+passes:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

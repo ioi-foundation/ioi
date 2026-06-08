@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  canonicalLoadOptionsInput,
   expiresAt,
   hasExplicitTtlOption,
   lmStudioLoadOptionArgs,
@@ -63,7 +64,42 @@ test("load option normalization keeps public route aliases stable", () => {
     tensorParallelSize: 1,
     gpuMemoryUtilization: 0.7,
     maxModelLen: 4096,
+    estimate_only: true,
+    context_length: 8192,
+    ttl_seconds: 30,
+    model_path: "/models/qwen.gguf",
+    tensor_parallel_size: 1,
+    gpu_memory_utilization: 0.7,
+    max_model_len: 4096,
   });
+});
+
+test("canonical load option input strips retired request aliases before provider normalization", () => {
+  assert.deepEqual(canonicalLoadOptionsInput({
+    loadOptions: {
+      context_length: 9999,
+    },
+    contextLength: 8888,
+    modelPath: "/retired/model.gguf",
+    embedding: true,
+    load_options: {
+      context_length: 4096,
+      model_path: "/models/qwen.gguf",
+      embeddings: true,
+    },
+  }), {
+    context_length: 4096,
+    model_path: "/models/qwen.gguf",
+    embeddings: true,
+  });
+  assert.deepEqual(canonicalLoadOptionsInput({
+    contextLength: 8888,
+    maxModelLen: 7777,
+    tensorParallelSize: 8,
+    gpuMemoryUtilization: 0.99,
+    modelPath: "/retired/model.gguf",
+    embedding: true,
+  }), {});
 });
 
 test("runtime engine defaults include only explicit normalized values", () => {
@@ -76,7 +112,9 @@ test("runtime engine defaults include only explicit normalized values", () => {
   }), {
     gpu: "auto",
     contextLength: 4096,
+    context_length: 4096,
     ttlSeconds: 120,
+    ttl_seconds: 120,
     identifier: "engine-default",
   });
 });

@@ -67,8 +67,9 @@ function fakeNativeState() {
     listInstances() {
       return instances;
     },
-    ensureBackendProcess(backendId) {
+    ensureBackendProcess(backendId, details = {}) {
       assert.equal(backendId, "backend.autopilot.native-local.fixture");
+      processRecord.loadOptions = details.loadOptions;
       return processRecord;
     },
     backendProcessForBackend(backendId) {
@@ -317,7 +318,17 @@ test("native-local provider driver keeps load control and retires direct stream 
     loadPolicy: { mode: "on_demand" },
   };
 
-  const load = await driver.load({ state, endpoint, body: { idle_ttl_seconds: 120 } });
+  const load = await driver.load({
+    state,
+    endpoint,
+    body: {
+      ttl_seconds: 120,
+      loadOptions: { context_length: 9999 },
+      contextLength: 8888,
+      modelPath: "/models/retired.gguf",
+      embedding: true,
+    },
+  });
   assert.equal(load.status, "loaded");
   assert.equal(load.backend, "autopilot.native_local.fixture");
   assert.equal(load.lifecycleHash, "sha256:load");
@@ -325,6 +336,10 @@ test("native-local provider driver keeps load control and retires direct stream 
   assert.equal(state.lifecycleRequests.at(-1).execution_backend, "rust_model_mount_native_local_lifecycle");
   assert.deepEqual(state.lifecycleRequests.at(-1).process_evidence_refs, ["fake_process"]);
   assert.equal(state.logs.at(-1).event, "load");
+  assert.equal(state.logs.at(-1).loadOptions.ttlSeconds, 120);
+  assert.equal(state.logs.at(-1).loadOptions.contextLength, null);
+  assert.equal(state.logs.at(-1).loadOptions.modelPath, null);
+  assert.equal(Object.hasOwn(state.logs.at(-1).loadOptions, "embedding"), false);
 
   await assert.rejects(
     () =>

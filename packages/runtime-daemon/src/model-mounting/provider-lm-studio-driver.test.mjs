@@ -91,7 +91,15 @@ test("LM Studio driver uses public CLI path for health and lifecycle commands", 
     const started = await driver.start({ provider: selectedProvider });
     assert.equal(started.status, "running");
 
-    const loaded = await driver.load({ provider: selectedProvider, endpoint });
+    const loaded = await driver.load({
+      provider: selectedProvider,
+      endpoint,
+      body: {
+        loadOptions: { context_length: 9999 },
+        contextLength: 8888,
+        ttlSeconds: 777,
+      },
+    });
     assert.equal(loaded.status, "loaded");
     assert.equal(loaded.backend, "lm_studio");
     assert.equal(loaded.backendId, "backend.lmstudio");

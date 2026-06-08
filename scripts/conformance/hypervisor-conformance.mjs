@@ -377,7 +377,11 @@ function runDocs() {
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
       ) &&
-      /No\s+matrix-compaction pass is pending until the next Rust-core extraction or\s+facade-retirement seam lands/.test(guide) &&
+      /Slice 756 retired backend-process plan\/load-option compatibility aliases from\s+the Rust model_mount process-plan boundary/.test(guide) &&
+      /`contextLength`, `maxModelLen`, `tensorParallelSize`,\s+`gpuMemoryUtilization`, `modelPath`, `embedding`, `defaults\.contextLength`, and\s+`body\.loadOptions` can no longer steer Rust-facing backend process planning/.test(
+        guide,
+      ) &&
+      /The Slice 756\s+matrix-compaction pass is pending and must run before unrelated route-family\s+work resumes/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -397,7 +401,8 @@ function runDocs() {
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 753\s+public model invocation dead JS body retirement evidence, then compacted Slice\s+754 model invocation migration-helper compatibility alias retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 756\s+then retired backend-process plan and provider load-option compatibility aliases\s+from the Rust model_mount process-plan boundary/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first by compacting Slice 756 evidence\s+before unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -528,7 +533,13 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 755 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 755/.test(
+      /Implementation Slice 756: Backend Process Plan Load-Option Alias Retirement/.test(
+        matrix,
+      ) &&
+      /Rust backend process-plan request assembly no longer reads\s+`contextLength`, `maxModelLen`, `tensorParallelSize`,\s+`gpuMemoryUtilization`, `modelPath`, `embedding`, or\s+`defaults\.contextLength`/.test(matrix) &&
+      /Local, vLLM, llama\.cpp, Ollama, and LM Studio provider load paths no longer\s+read `body\.loadOptions`/.test(matrix) &&
+      /model-mount-backend-process-load-option-aliases-retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 756 backend-process\s+plan\/load-option alias retirement/.test(
         matrix,
       ) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
@@ -1703,6 +1714,9 @@ function runBridge() {
     : "";
   const lmStudioDriver = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs")
+    : "";
+  const ollamaDriver = exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs")
     : "";
   const openAiCompatibleProviderDrivers = [openAiCompatibleDriver, openAiBackendDrivers, lmStudioDriver].join("\n");
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
@@ -8085,6 +8099,81 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: model backend process supervision args and spawn readiness must be planned by Rust model_mount while JS only acts on the plan",
+  );
+  assertCheck(
+    result,
+    "model-mount-backend-process-load-option-aliases-retired",
+    (() => {
+      const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
+      const loadPolicyTest = read("packages/runtime-daemon/src/model-mounting/load-policy.test.mjs");
+      const providerLocalDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs");
+      const providerOpenAiBackendDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs");
+      const providerOllamaDriverTest = read("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs");
+      const providerLmStudioDriverTest = read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs");
+      const providerLoadDrivers = [
+        providerLocalDrivers,
+        openAiBackendDrivers,
+        ollamaDriver,
+        lmStudioDriver,
+      ].join("\n");
+      const backendProcessPlanBlock =
+        modelMountingState.match(/backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
+      return /canonicalLoadOptionsInput/.test(read("packages/runtime-daemon/src/model-mounting/load-policy.mjs")) &&
+        /canonical load option input strips retired request aliases before provider normalization/.test(loadPolicyTest) &&
+        /contextLength:\s*8888/.test(loadPolicyTest) &&
+        /modelPath:\s*"\/retired\/model\.gguf"/.test(loadPolicyTest) &&
+        /embedding:\s*true/.test(loadPolicyTest) &&
+        /context_length:\s*loadOptions\.context_length \?\? defaults\.context_length \?\? null/.test(
+          backendProcessPlanBlock,
+        ) &&
+        /max_model_len:\s*loadOptions\.max_model_len \?\? null/.test(backendProcessPlanBlock) &&
+        /tensor_parallel_size:\s*loadOptions\.tensor_parallel_size \?\? null/.test(
+          backendProcessPlanBlock,
+        ) &&
+        /gpu_memory_utilization:\s*loadOptions\.gpu_memory_utilization \?\? null/.test(
+          backendProcessPlanBlock,
+        ) &&
+        /embeddings:\s*Boolean\(loadOptions\.embeddings \?\? false\)/.test(
+          backendProcessPlanBlock,
+        ) &&
+        /model_path:\s*loadOptions\.model_path \?\? null/.test(backendProcessPlanBlock) &&
+        !/loadOptions\.(?:contextLength|maxModelLen|tensorParallelSize|gpuMemoryUtilization|modelPath|embedding)\b/.test(
+          backendProcessPlanBlock,
+        ) &&
+        !/defaults\.contextLength\b/.test(backendProcessPlanBlock) &&
+        /normalizeLoadOptions\(canonicalLoadOptionsInput\(body\),\s*endpoint\.loadPolicy\)/.test(
+          providerLoadDrivers,
+        ) &&
+        !/body\.loadOptions\b/.test(providerLoadDrivers) &&
+        /contextLength:\s*1234/.test(productDefaultsTest) &&
+        /assert\.equal\(aliasOnlyCall\.load_options\.context_length,\s*null\)/.test(
+          productDefaultsTest,
+        ) &&
+        /assert\.equal\(aliasOnlyCall\.load_options\.embeddings,\s*false\)/.test(
+          productDefaultsTest,
+        ) &&
+        /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLocalDriversTest) &&
+        /assert\.equal\(state\.logs\.at\(-1\)\.loadOptions\.contextLength,\s*null\)/.test(
+          providerLocalDriversTest,
+        ) &&
+        /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerOpenAiBackendDriversTest) &&
+        /assert\.equal\(state\.processes\.at\(-1\)\.loadOptions\.contextLength,\s*null\)/.test(
+          providerOpenAiBackendDriversTest,
+        ) &&
+        /loadOptions:\s*\{\s*idle_ttl_seconds:\s*999\s*\}/.test(providerOllamaDriverTest) &&
+        /assert\.equal\(requests\.find\(.*?keep_alive,\s*"60s"\)/s.test(providerOllamaDriverTest) &&
+        /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLmStudioDriverTest);
+    })(),
+    [
+      "packages/runtime-daemon/src/model-mounting/load-policy.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
+      "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
+    ],
+    "Phase 9/10 is pending: backend process planning and provider load paths must not let retired camelCase load-option aliases steer Rust model_mount requests",
   );
   assertCheck(
     result,

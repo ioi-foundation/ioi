@@ -115,7 +115,17 @@ test("Ollama driver invokes chat, embeddings, load, and unload probes", async ()
     const selectedProvider = provider(baseUrl);
     const selectedEndpoint = endpoint();
 
-    const load = await driver.load({ state, provider: selectedProvider, endpoint: selectedEndpoint, body: { idle_ttl_seconds: 60 } });
+    const load = await driver.load({
+      state,
+      provider: selectedProvider,
+      endpoint: selectedEndpoint,
+      body: {
+        ttl_seconds: 60,
+        loadOptions: { idle_ttl_seconds: 999 },
+        ttlSeconds: 888,
+        contextLength: 7777,
+      },
+    });
     assert.equal(load.status, "loaded");
     assert.equal(load.providerStatus, "warmed");
 
@@ -147,5 +157,6 @@ test("Ollama driver invokes chat, embeddings, load, and unload probes", async ()
 
     assert.ok(requests.some((request) => request.url === "/api/chat"));
     assert.equal(requests.filter((request) => request.url === "/api/generate").length, 2);
+    assert.equal(requests.find((request) => request.url === "/api/generate").body.keep_alive, "60s");
   });
 });

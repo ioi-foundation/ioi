@@ -1,5 +1,5 @@
 import { estimateNativeLocalResources } from "./local-system-probes.mjs";
-import { normalizeLoadOptions } from "./load-policy.mjs";
+import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
 import { normalizeScopes } from "./io.mjs";
 import {
   RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND,
@@ -61,7 +61,7 @@ export class NativeLocalModelProviderDriver {
     const artifact = state.getModel(endpoint.modelId);
     const estimate = estimateNativeLocalResources(artifact);
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
-    const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? body, endpoint.loadPolicy);
+    const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const processRecord = state.ensureBackendProcess(backendId, {
       endpoint,
       loadOptions,

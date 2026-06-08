@@ -20,7 +20,7 @@ export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
   const contextLength = source.context_length ?? source.contextLength ?? null;
   const parallel = source.parallelism ?? source.parallel ?? null;
   const identifier = source.identifier ?? source.instance_identifier ?? source.instanceIdentifier ?? null;
-  return {
+  const normalized = {
     estimateOnly: truthy(source.estimate_only ?? source.estimateOnly ?? false),
     gpu: gpu === null || gpu === undefined || gpu === "" ? null : String(gpu),
     contextLength: contextLength === null || contextLength === undefined || contextLength === "" ? null : Number(contextLength),
@@ -49,6 +49,45 @@ export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
           : Number(source.maxModelLen)
         : Number(source.max_model_len),
   };
+  return {
+    ...normalized,
+    estimate_only: normalized.estimateOnly,
+    context_length: normalized.contextLength,
+    ttl_seconds: normalized.ttlSeconds,
+    model_path: normalized.modelPath,
+    tensor_parallel_size: normalized.tensorParallelSize,
+    gpu_memory_utilization: normalized.gpuMemoryUtilization,
+    max_model_len: normalized.maxModelLen,
+  };
+}
+
+export function canonicalLoadOptionsInput(body = {}) {
+  const source = typeof body?.load_options === "object" && body.load_options ? body.load_options : body;
+  if (!source || typeof source !== "object") return {};
+  const canonical = {};
+  for (const key of [
+    "estimate_only",
+    "gpu_offload",
+    "gpu",
+    "context_length",
+    "parallelism",
+    "parallel",
+    "ttl_seconds",
+    "ttl",
+    "idle_ttl_seconds",
+    "identifier",
+    "instance_identifier",
+    "model_path",
+    "model",
+    "dtype",
+    "tensor_parallel_size",
+    "gpu_memory_utilization",
+    "max_model_len",
+    "embeddings",
+  ]) {
+    if (Object.hasOwn(source, key)) canonical[key] = source[key];
+  }
+  return canonical;
 }
 
 export function normalizeRuntimeEngineDefaultLoadOptions(value = {}) {
@@ -56,8 +95,10 @@ export function normalizeRuntimeEngineDefaultLoadOptions(value = {}) {
   const defaults = {};
   if (normalized.gpu !== null) defaults.gpu = normalized.gpu;
   if (normalized.contextLength !== null) defaults.contextLength = normalized.contextLength;
+  if (normalized.context_length !== null) defaults.context_length = normalized.context_length;
   if (normalized.parallel !== null) defaults.parallel = normalized.parallel;
   if (normalized.ttlSeconds !== null) defaults.ttlSeconds = normalized.ttlSeconds;
+  if (normalized.ttl_seconds !== null) defaults.ttl_seconds = normalized.ttl_seconds;
   if (normalized.identifier !== null) defaults.identifier = normalized.identifier;
   return defaults;
 }
