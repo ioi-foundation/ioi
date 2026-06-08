@@ -427,7 +427,7 @@ function runDocs() {
       /The Slice 769 MCP serve `params\.args` alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 770 retired the MCP manager `allowedTools` server config\/catalog fallback/.test(guide) &&
       /declared tool exposure only from canonical `allowed_tools`/.test(guide) &&
-      /The Slice 770 MCP\s+manager `allowedTools` alias-retirement matrix-compaction pass is pending/.test(
+      /The Slice 770 MCP\s+manager `allowedTools` alias-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -463,10 +463,10 @@ function runDocs() {
       /This pass compacted Slice 767 MCP manager\/catalog\/helper config\/source handoff\s+alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 768 visual observation artifact materialization path\s+alias fallback metadata retirement evidence/.test(matrix) &&
       /This pass compacted Slice 769 MCP serve `tools\/call` `params\.args` fallback\s+retirement evidence/.test(matrix) &&
-      /Slice 770 retired the MCP manager `allowedTools` server config\/catalog fallback/.test(
+      /This pass compacted Slice 770 MCP manager `allowedTools` server config\/catalog\s+alias-retirement evidence/.test(
         matrix,
       ) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 770 MCP\s+manager `allowedTools` alias-retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -678,10 +678,10 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 769/.test(matrix) &&
       /MCP serve `tools\/call` `params\.args` fallback/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 769 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 770/.test(matrix) &&
-      /MCP manager `allowedTools` server config\/catalog fallback/.test(matrix) &&
-      /Schedule and run a matrix-compaction pass for\s+Slice 770 before unrelated route-family work resumes/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 770 MCP manager\s+`allowedTools` server config\/catalog alias-retirement evidence/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 770/.test(matrix) &&
+      /MCP manager\s+`allowedTools` server config\/catalog alias retirement/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 770 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 770 MCP manager\s+`allowedTools` server config\/catalog alias-retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
