@@ -6,12 +6,12 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 732; Slices 733-739 are intentionally
+route-family slice ledger through Slice 732; Slices 733-740 are intentionally
 left expanded as the current runtime bridge thread/turn, runtime subagent
 control facade-retirement/legacy-body deletion, runtime task/job control
 facade-retirement, runtime thread-fork control facade-retirement, and
 conversation-artifact control facade-retirement, and permanent agent-delete
-control facade-retirement seams.
+plus agent lifecycle/status-control facade-retirement seams.
 Earlier 2026-06-08 compaction
 passes compacted IDE, MCP, thread-control, coding-tool, Agentgres state-commit,
 model-mount, workspace-restore, command-envelope, route fallback, provider,
@@ -22,10 +22,10 @@ facade-retirement evidence and Slice 731 into coding-tool artifact mutation
 facade-retirement evidence, then compacted Slice 732 into workspace
 snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule and run the next
-matrix-compaction pass once the post-Slice-739 seam is concrete, before
-unrelated route-family work resumes.
+Next resume instruction: schedule and run the matrix-compaction pass now that
+Slice 740 has clarified the next Rust-core extraction/facade-retirement seam,
+then continue the next implementation slice before unrelated route-family work
+resumes.
 
 ## Purpose
 
@@ -120,10 +120,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after the next concrete
-  Rust-core extraction or JS-facade retirement seam clarifies how Slices 733-739
-  can be compacted without obscuring terminal blockers. Schedule that pass only
-  after the next seam verifies and lands.
+- Next scheduled matrix-compaction pass: pending after Slice 740 clarified how
+  Slices 733-740 can be compacted without obscuring terminal blockers. Run that
+  pass before starting unrelated route-family work.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13882,9 +13881,39 @@ verification:
   - hypervisor-conformance
   - git diff --check
 test_gap:
-  - Terminal direct Rust daemon-core permanent agent deletion admission/projection APIs are still pending; this slice removes JS map/file deletion authority and leaves archive/status controls as the existing Rust-planned state-update path.
+  - Terminal direct Rust daemon-core permanent agent deletion admission/projection APIs are still pending; this slice removes JS map/file deletion authority.
 next_compaction:
-  - Schedule the matrix-compaction pass after the next Rust-core extraction or JS-facade retirement seam clarifies whether Slices 733-739 should be compacted together.
+  - Schedule the matrix-compaction pass after the next Rust-core extraction or JS-facade retirement seam clarifies whether Slices 733-740 should be compacted together.
+
+## Implementation Slice 740
+
+status: verified
+date: 2026-06-08
+route_or_surface: agent lifecycle/status control
+goal_phase:
+  - Phase 10: Rust daemon core extraction
+  - Phase 11: authoritative JS facade retirement
+target_owner: Rust daemon core `authority`/`agentgres_admission`/`projection`
+current_owner_before_slice: Archive, unarchive, resume, close, reload, and generic status controls still entered the JS thread store, invoked the Rust status-planner bridge from the JS facade, then mutated `store.agents` and persisted with `writeAgent`.
+implementation_notes:
+  - `updateAgent` now fails closed with `runtime_agent_status_control_rust_core_required`.
+  - The guard runs before JS agent lookup, Rust status-planner invocation from the JS facade, `agents` map mutation, or `writeAgent` persistence.
+  - The guard records canonical requested operation/status fields, the Rust lifecycle/status boundary, and explicit evidence refs for archive, unarchive, resume, close, reload, and generic status-control facade retirement.
+  - The Rust `plan_agent_status_state_update` bridge remains migration plumbing only; terminal lifecycle/status admission, receipt binding, projection, and replay must move into direct Rust daemon-core APIs.
+  - Added `thread-agent-status-control-js-facade-retired` bridge conformance so the older bridge-era success path cannot silently regrow JS status mutation authority.
+verification:
+  - node --check packages/runtime-daemon/src/threads/thread-store.mjs
+  - node --check packages/runtime-daemon/src/threads/thread-store.test.mjs
+  - node --test packages/runtime-daemon/src/threads/thread-store.test.mjs
+  - hypervisor-conformance:bridge
+  - hypervisor-conformance:receipts
+  - hypervisor-conformance:docs
+  - hypervisor-conformance
+  - git diff --check
+test_gap:
+  - Terminal direct Rust daemon-core lifecycle/status admission/projection APIs are still pending; this slice removes JS lifecycle/status mutation authority and leaves read/projection helpers as adapters over already-admitted state.
+next_compaction:
+  - Run the scheduled matrix-compaction pass before starting unrelated route-family work; Slice 740 is the seam that clarifies how Slices 733-740 should be compacted without encoding bridge transport or fail-closed JS facades as terminal shape.
 
 ## Command State
 
@@ -13901,8 +13930,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 739 and the permanent agent-delete
-control facade-retirement pass:
+Current expected behavior after Slice 740 and the agent lifecycle/status-control
+facade-retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

@@ -310,16 +310,16 @@ function runDocs() {
       /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
       /must\s+not be treated as the terminal substrate/.test(guide) &&
       /collapse into the Rust daemon core API/.test(guide) &&
-      /Resume-goal scheduling marker: do not make matrix pruning the first action when\s+the migration goal resumes/.test(
+      /Resume-goal scheduling marker: Slice 740 clarified the next Rust-core\s+extraction\/JS-facade retirement owner boundary/.test(
         guide,
       ) &&
-      /First complete a verified slice that clarifies the\s+next Rust-core extraction or JS-facade retirement owner boundary; then run the\s+scheduled matrix-compaction pass/.test(
+      /Run the scheduled\s+matrix-compaction pass before starting unrelated route-family work/.test(
         guide,
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-739 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement, conversation-artifact control facade-retirement, and\s+permanent agent-delete control facade-retirement seams/.test(guide) &&
-      /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
+      /Slices\s+733-740 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, runtime\s+task\/job control facade-retirement, and runtime thread-fork control\s+facade-retirement, conversation-artifact control facade-retirement, and\s+permanent agent-delete plus agent lifecycle\/status-control facade-retirement\s+seams/.test(guide) &&
+      /The next compaction pass is scheduled after Slice 740/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -328,16 +328,16 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Schedule a matrix-compaction pass once the next Rust-core extraction\/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal/.test(
+      /Next resume instruction: schedule and run the matrix-compaction pass now that\s+Slice 740 has clarified the next Rust-core extraction\/facade-retirement seam/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-739 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, runtime thread-fork control facade-retirement, and\s+conversation-artifact control facade-retirement, and permanent agent-delete\s+control facade-retirement seams/.test(
+      /Slices 733-740 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, runtime task\/job control\s+facade-retirement, runtime thread-fork control facade-retirement, and\s+conversation-artifact control facade-retirement, and permanent agent-delete\s+plus agent lifecycle\/status-control facade-retirement seams/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
+      /Next scheduled matrix-compaction pass: pending after Slice 740 clarified how\s+Slices 733-740 can be compacted/.test(
         matrix,
       ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(
@@ -5783,17 +5783,52 @@ function runBridge() {
       !/requiredPlannedOperationKind/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"agent\.create"/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.create"/.test(runtimeAgentRunLifecycle) &&
-      /contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
-      /agent_status_state_update_operation_kind_missing/.test(threadStore) &&
-      /agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
-      /details:\s*\{\s*agent_id:\s*agentId,\s*status,\s*operation_kind:\s*operationKind\s*\}/.test(
+      /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
+      /rust_core_boundary:\s*"runtime\.agent_status_control"/.test(threadStore) &&
+      /operation:\s*"agent_status_control"/.test(threadStore) &&
+      /operation_kind:\s*"agent_status_update"/.test(threadStore) &&
+      /requested_operation_kind:\s*operationKind/.test(threadStore) &&
+      /requested_status:\s*status/.test(threadStore) &&
+      /runtime_agent_status_control_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_archive_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_unarchive_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_resume_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_close_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_reload_js_facade_retired/.test(threadStore) &&
+      /rust_daemon_core_agent_status_control_required/.test(threadStore) &&
+      /agentgres_agent_status_state_truth_required/.test(threadStore) &&
+      !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
+      !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
+      !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
+      /thread store agent status facade fails closed before Rust planning or JS persistence/.test(
+        threadStoreTest,
+      ) &&
+      /thread store agent status facade fails closed without JS agent lookup/.test(
+        threadStoreTest,
+      ) &&
+      /runtime_agent_status_control_rust_core_required/.test(threadStoreTest) &&
+      /requested_operation_kind/.test(threadStoreTest) &&
+      /requested_status/.test(threadStoreTest) &&
+      /assertNoRetiredAgentStatusDetailAliases\(error\.details\)/.test(threadStoreTest) &&
+      /call\.operation === "plan_agent_status_state_update"\),\s*false/.test(
+        threadStoreTest,
+      ) &&
+      /call\.operation === "write_agent"\),\s*false/.test(threadStoreTest) &&
+      !/thread store updates agents through Rust state planning/.test(threadStoreTest) &&
+      !/thread store fails closed without Rust status planner/.test(threadStoreTest) &&
+      !/thread store fails closed without Rust-planned status agent/.test(threadStoreTest) &&
+      !/thread store fails closed without Rust-planned status operation kind/.test(
+        threadStoreTest,
+      ) &&
+      !/thread store fails closed on mismatched Rust-planned status operation kind/.test(
+        threadStoreTest,
+      ) &&
+      !/agent_status_state_update_operation_kind_missing/.test(threadStore) &&
+      !/agent_status_state_update_operation_kind_mismatch/.test(threadStore) &&
+      !/details:\s*\{\s*agent_id:\s*agentId,\s*status,\s*operation_kind:\s*operationKind\s*\}/.test(
         threadStore,
       ) &&
-      /expected_operation_kind:\s*operationKind/.test(threadStore) &&
-      /assertNoRetiredAgentStatusDetailAliases\(error\.details\)/.test(threadStoreTest) &&
-      /thread store fails closed without Rust status planner/.test(threadStoreTest) &&
-      /error\.details\.agent_id/.test(threadStoreTest) &&
-      /error\.details\.expected_operation_kind/.test(threadStoreTest) &&
+      !/expected_operation_kind:\s*operationKind/.test(threadStore) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*operationKind/.test(threadStore) &&
       !/details:\s*\{[^}\n]*\b(?:agentId|operationKind|expectedOperationKind)\s*:/.test(
         threadStore,
@@ -5842,13 +5877,6 @@ function runBridge() {
       /Object\.hasOwn\(body\.options,\s*key\),\s*false,\s*`retired run-create option alias/.test(
         agentSdkTest,
       ) &&
-      /thread store fails closed without Rust-planned status agent/.test(threadStoreTest) &&
-      /thread store fails closed without Rust-planned status operation kind/.test(
-        threadStoreTest,
-      ) &&
-      /thread store fails closed on mismatched Rust-planned status operation kind/.test(
-        threadStoreTest,
-      ) &&
       /record\.parent_thread_id === threadId/.test(threadStore) &&
       !/record\.parentThreadId\b/.test(threadStore) &&
       /subagent_retired/.test(threadStoreTest) &&
@@ -5871,6 +5899,33 @@ function runBridge() {
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 9/10 is pending: public agent/run creation must fail closed until Rust daemon-core owns state admission and persistence; bridge planners remain migration plumbing only",
+  );
+  assertCheck(
+    result,
+    "thread-agent-status-control-js-facade-retired",
+    /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
+      /runtime_agent_status_control_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_archive_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_unarchive_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_resume_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_close_js_facade_retired/.test(threadStore) &&
+      /runtime_agent_reload_js_facade_retired/.test(threadStore) &&
+      /rust_daemon_core_agent_status_control_required/.test(threadStore) &&
+      /agentgres_agent_status_state_truth_required/.test(threadStore) &&
+      !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
+      !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
+      !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
+      /thread store agent status facade fails closed before Rust planning or JS persistence/.test(
+        threadStoreTest,
+      ) &&
+      /thread store agent status facade fails closed without JS agent lookup/.test(
+        threadStoreTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-store.mjs",
+      "packages/runtime-daemon/src/threads/thread-store.test.mjs",
+    ],
+    "Phase 10/11 is pending: agent lifecycle/status controls must fail closed until Rust daemon-core owns lifecycle admission, persistence, replay, and projection",
   );
   assertCheck(
     result,

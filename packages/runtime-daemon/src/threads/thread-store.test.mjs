@@ -109,7 +109,7 @@ function fakeStore(options = {}) {
 }
 
 function assertNoRetiredAgentStatusDetailAliases(details) {
-  for (const key of ["agentId", "operationKind", "expectedOperationKind"]) {
+  for (const key of ["rustCoreBoundary", "operationKind", "agentId", "requestedStatus", "evidenceRefs"]) {
     assert.equal(Object.hasOwn(details, key), false, `retired agent status detail alias ${key}`);
   }
 }
@@ -198,117 +198,60 @@ test("thread store projects usage for run and thread", () => {
   });
 });
 
-test("thread store updates agents through Rust state planning", () => {
+test("thread store agent status facade fails closed before Rust planning or JS persistence", () => {
   const store = fakeStore();
   store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
 
-  const updated = updateAgent(store, "agent_1", "archived", "agent.archive");
-  assert.equal(updated.status, "archived");
-  const planner = store.calls.find((call) => call.operation === "plan_agent_status_state_update");
-  assert.equal(planner.input.status, "archived");
-  assert.equal(planner.input.operation_kind, "agent.archive");
-  assert.equal(store.calls.at(-1).operationKind, "agent.archive");
-});
-
-test("thread store fails closed without Rust status planner", () => {
-  const store = fakeStore();
-  store.contextPolicyRunner = {};
-  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
-
   assert.throws(
     () => updateAgent(store, "agent_1", "archived", "agent.archive"),
     (error) => {
-      assert.equal(error.code, "agent_status_state_update_planner_unavailable");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_agent_status_control_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.agent_status_control");
+      assert.equal(error.details.operation, "agent_status_control");
+      assert.equal(error.details.operation_kind, "agent_status_update");
+      assert.equal(error.details.requested_operation_kind, "agent.archive");
       assert.equal(error.details.agent_id, "agent_1");
-      assert.equal(error.details.status, "archived");
-      assert.equal(error.details.operation_kind, "agent.archive");
+      assert.equal(error.details.requested_status, "archived");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_agent_status_control_js_facade_retired",
+        "runtime_agent_archive_js_facade_retired",
+        "runtime_agent_unarchive_js_facade_retired",
+        "runtime_agent_resume_js_facade_retired",
+        "runtime_agent_close_js_facade_retired",
+        "runtime_agent_reload_js_facade_retired",
+        "rust_daemon_core_agent_status_control_required",
+        "agentgres_agent_status_state_truth_required",
+      ]);
       assertNoRetiredAgentStatusDetailAliases(error.details);
       return true;
     },
   );
-  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
-});
-
-test("thread store fails closed without Rust-planned status agent", () => {
-  const store = fakeStore({
-    agentStatusStateUpdate: {
-      status: "planned",
-      operation_kind: "agent.archive",
-      agent: null,
-    },
-  });
-  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
-
-  assert.throws(
-    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
-    (error) => {
-      assert.equal(error.code, "agent_status_state_update_planner_invalid");
-      assert.equal(error.details.agent_id, "agent_1");
-      assert.equal(error.details.status, "archived");
-      assert.equal(error.details.operation_kind, "agent.archive");
-      assertNoRetiredAgentStatusDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
-});
-
-test("thread store fails closed without Rust-planned status operation kind", () => {
-  const store = fakeStore({
-    agentStatusStateUpdate: {
-      status: "planned",
-      agent: {
-        id: "agent_1",
-        status: "archived",
-        createdAt: "2026-06-03T00:00:00.000Z",
-      },
-    },
-  });
-  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
-
-  assert.throws(
-    () => updateAgent(store, "agent_1", "archived", "agent.archive"),
-    (error) => {
-      assert.equal(error.code, "agent_status_state_update_operation_kind_missing");
-      assert.equal(error.details.agent_id, "agent_1");
-      assert.equal(error.details.status, "archived");
-      assert.equal(error.details.operation_kind, "agent.archive");
-      assertNoRetiredAgentStatusDetailAliases(error.details);
-      return true;
-    },
-  );
+  assert.equal(store.calls.some((call) => call.operation === "plan_agent_status_state_update"), false);
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
   assert.equal(store.agents.get("agent_1").status, "active");
 });
 
-test("thread store fails closed on mismatched Rust-planned status operation kind", () => {
-  const store = fakeStore({
-    agentStatusStateUpdate: {
-      status: "planned",
-      operation_kind: "agent.close",
-      agent: {
-        id: "agent_1",
-        status: "archived",
-        createdAt: "2026-06-03T00:00:00.000Z",
-      },
-    },
-  });
-  store.agents.set("agent_1", { id: "agent_1", status: "active", createdAt: "2026-06-03T00:00:00.000Z" });
+test("thread store agent status facade fails closed without JS agent lookup", () => {
+  const store = fakeStore();
+  store.getAgent = () => {
+    throw new Error("unexpected JS agent lookup");
+  };
 
   assert.throws(
     () => updateAgent(store, "agent_1", "archived", "agent.archive"),
     (error) => {
-      assert.equal(error.code, "agent_status_state_update_operation_kind_mismatch");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_agent_status_control_rust_core_required");
       assert.equal(error.details.agent_id, "agent_1");
-      assert.equal(error.details.status, "archived");
-      assert.equal(error.details.expected_operation_kind, "agent.archive");
-      assert.equal(error.details.operation_kind, "agent.close");
+      assert.equal(error.details.requested_status, "archived");
+      assert.equal(error.details.requested_operation_kind, "agent.archive");
       assertNoRetiredAgentStatusDetailAliases(error.details);
       return true;
     },
   );
+  assert.equal(store.calls.some((call) => call.operation === "plan_agent_status_state_update"), false);
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
-  assert.equal(store.agents.get("agent_1").status, "active");
 });
 
 test("thread store permanent delete facade fails closed before JS state mutation", () => {

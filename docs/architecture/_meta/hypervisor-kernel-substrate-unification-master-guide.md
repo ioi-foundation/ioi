@@ -272,21 +272,22 @@ execution authority, no compatibility-shim semantics, and no duplicate truth
 path. The target transport shape is a temporary transport to the Rust daemon core
 with no independent authority or compatibility-shim behavior.
 
-Resume-goal scheduling marker: do not make matrix pruning the first action when
-the migration goal resumes. First complete a verified slice that clarifies the
-next Rust-core extraction or JS-facade retirement owner boundary; then run the
-scheduled matrix-compaction pass before starting unrelated route-family work.
+Resume-goal scheduling marker: Slice 740 clarified the next Rust-core
+extraction/JS-facade retirement owner boundary. Run the scheduled
+matrix-compaction pass before starting unrelated route-family work, then resume
+the next verified Rust-core extraction or facade-retirement slice.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
 Slice 732 workspace snapshot/restore mutation compaction is complete. Slices
-733-739 are intentionally left expanded as the current runtime bridge thread/turn,
+733-740 are intentionally left expanded as the current runtime bridge thread/turn,
 runtime subagent control facade-retirement/legacy-body deletion, runtime
 task/job control facade-retirement, and runtime thread-fork control
 facade-retirement, conversation-artifact control facade-retirement, and
-permanent agent-delete control facade-retirement seams.
-The next compaction pass is pending after the next seam is clear enough to preserve evidence, distinguish
-interim bridge scaffolding and fail-closed JS facades from terminal Rust
-daemon-core shape, and avoid encoding command transport or read-only JS helpers
-as long-term substrate.
+permanent agent-delete plus agent lifecycle/status-control facade-retirement
+seams.
+The next compaction pass is scheduled after Slice 740 so the ledger preserves
+evidence, distinguishes interim bridge scaffolding and fail-closed JS facades
+from terminal Rust daemon-core shape, and avoids encoding command transport or
+read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

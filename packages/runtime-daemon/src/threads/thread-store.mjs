@@ -15,62 +15,34 @@ export function getAgent(store, agentId, deps = {}) {
 
 export function updateAgent(store, agentId, status, operationKind, deps = {}) {
   const {
-    runtimeError = ({ status: errorStatus = 500, code = "agent_status_state_update_error", message, details }) =>
+    runtimeError = ({ status: errorStatus = 500, code = "agent_status_control_error", message, details }) =>
       Object.assign(new Error(message), { status: errorStatus, code, details }),
   } = deps;
-  const agent = store.getAgent(agentId);
-  const contextPolicyRunner = store.contextPolicyRunner;
-  if (typeof contextPolicyRunner?.planAgentStatusStateUpdate !== "function") {
-    throw runtimeError({
-      status: 500,
-      code: "agent_status_state_update_planner_unavailable",
-      message: "Agent status updates require Rust policy state-update planning.",
-      details: { agent_id: agentId, status, operation_kind: operationKind },
-    });
-  }
-  const stateUpdate = contextPolicyRunner.planAgentStatusStateUpdate({
-    agent,
-    status,
-    operation_kind: operationKind,
-    updated_at: new Date().toISOString(),
+  void store;
+  throw runtimeError({
+    status: 501,
+    code: "runtime_agent_status_control_rust_core_required",
+    message:
+      "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+    details: {
+      rust_core_boundary: "runtime.agent_status_control",
+      operation: "agent_status_control",
+      operation_kind: "agent_status_update",
+      requested_operation_kind: operationKind,
+      agent_id: agentId,
+      requested_status: status,
+      evidence_refs: [
+        "runtime_agent_status_control_js_facade_retired",
+        "runtime_agent_archive_js_facade_retired",
+        "runtime_agent_unarchive_js_facade_retired",
+        "runtime_agent_resume_js_facade_retired",
+        "runtime_agent_close_js_facade_retired",
+        "runtime_agent_reload_js_facade_retired",
+        "rust_daemon_core_agent_status_control_required",
+        "agentgres_agent_status_state_truth_required",
+      ],
+    },
   });
-  const updated = stateUpdate.agent;
-  if (!updated?.id) {
-    throw runtimeError({
-      status: 502,
-      code: "agent_status_state_update_planner_invalid",
-      message: "Rust agent status state planning did not return an agent record.",
-      details: { agent_id: agentId, status, operation_kind: operationKind },
-    });
-  }
-  const plannedOperationKind =
-    typeof stateUpdate.operation_kind === "string" && stateUpdate.operation_kind.trim()
-      ? stateUpdate.operation_kind
-      : null;
-  if (!plannedOperationKind) {
-    throw runtimeError({
-      status: 502,
-      code: "agent_status_state_update_operation_kind_missing",
-      message: "Rust agent status state planning did not return an operation kind.",
-      details: { agent_id: agentId, status, operation_kind: operationKind },
-    });
-  }
-  if (plannedOperationKind !== operationKind) {
-    throw runtimeError({
-      status: 502,
-      code: "agent_status_state_update_operation_kind_mismatch",
-      message: "Rust agent status state planning returned an unexpected operation kind.",
-      details: {
-        agent_id: agentId,
-        status,
-        expected_operation_kind: operationKind,
-        operation_kind: plannedOperationKind,
-      },
-    });
-  }
-  store.agents.set(updated.id, updated);
-  store.writeAgent(updated, plannedOperationKind);
-  return updated;
 }
 
 export function deleteAgent(store, agentId, deps = {}) {
