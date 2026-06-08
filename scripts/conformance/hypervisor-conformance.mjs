@@ -8375,7 +8375,8 @@ function runBridge() {
       /rust_worker_service_package_invocation_command/.test(bridgeModule) &&
       /accepted_receipt_append/.test(bridgeModule) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
-      /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule),
+      /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
+      /worker_service_package_rejects_step_module_command_schema/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
   );
@@ -8383,7 +8384,10 @@ function runBridge() {
     result,
     "worker-service-package-daemon-runner",
     /WORKER_SERVICE_PACKAGE_COMMAND_ENV/.test(workerServicePackageRunner) &&
-      /IOI_WORKER_SERVICE_PACKAGE_COMMAND/.test(workerServicePackageRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workerServicePackageRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(workerServicePackageRunner) &&
+      !/IOI_WORKER_SERVICE_PACKAGE_COMMAND/.test(workerServicePackageRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(workerServicePackageRunner) &&
       /RustWorkerServicePackageRunner/.test(workerServicePackageRunner) &&
       /createWorkerServicePackageRunnerFromEnv/.test(workerServicePackageRunner) &&
       /createWorkerServicePackageRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -8393,6 +8397,9 @@ function runBridge() {
       /rust_package_invocation/.test(workerServicePackageRunner) &&
       /worker_service_package_bridge_unconfigured/.test(workerServicePackageRunner) &&
       /worker\/service package runner sends invocation admission bridge request/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner env uses daemon-core command boundary/.test(
         workerServicePackageRunnerTest,
       ) &&
       /worker\/service package runner fails closed without command/.test(

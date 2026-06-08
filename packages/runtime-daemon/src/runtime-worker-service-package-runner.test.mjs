@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   RUST_WORKER_SERVICE_PACKAGE_BACKEND,
   RustWorkerServicePackageRunner,
+  WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV,
   WORKER_SERVICE_PACKAGE_COMMAND_ENV,
   WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION,
   WorkerServicePackageRunnerError,
@@ -165,12 +166,18 @@ test("worker/service package runner sends invocation admission bridge request", 
   assert.deepEqual(result.payload_refs, ["payload://worker-package/output"]);
 });
 
-test("worker/service package runner can be configured from env", () => {
+test("worker/service package runner env uses daemon-core command boundary", () => {
   const runner = createWorkerServicePackageRunnerFromEnv({
-    [WORKER_SERVICE_PACKAGE_COMMAND_ENV]: "mock-worker-service-package-bridge",
+    [WORKER_SERVICE_PACKAGE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV]: "--json",
+    IOI_WORKER_SERVICE_PACKAGE_COMMAND: "retired-worker-service-package-bridge",
+    IOI_WORKER_SERVICE_PACKAGE_COMMAND_ARGS: "--retired-package",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-worker-service-package-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("worker/service package runner fails closed without command", () => {

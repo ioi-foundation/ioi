@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const WORKER_SERVICE_PACKAGE_COMMAND_ENV = "IOI_WORKER_SERVICE_PACKAGE_COMMAND";
-export const WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV = "IOI_WORKER_SERVICE_PACKAGE_COMMAND_ARGS";
-export const WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const WORKER_SERVICE_PACKAGE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_WORKER_SERVICE_PACKAGE_BACKEND = "rust_package_invocation";
 
 export function createWorkerServicePackageRunnerFromEnv(env = process.env, options = {}) {
@@ -45,7 +45,7 @@ export class RustWorkerServicePackageRunner {
     }
     if (!this.command) {
       throw new WorkerServicePackageRunnerError(
-        "Worker/service package invocation admission requires IOI_WORKER_SERVICE_PACKAGE_COMMAND for Rust package admission.",
+        "Worker/service package invocation admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core package admission.",
         "worker_service_package_bridge_unconfigured",
         {
           env: WORKER_SERVICE_PACKAGE_COMMAND_ENV,

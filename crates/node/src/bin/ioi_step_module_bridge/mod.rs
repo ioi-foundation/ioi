@@ -1017,6 +1017,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_model_mount_accepted_receipt_head"
             | "plan_model_mount_accepted_receipt_transition"
             | "bind_model_mount_invocation_receipt"
+            | "admit_worker_service_package_invocation"
             | "commit_runtime_run_state"
             | "commit_runtime_agent_state"
             | "commit_runtime_memory_state"
@@ -1868,12 +1869,12 @@ fn execute_private_workspace_ctee_action(
 fn admit_worker_service_package_invocation(
     request: WorkerServicePackageInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7358,7 +7359,7 @@ mod tests {
     fn bridge_admits_worker_service_package_invocation_through_rust_core() {
         let request: WorkerServicePackageInvocationBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "admit_worker_service_package_invocation",
                 "backend": "rust_package_invocation",
                 "request": {
@@ -7481,6 +7482,113 @@ mod tests {
             response["authority_grant_refs"][0],
             "grant://wallet/worker-package"
         );
+    }
+
+    #[test]
+    fn worker_service_package_rejects_step_module_command_schema() {
+        let request: WorkerServicePackageInvocationBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+                "operation": "admit_worker_service_package_invocation",
+                "backend": "rust_package_invocation",
+                "request": {
+                    "schema_version": "ioi.worker_service_package_invocation.v1",
+                    "package_kind": "worker_package",
+                    "package_ref": "worker://runtime-auditor",
+                    "manifest_ref": "worker://runtime-auditor@1",
+                    "invocation": {
+                        "schema_version": "ioi.step_module_invocation.v1",
+                        "invocation_id": "invocation://worker-package/bridge",
+                        "run_id": "run:worker-package",
+                        "task_id": "task:worker-package",
+                        "thread_id": "thread:worker-package",
+                        "workflow_graph_id": "workflow.worker-package",
+                        "workflow_node_id": "node.worker-package",
+                        "context_chamber_ref": null,
+                        "action_proposal_ref": "action:worker-package",
+                        "gate_result_ref": "gate:worker-package",
+                        "module_ref": {
+                            "kind": "workload_job",
+                            "id": "worker://runtime-auditor",
+                            "version": "1",
+                            "manifest_ref": "worker://runtime-auditor@1"
+                        },
+                        "actor": {
+                            "actor_id": "runtime:hypervisor-daemon",
+                            "runtime_node_ref": "node://local"
+                        },
+                        "authority": {
+                            "authority_grant_refs": ["grant://wallet/worker-package"],
+                            "policy_hash": "sha256:worker-policy",
+                            "primitive_capabilities": ["prim:worker.invoke"],
+                            "authority_scopes": ["scope:repo.read"],
+                            "approval_ref": "approval://worker-package"
+                        },
+                        "input": {
+                            "input_hash": "sha256:worker-input",
+                            "expected_schema_ref": "schema://worker-package/runtime-auditor/input",
+                            "context_refs": ["agentgres://project/hypervisor"],
+                            "artifact_refs": [],
+                            "payload_refs": ["payload://worker-package/input"],
+                            "state_root_before": "sha256:package-before",
+                            "projection_watermark": "agentgres:worker-package:0",
+                            "data_plane_handle": null
+                        },
+                        "custody": {
+                            "privacy_profile": "internal",
+                            "plaintext_policy": {
+                                "node_plaintext_allowed": true,
+                                "declassification_required": false
+                            },
+                            "custody_proof_ref": null,
+                            "leakage_profile_ref": null
+                        },
+                        "execution": {
+                            "backend": "workload_grpc",
+                            "idempotency_key": "idem:worker-package-bridge",
+                            "deadline_ms": 300000,
+                            "resource_lease_ref": "lease://worker-package",
+                            "retry_policy_ref": null
+                        }
+                    },
+                    "result": {
+                        "schema_version": "ioi.step_module_result.v1",
+                        "invocation_id": "invocation://worker-package/bridge",
+                        "status": "success",
+                        "execution_result_ref": "result://worker-package/bridge",
+                        "normalized_observation_ref": "observation://worker-package/bridge",
+                        "receipt_refs": ["receipt://worker-package/bridge"],
+                        "artifact_refs": ["artifact://worker-package/report"],
+                        "payload_refs": ["payload://worker-package/output"],
+                        "agentgres_operation_refs": ["agentgres://worker-service-package/operations/bridge"],
+                        "state_root_after": "sha256:package-after",
+                        "resulting_head": "agentgres://worker-service-package/head/bridge",
+                        "workflow_projection": {
+                            "workflow_graph_id": "workflow.worker-package",
+                            "workflow_node_id": "node.worker-package",
+                            "component_kind": "WorkerPackageNode",
+                            "status": "live",
+                            "attempt_id": "attempt://worker-package/bridge",
+                            "evidence_refs": ["artifact://worker-package/report"],
+                            "receipt_refs": ["receipt://worker-package/bridge"]
+                        },
+                        "next": {
+                            "model_reentry_required": false,
+                            "verifier_required": true
+                        }
+                    }
+                }
+            }))
+            .expect("worker package bridge request");
+
+        let error = admit_worker_service_package_invocation(request)
+            .expect_err("daemon-core worker/service package rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
