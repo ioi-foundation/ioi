@@ -145,8 +145,27 @@ test("workspace change inspection rejects retired bridge request aliases", async
   );
 });
 
-test("workspace change control maps tool ids to bridge actions and result envelope", async () => {
-  const bridgeCalls = [];
+function assertWorkspaceChangeControlRustCoreRequired(error) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_workspace_change_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.workspace_change_control");
+  assert.equal(error.details.operation, "workspace_change_control");
+  assert.equal(error.details.operation_kind, "workspace_change_control");
+  assert.equal(error.details.thread_id, "thread_runtime");
+  assert.deepEqual(error.details.evidence_refs, [
+    "workspace_change_control_js_facade_retired",
+    "workspace_change_control_bridge_dispatch_retired",
+    "workspace_change_control_receipt_synthesis_js_retired",
+    "rust_daemon_core_workspace_change_control_required",
+    "agentgres_workspace_change_truth_required",
+  ]);
+  for (const key of ["threadId", "operationKind", "rustCoreBoundary", "evidenceRefs"]) {
+    assert.equal(Object.hasOwn(error.details, key), false);
+  }
+  return true;
+}
+
+test("workspace change control facade fails closed before JS bridge dispatch or result envelope", async () => {
   const store = fakeStore({
     agent: {
       id: "agent_runtime",
@@ -156,95 +175,24 @@ test("workspace change control maps tool ids to bridge actions and result envelo
     },
     runtimeBridge: {
       async controlThread(input) {
-        bridgeCalls.push(input);
-        return {
-          action: input.action,
-          status: "completed",
-          inspection: {
-            workspace_change_reviews: [
-              {
-                change_id: input.change_id,
-                path: "src/app.js",
-                rollback_available: true,
-              },
-            ],
-          },
-        };
+        assert.fail(`workspace change JS control bridge dispatch must not run: ${JSON.stringify(input)}`);
       },
-    },
-  });
-
-  const controlled = await controlWorkspaceChangeForThread(store, "thread_runtime", {
-    tool_id: "workspace_change__reject",
-    input: {
-      change_id: "workspace_change:file:1",
-      reason: "operator rejected hunk",
-    },
-    created_at: "2026-06-03T00:00:00.000Z",
-  }, deps());
-
-  assert.equal(bridgeCalls[0].action, "workspace_change_reject");
-  assert.equal(bridgeCalls[0].session_id, "session_runtime");
-  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
-  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
-  assert.equal(bridgeCalls[0].change_id, "workspace_change:file:1");
-  assert.equal(bridgeCalls[0].created_at, "2026-06-03T00:00:00.000Z");
-  assert.equal(Object.hasOwn(bridgeCalls[0], "sessionId"), false);
-  assert.equal(Object.hasOwn(bridgeCalls[0], "threadId"), false);
-  assert.equal(Object.hasOwn(bridgeCalls[0], "workspaceRoot"), false);
-  assert.equal(Object.hasOwn(bridgeCalls[0], "changeId"), false);
-  assert.equal(Object.hasOwn(bridgeCalls[0], "createdAt"), false);
-  assert.equal(Object.hasOwn(bridgeCalls[0], "requestHash"), false);
-  assert.equal(controlled.schema_version, "ioi.runtime.workspace-change-control.daemon.v1");
-  assert.equal(Object.hasOwn(controlled, "schemaVersion"), false);
-  assert.equal(Object.hasOwn(controlled, "changeId"), false);
-  assert.equal(Object.hasOwn(controlled, "receiptRefs"), false);
-  assert.equal(controlled.status, "rejected");
-  assert.equal(controlled.result.change_id, "workspace_change:file:1");
-  assert.equal(Object.hasOwn(controlled.result, "changeId"), false);
-  assert.match(controlled.receipt_refs[0], /^receipt_workspace_change_workspace_change_reject_/);
-});
-
-test("workspace change control requires change id", async () => {
-  const store = fakeStore({
-    agent: {
-      id: "agent_runtime",
-      cwd: "/workspace",
-      runtimeProfile: "runtime_service",
-      runtimeSessionId: "session_runtime",
-    },
-  });
-
-  await assert.rejects(
-    controlWorkspaceChangeForThread(store, "thread_runtime", { tool_id: "workspace_change__accept" }, deps()),
-    /Workspace change control requires changeId/,
-  );
-});
-
-test("workspace change control rejects retired request aliases", async () => {
-  const store = fakeStore({
-    agent: {
-      id: "agent_runtime",
-      cwd: "/workspace",
-      runtimeProfile: "runtime_service",
-      runtimeSessionId: "session_runtime",
     },
   });
 
   await assert.rejects(
     controlWorkspaceChangeForThread(store, "thread_runtime", {
+      tool_id: "workspace_change__reject",
       toolId: "workspace_change__accept",
       input: {
+        change_id: "workspace_change:file:0",
         changeId: "workspace_change:file:1",
         workspace_change_id: "workspace_change:file:2",
       },
+      created_at: "2026-06-03T00:00:00.000Z",
+      requestHash: "retired_hash",
     }, deps()),
-    (error) =>
-      error.code === "workspace_change_control_request_aliases_retired" &&
-      error.details.thread_id === "thread_runtime" &&
-      error.details.retired_aliases.includes("toolId") &&
-      error.details.retired_aliases.includes("changeId") &&
-      error.details.retired_aliases.includes("workspace_change_id") &&
-      Object.hasOwn(error.details, "threadId") === false,
+    assertWorkspaceChangeControlRustCoreRequired,
   );
+  assert.deepEqual(store.calls, []);
 });

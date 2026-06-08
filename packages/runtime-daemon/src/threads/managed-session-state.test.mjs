@@ -135,8 +135,27 @@ test("managed session thread inspection rejects retired bridge request aliases",
   }
 });
 
-test("managed session control builds normalized bridge command and inspection envelope", async () => {
-  const bridgeCalls = [];
+function assertManagedSessionControlRustCoreRequired(error) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_managed_session_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.managed_session_control");
+  assert.equal(error.details.operation, "managed_session_control");
+  assert.equal(error.details.operation_kind, "managed_session_control");
+  assert.equal(error.details.thread_id, "thread_runtime");
+  assert.deepEqual(error.details.evidence_refs, [
+    "managed_session_control_js_facade_retired",
+    "managed_session_control_bridge_dispatch_retired",
+    "managed_session_control_result_envelope_js_retired",
+    "rust_daemon_core_managed_session_control_required",
+    "agentgres_managed_session_truth_required",
+  ]);
+  for (const key of ["threadId", "operationKind", "rustCoreBoundary", "evidenceRefs"]) {
+    assert.equal(Object.hasOwn(error.details, key), false);
+  }
+  return true;
+}
+
+test("managed session control facade fails closed before JS bridge dispatch or result envelope", async () => {
   const store = fakeStore({
     agent: {
       id: "agent_runtime",
@@ -146,88 +165,21 @@ test("managed session control builds normalized bridge command and inspection en
     },
     runtimeBridge: {
       async controlThread(input) {
-        bridgeCalls.push(input);
-        return {
-          action: input.action,
-          status: "completed",
-          inspection: {
-            bridge_id: "bridge_runtime",
-            managed_sessions: {
-              sessions: [{ id: input.managed_session_id, control_state: "take_over" }],
-            },
-          },
-        };
+        assert.fail(`managed session JS control bridge dispatch must not run: ${JSON.stringify(input)}`);
       },
-    },
-  });
-
-  const controlled = await controlManagedSessionForThread(store, "thread_runtime", {
-    managed_session_id: "sandbox_browser:test",
-    action: "take over",
-    created_at: "2026-06-03T00:00:00.000Z",
-  }, deps());
-
-  assert.equal(bridgeCalls[0].action, "take_over_session");
-  assert.equal(bridgeCalls[0].session_id, "session_runtime");
-  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
-  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
-  assert.equal(bridgeCalls[0].request_hash, "hash-78".padEnd(24, "0").slice(0, 16));
-  assert.equal(bridgeCalls[0].managed_session_id, "sandbox_browser:test");
-  assert.equal(bridgeCalls[0].created_at, "2026-06-03T00:00:00.000Z");
-  for (const field of ["sessionId", "threadId", "workspaceRoot", "requestHash", "managedSessionId", "createdAt"]) {
-    assert.equal(Object.hasOwn(bridgeCalls[0], field), false, `retired managed session control bridge alias ${field}`);
-  }
-  assert.equal(controlled.schema_version, "ioi.runtime.managed-session-control.daemon.v1");
-  assert.equal(controlled.inspection.managed_sessions.sessions[0].control_state, "take_over");
-  for (const field of ["threadId", "sessionId", "managedSessionId", "bridgeResult"]) {
-    assert.equal(Object.hasOwn(controlled, field), false, `retired managed session control alias ${field}`);
-  }
-});
-
-test("managed session control requires managed session id", async () => {
-  const store = fakeStore({
-    agent: {
-      id: "agent_runtime",
-      cwd: "/workspace",
-      runtimeProfile: "runtime_service",
-      runtimeSessionId: "session_runtime",
     },
   });
 
   await assert.rejects(
-    controlManagedSessionForThread(store, "thread_runtime", { action: "observe" }, deps()),
-    (error) => {
-      assert.equal(error.code, "managed_session_control_contract");
-      assert.equal(error.details.thread_id, "thread_runtime");
-      assert.equal(error.details.operation, "control_thread");
-      assertNoRetiredContractDetailAliases(error.details);
-      return true;
-    },
+    controlManagedSessionForThread(store, "thread_runtime", {
+      managed_session_id: "sandbox_browser:test",
+      managedSessionId: "retired_session",
+      sessionCardId: "retired_card",
+      action: "take over",
+      createdAt: "2026-06-03T00:00:00.000Z",
+      requestHash: "retired_hash",
+    }, deps()),
+    assertManagedSessionControlRustCoreRequired,
   );
-});
-
-test("managed session control rejects retired request aliases", async () => {
-  const store = fakeStore({
-    agent: {
-      id: "agent_runtime",
-      cwd: "/workspace",
-      runtimeProfile: "runtime_service",
-      runtimeSessionId: "session_runtime",
-    },
-  });
-
-  for (const alias of ["managedSessionId", "sessionCardId", "session_card_id", "createdAt", "requestHash"]) {
-    await assert.rejects(
-      controlManagedSessionForThread(store, "thread_runtime", {
-        [alias]: "retired",
-        managed_session_id: "sandbox_browser:test",
-        action: "observe",
-      }, deps()),
-      (error) => {
-        assert.equal(error.code, "managed_session_control_request_aliases_retired");
-        assert.deepEqual(error.details.retired_aliases, [alias]);
-        return true;
-      },
-    );
-  }
+  assert.deepEqual(store.calls, []);
 });
