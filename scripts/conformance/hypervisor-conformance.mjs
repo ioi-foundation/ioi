@@ -369,7 +369,8 @@ function runDocs() {
       /Slice 749 public model invocation facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 750 runtime model-route selection facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 751 stream-cancel receipt facade\s+retirement compaction is complete/.test(guide) &&
-      /No matrix-compaction pass is pending until\s+the next seam lands/.test(guide) &&
+      /Slice 752 receipt-gate receipt facade\s+retirement has landed/.test(guide) &&
+      /schedule and run the next matrix-compaction pass before\s+unrelated route-family work resumes/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -388,7 +389,8 @@ function runDocs() {
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 752 receipt-gate\s+receipt facade retirement has landed and scheduled the next compaction pass/.test(matrix) &&
+      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -475,10 +477,18 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 751 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 751/.test(
+      /Implementation Slice 752: Model Receipt-Gate Receipt Facade Retirement/.test(
+        matrix,
+      ) &&
+      /model_mount_receipt_gate_rust_core_required/.test(matrix) &&
+      /model_mount_receipt_gate_js_facade_retired/.test(matrix) &&
+      /rust_daemon_core_model_receipt_gate_required/.test(matrix) &&
+      /agentgres_model_receipt_gate_truth_required/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 752/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
+      /`ModelReceiptGateControl`/.test(implementationMatrix) &&
       /`ModelInvocationControl`/.test(implementationMatrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
@@ -7188,8 +7198,17 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-receipt-gate-route-detail-aliases-retired",
+    "model-mount-receipt-gate-js-facade-retired",
     /requiredString\(body\.receipt_id,\s*"receipt_id"\)/.test(modelReceiptGateValidation) &&
+      /model_mount_receipt_gate_rust_core_required/.test(modelMountingValidation) &&
+      /MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS/.test(modelMountingValidation) &&
+      /model_mount_receipt_gate_js_facade_retired/.test(modelMountingValidation) &&
+      /rust_daemon_core_model_receipt_gate_required/.test(modelMountingValidation) &&
+      /agentgres_model_receipt_gate_truth_required/.test(modelMountingValidation) &&
+      /boundary:\s*"model_mount\.receipt_gate"/.test(modelMountingValidation) &&
+      /operation_kind:\s*"workflow_receipt_gate"/.test(modelMountingValidation) &&
+      /void createReceipt/.test(modelReceiptGateValidation) &&
+      !/createReceipt\("workflow_receipt_gate/.test(modelReceiptGateValidation) &&
       /const requiredRouteId = body\.route_id/.test(modelReceiptGateValidation) &&
       /const requiredSelectedModel = body\.selected_model/.test(modelReceiptGateValidation) &&
       /body\.selected_endpoint \?\? body\.endpoint_id/.test(modelReceiptGateValidation) &&
@@ -7199,9 +7218,9 @@ function runBridge() {
       /receipt\.details\?\.selected_model/.test(modelReceiptGateValidation) &&
       /receipt\.details\?\.endpoint_id/.test(modelReceiptGateValidation) &&
       /receipt\.details\?\.tool_receipt_ids/.test(modelReceiptGateValidation) &&
-      /receipt_id:\s*receiptId/.test(modelReceiptGateValidation) &&
-      /gate_receipt_id:\s*blockedReceipt\.id/.test(modelReceiptGateValidation) &&
-      /required_tool_receipt_ids:\s*requiredToolReceiptIds/.test(modelReceiptGateValidation) &&
+      /receipt_id:\s*receiptId/.test(modelMountingValidation) &&
+      /gate_status:\s*failures\.length > 0 \? "blocked" : "passed"/.test(modelMountingValidation) &&
+      /required_tool_receipt_ids:\s*requiredToolReceiptIds/.test(modelMountingValidation) &&
       !/body\.(?:receiptId|routeId|selectedModel|selectedEndpoint|endpointId|selectedBackend|backendId|requiredToolReceiptIds|redactionClass)/.test(
         modelReceiptGateValidation,
       ) &&
@@ -7211,13 +7230,24 @@ function runBridge() {
       !/(?:receiptId|routeId|selectedModel|endpointId|backendId|requiredToolReceiptIds|gateReceiptId):/.test(
         modelReceiptGateValidation,
       ) &&
-      /Object\.hasOwn\(createdReceipts\[0\]\.details,\s*"routeId"\),\s*false/.test(modelMountingValidationTest) &&
+      /model mounting validation matching receipt gate fails closed before JS receipt creation/.test(
+        modelMountingValidationTest,
+      ) &&
+      /model mounting validation mismatch gate fails closed before JS blocked receipt creation/.test(
+        modelMountingValidationTest,
+      ) &&
+      /JS workflow_receipt_gate receipt should not be created/.test(modelMountingValidationTest) &&
+      /JS workflow_receipt_gate_blocked receipt should not be created/.test(
+        modelMountingValidationTest,
+      ) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelMountingValidationTest) &&
+      /Object\.hasOwn\(error\.details,\s*"routeId"\),\s*false/.test(modelMountingValidationTest) &&
       /Object\.hasOwn\(error\.details,\s*"gateReceiptId"\),\s*false/.test(modelMountingValidationTest),
     [
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
     ],
-    "Phase 3/10 is pending: receipt-gate route/detail validation must use canonical snake_case request and receipt metadata without duplicate camelCase aliases",
+    "Phase 10 is pending: receipt-gate validation must fail closed before JS gate receipt construction and keep canonical Rust-core-required details",
   );
   assertCheck(
     result,

@@ -316,6 +316,10 @@ direct Rust projection APIs replace it.
 Slice 751 retired the OpenAI-compatible stream cancellation JS receipt facade
 before `model_invocation_stream_canceled` receipt construction; cancellation
 now requires Rust `model_mount` stream lifecycle admission.
+Slice 752 retired direct receipt-gate JS receipt construction before
+`workflow_receipt_gate` or `workflow_receipt_gate_blocked` receipt creation;
+receipt-gate admission now requires Rust daemon-core receipt binding and
+Agentgres truth.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
 Slice 732 workspace snapshot/restore mutation compaction is complete. The Slice
 733-740 runtime bridge thread/turn, runtime subagent, runtime task/job,
@@ -332,11 +336,12 @@ complete. Slice 748 direct model lifecycle receipt helper facade-retirement
 compaction is complete. Slice 749 public model invocation facade-retirement
 compaction is complete. Slice 750 runtime model-route selection facade
 retirement compaction is complete. Slice 751 stream-cancel receipt facade
-retirement compaction is complete. No matrix-compaction pass is pending until
-the next seam lands; future compactions must preserve evidence, distinguish
-interim bridge scaffolding and fail-closed JS facades from terminal Rust
-daemon-core shape, and avoid encoding command transport or read-only JS helpers
-as long-term substrate.
+retirement compaction is complete. Slice 752 receipt-gate receipt facade
+retirement has landed; schedule and run the next matrix-compaction pass before
+unrelated route-family work resumes. Future compactions must preserve evidence,
+distinguish interim bridge scaffolding and fail-closed JS facades from terminal
+Rust daemon-core shape, and avoid encoding command transport or read-only JS
+helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

@@ -33,6 +33,32 @@ export function validateContinuationSafety({
   };
 }
 
+export const MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "model_mount_receipt_gate_js_facade_retired",
+  "rust_daemon_core_model_receipt_gate_required",
+  "agentgres_model_receipt_gate_truth_required",
+];
+
+export function modelReceiptGateRustCoreRequiredError({ receiptId, receipt, requiredToolReceiptIds, failures }) {
+  const error = new Error("Receipt Gate validation requires Rust model_mount receipt-gate admission.");
+  error.code = "model_mount_receipt_gate_rust_core_required";
+  error.status = 409;
+  error.details = {
+    boundary: "model_mount.receipt_gate",
+    operation_kind: "workflow_receipt_gate",
+    evidence_refs: MODEL_RECEIPT_GATE_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+    receipt_id: receiptId,
+    gate_status: failures.length > 0 ? "blocked" : "passed",
+    failures,
+    route_id: receipt.details?.route_id ?? null,
+    selected_model: receipt.details?.selected_model ?? null,
+    endpoint_id: receipt.details?.endpoint_id ?? null,
+    backend_id: receipt.details?.backend_id ?? receipt.details?.selected_backend ?? null,
+    required_tool_receipt_ids: requiredToolReceiptIds,
+  };
+  return error;
+}
+
 export function validateReceiptGate({
   body = {},
   getReceipt,
@@ -78,45 +104,11 @@ export function validateReceiptGate({
       failures.push(`tool_receipt_link:${toolReceiptId}`);
     }
   }
-  if (failures.length > 0) {
-    const blockedReceipt = createReceipt("workflow_receipt_gate_blocked", {
-      summary: `Receipt Gate blocked ${receiptId}.`,
-      redaction: "redacted",
-      evidenceRefs: ["workflow_canvas", "Receipt Gate", receiptId, ...requiredToolReceiptIds],
-      details: {
-        receipt_id: receiptId,
-        failures,
-        route_id: receipt.details?.route_id ?? null,
-        selected_model: receipt.details?.selected_model ?? null,
-        endpoint_id: receipt.details?.endpoint_id ?? null,
-        backend_id: receipt.details?.backend_id ?? receipt.details?.selected_backend ?? null,
-        required_tool_receipt_ids: requiredToolReceiptIds,
-      },
-    });
-    throw runtimeError({
-      status: 412,
-      code: "policy",
-      message: "Receipt Gate blocked downstream workflow execution.",
-      details: { receipt_id: receiptId, failures, gate_receipt_id: blockedReceipt.id },
-    });
-  }
-  const gateReceipt = createReceipt("workflow_receipt_gate", {
-    summary: `Receipt Gate accepted ${receiptId}.`,
-    redaction: "redacted",
-    evidenceRefs: ["workflow_canvas", "Receipt Gate", receiptId, ...requiredToolReceiptIds],
-    details: {
-      receipt_id: receiptId,
-      route_id: receipt.details?.route_id ?? null,
-      selected_model: receipt.details?.selected_model ?? null,
-      endpoint_id: receipt.details?.endpoint_id ?? null,
-      backend_id: receipt.details?.backend_id ?? receipt.details?.selected_backend ?? null,
-      required_tool_receipt_ids: requiredToolReceiptIds,
-    },
-  });
-  return {
-    node: "Receipt Gate",
-    status: "passed",
+  void createReceipt;
+  throw modelReceiptGateRustCoreRequiredError({
+    receiptId,
     receipt,
-    gateReceipt,
-  };
+    requiredToolReceiptIds,
+    failures,
+  });
 }
