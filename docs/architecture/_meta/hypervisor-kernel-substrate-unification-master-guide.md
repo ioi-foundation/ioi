@@ -272,12 +272,14 @@ execution authority, no compatibility-shim semantics, and no duplicate truth
 path. The target transport shape is a temporary transport to the Rust daemon core
 with no independent authority or compatibility-shim behavior.
 
-Resume-goal scheduling marker: Slice 730 clarified the MCP control
-facade-retirement owner boundary. The next resumed implementation cycle should
-run the scheduled matrix-compaction pass before starting unrelated route-family
-work, preserving the MCP control evidence while keeping direct Rust daemon-core
-control/admission/projection as the terminal shape and avoiding encoding the
-command bridge or read-only JS status helper as long-term substrate.
+Resume-goal scheduling marker: do not make matrix pruning the first action when
+the migration goal resumes. First complete a verified slice that clarifies the
+next Rust-core extraction or JS-facade retirement owner boundary; then run the
+scheduled matrix-compaction pass before starting unrelated route-family work.
+The Slice 730 MCP control compaction is complete; the next compaction pass
+remains unscheduled until the next seam is clear enough to preserve evidence,
+distinguish interim bridge scaffolding from terminal Rust daemon-core shape, and
+avoid encoding the command bridge or read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

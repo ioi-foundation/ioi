@@ -6,20 +6,18 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 726. Earlier 2026-06-08 compaction
+route-family slice ledger through Slice 730. Earlier 2026-06-08 compaction
 passes compacted IDE, MCP, thread-control, coding-tool, Agentgres state-commit,
 model-mount, workspace-restore, command-envelope, route fallback, provider,
 workflow-edit, lifecycle, runtime-engine, artifact/storage, and related
-facade-retirement evidence through Slice 707. This pass compacted Slices 708-726
-into model-mount wallet/custody and catalog-provider control, model
-route/provider/lifecycle control, and runtime run/thread/approval/context-policy/
-diagnostics-repair control route-family evidence while preserving the terminal
-Rust daemon-core target and the bridge-scaffolding guardrail.
-Next resume instruction: Slice 730 has clarified the MCP control
-facade-retirement seam. Run the next matrix-compaction pass before starting
-unrelated route-family work, while preserving MCP control facade retirement as
-migration evidence and direct Rust daemon-core MCP control/admission/projection
-as the terminal target.
+facade-retirement evidence through Slice 726. This pass compacted Slices 727-730
+into coding-tool budget/governance, workflow-edit, and MCP control
+facade-retirement evidence while preserving the terminal Rust daemon-core target
+and the bridge-scaffolding guardrail.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule and run the next
+matrix-compaction pass immediately after that seam is concrete, before unrelated
+route-family work resumes.
 
 ## Purpose
 
@@ -114,11 +112,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 730, which retired
-  the MCP control JS mutation/live-transport facades and clarified the next
-  route-family seam. Run this compaction before unrelated implementation work,
-  and do not encode the command bridge or the read-only MCP status helper as
-  terminal ownership.
+- Next scheduled matrix-compaction pass: none pending after the Slice 730 MCP
+  control compaction. Schedule the next pass only after the next concrete
+  Rust-core extraction or JS-facade retirement seam verifies and lands.
 - Future-resumption trigger: resume the migration goal by carrying out that next
   Rust-core extraction or facade-retirement slice first. Once the seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13672,316 +13668,15 @@ The expanded Slice 708-726 ledger was compacted on 2026-06-08 after Slice 726 ve
 - Slices 721-726 retired runtime control JS authority for hot thread/run surfaces: run cancellation, agent/run creation, operator interrupt/steer, approval request/decision/revoke, thread-bound context-policy/compaction controls, and diagnostics repair execution/operator-override/retry/resolution/event append helpers now fail closed before JS accepted-truth resolution, agent/run lookup, runtime-event append, Rust planner invocation from the JS facade, run/agent map mutation, retry `createRun`, or JS persistence. Rust planners and command envelopes remain migration transport only until direct Rust daemon-core admission/projection APIs own Agentgres expected-head/state-root binding, wallet authority, receipt/event materialization, replay, and persistence.
 - Scheduled matrix-compaction obligation from Slice 726 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge as terminal shape.
 
-## Implementation Slice 727
+## Compacted Implementation Slice Evidence: 727-730
 
-```yaml
-slice: 727
-phase: 10-authoritative-js-facade-retirement
-objective: retire public coding-tool budget recovery JS approval, retry-event,
-  projection, and run-state persistence facades until direct Rust daemon-core
-  budget recovery admission owns retry truth
-owner_boundary:
-  route_or_surface: runtime coding-tool budget recovery control and blocked
-    event projection helpers
-  authority_gate: coding-tool budget recovery now fails closed at
-    `runtime.coding_tool_budget_recovery` before JS run/agent lookup, accepted
-    event projection, approval request/decision calls, runtime-event append,
-    Rust planner invocation from the JS facade, run-map mutation, or `writeRun`
-    persistence
-  execution_backend: none in JS for public coding-tool budget recovery control;
-    the existing Rust budget-recovery state planner bridge remains migration
-    plumbing only and must not be used by the JS facade to persist accepted retry
-    truth
-  truth_path: no JS approval request/decision route, no JS
-    `workflow.run.retry_completed` event append, no retry-count projection from
-    JS event streams, and no run record mutation from public budget-recovery
-    facades; Rust daemon core must own wallet authority, Agentgres admission,
-    expected heads/state-root binding, policy/approval receipts,
-    retry-event materialization, projection, and persistence before this control
-    can execute again
-  projection_path: latest blocked-event lookup is not an accepted JS projection
-    path anymore; direct Rust daemon-core budget-recovery projection APIs must
-    materialize blocked/recovery state before public surfaces can return
-    accepted data
-touched_files:
-  docs:
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon:
-    - packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge/full conformance keeps the Rust coding-tool budget-recovery state
-    planner available as migration plumbing but requires the public JS
-    budget-recovery facade to fail closed before planner invocation or JS run
-    writes
-  - focused daemon tests prove canonical snake_case fail-closed details, no
-    run/agent lookup, no JS event projection, no approval request/decision calls,
-    no runtime event append, no Rust planner call from the JS facade, no run-map
-    mutation, and no JS run persistence for budget recovery control and
-    blocked-event projection
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs
-    - node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs
-    - node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - public coding-tool budget recovery product/API routes may still call the
-      budget-recovery adapter, but that adapter now fails closed until direct
-      Rust daemon-core budget-recovery admission/projection APIs are verified
-    - Rust budget-recovery state planner bridges remain migration transport for
-      the future direct Rust budget-recovery API; they must not be mistaken for
-      terminal JS-owned approval, event, projection, or run-state persistence
-      after context compaction
-    - schedule a matrix-compaction pass once the next runtime control,
-      subagent, MCP, thread-memory, or event-append Rust-core extraction/
-      facade-retirement seam is clear
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
+The expanded Slice 727-730 ledger was compacted on 2026-06-08 after Slice 730 verified the MCP control facade-retirement seam. These slices remain active migration evidence, not terminal architecture. The route-family owner map, implementation matrix, conformance command contract, and terminal blockers above remain authoritative for current and target ownership.
 
-## Implementation Slice 728
-
-```yaml
-slice: 728
-phase: 10-authoritative-js-facade-retirement
-objective: retire public coding-tool governance JS approval-block and
-  budget-block control facades until direct Rust daemon-core governance
-  admission owns approval/block truth
-owner_boundary:
-  route_or_surface: runtime coding-tool governance approval-block and
-    budget-block helpers
-  authority_gate: coding-tool governance control now fails closed at
-    `runtime.coding_tool_governance` before JS approval request persistence,
-    JS runtime-event append, JS-created blocked response envelopes,
-    receipt/policy ref assembly, or duplicate response-truth construction
-  execution_backend: none in JS for public coding-tool approval-block or
-    budget-block control; approval and policy Rust planner/command-envelope
-    paths remain migration transport only and must not be treated as terminal
-    JS-owned governance execution
-  truth_path: no JS `approval.required` request creation from the governance
-    facade, no JS `policy.blocked` append for coding-tool budget exhaustion, no
-    JS result envelope minted as accepted blocked truth, and no retired
-    camelCase detail aliases in the fail-closed boundary; Rust daemon core must
-    own wallet authority, Agentgres admission, expected heads/state-root
-    binding, approval/budget receipts, event materialization, projection, and
-    persistence before these controls can execute again
-  projection_path: approval-satisfaction remains a canonical snake_case read
-    helper for the current invocation contract, but it is not terminal
-    authority; direct Rust daemon-core approval/governance projection APIs must
-    replace that read helper before terminal conformance
-touched_files:
-  docs:
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon:
-    - packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance now requires the governance approval-block and
-    budget-block facades to fail closed before JS approval persistence,
-    runtime-event append, result envelope construction, or retired detail alias
-    emission
-  - focused daemon tests poison `requestThreadApproval` and
-    `appendRuntimeEvent`, then prove canonical snake_case fail-closed details
-    with Rust-core, wallet/approval, Agentgres truth, and policy evidence refs
-  - existing approval-satisfaction checks remain canonical snake_case read
-    evidence only; they do not declare terminal governance authority
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs
-    - node --check packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs
-    - node --check packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:compositor
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - runtime coding-tool invocation still calls the governance adapter surface,
-      but approval-block and budget-block now fail closed until direct Rust
-      daemon-core governance admission/projection APIs are verified
-    - approval-satisfaction remains a read helper over current runtime events;
-      schedule its retirement once the Rust approval/governance projection seam
-      is concrete
-    - schedule a matrix-compaction pass once the next runtime control,
-      subagent, MCP, thread-memory, event-append, or approval-satisfaction
-      Rust-core extraction/facade-retirement seam is clear
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
-## Implementation Slice 729
-
-```yaml
-slice: 729
-phase: 10-authoritative-js-facade-retirement
-objective: retire workflow-edit JS proposal, target/context, approval-request,
-  and apply control facades until direct Rust daemon-core workflow-edit
-  admission owns proposal/apply truth
-owner_boundary:
-  route_or_surface: runtime workflow-edit proposal/apply surface
-  authority_gate: workflow-edit control now fails closed at
-    `runtime.workflow_edit` before JS agent/run lookup, workspace path
-    resolution, `workflow.edit_proposed` runtime-event append, approval request
-    persistence, JS proposal/apply result envelope construction, workflow JSON
-    writes, or legacy `workflow.edit_applied` replay as accepted truth
-  execution_backend: none in JS for public workflow-edit proposal, target/context,
-    or apply control; approval/projection read helpers remain adapters only until
-    Rust daemon-core workflow-edit projection APIs replace them
-  truth_path: no JS proposal event minting, no JS `approval.required` creation
-    for workflow edits, no JS workflow mutation, no JS apply envelope accepted as
-    truth, and no retired camelCase detail aliases in the fail-closed boundary;
-    Rust daemon core must own wallet authority, Agentgres admission,
-    expected-head/state-root binding, proposal/apply receipts, replay, workflow
-    mutation custody, event materialization, projection, and persistence before
-    these controls can execute again
-  projection_path: `latestWorkflowEditProposalEvent` and
-    `workflowEditApprovalSatisfaction` remain canonical snake_case read helpers
-    over current runtime events, but they are explicitly non-terminal adapters;
-    schedule their retirement once direct Rust workflow-edit projection APIs are
-    concrete
-touched_files:
-  docs:
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon:
-    - packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires workflow-edit proposal, target/context, and apply
-    facades to fail closed before JS lookup, path resolution, event append,
-    approval persistence, result envelope construction, filesystem mutation, or
-    legacy apply replay
-  - focused daemon tests poison agent/run lookup, `appendRuntimeEvent`, and
-    `requestThreadApproval`, then prove canonical snake_case fail-closed details
-    with Rust-core and Agentgres evidence refs
-  - read-helper tests prove the remaining projection adapters emit canonical
-    snake_case approval fields only and are marked non-authoritative
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
-    - node --check packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs
-    - node --check packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - workflow-edit product/API routes may still call the workflow-edit adapter,
-      but proposal, target/context, and apply control now fail closed until direct
-      Rust daemon-core workflow-edit admission/projection APIs are verified
-    - proposal and approval-satisfaction read helpers remain temporary adapters;
-      schedule their retirement once the Rust workflow-edit projection seam is
-      concrete
-    - schedule a matrix-compaction pass once the next runtime control,
-      subagent, MCP, thread-memory, event-append, workflow-edit projection, or
-      approval-satisfaction Rust-core extraction/facade-retirement seam is clear
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
-## Implementation Slice 730
-
-```yaml
-slice: 730
-phase: 10-authoritative-js-facade-retirement
-objective: retire MCP control JS mutation, live-discovery, live-invocation,
-  event-append, and agent-registry persistence facades until direct Rust
-  daemon-core MCP control/admission/projection APIs own registry truth and
-  external transport exits
-owner_boundary:
-  route_or_surface: runtime MCP control surface
-  authority_gate: MCP control now fails closed at `runtime.mcp_control` before
-    JS thread/agent lookup, live MCP stdio/http discovery or invocation,
-    `appendRuntimeEvent`, Rust state-planner invocation from the JS facade,
-    `agents.set`, or `writeAgent` persistence
-  execution_backend: none in JS for MCP import/add/remove/enable/disable,
-    validate/status-record, live discovery, or tool invocation; the existing
-    Rust MCP state-update planner remains migration plumbing only and cannot be
-    used by this JS facade to persist accepted MCP registry truth
-  truth_path: no JS MCP registry mutation, no JS-created MCP control events, no
-    JS transport execution as accepted invocation truth, and no retired camelCase
-    detail aliases in the fail-closed boundary; Rust daemon core must own wallet
-    authority for external exits, Agentgres expected-head/state-root binding,
-    MCP control receipts, registry admission, containment, projection, replay,
-    and persistence before these controls can execute again
-  projection_path: `mcpStatusForAgent` remains a canonical read-only helper over
-    current registry records; it is not terminal authority and must be replaced
-    or demoted once direct Rust MCP projection APIs own the status surface
-touched_files:
-  docs:
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon:
-    - packages/runtime-daemon/src/runtime-mcp-control-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance keeps the Rust MCP state-update planner available as
-    migration plumbing but now requires the public JS MCP control facade to fail
-    closed before planner invocation, JS event append, JS registry mutation,
-    JS persistence, or live MCP transport calls
-  - focused daemon tests poison store lookup, event append, registry mutation,
-    validation, and persistence hooks, then prove canonical snake_case
-    fail-closed details for import/add/remove/enable/disable/mutation append,
-    live discovery, and live invocation
-  - focused status tests prove the remaining read-only status helper emits
-    canonical snake_case projection fields without retired output aliases
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs
-    - node --check packages/runtime-daemon/src/runtime-mcp-control-surface.mjs
-    - node --check packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - product/API routes may still call the MCP control adapter, but the adapter
-      now fails closed until direct Rust daemon-core MCP control/admission/
-      projection APIs are verified
-    - `mcpStatusForAgent` remains a read-only projection helper over current
-      registry records; schedule its demotion or replacement once Rust MCP
-      projection APIs are concrete
-    - schedule and run the pending matrix-compaction pass before unrelated
-      route-family work, preserving this slice as MCP control facade-retirement
-      evidence without treating the command bridge or read helper as terminal
-      architecture
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
+- Slice 727 retired public coding-tool budget recovery JS authority: budget recovery control and blocked-event projection now fail closed before JS run/agent lookup, accepted event projection, approval request/decision calls, runtime-event append, Rust planner invocation from the JS facade, run-map mutation, or `writeRun` persistence. Rust daemon-core budget recovery admission/projection must still own wallet authority, Agentgres expected-head/state-root binding, policy/approval receipts, retry-event materialization, projection, and persistence before this control can execute again.
+- Slice 728 retired coding-tool governance approval-block and budget-block JS authority: those facades now fail closed before JS approval request persistence, runtime-event append, JS-created blocked result envelopes, receipt/policy ref assembly, or duplicate response-truth construction. Approval-satisfaction remains only a canonical read helper until direct Rust approval/governance projection APIs replace it.
+- Slice 729 retired workflow-edit proposal/apply JS authority: proposal, target/context, approval-request, and apply controls now fail closed before JS agent/run lookup, workspace path resolution, `workflow.edit_proposed` append, approval persistence, proposal/apply envelope construction, workflow JSON writes, or legacy `workflow.edit_applied` replay as accepted truth. Proposal and approval read helpers remain temporary non-terminal adapters.
+- Slice 730 retired MCP control JS authority: MCP import/add/remove/enable/disable, validate/status-record, live discovery, live invocation, control event append, Rust state-planner invocation from the JS facade, agent registry mutation, and `writeAgent` persistence now fail closed at `runtime.mcp_control`. `mcpStatusForAgent` remains a read-only canonical helper over current registry records until direct Rust MCP projection APIs own the status surface.
+- Scheduled matrix-compaction obligation from Slice 730 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge, read-only helper adapters, or fail-closed JS surfaces as terminal architecture.
 
 ## Command State
 
