@@ -1,18 +1,37 @@
 import {
   modelPolicyForOptions,
-  modelRouteBindingFromReceipt,
   modelWorkflowContext,
 } from "./thread-runtime-controls.mjs";
 
-export function createModelRouteSelection({ modelMounting }) {
+export const RUNTIME_MODEL_ROUTE_SELECTION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "runtime_model_route_selection_js_facade_retired",
+  "rust_daemon_core_model_route_selection_required",
+  "agentgres_model_route_selection_truth_required",
+];
+
+export function modelRouteSelectionRustCoreRequiredError(operationKind, details = {}) {
+  const error = new Error("Runtime model-route selection requires Rust daemon-core model_mount admission.");
+  error.code = "runtime_model_route_selection_rust_core_required";
+  error.status = 409;
+  error.details = {
+    boundary: "runtime.model_route_selection",
+    operation_kind: operationKind,
+    evidence_refs: RUNTIME_MODEL_ROUTE_SELECTION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+    ...details,
+  };
+  return error;
+}
+
+export function createModelRouteSelection() {
   function selectModelRoute({ requestedModel, routeId, capability, policy, body, evidenceRefs = [] }) {
-    const selection = modelMounting.selectRoute({ modelId: requestedModel, routeId, capability, policy });
-    const receipt = modelMounting.routeSelectionReceipt(selection, {
-      body,
+    throw modelRouteSelectionRustCoreRequiredError("select_model_route", {
+      requested_model: requestedModel,
+      route_id: routeId,
       capability,
-      evidenceRefs,
+      model_policy: policy,
+      request_body: body,
+      request_evidence_refs: evidenceRefs,
     });
-    return modelRouteBindingFromReceipt(receipt, requestedModel);
   }
 
   function resolveModelRoute(options = {}, context = {}) {

@@ -32,10 +32,11 @@ model-mount conversation-state write and stream-completion finalization
 facade-retirement evidence, then compacted Slice 747 model tokenizer/context-fit
 facade-retirement evidence, then compacted Slice 748 direct model lifecycle
 receipt helper facade-retirement evidence. This pass compacted Slice 749 public
-model invocation facade-retirement evidence.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands.
+model invocation facade-retirement evidence. Slice 750 runtime model-route
+selection facade retirement has landed and scheduled the next compaction pass.
+Next resume instruction: run the scheduled matrix-compaction pass before
+starting unrelated route-family work; preserve the live owner map, terminal
+blockers, and the fact that fail-closed JS facades are not terminal substrate.
 
 ## Purpose
 
@@ -130,9 +131,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after the Slice 749
-  compaction. Schedule the next pass only after a new concrete Rust-core
-  extraction or JS-facade retirement seam lands.
+- Next scheduled matrix-compaction pass: pending after Slice 750 runtime
+  model-route selection facade retirement. Run it before starting unrelated
+  route-family work.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14001,6 +14002,55 @@ target ownership.
   that seam lands, and do not encode fail-closed JS invocation helpers,
   request-shape builders, or migration transport as terminal architecture.
 
+## Implementation Slice 750: Runtime Model-Route Selection Facade Retirement
+
+date: 2026-06-08
+phase: 10
+owner_map_row: `runtime-thread-control` / `model-mounting`
+implementation_matrix_object: `RuntimeModelRouteSelection`
+status: verified
+target_execution_owner: Rust daemon core `model_mount` route-decision admission
+current_surface_retired:
+- `packages/runtime-daemon/src/threads/model-route-selection.mjs`
+- explicit `selectModelRoute(...)`
+- `resolveModelRoute(...)`
+- `resolveRunModelRoute(...)` when `request.options.model` asks for a new
+  runtime route decision
+authority_change:
+- explicit runtime model-route selection now throws
+  `runtime_model_route_selection_rust_core_required` after canonical request
+  shaping and before `modelMounting.selectRoute`, JS route-selection receipt
+  construction, `modelRouteBindingFromReceipt`, or fallback receipt minting.
+- run requests without a model override may still read the already-persisted
+  agent route as projection-only state; they do not create route truth.
+legacy_paths_removed:
+- JS runtime model-route selection no longer invokes
+  `modelMounting.selectRoute`.
+- JS runtime model-route selection no longer invokes
+  `modelMounting.routeSelectionReceipt`.
+- JS runtime model-route selection no longer imports or calls
+  `modelRouteBindingFromReceipt`.
+compatibility_shims_remaining: []
+temporary_transport:
+- none for this JS facade; direct Rust daemon-core route-selection API remains
+  the required replacement.
+conformance:
+- `runtime-model-route-selection-request-aliases-retired`
+- `runtime-model-route-selection-js-fallback-retired`
+- `runtime_model_route_selection_rust_core_required`
+- `runtime_model_route_selection_js_facade_retired`
+- `rust_daemon_core_model_route_selection_required`
+- `agentgres_model_route_selection_truth_required`
+verification:
+- `node --check packages/runtime-daemon/src/threads/model-route-selection.mjs packages/runtime-daemon/src/threads/model-route-selection.test.mjs`
+- `node --test packages/runtime-daemon/src/threads/model-route-selection.test.mjs`
+next:
+- Run the scheduled matrix-compaction pass before starting unrelated
+  route-family work. The compaction must keep `RuntimeModelRouteSelection`
+  aligned with the fail-closed facade state and must not encode fail-closed JS
+  helpers, read-only projection adapters, or command transport as terminal
+  architecture.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14016,7 +14066,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-748 runtime facade-retirement
+Current expected behavior after the Slice 733-750 runtime facade-retirement
 matrix-compaction and implementation passes:
 
 The append-only slice ledger is compacted by route-family range below so future

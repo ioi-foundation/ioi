@@ -1,164 +1,109 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createModelRouteSelection } from "./model-route-selection.mjs";
+import {
+  RUNTIME_MODEL_ROUTE_SELECTION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+  createModelRouteSelection,
+} from "./model-route-selection.mjs";
 
-function routeReceipt({ id, body, selection, capability, evidenceRefs }) {
-  return {
-    id,
-    kind: "model_route_selection",
-    createdAt: "2026-06-04T00:00:00.000Z",
-    details: {
-      model_route_decision: {
-        requested_model: body.model,
-        selected_model: selection.endpoint?.modelId ?? selection.modelId ?? body.model,
-        route_id: selection.route?.id ?? selection.routeId,
-        endpoint_id: selection.endpoint?.id ?? selection.endpointId ?? null,
-        provider_id: selection.provider?.id ?? selection.providerId ?? null,
-        capability,
-        evidence_refs: evidenceRefs,
-        fallback_triggered: Boolean(body.fallback_triggered),
-        fallback_reason: body.fallback_reason ?? null,
-        workflow_node_id: body.workflow_node_id ?? null,
-      },
-    },
-  };
-}
-
-test("model route selection resolves explicit model route with workflow context", () => {
+test("model route selection explicit facade fails closed before JS route selection or receipt creation", () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: {
       selectRoute(input) {
         calls.push(["selectRoute", input]);
-        return {
-          route: { id: input.routeId },
-          endpoint: { id: "endpoint-local", modelId: input.modelId },
-          provider: { id: "provider-local" },
-        };
+        throw new Error("JS route selection should not run");
       },
       routeSelectionReceipt(selection, context) {
-        calls.push(["routeSelectionReceipt", context]);
-        return routeReceipt({ id: "receipt-direct", selection, ...context });
+        calls.push(["routeSelectionReceipt", selection, context]);
+        throw new Error("JS route-selection receipt should not be created");
       },
     },
   });
 
-  const route = helper.resolveModelRoute(
-    {
-      model: {
-        id: "qwen-local",
-        route_id: "route.local-first",
-        reasoningEffort: "medium",
-      },
-    },
-    {
-      evidenceRefs: ["runtime_agent_model_route"],
-      workflowNodeId: "runtime.model-router",
-      workflowNodeType: "Model Router",
+  assert.throws(
+    () =>
+      helper.resolveModelRoute(
+        {
+          model: {
+            id: "qwen-local",
+            route_id: "route.local-first",
+            reasoningEffort: "medium",
+          },
+        },
+        {
+          evidenceRefs: ["runtime_agent_model_route"],
+          workflowNodeId: "runtime.model-router",
+          workflowNodeType: "Model Router",
+        },
+      ),
+    (error) => {
+      assert.equal(error.code, "runtime_model_route_selection_rust_core_required");
+      assert.equal(error.status, 409);
+      assert.equal(error.details.boundary, "runtime.model_route_selection");
+      assert.equal(error.details.operation_kind, "select_model_route");
+      assert.equal(error.details.requested_model, "qwen-local");
+      assert.equal(error.details.route_id, "route.local-first");
+      assert.equal(error.details.capability, "chat");
+      assert.equal(error.details.model_policy.reasoning_effort, "medium");
+      assert.equal(error.details.request_body.workflow_node_id, "runtime.model-router");
+      assert.deepEqual(error.details.request_evidence_refs, ["runtime_agent_model_route"]);
+      assert.deepEqual(
+        error.details.evidence_refs,
+        RUNTIME_MODEL_ROUTE_SELECTION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+      );
+      return true;
     },
   );
-
-  assert.equal(calls[0][1].modelId, "qwen-local");
-  assert.equal(calls[0][1].routeId, "route.local-first");
-  assert.equal(calls[1][1].body.model_policy.reasoning_effort, "medium");
-  assert.equal(calls[1][1].body.workflow_node_id, "runtime.model-router");
-  assert.equal(route.requestedModelId, "qwen-local");
-  assert.equal(route.selectedModel, "qwen-local");
-  assert.equal(route.routeId, "route.local-first");
-  assert.equal(route.endpointId, "endpoint-local");
-  assert.equal(route.providerId, "provider-local");
-  assert.equal(route.receiptId, "receipt-direct");
+  assert.deepEqual(calls, []);
 });
 
-test("model route selection ignores retired request aliases", () => {
+test("model route selection validates canonical request shape then fails closed before retired aliases run", () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: {
       selectRoute(input) {
         calls.push(["selectRoute", input]);
-        return {
-          route: { id: input.routeId },
-          endpoint: { id: "endpoint-local", modelId: input.modelId },
-          provider: { id: "provider-local" },
-        };
+        throw new Error("JS route selection should not run");
       },
       routeSelectionReceipt(selection, context) {
-        calls.push(["routeSelectionReceipt", context]);
-        return routeReceipt({ id: "receipt-direct", selection, ...context });
+        calls.push(["routeSelectionReceipt", selection, context]);
+        throw new Error("JS route-selection receipt should not be created");
       },
     },
   });
 
-  const route = helper.resolveModelRoute({
-    routeId: "route.retired-option",
-    route_id: "route.local-first",
-    model: {
-      id: "qwen-local",
-      modelId: "retired-model",
-      routeId: "route.retired-model",
+  assert.throws(
+    () =>
+      helper.resolveModelRoute({
+        routeId: "route.retired-option",
+        model: {
+          modelId: "retired-model",
+          routeId: "route.retired-model",
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "runtime_model_route_selection_rust_core_required");
+      assert.equal(error.details.requested_model, "auto");
+      assert.equal(error.details.route_id, "route.local-first");
+      assert.equal(error.details.request_body.model, "auto");
+      assert.equal(error.details.request_body.route_id, "route.local-first");
+      return true;
     },
-  });
-
-  assert.equal(calls[0][1].modelId, "qwen-local");
-  assert.equal(calls[0][1].routeId, "route.local-first");
-  assert.equal(calls[1][1].body.model, "qwen-local");
-  assert.equal(calls[1][1].body.route_id, "route.local-first");
-  assert.equal(route.requestedModelId, "qwen-local");
-  assert.equal(route.routeId, "route.local-first");
+  );
+  assert.deepEqual(calls, []);
 });
 
-test("model route selection defaults when only retired request aliases are supplied", () => {
+test("direct selectModelRoute fails closed instead of creating JS fallback receipt", () => {
   const calls = [];
   const helper = createModelRouteSelection({
     modelMounting: {
       selectRoute(input) {
         calls.push(["selectRoute", input]);
-        return {
-          route: { id: input.routeId },
-          endpoint: { id: "endpoint-local", modelId: input.modelId },
-          provider: { id: "provider-local" },
-        };
+        throw new Error("JS fallback route selection should not run");
       },
       routeSelectionReceipt(selection, context) {
-        calls.push(["routeSelectionReceipt", context]);
-        return routeReceipt({ id: "receipt-direct", selection, ...context });
-      },
-    },
-  });
-
-  const route = helper.resolveModelRoute({
-    routeId: "route.retired-option",
-    model: {
-      modelId: "retired-model",
-      routeId: "route.retired-model",
-    },
-  });
-
-  assert.equal(calls[0][1].modelId, "auto");
-  assert.equal(calls[0][1].routeId, "route.local-first");
-  assert.equal(calls[1][1].body.model, "auto");
-  assert.equal(calls[1][1].body.route_id, "route.local-first");
-  assert.equal(route.requestedModelId, "auto");
-  assert.equal(route.routeId, "route.local-first");
-});
-
-test("model route selection fails closed instead of creating JS fallback receipt", () => {
-  const receiptContexts = [];
-  const helper = createModelRouteSelection({
-    modelMounting: {
-      selectRoute(input) {
-        assert.equal(input.modelId, "gpt-hosted");
-        assert.equal(input.routeId, "route.hosted");
-        const error = new Error("hosted route blocked");
-        error.code = "hosted_route_blocked";
-        error.details = {
-          evaluatedCandidates: [{ endpointId: "hosted-one", status: "rejected" }],
-        };
-        throw error;
-      },
-      routeSelectionReceipt(selection, context) {
-        receiptContexts.push({ selection, context });
+        calls.push(["routeSelectionReceipt", selection, context]);
         throw new Error("JS fallback route receipt should not be created");
       },
     },
@@ -174,9 +119,53 @@ test("model route selection fails closed instead of creating JS fallback receipt
         body: { model: "gpt-hosted", route_id: "route.hosted" },
         evidenceRefs: ["runtime_run_model_route"],
       }),
-    /hosted route blocked/,
+    (error) => {
+      assert.equal(error.code, "runtime_model_route_selection_rust_core_required");
+      assert.equal(error.details.requested_model, "gpt-hosted");
+      assert.equal(error.details.route_id, "route.hosted");
+      assert.deepEqual(error.details.request_evidence_refs, ["runtime_run_model_route"]);
+      return true;
+    },
   );
-  assert.equal(receiptContexts.length, 0);
+  assert.deepEqual(calls, []);
+});
+
+test("run model route with model override fails closed before JS route selection", () => {
+  const calls = [];
+  const helper = createModelRouteSelection({
+    modelMounting: {
+      selectRoute(input) {
+        calls.push(["selectRoute", input]);
+        throw new Error("JS run route selection should not run");
+      },
+      routeSelectionReceipt(selection, context) {
+        calls.push(["routeSelectionReceipt", selection, context]);
+        throw new Error("JS run route receipt should not be created");
+      },
+    },
+  });
+
+  assert.throws(
+    () =>
+      helper.resolveRunModelRoute(
+        {},
+        {
+          options: {
+            model: {
+              id: "qwen-local",
+              route_id: "route.local-first",
+            },
+          },
+        },
+      ),
+    (error) => {
+      assert.equal(error.code, "runtime_model_route_selection_rust_core_required");
+      assert.equal(error.details.request_body.workflow_node_id, "runtime.model-router");
+      assert.deepEqual(error.details.request_evidence_refs, ["runtime_run_model_route"]);
+      return true;
+    },
+  );
+  assert.deepEqual(calls, []);
 });
 
 test("run model route reuses persisted agent route when request has no model override", () => {

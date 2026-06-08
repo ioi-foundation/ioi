@@ -367,7 +367,8 @@ function runDocs() {
       /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+complete/.test(guide) &&
       /Slice 748 direct model lifecycle receipt helper facade-retirement\s+compaction is complete/.test(guide) &&
       /Slice 749 public model invocation facade-retirement\s+compaction is complete/.test(guide) &&
-      /No matrix-compaction pass is pending until the next seam\s+lands/.test(guide) &&
+      /Slice 750 runtime model-route selection facade\s+retirement has landed/.test(guide) &&
+      /schedule and run the next matrix-compaction pass before\s+unrelated route-family work resumes/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -384,7 +385,8 @@ function runDocs() {
       ) &&
       /then compacted Slice 748 direct model lifecycle\s+receipt helper facade-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 750 runtime model-route\s+selection facade retirement has landed and scheduled the next compaction pass/.test(matrix) &&
+      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -451,6 +453,17 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 749 is now satisfied/.test(
         matrix,
       ) &&
+      /Implementation Slice 750: Runtime Model-Route Selection Facade Retirement/.test(
+        matrix,
+      ) &&
+      /runtime_model_route_selection_rust_core_required/.test(matrix) &&
+      /runtime_model_route_selection_js_facade_retired/.test(matrix) &&
+      /rust_daemon_core_model_route_selection_required/.test(matrix) &&
+      /agentgres_model_route_selection_truth_required/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 750/.test(
+        matrix,
+      ) &&
+      /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
       /`ModelInvocationControl`/.test(implementationMatrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
@@ -7437,10 +7450,11 @@ function runBridge() {
       /modelRouteDecision\.selected_model/.test(runtimeDaemonIndex) &&
       !/modelRouteDecision\?\.selectedModel/.test(runtimeDaemonIndex) &&
       !/modelRouteDecision\.(?:routeId|selectedModel)/.test(runtimeDaemonIndex) &&
-      /model_route_decision:\s*\{/.test(modelRouteSelectionTest) &&
-      /requested_model:\s*body\.model/.test(modelRouteSelectionTest) &&
-      /selected_model:\s*selection\.endpoint/.test(modelRouteSelectionTest) &&
-      /fallback_triggered:\s*Boolean\(body\.fallback_triggered\)/.test(modelRouteSelectionTest) &&
+      /modelRouteDecision:\s*\{\s*selected_model:\s*"qwen-existing"\s*\}/.test(
+        modelRouteSelectionTest,
+      ) &&
+      /assert\.equal\(route\.selectedModel,\s*"qwen-existing"\)/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(route\.routeId,\s*"route\.local-first"\)/.test(modelRouteSelectionTest) &&
       !/details:\s*\{\s*modelRouteDecision\s*:/.test(modelRouteSelectionTest) &&
       !/route\.decision\.fallbackTriggered/.test(modelRouteSelectionTest),
     [
@@ -7459,15 +7473,14 @@ function runBridge() {
       !/model\.modelId/.test(modelRouteSelection) &&
       !/model\.routeId/.test(modelRouteSelection) &&
       !/options\.routeId/.test(modelRouteSelection) &&
-      /model route selection ignores retired request aliases/.test(modelRouteSelectionTest) &&
-      /model route selection defaults when only retired request aliases are supplied/.test(
+      /model route selection validates canonical request shape then fails closed before retired aliases run/.test(
         modelRouteSelectionTest,
       ) &&
       /modelId:\s*"retired-model"/.test(modelRouteSelectionTest) &&
       /routeId:\s*"route\.retired-model"/.test(modelRouteSelectionTest) &&
       /routeId:\s*"route\.retired-option"/.test(modelRouteSelectionTest) &&
-      /assert\.equal\(calls\[0\]\[1\]\.modelId,\s*"auto"\)/.test(modelRouteSelectionTest) &&
-      /assert\.equal\(calls\[0\]\[1\]\.routeId,\s*"route\.local-first"\)/.test(
+      /assert\.equal\(error\.details\.requested_model,\s*"auto"\)/.test(modelRouteSelectionTest) &&
+      /assert\.equal\(error\.details\.route_id,\s*"route\.local-first"\)/.test(
         modelRouteSelectionTest,
       ),
     [
@@ -7482,14 +7495,19 @@ function runBridge() {
     /function selectModelRoute\(\{ requestedModel, routeId, capability, policy, body, evidenceRefs = \[\] \}\)/.test(
       modelRouteSelection,
     ) &&
+      /runtime_model_route_selection_rust_core_required/.test(modelRouteSelection) &&
+      /boundary:\s*"runtime\.model_route_selection"/.test(modelRouteSelection) &&
+      /throw modelRouteSelectionRustCoreRequiredError\("select_model_route"/.test(modelRouteSelection) &&
+      !/modelMounting\.selectRoute/.test(modelRouteSelection) &&
+      !/modelMounting\.routeSelectionReceipt/.test(modelRouteSelection) &&
       !/selectModelRouteWithFallback/.test(modelRouteSelection) &&
       !/runtime_model_route_fallback/.test(modelRouteSelection) &&
       !/fallbackRouteId|fallbackSelection|fallbackBody/.test(modelRouteSelection) &&
-      /model route selection fails closed instead of creating JS fallback receipt/.test(
+      /direct selectModelRoute fails closed instead of creating JS fallback receipt/.test(
         modelRouteSelectionTest,
       ) &&
       /JS fallback route receipt should not be created/.test(modelRouteSelectionTest) &&
-      /assert\.equal\(receiptContexts\.length,\s*0\)/.test(modelRouteSelectionTest),
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelRouteSelectionTest),
     [
       "packages/runtime-daemon/src/threads/model-route-selection.mjs",
       "packages/runtime-daemon/src/threads/model-route-selection.test.mjs",
