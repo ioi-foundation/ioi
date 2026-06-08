@@ -467,7 +467,8 @@ function runDocs() {
       /Slice 776 moved public MCP status readiness\/count\/projection into Rust\s+daemon-core migration transport/.test(guide) &&
       /McpManagerStatusProjectionCore/.test(guide) &&
       /plan_mcp_manager_status_projection/.test(guide) &&
-      /The Slice 776 MCP status\s+projection Rust-core matrix-compaction pass is pending/.test(guide) &&
+      /The Slice 776 MCP status\s+projection Rust-core matrix-compaction pass is complete/.test(guide) &&
+      /No matrix-compaction\s+pass is pending until the next Rust-core extraction or facade-retirement seam\s+lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -509,8 +510,8 @@ function runDocs() {
       /This pass compacted Slice 773 MCP manager validation `secretRefs`\s+alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 774 MCP server validation Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 775 MCP status validation Rust-core evidence/.test(matrix) &&
-      /Slice 776 moved public MCP status readiness\/count\/projection into Rust\s+daemon-core migration transport/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 776 MCP\s+status projection Rust-core evidence/.test(matrix) &&
+      /This pass compacted Slice 776 MCP status projection Rust-core evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -743,12 +744,12 @@ function runDocs() {
       /runtime-mcp-catalog-surface\.mjs` no longer imports, injects, or calls\s+`validateMcpServerRecords`/.test(matrix) &&
       /`mcpStatus\(\)` and `validateMcp\(\)` route normalized canonical server records\s+through `contextPolicyRunner\.validateMcpServers/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 775 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 776/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 776/.test(matrix) &&
       /McpManagerStatusProjectionCore/.test(matrix) &&
       /plan_mcp_manager_status_projection/.test(matrix) &&
       /`mcpStatus\(\)` no longer derives the public status envelope, counts, or readiness\s+state in JS/.test(matrix) &&
-      /Schedule and run a matrix-compaction pass\s+for Slice 776 before unrelated route-family work resumes/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 776 MCP status\s+projection Rust-core evidence/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 776 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 776 MCP status\s+projection Rust-core compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
