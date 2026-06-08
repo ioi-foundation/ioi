@@ -339,8 +339,9 @@ retirement compaction is complete. Slice 751 stream-cancel receipt facade
 retirement compaction is complete. Slice 752 receipt-gate receipt facade
 retirement compaction is complete. Slice 753 public model invocation dead JS
 body-retirement compaction is complete. Slice 754 retired model invocation
-migration-helper compatibility aliases and scheduled the next matrix-compaction
-pass before unrelated route-family work resumes. Future
+migration-helper compatibility aliases and its compaction is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands. Future
 compactions must preserve evidence, distinguish interim bridge scaffolding and
 fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
 command transport or read-only JS helpers as long-term substrate.

@@ -372,7 +372,8 @@ function runDocs() {
       /Slice 752 receipt-gate receipt facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 753 public model invocation dead JS\s+body-retirement compaction is complete/.test(guide) &&
       /Slice 754 retired model invocation\s+migration-helper compatibility aliases/.test(guide) &&
-      /scheduled the next matrix-compaction\s+pass before unrelated route-family work resumes/.test(guide) &&
+      /its compaction is complete/.test(guide) &&
+      /No\s+matrix-compaction pass is pending until the next Rust-core extraction or\s+facade-retirement seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -391,9 +392,8 @@ function runDocs() {
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
-      /then compacted Slice 753\s+public model invocation dead JS body retirement evidence/.test(matrix) &&
-      /Slice 754 model\s+invocation migration-helper compatibility alias retirement has landed and\s+scheduled the next compaction pass/.test(matrix) &&
-      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
+      /then compacted Slice 753\s+public model invocation dead JS body retirement evidence, then compacted Slice\s+754 model invocation migration-helper compatibility alias retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -501,12 +501,15 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 753 is now satisfied/.test(
         matrix,
       ) &&
-      /Implementation Slice 754: Model Invocation Helper Alias Retirement/.test(
+      /Compacted Implementation Slice Evidence: 754/.test(
         matrix,
       ) &&
       /model-mount-invocation-helper-aliases-retired/.test(matrix) &&
       /compatibility alias retirement/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 754/.test(
+      /Scheduled matrix-compaction obligation from Slice 754 is now satisfied/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 754/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&

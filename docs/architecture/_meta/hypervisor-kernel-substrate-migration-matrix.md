@@ -36,13 +36,13 @@ model invocation facade-retirement evidence, then compacted Slice 750 runtime
 model-route selection facade-retirement evidence, then compacted Slice 751
 stream-cancel receipt facade-retirement evidence, then compacted Slice 752
 receipt-gate receipt facade-retirement evidence, then compacted Slice 753
-public model invocation dead JS body retirement evidence. Slice 754 model
-invocation migration-helper compatibility alias retirement has landed and
-scheduled the next compaction pass.
-Next resume instruction: run the scheduled matrix-compaction pass before
-starting unrelated route-family work; preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades and migration helpers are not
-terminal substrate.
+public model invocation dead JS body retirement evidence, then compacted Slice
+754 model invocation migration-helper compatibility alias retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades and migration
+helpers are not terminal substrate.
 
 ## Purpose
 
@@ -137,9 +137,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 754 model
-  invocation migration-helper compatibility alias retirement. Run it before
-  starting unrelated route-family work.
+- Next scheduled matrix-compaction pass: none pending after Slice 754 model
+  invocation migration-helper compatibility alias retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14132,49 +14131,42 @@ above remain authoritative for current and target ownership.
   exported migration request builders, or command transport as terminal
   architecture.
 
-## Implementation Slice 754: Model Invocation Helper Alias Retirement
+## Compacted Implementation Slice Evidence: 754
 
-date: 2026-06-08
-phase: 10-authoritative-js-facade-retirement
-owner_map_row: `model-mounting`
-implementation_matrix_object: `ModelInvocationControl`
-status: verified
-target_execution_owner: Rust daemon core model invocation API
-authority_change:
-- The remaining model invocation migration request builders now fail closed when
-  passed retired camelCase helper shapes for selection, instance, token, or
-  provider-result data.
-- This removes compatibility translation from the JS migration-helper layer
-  while preserving the builders only as temporary bridge-backed Rust model_mount
-  transport.
-legacy_paths_removed:
-- `modelId`, `providerId`, `apiFormat`, `backendId`, `custodyRef`,
-  `nodePlaintextAllowed`, `privacyClass`, `grantId`, `outputText`,
-  `tokenCount`, `providerResponseKind`, `executionBackend`,
-  `providerAuthEvidenceRefs`, and `backendEvidenceRefs` no longer steer model
-  invocation admission, provider-execution, provider-invocation, stream
-  invocation, or provider-result request envelopes.
-- Helper inputs must use canonical Rust model_mount fields such as `model_id`,
+The expanded Slice 754 ledger was compacted on 2026-06-08 after model invocation
+migration-helper compatibility alias retirement landed. This slice remains
+active migration evidence, not terminal architecture. The
+`ModelInvocationControl` implementation-matrix row, conformance command
+contract, and terminal blockers above remain authoritative for current and
+target ownership.
+
+- Slice 754 made the remaining model invocation migration request builders fail
+  closed when selection, instance, token, or provider-result inputs carry retired
+  camelCase helper shapes.
+- Retired helper aliases include `modelId`, `providerId`, `apiFormat`,
+  `backendId`, `custodyRef`, `nodePlaintextAllowed`, `privacyClass`, `grantId`,
+  `outputText`, `tokenCount`, `providerResponseKind`, `executionBackend`,
+  `providerAuthEvidenceRefs`, and `backendEvidenceRefs`.
+- The helpers now require canonical Rust model_mount fields such as `model_id`,
   `provider_id`, `api_format`, `backend_id`, `custody_ref`,
   `node_plaintext_allowed`, `privacy_class`, `grant_ref`, `output_text`,
   `token_count`, `provider_response_kind`, `execution_backend`,
   `provider_auth_evidence_refs`, and `backend_evidence_refs`.
-compatibility_shims_remaining:
-- The request-shape builders themselves remain migration transport until direct
-  Rust daemon-core model invocation APIs replace them.
-conformance:
-- `model-mount-invocation-helper-aliases-retired`
-- `model-mount-invocation-authority-request-aliases-retired`
-- `model-mount-invocation-admission-live-bridge`
-- `model-mount-provider-execution-live-bridge`
-- `model-mount-provider-result-admission-core`
-verification:
-- `node --check packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs`
-- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs`
-next:
-- Run the scheduled matrix-compaction pass before unrelated route-family work
-  resumes. Preserve the distinction between canonical-only migration helpers and
-  terminal direct Rust daemon-core model invocation APIs.
+- The request-shape builders remain migration transport only until direct Rust
+  daemon-core model invocation APIs replace them; they are not compatibility
+  facades or terminal substrate.
+- Conformance anchors include
+  `model-mount-invocation-helper-aliases-retired`,
+  `model-mount-invocation-authority-request-aliases-retired`,
+  `model-mount-invocation-admission-live-bridge`,
+  `model-mount-provider-execution-live-bridge`, and
+  `model-mount-provider-result-admission-core`.
+- Scheduled matrix-compaction obligation from Slice 754 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode canonical-only migration helpers, fail-closed
+  JS invocation wrappers, exported request-shape builders, or command transport
+  as terminal architecture.
 
 ## Command State
 
