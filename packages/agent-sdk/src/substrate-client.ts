@@ -539,16 +539,16 @@ export interface RuntimeSubagentCancellationPropagationResult {
 }
 
 export interface AgentMemoryProjection {
-  schemaVersion: "ioi.agent-runtime.memory.v1";
+  schema_version: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_projection";
-  threadId: string | null;
-  agentId: string | null;
+  thread_id: string | null;
+  agent_id: string | null;
   workspace: string | null;
   policy?: AgentMemoryPolicy;
   paths?: AgentMemoryPathProjection;
   filters?: MemoryListOptions;
   records: AgentMemoryRecord[];
-  totalMatches?: number;
+  total_matches?: number;
 }
 
 export interface MemoryListOptions {
@@ -937,14 +937,14 @@ export interface RuntimeDiagnosticsRepairDecisionExecutionResult {
 }
 
 export interface AgentMemoryPathProjection {
-  schemaVersion: "ioi.agent-runtime.memory.v1";
+  schema_version: "ioi.agent-runtime.memory.v1";
   object: "ioi.agent_memory_path_projection";
-  threadId: string | null;
-  agentId: string | null;
+  thread_id: string | null;
+  agent_id: string | null;
   workspace: string | null;
-  recordsPath: string;
-  policiesPath: string;
-  effectivePolicyId: string;
+  records_path: string;
+  policies_path: string;
+  effective_policy_id: string;
 }
 
 export interface RuntimeThreadCreateInput {

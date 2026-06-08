@@ -507,6 +507,10 @@ function runDocs() {
       /Slice 788 retired the memory projection envelope identity aliases/.test(guide) &&
       /`schema_version`, `thread_id`, `agent_id`, and\s+`total_matches`/.test(guide) &&
       /Slice 788 memory projection envelope alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 789 retired the SDK memory output compatibility surface/.test(guide) &&
+      /`AgentMemoryProjection`, `AgentMemoryPathProjection`, `AgentMemoryRecord`, and\s+`AgentMemoryPolicy` now expose canonical snake_case response fields/.test(guide) &&
+      /Retired SDK output\s+fields such as `schemaVersion`, `threadId`, `agentId`, `totalMatches`,/.test(guide) &&
+      /Slice 789 SDK\s+memory output alias-retirement matrix-compaction pass is scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -563,7 +567,8 @@ function runDocs() {
       /This pass compacted Slice 788 memory projection envelope alias-retirement\s+evidence/.test(matrix) &&
       /Slice 787 retired memory projection input compatibility aliases at the Rust\s+boundary/.test(matrix) &&
       /Slice 788 retired memory projection envelope identity aliases at the\s+Rust-backed status\/validation wrapper boundary/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 789 retired SDK memory output compatibility aliases for projection, path,\s+record, and policy response contracts/.test(matrix) &&
+      /Next resume instruction: run the scheduled Slice 789 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -846,7 +851,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 787 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 788/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 788 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 789/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 789 is now pending/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 789 SDK memory output\s+alias-retirement evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -865,7 +872,7 @@ function runDocs() {
       /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
       /public memory status\/validation projection now routes through Rust daemon-core\s+`MemoryManagerStatusProjectionCore` \/ `MemoryManagerValidationProjectionCore`/.test(implementationMatrix) &&
-      /Rust projection boundary now accepts only canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`, `injection_enabled`,\s+`read_only`, `write_requires_approval`, `subagent_inheritance`, `records_path`,\s+`policies_path`, `effective_policy_id`, `memory_key`, `fact_hash`\)/.test(implementationMatrix) &&
+      /Rust projection boundary plus SDK memory output contracts now accept only canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`, `injection_enabled`,\s+`read_only`, `write_requires_approval`, `subagent_inheritance`, `records_path`,\s+`policies_path`, `effective_policy_id`, `memory_key`, `fact_hash`\)/.test(implementationMatrix) &&
       /live catalog discovery remains a read-only\/projection migration helper, and\s+validation-input projection now routes through Rust migration transport/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
@@ -16206,6 +16213,11 @@ function runCompositor() {
     "export interface MemoryListOptions",
     "export interface RememberMemoryInput",
   );
+  const agentMemorySdkProjectionBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface AgentMemoryProjection",
+    "export interface MemoryListOptions",
+  );
   const agentMemorySdkRememberInputBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RememberMemoryInput",
@@ -16225,6 +16237,21 @@ function runCompositor() {
     agentSdkSubstrateClient,
     "export interface MemoryPolicyInput",
     "export interface MemoryPolicyUpdateResult",
+  );
+  const agentMemorySdkPathProjectionBlock = blockBetween(
+    agentSdkSubstrateClient,
+    "export interface AgentMemoryPathProjection",
+    "export interface RuntimeThreadCreateInput",
+  );
+  const agentMemorySdkRecordBlock = blockBetween(
+    exists("packages/agent-sdk/src/messages.ts") ? read("packages/agent-sdk/src/messages.ts") : "",
+    "export interface AgentMemoryRecord",
+    "export interface AgentMemoryPolicy",
+  );
+  const agentMemorySdkPolicyOutputBlock = blockBetween(
+    exists("packages/agent-sdk/src/messages.ts") ? read("packages/agent-sdk/src/messages.ts") : "",
+    "export interface AgentMemoryPolicy",
+    "export interface SubagentMemoryInheritanceProjection",
   );
   const agentSdkSendOptionsMemoryBlock = blockBetween(
     exists("packages/agent-sdk/src/options.ts") ? read("packages/agent-sdk/src/options.ts") : "",
@@ -16660,6 +16687,18 @@ function runCompositor() {
         runtimeThreadMemoryStateTest,
       ) &&
       /^\s*thread_id\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
+      /^\s*schema_version: "ioi\.agent-runtime\.memory\.v1";/m.test(
+        agentMemorySdkProjectionBlock,
+      ) &&
+      /^\s*thread_id: string \| null;/m.test(agentMemorySdkProjectionBlock) &&
+      /^\s*agent_id: string \| null;/m.test(agentMemorySdkProjectionBlock) &&
+      /^\s*total_matches\?: number;/m.test(agentMemorySdkProjectionBlock) &&
+      /^\s*schema_version: "ioi\.agent-runtime\.memory\.v1";/m.test(
+        agentMemorySdkPathProjectionBlock,
+      ) &&
+      /^\s*records_path: string;/m.test(agentMemorySdkPathProjectionBlock) &&
+      /^\s*policies_path: string;/m.test(agentMemorySdkPathProjectionBlock) &&
+      /^\s*effective_policy_id: string;/m.test(agentMemorySdkPathProjectionBlock) &&
       /getMemoryPolicy\(agentId: string, options\?: \{ thread_id\?: string \}\)/.test(
         agentSdkSubstrateClient,
       ) &&
@@ -16677,6 +16716,12 @@ function runCompositor() {
         runtimeThreadMemoryState,
       ) &&
       !/^\s*threadId\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
+      !/^\s*(?:schemaVersion|threadId|agentId|totalMatches)\??:/m.test(
+        agentMemorySdkProjectionBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|threadId|agentId|recordsPath|policiesPath|effectivePolicyId)\??:/m.test(
+        agentMemorySdkPathProjectionBlock,
+      ) &&
       !/\?threadId=/.test(agentMemorySdkListQueryBlock),
     [
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
@@ -16721,6 +16766,33 @@ function runCompositor() {
       /^\s*read_only\?: boolean;/m.test(agentMemorySdkPolicyInputBlock) &&
       /^\s*write_requires_approval\?: boolean;/m.test(agentMemorySdkPolicyInputBlock) &&
       /^\s*subagent_inheritance\?:/m.test(agentMemorySdkPolicyInputBlock) &&
+      /^\s*schema_version: "ioi\.agent-runtime\.memory\.v1";/m.test(
+        agentMemorySdkRecordBlock,
+      ) &&
+      /^\s*fact_hash\?: string;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*memory_key\?: string \| null;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*agent_id: string \| null;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*thread_id: string \| null;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*workflow_graph_id: string \| null;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*workflow_node_id: string \| null;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*workflow_node_type: string \| null;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*created_at: string;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*updated_at: string;/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*evidence_refs: string\[\];/m.test(agentMemorySdkRecordBlock) &&
+      /^\s*schema_version: "ioi\.agent-runtime\.memory-policy\.v1";/m.test(
+        agentMemorySdkPolicyOutputBlock,
+      ) &&
+      /^\s*target_type: "agent" \| "thread" \| "workflow" \| "subagent" \| string;/m.test(
+        agentMemorySdkPolicyOutputBlock,
+      ) &&
+      /^\s*target_id: string;/m.test(agentMemorySdkPolicyOutputBlock) &&
+      /^\s*injection_enabled: boolean;/m.test(agentMemorySdkPolicyOutputBlock) &&
+      /^\s*read_only: boolean;/m.test(agentMemorySdkPolicyOutputBlock) &&
+      /^\s*write_requires_approval: boolean;/m.test(agentMemorySdkPolicyOutputBlock) &&
+      /^\s*subagent_inheritance: "none" \| "explicit" \| "read_only" \| "full" \| string;/m.test(
+        agentMemorySdkPolicyOutputBlock,
+      ) &&
+      /^\s*policy_refs\?: string\[\];/m.test(agentMemorySdkPolicyOutputBlock) &&
       /^\s*memory_key\?: string;/m.test(agentSdkSendOptionsMemoryBlock) &&
       /^\s*thread_id\?: string;/m.test(agentSdkSendOptionsMemoryBlock) &&
       /^\s*write_approved\?: boolean;/m.test(agentSdkSendOptionsMemoryBlock) &&
@@ -16734,11 +16806,18 @@ function runCompositor() {
       !/setPolicy\(\{[\s\S]*?(?:targetType|targetId|threadId)\s*:/m.test(runtimeThreadMemoryState) &&
       !/^\s*(?:memoryKey|q|threadId|workflowGraphId|workflowNodeId|workflowNodeType|writeApproved|targetType|targetId|injectionEnabled|readOnly|writeRequiresApproval|subagentInheritance)\?:/m.test(
         `${agentMemorySdkListOptionsBlock}\n${agentMemorySdkRememberInputBlock}\n${agentMemorySdkUpdateInputBlock}\n${agentMemorySdkDeleteInputBlock}\n${agentMemorySdkPolicyInputBlock}\n${agentSdkSendOptionsMemoryBlock}`,
+      ) &&
+      !/^\s*(?:schemaVersion|factHash|memoryKey|agentId|threadId|workflowGraphId|workflowNodeId|workflowNodeType|createdAt|updatedAt|evidenceRefs)\??:/m.test(
+        agentMemorySdkRecordBlock,
+      ) &&
+      !/^\s*(?:schemaVersion|targetType|targetId|agentId|threadId|injectionEnabled|readOnly|writeRequiresApproval|subagentInheritance|createdAt|updatedAt|evidenceRefs|policyRefs)\??:/m.test(
+        agentMemorySdkPolicyOutputBlock,
       ),
     [
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
+      "packages/agent-sdk/src/messages.ts",
       "packages/agent-sdk/src/options.ts",
       "packages/agent-sdk/src/agent.ts",
     ],

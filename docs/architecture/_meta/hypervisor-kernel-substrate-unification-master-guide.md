@@ -816,6 +816,25 @@ need ownership. The Slice 788 memory projection envelope alias-retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands; do not encode the
 command bridge or JS transport wrappers as terminal architecture.
+Slice 789 retired the SDK memory output compatibility surface that still
+advertised the pre-canonical projection, path, record, and policy field names.
+`AgentMemoryProjection`, `AgentMemoryPathProjection`, `AgentMemoryRecord`, and
+`AgentMemoryPolicy` now expose canonical snake_case response fields matching the
+daemon/Rust memory projection boundary: `schema_version`, `thread_id`,
+`agent_id`, `total_matches`, `records_path`, `policies_path`,
+`effective_policy_id`, `fact_hash`, `memory_key`, workflow identity, timestamps,
+evidence refs, policy target identity, and policy booleans. Retired SDK output
+fields such as `schemaVersion`, `threadId`, `agentId`, `totalMatches`,
+`recordsPath`, `effectivePolicyId`, `factHash`, `memoryKey`,
+`workflowNodeId`, `createdAt`, `targetType`, `injectionEnabled`,
+`writeRequiresApproval`, `subagentInheritance`, and `policyRefs` are no longer
+part of the SDK memory output contract. This still does not claim terminal
+memory migration: direct Rust daemon-core memory record truth, Agentgres
+admission/head/state-root binding, wallet authority, StepModuleRouter dispatch
+for admitted memory work, cTEE custody coupling, replay, and direct Rust API
+replacement for command transport still need ownership. The Slice 789 SDK
+memory output alias-retirement matrix-compaction pass is scheduled for the next
+resume cycle before unrelated route-family work continues.
 
 ## Part II: Target Execution Model
 

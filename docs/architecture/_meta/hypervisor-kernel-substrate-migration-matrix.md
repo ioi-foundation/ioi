@@ -97,10 +97,15 @@ boundary; its matrix-compaction pass is complete.
 Slice 788 retired memory projection envelope identity aliases at the
 Rust-backed status/validation wrapper boundary; its matrix-compaction pass is
 complete.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+Slice 789 retired SDK memory output compatibility aliases for projection, path,
+record, and policy response contracts; its matrix-compaction pass is scheduled
+for the next resume cycle before unrelated route-family work.
+Next resume instruction: run the scheduled Slice 789 matrix-compaction pass
+before unrelated route-family work, then continue the next Rust-core extraction
+or facade-retirement implementation slice. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -207,13 +212,17 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending until the next Rust-core
-  extraction or facade-retirement seam lands.
-- Future-resumption trigger: resume the migration goal by continuing the next
-  concrete Rust-core extraction or facade-retirement seam and schedule the
-  following compaction pass only after that seam lands. Do not let context
-  compaction demote this to optional evidence pruning.
-- Next resume order is mandatory: clarify and implement the next concrete
+- Next scheduled matrix-compaction pass: Slice 789 SDK memory output
+  alias-retirement evidence, to run before unrelated route-family work
+  continues.
+- Future-resumption trigger: resume the migration goal by running the scheduled
+  Slice 789 matrix-compaction pass before starting unrelated route-family work.
+  After that pass, continue with the next concrete Rust-core extraction or
+  facade-retirement seam and schedule the following compaction pass only after
+  that seam lands. Do not let context compaction demote this to optional
+  evidence pruning.
+- Next resume order is mandatory: compact the verified Slice 789 SDK memory
+  output alias-retirement seam, then clarify the next concrete
   Rust-core extraction/facade-retirement seam before unrelated route-family
   work.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
@@ -15721,3 +15730,44 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport or JS wrapper calls as
 terminal architecture.
+
+## Implementation Slice Evidence: 789
+
+Slice 789 retired the SDK memory output compatibility aliases that could have
+reintroduced the pre-canonical daemon/Rust memory projection shape for SDK/IDE
+consumers. `AgentMemoryProjection` and `AgentMemoryPathProjection` now expose
+canonical `schema_version`, `thread_id`, `agent_id`, `total_matches`,
+`records_path`, `policies_path`, and `effective_policy_id`. `AgentMemoryRecord`
+and `AgentMemoryPolicy` now expose canonical memory record/policy fields such
+as `fact_hash`, `memory_key`, `workflow_graph_id`, `workflow_node_id`,
+`created_at`, `updated_at`, `evidence_refs`, `target_type`, `target_id`,
+`injection_enabled`, `read_only`, `write_requires_approval`,
+`subagent_inheritance`, and `policy_refs`.
+
+Retired SDK output fields including `schemaVersion`, `threadId`, `agentId`,
+`totalMatches`, `recordsPath`, `policiesPath`, `effectivePolicyId`,
+`factHash`, `memoryKey`, `workflowNodeId`, `createdAt`, `targetType`,
+`injectionEnabled`, `writeRequiresApproval`, `subagentInheritance`, and
+`policyRefs` are no longer part of the memory output type contract.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck --workspace packages/agent-sdk` via `packages/agent-sdk` | passed |
+| `npm run build --workspace packages/agent-sdk` via `packages/agent-sdk` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This does not claim terminal memory migration: direct Rust daemon-core memory
+truth, Agentgres expected-head/state-root admission, wallet authority,
+StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
+replay, SDK/IDE protocol coverage beyond this memory output type seam, and
+replacement of command transport with a direct Rust daemon-core API remain open
+terminal blockers.
+
+Scheduled matrix-compaction obligation from Slice 789 is now pending. The next
+resume should compact this evidence before unrelated route-family work, preserve
+the owner map and terminal blockers, and avoid encoding command transport, JS
+wrapper calls, or stale SDK compatibility aliases as terminal architecture.

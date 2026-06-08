@@ -985,49 +985,49 @@ export interface ModelRouteDecision {
 }
 
 export interface AgentMemoryRecord {
-  schemaVersion: "ioi.agent-runtime.memory.v1";
+  schema_version: "ioi.agent-runtime.memory.v1";
   id: string;
   object: "ioi.agent_memory_record";
   scope: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   fact: string;
-  factHash?: string;
-  memoryKey?: string | null;
-  agentId: string | null;
-  threadId: string | null;
+  fact_hash?: string;
+  memory_key?: string | null;
+  agent_id: string | null;
+  thread_id: string | null;
   workspace: string | null;
-  workflowGraphId: string | null;
-  workflowNodeId: string | null;
-  workflowNodeType: string | null;
+  workflow_graph_id: string | null;
+  workflow_node_id: string | null;
+  workflow_node_type: string | null;
   source: string;
   redaction: "none" | "redacted";
-  createdAt: string;
-  updatedAt: string;
-  evidenceRefs: string[];
+  created_at: string;
+  updated_at: string;
+  evidence_refs: string[];
 }
 
 export interface AgentMemoryPolicy {
-  schemaVersion: "ioi.agent-runtime.memory-policy.v1";
+  schema_version: "ioi.agent-runtime.memory-policy.v1";
   id: string;
   object: "ioi.agent_memory_policy";
-  targetType: "agent" | "thread" | "workflow" | "subagent" | string;
-  targetId: string;
-  agentId: string | null;
-  threadId: string | null;
+  target_type: "agent" | "thread" | "workflow" | "subagent" | string;
+  target_id: string;
+  agent_id: string | null;
+  thread_id: string | null;
   workspace: string | null;
   disabled: boolean;
-  injectionEnabled: boolean;
-  readOnly: boolean;
-  writeRequiresApproval: boolean;
+  injection_enabled: boolean;
+  read_only: boolean;
+  write_requires_approval: boolean;
   retention: string;
   redaction: "none" | "redacted" | string;
-  subagentInheritance: "none" | "explicit" | "read_only" | "full" | string;
+  subagent_inheritance: "none" | "explicit" | "read_only" | "full" | string;
   scope: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   source: string;
-  createdAt: string;
-  updatedAt: string;
-  evidenceRefs: string[];
+  created_at: string;
+  updated_at: string;
+  evidence_refs: string[];
   effective?: boolean;
-  policyRefs?: string[];
+  policy_refs?: string[];
 }
 
 export interface SubagentMemoryInheritanceProjection {
