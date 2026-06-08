@@ -1,6 +1,5 @@
 import childProcess from "node:child_process";
 import crypto from "node:crypto";
-import path from "node:path";
 
 import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
@@ -236,144 +235,24 @@ export function stopBackendProcess(state, backend, { reason = "runtime_control" 
 }
 
 export function backendHealth(state, backendId, deps = {}) {
-  const { hardwareSnapshot } = deps;
   const backend = state.backend(backendId);
-  const checkedAt = state.nowIso();
-  const processRecord = state.backendProcessForBackend(backendId);
-  const status =
-    backend.status === "blocked" || backend.status === "absent"
-      ? backend.status
-      : processRecord?.status === "stale_recovered"
-        ? "degraded"
-        : "available";
-  const hardware = hardwareSnapshot();
-  const processSnapshot = state.backendProcessSnapshot(processRecord);
-  const receipt = state.lifecycleReceipt("backend_health", {
-    backend_id: backendId,
-    model_id: backend.label,
-    state: status,
-    evidence_refs: backend.evidenceRefs ?? [],
-    hardware,
-    process: processSnapshot,
-  });
-  const updated = {
-    ...backend,
-    status,
-    checkedAt,
-    lastReceiptId: receipt.id,
-    lastHealthReceiptId: receipt.id,
-    processStatus: processSnapshot.processStatus,
-    process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
-  };
-  commitBackendRecordState(state, updated, "model_mount.backend.health", [receipt.id]);
-  state.backends.set(backendId, updated);
-  return updated;
+  throwBackendLifecycleRustCoreRequired("model_mount.backend.health", backend, deps);
 }
 
 export function startBackend(state, backendId, body = {}, deps = {}) {
-  const { normalizeLoadOptions, runtimeError } = deps;
   const backend = state.backend(backendId);
-  if (backend.status === "blocked" && !backend.binaryPath && !String(backend.baseUrl ?? "").startsWith("local://")) {
-    throw runtimeError({
-      status: 424,
-      code: "external_blocker",
-      message: "Backend cannot be started until its binary path or base URL is configured.",
-      details: { backend_id: backendId, backend_kind: backend.kind, evidence_refs: backend.evidenceRefs ?? [] },
-    });
-  }
-  const loadOptions = normalizeLoadOptions(body.load_options ?? body.loadOptions ?? state.runtimeDefaultLoadOptions(backendId) ?? {});
-  const processRecord = state.ensureBackendProcess(backendId, { loadOptions, reason: "backend_start" });
-  const processSnapshot = state.backendProcessSnapshot(processRecord);
-  const receipt = state.lifecycleReceipt("backend_start", {
-    backend_id: backendId,
-    model_id: backend.label,
-    state: "available",
-    evidence_refs: backend.evidenceRefs ?? [],
-    process: processSnapshot,
-  });
-  const updated = {
-    ...backend,
-    status: "available",
-    processStatus: processSnapshot.processStatus ?? (backend.processStatus === "stateless_http" ? "stateless_http" : "started"),
-    process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
-    startedAt: state.nowIso(),
-    lastReceiptId: receipt.id,
-  };
-  if (processRecord?.id) {
-    const updatedProcess = { ...processRecord, lastReceiptId: receipt.id };
-    commitBackendProcessRecordState(state, updatedProcess, "model_mount.backend_process.receipt_bind", [receipt.id]);
-    state.backendProcesses.set(processRecord.id, updatedProcess);
-  }
-  commitBackendRecordState(state, updated, "model_mount.backend.start", [receipt.id]);
-  state.backends.set(backendId, updated);
-  state.writeBackendLog(backendId, {
-    backendId,
-    event: "backend_start",
-    backendKind: backend.kind,
-    receiptId: receipt.id,
-    processId: processRecord?.id ?? null,
-    pidHash: processRecord?.pidHash ?? null,
-  });
-  return updated;
+  void body;
+  throwBackendLifecycleRustCoreRequired("model_mount.backend.start", backend, deps);
 }
 
 export function stopBackend(state, backendId) {
   const backend = state.backend(backendId);
-  const processRecord = state.stopBackendProcess(backend, { reason: "backend_stop" });
-  const processSnapshot = state.backendProcessSnapshot(processRecord);
-  const receipt = state.lifecycleReceipt("backend_stop", {
-    backend_id: backendId,
-    model_id: backend.label,
-    state: "stopped",
-    evidence_refs: backend.evidenceRefs ?? [],
-    process: processSnapshot,
-  });
-  const updated = {
-    ...backend,
-    status: backend.kind === "fixture" ? "available" : "stopped",
-    processStatus: backend.kind === "fixture" ? "stateless" : processSnapshot.processStatus ?? "stopped",
-    process: { ...backend.process, ...processSnapshot, receiptId: receipt.id },
-    stoppedAt: state.nowIso(),
-    lastReceiptId: receipt.id,
-  };
-  if (processRecord?.id) {
-    const updatedProcess = { ...processRecord, lastReceiptId: receipt.id };
-    commitBackendProcessRecordState(state, updatedProcess, "model_mount.backend_process.receipt_bind", [receipt.id]);
-    state.backendProcesses.set(processRecord.id, updatedProcess);
-  }
-  commitBackendRecordState(state, updated, "model_mount.backend.stop", [receipt.id]);
-  state.backends.set(backendId, updated);
-  state.writeBackendLog(backendId, {
-    backendId,
-    event: "backend_stop",
-    backendKind: backend.kind,
-    receiptId: receipt.id,
-  });
-  return updated;
+  throwBackendLifecycleRustCoreRequired("model_mount.backend.stop", backend);
 }
 
 export function backendLogs(state, backendId, deps = {}) {
-  const { listFiles, parseJsonMaybe, readLines, safeFileName } = deps;
-  state.backend(backendId);
-  const logDir = path.join(state.stateDir, "backend-logs");
-  const records = [];
-  for (const filePath of listFiles(logDir, ".jsonl")) {
-    for (const line of readLines(filePath)) {
-      const record = parseJsonMaybe(line);
-      if (record?.backendId === backendId || record?.backend === backendId || filePath.endsWith(`${safeFileName(backendId)}.jsonl`)) {
-        records.push(record);
-      }
-    }
-  }
-  const resolved = records.sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? ""))).slice(-200);
-  state.lifecycleReceipt("backend_logs_read", {
-    backend_id: backendId,
-    model_id: state.backend(backendId).label,
-    state: "read",
-    log_count: resolved.length,
-    evidence_refs: ["backend_log_projection"],
-  });
-  return resolved;
+  const backend = state.backend(backendId);
+  throwBackendLifecycleRustCoreRequired("model_mount.backend.logs_read", backend, deps);
 }
 
 function commitBackendProcessRecordState(state, record, operation_kind, receipt_refs) {
@@ -404,6 +283,25 @@ function commitBackendRecordState(state, record, operation_kind, receipt_refs) {
     unconfiguredDetails: {
       backend_id: record?.id ?? null,
       backend_kind: record?.kind ?? null,
+    },
+  });
+}
+
+function throwBackendLifecycleRustCoreRequired(operation_kind, backend, deps = {}) {
+  const errorFactory = deps.runtimeError ?? (({ code, message, details, status }) => Object.assign(new Error(message), { code, details, status }));
+  throw errorFactory({
+    status: 501,
+    code: "model_mount_backend_lifecycle_rust_core_required",
+    message: "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+    details: {
+      backend_id: backend.id,
+      backend_kind: backend.kind,
+      operation_kind,
+      rust_core_boundary: "model_mount.backend_lifecycle",
+      evidence_refs: [
+        "public_backend_lifecycle_js_facade_retired",
+        "rust_daemon_core_lifecycle_required",
+      ],
     },
   });
 }

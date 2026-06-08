@@ -12244,11 +12244,23 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-backend-lifecycle-detail-aliases-retired",
-      /backend_id:\s*backendId/.test(backendLifecycle) &&
-      /model_id:\s*backend\.label/.test(backendLifecycle) &&
-      /evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
-      /details:\s*\{\s*backend_id:\s*backendId,\s*backend_kind:\s*backend\.kind,\s*evidence_refs:\s*backend\.evidenceRefs/.test(backendLifecycle) &&
-      /log_count:\s*resolved\.length/.test(backendLifecycle) &&
+      /throwBackendLifecycleRustCoreRequired/.test(backendLifecycle) &&
+      /model_mount_backend_lifecycle_rust_core_required/.test(backendLifecycle) &&
+      /operation_kind,\s*[\r\n]\s*rust_core_boundary:\s*"model_mount\.backend_lifecycle"/.test(backendLifecycle) &&
+      /public_backend_lifecycle_js_facade_retired/.test(backendLifecycle) &&
+      /rust_daemon_core_lifecycle_required/.test(backendLifecycle) &&
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.health",\s*backend,\s*deps\)/.test(
+        backendLifecycle,
+      ) &&
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.start",\s*backend,\s*deps\)/.test(
+        backendLifecycle,
+      ) &&
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.stop",\s*backend\)/.test(
+        backendLifecycle,
+      ) &&
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*backend,\s*deps\)/.test(
+        backendLifecycle,
+      ) &&
       /commitBackendProcessRecordState/.test(backendLifecycle) &&
       /commitBackendRecordState/.test(backendLifecycle) &&
       /recordDir:\s*"backend-processes"/.test(backendLifecycle) &&
@@ -12257,27 +12269,37 @@ function runReceipts() {
       /model_mount\.backend_process\.start/.test(backendLifecycle) &&
       /model_mount\.backend_process\.exit/.test(backendLifecycle) &&
       /model_mount\.backend_process\.stop/.test(backendLifecycle) &&
-      /model_mount\.backend_process\.receipt_bind/.test(backendLifecycle) &&
-      /model_mount\.backend\.health/.test(backendLifecycle) &&
-      /model_mount\.backend\.start/.test(backendLifecycle) &&
-      /model_mount\.backend\.stop/.test(backendLifecycle) &&
       /model_mount_backend_process_state_commit_unconfigured/.test(backendLifecycle) &&
       /model_mount_backend_state_commit_unconfigured/.test(backendLifecycle) &&
       !/state\.writeMap\("backend-processes"/.test(backendLifecycle) &&
       !/state\.writeMap\("model-backends"/.test(backendLifecycle) &&
       !/details:\s*\{\s*backendId\b/.test(backendLifecycle) &&
+      !/lifecycleReceipt\("backend_(?:health|start|stop|logs_read)"/.test(backendLifecycle) &&
+      !/state\.ensureBackendProcess\(backendId,\s*\{ loadOptions,\s*reason:\s*"backend_start"/.test(
+        backendLifecycle,
+      ) &&
+      !/state\.stopBackendProcess\(backend,\s*\{ reason:\s*"backend_stop"/.test(backendLifecycle) &&
       /recordStateCommits/.test(backendLifecycleTest) &&
       /backend process persistence fails closed without Rust Agentgres record-state commit/.test(
         backendLifecycleTest,
       ) &&
+      /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
+        backendLifecycleTest,
+      ) &&
+      /blocked backend public lifecycle start still fails at Rust-core boundary before JS control/.test(
+        backendLifecycleTest,
+      ) &&
+      /public backend logs facade fails closed before reading local logs or writing a receipt/.test(
+        backendLifecycleTest,
+      ) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(backendLifecycleTest) &&
+      /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(backendLifecycleTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(backendLifecycleTest) &&
+      /assert\.equal\(listFilesCalled,\s*false\)/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.touch/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.start/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.exit/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.stop/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.receipt_bind/.test(backendLifecycleTest) &&
-      /model_mount\.backend\.health/.test(backendLifecycleTest) &&
-      /model_mount\.backend\.start/.test(backendLifecycleTest) &&
-      /model_mount\.backend\.stop/.test(backendLifecycleTest) &&
       /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
       /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
       !/details\.model_id\s*\?\?\s*details\.modelId/.test(modelMountReceiptOperations) &&
@@ -12286,12 +12308,10 @@ function runReceipts() {
       /lifecycle receipt subject aliases are retired/.test(modelMountReceiptOperationsTest) &&
       /retired_aliases\.includes\("modelId"\)/.test(modelMountReceiptOperationsTest) &&
       /retired_aliases\.includes\("endpointId"\)/.test(modelMountReceiptOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"modelId"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"logCount"\),\s*false/.test(backendLifecycleTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(error\.details,\s*"backendKind"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(backendLifecycleTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest),
     [
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs",
@@ -12299,7 +12319,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],
-    "Phase 10/11 is pending: backend lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 10/11 is pending: public backend lifecycle facade control must fail closed until Rust daemon-core model_mount owns lifecycle receipts and control semantics",
   );
   assertCheck(
     result,

@@ -262,106 +262,107 @@ test("stop backend process kills tracked children and appends clean stop evidenc
   assert.equal(state.logs.at(-1).event, "backend_process_stop");
 });
 
-test("backend health, start, and stop update backend records and lifecycle receipts", () => {
+test("public backend lifecycle facade fails closed until Rust core owns lifecycle control", () => {
   const state = fakeState();
 
-  const health = backendHealth(state, "backend.native", deps);
-  assert.equal(health.status, "available");
-  assert.equal(health.lastHealthReceiptId, "receipt.backend_health.1");
-  assert.equal(state.receipts.at(-1).details.hardware.cpu, "test-cpu");
-  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
-  assert.equal(state.receipts.at(-1).details.model_id, "Native");
-  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["native_backend"]);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
-  assert.equal(state.recordStateCommits[0].record_dir, "model-backends");
-  assert.equal(state.recordStateCommits[0].record_id, "backend.native");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend.health");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.backend_health.1"]);
-
-  const started = startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } }, deps);
-  assert.equal(started.status, "available");
-  assert.equal(started.process.receiptId, "receipt.backend_start.2");
-  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
-  assert.equal(state.receipts.at(-1).details.model_id, "Native");
-  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["native_backend"]);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
-  assert.equal(state.logs.at(-1).event, "backend_start");
-  assert.equal(
-    state.recordStateCommits.some((commit) => commit.operation_kind === "model_mount.backend_process.receipt_bind"),
-    true,
-  );
-  assert.equal(
-    state.recordStateCommits.some((commit) => commit.operation_kind === "model_mount.backend.start"),
-    true,
+  assert.throws(
+    () => backendHealth(state, "backend.native", deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
+      assert.equal(error.details.backend_id, "backend.native");
+      assert.equal(error.details.backend_kind, "native_local");
+      assert.equal(error.details.operation_kind, "model_mount.backend.health");
+      assert.equal(error.details.rust_core_boundary, "model_mount.backend_lifecycle");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_backend_lifecycle_js_facade_retired",
+        "rust_daemon_core_lifecycle_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "backendId"), false);
+      assert.equal(Object.hasOwn(error.details, "backendKind"), false);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
   );
 
-  const stopped = stopBackend(state, "backend.native");
-  assert.equal(stopped.status, "stopped");
-  assert.equal(stopped.process.receiptId, "receipt.backend_stop.3");
-  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
-  assert.equal(state.receipts.at(-1).details.model_id, "Native");
-  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["native_backend"]);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
-  assert.equal(state.logs.at(-1).event, "backend_stop");
-  assert.equal(
-    state.recordStateCommits.some((commit) => commit.operation_kind === "model_mount.backend.stop"),
-    true,
+  assert.throws(
+    () => startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } }, deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.backend.start");
+      return true;
+    },
   );
+
+  assert.throws(
+    () => stopBackend(state, "backend.native"),
+    (error) => {
+      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.backend.stop");
+      return true;
+    },
+  );
+
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.logs, []);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 
-test("blocked backend start preserves external-blocker envelope", () => {
+test("blocked backend public lifecycle start still fails at Rust-core boundary before JS control", () => {
   const state = fakeState();
 
   assert.throws(
     () => startBackend(state, "backend.blocked", {}, deps),
     (error) => {
-      assert.equal(error.status, 424);
-      assert.equal(error.code, "external_blocker");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
       assert.equal(error.details.backend_id, "backend.blocked");
       assert.equal(error.details.backend_kind, "llama_cpp");
-      assert.deepEqual(error.details.evidence_refs, ["binary_missing"]);
+      assert.equal(error.details.operation_kind, "model_mount.backend.start");
       assert.equal(Object.hasOwn(error.details, "backendId"), false);
       assert.equal(Object.hasOwn(error.details, "backendKind"), false);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
       assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
     },
   );
 });
 
-test("backend logs read matching backend records and writes a read receipt", () => {
+test("public backend logs facade fails closed before reading local logs or writing a receipt", () => {
   const state = fakeState();
-  const records = backendLogs(state, "backend.native", {
-    listFiles() {
-      return ["/state/backend-logs/backend.native.jsonl", "/state/backend-logs/other.jsonl"];
-    },
-    parseJsonMaybe(line) {
-      return JSON.parse(line);
-    },
-    readLines(filePath) {
-      if (filePath.endsWith("other.jsonl")) return [JSON.stringify({ backendId: "other", createdAt: "2026-06-03T20:00:03.000Z" })];
-      return [
-        JSON.stringify({ backendId: "backend.native", createdAt: "2026-06-03T20:00:02.000Z", event: "second" }),
-        JSON.stringify({ backend: "backend.native", createdAt: "2026-06-03T20:00:01.000Z", event: "first" }),
-      ];
-    },
-    safeFileName: (value) => value,
-  });
+  let listFilesCalled = false;
 
-  assert.deepEqual(records.map((record) => record.event), ["first", "second"]);
-  assert.equal(state.receipts.at(-1).kind, "backend_logs_read");
-  assert.equal(state.receipts.at(-1).details.backend_id, "backend.native");
-  assert.equal(state.receipts.at(-1).details.model_id, "Native");
-  assert.equal(state.receipts.at(-1).details.log_count, 2);
-  assert.deepEqual(state.receipts.at(-1).details.evidence_refs, ["backend_log_projection"]);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "backendId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "logCount"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "evidenceRefs"), false);
+  assert.throws(
+    () =>
+      backendLogs(state, "backend.native", {
+        listFiles() {
+          listFilesCalled = true;
+          return ["/state/backend-logs/backend.native.jsonl"];
+        },
+        parseJsonMaybe(line) {
+          return JSON.parse(line);
+        },
+        readLines(filePath) {
+          if (filePath.endsWith("other.jsonl")) {
+            return [JSON.stringify({ backendId: "other", createdAt: "2026-06-03T20:00:03.000Z" })];
+          }
+          return [
+            JSON.stringify({ backendId: "backend.native", createdAt: "2026-06-03T20:00:02.000Z", event: "second" }),
+            JSON.stringify({ backend: "backend.native", createdAt: "2026-06-03T20:00:01.000Z", event: "first" }),
+          ];
+        },
+        safeFileName: (value) => value,
+      }),
+    (error) => {
+      assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.backend.logs_read");
+      return true;
+    },
+  );
+
+  assert.equal(listFilesCalled, false);
+  assert.deepEqual(state.receipts, []);
 });
