@@ -1091,6 +1091,11 @@ function runBridge() {
   const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     : "";
+  const runtimeOperatorTurnControlFacadeTest = exists(
+    "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs")
+    : "";
   const operatorInterruptTurnBody =
     runtimeDaemonIndex.match(/async interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  steerTurn\(/)?.[0] ?? "";
   const operatorSteerTurnBody =
@@ -4952,44 +4957,36 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
-      /this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(runtimeDaemonIndex) &&
-      /plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
-      /requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
+      /runtime_operator_turn_control_rust_core_required/.test(runtimeDaemonIndex) &&
+      /rust_core_boundary:\s*"runtime\.operator_turn_control"/.test(runtimeDaemonIndex) &&
+      /operator_interrupt_js_facade_retired/.test(runtimeDaemonIndex) &&
+      /rust_daemon_core_operator_interrupt_required/.test(runtimeDaemonIndex) &&
+      /agentgres_operator_interrupt_state_truth_required/.test(runtimeDaemonIndex) &&
+      !/this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(operatorInterruptTurnBody) &&
+      !/plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
+      !/requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
+      !/this\.runs\.set|this\.writeRun|this\.appendRuntimeEvent|controlRuntimeBridgeThreadState/.test(
+        operatorInterruptTurnBody,
+      ) &&
       !/control:\s*"interrupt"/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.interrupt"/.test(runtimeDaemonIndex) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorInterruptTurnBody,
       ) &&
-      /approval_mode:\s*agent\.runtimeControls\?\.approval_mode \?\? "suggest"/.test(
-        operatorInterruptTurnBody,
-      ) &&
       !/approval_mode:\s*agent\.runtimeControls\?\.approvalMode \?\? "suggest"/.test(
         operatorInterruptTurnBody,
       ) &&
-      /workflowGraphId: "graph_retired"/.test(runtimeThreadControlTest) &&
-      /workflowNodeId: "node_retired"/.test(runtimeThreadControlTest) &&
-      /runtimeControlAction: "cancel"/.test(runtimeThreadControlTest) &&
-      /controlAction: "cancel"/.test(runtimeThreadControlTest) &&
-      /requestedBy: "operator_retired"/.test(runtimeThreadControlTest) &&
-      /interruptEvent\.workflow_graph_id,\s*null/.test(runtimeThreadControlTest) &&
-      /interruptEvent\.workflow_node_id,\s*"runtime\.operator-interrupt"/.test(
-        runtimeThreadControlTest,
+      /interruptTurn facade fails closed before runtime bridge, event append, Rust planning, or JS persistence/.test(
+        runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /interruptEvent\.payload\.requested_by,\s*"operator"/.test(
-        runtimeThreadControlTest,
+      /runtime_control_action:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /controlAction:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /workflowGraphId:\s*"graph_retired"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
+        runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /contextPolicyRunner\(calls\)/.test(runtimeThreadControlTest) &&
-      /runtime-backed operator controls fail closed without Rust-planned runs/.test(
-        runtimeThreadControlTest,
-      ) &&
-      /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
-        runtimeThreadControlTest,
-      ) &&
-      /approvalMode: "never_prompt"/.test(runtimeThreadControlTest) &&
-      /interrupted\.approval_mode,\s*"human_required"/.test(runtimeThreadControlTest) &&
-      /plan_operator_interrupt_state_update/.test(runtimeThreadControlTest) &&
+      /assert\.equal\(store\.runs\.size,\s*0\)/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy|runtimeControlAction|controlAction)\b/.test(
         operatorInterruptTurnBody,
       ) &&
@@ -5002,9 +4999,9 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+      "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: operator interrupt run state updates must be planned by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: public operator interrupt must fail closed until Rust daemon-core owns event admission, runtime control, and run-state persistence; bridge planner remains migration plumbing only",
   );
   assertCheck(
     result,
@@ -5041,37 +5038,32 @@ function runBridge() {
       /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(runtimeDaemonIndex) &&
-      /plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
-      /requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
+      /runtime_operator_turn_control_rust_core_required/.test(runtimeDaemonIndex) &&
+      /operator_steer_js_facade_retired/.test(runtimeDaemonIndex) &&
+      /rust_daemon_core_operator_steer_required/.test(runtimeDaemonIndex) &&
+      /agentgres_operator_steer_state_truth_required/.test(runtimeDaemonIndex) &&
+      !/this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(operatorSteerTurnBody) &&
+      !/plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
+      !/requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
+      !/this\.runs\.set|this\.writeRun|this\.appendRuntimeEvent|this\.agentForThread|this\.getRun/.test(
+        operatorSteerTurnBody,
+      ) &&
       !/control:\s*"steer"|appendOperatorControl/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.steer"/.test(runtimeDaemonIndex) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorSteerTurnBody,
       ) &&
-      /idempotencyKey: "operator_steer_idempotency_retired"/.test(
-        runtimeThreadControlTest,
+      /steerTurn facade fails closed before agent\/run lookup, event append, Rust planning, or JS persistence/.test(
+        runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /requestedBy: "operator_retired"/.test(runtimeThreadControlTest) &&
-      /steerEvent\.idempotency_key/.test(runtimeThreadControlTest) &&
-      /steerEvent\.workflow_graph_id,\s*null/.test(runtimeThreadControlTest) &&
-      /steerEvent\.workflow_node_id,\s*"runtime\.operator-steer"/.test(
-        runtimeThreadControlTest,
+      /idempotencyKey:\s*"operator_steer_idempotency_retired"/.test(
+        runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /steerEvent\.payload\.requested_by,\s*"operator"/.test(
-        runtimeThreadControlTest,
+      /assert\.equal\(store\.runtimeEventStreams\.size,\s*0\)/.test(
+        runtimeOperatorTurnControlFacadeTest,
       ) &&
-      /runtime-backed steering routes run update through Rust policy planner/.test(
-        runtimeThreadControlTest,
-      ) &&
-      /runtime-backed operator controls fail closed without Rust-planned runs/.test(
-        runtimeThreadControlTest,
-      ) &&
-      /runtime-backed operator controls fail closed without Rust-planned operation kinds/.test(
-        runtimeThreadControlTest,
-      ) &&
-      /plan_operator_steer_state_update/.test(runtimeThreadControlTest) &&
+      /assert\.equal\(store\.runs\.size,\s*0\)/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey|requestedBy)\b/.test(
         operatorSteerTurnBody,
       ),
@@ -5081,37 +5073,34 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+      "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
-    "Phase 9/10 is pending: operator steer run state updates must be planned by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: public operator steer must fail closed until Rust daemon-core owns event admission and run-state persistence; bridge planner remains migration plumbing only",
   );
   assertCheck(
     result,
     "operator-control-state-update-error-detail-aliases-retired",
-    /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*operation_kind:\s*operationKind\s*\}/.test(
-      runtimeDaemonIndex,
-    ) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*operation_kind:\s*expectedOperationKind\s*\}/.test(
+    /thread_id:\s*threadId/.test(runtimeDaemonIndex) &&
+      /turn_id:\s*turnId/.test(runtimeDaemonIndex) &&
+      /operation_kind:\s*"turn\.interrupt"/.test(runtimeDaemonIndex) &&
+      /operation_kind:\s*"turn\.steer"/.test(runtimeDaemonIndex) &&
+      /assertNoRetiredOperatorTurnControlDetailAliases\(error\.details\)/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /error\.details\.thread_id/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /error\.details\.turn_id/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /error\.details\.operation_kind/.test(runtimeOperatorTurnControlFacadeTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\s*:/.test(
         runtimeDaemonIndex,
       ) &&
-      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeDaemonIndex) &&
-      /assertNoRetiredOperatorControlDetailAliases\(error\.details\)/.test(
-        runtimeThreadControlTest,
-      ) &&
-      /error\.details\.thread_id/.test(runtimeThreadControlTest) &&
-      /error\.details\.run_id/.test(runtimeThreadControlTest) &&
-      /error\.details\.operation_kind/.test(runtimeThreadControlTest) &&
-      !/details:\s*\{[^}\n]*\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
-        runtimeDaemonIndex,
-      ) &&
-      !/error\.details\.(?:threadId|runId|operationKind|expectedOperationKind)\b/.test(
-        runtimeThreadControlTest,
+      !/error\.details\.(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\b/.test(
+        runtimeOperatorTurnControlFacadeTest,
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+      "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
-    "Phase 10/11 is pending: operator-control Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: operator-control Rust-core-required details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,

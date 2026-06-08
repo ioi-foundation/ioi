@@ -683,43 +683,16 @@ const WORKSPACE_CHANGE_CONTROL_TOOL_IDS = new Set([
   "workspace_change__rollback",
 ]);
 
-function plannedOperatorControlRunRecord(stateUpdate, threadId, runId, operationKind) {
-  const updatedRun = stateUpdate.run;
-  if (!updatedRun?.id) {
-    throw runtimeError({
-      status: 502,
-      code: "operator_control_state_update_planner_invalid",
-      message: "Rust operator-control state planning did not return a run record.",
-      details: { thread_id: threadId, run_id: runId, operation_kind: operationKind },
-    });
-  }
-  return updatedRun;
-}
-
-function requiredOperatorControlOperationKind(stateUpdate, threadId, runId, expectedOperationKind) {
-  const operationKind = optionalString(stateUpdate.operation_kind);
-  if (!operationKind) {
-    throw runtimeError({
-      status: 502,
-      code: "operator_control_state_update_operation_kind_missing",
-      message: "Rust operator-control state planning did not return an operation kind.",
-      details: { thread_id: threadId, run_id: runId, operation_kind: expectedOperationKind },
-    });
-  }
-  if (operationKind !== expectedOperationKind) {
-    throw runtimeError({
-      status: 502,
-      code: "operator_control_state_update_operation_kind_mismatch",
-      message: "Rust operator-control state planning returned an unexpected operation kind.",
-      details: {
-        thread_id: threadId,
-        run_id: runId,
-        expected_operation_kind: expectedOperationKind,
-        operation_kind: operationKind,
-      },
-    });
-  }
-  return operationKind;
+function throwOperatorTurnControlRustCoreRequired(details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "runtime_operator_turn_control_rust_core_required",
+    message: "Operator turn control requires direct Rust daemon-core state admission and persistence.",
+    details: {
+      rust_core_boundary: "runtime.operator_turn_control",
+      ...details,
+    },
+  });
 }
 
 export async function startRuntimeDaemonService(options = {}) {
@@ -1553,210 +1526,32 @@ export class AgentgresRuntimeStateStore {
   }
 
   async interruptTurn(threadId, turnId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const resolved = this.resolveRunForThreadTurn(agent, threadId, turnId);
-    const runId = resolved.runId;
-    const resolvedTurnId = resolved.turnId || turnId;
-    const run = resolved.run;
-    let runtimeControl = null;
-    if (isRuntimeBackedAgent(agent)) {
-      const requestedAction = optionalString(
-        request.runtime_control_action ??
-          request.control_action,
-      );
-      const controlAction = /^(cancel|terminate)$/i.test(requestedAction ?? "")
-        ? "cancel"
-        : "stop";
-      runtimeControl = await controlRuntimeBridgeThreadState(this, {
-        agent,
-        threadId,
-        action: controlAction,
-        reason:
-          optionalString(request.reason ?? request.message ?? request.input) ??
-          "operator requested interrupt",
-      }, {
-        RuntimeApiBridgeUnavailableError,
-        runtimeSessionIdForAgent,
-      });
-    }
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
-    const reason =
-      optionalString(request.reason ?? request.message ?? request.input) ?? "operator requested interrupt";
-    const now = new Date().toISOString();
-    const previousStatus = run
-      ? run.turnStatus ?? lifecycleStatusForRun(run.status)
-      : "running";
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
+    throwOperatorTurnControlRustCoreRequired({
+      operation: "operator_interrupt",
+      operation_kind: "turn.interrupt",
       thread_id: threadId,
-      turn_id: resolvedTurnId,
-      item_id: `${resolvedTurnId}:item:operator-interrupt`,
-      idempotency_key: `turn:${resolvedTurnId}:operator.interrupt`,
-      source,
-      source_event_kind: "OperatorControl.Interrupt",
-      event_kind: "turn.interrupted",
-      status: "interrupted",
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? null,
-      workflow_node_id: request.workflow_node_id ?? "runtime.operator-interrupt",
-      component_kind: "operator_control",
-      payload_schema_version: "ioi.runtime.operator-control.v1",
-      payload: {
-        event_kind: "OperatorControl.Interrupt",
-        reason,
-        requested_by: requestedBy,
-        control_surface: source,
-        previous_status: previousStatus,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: resolvedTurnId,
-        run_id: runId,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [`receipt_${runId}_operator_interrupt`],
-      policy_decision_refs: [`policy_${runId}_operator_interrupt_allow`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
+      turn_id: turnId,
+      requested_action: request.runtime_control_action ?? request.control_action ?? null,
+      evidence_refs: [
+        "operator_interrupt_js_facade_retired",
+        "rust_daemon_core_operator_interrupt_required",
+        "agentgres_operator_interrupt_state_truth_required",
+      ],
     });
-    if (!run) {
-      const turnEvents = this.runtimeEventsForTurn(resolvedTurnId);
-      const interruptedTurn = {
-        schema_version: RUNTIME_TURN_SCHEMA_VERSION,
-        turn_id: resolvedTurnId,
-        thread_id: threadId,
-        parent_turn_id: null,
-        request_id: runId,
-        status: "interrupted",
-        input_item_ids: turnEvents
-          .filter((candidate) => candidate.event_kind === "turn.started")
-          .map((candidate) => candidate.item_id),
-        output_item_ids: turnEvents
-          .filter((candidate) => candidate.event_kind !== "turn.started")
-          .map((candidate) => candidate.item_id),
-        events: turnEvents,
-        seq_start: turnEvents.at(0)?.seq ?? null,
-        seq_end: turnEvents.at(-1)?.seq ?? null,
-        started_at: resolved.inFlight?.createdAt ?? event.created_at,
-        completed_at: null,
-        mode: request.mode ?? "send",
-        approval_mode: agent.runtimeControls?.approval_mode ?? "suggest",
-      };
-      return runtimeControl
-        ? {
-            ...interruptedTurn,
-            runtime_control: runtimeControl,
-            runtimeControl,
-          }
-        : interruptedTurn;
-    }
-    const stateUpdate = this.contextPolicyRunner.planOperatorInterruptStateUpdate({
-      thread_id: threadId,
-      turn_id: resolvedTurnId,
-      run_id: run.id,
-      run,
-      event_id: event.event_id,
-      seq: event.seq,
-      created_at: event.created_at,
-      source,
-      reason,
-    });
-    const operationKind = requiredOperatorControlOperationKind(
-      stateUpdate,
-      threadId,
-      run.id,
-      "turn.interrupt",
-    );
-    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, operationKind);
-    this.runs.set(run.id, updated);
-    this.writeRun(updated, operationKind);
-    const turn = this.turnForRun(updated);
-    return runtimeControl
-      ? {
-          ...turn,
-          runtime_control: runtimeControl,
-          runtimeControl,
-        }
-      : turn;
   }
 
   steerTurn(threadId, turnId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const runId = runIdForTurn(turnId);
-    const run = this.getRun(runId);
-    if (run.agentId !== agent.id) {
-      throw notFound(`Turn not found: ${turnId}`, { threadId, turnId, runId });
-    }
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "operator";
-    const guidance =
-      optionalString(request.guidance ?? request.message ?? request.input) ?? "operator provided steering guidance";
-    const now = new Date().toISOString();
-    const previousStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
-    const guidanceHash = crypto.createHash("sha256").update(guidance).digest("hex").slice(0, 16);
-    const event = this.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
+    throwOperatorTurnControlRustCoreRequired({
+      operation: "operator_steer",
+      operation_kind: "turn.steer",
       thread_id: threadId,
       turn_id: turnId,
-      item_id: `${turnId}:item:operator-steer:${guidanceHash}`,
-      idempotency_key:
-        request.idempotency_key ??
-        `turn:${turnId}:operator.steer:${guidanceHash}`,
-      source,
-      source_event_kind: "OperatorControl.Steer",
-      event_kind: "turn.steered",
-      status: "completed",
-      actor: "user",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: request.workflow_graph_id ?? null,
-      workflow_node_id: request.workflow_node_id ?? "runtime.operator-steer",
-      component_kind: "operator_control",
-      payload_schema_version: "ioi.runtime.operator-control.v1",
-      payload: {
-        event_kind: "OperatorControl.Steer",
-        guidance,
-        requested_by: requestedBy,
-        control_surface: source,
-        previous_status: previousStatus,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId,
-        run_id: run.id,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: [`receipt_${run.id}_operator_steer_${guidanceHash}`],
-      policy_decision_refs: [`policy_${run.id}_operator_steer_allow`],
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
+      evidence_refs: [
+        "operator_steer_js_facade_retired",
+        "rust_daemon_core_operator_steer_required",
+        "agentgres_operator_steer_state_truth_required",
+      ],
     });
-    const stateUpdate = this.contextPolicyRunner.planOperatorSteerStateUpdate({
-      thread_id: threadId,
-      turn_id: turnId,
-      run_id: run.id,
-      run,
-      event_id: event.event_id,
-      seq: event.seq,
-      created_at: event.created_at,
-      source,
-      guidance,
-    });
-    const operationKind = requiredOperatorControlOperationKind(
-      stateUpdate,
-      threadId,
-      run.id,
-      "turn.steer",
-    );
-    const updated = plannedOperatorControlRunRecord(stateUpdate, threadId, run.id, operationKind);
-    this.runs.set(run.id, updated);
-    this.writeRun(updated, operationKind);
-    return this.turnForRun(updated);
   }
 
   requestThreadApproval(threadId, request = {}) {

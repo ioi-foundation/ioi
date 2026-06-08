@@ -14762,6 +14762,76 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 723
+
+```yaml
+slice: 723
+phase: 10-authoritative-js-facade-retirement
+objective: retire public operator interrupt/steer JS event and run-state
+  persistence facades until direct Rust daemon-core operator-control admission
+  owns event/runtime-control/run-state transitions
+owner_boundary:
+  route_or_surface: runtime operator interrupt and steer controls
+  authority_gate: operator interrupt and steer now fail closed at
+    `runtime.operator_turn_control` before JS runtime-bridge control, agent/run
+    lookup, runtime-event append, Rust policy planner invocation from the JS
+    facade, run-map mutation, or `writeRun` persistence
+  execution_backend: none in JS for public operator interrupt/steer; the
+    existing Rust operator-control state-update planners remain migration
+    plumbing only and must not be used by the JS facade to persist accepted
+    operator-control truth
+  truth_path: no JS `turn.interrupted`/`turn.steered` event append or run record
+    mutation from public operator-control facades; Rust daemon-core must own
+    wallet authority, runtime control, Agentgres admission, expected
+    heads/state-root binding, receipt/event materialization, projection, and
+    persistence before operator control can execute again
+  projection_path: direct Rust daemon-core operator-control projection APIs must
+    materialize turn/run/operator-control truth before public interrupt/steer
+    surfaces can return accepted data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/index.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps Rust operator-control planner bridges
+    available as migration plumbing but requires public JS interrupt/steer
+    facades to fail closed before runtime bridge control, event append, planner
+    calls, map mutation, and `writeRun`
+  - focused daemon tests prove canonical snake_case fail-closed details and no
+    runtime event stream or run-state writes for interrupt and steer requests
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs
+    - node --check packages/runtime-daemon/src/index.mjs
+    - node --check packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public thread-control product/API routes may still call interrupt/steer
+      adapters, but those adapters now fail closed until direct Rust daemon-core
+      operator-control admission/projection APIs are verified
+    - Rust operator-control planner bridges remain migration plumbing for the
+      future direct Rust operator-control API; they must not be mistaken for
+      terminal JS-owned event/run persistence after context compaction
+    - schedule a matrix-compaction pass once the next approval, context-policy,
+      diagnostics, or event-append Rust-core extraction/facade-retirement seam
+      is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14777,8 +14847,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 722 and the agent/run create JS
-persistence facade retirement pass:
+Current expected behavior after Slice 723 and the operator interrupt/steer JS
+event/run persistence facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
