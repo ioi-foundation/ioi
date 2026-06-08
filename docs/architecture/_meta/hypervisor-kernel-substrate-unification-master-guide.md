@@ -281,11 +281,11 @@ The Slice 744 workspace-change and managed-session control facade-retirement
 matrix-compaction pass is complete. Slice 745 retired the MCP workflow
 import/ephemeral-registration/tool-invocation/workflow-node execution JS
 facades before JS receipt synthesis, record-state commits, authorization,
-fixture tool execution, route tests, receipt-gate dispatch, or model invocation.
-The next resume must run the scheduled Slice 745 matrix-compaction pass before
-unrelated route-family work resumes, preserving that fail-closed JS facades and
-MCP read/config helpers are migration evidence, not terminal Rust daemon-core
-architecture.
+fixture tool execution, route tests, receipt-gate dispatch, or model invocation,
+and the Slice 745 MCP workflow facade-retirement matrix-compaction pass is
+complete.
+Resume with the next verified Rust-core extraction or facade-retirement slice,
+and schedule the next matrix-compaction pass only after that seam lands.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
 Slice 732 workspace snapshot/restore mutation compaction is complete. The Slice
 733-740 runtime bridge thread/turn, runtime subagent, runtime task/job,
@@ -295,11 +295,11 @@ thread-memory control facade-retirement compaction is complete. The Slice 742
 thread runtime-control facade-retirement compaction is complete. The Slice 743
 workspace-trust control facade-retirement compaction is complete. The Slice 744
 workspace-change and managed-session control facade-retirement compaction is
-complete. Slice 745 MCP workflow facade-retirement has landed and its
-matrix-compaction pass is pending. Future compactions must preserve evidence,
-distinguish interim bridge scaffolding and fail-closed JS facades from terminal
-Rust daemon-core shape, and avoid encoding command transport or read-only JS
-helpers as long-term substrate.
+complete. Slice 745 MCP workflow facade-retirement compaction is complete. No
+matrix-compaction pass is pending until the next seam lands; future compactions
+must preserve evidence, distinguish interim bridge scaffolding and fail-closed
+JS facades from terminal Rust daemon-core shape, and avoid encoding command
+transport or read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

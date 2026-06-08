@@ -6,7 +6,7 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 744. Slices 733-740 compacted the
+route-family slice ledger through Slice 745. Slices 733-740 compacted the
 runtime bridge thread/turn, runtime subagent control facade-retirement and
 legacy-body deletion, runtime task/job control facade-retirement, runtime
 thread-fork control facade-retirement, conversation-artifact control
@@ -26,12 +26,11 @@ follow-up pass compacted Slice 741 thread-memory control facade-retirement
 evidence, then compacted Slice 742 thread runtime-control facade-retirement
 evidence. This pass compacted Slice 743 workspace-trust control
 facade-retirement evidence, then compacted Slice 744 workspace-change and
-managed-session control facade-retirement evidence. Slice 745 has now landed as
-uncompacted MCP workflow facade-retirement evidence.
+managed-session control facade-retirement evidence, then compacted Slice 745 MCP
+workflow facade-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice only after compacting the Slice 745 MCP
-workflow evidence below, preserving the terminal Rust daemon-core target and
-not encoding fail-closed JS facades as final architecture.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -126,10 +125,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 745 MCP workflow
-  facade retirement. Run this compaction before starting unrelated route-family
-  work, and preserve the fact that these fail-closed facades are migration
-  evidence, not the terminal Rust daemon-core MCP/workflow API.
+- Next scheduled matrix-compaction pass: none pending after the Slice 745
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -138,8 +136,6 @@ Matrix compaction timing:
 - Next resume order is mandatory: clarify a concrete Rust-core
   extraction/facade-retirement seam with a verified slice, then schedule and run
   the next matrix-compaction pass before starting unrelated route-family work.
-  Slice 745 is that clarified seam, so the next resume starts with the scheduled
-  matrix-compaction pass.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -13841,14 +13837,17 @@ target ownership.
   that seam lands, and do not encode fail-closed JS surfaces or read/projection
   adapters as terminal architecture.
 
-## Implementation Slice 745
+## Compacted Implementation Slice Evidence: 745
 
-Date: 2026-06-08.
+The expanded Slice 745 ledger was compacted on 2026-06-08 after the MCP workflow
+control facade-retirement seam landed. This slice remains active migration
+evidence, not terminal architecture. The `ModelMcpWorkflowControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
 
-Scope: retire the remaining JS-authoritative MCP workflow control surface in
-`packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs`.
-
-- `importMcpJson`, `invokeMcpTool`, and `executeWorkflowNode` now fail closed
+- Slice 745 retired the remaining JS-authoritative MCP workflow control surface
+  in `packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs`:
+  `importMcpJson`, `invokeMcpTool`, and `executeWorkflowNode` now fail closed
   with `model_mount_mcp_workflow_rust_core_required` after canonical request
   alias validation and before JS receipt synthesis, MCP server record-state
   commits, MCP server map mutation, wallet authority calls, fixture tool
@@ -13861,9 +13860,6 @@ Scope: retire the remaining JS-authoritative MCP workflow control surface in
   owns MCP import/registration/tool receipts. `normalizeMcpServer` and
   `listMcpServers` remain projection/config helpers, not accepted truth or
   execution authority.
-- The `ModelMcpWorkflowControl` implementation-matrix row now names the target
-  Rust daemon-core MCP/workflow owner: wallet authority, StepModuleRouter
-  dispatch, receipt_binder, Agentgres admission, projection, and replay.
 - Conformance anchors include `model_mount_mcp_workflow_rust_core_required`,
   `model_mount_mcp_workflow_js_facade_retired`,
   `model_mount_mcp_import_js_facade_retired`,
@@ -13872,10 +13868,11 @@ Scope: retire the remaining JS-authoritative MCP workflow control surface in
   `model_mount_workflow_node_execution_js_facade_retired`,
   `model_mount_mcp_workflow_receipt_synthesis_js_retired`, and
   `model_mount_mcp_workflow_record_state_js_retired`.
-- Required follow-up: run the scheduled matrix-compaction pass before unrelated
-  route-family work resumes. The compaction must keep this as migration
-  evidence and must not encode fail-closed JS facades, MCP read/config helpers,
-  or process transport as terminal architecture.
+- Scheduled matrix-compaction obligation from Slice 745 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS surfaces, MCP read/config
+  helpers, or migration transport as terminal architecture.
 
 ## Command State
 
@@ -13892,7 +13889,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-744 runtime facade-retirement
+Current expected behavior after the Slice 733-745 runtime facade-retirement
 matrix-compaction passes:
 
 The append-only slice ledger is compacted by route-family range below so future

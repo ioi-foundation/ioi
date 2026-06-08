@@ -328,9 +328,10 @@ function runDocs() {
       /Slice 745 retired the MCP workflow\s+import\/ephemeral-registration\/tool-invocation\/workflow-node execution JS\s+facades/.test(
         guide,
       ) &&
-      /The next resume must run the scheduled Slice 745 matrix-compaction pass before\s+unrelated route-family work resumes/.test(
+      /Slice 745 MCP workflow facade-retirement matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
+      /Resume with the next verified Rust-core extraction or facade-retirement slice/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -346,7 +347,8 @@ function runDocs() {
       /The Slice 744\s+workspace-change and managed-session control facade-retirement compaction is\s+complete/.test(
         guide,
       ) &&
-      /Slice 745 MCP workflow facade-retirement has landed and its\s+matrix-compaction pass is pending/.test(guide) &&
+      /Slice 745 MCP workflow facade-retirement compaction is complete/.test(guide) &&
+      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -355,7 +357,7 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 745 MCP\s+workflow evidence/.test(
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -386,13 +388,14 @@ function runDocs() {
       /runtime_managed_session_control_rust_core_required/.test(
         matrix,
       ) &&
-      /Implementation Slice 745/.test(matrix) &&
-      /Scope: retire the remaining JS-authoritative MCP workflow control surface/.test(
+      /Compacted Implementation Slice Evidence: 745/.test(matrix) &&
+      /Slice 745 retired the remaining JS-authoritative MCP workflow control surface/.test(
         matrix,
       ) &&
       /model_mount_mcp_workflow_rust_core_required/.test(matrix) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 745 MCP workflow\s+facade retirement/.test(
+      /Scheduled matrix-compaction obligation from Slice 745 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after the Slice 745\s+compaction/.test(
         matrix,
       ) &&
       /encoding the command bridge as\s+terminal shape/.test(
