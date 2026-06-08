@@ -331,7 +331,8 @@ function runDocs() {
       /Slice 745 MCP workflow facade-retirement matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
-      /Resume with the next verified Rust-core extraction or facade-retirement slice/.test(guide) &&
+      /Slice 746 retired the model-mount conversation-state write and\s+stream-completion finalization JS facades/.test(guide) &&
+      /Resume by completing the scheduled Slice 746 matrix-compaction pass before\s+starting unrelated route-family work/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -348,7 +349,7 @@ function runDocs() {
         guide,
       ) &&
       /Slice 745 MCP workflow facade-retirement compaction is complete/.test(guide) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+now scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -357,9 +358,10 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
+      /Slice 746 retired the model-mount\s+conversation-state write and stream-completion finalization JS facades/.test(
         matrix,
       ) &&
+      /Next scheduled matrix-compaction pass: Slice 746 model conversation\/stream\s+completion facade-retirement evidence/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -395,9 +397,10 @@ function runDocs() {
       /model_mount_mcp_workflow_rust_core_required/.test(matrix) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 745 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 745\s+compaction/.test(
-        matrix,
-      ) &&
+      /Implementation Slice 746/.test(matrix) &&
+      /model_mount_conversation_rust_core_required/.test(matrix) &&
+      /model_mount_stream_completion_js_facade_retired/.test(matrix) &&
+      /matrix_compaction: scheduled after Slice 746 verification/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
@@ -759,10 +762,6 @@ function runBridge() {
   const modelConversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     : "";
-  const modelConversationStateRecordObject =
-    modelConversationOps.match(/const record = \{[\s\S]*?\n  \};/)?.[0] ?? "";
-  const modelStreamCompletionReceiptDetailsObject =
-    modelConversationOps.match(/const receiptDetails = \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const modelSchemaRelations = exists("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/schema-relations.mjs")
     : "";
@@ -7184,20 +7183,9 @@ function runBridge() {
       !/receiptDetails\.(?:routeId|providerId|endpointId|selectedModel|policyHash|inputHash|outputHash|toolReceiptIds|grantId|providerAuthEvidenceRefs|backendEvidenceRefs|responseId|streamStatus)/.test(
         modelInvocationOps,
       ) &&
-      /^ {4}stream_kind:\s*streamKind/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}stream_source:\s*"provider_native"/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}invocation_receipt_id:\s*invocation\.receipt\.id/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}route_id:\s*invocation\.route\.id/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}selected_model:\s*invocation\.model/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}endpoint_id:\s*invocation\.endpoint\.id/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}backend_id:\s*invocation\.instance\.backendId/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}tool_receipt_ids:\s*invocation\.toolReceiptIds/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}output_hash:\s*stableHash\(outputText\)/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}provider_stream_shape_summary:\s*providerStreamShapeSummary/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      /^ {4}response_id:\s*invocation\.responseId/m.test(modelStreamCompletionReceiptDetailsObject) &&
-      !/^ {4}(?:streamKind|streamSource|invocationReceiptId|routeId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs|toolReceiptIds|tokenCount|policyHash|inputHash|outputHash|chunksForwarded|finishReason|providerStreamShapeSummary|responseId)\s*[:,]/m.test(
-        modelStreamCompletionReceiptDetailsObject,
-      ) &&
+      /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps) &&
+      !/const receiptDetails = \{[\s\S]*?model_invocation_stream_completed/.test(modelConversationOps) &&
+      !/state\.receipt\("model_invocation_stream_completed"/.test(modelConversationOps) &&
       /receipt\.details\?\.instance_id/.test(modelProjections) &&
       /receipt\.details\?\.tool_receipt_ids/.test(modelProjections) &&
       !/receipt\.details\?\.(?:instanceId|toolReceiptIds)/.test(modelProjections) &&
@@ -7210,8 +7198,10 @@ function runBridge() {
       /Object\.hasOwn\(result\.receipt\.details,\s*"routeId"\),\s*false/.test(modelInvocationOpsTest) &&
       /Object\.hasOwn\(result\.receipt\.details,\s*"toolReceiptIds"\),\s*false/.test(modelInvocationOpsTest) &&
       /Object\.hasOwn\(secondResult\.receipt\.details,\s*"coalesceKeyHash"\),\s*false/.test(modelInvocationOpsTest) &&
-      /Object\.hasOwn\(receipt\.details,\s*"toolReceiptIds"\),\s*false/.test(modelConversationOpsTest) &&
-      /Object\.hasOwn\(receipt\.details,\s*"providerStreamShapeSummary"\),\s*false/.test(modelConversationOpsTest),
+      /recordModelStreamCompleted fails closed before JS stream receipt or conversation mutation/.test(
+        modelConversationOpsTest,
+      ) &&
+      /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps),
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
@@ -7668,8 +7658,8 @@ function runBridge() {
       !/previous_response_ref:\s*optionalRef\(receiptDetails\.previousResponseId\)/.test(modelInvocationOps) &&
       !/^\s*previousResponseId,\s*$/m.test(modelInvocationReceiptDetailsObject) &&
       /previous_response_id:\s*previousState\?\.id/.test(modelConversationOps) &&
-      /root_response_id:\s*previousState\?\.root_response_id/.test(modelConversationOps) &&
-      /previous_response_id:\s*invocation\.previousResponseId/.test(modelConversationOps) &&
+      /previous_response_id:\s*invocation\?\.previousResponseId/.test(modelConversationOps) &&
+      !/root_response_id:/.test(modelConversationOps) &&
       !/previousResponseId:\s*previousState\?\.id/.test(modelConversationOps) &&
       !/rootResponseId:\s*previousState/.test(modelConversationOps) &&
       !/previousResponseId:\s*invocation\.previousResponseId/.test(modelConversationOps) &&
@@ -7694,30 +7684,24 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "model-mount-conversation-state-metadata-aliases-retired",
-    /^ {4}created_at:\s*now/m.test(modelConversationStateRecordObject) &&
-      /^ {4}route_id:\s*selection\.route\.id/m.test(modelConversationStateRecordObject) &&
-      /^ {4}endpoint_id:\s*selection\.endpoint\.id/m.test(modelConversationStateRecordObject) &&
-      /^ {4}selected_model:\s*selection\.endpoint\.modelId/m.test(modelConversationStateRecordObject) &&
-      /^ {4}provider_id:\s*selection\.endpoint\.providerId/m.test(modelConversationStateRecordObject) &&
-      /^ {4}backend_id:\s*instance\?\.backendId/m.test(modelConversationStateRecordObject) &&
-      /^ {4}instance_id:\s*instance\?\.id/m.test(modelConversationStateRecordObject) &&
-      /^ {4}receipt_id:\s*receipt\.id/m.test(modelConversationStateRecordObject) &&
-      /^ {4}route_receipt_id:\s*routeReceipt\?\.id/m.test(modelConversationStateRecordObject) &&
-      /^ {4}stream_receipt_id:\s*streamReceiptId/m.test(modelConversationStateRecordObject) &&
-      /^ {4}input_hash:\s*stableHash\(input\)/m.test(modelConversationStateRecordObject) &&
-      /^ {4}output_hash:\s*stableHash\(outputText\)/m.test(modelConversationStateRecordObject) &&
-      /^ {4}token_count:\s*tokenCount/m.test(modelConversationStateRecordObject) &&
-      /^ {4}message_count:\s*Number\(previousState\?\.message_count/m.test(modelConversationStateRecordObject) &&
-      /plaintext_persisted:\s*false/.test(modelConversationStateRecordObject) &&
+    "model-mount-conversation-state-js-facade-retired",
+    /model_mount_conversation_state_js_facade_retired/.test(modelConversationOps) &&
+      /rust_daemon_core_model_conversation_required/.test(modelConversationOps) &&
+      /agentgres_model_conversation_truth_required/.test(modelConversationOps) &&
+      /model_mount_conversation_rust_core_required/.test(modelConversationOps) &&
+      /model_conversation_state_write/.test(modelConversationOps) &&
+      /recordConversationState fails closed before JS conversation projection mutation/.test(
+        modelConversationOpsTest,
+      ) &&
+      /result\.conversationState,\s*null/.test(modelInvocationOpsTest) &&
+      /assert\.deepEqual\(state\.recordedConversations,\s*\[\]\)/.test(modelInvocationOpsTest) &&
+      !/commitConversationRecordState/.test(modelConversationOps) &&
+      !/state\.conversations\.set/.test(modelConversationOps) &&
+      !/state\.writeMap\("model-conversations"/.test(modelConversationOps) &&
       /left\.created_at/.test(modelConversationOps) &&
       /previousState\.route_id/.test(modelMountingValidation) &&
       /previousState\.endpoint_id/.test(modelMountingValidation) &&
       /previousState\.selected_model/.test(modelMountingValidation) &&
-      !/^ {4}(?:createdAt|routeId|endpointId|selectedModel|providerId|backendId|instanceId|receiptId|routeReceiptId|streamReceiptId|inputHash|outputHash|tokenCount|messageCount)\s*:/m.test(
-        modelConversationStateRecordObject,
-      ) &&
-      !/plaintextPersisted\s*:/.test(modelConversationStateRecordObject) &&
       !/previousState\.(?:routeId|endpointId|selectedModel)\b/.test(modelMountingValidation) &&
       /"route_id"/.test(modelConversationSchemaRelations) &&
       /"endpoint_id"/.test(modelConversationSchemaRelations) &&
@@ -7726,17 +7710,7 @@ function runBridge() {
       /"input_hash"/.test(modelConversationSchemaRelations) &&
       /"output_hash"/.test(modelConversationSchemaRelations) &&
       !/"(?:routeId|endpointId|selectedModel|receiptId|inputHash|outputHash)"/.test(modelConversationSchemaRelations) &&
-      /Object\.hasOwn\(record,\s*"routeId"\),\s*false/.test(modelConversationOpsTest) &&
-      /Object\.hasOwn\(record,\s*"tokenCount"\),\s*false/.test(modelConversationOpsTest) &&
-      /Object\.hasOwn\(record\.replay,\s*"plaintextPersisted"\),\s*false/.test(modelConversationOpsTest) &&
-      /commitConversationRecordState/.test(modelConversationOps) &&
       /recordDir:\s*"model-conversations"/.test(modelConversationRecordState) &&
-      /model_mount\.conversation\.write/.test(modelConversationOps) &&
-      /model_mount_conversation_state_commit_unconfigured/.test(modelConversationRecordState) &&
-      !/state\.writeMap\("model-conversations"/.test(modelConversationOps) &&
-      /recordConversationState fails closed before local mutation without Rust Agentgres record-state commit/.test(
-        modelConversationOpsTest,
-      ) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(modelConversationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
@@ -7746,7 +7720,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
       "packages/runtime-daemon/src/model-mounting/schema-relations.mjs",
     ],
-    "Phase 4/10 is pending: model-mount redacted conversation state must use canonical snake_case route, receipt, hash, replay, and token metadata without duplicate camelCase aliases",
+    "Phase 10/11 is pending: model-mount conversation-state writes must fail closed until direct Rust daemon-core projection/admission owns them",
   );
   assertCheck(
     result,
@@ -9501,6 +9475,9 @@ function runReceipts() {
     "";
   const conversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
+    : "";
+  const conversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     : "";
   const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
@@ -13385,16 +13362,22 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-stream-completion-receipt-binder-core",
+    "model-mount-stream-completion-js-facade-retired",
     /recordModelStreamCompleted/.test(conversationOps) &&
-      /model_invocation_stream_completed/.test(conversationOps) &&
-      /modelMountInvocationAdmissionRequestForReceipt/.test(conversationOps) &&
-      /modelMountInvocationAgentgresTransitionForReceipt/.test(conversationOps) &&
-      /modelMountInvocationReceiptBindingRequestForReceipt/.test(conversationOps) &&
-      /model_mount_stream_completion_receipt_binding_required/.test(conversationOps) &&
-      /withModelMountInvocationReceiptBinding/.test(conversationOps),
-    ["packages/runtime-daemon/src/model-mounting/conversation-operations.mjs"],
-    "Phase 4/9 is pending: model stream completion receipts must be Rust-bound and Agentgres-admitted before persistence",
+      /model_mount_stream_completion_js_facade_retired/.test(conversationOps) &&
+      /rust_daemon_core_model_stream_completion_required/.test(conversationOps) &&
+      /model_stream_completion/.test(conversationOps) &&
+      /recordModelStreamCompleted fails closed before JS stream receipt or conversation mutation/.test(
+        conversationOpsTest,
+      ) &&
+      !/modelMountInvocationReceiptBindingRequestForReceipt/.test(conversationOps) &&
+      !/withModelMountInvocationReceiptBinding/.test(conversationOps) &&
+      !/state\.receipt\("model_invocation_stream_completed"/.test(conversationOps),
+    [
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: model stream completion finalization must fail closed until direct Rust daemon-core receipt/admission/projection owns it",
   );
   assertCheck(
     result,

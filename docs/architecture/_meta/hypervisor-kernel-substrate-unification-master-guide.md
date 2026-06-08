@@ -283,9 +283,13 @@ import/ephemeral-registration/tool-invocation/workflow-node execution JS
 facades before JS receipt synthesis, record-state commits, authorization,
 fixture tool execution, route tests, receipt-gate dispatch, or model invocation,
 and the Slice 745 MCP workflow facade-retirement matrix-compaction pass is
-complete.
-Resume with the next verified Rust-core extraction or facade-retirement slice,
-and schedule the next matrix-compaction pass only after that seam lands.
+complete. Slice 746 retired the model-mount conversation-state write and
+stream-completion finalization JS facades before JS `model-conversations`
+record-state commits, conversation map mutation, JS
+`model_invocation_stream_completed` receipt synthesis, receipt-binding request
+construction, Agentgres transition planning, or projection writes.
+Resume by completing the scheduled Slice 746 matrix-compaction pass before
+starting unrelated route-family work.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
 Slice 732 workspace snapshot/restore mutation compaction is complete. The Slice
 733-740 runtime bridge thread/turn, runtime subagent, runtime task/job,
@@ -295,11 +299,12 @@ thread-memory control facade-retirement compaction is complete. The Slice 742
 thread runtime-control facade-retirement compaction is complete. The Slice 743
 workspace-trust control facade-retirement compaction is complete. The Slice 744
 workspace-change and managed-session control facade-retirement compaction is
-complete. Slice 745 MCP workflow facade-retirement compaction is complete. No
-matrix-compaction pass is pending until the next seam lands; future compactions
-must preserve evidence, distinguish interim bridge scaffolding and fail-closed
-JS facades from terminal Rust daemon-core shape, and avoid encoding command
-transport or read-only JS helpers as long-term substrate.
+complete. Slice 745 MCP workflow facade-retirement compaction is complete. The
+Slice 746 model conversation/stream completion facade-retirement compaction is
+now scheduled; future compactions must preserve evidence, distinguish interim
+bridge scaffolding and fail-closed JS facades from terminal Rust daemon-core
+shape, and avoid encoding command transport or read-only JS helpers as long-term
+substrate.
 
 ## Part II: Target Execution Model
 

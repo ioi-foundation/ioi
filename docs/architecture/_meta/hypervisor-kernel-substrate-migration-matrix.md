@@ -4,7 +4,7 @@ Status: implementation migration matrix.
 Canonical owner: this file tracks live/current/final ownership for the Hypervisor kernel substrate unification migration; doctrine remains owned by the subject docs and the master guide.
 Supersedes: ad hoc split-brain status notes for this migration when they conflict with the route-family owner map below.
 Superseded by: none.
-Last alignment pass: 2026-06-07.
+Last alignment pass: 2026-06-08.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
 route-family slice ledger through Slice 745. Slices 733-740 compacted the
 runtime bridge thread/turn, runtime subagent control facade-retirement and
@@ -27,10 +27,11 @@ evidence, then compacted Slice 742 thread runtime-control facade-retirement
 evidence. This pass compacted Slice 743 workspace-trust control
 facade-retirement evidence, then compacted Slice 744 workspace-change and
 managed-session control facade-retirement evidence, then compacted Slice 745 MCP
-workflow facade-retirement evidence.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands.
+workflow facade-retirement evidence. Slice 746 retired the model-mount
+conversation-state write and stream-completion finalization JS facades.
+Next scheduled matrix-compaction pass: Slice 746 model conversation/stream
+completion facade-retirement evidence, before starting unrelated route-family
+work.
 
 ## Purpose
 
@@ -13873,6 +13874,81 @@ above remain authoritative for current and target ownership.
   JS-facade retirement seam; schedule the next matrix-compaction pass only after
   that seam lands, and do not encode fail-closed JS surfaces, MCP read/config
   helpers, or migration transport as terminal architecture.
+
+## Implementation Slice 746
+
+```yaml
+implementation_slice:
+  id: hypervisor-kernel-substrate-slice-746
+  phase: 10
+  objective: retire model-mount conversation-state and stream-completion JS
+    authority facades
+  owner_boundary:
+    route_or_surface: model-mount conversation state and native stream
+      completion finalization
+    authority_gate: direct `recordConversationState` and
+      `recordModelStreamCompleted` calls now fail closed with
+      `model_mount_conversation_rust_core_required`; normal model invocations
+      no longer backfill JS conversation projections after Rust-bound invocation
+      receipt creation
+    execution_backend: unchanged for already migrated provider invocation and
+      native stream-start planning; terminal stream-completion finalization is
+      blocked until a direct Rust daemon-core API owns receipt, Agentgres
+      admission, projection, and replay
+    truth_path: no JS `model-conversations` record-state commit, conversation
+      map mutation, or `model_invocation_stream_completed` receipt synthesis
+      remains in the conversation facade
+    projection_path: `conversationState` and `listConversations` remain read
+      projection adapters over already-admitted state only
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+      - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
+      - docs/architecture/_meta/implementation-matrix.md
+    daemon:
+      - packages/runtime-daemon/src/model-mounting/conversation-operations.mjs
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+    rust_core: []
+    tests:
+      - packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs
+      - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - conversation-state write facade fails closed before JS record-state
+      commit, conversation-map mutation, or projection write
+    - stream-completion finalization facade fails closed before JS completion
+      receipt synthesis, receipt binding request, Agentgres transition request,
+      or conversation-state mutation
+    - conformance anchors include
+      `model_mount_conversation_state_js_facade_retired`,
+      `model_mount_stream_completion_js_facade_retired`,
+      `rust_daemon_core_model_conversation_required`,
+      `rust_daemon_core_model_stream_completion_required`, and
+      `agentgres_model_conversation_truth_required`
+    - model invocation success path no longer calls the JS conversation
+      projection writer
+    - bridge and receipts conformance detect the retired facades
+  verification:
+    commands:
+      - node --check packages/runtime-daemon/src/model-mounting/conversation-operations.mjs packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs scripts/conformance/hypervisor-conformance.mjs
+      - node --test packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+      - node scripts/conformance/hypervisor-conformance.mjs bridge
+      - node scripts/conformance/hypervisor-conformance.mjs receipts
+      - node scripts/conformance/hypervisor-conformance.mjs docs
+      - node scripts/conformance/hypervisor-conformance.mjs
+      - git diff --check
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: true
+    compatibility_shims_remaining:
+      - conversation read helpers remain projection adapters over already
+        admitted records until direct Rust daemon-core projection APIs replace
+        them
+      - native stream-start protocol adapter remains while completion
+        finalization waits for direct Rust daemon-core API extraction
+  follow_up:
+    matrix_compaction: scheduled after Slice 746 verification
+```
 
 ## Command State
 

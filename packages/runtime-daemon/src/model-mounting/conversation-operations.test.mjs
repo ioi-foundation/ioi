@@ -219,7 +219,7 @@ test("conversationState returns records and fails closed for missing previous re
   );
 });
 
-test("recordConversationState stores redacted replay metadata and message lineage", () => {
+test("recordConversationState fails closed before JS conversation projection mutation", () => {
   const state = fakeState();
   const previousState = {
     id: "resp_previous",
@@ -227,85 +227,13 @@ test("recordConversationState stores redacted replay metadata and message lineag
     message_count: 4,
   };
 
-  const record = recordConversationState(
-    state,
-    {
-      responseId: "resp_current",
-      previousState,
-      kind: "responses",
-      input: "secret prompt",
-      outputText: "public answer",
-      selection: selection(),
-      instance: { id: "instance.1", backendId: "backend.instance" },
-      receipt: { id: "receipt.invocation" },
-      routeReceipt: { id: "receipt.route" },
-      tokenCount: { total_tokens: 4 },
-      streamReceiptId: "receipt.stream",
-      continuationSafety: { safe: true },
-    },
-    deps,
-  );
-
-  assert.equal(record.previous_response_id, "resp_previous");
-  assert.equal(record.root_response_id, "resp_root");
-  assert.equal(record.created_at, "2026-06-04T03:00:00.000Z");
-  assert.equal(record.route_id, "route.local-first");
-  assert.equal(record.endpoint_id, "endpoint.local");
-  assert.equal(record.selected_model, "llama-test");
-  assert.equal(record.provider_id, "provider.local");
-  assert.equal(record.backend_id, "backend.instance");
-  assert.equal(record.instance_id, "instance.1");
-  assert.equal(record.receipt_id, "receipt.invocation");
-  assert.equal(record.route_receipt_id, "receipt.route");
-  assert.equal(record.stream_receipt_id, "receipt.stream");
-  assert.equal(record.message_count, 6);
-  assert.equal(record.input_hash, "hash:secret prompt");
-  assert.equal(record.output_hash, "hash:public answer");
-  assert.deepEqual(record.token_count, { total_tokens: 4 });
-  assert.equal(record.replay.previous_response_id, "resp_previous");
-  assert.equal(record.replay.plaintext_persisted, false);
-  assert.equal(Object.hasOwn(record, "createdAt"), false);
-  assert.equal(Object.hasOwn(record, "previousResponseId"), false);
-  assert.equal(Object.hasOwn(record, "rootResponseId"), false);
-  assert.equal(Object.hasOwn(record, "routeId"), false);
-  assert.equal(Object.hasOwn(record, "endpointId"), false);
-  assert.equal(Object.hasOwn(record, "selectedModel"), false);
-  assert.equal(Object.hasOwn(record, "providerId"), false);
-  assert.equal(Object.hasOwn(record, "backendId"), false);
-  assert.equal(Object.hasOwn(record, "instanceId"), false);
-  assert.equal(Object.hasOwn(record, "receiptId"), false);
-  assert.equal(Object.hasOwn(record, "routeReceiptId"), false);
-  assert.equal(Object.hasOwn(record, "streamReceiptId"), false);
-  assert.equal(Object.hasOwn(record, "inputHash"), false);
-  assert.equal(Object.hasOwn(record, "outputHash"), false);
-  assert.equal(Object.hasOwn(record, "tokenCount"), false);
-  assert.equal(Object.hasOwn(record, "messageCount"), false);
-  assert.equal(Object.hasOwn(record.replay, "plaintextPersisted"), false);
-  assert.equal(Object.hasOwn(record.replay, "previousResponseId"), false);
-  assert.equal(state.conversations.get("resp_current"), record);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-conversations");
-  assert.equal(state.recordStateCommits.at(-1).record_id, "resp_current");
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.conversation.write");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, [
-    "receipt.invocation",
-    "receipt.route",
-    "receipt.stream",
-  ]);
-  assert.equal(state.recordStateCommits.at(-1).record.replay.plaintext_persisted, false);
-});
-
-test("recordConversationState fails closed before local mutation without Rust Agentgres record-state commit", () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
-
   assert.throws(
     () =>
       recordConversationState(
         state,
         {
           responseId: "resp_current",
-          previousState: null,
+          previousState,
           kind: "responses",
           input: "secret prompt",
           outputText: "public answer",
@@ -319,20 +247,24 @@ test("recordConversationState fails closed before local mutation without Rust Ag
         deps,
       ),
     (error) => {
-      assert.equal(error.code, "model_mount_conversation_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "model-conversations");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_conversation_rust_core_required");
+      assert.equal(error.details.operation, "model_conversation_state_write");
       assert.equal(error.details.response_id, "resp_current");
+      assert.equal(error.details.previous_response_id, "resp_previous");
       assert.equal(error.details.receipt_id, "receipt.invocation");
       assert.equal(error.details.stream_receipt_id, "receipt.stream");
+      assert.ok(error.details.evidence_refs.includes("model_mount_conversation_state_js_facade_retired"));
       return true;
     },
   );
 
   assert.equal(state.conversations.has("resp_current"), false);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 
-test("recordModelStreamCompleted emits stream receipt and finalizes conversation state", () => {
+test("recordModelStreamCompleted fails closed before JS stream receipt or conversation mutation", () => {
   const state = fakeState();
   const invocation = {
     kind: "responses",
@@ -364,76 +296,6 @@ test("recordModelStreamCompleted emits stream receipt and finalizes conversation
     toolReceiptIds: ["receipt.tool"],
   };
 
-  const receipt = recordModelStreamCompleted(
-    state,
-    {
-      invocation,
-      streamKind: "responses",
-      outputText: "stream answer",
-      chunksForwarded: 3,
-      finishReason: "stop",
-      providerResult: { providerResponseKind: "openai.responses", backendEvidenceRefs: ["backend.ok"] },
-      providerStreamShapeSummary: {
-        schemaVersion: "ioi.model.provider_stream_shape.v1",
-        framesForwarded: 3,
-        evidenceRefs: ["model_provider_stream_shape_summary"],
-      },
-    },
-    deps,
-  );
-
-  assert.equal(receipt.kind, "model_invocation_stream_completed");
-  assert.equal(receipt.id, "receipt.1.model_invocation_stream_completed");
-  assert.equal(receipt.details.output_hash, "hash:stream answer");
-  assert.equal(receipt.details.previous_response_id, null);
-  assert.equal(Object.hasOwn(receipt.details, "previousResponseId"), false);
-  assert.deepEqual(receipt.details.tool_receipt_ids, ["receipt.tool"]);
-  assert.equal(receipt.details.provider_stream_shape_summary.framesForwarded, 3);
-  assert.equal(Object.hasOwn(receipt.details, "outputHash"), false);
-  assert.equal(Object.hasOwn(receipt.details, "toolReceiptIds"), false);
-  assert.equal(Object.hasOwn(receipt.details, "providerStreamShapeSummary"), false);
-  assert.equal(receipt.details.model_mount_invocation_admission_ref, "model_mount://invocation_admission/1");
-  assert.equal(receipt.details.model_mount_receipt_binding_ref, "sha256:binding-1");
-  assert.equal(receipt.details.model_mount_agentgres_operation_ref, "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation_stream_completed");
-  assert.equal(receipt.details.model_mount_step_module_invocation.input.state_root_before, "sha256:state-0");
-  assert.equal(receipt.details.model_mount_step_module_result.resulting_head, "agentgres://model-mounting/accepted-receipts/head/1");
-  assert.deepEqual(state.receiptBindingRequests[0].acceptedReceiptTransition.expected_heads, [
-    "agentgres://model-mounting/accepted-receipts/head/0",
-  ]);
-  assert.equal(invocation.conversationState.id, "resp_stream");
-  assert.equal(invocation.conversationState.stream_receipt_id, receipt.id);
-  assert.equal(Object.hasOwn(invocation.conversationState, "streamReceiptId"), false);
-  assert.equal(Object.hasOwn(invocation.conversationState, "previousResponseId"), false);
-  assert.equal(state.conversations.get("resp_stream"), invocation.conversationState);
-});
-
-test("recordModelStreamCompleted fails closed without Rust receipt binding", () => {
-  const state = fakeState();
-  state.bindModelMountInvocationReceipt = undefined;
-  const invocation = {
-    kind: "responses",
-    input: "hello model",
-    model: "llama-test",
-    route: { id: "route.local-first" },
-    endpoint: { id: "endpoint.local", modelId: "llama-test", providerId: "provider.local" },
-    instance: { id: "instance.1", backendId: "backend.native" },
-    receipt: {
-      id: "receipt.invocation",
-      details: {
-        policyHash: "sha256:policy",
-        inputHash: "sha256:input",
-      },
-    },
-    routeReceipt: {
-      id: "receipt.route",
-      details: {
-        model_mount_route_decision_ref: "model_mount://route_decision/test",
-      },
-    },
-    responseId: null,
-    toolReceiptIds: [],
-  };
-
   assert.throws(
     () =>
       recordModelStreamCompleted(
@@ -442,12 +304,36 @@ test("recordModelStreamCompleted fails closed without Rust receipt binding", () 
           invocation,
           streamKind: "responses",
           outputText: "stream answer",
+          chunksForwarded: 3,
+          finishReason: "stop",
+          providerResult: { providerResponseKind: "openai.responses", backendEvidenceRefs: ["backend.ok"] },
+          providerStreamShapeSummary: {
+            schemaVersion: "ioi.model.provider_stream_shape.v1",
+            framesForwarded: 3,
+            evidenceRefs: ["model_provider_stream_shape_summary"],
+          },
         },
         deps,
       ),
-    (error) => error.code === "model_mount_stream_completion_receipt_binding_required",
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_conversation_rust_core_required");
+      assert.equal(error.details.operation, "model_stream_completion");
+      assert.equal(error.details.stream_kind, "responses");
+      assert.equal(error.details.invocation_receipt_id, "receipt.invocation");
+      assert.equal(error.details.response_id, "resp_stream");
+      assert.equal(error.details.chunks_forwarded, 3);
+      assert.equal(error.details.has_provider_stream_shape_summary, true);
+      assert.ok(error.details.evidence_refs.includes("model_mount_stream_completion_js_facade_retired"));
+      return true;
+    },
   );
+
   assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.receiptBindingRequests, []);
+  assert.deepEqual(state.transitionRequests, []);
+  assert.equal(state.conversations.has("resp_stream"), false);
+  assert.equal(Object.hasOwn(invocation, "conversationState"), false);
 });
 
 test("listConversations sorts by created_at", () => {

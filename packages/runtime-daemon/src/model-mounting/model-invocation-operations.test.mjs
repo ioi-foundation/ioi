@@ -560,7 +560,7 @@ test("model invocations reject retired authority request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
-test("invokeModel routes provider calls, records receipts, avoids JS route state mutation, and finalizes response state", async () => {
+test("invokeModel routes provider calls, records receipts, avoids JS route state mutation, and skips JS conversation projection mutation", async () => {
   const state = fakeState();
 
   const result = await invokeModel(
@@ -624,7 +624,8 @@ test("invokeModel routes provider calls, records receipts, avoids JS route state
   ]);
   assert.equal(result.receipt.details.memory.enabled, true);
   assert.equal(result.receipt.details.coalesced, false);
-  assert.equal(state.recordedConversations[0].responseId, "resp.custom");
+  assert.equal(result.conversationState, null);
+  assert.deepEqual(state.recordedConversations, []);
   assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
   assert.equal(state.writes.some(([name]) => name === "model-routes"), false);
   assert.deepEqual(state.recordStateCommits, []);

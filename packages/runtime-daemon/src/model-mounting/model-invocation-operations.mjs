@@ -13,6 +13,7 @@ import { stableHash } from "./io.mjs";
 import {
   createModelMountStepModuleProjection,
 } from "../step-module-abi.mjs";
+import { modelConversationRustCoreRequiredError } from "./conversation-operations.mjs";
 
 const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
   "routeId",
@@ -204,20 +205,12 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     ),
   });
   const conversationState = statefulInvocation
-    ? state.recordConversationState({
+    ? skippedModelConversationProjection({
         responseId,
         previousState,
         kind,
-        input,
-        outputText: providerResult.outputText ?? "",
-        selection,
-        instance,
         receipt,
         routeReceipt,
-        tokenCount,
-        streamReceiptId: null,
-        status: "completed",
-        continuationSafety,
       })
     : null;
   const route = persistRouteSelection(state, selection.route, selection.endpoint.modelId, receipt.id);
@@ -238,6 +231,20 @@ export async function invokeModel(state, { authorization, requiredScope, kind, b
     previousResponseId,
     conversationState,
   };
+}
+
+function skippedModelConversationProjection({ responseId, previousState, kind, receipt, routeReceipt }) {
+  if (previousState) {
+    throw modelConversationRustCoreRequiredError({
+      operation: "model_conversation_continuation",
+      response_id: responseId ?? null,
+      previous_response_id: previousState.id ?? null,
+      receipt_id: receipt?.id ?? null,
+      route_receipt_id: routeReceipt?.id ?? null,
+      kind,
+    });
+  }
+  return null;
 }
 
 export async function startModelStream(state, { authorization, requiredScope, kind, body = {} }, deps = {}) {

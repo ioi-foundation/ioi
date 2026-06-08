@@ -1,12 +1,10 @@
-import {
-  capabilityForInvocationKind,
-  modelMountInvocationAdmissionRequestForReceipt,
-  modelMountInvocationAgentgresTransitionForReceipt,
-  modelMountInvocationReceiptBindingRequestForReceipt,
-  withModelMountInvocationAdmission,
-  withModelMountInvocationReceiptBinding,
-} from "./model-invocation-operations.mjs";
-import { commitConversationRecordState } from "./conversation-record-state.mjs";
+const MODEL_CONVERSATION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "model_mount_conversation_state_js_facade_retired",
+  "model_mount_stream_completion_js_facade_retired",
+  "rust_daemon_core_model_conversation_required",
+  "rust_daemon_core_model_stream_completion_required",
+  "agentgres_model_conversation_truth_required",
+];
 
 export function nextResponseId(state, requested, deps = {}) {
   const {
@@ -55,44 +53,16 @@ export function recordConversationState(state, {
   status = "completed",
   continuationSafety = null,
 }, deps = {}) {
-  const { stableHash } = deps;
-  const now = state.nowIso();
-  const record = {
-    id: responseId,
-    object: "ioi.model_response_state",
-    status,
-    redaction: "redacted",
-    created_at: now,
+  throw modelConversationRustCoreRequiredError({
+    operation: "model_conversation_state_write",
+    response_id: responseId ?? null,
     previous_response_id: previousState?.id ?? null,
-    root_response_id: previousState?.root_response_id ?? previousState?.id ?? responseId,
-    kind,
-    route_id: selection.route.id,
-    endpoint_id: selection.endpoint.id,
-    selected_model: selection.endpoint.modelId,
-    provider_id: selection.endpoint.providerId,
-    backend_id: instance?.backendId ?? selection.endpoint.backendId ?? null,
-    instance_id: instance?.id ?? null,
-    receipt_id: receipt.id,
+    receipt_id: receipt?.id ?? null,
     route_receipt_id: routeReceipt?.id ?? null,
     stream_receipt_id: streamReceiptId,
-    input_hash: stableHash(input),
-    output_hash: stableHash(outputText),
-    token_count: tokenCount,
-    message_count: Number(previousState?.message_count ?? 0) + 2,
-    continuation: continuationSafety,
-    replay: {
-      source: "redacted_conversation_state",
-      plaintext_persisted: false,
-      previous_response_id: previousState?.id ?? null,
-    },
-  };
-  commitConversationRecordState(state, record, "model_mount.conversation.write", [
-    receipt.id,
-    routeReceipt?.id,
-    streamReceiptId,
-  ]);
-  state.conversations.set(record.id, record);
-  return record;
+    kind,
+    status,
+  });
 }
 
 export function recordModelStreamCompleted(state, {
@@ -105,150 +75,33 @@ export function recordModelStreamCompleted(state, {
   providerResult = {},
   providerStreamShapeSummary = null,
 }, deps = {}) {
-  const {
-    estimateTokens,
-    normalizeUsage,
-    stableHash,
-  } = deps;
-  const tokenCount = normalizeUsage(providerUsage, estimateTokens(invocation.input ?? "", outputText));
-  const receiptKind = "model_invocation_stream_completed";
-  const receiptId = nextStreamCompletionReceiptId(state, receiptKind);
-  const receiptDetails = {
+  throw modelConversationRustCoreRequiredError({
+    operation: "model_stream_completion",
     stream_kind: streamKind,
-    stream_source: "provider_native",
-    invocation_receipt_id: invocation.receipt.id,
-    route_id: invocation.route.id,
-    selected_model: invocation.model,
-    endpoint_id: invocation.endpoint.id,
-    provider_id: invocation.endpoint.providerId,
-    instance_id: invocation.instance.id,
-    backend_id: invocation.instance.backendId ?? invocation.receipt.details?.backend_id ?? null,
-    selected_backend: invocation.receipt.details?.selected_backend ?? null,
-    provider_response_kind: providerResult.providerResponseKind ?? invocation.providerResponseKind ?? null,
-    provider_auth_evidence_refs: providerResult.providerAuthEvidenceRefs ?? invocation.receipt.details?.provider_auth_evidence_refs ?? [],
-    backend_evidence_refs: providerResult.backendEvidenceRefs ?? [],
-    tool_receipt_ids: invocation.toolReceiptIds ?? [],
-    token_count: tokenCount,
-    policy_hash: invocation.receipt.details?.policy_hash ?? stableHash({}),
-    input_hash: invocation.receipt.details?.input_hash ?? stableHash(invocation.input ?? ""),
-    output_hash: stableHash(outputText),
+    invocation_receipt_id: invocation?.receipt?.id ?? null,
+    response_id: invocation?.responseId ?? null,
+    previous_response_id: invocation?.previousResponseId ?? null,
     chunks_forwarded: chunksForwarded,
     finish_reason: finishReason,
-    provider_stream_shape_summary: providerStreamShapeSummary,
-    response_id: invocation.responseId ?? null,
-    previous_response_id: invocation.previousResponseId ?? null,
-  };
-  const admissionRequest = modelMountInvocationAdmissionRequestForReceipt({
-    body: {},
-    capability: capabilityForInvocationKind(invocation.kind),
-    kind: invocation.kind,
-    receiptDetails,
-    receiptId,
-    receiptKind,
-    routeReceipt: invocation.routeReceipt,
-    selection: {
-      route: invocation.route,
-      endpoint: invocation.endpoint,
-      provider: null,
-    },
-    streamStatus: "completed",
+    provider_response_kind: providerResult?.providerResponseKind ?? invocation?.providerResponseKind ?? null,
+    has_provider_stream_shape_summary: Boolean(providerStreamShapeSummary),
   });
-  const admission = admitModelMountInvocation(state, admissionRequest);
-  const agentgresTransition = modelMountInvocationAgentgresTransitionForReceipt(state, {
-    admission,
-    admissionRequest,
-    receiptDetails,
-    receiptId,
-    receiptKind,
-  });
-  const binding = bindModelMountInvocationReceipt(
-    state,
-    modelMountInvocationReceiptBindingRequestForReceipt({
-      admission,
-      admissionRequest,
-      agentgresTransition,
-      receiptDetails,
-      receiptId,
-    }),
-  );
-  const receipt = state.receipt("model_invocation_stream_completed", {
-    id: receiptId,
-    summary: `${streamKind} stream completed for ${invocation.model}.`,
-    redaction: "redacted",
-    evidenceRefs: [
-      "model_stream",
-      streamKind,
-      invocation.receipt.id,
-      invocation.route.id,
-      invocation.endpoint.id,
-      "rust_model_mount_core",
-      admission.invocation_admission_ref,
-      ...(admission.evidence_refs ?? []),
-      "rust_receipt_binder_core",
-      binding.receipt_binding?.binding_hash,
-      binding.accepted_receipt_append?.append_hash,
-      binding.agentgres_admission?.admission_hash,
-      ...(binding.evidence_refs ?? []),
-    ],
-    details: withModelMountInvocationReceiptBinding(
-      withModelMountInvocationAdmission(receiptDetails, admission),
-      binding,
-    ),
-  });
-  if (invocation.responseId) {
-    invocation.conversationState = state.recordConversationState({
-      responseId: invocation.responseId,
-      previousState: invocation.previousConversationState ?? null,
-      kind: invocation.kind,
-      input: invocation.input ?? "",
-      outputText,
-      selection: {
-        route: invocation.route,
-        endpoint: invocation.endpoint,
-        provider: null,
-      },
-      instance: invocation.instance,
-      receipt: invocation.receipt,
-      routeReceipt: invocation.routeReceipt,
-      tokenCount,
-      streamReceiptId: receipt.id,
-      status: "completed",
-      continuationSafety: invocation.continuationSafety ?? null,
-    });
-  }
-  return receipt;
-}
-
-function nextStreamCompletionReceiptId(state, kind) {
-  if (typeof state.nextReceiptId !== "function") {
-    const error = new Error("Model stream completion admission requires a precomputed receipt id before Rust admission.");
-    error.status = 500;
-    error.code = "model_mount_stream_completion_receipt_id_required";
-    throw error;
-  }
-  return state.nextReceiptId(kind);
-}
-
-function admitModelMountInvocation(state, request) {
-  if (typeof state.admitModelMountInvocation !== "function") {
-    const error = new Error("Model stream completion requires Rust model_mount invocation admission.");
-    error.status = 500;
-    error.code = "model_mount_stream_completion_admission_required";
-    throw error;
-  }
-  return state.admitModelMountInvocation(request);
-}
-
-function bindModelMountInvocationReceipt(state, request) {
-  if (typeof state.bindModelMountInvocationReceipt !== "function") {
-    const error = new Error("Model stream completion requires Rust receipt_binder binding.");
-    error.status = 500;
-    error.code = "model_mount_stream_completion_receipt_binding_required";
-    throw error;
-  }
-  return state.bindModelMountInvocationReceipt(request);
 }
 
 export function listConversations(state) {
   return [...state.conversations.values()].sort((left, right) => String(left.created_at ?? "").localeCompare(String(right.created_at ?? "")));
+}
+
+export function modelConversationRustCoreRequiredError(details = {}) {
+  const error = new Error(
+    "Model conversation state and stream completion finalization require direct Rust daemon-core admission and projection.",
+  );
+  error.status = 501;
+  error.code = "model_mount_conversation_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.conversation",
+    ...details,
+    evidence_refs: MODEL_CONVERSATION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+  };
+  return error;
 }
