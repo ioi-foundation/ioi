@@ -104,7 +104,7 @@ function deps(overrides = {}) {
     mcpRegistryForWorkspace: (cwd, options) => ({
       cwd,
       homeDir: options.homeDir,
-      servers: Object.keys(options.mcpServers ?? {}),
+      servers: Object.keys(options.mcp_servers ?? {}),
     }),
     randomUUID: () => "uuid-1",
     runtimeModeForOptions: (options) => (options.hosted ? "hosted" : "local"),
@@ -118,7 +118,7 @@ function deps(overrides = {}) {
     },
     summarizeAgentOptions: (cwd, options) => ({
       localCwd: cwd,
-      mcpServerNames: Object.keys(options.mcpServers ?? {}),
+      mcpServerNames: Object.keys(options.mcp_servers ?? {}),
       skillNames: [],
       hookNames: [],
     }),
@@ -148,7 +148,8 @@ test("createAgent resolves runtime, model route, controls, MCP registry, and per
     {
       local: { cwd: "/workspace/project" },
       model: { id: "model.local" },
-      mcpServers: { docs: {} },
+      mcp_servers: { docs: {} },
+      mcpServers: { retired: {} },
       interaction_mode: "agent",
     },
     deps({ statePlannerCalls }),

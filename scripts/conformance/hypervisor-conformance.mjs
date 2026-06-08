@@ -14257,6 +14257,12 @@ function runCompositor() {
   const runtimeMcpManagerTest = exists("packages/runtime-daemon/src/mcp-manager.test.mjs")
     ? read("packages/runtime-daemon/src/mcp-manager.test.mjs")
     : "";
+  const runtimeAgentOptions = exists("packages/runtime-daemon/src/runtime-agent-options.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agent-options.mjs")
+    : "";
+  const runtimeAgentOptionsTest = exists("packages/runtime-daemon/src/runtime-agent-options.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agent-options.test.mjs")
+    : "";
   const runtimeMcpManagerValidationBlock =
     runtimeMcpManager.match(
       /export function validateMcpServerRecords\(servers = \[\]\) \{[\s\S]*?\n}\n\nexport async function discoverMcpStdioCatalog/,
@@ -14852,6 +14858,9 @@ function runCompositor() {
   const runtimeMcpSdkServeRpcInputBlock =
     agentSdkSubstrateClient.match(/export interface RuntimeMcpServeRpcInput[\s\S]*?\n}\n/)?.[0] ??
     "";
+  const agentSdkOptionsForRuntimeMcp = exists("packages/agent-sdk/src/options.ts")
+    ? read("packages/agent-sdk/src/options.ts")
+    : "";
   const agentSdkTesting = exists("packages/agent-sdk/src/testing.ts")
     ? read("packages/agent-sdk/src/testing.ts")
     : "";
@@ -15008,7 +15017,7 @@ function runCompositor() {
   const agentSdkSendOptionsMemoryBlock = blockBetween(
     exists("packages/agent-sdk/src/options.ts") ? read("packages/agent-sdk/src/options.ts") : "",
     "  memory?: {",
-    "  };\n  mcpServers?:",
+    "  };\n  mcp_servers?:",
   );
   const agentMemorySdkListQueryBlock = blockBetween(
     agentSdkSubstrateClient,
@@ -21111,6 +21120,36 @@ function runCompositor() {
       "packages/agent-sdk/src/substrate-client.ts",
     ],
     "Phase 10/11 is pending: MCP validation/import requests must use canonical mcp_json/mcp_servers/servers without retired mcpJson/mcpServers compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-mcp-inline-options-alias-retired",
+    /Object\.keys\(options\.mcp_servers \?\? \{\}\)/.test(runtimeAgentOptions) &&
+      /Object\.entries\(options\.mcp_servers \?\? \{\}\)/.test(runtimeMcpManager) &&
+      /Object\.keys\(options\.mcp_servers \?\? \{\}\)/.test(agentSdkSubstrateClient) &&
+      /^\s*mcp_servers\?: Record<string, McpServerConfig>;/m.test(agentSdkOptionsForRuntimeMcp) &&
+      !/options\.mcpServers\b/.test(
+        `${runtimeAgentOptions}\n${runtimeMcpManager}\n${agentSdkSubstrateClient}`,
+      ) &&
+      !/^\s*mcpServers\?: Record<string, McpServerConfig>;/m.test(agentSdkOptionsForRuntimeMcp) &&
+      /mcp_servers:\s*\{ explicitServer: \{\}, cursorServer: \{\} \}/.test(
+        runtimeAgentOptionsTest,
+      ) &&
+      /mcpServers:\s*\{ retiredServer: \{\} \}/.test(runtimeAgentOptionsTest) &&
+      /mcp_servers:\s*\{[\s\S]*docs:\s*\{/.test(runtimeMcpManagerTest) &&
+      /mcpServers:\s*\{[\s\S]*retired:\s*\{/.test(runtimeMcpManagerTest) &&
+      /mcp_servers:\s*\{ docs: \{\} \}/.test(runtimeAgentRunLifecycleTest) &&
+      /mcpServers:\s*\{ retired: \{\} \}/.test(runtimeAgentRunLifecycleTest),
+    [
+      "packages/runtime-daemon/src/runtime-agent-options.mjs",
+      "packages/runtime-daemon/src/runtime-agent-options.test.mjs",
+      "packages/runtime-daemon/src/mcp-manager.mjs",
+      "packages/runtime-daemon/src/mcp-manager.test.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+      "packages/agent-sdk/src/options.ts",
+      "packages/agent-sdk/src/substrate-client.ts",
+    ],
+    "Phase 10/11 is pending: runtime MCP inline options must use canonical mcp_servers and ignore retired mcpServers before manager registry and agent summary projection",
   );
   assertCheck(
     result,

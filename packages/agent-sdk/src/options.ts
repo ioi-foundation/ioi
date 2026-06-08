@@ -96,7 +96,7 @@ export interface AgentOptions {
   cloud?: CloudAgentOptions;
   hosted?: CloudAgentOptions & { provider?: HostedWorkerProvider };
   selfHosted?: SelfHostedWorkerOptions;
-  mcpServers?: Record<string, McpServerConfig>;
+  mcp_servers?: Record<string, McpServerConfig>;
   agents?: Record<string, SubagentDefinition>;
   settings?: Record<string, unknown>;
   sandboxOptions?: SandboxOptions;
@@ -121,7 +121,7 @@ export interface SendOptions {
     subagent_inheritance?: "none" | "explicit" | "read_only" | "full" | string;
     scope?: "global" | "workspace" | "thread" | "workflow" | "subagent" | string;
   };
-  mcpServers?: Record<string, McpServerConfig>;
+  mcp_servers?: Record<string, McpServerConfig>;
   onStep?: (event: unknown) => void | Promise<void>;
   onDelta?: (delta: string) => void | Promise<void>;
   local?: { force?: boolean };

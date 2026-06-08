@@ -36,7 +36,7 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
       }
     }
   }
-  for (const [label, config] of Object.entries(options.mcpServers ?? {})) {
+  for (const [label, config] of Object.entries(options.mcp_servers ?? {})) {
     if (sourceMode !== "global") {
       servers.push(
         normalizeMcpServerRecord(label, config, {

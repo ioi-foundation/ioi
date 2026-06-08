@@ -15,7 +15,7 @@ export function createRuntimeAgentOptionsHelpers({
       selfHostedConfigured: Boolean(options.selfHosted),
       mcpServerNames: [
         ...new Set([
-          ...Object.keys(options.mcpServers ?? {}),
+          ...Object.keys(options.mcp_servers ?? {}),
           ...Object.keys(cursorConfig.mcpServers),
         ]),
       ],

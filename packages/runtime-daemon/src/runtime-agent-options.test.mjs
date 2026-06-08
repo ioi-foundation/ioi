@@ -46,7 +46,8 @@ test("runtime agent options summarize explicit and Cursor-compatible config", ()
   assert.deepEqual(summarizeAgentOptions(cwd, {
     local: { cwd: "/workspace" },
     hosted: {},
-    mcpServers: { explicitServer: {}, cursorServer: {} },
+    mcp_servers: { explicitServer: {}, cursorServer: {} },
+    mcpServers: { retiredServer: {} },
     agents: { reviewer: {} },
     sandboxOptions: { profile: "locked" },
   }), {

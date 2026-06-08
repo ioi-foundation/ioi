@@ -13384,7 +13384,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 667 and the one-hundred-third 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 668:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13825,3 +13825,50 @@ reconstruct the active seam without carrying every per-slice paragraph.
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |
 | `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal migration is still not claimed until live route families are routed through Rust core and JS facade retirement is complete. |
 | `npm run build --workspace=@ioi/agent-ide` | pass | Migrated IDE protocol-client helpers and adjacent replay/projection surfaces compile under the current package TypeScript target. |
+
+## Slice 668: Runtime MCP Inline Options Alias Retirement
+
+phase: 10-authoritative-js-facade-retirement
+route/surface: runtime agent options, MCP manager inline registry, SDK option surface
+owner target: Rust core `projection` and MCP containment with JS/SDK reduced to canonical protocol adapters
+
+objective: retire the IOI-owned inline `mcpServers` option alias before runtime
+agent summaries, MCP manager registry construction, and SDK option types can use
+it as a compatibility path. Cursor compatibility config continues to read
+`.cursor/mcp.json` `mcpServers` as an external file format, not as daemon
+authority or an IOI request alias.
+
+implementation:
+
+- `packages/runtime-daemon/src/runtime-agent-options.mjs` now summarizes inline
+  MCP servers from canonical `options.mcp_servers` while still merging external
+  Cursor compatibility config from `.cursor/mcp.json`.
+- `packages/runtime-daemon/src/mcp-manager.mjs` now builds inline thread MCP
+  registry entries only from canonical `options.mcp_servers`, so retired
+  `options.mcpServers` cannot materialize a configured server.
+- `packages/agent-sdk/src/options.ts` exposes `mcp_servers` on `AgentOptions`
+  and `SendOptions` instead of the retired `mcpServers` alias, and
+  `packages/agent-sdk/src/substrate-client.ts` summarizes canonical
+  `mcp_servers`.
+- Focused tests poison retired `mcpServers` alongside canonical `mcp_servers`
+  and prove agent option summaries, agent creation, and MCP registry projection
+  bind only the canonical server.
+- `scripts/conformance/hypervisor-conformance.mjs` adds
+  `runtime-mcp-inline-options-alias-retired` to the compositor tier.
+
+verification:
+
+- `node --test packages/runtime-daemon/src/runtime-agent-options.test.mjs packages/runtime-daemon/src/mcp-manager.test.mjs packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs`
+- `node --check packages/runtime-daemon/src/runtime-agent-options.mjs`
+- `node --check packages/runtime-daemon/src/mcp-manager.mjs`
+- `node --check packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs`
+- `node --check scripts/conformance/hypervisor-conformance.mjs`
+- `npm run typecheck --workspace=@ioi/agent-sdk`
+- `npm run hypervisor-conformance:compositor`
+
+terminal impact:
+
+- This is facade retirement, not terminal completion. It removes another
+  IOI-owned camelCase request-shape path before MCP containment/registry state is
+  projected, while broader Rust-core route-family extraction and JS facade
+  retirement remain open blockers.

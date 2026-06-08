@@ -58,7 +58,7 @@ test("MCP manager validation input consumes canonical MCP JSON fields only", () 
 test("MCP manager registry and server records emit canonical output fields only", () => {
   const registry = mcpRegistryForWorkspace("/workspace", {
     mcp_config_source_mode: "thread",
-    mcpServers: {
+    mcp_servers: {
       docs: {
         transport: "stdio",
         command: "npx",
@@ -66,6 +66,12 @@ test("MCP manager registry and server records emit canonical output fields only"
         resources: [{ uri: "docs://root", name: "root" }],
         prompts: [{ name: "ask", arguments: [{ name: "q" }] }],
         headers: { Authorization: "vault://mcp/docs/token" },
+      },
+    },
+    mcpServers: {
+      retired: {
+        transport: "stdio",
+        command: "retired",
       },
     },
   });
@@ -83,6 +89,7 @@ test("MCP manager registry and server records emit canonical output fields only"
 
   const server = registry.servers[0];
   assert.equal(server.schema_version, "ioi.runtime.mcp-manager-status.v1");
+  assert.equal(server.label, "docs");
   assert.equal(server.workspace_root, "/workspace");
   assert.equal(server.server_url, null);
   assert.deepEqual(server.header_names, ["Authorization"]);
