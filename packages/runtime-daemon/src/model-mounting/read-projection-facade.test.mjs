@@ -183,6 +183,44 @@ function rustProjectionFixture(request) {
     toolReceipts: receipts.filter((receipt) => receipt.kind === "mcp_tool_invocation"),
     receipts,
   };
+  if (request.projection_kind === "snapshot") {
+    return {
+      schemaVersion: request.schema_version,
+      server: state.server,
+      catalog: state.catalog,
+      catalogProviderConfigs: state.catalog_provider_configs,
+      oauthSessions: state.oauth_sessions,
+      oauthStates: state.oauth_states,
+      artifacts: state.artifacts,
+      backends: state.backends,
+      backendProcesses: state.backend_processes,
+      endpoints: state.endpoints,
+      instances: state.instances,
+      providers: state.providers,
+      routes: state.routes,
+      modelCapabilities: state.model_capabilities,
+      downloads: state.downloads,
+      providerHealth: state.provider_health,
+      runtimeEngines: state.runtime_engines,
+      runtimeEngineProfiles: state.runtime_engine_profiles,
+      runtimePreference: state.runtime_preference,
+      runtimeSurvey: state.runtime_survey,
+      tokens: state.grants,
+      vaultRefs: state.vault_refs,
+      mcpServers: state.mcp_servers,
+      conversationStates: state.conversation_states,
+      workflowNodes: state.workflow_bindings,
+      receipts: receipts.slice(-25),
+      projection: {
+        schemaVersion: projection.schemaVersion,
+        source: projection.source,
+        watermark: projection.watermark,
+        receiptCount: projection.receipts.length,
+        generatedAt: projection.generatedAt,
+      },
+      adapterBoundaries: projection.adapterBoundaries,
+    };
+  }
   if (request.projection_kind === "projection") return projection;
   if (request.projection_kind === "projection_summary") {
     return {
@@ -304,6 +342,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.server.status, "running");
   assert.equal(snapshot.artifacts.length, 2);
   assert.equal(snapshot.modelCapabilities.length, 2);
+  assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
@@ -332,16 +371,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet.port, "WalletAuthorityPort");
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection_summary",
+    "snapshot",
     "projection",
     "projection",
     "projection_summary",

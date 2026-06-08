@@ -537,11 +537,14 @@ function runDocs() {
       /Slice 796 moved public model_mount projection-field list reads through the Rust\s+read-projection plan/.test(guide) &&
       /`listArtifacts\(\)`[\s\S]*`listProviders\(\)`[\s\S]*`listEndpoints\(\)`[\s\S]*`listInstances\(\)`[\s\S]*`listRoutes\(\)`[\s\S]*`listModelCapabilities\(\)`[\s\S]*`listDownloads\(\)`[\s\S]*`listOAuthSessions\(\)`[\s\S]*`listOAuthStates\(\)`[\s\S]*`listProviderHealth\(\)`/.test(guide) &&
       /`rustProjectionField\(\)`/.test(guide) &&
+      /Slice 797 moved the public model_mount snapshot envelope through the Rust\s+read-projection plan/.test(guide) &&
+      /`snapshot\(\)` now requests projection kind `snapshot` from\s+`plan_model_mount_read_projection`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 795/.test(matrix) &&
-      /Implementation Slice Evidence: 796/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 796/.test(matrix) &&
+      /Implementation Slice Evidence: 797/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -897,7 +900,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 796 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 797 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7680,6 +7683,8 @@ function runBridge() {
       /function rustProjectionField/.test(modelMountingReadProjectionFacade) &&
       /readProjectionPlanner\.planReadProjection/.test(modelMountingReadProjectionFacade) &&
       /model_mount_js_read_projection_authoring_retired/.test(modelMountingReadProjectionFacade) &&
+      /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
+      !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
       /listArtifacts\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
       /listProviders\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
       /listEndpoints\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7697,9 +7702,14 @@ function runBridge() {
       /operation:\s*"plan_model_mount_read_projection"/.test(modelMountAdmissionRunner) &&
       /normalizeReadProjectionBridgeResult/.test(modelMountAdmissionRunner) &&
       /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
+      /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(bridgeModule) &&
+      /fn model_mount_snapshot/.test(bridgeModule) &&
+      /"workflowNodes": array_field\(state,\s*"workflow_bindings"\)/.test(bridgeModule) &&
       /rust_model_mount_read_projection_command/.test(bridgeModule) &&
       /rust_daemon_core_model_mount_projection/.test(bridgeModule) &&
-      /agentgres_model_mount_read_truth/.test(bridgeModule),
+      /agentgres_model_mount_read_truth/.test(bridgeModule) &&
+      /"projection_kind": "snapshot"/.test(bridgeModule) &&
+      /snapshot projection planned in Rust/.test(bridgeModule),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",

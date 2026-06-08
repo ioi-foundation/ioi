@@ -3,7 +3,6 @@ import {
   downloadList,
   endpointList,
   instanceList,
-  modelMountingSnapshot,
   oauthSessionList,
   oauthStateList,
   openAiModelList as openAiModelListProjection,
@@ -91,9 +90,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function snapshot(state, baseUrl) {
-    return modelMountingSnapshot(state, baseUrl, {
-      schemaVersion: modelMountSchemaVersion,
-    });
+    return rustReadProjection(state, "snapshot", { baseUrl });
   }
 
   function authoritySnapshot(state, baseUrl) {

@@ -949,6 +949,17 @@ command transport, and local map/projection materialization; do not encode the
 command bridge, JS transport wrappers, or local projection helpers as terminal
 architecture.
 
+Slice 797 moved the public model_mount snapshot envelope through the Rust
+read-projection plan. `snapshot()` now requests projection kind `snapshot` from
+`plan_model_mount_read_projection`, and the Rust bridge authors the snapshot
+shape, its nested projection summary, workflow-node projection, adapter
+boundaries, receipt tail, and public read arrays from canonical projection input
+instead of calling the JS `modelMountingSnapshot()` helper from the facade. This
+still does not claim terminal model_mount migration: JS still prepares current
+state input for the planner, the command bridge remains migration transport, and
+direct Rust daemon-core Agentgres projection APIs still need to replace local
+map/projection materialization and JS transport wrappers.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

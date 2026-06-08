@@ -2072,6 +2072,7 @@ fn model_mount_read_projection(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, BridgeError> {
     match request.projection_kind.as_str() {
+        "snapshot" => Ok(model_mount_snapshot(request)),
         "projection" => Ok(model_mount_projection(request)),
         "projection_summary" => Ok(model_mount_projection_summary(request)),
         "receipt_replay" => model_mount_receipt_replay(request),
@@ -2082,6 +2083,42 @@ fn model_mount_read_projection(
             format!("unsupported model_mount read projection kind {other}"),
         )),
     }
+}
+
+fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
+    let state = &request.state;
+    let projection = model_mount_projection(request);
+    let receipts = array_field(state, "receipts");
+    json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "server": object_or_null(state.get("server")),
+        "catalog": object_or_null(state.get("catalog")),
+        "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
+        "oauthSessions": array_field(state, "oauth_sessions"),
+        "oauthStates": array_field(state, "oauth_states"),
+        "artifacts": array_field(state, "artifacts"),
+        "backends": array_field(state, "backends"),
+        "backendProcesses": array_field(state, "backend_processes"),
+        "endpoints": array_field(state, "endpoints"),
+        "instances": array_field(state, "instances"),
+        "providers": array_field(state, "providers"),
+        "routes": array_field(state, "routes"),
+        "modelCapabilities": array_field(state, "model_capabilities"),
+        "downloads": array_field(state, "downloads"),
+        "providerHealth": array_field(state, "provider_health"),
+        "runtimeEngines": array_field(state, "runtime_engines"),
+        "runtimeEngineProfiles": array_field(state, "runtime_engine_profiles"),
+        "runtimePreference": object_or_null(state.get("runtime_preference")),
+        "runtimeSurvey": state.get("runtime_survey").cloned().unwrap_or(Value::Null),
+        "tokens": array_field(state, "grants"),
+        "vaultRefs": array_field(state, "vault_refs"),
+        "mcpServers": array_field(state, "mcp_servers"),
+        "conversationStates": array_field(state, "conversation_states"),
+        "workflowNodes": array_field(state, "workflow_bindings"),
+        "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
+        "projection": model_mount_projection_summary(request),
+        "adapterBoundaries": projection.get("adapterBoundaries").cloned().unwrap_or(Value::Null),
+    })
 }
 
 fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
@@ -7794,7 +7831,7 @@ mod tests {
                 "projection_kind": "projection",
                 "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                 "generated_at": "2026-06-08T00:00:00.000Z",
-                "state": state
+                "state": state.clone()
             }
         }))
         .expect("model_mount read projection bridge request");
@@ -7827,6 +7864,39 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
+
+        let snapshot_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "snapshot",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": state
+                }
+            }))
+            .expect("model_mount snapshot bridge request");
+
+        let snapshot_response = plan_model_mount_read_projection(snapshot_request)
+            .expect("snapshot projection planned in Rust");
+
+        assert_eq!(snapshot_response["projection_kind"], "snapshot");
+        assert_eq!(
+            snapshot_response["projection"]["projection"]["source"],
+            "agentgres_model_mounting_projection"
+        );
+        assert_eq!(
+            snapshot_response["projection"]["workflowNodes"]
+                .as_array()
+                .expect("snapshot workflow nodes")
+                .len(),
+            0
+        );
+        assert!(snapshot_response["projection"]
+            .get("workflow_bindings")
+            .is_none());
     }
 
     #[test]
