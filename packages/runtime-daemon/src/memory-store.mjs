@@ -4,8 +4,6 @@ import path from "node:path";
 
 export const AGENT_MEMORY_SCHEMA_VERSION = "ioi.agent-runtime.memory.v1";
 export const AGENT_MEMORY_POLICY_SCHEMA_VERSION = "ioi.agent-runtime.memory-policy.v1";
-const RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION = "ioi.runtime_memory_state_commit.v1";
-const RUNTIME_STATE_STORAGE_BACKEND_REF = "storage://runtime-agentgres/local-json";
 
 const MEMORY_POLICY_FIELDS = [
   "disabled",
@@ -18,10 +16,43 @@ const MEMORY_POLICY_FIELDS = [
   "scope",
 ];
 
+const agentMemoryStoreWriterRetirementEvidenceRefs = [
+  "runtime_memory_state_store_js_mutation_retired",
+  "agent_memory_store_write_js_writer_retired",
+  "agent_memory_store_edit_js_writer_retired",
+  "agent_memory_store_delete_js_writer_retired",
+  "agent_memory_store_policy_js_writer_retired",
+  "rust_daemon_core_thread_memory_control_required",
+  "agentgres_thread_memory_state_truth_required",
+];
+
+function throwAgentMemoryStoreRustCoreRequired({
+  operation,
+  operation_kind,
+  memory_id = null,
+  evidence_ref,
+}) {
+  const error = new Error(
+    "AgentMemoryStore mutations require direct Rust daemon-core memory admission and persistence.",
+  );
+  error.status = 501;
+  error.code = "runtime_memory_state_store_rust_core_required";
+  error.details = {
+    rust_core_boundary: "runtime.thread_memory_control",
+    operation,
+    operation_kind,
+    ...(memory_id ? { memory_id } : {}),
+    evidence_refs: [
+      ...agentMemoryStoreWriterRetirementEvidenceRefs,
+      evidence_ref,
+    ].filter(Boolean),
+  };
+  throw error;
+}
+
 export class AgentMemoryStore {
-  constructor(stateDir, options = {}) {
+  constructor(stateDir) {
     this.stateDir = path.resolve(stateDir);
-    this.commitRuntimeMemoryState = options.commitRuntimeMemoryState;
     this.records = new Map();
     this.policies = new Map();
     fs.mkdirSync(this.memoryDir, { recursive: true });
@@ -53,96 +84,36 @@ export class AgentMemoryStore {
   }
 
   remember({ text, agent, threadId, scope = "thread", workflow = {}, source = "operator_remember" } = {}) {
-    const fact = requiredMemoryText(text);
-    const now = new Date().toISOString();
-    const id = `memory_${crypto.randomUUID()}`;
-    const record = {
-      schema_version: AGENT_MEMORY_SCHEMA_VERSION,
-      id,
-      object: "ioi.agent_memory_record",
-      scope,
-      fact,
-      memory_key: optionalMemoryString(workflow.memory_key ?? workflow.state_key),
-      agent_id: agent?.id ?? null,
-      thread_id: threadId ?? null,
-      workspace: agent?.cwd ?? null,
-      workflow_graph_id: workflow.workflow_graph_id ?? null,
-      workflow_node_id: workflow.workflow_node_id ?? "runtime.memory",
-      workflow_node_type: workflow.workflow_node_type ?? "Memory",
-      source,
-      redaction: "none",
-      created_at: now,
-      updated_at: now,
-      evidence_refs: ["agent_memory_store", "memory.write", threadId, agent?.id].filter(Boolean),
-    };
-    const receipt = {
-      id: `receipt_${id}_write`,
-      kind: "memory_write",
-      summary: `Remembered ${scope} memory for ${threadId ?? agent?.id ?? "runtime"}.`,
-      redaction: "none",
-      evidenceRefs: ["agent_memory_store", "memory.write", id],
-      memoryRecordId: id,
-    };
-    this.records.set(id, record);
-    this.write(record, {
+    void text;
+    void agent;
+    void threadId;
+    void scope;
+    void workflow;
+    void source;
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_write",
       operation_kind: "memory.write",
-      receipt_refs: [receipt.id],
+      evidence_ref: "agent_memory_store_write_js_writer_retired",
     });
-    return { record, receipt };
   }
 
   updateRecord({ id, text, source = "memory_edit_api" } = {}) {
-    const record = this.records.get(requiredId(id, "memory record id"));
-    if (!record) {
-      const error = new Error(`Memory record not found: ${id}`);
-      error.status = 404;
-      error.code = "not_found";
-      error.details = { id };
-      throw error;
-    }
-    const updated = {
-      ...record,
-      fact: requiredMemoryText(text),
-      source,
-      updated_at: new Date().toISOString(),
-      evidence_refs: [...new Set([...normalizeArray(record.evidence_refs), "memory.edit"])],
-    };
-    const receipt = memoryReceipt(updated, {
-      kind: "memory_edit",
-      operation: "edit",
-      summary: `Edited memory record ${updated.id}.`,
-    });
-    this.records.set(updated.id, updated);
-    this.write(updated, {
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_edit",
       operation_kind: "memory.edit",
-      receipt_refs: [receipt.id],
+      memory_id: id,
+      evidence_ref: "agent_memory_store_edit_js_writer_retired",
     });
-    return { record: updated, receipt, operation: "edit" };
   }
 
   deleteRecord({ id, source = "memory_delete_api" } = {}) {
-    const record = this.records.get(requiredId(id, "memory record id"));
-    if (!record) {
-      const error = new Error(`Memory record not found: ${id}`);
-      error.status = 404;
-      error.code = "not_found";
-      error.details = { id };
-      throw error;
-    }
-    const deleted = {
-      ...record,
-      source,
-      deleted_at: new Date().toISOString(),
-      evidence_refs: [...new Set([...normalizeArray(record.evidence_refs), "memory.delete"])],
-    };
-    const receipt = memoryReceipt(deleted, {
-      kind: "memory_delete",
-      operation: "delete",
-      summary: `Deleted memory record ${deleted.id}.`,
+    void source;
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_delete",
+      operation_kind: "memory.delete",
+      memory_id: id,
+      evidence_ref: "agent_memory_store_delete_js_writer_retired",
     });
-    this.records.delete(record.id);
-    this.removeQuiet(path.join(this.memoryDir, `${record.id}.json`));
-    return { record: deleted, receipt, operation: "delete" };
   }
 
   list({ agent, threadId, workspace, includeGlobal = true, scope, memory_key, query, limit, redaction } = {}) {
@@ -164,12 +135,12 @@ export class AgentMemoryStore {
   }
 
   write(record, { operation_kind = "memory.write", receipt_refs = [] } = {}) {
-    return this.commitMemoryState({
-      memory_state_kind: "record",
-      state_id: record.id,
+    void receipt_refs;
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_write",
       operation_kind,
-      payload: record,
-      receipt_refs,
+      memory_id: record?.id ?? null,
+      evidence_ref: "agent_memory_store_write_js_writer_retired",
     });
   }
 
@@ -232,75 +203,40 @@ export class AgentMemoryStore {
   }
 
   setPolicy({ target_type = "thread", target_id, agent, thread_id, workspace, updates = {}, source = "memory_policy_api" } = {}) {
-    const resolvedTargetId = requiredId(target_id ?? thread_id ?? agent?.id, "memory policy target id");
-    const now = new Date().toISOString();
-    const id = policyId(target_type, resolvedTargetId);
-    const previousPolicy =
-      this.policies.get(id) ??
-      defaultPolicy({
-        target_type,
-        target_id: resolvedTargetId,
-        agent,
-        thread_id,
-        workspace,
-        now,
-      });
-    const previous = withoutRetiredPolicyAliases(previousPolicy);
-    const policy = {
-      ...previous,
-      ...policyFields(updates),
-      schema_version: AGENT_MEMORY_POLICY_SCHEMA_VERSION,
-      id,
-      object: "ioi.agent_memory_policy",
-      target_type,
-      target_id: resolvedTargetId,
-      agent_id: agent?.id ?? previous.agent_id ?? null,
-      thread_id: thread_id ?? previous.thread_id ?? null,
-      workspace: workspace ?? agent?.cwd ?? previous.workspace ?? null,
-      source,
-      updated_at: now,
-      evidence_refs: [...new Set([...normalizeArray(previous.evidence_refs), "memory.policy"])],
-    };
-    const receipt = {
-      id: `receipt_${id}_${stableHash(`${policy.updated_at}:${source}`).slice(0, 12)}`,
-      kind: "memory_policy",
-      summary: `Updated ${target_type} memory policy for ${resolvedTargetId}.`,
-      redaction: "none",
-      evidenceRefs: ["agent_memory_store", "memory.policy", id],
-      memoryPolicyId: id,
-    };
-    this.policies.set(id, policy);
-    this.writePolicy(policy, {
+    void target_type;
+    void target_id;
+    void agent;
+    void thread_id;
+    void workspace;
+    void updates;
+    void source;
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_policy",
       operation_kind: "memory.policy",
-      receipt_refs: [receipt.id],
+      evidence_ref: "agent_memory_store_policy_js_writer_retired",
     });
-    return { policy, receipt, operation: "policy_update" };
   }
 
   writePolicy(policy, { operation_kind = "memory.policy", receipt_refs = [] } = {}) {
-    return this.commitMemoryState({
-      memory_state_kind: "policy",
-      state_id: policy.id,
+    void receipt_refs;
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_policy",
       operation_kind,
-      payload: policy,
-      receipt_refs,
+      memory_id: policy?.id ?? null,
+      evidence_ref: "agent_memory_store_policy_js_writer_retired",
     });
   }
 
   commitMemoryState({ memory_state_kind, state_id, operation_kind, payload, receipt_refs = [] } = {}) {
-    if (typeof this.commitRuntimeMemoryState !== "function") {
-      throw new Error("Memory persistence requires Rust Agentgres memory-state commit.");
-    }
-    const commit = this.commitRuntimeMemoryState({
-      schema_version: RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION,
-      memory_state_kind,
-      state_id,
-      operation_kind,
-      storage_backend_ref: RUNTIME_STATE_STORAGE_BACKEND_REF,
-      payload,
-      receipt_refs,
+    void memory_state_kind;
+    void payload;
+    void receipt_refs;
+    throwAgentMemoryStoreRustCoreRequired({
+      operation: "memory_state_commit",
+      operation_kind: operation_kind ?? "memory.state_commit",
+      memory_id: state_id,
+      evidence_ref: "runtime_memory_state_store_js_mutation_retired",
     });
-    return normalizeMemoryStateCommit(commit);
   }
 
   pathProjection({ agent, threadId, workspace } = {}) {
@@ -316,13 +252,6 @@ export class AgentMemoryStore {
     };
   }
 
-  removeQuiet(filePath) {
-    try {
-      fs.rmSync(filePath, { force: true });
-    } catch {
-      // Best-effort cleanup; admitted memory records are persisted through Rust.
-    }
-  }
 }
 
 export function parseMemoryCommand(prompt = "") {
@@ -368,18 +297,6 @@ export function defaultMemoryPolicy(overrides = {}) {
     scope: "thread",
     ...policyFields(overrides),
   };
-}
-
-function requiredMemoryText(value) {
-  const text = String(value ?? "").trim();
-  if (!text) {
-    const error = new Error("Memory text is required.");
-    error.status = 400;
-    error.code = "validation";
-    error.details = { field: "text" };
-    throw error;
-  }
-  return text;
 }
 
 function requiredId(value, label) {
@@ -471,91 +388,10 @@ function policyFields(value = {}) {
   return fields;
 }
 
-function withoutRetiredPolicyAliases(policy = {}) {
-  const {
-    schemaVersion,
-    targetType,
-    targetId,
-    agentId,
-    threadId,
-    injectionEnabled,
-    readOnly,
-    writeRequiresApproval,
-    subagentInheritance,
-    createdAt,
-    updatedAt,
-    evidenceRefs,
-    policyRefs,
-    ...canonicalPolicy
-  } = policy;
-  return canonicalPolicy;
-}
-
 function policyId(targetType, targetId) {
   return `memory_policy_${targetType}_${safeFileId(targetId)}`;
 }
 
 function safeFileId(value) {
   return String(value ?? "runtime").replace(/[^a-zA-Z0-9_.-]+/g, "_");
-}
-
-function normalizeMemoryStateCommit(commit = {}) {
-  const record = commit?.record && typeof commit.record === "object" ? commit.record : commit;
-  const storageRecord = commit?.storage_record && typeof commit.storage_record === "object"
-    ? commit.storage_record
-    : record?.record;
-  const normalized = {
-    source: optionalMemoryString(commit?.source) ?? "rust_agentgres_runtime_memory_state_commit_command",
-    memory_state_kind:
-      optionalMemoryString(commit?.memory_state_kind) ??
-      optionalMemoryString(record?.memory_state_kind),
-    state_id:
-      optionalMemoryString(commit?.state_id) ??
-      optionalMemoryString(record?.state_id),
-    object_ref:
-      optionalMemoryString(commit?.object_ref) ??
-      optionalMemoryString(storageRecord?.object_ref),
-    content_hash:
-      optionalMemoryString(commit?.content_hash) ??
-      optionalMemoryString(storageRecord?.content_hash),
-    admission_hash:
-      optionalMemoryString(commit?.admission_hash) ??
-      optionalMemoryString(storageRecord?.admission?.admission_hash),
-    commit_hash:
-      optionalMemoryString(commit?.commit_hash) ??
-      optionalMemoryString(record?.commit_hash),
-    written_record: commit?.written_record ?? null,
-    evidence_refs: Array.isArray(commit?.evidence_refs) ? commit.evidence_refs : [],
-    record: record ?? null,
-  };
-  const missing = [
-    ["memory_state_kind", normalized.memory_state_kind],
-    ["state_id", normalized.state_id],
-    ["object_ref", normalized.object_ref],
-    ["content_hash", normalized.content_hash],
-    ["admission_hash", normalized.admission_hash],
-    ["commit_hash", normalized.commit_hash],
-    ["written_record", normalized.written_record],
-  ]
-    .filter(([, value]) => !value)
-    .map(([name]) => name);
-  if (missing.length > 0) {
-    throw new Error(`Rust Agentgres memory-state commit is missing ${missing.join(", ")}.`);
-  }
-  return normalized;
-}
-
-function memoryReceipt(record, { kind, operation, summary } = {}) {
-  return {
-    id: `receipt_${record.id}_${operation ?? kind ?? "memory"}`,
-    kind,
-    summary,
-    redaction: record.redaction ?? "none",
-    evidenceRefs: ["agent_memory_store", `memory.${operation ?? kind}`, record.id],
-    memoryRecordId: record.id,
-  };
-}
-
-function normalizeArray(value) {
-  return Array.isArray(value) ? value : [];
 }

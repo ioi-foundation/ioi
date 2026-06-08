@@ -11,6 +11,29 @@ export function createRunMemoryResolution({
   subagentReceiverForRequest,
   threadIdForAgent,
 } = {}) {
+  function throwRunMemoryRustCoreRequired({ operation, threadId = null, agentId = null, memoryId = null } = {}) {
+    const error = new Error(
+      "Run memory mutations require direct Rust daemon-core memory admission and persistence.",
+    );
+    error.status = 501;
+    error.code = "runtime_run_memory_mutation_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.thread_memory_control",
+      operation,
+      operation_kind: "memory.run_resolution",
+      thread_id: threadId,
+      agent_id: agentId,
+      ...(memoryId ? { memory_id: memoryId } : {}),
+      evidence_refs: [
+        "runtime_run_memory_resolution_js_mutation_retired",
+        "runtime_memory_state_store_js_mutation_retired",
+        "rust_daemon_core_thread_memory_control_required",
+        "agentgres_thread_memory_state_truth_required",
+      ],
+    };
+    throw error;
+  }
+
   function resolveRunMemory(store, agent, request = {}, prompt = "") {
     const memoryOptions = memoryOptionsForRequest(request);
     const threadId = memoryOptions.thread_id ?? threadIdForAgent(agent.id);
@@ -25,25 +48,10 @@ export function createRunMemoryResolution({
     const policyUpdates = [];
     const mutations = [];
     if (command.kind === "disable" || command.kind === "enable") {
-      const update = store.memory.setPolicy({
-        target_type: "thread",
-        target_id: threadId,
-        agent,
-        thread_id: threadId,
-        workspace: agent.cwd,
-        source: command.kind === "disable" ? "chat_memory_disable" : "chat_memory_enable",
-        updates: {
-          disabled: command.kind === "disable",
-          injection_enabled: command.kind !== "disable",
-        },
-      });
-      policyUpdates.push(update);
-      mutations.push(update);
-      policy = store.memory.effectivePolicy({
-        agent,
+      throwRunMemoryRustCoreRequired({
+        operation: command.kind === "disable" ? "memory_disable" : "memory_enable",
         threadId,
-        workspace: agent.cwd,
-        overrides: memoryPolicyOverrides(memoryOptions),
+        agentId: agent?.id ?? null,
       });
     }
     const subagentMemoryInheritance =
@@ -84,17 +92,31 @@ export function createRunMemoryResolution({
     }
     const writes = [];
     if (!policyBlockReason && command.kind === "remember") {
-      const write = store.rememberForAgent(agent, { text: command.text, threadId, scope: effectivePolicy.scope ?? "thread", source: "chat_hash_remember" });
-      writes.push(write);
-      mutations.push({ ...write, operation: "write" });
+      throwRunMemoryRustCoreRequired({
+        operation: "memory_write",
+        threadId,
+        agentId: agent?.id ?? null,
+      });
     } else if (!policyBlockReason && command.kind === "edit") {
-      mutations.push(store.updateMemoryRecord(command.id, { text: command.text, source: "chat_memory_edit" }));
+      throwRunMemoryRustCoreRequired({
+        operation: "memory_edit",
+        threadId,
+        agentId: agent?.id ?? null,
+        memoryId: command.id,
+      });
     } else if (!policyBlockReason && command.kind === "delete") {
-      mutations.push(store.deleteMemoryRecord(command.id, { source: "chat_memory_delete" }));
+      throwRunMemoryRustCoreRequired({
+        operation: "memory_delete",
+        threadId,
+        agentId: agent?.id ?? null,
+        memoryId: command.id,
+      });
     } else if (!policyBlockReason && requestedRemember) {
-      const write = store.rememberForAgent(agent, { text: requestedRemember, threadId, scope: effectivePolicy.scope ?? "thread", source: "api_remember", workflow: memoryOptions.workflow ?? memoryOptions });
-      writes.push(write);
-      mutations.push({ ...write, operation: "write" });
+      throwRunMemoryRustCoreRequired({
+        operation: "memory_write",
+        threadId,
+        agentId: agent?.id ?? null,
+      });
     }
     const records = subagentMemoryInheritance?.records ??
       store.memory.list({ agent, threadId, workspace: agent.cwd, ...memoryListFilters(memoryOptions) });

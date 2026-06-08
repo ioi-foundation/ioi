@@ -455,6 +455,27 @@ the remaining JS read adapter as terminal architecture.
 The Slice 763 direct conversation-artifact store writer retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
+Slice 764 retired the hidden `AgentMemoryStore` JS mutation writers and
+run-memory write/policy command mutation path behind the already fail-closed
+public thread-memory control facade. `AgentMemoryStore` no longer receives a
+`commitRuntimeMemoryState` injection from the runtime store and direct
+`remember`, `updateRecord`, `deleteRecord`, `setPolicy`, `write`, `writePolicy`,
+or `commitMemoryState` calls now fail closed with
+`runtime_memory_state_store_rust_core_required` before JS record-map mutation,
+policy-map mutation, local memory/policy file writes or deletes, receipt
+synthesis, or memory-state commit transport can occur. Run-memory resolution
+now also fails closed with `runtime_run_memory_mutation_rust_core_required` for
+chat/API remember, edit, delete, enable, and disable mutation commands; read
+injection and subagent memory inheritance remain projection adapters over
+already-admitted memory. This does not claim terminal memory migration: direct
+Rust daemon-core memory admission/projection still needs to own policy
+authority, receipt/event materialization, Agentgres expected-head/state-root
+binding, ArtifactRef/PayloadRef where needed, replay, SDK/IDE protocol coverage,
+and conformance. Do not encode the remaining JS memory read adapter or
+run-memory projection helper as terminal architecture.
+Schedule a matrix-compaction pass after Slice 764 before starting unrelated
+route-family work, once this Rust-core extraction/facade-retirement seam is
+ready to collapse into compacted evidence.
 
 ## Part II: Target Execution Model
 

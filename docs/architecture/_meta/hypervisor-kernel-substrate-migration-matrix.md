@@ -55,12 +55,15 @@ This pass compacted Slice 762 catalog-provider config-update helper retirement
 evidence.
 This pass compacted Slice 763 direct conversation-artifact store writer
 retirement evidence.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades, canonical input
-helpers, local projection helpers, and migration transport are not terminal
-substrate.
+Slice 764 retired direct `AgentMemoryStore` JS mutation writers and the
+run-memory write/policy command mutation path behind the already fail-closed
+public thread-memory control facade.
+Next resume instruction: compact Slice 764 into the route-family ledger before
+starting unrelated route-family work, then continue the next Rust-core
+extraction or facade-retirement implementation slice. Preserve the live owner
+map, terminal blockers, and the fact that fail-closed JS facades, canonical
+input helpers, local projection helpers, and migration transport are not
+terminal substrate.
 
 ## Purpose
 
@@ -167,13 +170,12 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 763 direct
-  conversation-artifact store writer retirement compaction.
-- Future-resumption trigger: resume the migration goal by carrying out the next
-  Rust-core extraction or facade-retirement slice first. Once that seam is clear,
-  perform the scheduled matrix-compaction pass before starting unrelated
-  route-family work; do not let context compaction demote this to optional
-  evidence pruning.
+- Next scheduled matrix-compaction pass: pending after Slice 764 direct
+  `AgentMemoryStore` writer and run-memory mutation path retirement.
+- Future-resumption trigger: compact Slice 764 before starting unrelated
+  route-family work, then resume the migration goal by carrying out the next
+  Rust-core extraction or facade-retirement slice. Do not let context compaction
+  demote this to optional evidence pruning.
 - Next resume order is mandatory: clarify a concrete Rust-core
   extraction/facade-retirement seam with a verified slice, then schedule and run
   the next matrix-compaction pass before starting unrelated route-family work.
@@ -14487,6 +14489,46 @@ and target ownership.
   that seam lands, and do not encode remaining JS read/projection helpers,
   fail-closed conversation-artifact control facades, or command transport as
   terminal architecture.
+
+## Implementation Slice Evidence: 764
+
+Date: 2026-06-08.
+Route family: `RuntimeThreadMemoryControl`.
+Current lane: Rust-core extraction plus JS-facade retirement.
+
+- Retired direct `AgentMemoryStore` mutation writer bodies behind the already
+  fail-closed public memory facades. Direct `remember`, `updateRecord`,
+  `deleteRecord`, `setPolicy`, `write`, `writePolicy`, and `commitMemoryState`
+  calls now fail closed with `runtime_memory_state_store_rust_core_required`
+  before JS record-map mutation, policy-map mutation, local memory/policy file
+  writes or deletes, receipt synthesis, or memory-state commit transport can
+  occur.
+- Removed the runtime-store `commitRuntimeMemoryState` injection from
+  `new AgentMemoryStore(...)`; the store can no longer appear to be a JS
+  authority path that forwards accepted memory truth.
+- Retired run-memory write/policy command mutation paths. Chat/API remember,
+  edit, delete, enable, and disable commands now fail closed with
+  `runtime_run_memory_mutation_rust_core_required` before `rememberForAgent`,
+  `updateMemoryRecord`, `deleteMemoryRecord`, or memory-policy mutation can run.
+- Memory list/projection, path projection, effective policy reads, disabled/read
+  blocks, and subagent memory inheritance remain read/projection adapters over
+  already-admitted state; they are not terminal substrate ownership.
+- Conformance guards `agent-memory-operation-append-retired`,
+  `runtime-memory-state-storage-write-rust-admitted`,
+  `runtime-memory-filter-aliases-retired`, and
+  `runtime-run-memory-request-aliases-retired` now reject reintroduced store
+  committer injection, direct store writer success paths, direct local memory
+  file writes, stale committer constants, retired camelCase detail aliases, and
+  run-memory write/policy JS mutation success paths.
+- This slice intentionally does not claim terminal memory migration. Direct Rust
+  daemon-core memory admission/projection still needs to own policy authority,
+  receipt/event materialization, Agentgres expected-head/state-root binding,
+  ArtifactRef/PayloadRef where needed, replay, SDK/IDE protocol coverage, and
+  conformance.
+- Schedule the next matrix-compaction pass to compact Slice 764 before starting
+  unrelated route-family work; do not encode the remaining JS memory read
+  adapter, run-memory projection helper, or command transport as terminal
+  architecture.
 
 ## Command State
 

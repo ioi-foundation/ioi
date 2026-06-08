@@ -10,86 +10,193 @@ function tempStateDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), "ioi-memory-store-"));
 }
 
-function fakeMemoryCommitter(stateDir, calls = []) {
-  return function commitRuntimeMemoryState(request) {
-    calls.push(request);
-    const filePath = request.memory_state_kind === "policy"
-      ? `memory-policies/${String(request.state_id).replace(/[^a-zA-Z0-9_.-]+/g, "_")}.json`
-      : `memory-records/${request.state_id}.json`;
-    const absolutePath = path.join(stateDir, filePath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, `${JSON.stringify(request.payload, null, 2)}\n`);
-    const objectRef = `agentgres://runtime-state/memory/${request.memory_state_kind}/${request.state_id}/records/${filePath}`;
-    const payloadRefs = [`payload://runtime/memory/${request.memory_state_kind}/${request.state_id}/records/${filePath}`];
-    return {
-      source: "rust_agentgres_runtime_memory_state_commit_command",
-      record: {
-        schema_version: "ioi.runtime_memory_state_commit.v1",
-        memory_state_kind: request.memory_state_kind,
-        state_id: request.state_id,
-        operation_kind: request.operation_kind,
-        storage_backend_ref: request.storage_backend_ref,
-        record: {
-          record_path: filePath,
-          object_ref: objectRef,
-          content_hash: `sha256:${request.memory_state_kind}-content`,
-          artifact_refs: [],
-          payload_refs: payloadRefs,
-          receipt_refs: request.receipt_refs,
-          admission: {
-            admission_hash: `sha256:${request.memory_state_kind}-admission`,
-          },
-        },
-        commit_hash: `sha256:${request.memory_state_kind}-commit`,
-      },
-      memory_state_kind: request.memory_state_kind,
-      state_id: request.state_id,
-      object_ref: objectRef,
-      content_hash: `sha256:${request.memory_state_kind}-content`,
-      admission_hash: `sha256:${request.memory_state_kind}-admission`,
-      commit_hash: `sha256:${request.memory_state_kind}-commit`,
-      written_record: {
-        record_path: filePath,
-        object_ref: objectRef,
-      },
-      evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
-    };
-  };
+function writeJson(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-test("agent memory store commits records, edits, and policies through Rust Agentgres without local operation append", () => {
+function seedMemoryRecord(stateDir, overrides = {}) {
+  const id = overrides.id ?? "memory.canonical";
+  const record = {
+    schema_version: "ioi.agent-runtime.memory.v1",
+    id,
+    object: "ioi.agent_memory_record",
+    scope: overrides.scope ?? "thread",
+    fact: overrides.fact ?? "Remember the launch checklist.",
+    memory_key: overrides.memory_key ?? "launch",
+    agent_id: overrides.agent_id ?? "agent.memory",
+    thread_id: overrides.thread_id ?? "thread.memory",
+    workspace: overrides.workspace ?? "/workspace",
+    workflow_graph_id: overrides.workflow_graph_id ?? "graph.memory",
+    workflow_node_id: overrides.workflow_node_id ?? "node.memory",
+    workflow_node_type: "Memory",
+    source: "rust_agentgres_projection",
+    redaction: "none",
+    created_at: overrides.created_at ?? "2026-06-08T00:00:00.000Z",
+    updated_at: overrides.updated_at ?? "2026-06-08T00:00:00.000Z",
+    evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
+  };
+  writeJson(path.join(stateDir, "memory-records", `${id}.json`), record);
+  return record;
+}
+
+function seedMemoryPolicy(stateDir, overrides = {}) {
+  const id = overrides.id ?? "memory_policy_thread_thread.memory";
+  const policy = {
+    schema_version: "ioi.agent-runtime.memory-policy.v1",
+    id,
+    object: "ioi.agent_memory_policy",
+    target_type: "thread",
+    target_id: "thread.memory",
+    agent_id: "agent.memory",
+    thread_id: "thread.memory",
+    workspace: "/workspace",
+    disabled: false,
+    injection_enabled: true,
+    read_only: false,
+    write_requires_approval: true,
+    retention: "persistent",
+    redaction: "none",
+    subagent_inheritance: "explicit",
+    scope: "thread",
+    source: "rust_agentgres_projection",
+    created_at: "2026-06-08T00:00:00.000Z",
+    updated_at: "2026-06-08T00:00:00.000Z",
+    evidence_refs: ["rust_agentgres_runtime_memory_state_commit"],
+    ...overrides,
+  };
+  writeJson(path.join(stateDir, "memory-policies", `${id}.json`), policy);
+  return policy;
+}
+
+function assertAgentMemoryStoreRustCoreRequired(error, {
+  operation,
+  operationKind,
+  memoryId = null,
+}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_memory_state_store_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.thread_memory_control");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  if (memoryId) assert.equal(error.details.memory_id, memoryId);
+  for (const evidence of [
+    "runtime_memory_state_store_js_mutation_retired",
+    "agent_memory_store_write_js_writer_retired",
+    "agent_memory_store_edit_js_writer_retired",
+    "agent_memory_store_delete_js_writer_retired",
+    "agent_memory_store_policy_js_writer_retired",
+    "rust_daemon_core_thread_memory_control_required",
+    "agentgres_thread_memory_state_truth_required",
+  ]) {
+    assert.equal(error.details.evidence_refs.includes(evidence), true, `missing evidence ${evidence}`);
+  }
+  for (const key of ["rustCoreBoundary", "operationKind", "memoryId", "evidenceRefs"]) {
+    assert.equal(Object.hasOwn(error.details, key), false, `retired detail alias ${key} must be absent`);
+  }
+  return true;
+}
+
+test("agent memory store direct mutation writers fail closed before JS memory-state writes", () => {
   const stateDir = tempStateDir();
-  const appended = [];
-  const commits = [];
   try {
     const store = new AgentMemoryStore(stateDir, {
-      appendOperation(kind, payload) {
-        appended.push({ kind, payload });
+      commitRuntimeMemoryState() {
+        throw new Error("commitRuntimeMemoryState must not be reached");
       },
-      commitRuntimeMemoryState: fakeMemoryCommitter(stateDir, commits),
     });
+
+    assert.throws(
+      () => store.remember({ text: "Remember the launch checklist." }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_write",
+          operationKind: "memory.write",
+        }),
+    );
+    assert.throws(
+      () => store.updateRecord({ id: "memory.canonical", text: "Edited" }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_edit",
+          operationKind: "memory.edit",
+          memoryId: "memory.canonical",
+        }),
+    );
+    assert.throws(
+      () => store.deleteRecord({ id: "memory.canonical" }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_delete",
+          operationKind: "memory.delete",
+          memoryId: "memory.canonical",
+        }),
+    );
+    assert.throws(
+      () => store.setPolicy({ target_type: "thread", target_id: "thread.memory", updates: { read_only: true } }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_policy",
+          operationKind: "memory.policy",
+        }),
+    );
+    assert.throws(
+      () => store.write({ id: "memory.canonical" }, { operation_kind: "memory.custom" }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_write",
+          operationKind: "memory.custom",
+          memoryId: "memory.canonical",
+        }),
+    );
+    assert.throws(
+      () => store.writePolicy({ id: "memory_policy_thread_thread.memory" }, { operation_kind: "memory.policy.custom" }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_policy",
+          operationKind: "memory.policy.custom",
+          memoryId: "memory_policy_thread_thread.memory",
+        }),
+    );
+    assert.throws(
+      () =>
+        store.commitMemoryState({
+          memory_state_kind: "record",
+          state_id: "memory.canonical",
+          operation_kind: "memory.state_commit",
+          payload: { id: "memory.canonical" },
+          receipt_refs: ["receipt_memory"],
+        }),
+      (error) =>
+        assertAgentMemoryStoreRustCoreRequired(error, {
+          operation: "memory_state_commit",
+          operationKind: "memory.state_commit",
+          memoryId: "memory.canonical",
+        }),
+    );
+
+    assert.deepEqual(fs.readdirSync(path.join(stateDir, "memory-records")), []);
+    assert.deepEqual(fs.readdirSync(path.join(stateDir, "memory-policies")), []);
+  } finally {
+    fs.rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test("agent memory store projects canonical admitted memory without retired aliases", () => {
+  const stateDir = tempStateDir();
+  try {
+    const record = seedMemoryRecord(stateDir);
+    seedMemoryRecord(stateDir, {
+      id: "memory.support",
+      memory_key: "support",
+      fact: "Remember the support checklist.",
+      workflow_node_id: "node.support",
+      created_at: "2026-06-08T00:01:00.000Z",
+      updated_at: "2026-06-08T00:01:00.000Z",
+    });
+    seedMemoryPolicy(stateDir);
+    const store = new AgentMemoryStore(stateDir);
     const agent = { id: "agent.memory", cwd: "/workspace" };
-    const remembered = store.remember({
-      text: "Remember the launch checklist.",
-      agent,
-      threadId: "thread.memory",
-      scope: "thread",
-      workflow: {
-        memory_key: "launch",
-        workflow_graph_id: "graph.memory",
-        workflow_node_id: "node.memory",
-        memoryKey: "retired.launch",
-        workflowGraphId: "graph.retired",
-        workflowNodeId: "node.retired",
-      },
-    });
-    store.remember({
-      text: "Remember the support checklist.",
-      agent,
-      threadId: "thread.memory",
-      scope: "thread",
-      workflow: { memory_key: "support" },
-    });
     store.records.set("memory.retired.alias", {
       id: "memory.retired.alias",
       scope: "thread",
@@ -101,14 +208,18 @@ test("agent memory store commits records, edits, and policies through Rust Agent
       createdAt: "2026-06-07T00:00:00.000Z",
     });
 
-    assert.equal("appendOperation" in store, false);
-    assert.equal(remembered.receipt.kind, "memory_write");
-    assert.equal(remembered.record.schema_version, "ioi.agent-runtime.memory.v1");
-    assert.equal(remembered.record.thread_id, "thread.memory");
-    assert.equal(remembered.record.agent_id, "agent.memory");
-    assert.equal(remembered.record.memory_key, "launch");
-    assert.equal(remembered.record.workflow_graph_id, "graph.memory");
-    assert.equal(remembered.record.workflow_node_id, "node.memory");
+    assert.equal(store.list({ agent, threadId: "thread.memory", memory_key: "launch" }).length, 1);
+    assert.equal(store.list({ agent, threadId: "thread.memory", memoryKey: "launch" }).length, 2);
+    assert.equal(store.list({ agent, threadId: "thread.retired", memory_key: "launch" }).length, 0);
+    assert.equal(store.list({ agent: { id: "agent.retired", cwd: "/workspace" }, memory_key: "launch" }).length, 0);
+    assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.memory" }).length, 1);
+    assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.retired" }).length, 0);
+    const projection = store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } });
+    assert.equal(projection.filters.memory_key, "launch");
+    assert.equal(Object.hasOwn(projection.filters, "memoryKey"), false);
+    assert.equal(projection.records[0].id, record.id);
+    assert.equal(projection.policy.write_requires_approval, true);
+
     for (const key of [
       "schemaVersion",
       "threadId",
@@ -121,56 +232,8 @@ test("agent memory store commits records, edits, and policies through Rust Agent
       "updatedAt",
       "evidenceRefs",
     ]) {
-      assert.equal(Object.hasOwn(remembered.record, key), false, `retired memory record alias ${key} must be absent`);
+      assert.equal(Object.hasOwn(projection.records[0], key), false, `retired memory record alias ${key} must be absent`);
     }
-    assert.equal(fs.existsSync(path.join(store.memoryDir, `${remembered.record.id}.json`)), true);
-    assert.equal(commits[0].schema_version, "ioi.runtime_memory_state_commit.v1");
-    assert.equal(commits[0].memory_state_kind, "record");
-    assert.equal(commits[0].operation_kind, "memory.write");
-    assert.deepEqual(commits[0].receipt_refs, [remembered.receipt.id]);
-    assert.equal(store.list({ agent, threadId: "thread.memory", memory_key: "launch" }).length, 1);
-    assert.equal(store.list({ agent, threadId: "thread.memory", memoryKey: "launch" }).length, 2);
-    assert.equal(store.list({ agent, threadId: "thread.retired", memory_key: "launch" }).length, 0);
-    assert.equal(store.list({ agent: { id: "agent.retired", cwd: "/workspace" }, memory_key: "launch" }).length, 0);
-    assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.memory" }).length, 1);
-    assert.equal(store.list({ agent, threadId: "thread.memory", query: "node.retired" }).length, 0);
-    assert.equal(store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } }).filters.memory_key, "launch");
-    assert.equal(
-      Object.hasOwn(store.projection({ agent, threadId: "thread.memory", filters: { memory_key: "launch" } }).filters, "memoryKey"),
-      false,
-    );
-
-    const edited = store.updateRecord({
-      id: remembered.record.id,
-      text: "Remember the updated launch checklist.",
-    });
-    assert.equal(edited.operation, "edit");
-    assert.equal(commits.at(-1).operation_kind, "memory.edit");
-    assert.deepEqual(commits.at(-1).receipt_refs, [edited.receipt.id]);
-    assert.equal(store.records.get(remembered.record.id).fact, "Remember the updated launch checklist.");
-
-    const policy = store.setPolicy({
-      target_type: "thread",
-      target_id: "thread.memory",
-      agent,
-      updates: {
-        read_only: true,
-        readOnly: false,
-        writeRequiresApproval: true,
-        subagentInheritance: "full",
-      },
-    });
-    assert.equal(policy.operation, "policy_update");
-    assert.equal(policy.policy.schema_version, "ioi.agent-runtime.memory-policy.v1");
-    assert.equal(policy.policy.target_type, "thread");
-    assert.equal(policy.policy.target_id, "thread.memory");
-    assert.equal(policy.policy.agent_id, "agent.memory");
-    assert.equal(policy.policy.thread_id, null);
-    assert.equal(policy.policy.read_only, true);
-    assert.equal(policy.policy.write_requires_approval, false);
-    assert.equal(commits.at(-1).memory_state_kind, "policy");
-    assert.equal(commits.at(-1).operation_kind, "memory.policy");
-    assert.deepEqual(commits.at(-1).receipt_refs, [policy.receipt.id]);
     for (const key of [
       "schemaVersion",
       "targetType",
@@ -186,123 +249,8 @@ test("agent memory store commits records, edits, and policies through Rust Agent
       "evidenceRefs",
       "policyRefs",
     ]) {
-      assert.equal(Object.hasOwn(policy.policy, key), false, `retired memory policy alias ${key} must be absent`);
+      assert.equal(Object.hasOwn(projection.policy, key), false, `retired memory policy alias ${key} must be absent`);
     }
-
-    store.policies.set("memory_policy_thread_thread.memory", {
-      id: "memory_policy_thread_thread.memory",
-      schema_version: "ioi.agent-runtime.memory-policy.v1",
-      object: "ioi.agent_memory_policy",
-      target_type: "thread",
-      target_id: "thread.memory",
-      read_only: false,
-      evidence_refs: ["canonical-policy"],
-      readOnly: true,
-      writeRequiresApproval: true,
-      evidenceRefs: ["retired-policy"],
-    });
-    const overwritten = store.setPolicy({
-      target_type: "thread",
-      target_id: "thread.memory",
-      agent,
-      updates: { write_requires_approval: true },
-    });
-    assert.equal(overwritten.policy.read_only, false);
-    assert.equal(overwritten.policy.write_requires_approval, true);
-    assert.deepEqual(overwritten.policy.evidence_refs, ["canonical-policy", "memory.policy"]);
-    assert.equal(Object.hasOwn(overwritten.policy, "readOnly"), false);
-    assert.equal(Object.hasOwn(overwritten.policy, "writeRequiresApproval"), false);
-    assert.equal(Object.hasOwn(overwritten.policy, "evidenceRefs"), false);
-
-    const deleted = store.deleteRecord({ id: remembered.record.id });
-    assert.equal(deleted.operation, "delete");
-    assert.equal(fs.existsSync(path.join(store.memoryDir, `${remembered.record.id}.json`)), false);
-    assert.deepEqual(appended, []);
-  } finally {
-    fs.rmSync(stateDir, { recursive: true, force: true });
-  }
-});
-
-test("agent memory store fails closed without Rust Agentgres memory-state commit", () => {
-  const stateDir = tempStateDir();
-  try {
-    const store = new AgentMemoryStore(stateDir);
-
-    assert.throws(
-      () => store.remember({ text: "Remember the launch checklist." }),
-      /Memory persistence requires Rust Agentgres memory-state commit/,
-    );
-  } finally {
-    fs.rmSync(stateDir, { recursive: true, force: true });
-  }
-});
-
-test("agent memory store ignores retired commit option aliases before Rust memory admission", () => {
-  const stateDir = tempStateDir();
-  const requests = [];
-  try {
-    const store = new AgentMemoryStore(stateDir, {
-      commitRuntimeMemoryState(request) {
-        requests.push(request);
-        if (request.receipt_refs.length === 0) {
-          throw new Error("Rust memory admission requires receipt_refs.");
-        }
-        return fakeMemoryCommitter(stateDir)(request);
-      },
-    });
-
-    assert.throws(
-      () =>
-        store.write(
-          {
-            id: "memory.alias",
-            schemaVersion: "ioi.agent-runtime.memory.v1",
-            object: "ioi.agent_memory_record",
-            fact: "Alias options must not cross the Rust boundary.",
-          },
-          {
-            operationKind: "memory.alias",
-            receiptRefs: ["receipt_alias"],
-          },
-        ),
-      /Rust memory admission requires receipt_refs/,
-    );
-    assert.equal(requests[0].memory_state_kind, "record");
-    assert.equal(requests[0].state_id, "memory.alias");
-    assert.equal(requests[0].operation_kind, "memory.write");
-    assert.deepEqual(requests[0].receipt_refs, []);
-    assert.equal(Object.hasOwn(requests[0], "operationKind"), false);
-    assert.equal(Object.hasOwn(requests[0], "receiptRefs"), false);
-
-    store.write(
-      {
-        id: "memory.canonical",
-        schemaVersion: "ioi.agent-runtime.memory.v1",
-        object: "ioi.agent_memory_record",
-        fact: "Canonical options cross the Rust boundary.",
-      },
-      {
-        operation_kind: "memory.canonical",
-        receipt_refs: ["receipt_canonical"],
-      },
-    );
-    assert.equal(requests.at(-1).operation_kind, "memory.canonical");
-    assert.deepEqual(requests.at(-1).receipt_refs, ["receipt_canonical"]);
-
-    store.writePolicy(
-      {
-        id: "memory_policy_thread_alias",
-        schemaVersion: "ioi.agent-runtime.memory-policy.v1",
-        object: "ioi.agent_memory_policy",
-      },
-      {
-        operation_kind: "memory.policy.canonical",
-        receipt_refs: ["receipt_policy_canonical"],
-      },
-    );
-    assert.equal(requests.at(-1).memory_state_kind, "policy");
-    assert.equal(requests.at(-1).operation_kind, "memory.policy.canonical");
-    assert.deepEqual(requests.at(-1).receipt_refs, ["receipt_policy_canonical"]);
   } finally {
     fs.rmSync(stateDir, { recursive: true, force: true });
   }

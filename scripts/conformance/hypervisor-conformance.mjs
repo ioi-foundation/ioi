@@ -404,6 +404,11 @@ function runDocs() {
       /Slice 762 retired the hidden catalog-provider JS config-update helper/.test(guide) &&
       /`model-mounting\.mjs` no longer imports or injects `catalogProviderConfigUpdate`/.test(guide) &&
       /The Slice 762 catalog-provider config-update helper retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 763 retired the hidden `ConversationArtifactStore` JS mutation writers/.test(guide) &&
+      /The Slice 763 direct conversation-artifact store writer retirement\s+matrix-compaction pass is complete/.test(guide) &&
+      /Slice 764 retired the hidden `AgentMemoryStore` JS mutation writers/.test(guide) &&
+      /`AgentMemoryStore` no longer receives a\s+`commitRuntimeMemoryState` injection/.test(guide) &&
+      /Schedule a matrix-compaction pass after Slice 764/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -430,7 +435,9 @@ function runDocs() {
       /This pass compacted Slice 760 catalog download policy request-synonym\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 761 model-mount route-selection policy alias\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 762 catalog-provider config-update helper retirement\s+evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /This pass compacted Slice 763 direct conversation-artifact store writer\s+retirement evidence/.test(matrix) &&
+      /Slice 764 retired direct `AgentMemoryStore` JS mutation writers/.test(matrix) &&
+      /Next resume instruction: compact Slice 764 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -626,7 +633,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 762 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 763 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 763 direct\s+conversation-artifact store writer retirement compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 764/.test(matrix) &&
+      /runtime_run_memory_mutation_rust_core_required/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 764 direct\s+`AgentMemoryStore` writer and run-memory mutation path retirement/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
@@ -12966,10 +12975,13 @@ function runReceipts() {
     result,
     "agent-memory-operation-append-retired",
     !/\bappendOperation\b/.test(memoryStore) &&
-      /this\.memory = new AgentMemoryStore\(this\.stateDir, \{[\s\S]*?commitRuntimeMemoryState/.test(runtimeDaemonIndex) &&
-      /agent memory store commits records, edits, and policies through Rust Agentgres without local operation append/.test(
+      /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
+      !/new AgentMemoryStore\(this\.stateDir,\s*\{[\s\S]*?commitRuntimeMemoryState/.test(runtimeDaemonIndex) &&
+      /agent memory store direct mutation writers fail closed before JS memory-state writes/.test(
         read("packages/runtime-daemon/src/memory-store.test.mjs"),
-      ),
+      ) &&
+      /runtime_memory_state_store_rust_core_required/.test(memoryStore) &&
+      /agent_memory_store_write_js_writer_retired/.test(memoryStore),
     [
       "packages/runtime-daemon/src/memory-store.mjs",
       "packages/runtime-daemon/src/memory-store.test.mjs",
@@ -13003,21 +13015,21 @@ function runReceipts() {
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&
       /commitRuntimeMemoryState\(request\)/.test(runtimeDaemonIndex) &&
-      /commitMemoryState\(\{/.test(memoryStore) &&
-      /RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(memoryStore) &&
-      /Memory persistence requires Rust Agentgres memory-state commit/.test(memoryStore) &&
+      /this\.memory = new AgentMemoryStore\(this\.stateDir\);/.test(runtimeDaemonIndex) &&
+      !/commitRuntimeMemoryState:\s*\(request\) => this\.commitRuntimeMemoryState/.test(runtimeDaemonIndex) &&
+      /commitMemoryState\(\{ memory_state_kind, state_id, operation_kind, payload, receipt_refs = \[\] \} = \{\}\)/.test(memoryStore) &&
+      /runtime_memory_state_store_rust_core_required/.test(memoryStore) &&
+      /runtime_memory_state_store_js_mutation_retired/.test(memoryStore) &&
+      !/RUNTIME_MEMORY_STATE_COMMIT_SCHEMA_VERSION/.test(memoryStore) &&
+      !/Memory persistence requires Rust Agentgres memory-state commit/.test(memoryStore) &&
+      !/this\.commitRuntimeMemoryState/.test(memoryStore) &&
       !/\b(?:operationKind|receiptRefs|memoryStateKind|stateId)\b/.test(memoryStore) &&
       !/\bfs\.writeFileSync\(path\.join\(this\.memoryDir/.test(memoryStore) &&
       !/\bfs\.writeFileSync\(path\.join\(this\.policyDir/.test(memoryStore) &&
-      /agent memory store commits records, edits, and policies through Rust Agentgres without local operation append/.test(
+      /agent memory store direct mutation writers fail closed before JS memory-state writes/.test(
         read("packages/runtime-daemon/src/memory-store.test.mjs"),
       ) &&
-      /agent memory store fails closed without Rust Agentgres memory-state commit/.test(
-        read("packages/runtime-daemon/src/memory-store.test.mjs"),
-      ) &&
-      /agent memory store ignores retired commit option aliases before Rust memory admission/.test(
-        read("packages/runtime-daemon/src/memory-store.test.mjs"),
-      ),
+      /commitRuntimeMemoryState must not be reached/.test(read("packages/runtime-daemon/src/memory-store.test.mjs")),
     [
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
@@ -16402,8 +16414,8 @@ function runCompositor() {
       ) &&
       /memory_key:\s*optionalMemoryString\(memory_key\)/.test(runtimeMemoryStoreListFiltersBlock) &&
       /memory\.retired\.alias/.test(runtimeMemoryStoreTest) &&
-      /remembered\.record\.memory_key,\s*"launch"/.test(runtimeMemoryStoreTest) &&
-      /Object\.hasOwn\(remembered\.record,\s*key\),\s*false,\s*`retired memory record alias/.test(
+      /projection\.records\[0\]\.id,\s*record\.id/.test(runtimeMemoryStoreTest) &&
+      /Object\.hasOwn\(projection\.records\[0\],\s*key\),\s*false,\s*`retired memory record alias/.test(
         runtimeMemoryStoreTest,
       ) &&
       /query: "node\.retired"/.test(runtimeMemoryStoreTest) &&
@@ -16420,7 +16432,7 @@ function runCompositor() {
       /store\.list\(\{ agent, threadId: "thread\.memory", memoryKey: "launch" \}\)\.length, 2/.test(
         runtimeMemoryStoreTest,
       ) &&
-      /Object\.hasOwn\(store\.projection\([\s\S]*\)\.filters, "memoryKey"\),\s*false/.test(
+      /Object\.hasOwn\(projection\.filters,\s*"memoryKey"\),\s*false/.test(
         runtimeMemoryStoreTest,
       ) &&
       !/record\.(?:threadId|agentId|memoryKey|workflowGraphId|workflowNodeId|workflowNodeType|createdAt|updatedAt|evidenceRefs)\b/.test(
@@ -16517,6 +16529,11 @@ function runCompositor() {
       /run memory resolution ignores retired memory thread and approval aliases/.test(
         runtimeRunMemoryResolutionTest,
       ) &&
+      /run memory resolution write commands fail closed before JS memory mutation/.test(
+        runtimeRunMemoryResolutionTest,
+      ) &&
+      /runtime_run_memory_mutation_rust_core_required/.test(runtimeRunMemoryResolution) &&
+      /runtime_run_memory_resolution_js_mutation_retired/.test(runtimeRunMemoryResolution) &&
       /threadId: "thread-retired"/.test(runtimeRunMemoryResolutionTest) &&
       /thread_id: "thread-canonical"/.test(runtimeRunMemoryResolutionTest) &&
       /writeApproved: true/.test(runtimeRunMemoryResolutionTest) &&

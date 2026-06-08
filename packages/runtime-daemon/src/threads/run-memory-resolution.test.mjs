@@ -86,6 +86,34 @@ function createHarness({
   return { agent, helper, mutations, store, writes };
 }
 
+function assertRunMemoryRustCoreRequired(error, {
+  operation,
+  threadId = "thread-agent-one",
+  agentId = "agent-one",
+  memoryId = null,
+} = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_run_memory_mutation_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.thread_memory_control");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, "memory.run_resolution");
+  assert.equal(error.details.thread_id, threadId);
+  assert.equal(error.details.agent_id, agentId);
+  if (memoryId) assert.equal(error.details.memory_id, memoryId);
+  for (const evidence of [
+    "runtime_run_memory_resolution_js_mutation_retired",
+    "runtime_memory_state_store_js_mutation_retired",
+    "rust_daemon_core_thread_memory_control_required",
+    "agentgres_thread_memory_state_truth_required",
+  ]) {
+    assert.equal(error.details.evidence_refs.includes(evidence), true, `missing evidence ${evidence}`);
+  }
+  for (const key of ["rustCoreBoundary", "operationKind", "threadId", "agentId", "memoryId", "evidenceRefs"]) {
+    assert.equal(Object.hasOwn(error.details, key), false, `retired detail alias ${key} must be absent`);
+  }
+  return true;
+}
+
 test("run memory resolution injects matching records without writes", () => {
   const { agent, helper, store } = createHarness();
 
@@ -99,23 +127,69 @@ test("run memory resolution injects matching records without writes", () => {
   assert.deepEqual(result.writes, []);
 });
 
-test("run memory resolution records remember commands unless policy blocks writes", () => {
-  const { agent, helper, store, writes } = createHarness({
+test("run memory resolution write commands fail closed before JS memory mutation", () => {
+  const rememberHarness = createHarness({
     command: { kind: "remember", text: "Remember this" },
   });
 
-  const result = helper.resolveRunMemory(store, agent, { memory: { scope: "thread" } }, "#remember");
+  assert.throws(
+    () => rememberHarness.helper.resolveRunMemory(
+      rememberHarness.store,
+      rememberHarness.agent,
+      { memory: { scope: "thread" } },
+      "#remember",
+    ),
+    (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_write" }),
+  );
 
-  assert.equal(result.command, "remember");
-  assert.equal(result.injected, false);
-  assert.equal(result.writes.length, 1);
-  assert.equal(writes[0].input.text, "Remember this");
-  assert.equal(writes[0].input.source, "chat_hash_remember");
-  assert.equal(result.mutations[0].operation, "write");
+  const editHarness = createHarness({
+    command: { kind: "edit", id: "memory-one", text: "Edited" },
+  });
+  assert.throws(
+    () => editHarness.helper.resolveRunMemory(editHarness.store, editHarness.agent, {}, "#memory edit"),
+    (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_edit", memoryId: "memory-one" }),
+  );
+
+  const deleteHarness = createHarness({
+    command: { kind: "delete", id: "memory-one" },
+  });
+  assert.throws(
+    () => deleteHarness.helper.resolveRunMemory(deleteHarness.store, deleteHarness.agent, {}, "#memory delete"),
+    (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_delete", memoryId: "memory-one" }),
+  );
+
+  const requestedRememberHarness = createHarness();
+  assert.throws(
+    () => requestedRememberHarness.helper.resolveRunMemory(
+      requestedRememberHarness.store,
+      requestedRememberHarness.agent,
+      { remember: "Remember from API" },
+      "hello",
+    ),
+    (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_write" }),
+  );
+
+  for (const harness of [rememberHarness, editHarness, deleteHarness, requestedRememberHarness]) {
+    assert.deepEqual(harness.writes, []);
+    assert.deepEqual(harness.mutations, []);
+  }
+});
+
+test("run memory resolution policy commands fail closed before JS policy mutation", () => {
+  const { agent, helper, store, mutations } = createHarness({
+    command: { kind: "disable" },
+  });
+
+  assert.throws(
+    () => helper.resolveRunMemory(store, agent, {}, "/memory disable"),
+    (error) => assertRunMemoryRustCoreRequired(error, { operation: "memory_disable" }),
+  );
+
+  assert.deepEqual(mutations, []);
 });
 
 test("run memory resolution ignores retired memory thread and approval aliases", () => {
-  const { agent, helper, store, writes } = createHarness({
+  const { agent, helper, store, writes, mutations } = createHarness({
     policy: {
       id: "policy-approval",
       injection_enabled: true,
@@ -126,32 +200,50 @@ test("run memory resolution ignores retired memory thread and approval aliases",
     command: { kind: "remember", text: "Remember canonical thread" },
   });
 
-  const result = helper.resolveRunMemory(
-    store,
-    agent,
-    {
-      memory: {
-        threadId: "thread-retired",
-        thread_id: "thread-canonical",
-        writeApproved: true,
-        write_approved: true,
-      },
-    },
-    "#remember",
+  assert.throws(
+    () =>
+      helper.resolveRunMemory(
+        store,
+        agent,
+        {
+          memory: {
+            threadId: "thread-retired",
+            thread_id: "thread-canonical",
+            writeApproved: true,
+            write_approved: true,
+          },
+        },
+        "#remember",
+      ),
+    (error) =>
+      assertRunMemoryRustCoreRequired(error, {
+        operation: "memory_write",
+        threadId: "thread-canonical",
+      }),
   );
+  assert.deepEqual(writes, []);
+  assert.deepEqual(mutations, []);
 
-  assert.equal(result.policyBlockReason, null);
-  assert.equal(writes[0].input.threadId, "thread-canonical");
-
-  const blocked = helper.resolveRunMemory(
-    store,
-    agent,
+  const blockedHarness = createHarness({
+    policy: {
+      id: "policy-approval",
+      injection_enabled: true,
+      disabled: false,
+      read_only: false,
+      write_requires_approval: true,
+    },
+  });
+  const blocked = blockedHarness.helper.resolveRunMemory(
+    blockedHarness.store,
+    blockedHarness.agent,
     { memory: { threadId: "thread-retired", writeApproved: true }, remember: "retired approval" },
     "hello",
   );
 
   assert.equal(blocked.policyBlockReason, "memory_write_requires_approval");
   assert.equal(blocked.writes.length, 0);
+  assert.deepEqual(blockedHarness.writes, []);
+  assert.deepEqual(blockedHarness.mutations, []);
 });
 
 test("run memory resolution disables injection and reports policy block reason", () => {
