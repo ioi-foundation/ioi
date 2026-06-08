@@ -110,7 +110,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function adapterBoundaries(state) {
-    return buildAdapterBoundaries(state);
+    return rustProjectionObjectField(state, "adapterBoundaries");
   }
 
   function receiptReplay(state, receiptId) {
@@ -160,8 +160,8 @@ export function createModelMountingReadProjectionFacade({
     };
   }
 
-  function workflowNodeBindings() {
-    return workflowNodeBindingsProjection({ capabilityForWorkflowNode });
+  function workflowNodeBindings(state) {
+    return rustProjectionField(state, "workflowBindings");
   }
 
   function rustReadProjection(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
@@ -173,6 +173,12 @@ export function createModelMountingReadProjectionFacade({
     const projection = rustReadProjection(state, "projection");
     const value = projection?.[field];
     return Array.isArray(value) ? value : [];
+  }
+
+  function rustProjectionObjectField(state, field) {
+    const projection = rustReadProjection(state, "projection");
+    const value = projection?.[field];
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
   function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {

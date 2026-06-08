@@ -330,8 +330,14 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "projection",
     "projection",
   ]);
-  assert.equal(facade.workflowNodeBindings(state).find((binding) => binding.node === "Embedding").capability, "embeddings");
-  assert.equal(facade.workflowNodeBindings(state).find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
+  const workflowBindings = facade.workflowNodeBindings(state);
+  assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
+  assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
+  assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind).slice(-2), [
+    "projection",
+    "projection",
+  ]);
 });
 
 test("read projection facade composes snapshots, projection, and receipt replay", () => {

@@ -960,6 +960,17 @@ state input for the planner, the command bridge remains migration transport, and
 direct Rust daemon-core Agentgres projection APIs still need to replace local
 map/projection materialization and JS transport wrappers.
 
+Slice 798 moved public model_mount adapter-boundary and workflow-node binding
+reads through Rust projection fields. `adapterBoundaries()` now returns the
+Rust-authored `adapterBoundaries` projection object, and
+`workflowNodeBindings()` now returns the Rust-authored `workflowBindings`
+projection list. The JS `buildAdapterBoundaries()` and
+`workflowNodeBindingsProjection()` helpers remain only as current-state input
+materializers for the migration planner. This still does not claim terminal
+model_mount projection migration: JS still prepares current state input, and
+direct Rust daemon-core Agentgres projection APIs still need to replace command
+transport and local materialization.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

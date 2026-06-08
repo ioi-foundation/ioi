@@ -105,6 +105,7 @@ This pass compacted Slice 795 model_mount projection-cache read-retirement
 evidence.
 This pass compacted Slice 796 model_mount projection-field list-read Rust-plan
 evidence.
+This pass compacted Slice 797 model_mount snapshot-envelope Rust-plan evidence.
 Slice 787 retired memory projection input compatibility aliases at the Rust
 boundary; its matrix-compaction pass is complete.
 Slice 788 retired memory projection envelope identity aliases at the
@@ -127,10 +128,12 @@ matrix-compaction pass is complete.
 Slice 796 moved public model_mount projection-field list reads through the Rust
 read-projection plan; its matrix-compaction pass is complete.
 Slice 797 moved the public model_mount snapshot envelope through the Rust
-read-projection plan; its matrix-compaction pass is scheduled after the next
-verified Rust-core extraction or facade-retirement seam is clear.
+read-projection plan; its matrix-compaction pass is complete.
+Slice 798 moved public model_mount adapter-boundary and workflow-node binding
+reads through Rust projection fields; its matrix-compaction pass is scheduled
+after the next verified Rust-core extraction or facade-retirement seam is clear.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice, then compact Slice 797 evidence once
+facade-retirement implementation slice, then compact Slice 798 evidence once
 the next seam is clear. Preserve the live owner map, terminal blockers, and the
 fact that fail-closed JS facades, canonical input helpers, local projection
 helpers, and migration transport are not terminal substrate.
@@ -240,7 +243,7 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: compact Slice 797 after the next
+- Next scheduled matrix-compaction pass: compact Slice 798 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -16038,7 +16041,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 797
+## Compacted Implementation Slice Evidence: 797
 
 Slice 797 moved the public model_mount snapshot envelope out of the JS
 `modelMountingSnapshot()` facade path and through the Rust read-projection plan.
@@ -16060,7 +16063,34 @@ input for the projection planner, the command bridge remains migration
 transport, and direct Rust daemon-core Agentgres projection APIs still need to
 replace local map/projection materialization and JS transport wrappers.
 
-Scheduled matrix-compaction obligation from Slice 797 is pending after this
+Scheduled matrix-compaction obligation from Slice 797 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 798
+
+Slice 798 moved public model_mount adapter-boundary and workflow-node binding
+reads out of direct JS helper return paths and through Rust-authored projection
+fields. `adapterBoundaries()` now returns the `adapterBoundaries` object from
+the Rust model_mount read projection, and `workflowNodeBindings()` now returns
+the `workflowBindings` list from that same projection. The JS
+`buildAdapterBoundaries()` and `workflowNodeBindingsProjection()` helpers remain
+only as current-state input materializers for the migration planner.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This does not claim terminal model_mount migration: JS still materializes state
+input for the projection planner, the command bridge remains migration
+transport, and direct Rust daemon-core Agentgres projection APIs still need to
+replace local map/projection materialization and JS transport wrappers.
+
+Scheduled matrix-compaction obligation from Slice 798 is pending after this
 verified slice. The next resume should either compact this evidence once the
 next Rust-core extraction/facade-retirement seam is clear or continue with that
 next seam while preserving the non-terminal status of command transport, JS
