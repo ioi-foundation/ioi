@@ -93,6 +93,8 @@ This pass compacted Slice 787 memory projection input alias-retirement evidence.
 This pass compacted Slice 788 memory projection envelope alias-retirement
 evidence.
 This pass compacted Slice 789 SDK memory output alias-retirement evidence.
+This pass compacted Slice 790 model-capability protocol output alias-retirement
+evidence.
 Slice 787 retired memory projection input compatibility aliases at the Rust
 boundary; its matrix-compaction pass is complete.
 Slice 788 retired memory projection envelope identity aliases at the
@@ -101,14 +103,11 @@ complete.
 Slice 789 retired SDK memory output compatibility aliases for projection, path,
 record, and policy response contracts; its matrix-compaction pass is complete.
 Slice 790 retired public model-capability protocol output aliases from daemon
-and SDK contracts; its matrix-compaction pass is scheduled for the next resume
-cycle before unrelated route-family work.
-Next resume instruction: run the scheduled Slice 790 matrix-compaction pass
-before unrelated route-family work, then continue the next Rust-core extraction
-or facade-retirement implementation slice. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades, canonical input
-helpers, local projection helpers, and migration transport are not terminal
-substrate.
+and SDK contracts; its matrix-compaction pass is complete.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice. Preserve the live owner map, terminal
+blockers, and the fact that fail-closed JS facades, canonical input helpers,
+local projection helpers, and migration transport are not terminal substrate.
 
 ## Purpose
 
@@ -215,19 +214,14 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: Slice 790 model-capability protocol
-  output alias-retirement evidence, to run before unrelated route-family work
-  continues.
-- Future-resumption trigger: resume the migration goal by running the scheduled
-  Slice 790 matrix-compaction pass before starting unrelated route-family work.
-  After that pass, continue with the next concrete Rust-core extraction or
-  facade-retirement seam and schedule the following compaction pass only after
-  that seam lands. Do not let context compaction demote this to optional
-  evidence pruning.
-- Next resume order is mandatory: compact the verified Slice 790
-  model-capability protocol alias-retirement seam, then clarify the next
-  concrete Rust-core extraction/facade-retirement seam before unrelated
-  route-family work.
+- Next scheduled matrix-compaction pass: none pending until the next Rust-core
+  extraction or facade-retirement seam lands.
+- Future-resumption trigger: resume the migration goal by continuing with the
+  next concrete Rust-core extraction or facade-retirement seam; schedule the
+  following compaction pass only after that seam lands. Do not let context
+  compaction demote future scheduled passes to optional evidence pruning.
+- Next resume order is mandatory: clarify the next concrete Rust-core
+  extraction/facade-retirement seam before unrelated route-family work.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -15776,7 +15770,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or
 stale SDK compatibility aliases as terminal architecture.
 
-## Implementation Slice Evidence: 790
+## Compacted Implementation Slice Evidence: 790
 
 Slice 790 retired the model-capability protocol output aliases that could have
 reintroduced the pre-canonical model_mount contract shape through
@@ -15816,8 +15810,8 @@ binding, StepModuleRouter dispatch, replay, SDK/IDE protocol coverage beyond
 this model-capability seam, and replacement of command transport with a direct
 Rust daemon-core API remain open terminal blockers.
 
-Scheduled matrix-compaction obligation from Slice 790 is now pending. The next
-resume should compact this evidence before unrelated route-family work,
-preserve the owner map and terminal blockers, and avoid encoding command
-transport, JS wrapper calls, or stale SDK compatibility aliases as terminal
-architecture.
+Scheduled matrix-compaction obligation from Slice 790 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or
+stale SDK compatibility aliases as terminal architecture.

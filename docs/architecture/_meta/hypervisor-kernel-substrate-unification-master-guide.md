@@ -855,8 +855,10 @@ protocol contract. This still does not claim terminal model_mount migration:
 direct Rust daemon-core route-control/projection APIs, Agentgres-admitted route
 truth, wallet authority binding, StepModuleRouter dispatch, replay, and direct
 Rust API replacement for command transport still need ownership. The Slice 790
-model-capability protocol alias-retirement matrix-compaction pass is scheduled
-for the next resume cycle before unrelated route-family work continues.
+model-capability protocol alias-retirement matrix-compaction pass is complete.
+No matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands; do not encode the command bridge or JS transport
+wrappers as terminal architecture.
 
 ## Part II: Target Execution Model
 
