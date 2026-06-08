@@ -370,8 +370,8 @@ function runDocs() {
       /Slice 750 runtime model-route selection facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 751 stream-cancel receipt facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 752 receipt-gate receipt facade\s+retirement compaction is complete/.test(guide) &&
-      /Slice 753 retired the dead public model\s+invocation JS execution bodies/.test(guide) &&
-      /schedule and run the next\s+matrix-compaction pass before unrelated route-family work resumes/.test(guide) &&
+      /Slice 753 public model invocation dead JS\s+body-retirement compaction is complete/.test(guide) &&
+      /No matrix-compaction pass is pending\s+until the next Rust-core extraction or facade-retirement seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -390,8 +390,8 @@ function runDocs() {
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
-      /Slice 753 public model\s+invocation dead JS body retirement has landed and scheduled the next compaction\s+pass/.test(matrix) &&
-      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
+      /then compacted Slice 753\s+public model invocation dead JS body retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -488,15 +488,18 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 752 is now satisfied/.test(
         matrix,
       ) &&
-      /Implementation Slice 753: Public Model Invocation Dead JS Body Retirement/.test(
+      /Compacted Implementation Slice Evidence: 753/.test(
         matrix,
       ) &&
       /invokeModel/.test(matrix) &&
       /startModelStream/.test(matrix) &&
-      /Public Model Invocation Dead JS Body Retirement/.test(matrix) &&
+      /public\s+model invocation dead JS body-retirement seam landed/.test(matrix) &&
       /model-mount-provider-js-invocation-retired/.test(matrix) &&
       /model-mount-native-stream-no-downgrade-live-bridge/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 753/.test(
+      /Scheduled matrix-compaction obligation from Slice 753 is now satisfied/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 753/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&

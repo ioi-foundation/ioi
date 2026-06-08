@@ -35,12 +35,13 @@ receipt helper facade-retirement evidence. This pass compacted Slice 749 public
 model invocation facade-retirement evidence, then compacted Slice 750 runtime
 model-route selection facade-retirement evidence, then compacted Slice 751
 stream-cancel receipt facade-retirement evidence, then compacted Slice 752
-receipt-gate receipt facade-retirement evidence. Slice 753 public model
-invocation dead JS body retirement has landed and scheduled the next compaction
-pass.
-Next resume instruction: run the scheduled matrix-compaction pass before
-starting unrelated route-family work; preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades are not terminal substrate.
+receipt-gate receipt facade-retirement evidence, then compacted Slice 753
+public model invocation dead JS body retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades are not terminal
+substrate.
 
 ## Purpose
 
@@ -135,9 +136,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 753 public model
-  invocation dead JS body retirement. Run it before starting unrelated
-  route-family work.
+- Next scheduled matrix-compaction pass: none pending after Slice 753 public
+  model invocation dead JS body retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14093,80 +14093,42 @@ above remain authoritative for current and target ownership.
   read-only projection adapters, or migration transport as terminal
   architecture.
 
-## Implementation Slice 753: Public Model Invocation Dead JS Body Retirement
+## Compacted Implementation Slice Evidence: 753
 
-date: 2026-06-08
-phase: 10-authoritative-js-facade-retirement
-owner_map_row: `model-mounting`
-implementation_matrix_object: `ModelInvocationControl`
-status: verified
-target_execution_owner: Rust daemon core model invocation API
-current_surface_retired:
-- `packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs#invokeModel`
-- `packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs#startModelStream`
-authority_change:
-- The public non-stream and stream invocation facades remain fail-closed at the
-  Rust-core-required boundary, but the dead JS execution bodies behind those
-  unconditional throws were removed.
-- The removed bodies included JS authorization, route selection, route receipt
-  creation, provider loading/execution, MCP integration compilation, JS
-  invocation receipt creation, Agentgres transition planning, receipt binding,
-  conversation projection, route-state persistence, provider-result wrapping,
-  stream chunk adaptation, stream downgrade/fallback, and provider compatibility
-  translation checks.
-- Exported lower-level request builders for Rust model_mount admission,
-  provider execution/invocation/result admission, Agentgres transition, and
-  receipt binding remain as migration transport helpers until direct Rust
-  daemon-core APIs replace them.
-legacy_paths_removed:
-- `invokeModel(...)` no longer retains a latent JS provider execution, JS
-  `model_invocation`/coalesced receipt construction, or route-state persistence
-  path after the Rust-core-required throw.
-- `startModelStream(...)` no longer retains a latent JS native-stream execution,
-  provider-result wrapping, stream readable adaptation, JS receipt construction,
-  or non-stream downgrade/fallback path after the Rust-core-required throw.
-- Private helper bodies used only by those dead paths were removed:
-  `invocationReceiptDetails`, `persistRouteSelection`,
-  `admitModelMountProviderExecution`, `admitModelMountProviderResult`,
-  `executeModelProviderInvocation`, `rejectUnmigratedProviderInvocationExecution`,
-  `rejectProviderCompatTranslation`, `executeModelMountProviderInvocation`,
-  `executeModelMountProviderStreamInvocation`, `withTextChunksReadableStream`,
-  `withModelMountProviderResultAdmission`, `bindModelMountInvocationReceipt`,
-  and `nextInvocationReceiptId`.
-compatibility_shims_remaining:
+The expanded Slice 753 ledger was compacted on 2026-06-08 after the public
+model invocation dead JS body-retirement seam landed. This slice remains active
+migration evidence, not terminal architecture. The `ModelInvocationControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
+
+- Slice 753 removed the dead JS execution and receipt-construction bodies that
+  remained behind the fail-closed `invokeModel(...)` and `startModelStream(...)`
+  public facades in
+  `packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs`.
+- The retired bodies previously retained latent JS authorization, route
+  selection, route receipt creation, provider loading/execution, MCP
+  integration compilation, JS invocation receipt construction, Agentgres
+  transition planning, receipt binding, conversation projection, route-state
+  persistence, provider-result wrapping, stream chunk adaptation,
+  downgrade/fallback, and compatibility-translation paths after the
+  Rust-core-required throw.
 - Exported request-shape builders remain only as migration transport for the
-  current bridge-backed Rust admission contracts; they are not terminal JS
-  authority or compatibility facades.
-temporary_transport:
-- The existing `ioi.runtime.daemon_core.command.v1` / bridge-backed model_mount
-  admission calls remain migration transport only.
-conformance:
-- `model-mount-invocation-receipt-detail-aliases-retired`
-- `model-mount-invocation-admission-live-bridge`
-- `model-mount-provider-execution-live-bridge`
-- `model-mount-local-provider-invocation-live-bridge`
-- `model-mount-native-local-stream-invocation-live-bridge`
-- `model-mount-provider-js-invocation-retired`
-- `model-mount-provider-compat-translation-receipt-retired`
-- `model-mount-stream-provider-result-admission-live-bridge`
-- `model-mount-native-stream-no-downgrade-live-bridge`
-- `model-mount-native-stream-pre-admission-downgrade-retired`
-- `model-mount-invocation-receipt-binding-live-bridge`
-- `model-mount-provider-execution-core`
-- `model-mount-local-provider-invocation-core`
-- `model-mount-native-local-stream-invocation-core`
-- `model-mount-provider-result-admission-core`
-- `model-mount-stream-request-shape-append-retired`
-verification:
-- `node --check packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs`
-- `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs`
-- `node scripts/conformance/hypervisor-conformance.mjs bridge`
-- `node scripts/conformance/hypervisor-conformance.mjs receipts`
-next:
-- Run the scheduled matrix-compaction pass before starting unrelated
-  route-family work. The compaction must preserve the distinction between the
-  remaining exported migration request builders and terminal direct Rust
-  daemon-core model invocation APIs.
+  current bridge-backed Rust model_mount admission contracts; they are not
+  terminal JS authority, compatibility facades, or the target direct Rust
+  daemon-core API.
+- Conformance anchors include
+  `model-mount-invocation-receipt-detail-aliases-retired`,
+  `model-mount-provider-js-invocation-retired`,
+  `model-mount-native-stream-no-downgrade-live-bridge`,
+  `model-mount-native-stream-pre-admission-downgrade-retired`,
+  `model-mount-provider-execution-core`, and
+  `model-mount-provider-result-admission-core`.
+- Scheduled matrix-compaction obligation from Slice 753 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS invocation wrappers,
+  exported migration request builders, or command transport as terminal
+  architecture.
 
 ## Command State
 
