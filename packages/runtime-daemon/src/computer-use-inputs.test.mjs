@@ -5,6 +5,7 @@ import {
   computerUseAuthorityScopesForInput,
   computerUseControlActionForInput,
   computerUseObservationRetentionModeForInput,
+  computerUseWorkflowNodeIdsForInput,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindIsReadOnly,
   nativeBrowserActionKindValue,
@@ -55,6 +56,22 @@ test("computer-use inputs consume canonical observation retention only", () => {
       "prompt_visible_summary_only",
     ),
     "prompt_visible_summary_only",
+  );
+});
+
+test("computer-use inputs consume canonical workflow node ids only", () => {
+  assert.deepEqual(
+    computerUseWorkflowNodeIdsForInput({
+      workflow_node_ids: ["node.canonical", " ", "node.extra"],
+      workflowNodeIds: ["node.retired"],
+    }),
+    ["node.canonical", "node.extra"],
+  );
+  assert.deepEqual(
+    computerUseWorkflowNodeIdsForInput({
+      workflowNodeIds: ["node.retired"],
+    }),
+    [],
   );
 });
 

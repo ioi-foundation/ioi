@@ -19,6 +19,7 @@ import {
   computerUseAuthorityScopesForInput,
   computerUseControlActionForInput,
   computerUseObservationRetentionModeForInput,
+  computerUseWorkflowNodeIdsForInput,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindFromText,
   nativeBrowserActionKindIsReadOnly,
@@ -2602,7 +2603,7 @@ export class AgentgresRuntimeStateStore {
       workflow_node_id: workflowNodeId,
       workflow_node_ids: uniqueStrings([
         workflowNodeId,
-        ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
+        ...computerUseWorkflowNodeIdsForInput(input),
       ]),
       tool_ref: toolId,
       authority_scopes: uniqueStrings([
@@ -2832,7 +2833,7 @@ export class AgentgresRuntimeStateStore {
       workflow_node_id: workflowNodeId,
       workflow_node_ids: uniqueStrings([
         workflowNodeId,
-        ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
+        ...computerUseWorkflowNodeIdsForInput(input),
       ]),
       tool_ref: toolId,
       authority_scopes: uniqueStrings([
@@ -3047,7 +3048,7 @@ export class AgentgresRuntimeStateStore {
       workflow_node_id: workflowNodeId,
       workflow_node_ids: uniqueStrings([
         workflowNodeId,
-        ...normalizeArray(input.workflowNodeIds ?? input.workflow_node_ids),
+        ...computerUseWorkflowNodeIdsForInput(input),
       ]),
       tool_ref: toolId,
       authority_scopes: uniqueStrings([

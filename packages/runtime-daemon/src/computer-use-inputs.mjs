@@ -75,6 +75,12 @@ export function computerUseObservationRetentionModeForInput(input = {}, fallback
   return optionalString(input.observation_retention_mode) ?? fallback;
 }
 
+export function computerUseWorkflowNodeIdsForInput(input = {}) {
+  return normalizeArray(input.workflow_node_ids)
+    .map((nodeId) => optionalString(nodeId))
+    .filter(Boolean);
+}
+
 export function nativeBrowserSessionModeForInput(input = {}) {
   const explicit = optionalString(
     input.session_mode ??

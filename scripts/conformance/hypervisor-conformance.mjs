@@ -3477,6 +3477,29 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "computer-use-route-workflow-node-alias-retired",
+    /export function computerUseWorkflowNodeIdsForInput/.test(computerUseInputs) &&
+      /computerUseWorkflowNodeIdsForInput,\s*[\r\n\s]*nativeBrowserActionKindForInput/.test(
+        runtimeDaemonIndex,
+      ) &&
+      [...runtimeDaemonIndex.matchAll(/\.\.\.computerUseWorkflowNodeIdsForInput\(input\)/g)].length === 3 &&
+      /computer-use inputs consume canonical workflow node ids only/.test(
+        computerUseInputsTest,
+      ) &&
+      /workflowNodeIds: \["node\.retired"\]/.test(computerUseInputsTest) &&
+      !/normalizeArray\(input\.workflowNodeIds\s*\?\?\s*input\.workflow_node_ids\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/input\.workflowNodeIds\b/.test(runtimeDaemonIndex),
+    [
+      "packages/runtime-daemon/src/computer-use-inputs.mjs",
+      "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use route metadata must ignore retired workflowNodeIds input aliases before StepModule/Rust dispatch",
+  );
+  assertCheck(
+    result,
     "coding-tool-input-summary-aliases-retired",
     /dry_run:\s*Boolean\(input\.dry_run\)/.test(codingToolInputSummaryBody) &&
       /command_id:\s*optionalString\(input\.command_id\) \?\? "node\.test"/.test(
