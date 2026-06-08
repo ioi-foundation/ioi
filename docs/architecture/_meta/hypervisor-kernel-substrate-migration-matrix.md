@@ -14483,6 +14483,74 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 719
+
+```yaml
+slice: 719
+phase: 10-authoritative-js-facade-retirement
+objective: retire public provider inventory/list-loaded JS read facades until
+  direct Rust daemon-core projection APIs own provider inventory reads
+owner_boundary:
+  route_or_surface: model-mounting provider inventory list/read
+  authority_gate: provider model/list-loaded reads now fail closed at
+    `model_mount.provider_inventory` before JS provider driver execution,
+    JS `provider_models_list` or `provider_loaded_list` lifecycle receipt
+    creation, local artifact/instance fallback reads, JS artifact record-state
+    commits, artifact/instance map mutation, or projection writes
+  execution_backend: none in JS for public provider inventory reads; the
+    existing Rust fixture/native-local inventory planner remains backend
+    substrate evidence, but it is not the terminal public read API and cannot
+    be used by the JS facade to mint accepted/projection truth
+  truth_path: no JS provider-inventory lifecycle receipt from public list
+    operations, no provider-discovered JS artifact materialization, no local
+    fallback read promoted as truth, and no JS projection mutation
+  projection_path: direct Rust daemon-core inventory/projection APIs must own
+    provider inventory projection materialization before public list/read
+    surfaces can return admitted data again
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires public provider inventory facades to
+    fail closed before JS list driver calls, JS inventory receipts, local
+    fallback reads, artifact record-state commits, map writes, or projections
+  - focused daemon tests prove hosted/custom and native-local inventory reads
+    fail closed with canonical snake_case Rust-core-required details
+  - direct provider-inventory receipt write guards remain intact for Rust-bound
+    receipts, while the public JS list facade can no longer create them
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - route handlers may still enter provider inventory through JS protocol
+      adapters, but public list/read operations fail closed until direct Rust
+      daemon-core projection APIs are verified
+    - Rust fixture/native-local inventory planner plumbing remains as backend
+      substrate for the future direct Rust projection API; it must not be
+      mistaken for terminal Node/MJS read ownership after context compaction
+    - schedule a matrix-compaction pass once the next MCP or model-mount
+      read-projection Rust-core extraction/facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14498,7 +14566,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 718 and the provider-health JS mutation-facade retirement pass:
+Current expected behavior after Slice 719 and the provider-inventory JS read-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

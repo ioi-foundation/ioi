@@ -1,5 +1,4 @@
 import { runtimeError } from "./io.mjs";
-import { modelMountProviderKindRequiresRustInstanceLifecycle } from "./model-instance-lifecycle.mjs";
 
 const RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES = [
   "authScheme",
@@ -74,54 +73,16 @@ export async function providerHealth(state, providerId, deps = {}) {
 
 export async function listProviderModels(state, providerId) {
   const provider = state.provider(providerId);
-  assertProviderRustInventoryBackend(provider, "provider_models_list");
-  const models = await state.driverForProvider(provider).listModels({ state, provider });
-  assertProviderOperationInventoryBound(provider, models, "provider_models_list");
-  const resolved = models.length > 0
-    ? models
-    : state.listArtifacts().filter((artifact) => artifact.providerId === providerId);
-  state.lifecycleReceipt("provider_models_list", {
-    provider_id: providerId,
-    provider_kind: provider.kind,
-    model_id: provider.label,
-    state: provider.status,
-    model_count: resolved.length,
-    evidence_refs: provider.discovery?.evidenceRefs ?? [],
-    ...providerInventoryReceiptFields(models.model_mount_provider_inventory),
+  throwProviderInventoryRustCoreRequired(provider, "provider_models_list", {
+    operation_kind: "model_mount.provider.inventory.list_models",
   });
-  return resolved;
 }
 
 export async function listProviderLoaded(state, providerId) {
   const provider = state.provider(providerId);
-  assertProviderRustInventoryBackend(provider, "provider_loaded_list");
-  const loaded = await state.driverForProvider(provider).listLoaded({ state, provider });
-  assertProviderOperationInventoryBound(provider, loaded, "provider_loaded_list");
-  const resolved = loaded.length > 0
-    ? loaded
-    : state.listInstances().filter((instance) => instance.providerId === providerId && instance.status === "loaded");
-  state.lifecycleReceipt("provider_loaded_list", {
-    provider_id: providerId,
-    provider_kind: provider.kind,
-    model_id: provider.label,
-    state: provider.status,
-    loaded_count: resolved.length,
-    evidence_refs: provider.discovery?.evidenceRefs ?? [],
-    ...providerInventoryReceiptFields(loaded.model_mount_provider_inventory),
+  throwProviderInventoryRustCoreRequired(provider, "provider_loaded_list", {
+    operation_kind: "model_mount.provider.inventory.list_loaded",
   });
-  return resolved;
-}
-
-function providerInventoryReceiptFields(inventory) {
-  if (!inventory) return {};
-  return {
-    model_mount_provider_inventory_action: inventory.action,
-    model_mount_provider_inventory_status: inventory.status,
-    model_mount_provider_inventory_hash: inventory.inventory_hash,
-    model_mount_provider_inventory_evidence_refs: inventory.evidence_refs ?? [],
-    model_mount_provider_inventory_execution_backend: inventory.execution_backend,
-    model_mount_provider_inventory_item_count: inventory.item_count,
-  };
 }
 
 export async function startProvider(state, providerId, deps = {}) {
@@ -132,34 +93,6 @@ export async function startProvider(state, providerId, deps = {}) {
 export async function stopProvider(state, providerId, deps = {}) {
   const provider = state.provider(providerId);
   throw providerControlRustCoreRequired(provider, "provider_stop");
-}
-
-function assertProviderRustInventoryBackend(provider, operation) {
-  if (providerHasRustModelMountInventoryBackend(provider)) return;
-  const error = new Error("Provider inventory operation requires Rust model_mount inventory backend support.");
-  error.status = 501;
-  error.code = "model_mount_provider_inventory_backend_unmigrated";
-  error.details = {
-    operation,
-    provider_id: provider?.id ?? null,
-    provider_kind: provider?.kind ?? null,
-    provider_driver: provider?.driver ?? null,
-    api_format: provider?.apiFormat ?? null,
-  };
-  throw error;
-}
-
-function assertProviderOperationInventoryBound(provider, result, operation) {
-  if (result?.model_mount_provider_inventory) return;
-  const error = new Error("Provider inventory operation requires Rust model_mount inventory planning.");
-  error.status = 502;
-  error.code = "model_mount_provider_inventory_planning_required";
-  error.details = {
-    operation,
-    provider_id: provider?.id ?? null,
-    provider_kind: provider?.kind ?? null,
-  };
-  throw error;
 }
 
 function providerControlRustCoreRequired(provider, operation, details = {}) {
@@ -202,15 +135,23 @@ function throwProviderHealthRustCoreRequired(provider, operation, details = {}) 
   throw error;
 }
 
-function providerHasRustModelMountLifecycleBackend(provider = {}) {
-  return modelMountProviderKindRequiresRustInstanceLifecycle(provider.kind) ||
-    provider.kind === "fixture" ||
-    provider.driver === "native_local" ||
-    provider.driver === "fixture" ||
-    provider.apiFormat === "ioi_native" ||
-    provider.apiFormat === "ioi_fixture";
-}
-
-function providerHasRustModelMountInventoryBackend(provider = {}) {
-  return providerHasRustModelMountLifecycleBackend(provider);
+function throwProviderInventoryRustCoreRequired(provider, operation, details = {}) {
+  const error = new Error("Provider inventory reads require direct Rust daemon-core projection support.");
+  error.status = 501;
+  error.code = "model_mount_provider_inventory_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.provider_inventory",
+    operation,
+    ...details,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+    provider_driver: provider?.driver ?? null,
+    api_format: provider?.apiFormat ?? null,
+    evidence_refs: [
+      "model_mount_provider_inventory_js_facade_retired",
+      "rust_daemon_core_provider_inventory_required",
+      "agentgres_provider_inventory_projection_required",
+    ],
+  };
+  throw error;
 }

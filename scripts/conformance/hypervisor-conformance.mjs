@@ -11446,12 +11446,16 @@ function runReceipts() {
       !/\binventoryHash\b/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
       ) &&
-      /providerInventoryReceiptFields/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      /model_mount_provider_inventory_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
+      /model_mount_provider_inventory_rust_core_required/.test(providerOperations) &&
+      /rust_core_boundary:\s*"model_mount\.provider_inventory"/.test(providerOperations) &&
+      /model_mount_provider_inventory_js_facade_retired/.test(providerOperations) &&
+      /rust_daemon_core_provider_inventory_required/.test(providerOperations) &&
+      /agentgres_provider_inventory_projection_required/.test(providerOperations) &&
+      !/providerInventoryReceiptFields/.test(providerOperations) &&
+      !/state\.driverForProvider\(provider\)\.listModels/.test(providerOperations) &&
+      !/state\.driverForProvider\(provider\)\.listLoaded/.test(providerOperations) &&
+      !/state\.lifecycleReceipt\("provider_models_list"/.test(providerOperations) &&
+      !/state\.lifecycleReceipt\("provider_loaded_list"/.test(providerOperations) &&
       !/modelMountProviderInventory/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
@@ -11475,9 +11479,13 @@ function runReceipts() {
       /retired_aliases\.includes\("providerKind"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
-      /local provider model and loaded list receipts carry Rust inventory bindings/.test(
+      /local provider inventory also fails closed until direct Rust projection exists/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
+      /provider inventory facade does not depend on retired JS artifact record-state commit/.test(
+        providerOperationsTest,
+      ) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(providerOperationsTest) &&
       /modelMountProviderInventoryHash/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
@@ -12337,12 +12345,13 @@ function runReceipts() {
       /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
       !/state\.artifacts\.set/.test(providerOperations) &&
       !/state\.writeMap\("model-artifacts"/.test(providerOperations) &&
-      /provider model inventory projections do not require JS artifact record-state commit/.test(
+      /provider inventory facade does not depend on retired JS artifact record-state commit/.test(
         providerOperationsTest,
       ) &&
       /assert\.equal\(state\.artifacts\.has\("artifact\.native"\),\s*false\)/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(providerOperationsTest) &&
-      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(providerOperationsTest),
+      /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(providerOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(providerOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
@@ -12353,13 +12362,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-operation-detail-aliases-retired",
-    /provider_id:\s*providerId/.test(providerOperations) &&
-      /provider_kind:\s*provider\.kind/.test(providerOperations) &&
-      /model_count:\s*resolved\.length/.test(providerOperations) &&
-      /loaded_count:\s*resolved\.length/.test(providerOperations) &&
-      /model_mount_provider_inventory_backend_unmigrated/.test(providerOperations) &&
+    /provider_id:\s*provider\?\.id \?\? null/.test(providerOperations) &&
+      /provider_kind:\s*provider\?\.kind \?\? null/.test(providerOperations) &&
+      /model_mount_provider_inventory_rust_core_required/.test(providerOperations) &&
       /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
       /model_mount_provider_health_rust_core_required/.test(providerOperations) &&
+      !/model_mount_provider_inventory_backend_unmigrated/.test(providerOperations) &&
+      !/model_mount_provider_inventory_planning_required/.test(providerOperations) &&
+      !/model_count:\s*resolved\.length/.test(providerOperations) &&
+      !/loaded_count:\s*resolved\.length/.test(providerOperations) &&
       !/model_mount_provider_lifecycle_backend_unmigrated/.test(providerOperations) &&
       !/model_mount_provider_lifecycle_planning_required/.test(providerOperations) &&
       !/provider_stateless_start|provider_stateless_stop/.test(providerOperations) &&
@@ -12370,14 +12381,14 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
       /hosted provider health fails closed before JS driver execution/.test(providerOperationsTest) &&
       /assert\.equal\(healthCalls,\s*0\)/.test(providerOperationsTest) &&
-      /provider model and loaded lists require Rust inventory before local fallbacks/.test(providerOperationsTest) &&
+      /provider inventory list facades fail closed before JS driver or local fallback reads/.test(providerOperationsTest) &&
       /assert\.equal\(listModelCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(listLoadedCalls,\s*0\)/.test(providerOperationsTest) &&
+      /assert\.equal\(listArtifactsCalls,\s*0\)/.test(providerOperationsTest) &&
+      /assert\.equal\(listInstancesCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(startCalls,\s*0\)/.test(providerOperationsTest) &&
       /assert\.equal\(stopCalls,\s*0\)/.test(providerOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerHealthStatus"\),\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-2\)\.details,\s*"providerKind"\),\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"providerKind"\),\s*false/.test(providerOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\)\s*===\s*false/.test(providerOperationsTest) &&
       /retiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
       !/details\.providerId \?\? details\.provider_id/.test(modelMountReceiptWriteGuards) &&
