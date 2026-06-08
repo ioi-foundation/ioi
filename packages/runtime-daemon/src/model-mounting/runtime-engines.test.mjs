@@ -173,52 +173,49 @@ test("runtime engine listing applies profiles, active selection, and priority or
   assert.equal(engines.find((engine) => engine.id === "backend.autopilot.native-local.fixture").operatorProfile.configured, false);
 });
 
-test("selecting runtime engine persists preference and writes projection", () => {
+test("runtime engine mutation facade fails closed until Rust core owns it", () => {
   const state = fakeState();
 
-  const result = selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps);
+  const cases = [
+    [
+      () => selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps),
+      "model_mount.runtime_preference.write",
+    ],
+    [
+      () => updateRuntimeEngine(state, "backend.llama-cpp", { disabled: true, default_load_options: { gpu: "off" } }, deps),
+      "model_mount.runtime_engine_profile.write",
+    ],
+    [
+      () => removeRuntimeEngineOverride(state, "backend.llama-cpp", deps),
+      "model_mount.runtime_engine_profile.delete",
+    ],
+  ];
 
-  assert.equal(result.schemaVersion, "schema.v1");
-  assert.equal(result.selectedEngineId, "backend.llama-cpp");
-  assert.equal(state.runtimeSelections.get("default").source, "operator_runtime_select");
-  assert.equal(state.recordStateCommits[0].record_dir, "runtime-preferences");
-  assert.equal(state.recordStateCommits[0].record_id, "default");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.runtime_preference.write");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt_1"]);
-  assert.equal(state.recordStateCommits[0].record.selectedEngineId, "backend.llama-cpp");
+  for (const [run, operationKind] of cases) {
+    assert.throws(run, (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_runtime_engine_rust_core_required");
+      assert.equal(error.details.engine_id, "backend.llama-cpp");
+      assert.equal(error.details.operation_kind, operationKind);
+      assert.equal(error.details.rust_core_boundary, "model_mount.runtime_engine");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_runtime_engine_js_facade_retired",
+        "rust_daemon_core_runtime_engine_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "engineId"), false);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    });
+  }
+
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
-  assert.equal(state.projections, 1);
-  assert.equal(state.receipts[0].kind, "runtime_engine_select");
-  assert.equal(state.receipts[0].details.engine_id, "backend.llama-cpp");
-  assert.equal(state.receipts[0].details.engine_kind, "llama_cpp");
-  assert.deepEqual(state.receipts[0].details.default_load_options, {});
-  assert.equal(Object.hasOwn(state.receipts[0].details, "engineId"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "engineKind"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "defaultLoadOptions"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
-});
-
-test("disabled selected runtime engine resets preference to native fixture", () => {
-  const state = fakeState();
-  selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps);
-
-  const result = updateRuntimeEngine(state, "backend.llama-cpp", {
-    disabled: true,
-    default_load_options: { gpu: "off" },
-  }, deps);
-
-  assert.equal(result.profile.disabled, true);
-  assert.equal(state.runtimeSelections.get("default").selectedEngineId, "backend.autopilot.native-local.fixture");
-  assert.equal(state.runtimeSelections.get("default").source, "operator_runtime_disable_reset");
-  assert.equal(state.receipts[1].details.engine_id, "backend.llama-cpp");
-  assert.equal(state.receipts[1].details.previous_profile_hash, "hash:{}");
-  assert.deepEqual(state.receipts[1].details.default_load_options, { gpu: "off", normalized: true });
-  assert.equal(Object.hasOwn(state.receipts[1].details, "engineId"), false);
-  assert.equal(Object.hasOwn(state.receipts[1].details, "previousProfileHash"), false);
-  assert.equal(Object.hasOwn(state.receipts[1].details, "defaultLoadOptions"), false);
-  assert.equal(Object.hasOwn(state.receipts[1].details, "evidenceRefs"), false);
-  assert.equal(state.recordStateCommits.some((commit) => commit.record_dir === "runtime-engine-profiles"), true);
-  assert.equal(state.recordStateCommits.some((commit) => commit.record_dir === "runtime-preferences"), true);
+  assert.equal(state.projections, 0);
+  assert.equal(state.runtimeSelections.has("default"), false);
+  assert.equal(state.runtimeEngineProfiles.has("backend.llama-cpp"), false);
 });
 
 test("runtime engine errors use canonical details without retired aliases", () => {
@@ -232,10 +229,9 @@ test("runtime engine errors use canonical details without retired aliases", () =
   assert.throws(
     () => selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps),
     (error) => {
-      assert.equal(error.status, 409);
-      assert.equal(error.code, "runtime_engine_disabled");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_runtime_engine_rust_core_required");
       assert.equal(error.details.engine_id, "backend.llama-cpp");
-      assert.equal(error.details.receipt_id, "receipt.disable");
       assert.equal(Object.hasOwn(error.details, "engineId"), false);
       assert.equal(Object.hasOwn(error.details, "receiptId"), false);
       return true;
@@ -255,7 +251,14 @@ test("runtime engine errors use canonical details without retired aliases", () =
 
 test("runtime engine detail includes profile, preference, instances, and latest receipts", () => {
   const state = fakeState();
-  selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps);
+  state.runtimeSelections.set("default", {
+    id: "default",
+    selectedEngineId: "backend.llama-cpp",
+    selectedAt: "2026-06-03T12:00:00.000Z",
+    receiptId: "receipt_select",
+    source: "rust_daemon_core_runtime_engine_projection",
+    defaultLoadOptions: {},
+  });
   state.runtimeEngineProfiles.set("backend.llama-cpp", { id: "backend.llama-cpp", disabled: false });
   state.receipts.push({ id: "receipt_legacy", details: { runtimeEngineId: "backend.llama-cpp" } });
   state.receipts.push({ id: "receipt_runtime", details: { runtime_engine_id: "backend.llama-cpp" } });
@@ -269,39 +272,19 @@ test("runtime engine detail includes profile, preference, instances, and latest 
   assert.equal(detail.latestReceipts.some((receipt) => receipt.id === "receipt_legacy"), false);
 });
 
-test("removing runtime engine override clears profile and reports removal", () => {
+test("runtime engine mutation facade does not delete projected profiles", () => {
   const state = fakeState();
   state.runtimeEngineProfiles.set("backend.llama-cpp", { id: "backend.llama-cpp", disabled: false });
 
-  const result = removeRuntimeEngineOverride(state, "backend.llama-cpp", deps);
-
-  assert.equal(result.removed, true);
-  assert.equal(state.runtimeEngineProfiles.has("backend.llama-cpp"), false);
-  assert.equal(state.receipts[0].details.engine_id, "backend.llama-cpp");
-  assert.equal(state.receipts[0].details.had_profile, true);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "engineId"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "hadProfile"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "previousProfileHash"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "evidenceRefs"), false);
-  assert.equal(state.recordStateCommits[0].record_dir, "runtime-engine-profiles");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.runtime_engine_profile.delete");
-  assert.equal(state.recordStateCommits[0].record.deleted, true);
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt_1"]);
-  assert.equal(state.projections, 1);
-});
-
-test("runtime engine state persistence fails closed without Rust Agentgres record-state commit", () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
-
   assert.throws(
-    () => selectRuntimeEngine(state, { engine_id: "backend.llama-cpp" }, deps),
-    (error) =>
-      error.code === "runtime_engine_record_state_commit_unconfigured" &&
-      error.details.record_dir === "runtime-preferences" &&
-      error.details.record_id === "default" &&
-      error.details.receipt_id === "receipt_1",
+    () => removeRuntimeEngineOverride(state, "backend.llama-cpp", deps),
+    (error) => error.code === "model_mount_runtime_engine_rust_core_required",
   );
+
+  assert.equal(state.runtimeEngineProfiles.has("backend.llama-cpp"), true);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.projections, 0);
 });
 
 test("runtime engine requests ignore retired camelCase aliases", () => {
@@ -313,37 +296,42 @@ test("runtime engine requests ignore retired camelCase aliases", () => {
   );
   assert.equal(state.receipts.length, 0);
 
-  const result = updateRuntimeEngine(state, "backend.llama-cpp", {
-    defaultLoadOptions: { gpu: "retired" },
-    loadOptions: { gpu: "also-retired" },
-    operatorLabel: "Retired label",
-  }, deps);
-
-  assert.equal(result.profile.label, null);
-  assert.deepEqual(result.profile.defaultLoadOptions, { normalized: true });
-  assert.deepEqual(state.receipts[0].details.default_load_options, { normalized: true });
-  assert.equal(Object.hasOwn(state.receipts[0].details, "defaultLoadOptions"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "operatorLabel"), false);
+  assert.throws(
+    () => updateRuntimeEngine(state, "backend.llama-cpp", {
+      defaultLoadOptions: { gpu: "retired" },
+      loadOptions: { gpu: "also-retired" },
+      operatorLabel: "Retired label",
+    }, deps),
+    (error) => {
+      assert.equal(error.code, "model_mount_runtime_engine_rust_core_required");
+      assert.equal(Object.hasOwn(error.details, "defaultLoadOptions"), false);
+      assert.equal(Object.hasOwn(error.details, "operatorLabel"), false);
+      return true;
+    },
+  );
+  assert.equal(state.receipts.length, 0);
 });
 
 test("runtime engine operations ignore retired schemaVersion deps alias", () => {
   const state = fakeState();
-  const result = selectRuntimeEngine(
-    state,
-    { engine_id: "backend.llama-cpp" },
-    { ...deps, schemaVersion: "schema.retired" },
+  assert.throws(
+    () => selectRuntimeEngine(
+      state,
+      { engine_id: "backend.llama-cpp" },
+      { ...deps, schemaVersion: "schema.retired" },
+    ),
+    (error) => error.code === "model_mount_runtime_engine_rust_core_required",
   );
-
-  assert.equal(result.schemaVersion, "schema.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "runtime-preferences");
-  assert.equal(state.recordStateCommits[0].record_id, "default");
-  assert.equal(Object.hasOwn(state.recordStateCommits[0], "schemaVersion"), false);
+  assert.deepEqual(state.recordStateCommits, []);
 
   const aliasOnlyState = fakeState();
-  const aliasOnly = selectRuntimeEngine(
-    aliasOnlyState,
-    { engine_id: "backend.llama-cpp" },
-    { ...deps, schema_version: undefined, schemaVersion: "schema.retired.only" },
+  assert.throws(
+    () => selectRuntimeEngine(
+      aliasOnlyState,
+      { engine_id: "backend.llama-cpp" },
+      { ...deps, schema_version: undefined, schemaVersion: "schema.retired.only" },
+    ),
+    (error) => error.code === "model_mount_runtime_engine_rust_core_required",
   );
-  assert.equal(aliasOnly.schemaVersion, undefined);
+  assert.deepEqual(aliasOnlyState.recordStateCommits, []);
 });

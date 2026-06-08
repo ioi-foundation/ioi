@@ -11366,38 +11366,37 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-runtime-engine-detail-aliases-retired",
-    /engine_id:\s*engineId/.test(runtimeEngineReceiptBlocks) &&
-      /engine_kind:\s*engine\.kind/.test(runtimeEngineReceiptBlocks) &&
-      /engine_status:\s*engine\.status/.test(runtimeEngineReceiptBlocks) &&
-      /model_format:\s*engine\.modelFormat/.test(runtimeEngineReceiptBlocks) &&
-      /default_load_options:\s*engine\.operatorProfile/.test(runtimeEngineReceiptBlocks) &&
-      /checked_at:\s*checkedAt/.test(runtimeEngineReceiptBlocks) &&
-      /previous_profile_hash:\s*stableHash/.test(runtimeEngineReceiptBlocks) &&
-      /had_profile:\s*Boolean/.test(runtimeEngineReceiptBlocks) &&
-      /evidence_refs:\s*\["operator_runtime_engine_profile/.test(runtimeEngineReceiptBlocks) &&
-      /commitRuntimeEngineRecordState/.test(runtimeEngines) &&
-      /commitModelMountRecordState/.test(runtimeEngines) &&
-      /recordDir/.test(runtimeEngines) &&
-      /model_mount\.runtime_preference\.write/.test(runtimeEngines) &&
-      /model_mount\.runtime_engine_profile\.write/.test(runtimeEngines) &&
-      /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngines) &&
-      /const \{ requiredString,\s*runtimeError,\s*schema_version \} = deps;/.test(runtimeEngines) &&
-      /normalizeRuntimeEngineDefaultLoadOptions,\s*schema_version,\s*stableHash,/.test(runtimeEngines) &&
-      /const \{ schema_version,\s*stableHash \} = deps;/.test(runtimeEngines) &&
-      !/const \{ requiredString,\s*runtimeError,\s*schemaVersion \} = deps;/.test(runtimeEngines) &&
-      !/const \{ schemaVersion,\s*stableHash \} = deps;/.test(runtimeEngines) &&
-      /runtime_engine_record_state_commit_unconfigured/.test(runtimeEngines) &&
-      /runtime_engine_record_state_commit_invalid/.test(runtimeEngines) &&
-      !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeEngines) &&
-      !/normalizeRuntimeEngineRecordStateCommit/.test(runtimeEngines) &&
+    "model-mount-runtime-engine-js-facade-retired",
+    /throwRuntimeEngineRustCoreRequired/.test(runtimeEngines) &&
+      /model_mount_runtime_engine_rust_core_required/.test(runtimeEngines) &&
+      /rust_core_boundary:\s*"model_mount\.runtime_engine"/.test(runtimeEngines) &&
+      /public_runtime_engine_js_facade_retired/.test(runtimeEngines) &&
+      /rust_daemon_core_runtime_engine_required/.test(runtimeEngines) &&
+      /throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_preference\.write",\s*\{ engine_id: engineId \},\s*deps\)/.test(runtimeEngines) &&
+      /throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.write",\s*\{ engine_id: engineId \},\s*deps\)/.test(runtimeEngines) &&
+      /throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.delete",\s*\{ engine_id: engineId \},\s*deps\)/.test(runtimeEngines) &&
+      !/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)"/.test(runtimeEngines) &&
+      !/commitRuntimeEngineRecordState/.test(runtimeEngines) &&
+      !/commitModelMountRecordState/.test(runtimeEngines) &&
+      !/runtime_engine_record_state_commit_unconfigured/.test(runtimeEngines) &&
+      !/runtime_engine_record_state_commit_invalid/.test(runtimeEngines) &&
       !/fs\.rmSync/.test(runtimeEngines) &&
       !/state\.writeMap\("runtime-preferences"/.test(runtimeEngines) &&
       !/state\.writeMap\("runtime-engine-profiles"/.test(runtimeEngines) &&
-      /recordStateCommits/.test(runtimeEnginesTest) &&
-      /runtime engine state persistence fails closed without Rust Agentgres record-state commit/.test(runtimeEnginesTest) &&
-      /operation_kind,\s*"model_mount\.runtime_engine_profile\.delete"/.test(runtimeEnginesTest) &&
-      /schema_version:\s*"schema\.v1"/.test(runtimeEnginesTest) &&
+      !/state\.runtimeSelections\.set/.test(runtimeEngines) &&
+      !/state\.runtimeEngineProfiles\.set\(engineId/.test(runtimeEngines) &&
+      !/state\.runtimeEngineProfiles\.delete/.test(runtimeEngines) &&
+      /runtime engine mutation facade fails closed until Rust core owns it/.test(runtimeEnginesTest) &&
+      /model_mount_runtime_engine_rust_core_required/.test(runtimeEnginesTest) &&
+      /model_mount\.runtime_preference\.write/.test(runtimeEnginesTest) &&
+      /model_mount\.runtime_engine_profile\.write/.test(runtimeEnginesTest) &&
+      /model_mount\.runtime_engine_profile\.delete/.test(runtimeEnginesTest) &&
+      /public_runtime_engine_js_facade_retired/.test(runtimeEnginesTest) &&
+      /rust_daemon_core_runtime_engine_required/.test(runtimeEnginesTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeEnginesTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEnginesTest) &&
+      /assert\.equal\(state\.projections,\s*0\)/.test(runtimeEnginesTest) &&
+      /runtime engine mutation facade does not delete projected profiles/.test(runtimeEnginesTest) &&
       /runtime engine operations ignore retired schemaVersion deps alias/.test(runtimeEnginesTest) &&
       /schemaVersion:\s*"schema\.retired"/.test(runtimeEnginesTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
@@ -11407,37 +11406,31 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
       /notFound\(`Runtime engine not found: \$\{engineId\}`,\s*\{ engine_id: engineId \}\)/.test(runtimeEngines) &&
-      /details:\s*\{ engine_id: engineId,\s*receipt_id: engine\.operatorProfile\.receiptId/.test(runtimeEngines) &&
       /const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);/.test(runtimeEngines) &&
-      /body\.default_load_options \?\? body\.load_options \?\? existing\.defaultLoadOptions/.test(runtimeEngines) &&
       !/body\.(?:engineId|defaultLoadOptions|loadOptions|operatorLabel)\b/.test(runtimeEngines) &&
       /details\?\.runtime_engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
       /details\?\.engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
       /details\?\.backend_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
-      !/\b(?:engineId|engineKind|engineStatus|modelFormat|defaultLoadOptions|checkedAt|previousProfileHash|hadProfile|evidenceRefs)\s*:/.test(
-        runtimeEngineReceiptBlocks,
-      ) &&
+      runtimeEngineReceiptBlocks === "" &&
       !/details:\s*\{\s*engineId\b/.test(runtimeEngines) &&
       !/details\?\.(?:runtimeEngineId|engineId|backendId)\b/.test(runtimeEngineLatestReceiptFilter) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"engineId"\),\s*false/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"defaultLoadOptions"\),\s*false/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(state\.receipts\[1\]\.details,\s*"previousProfileHash"\),\s*false/.test(runtimeEnginesTest) &&
       /Object\.hasOwn\(error\.details,\s*"engineId"\),\s*false/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"receiptId"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(runtimeEnginesTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(runtimeEnginesTest) &&
       /runtime engine requests ignore retired camelCase aliases/.test(runtimeEnginesTest) &&
       /selectRuntimeEngine\(state,\s*\{ engineId: "backend\.llama-cpp" \}/.test(runtimeEnginesTest) &&
       /defaultLoadOptions: \{ gpu: "retired" \}/.test(runtimeEnginesTest) &&
       /operatorLabel: "Retired label"/.test(runtimeEnginesTest) &&
       /receipt_legacy/.test(runtimeEnginesTest) &&
-      /details:\s*\{ runtime_engine_id:\s*"backend\.llama-cpp" \}/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"hadProfile"\),\s*false/.test(runtimeEnginesTest),
+      /details:\s*\{ runtime_engine_id:\s*"backend\.llama-cpp" \}/.test(runtimeEnginesTest),
     [
       "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
-    "Phase 9/11 is pending: runtime-engine receipts, fail-closed errors, latest-receipt readers, and durable preference/profile records must use canonical snake_case metadata and Rust Agentgres record-state admission",
+    "Phase 9/11 is pending: runtime-engine mutation must fail closed until Rust daemon-core owns preference/profile receipts, record-state admission, and projections",
   );
   assertCheck(
     result,

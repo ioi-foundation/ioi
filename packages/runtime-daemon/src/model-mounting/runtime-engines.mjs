@@ -1,5 +1,3 @@
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
-
 const DEFAULT_RUNTIME_ENGINE_ID = "backend.autopilot.native-local.fixture";
 
 function defaultRuntimePreference(state, receiptId = "none", source = "default_native_local_runtime") {
@@ -76,151 +74,36 @@ export function runtimeEngine(state, engineId, deps = {}) {
 }
 
 export function selectRuntimeEngine(state, body = {}, deps = {}) {
-  const { requiredString, runtimeError, schema_version } = deps;
-  const schemaVersion = schema_version;
+  const { requiredString } = deps;
   const engineId = requiredString(body.engine_id, "engine_id");
-  const checkedAt = state.nowIso();
-  const engines = listRuntimeEngines(state);
-  const engine = engines.find((item) => item.id === engineId);
-  if (!engine) throw deps.notFound(`Runtime engine not found: ${engineId}`, { engine_id: engineId });
-  if (engine.operatorProfile?.disabled) {
-    throw runtimeError({
-      status: 409,
-      code: "runtime_engine_disabled",
-      message: "Runtime engine is disabled by its operator profile.",
-      details: { engine_id: engineId, receipt_id: engine.operatorProfile.receiptId ?? null },
-    });
-  }
-  const receipt = state.lifecycleReceipt("runtime_engine_select", {
-    engine_id: engineId,
-    engine_kind: engine.kind,
-    engine_status: engine.status,
-    source: engine.source,
-    model_format: engine.modelFormat,
-    default_load_options: engine.operatorProfile?.defaultLoadOptions ?? {},
-    checked_at: checkedAt,
-  });
-  const preference = {
-    id: "default",
-    selectedEngineId: engineId,
-    selectedAt: checkedAt,
-    receiptId: receipt.id,
-    source: "operator_runtime_select",
-    engineKind: engine.kind,
-    engineLabel: engine.label,
-    modelFormat: engine.modelFormat,
-    defaultLoadOptions: engine.operatorProfile?.defaultLoadOptions ?? {},
-  };
-  state.runtimeSelections.set(preference.id, preference);
-  commitRuntimeEngineRecordState(state, "runtime-preferences", preference, "model_mount.runtime_preference.write");
-  state.writeProjection();
-  return {
-    schemaVersion,
-    ...preference,
-  };
+  throwRuntimeEngineRustCoreRequired("model_mount.runtime_preference.write", { engine_id: engineId }, deps);
 }
 
 export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
-  const {
-    normalizeRuntimeEngineDefaultLoadOptions,
-    schema_version,
-    stableHash,
-  } = deps;
-  const schemaVersion = schema_version;
-  const engine = runtimeEngine(state, engineId, deps);
-  const now = state.nowIso();
-  const existing = runtimeEngineProfile(state, engineId) ?? {};
-  const disabledValue = body.disabled ?? body.disable ?? existing.disabled ?? false;
-  const defaultLoadOptions = normalizeRuntimeEngineDefaultLoadOptions(
-    body.default_load_options ?? body.load_options ?? existing.defaultLoadOptions ?? {},
-  );
-  const receipt = state.lifecycleReceipt("runtime_engine_update", {
-    engine_id: engineId,
-    engine_kind: engine.kind,
-    previous_profile_hash: stableHash(existing),
-    disabled: Boolean(disabledValue),
-    priority: body.priority ?? existing.priority ?? null,
-    default_load_options: defaultLoadOptions,
-    evidence_refs: ["operator_runtime_engine_profile", "runtime_engine_default_load_options"],
-  });
-  const profile = {
-    id: engineId,
-    engineId,
-    label: body.label ?? body.operator_label ?? existing.label ?? null,
-    disabled: Boolean(disabledValue),
-    priority: body.priority === undefined || body.priority === null || body.priority === ""
-      ? existing.priority ?? null
-      : Number(body.priority),
-    defaultLoadOptions,
-    updatedAt: now,
-    receiptId: receipt.id,
-    source: "operator_runtime_engine_profile",
-  };
-  state.runtimeEngineProfiles.set(engineId, profile);
-  commitRuntimeEngineRecordState(state, "runtime-engine-profiles", profile, "model_mount.runtime_engine_profile.write");
-  if (profile.disabled && runtimePreference(state).selectedEngineId === engineId) {
-    const resetPreference = defaultRuntimePreference(state, receipt.id, "operator_runtime_disable_reset");
-    state.runtimeSelections.set("default", resetPreference);
-    commitRuntimeEngineRecordState(state, "runtime-preferences", resetPreference, "model_mount.runtime_preference.write");
-  }
-  state.writeProjection();
-  return {
-    schemaVersion,
-    profile,
-    engine: runtimeEngine(state, engineId, deps),
-    receiptId: receipt.id,
-  };
+  void body;
+  throwRuntimeEngineRustCoreRequired("model_mount.runtime_engine_profile.write", { engine_id: engineId }, deps);
 }
 
 export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
-  const { schema_version, stableHash } = deps;
-  const schemaVersion = schema_version;
-  runtimeEngine(state, engineId, deps);
-  const existing = runtimeEngineProfile(state, engineId);
-  const receipt = state.lifecycleReceipt("runtime_engine_profile_remove", {
-    engine_id: engineId,
-    had_profile: Boolean(existing),
-    previous_profile_hash: stableHash(existing ?? {}),
-    evidence_refs: ["operator_runtime_engine_profile_remove"],
-  });
-  state.runtimeEngineProfiles.delete(engineId);
-  commitRuntimeEngineRecordState(
-    state,
-    "runtime-engine-profiles",
-    {
-      id: engineId,
-      deleted: true,
-      deletedAt: state.nowIso(),
-      receiptId: receipt.id,
-      source: "operator_runtime_engine_profile_remove",
-    },
-    "model_mount.runtime_engine_profile.delete",
-  );
-  if (runtimePreference(state).selectedEngineId === engineId && existing?.disabled) {
-    const resetPreference = defaultRuntimePreference(state, receipt.id, "operator_runtime_profile_remove_reset");
-    state.runtimeSelections.set("default", resetPreference);
-    commitRuntimeEngineRecordState(state, "runtime-preferences", resetPreference, "model_mount.runtime_preference.write");
-  }
-  state.writeProjection();
-  return {
-    schemaVersion,
-    engineId,
-    removed: Boolean(existing),
-    engine: runtimeEngine(state, engineId, deps),
-    receiptId: receipt.id,
-  };
+  throwRuntimeEngineRustCoreRequired("model_mount.runtime_engine_profile.delete", { engine_id: engineId }, deps);
 }
 
-function commitRuntimeEngineRecordState(state, recordDir, record, operation_kind) {
-  return commitModelMountRecordState(state, {
-    recordDir,
-    record,
-    operation_kind,
-    receipt_refs: [record.receiptId],
-    unconfiguredCode: "runtime_engine_record_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Runtime engine state persistence requires Rust Agentgres model-mount record-state commit.",
-    invalidCode: "runtime_engine_record_state_commit_invalid",
+function throwRuntimeEngineRustCoreRequired(operation_kind, details = {}, deps = {}) {
+  const errorFactory = deps.runtimeError ?? (({ code, message, details: errorDetails, status }) =>
+    Object.assign(new Error(message), { code, details: errorDetails, status }));
+  throw errorFactory({
+    status: 501,
+    code: "model_mount_runtime_engine_rust_core_required",
+    message: "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.runtime_engine",
+      evidence_refs: [
+        "public_runtime_engine_js_facade_retired",
+        "rust_daemon_core_runtime_engine_required",
+      ],
+      ...details,
+    },
   });
 }
 
