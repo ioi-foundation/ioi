@@ -493,7 +493,7 @@ function runDocs() {
       /Slice 784 moved MCP validation-input parsing into Rust daemon-core migration\s+transport/.test(guide) &&
       /McpServerValidationInputCore/.test(guide) &&
       /project_mcp_server_validation_input/.test(guide) &&
-      /The Slice 784 MCP\s+validation-input Rust-core matrix-compaction pass is pending/.test(guide) &&
+      /The Slice 784 MCP\s+validation-input Rust-core matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -543,7 +543,7 @@ function runDocs() {
       /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
-      /Slice 784 moved MCP validation-input parsing into Rust daemon-core migration\s+transport/.test(matrix) &&
+      /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
       /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
@@ -812,11 +812,11 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 783/.test(matrix) &&
       /`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, and `mcpPromptKey\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 783 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 784/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 784/.test(matrix) &&
       /McpServerValidationInputCore/.test(matrix) &&
       /project_mcp_server_validation_input/.test(matrix) &&
-      /Schedule and run a matrix-compaction pass\s+for Slice 784 before unrelated route-family work resumes/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 784 MCP\s+validation-input Rust-core evidence/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 784 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
