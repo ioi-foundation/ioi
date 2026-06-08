@@ -337,8 +337,10 @@ compaction is complete. Slice 749 public model invocation facade-retirement
 compaction is complete. Slice 750 runtime model-route selection facade
 retirement compaction is complete. Slice 751 stream-cancel receipt facade
 retirement compaction is complete. Slice 752 receipt-gate receipt facade
-retirement compaction is complete. No matrix-compaction pass is pending until
-the next Rust-core extraction or facade-retirement seam lands. Future
+retirement compaction is complete. Slice 753 retired the dead public model
+invocation JS execution bodies that remained behind the fail-closed
+`invokeModel` and `startModelStream` facades; schedule and run the next
+matrix-compaction pass before unrelated route-family work resumes. Future
 compactions must preserve evidence, distinguish interim bridge scaffolding and
 fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
 command transport or read-only JS helpers as long-term substrate.

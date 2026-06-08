@@ -370,7 +370,8 @@ function runDocs() {
       /Slice 750 runtime model-route selection facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 751 stream-cancel receipt facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 752 receipt-gate receipt facade\s+retirement compaction is complete/.test(guide) &&
-      /No matrix-compaction pass is pending until\s+the next Rust-core extraction or facade-retirement seam lands/.test(guide) &&
+      /Slice 753 retired the dead public model\s+invocation JS execution bodies/.test(guide) &&
+      /schedule and run the next\s+matrix-compaction pass before unrelated route-family work resumes/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -389,7 +390,8 @@ function runDocs() {
       /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 753 public model\s+invocation dead JS body retirement has landed and scheduled the next compaction\s+pass/.test(matrix) &&
+      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -486,7 +488,15 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 752 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 752/.test(
+      /Implementation Slice 753: Public Model Invocation Dead JS Body Retirement/.test(
+        matrix,
+      ) &&
+      /invokeModel/.test(matrix) &&
+      /startModelStream/.test(matrix) &&
+      /Public Model Invocation Dead JS Body Retirement/.test(matrix) &&
+      /model-mount-provider-js-invocation-retired/.test(matrix) &&
+      /model-mount-native-stream-no-downgrade-live-bridge/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 753/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
@@ -773,6 +783,14 @@ function runBridge() {
   const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     : "";
+  const modelInvokeFacadeBlock =
+    modelInvocationOps.match(/export async function invokeModel[\s\S]*?(?=\n\nexport async function startModelStream)/)?.[0] ??
+    "";
+  const modelStreamFacadeBlock =
+    modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function modelMountInvocationAdmissionRequestForReceipt)/)?.[0] ??
+    "";
+  const retiredModelInvocationFacadeBodyPattern =
+    /\b(?:state\.authorize|state\.selectRoute|state\.routeSelectionReceipt|state\.ensureLoaded|state\.compileEphemeralMcpIntegrations|state\.receipt|state\.admitModelMountInvocation|state\.bindModelMountInvocationReceipt|state\.inflightModelInvocations|state\.invokeModel|admitModelMountProviderExecution|admitModelMountProviderResult|executeModelProviderInvocation|executeModelMountProviderInvocation|executeModelMountProviderStreamInvocation|bindModelMountInvocationReceipt|invocationReceiptDetails|persistRouteSelection|rejectUnmigratedProviderInvocationExecution|rejectProviderCompatTranslation|withTextChunksReadableStream|model_mount_provider_invocation_backend_unmigrated|model_mount_provider_stream_invocation_backend_unmigrated|model_mount_native_stream_result_required|model_mount_native_stream_backend_required)\b/;
   const modelMountInvocationReceiptBridgeBlock =
     bridgeModule.match(/fn bind_model_mount_invocation_receipt[\s\S]*?(?=\nfn commit_runtime_model_mount_record_state)/)?.[0] ??
     "";
@@ -7254,32 +7272,13 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-invocation-receipt-detail-aliases-retired",
-    /^ {4}route_id:\s*selection\.route\.id/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}route_receipt_id:\s*routeReceipt\.id/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}selected_model:\s*selection\.endpoint\.modelId/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}endpoint_id:\s*selection\.endpoint\.id/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}provider_id:\s*selection\.endpoint\.providerId/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}instance_id:\s*instance\.id/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}backend_id:\s*providerResult\.backendId/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}selected_backend:\s*providerResult\.backendId/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}policy_hash:\s*hash/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}grant_id:\s*token\.grantId/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}token_count:\s*tokenCount/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}latency_ms:\s*latencyMs/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}input_hash:\s*hash\(input\)/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}output_hash:\s*hash\(outputText\)/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}provider_response_kind:\s*providerResult\.providerResponseKind/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}backend_evidence_refs:\s*providerResult\.backendEvidenceRefs/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}provider_auth_evidence_refs:\s*providerResult\.providerAuthEvidenceRefs/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}tool_receipt_ids:\s*ephemeralMcp\.toolReceiptIds/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}ephemeral_mcp_server_ids:\s*ephemeralMcp\.serverIds/m.test(modelInvocationReceiptDetailsObject) &&
-      /^ {4}response_id:\s*responseId/m.test(modelInvocationReceiptDetailsObject) &&
-      /details\.send_options\s*=\s*body\.send_options/.test(modelInvocationOps) &&
-      /details\.coalesce_key_hash\s*=\s*coalesceKey/.test(modelInvocationOps) &&
-      !/^ {4}(?:routeId|routeReceiptId|selectedModel|endpointId|providerId|instanceId|backendId|selectedBackend|policyHash|grantId|tokenCount|latencyMs|inputHash|outputHash|providerResponseKind|backendProcess|backendProcessId|backendProcessPidHash|backendEvidenceRefs|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|toolReceiptIds|ephemeralMcpServerIds|responseId)\s*[:,]/m.test(
-        modelInvocationReceiptDetailsObject,
-      ) &&
-      !/details\.(?:sendOptions|coalesceKeyHash)\s*=/.test(modelInvocationOps) &&
+    /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.invoke"/.test(modelInvokeFacadeBlock) &&
+      /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.stream_start"/.test(modelStreamFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
+      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
+      !/function persistRouteSelection/.test(modelInvocationOps) &&
+      !/state\.receipt\("model_invocation/.test(modelInvocationOps) &&
       /receiptDetails\.route_id/.test(modelInvocationOps) &&
       /receiptDetails\.provider_id/.test(modelInvocationOps) &&
       /receiptDetails\.endpoint_id/.test(modelInvocationOps) &&
@@ -7327,7 +7326,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
     ],
-    "Phase 3/10 is pending: model invocation and stream-completion receipt details must serialize canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 3/10 is pending: public model invocation facades must not retain JS receipt-detail construction while Rust-admission builders and projections keep canonical snake_case metadata",
   );
   assertCheck(
     result,
@@ -7731,8 +7730,9 @@ function runBridge() {
       /rust_model_mount_invocation_command/.test(modelMountAdmissionRunner) &&
       /admitModelMountInvocation/.test(modelMountingState) &&
       /modelMountInvocationAdmissionRequestForReceipt/.test(modelInvocationOps) &&
-      /model_mount_invocation_receipt_id_required/.test(modelInvocationOps) &&
       /model_mount_invocation_admission_ref/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/modelMountInvocationAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -7752,8 +7752,9 @@ function runBridge() {
       /rust_model_mount_provider_execution_command/.test(modelMountAdmissionRunner) &&
       /admitModelMountProviderExecution/.test(modelMountingState) &&
       /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
-      /model_mount_provider_execution_admission_required/.test(modelInvocationOps) &&
       /model_mount_provider_execution_ref/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/modelMountProviderExecution(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -7784,9 +7785,8 @@ function runBridge() {
       ) &&
       /required: "allow_continuation_fallback"/.test(modelMountingValidationTest) &&
       /previous_response_ref:\s*optionalRef\(receiptDetails\.previous_response_id\)/.test(modelInvocationOps) &&
-      /previous_response_id:\s*previousResponseId/.test(modelInvocationReceiptDetailsObject) &&
       !/previous_response_ref:\s*optionalRef\(receiptDetails\.previousResponseId\)/.test(modelInvocationOps) &&
-      !/^\s*previousResponseId,\s*$/m.test(modelInvocationReceiptDetailsObject) &&
+      !/function invocationReceiptDetails/.test(modelInvocationOps) &&
       /previous_response_id:\s*previousState\?\.id/.test(modelConversationOps) &&
       /previous_response_id:\s*invocation\?\.previousResponseId/.test(modelConversationOps) &&
       !/root_response_id:/.test(modelConversationOps) &&
@@ -7867,7 +7867,8 @@ function runBridge() {
       /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
       /rust_model_mount_native_local/.test(modelInvocationOps) &&
-      /model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -7887,8 +7888,9 @@ function runBridge() {
       /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderStreamInvocationRequiresRust/.test(modelInvocationOps) &&
       /rust_model_mount_native_local_stream/.test(modelInvocationOps) &&
-      /withTextChunksReadableStream/.test(modelInvocationOps) &&
-      /model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
+      !/withTextChunksReadableStream/.test(modelInvocationOps) &&
+      !/model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
       /model_mount_local_provider_direct_stream_retired/.test(providerLocalDrivers) &&
       !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.test.mjs") &&
@@ -8196,20 +8198,18 @@ function runBridge() {
       /rust_model_mount_provider_result_command/.test(modelMountAdmissionRunner) &&
       /admitModelMountProviderResult/.test(modelMountingState) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
-      /model_mount_provider_invocation_backend_unmigrated/.test(modelInvocationOps) &&
-      /model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
       /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
-      /rejectUnmigratedProviderInvocationExecution\(selection\)/.test(modelInvocationOps) &&
-      /rejectUnmigratedProviderInvocationExecution\(selection,\s*\{\s*stream:\s*true\s*\}\)/.test(
-        modelInvocationOps,
-      ) &&
       /providerResult\.execution_backend\s*\?\?\s*providerResult\.executionBackend/.test(modelInvocationOps) &&
+      !/rejectUnmigratedProviderInvocationExecution/.test(modelInvocationOps) &&
+      !/model_mount_provider_invocation_backend_unmigrated/.test(modelInvocationOps) &&
+      !/model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
       !/js_provider_driver_observation/.test(modelInvocationOps) &&
       !/state\.driverForProvider\(selection\.provider\)\.invoke/.test(modelInvocationOps) &&
       !/await driver\.streamInvoke/.test(modelInvocationOps) &&
-      /model_mount_provider_result_admission_ref/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
+      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps) &&
       /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
@@ -8245,9 +8245,8 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-provider-compat-translation-receipt-retired",
-    /model_mount_provider_compat_translation_forbidden/.test(modelInvocationOps) &&
-      /const compatTranslation = optionalRef\(providerResult\.compat_translation\)/.test(modelInvocationOps) &&
-      /retired_aliases: retiredAliases/.test(modelInvocationOps) &&
+    !/rejectProviderCompatTranslation/.test(modelInvocationOps) &&
+      !/model_mount_provider_compat_translation_forbidden/.test(modelInvocationOps) &&
       !/providerResult\.compatTranslation\s*\?\?\s*providerResult\.compat_translation/.test(modelInvocationOps) &&
       !/compatTranslation:\s*providerResult\.compatTranslation/.test(modelInvocationOps) &&
       !/error\.details = \{ compatTranslation \}/.test(modelInvocationOps) &&
@@ -8316,11 +8315,13 @@ function runBridge() {
     result,
     "model-mount-stream-provider-result-admission-live-bridge",
     /startModelStream/.test(modelInvocationOps) &&
-      /requireModelMountProviderResultAdmission/.test(modelInvocationOps) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /streamStatus: "started"/.test(modelInvocationOps) &&
-      /model_mount_provider_result_admission_ref/.test(modelInvocationOps) &&
-      /model_mount_provider_result_admission_required/.test(modelInvocationOps) &&
+      /streamStatus = null/.test(modelInvocationOps) &&
+      /stream_status:\s*optionalRef\(record\.stream_status\)/.test(modelInvocationOps) &&
+      /assert\.equal\(request\.stream_status,\s*"started"\)/.test(modelInvocationOpsTest) &&
+      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps) &&
+      !/requireModelMountProviderResultAdmission/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
       !/model_provider_stream_request_shape/.test(modelInvocationOps),
     [
@@ -8332,7 +8333,9 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-stream-no-downgrade-live-bridge",
-    /model_mount_native_stream_result_required/.test(modelInvocationOps) &&
+    /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.stream_start"/.test(modelStreamFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
+      !/model_mount_native_stream_result_required/.test(modelInvocationOps) &&
       !/if \(!providerResult\?\.stream\) \{\s*return\s*\{[\s\S]*?state\.invokeModel\(\{ authorization, requiredScope, kind, body: \{ \.\.\.body, stream: false \} \}\)/.test(modelInvocationOps),
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
@@ -8343,8 +8346,10 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-stream-pre-admission-downgrade-retired",
-    /model_mount_native_stream_backend_required/.test(modelInvocationOps) &&
-      /model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
+    /throwModelInvocationRustCoreRequired\("model_mount\.invocation\.stream_start"/.test(modelStreamFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
+      !/model_mount_native_stream_backend_required/.test(modelInvocationOps) &&
+      !/model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&
       /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
@@ -8379,11 +8384,13 @@ function runBridge() {
       /modelMountInvocationReceiptBindingRequestForReceipt/.test(modelInvocationOps) &&
       /acceptedReceiptTransition:\s*objectRecord\(agentgresTransition\?\.acceptedReceiptTransition\)/.test(modelInvocationOps) &&
       /acceptedReceiptTransition\.expected_heads/.test(modelInvocationOpsTest) &&
-      /model_mount_invocation_receipt_binding_required/.test(modelInvocationOps) &&
       /model_mount_agentgres_head_required/.test(modelInvocationOps) &&
       /model_mount_receipt_binding_ref/.test(modelInvocationOps) &&
       /model_mount_agentgres_admission/.test(modelInvocationOps) &&
-      /model_mount_accepted_receipt_append_hash/.test(modelInvocationOps),
+      /model_mount_accepted_receipt_append_hash/.test(modelInvocationOps) &&
+      !/function bindModelMountInvocationReceipt/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -9587,6 +9594,14 @@ function runReceipts() {
   const modelInvocationOpsTest = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs")
     : "";
+  const modelInvokeFacadeBlock =
+    modelInvocationOps.match(/export async function invokeModel[\s\S]*?(?=\n\nexport async function startModelStream)/)?.[0] ??
+    "";
+  const modelStreamFacadeBlock =
+    modelInvocationOps.match(/export async function startModelStream[\s\S]*?(?=\n\nexport function modelMountInvocationAdmissionRequestForReceipt)/)?.[0] ??
+    "";
+  const retiredModelInvocationFacadeBodyPattern =
+    /\b(?:state\.authorize|state\.selectRoute|state\.routeSelectionReceipt|state\.ensureLoaded|state\.compileEphemeralMcpIntegrations|state\.receipt|state\.admitModelMountInvocation|state\.bindModelMountInvocationReceipt|state\.inflightModelInvocations|state\.invokeModel|admitModelMountProviderExecution|admitModelMountProviderResult|executeModelProviderInvocation|executeModelMountProviderInvocation|executeModelMountProviderStreamInvocation|bindModelMountInvocationReceipt|invocationReceiptDetails|persistRouteSelection|rejectUnmigratedProviderInvocationExecution|rejectProviderCompatTranslation|withTextChunksReadableStream|model_mount_provider_invocation_backend_unmigrated|model_mount_provider_stream_invocation_backend_unmigrated|model_mount_native_stream_result_required|model_mount_native_stream_backend_required)\b/;
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
@@ -10075,7 +10090,9 @@ function runReceipts() {
       /admit_model_mount_provider_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /model_mount_provider_execution_admission_required/.test(modelInvocationOps),
+      /modelMountProviderExecutionRequestForInvocation/.test(modelInvocationOps) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
+      !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
@@ -10111,7 +10128,8 @@ function runReceipts() {
       /invoke_model_mount_provider/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
+      /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
+      !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
@@ -10139,7 +10157,8 @@ function runReceipts() {
       /invoke_model_mount_provider_stream/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps),
+      /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
+      !/model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
@@ -11611,7 +11630,8 @@ function runReceipts() {
       /Object\.hasOwn\(result,\s*"providerResultRef"\),\s*false/.test(
         modelMountAdmissionRunnerTest,
       ) &&
-      /model_mount_provider_result_admission_required/.test(modelInvocationOps),
+      /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
@@ -11640,7 +11660,8 @@ function runReceipts() {
     result,
     "model-mount-stream-request-shape-append-retired",
     /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
-      /streamStatus: "started"/.test(modelInvocationOps) &&
+      /streamStatus = null/.test(modelInvocationOps) &&
+      /assert\.equal\(request\.stream_status,\s*"started"\)/.test(modelInvocationOpsTest) &&
       !/model\.provider_stream_request_shape/.test(modelInvocationOps) &&
       !/model_provider_stream_request_shape/.test(modelInvocationOps),
     ["packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs"],
