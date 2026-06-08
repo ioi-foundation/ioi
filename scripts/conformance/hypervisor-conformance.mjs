@@ -11352,11 +11352,18 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-runtime-survey-receipt-detail-aliases-retired",
-    /checked_at:\s*checkedAt/.test(runtimeSurveyReceiptDetailsObject) &&
-      /engine_count:\s*engines\.length/.test(runtimeSurveyReceiptDetailsObject) &&
-      /selected_engines:\s*selectedEngines/.test(runtimeSurveyReceiptDetailsObject) &&
-      /runtime_preference:\s*runtimePreference/.test(runtimeSurveyReceiptDetailsObject) &&
-      /lm_studio:\s*lmStudio/.test(runtimeSurveyReceiptDetailsObject) &&
+    /model_mount_runtime_survey_rust_core_required/.test(runtimeSurveyModule) &&
+      /rust_core_boundary:\s*"model_mount\.runtime_survey"/.test(runtimeSurveyModule) &&
+      /model_mount_runtime_survey_js_facade_retired/.test(runtimeSurveyModule) &&
+      /rust_daemon_core_runtime_survey_required/.test(runtimeSurveyModule) &&
+      /agentgres_runtime_survey_projection_required/.test(runtimeSurveyModule) &&
+      /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(runtimeSurveyModule) &&
+      !/state\.receipt\("runtime_survey"/.test(runtimeSurveyModule) &&
+      !/const checkedAt = state\.nowIso\(\);/.test(runtimeSurveyModule) &&
+      !/const hardware = hardwareSnapshot\(\);/.test(runtimeSurveyModule) &&
+      !/const engines = state\.listRuntimeEngines\(\);/.test(runtimeSurveyModule) &&
+      !/const lmStudio = state\.lmStudioRuntimeSurvey\(checkedAt\);/.test(runtimeSurveyModule) &&
+      runtimeSurveyReceiptDetailsObject === "" &&
       /receipt\.details\?\.checked_at/.test(runtimeSurveyModule) &&
       /receipt\.details\?\.engine_count/.test(runtimeSurveyModule) &&
       /receipt\.details\?\.selected_engines/.test(runtimeSurveyModule) &&
@@ -11368,6 +11375,13 @@ function runReceipts() {
       !/receipt\.details\?\.(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\b/.test(
         runtimeSurveyModule,
       ) &&
+      /runtimeSurvey facade fails closed before JS probes, engine reads, or receipt creation/.test(
+        runtimeSurveyTest,
+      ) &&
+      /assert\.equal\(hardwareCalls,\s*0\)/.test(runtimeSurveyTest) &&
+      /assert\.equal\(engineCalls,\s*0\)/.test(runtimeSurveyTest) &&
+      /assert\.equal\(lmStudioCalls,\s*0\)/.test(runtimeSurveyTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeSurveyTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"checkedAt"\),\s*false/.test(runtimeSurveyTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"engineCount"\),\s*false/.test(runtimeSurveyTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"selectedEngines"\),\s*false/.test(runtimeSurveyTest) &&
@@ -11379,7 +11393,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/runtime-survey.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
     ],
-    "Phase 9/11 is pending: runtime survey receipts and readback must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: runtime survey capture must fail closed until Rust daemon-core owns survey receipts/projection, while readback uses canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,

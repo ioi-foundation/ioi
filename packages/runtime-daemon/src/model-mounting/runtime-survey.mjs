@@ -1,39 +1,10 @@
 import path from "node:path";
 
 export function runtimeSurvey(state, deps = {}) {
-  const { hardwareSnapshot, schemaVersion } = deps;
-  const checkedAt = state.nowIso();
-  const hardware = hardwareSnapshot();
-  const engines = state.listRuntimeEngines();
-  const lmStudio = state.lmStudioRuntimeSurvey(checkedAt);
-  const runtimePreference = state.runtimePreference();
-  const selectedEngines = engines.filter((engine) => engine.selected).map((engine) => engine.id);
-  const receipt = state.receipt("runtime_survey", {
-    summary: `Runtime survey captured ${engines.length} engine profile${engines.length === 1 ? "" : "s"}.`,
-    redaction: "redacted",
-    evidenceRefs: [
-      "runtime_engine_registry",
-      "hardware_snapshot",
-      ...(lmStudio.status === "available" ? ["lm_studio_public_lms_runtime_survey"] : []),
-    ],
-    details: {
-      checked_at: checkedAt,
-      engine_count: engines.length,
-      selected_engines: selectedEngines,
-      runtime_preference: runtimePreference,
-      hardware,
-      lm_studio: lmStudio,
-    },
+  throwRuntimeSurveyRustCoreRequired({
+    operation: "runtime_survey",
+    operation_kind: "model_mount.runtime_survey.capture",
   });
-  return {
-    schemaVersion,
-    checkedAt,
-    engines,
-    hardware,
-    lmStudio,
-    runtimePreference,
-    receiptId: receipt.id,
-  };
 }
 
 export function latestRuntimeSurvey(state, deps = {}) {
@@ -130,4 +101,20 @@ function lmStudioRuntimeLmsPath(state, env) {
     env.IOI_LMS_PATH ??
     path.join(state.homeDir, ".lmstudio/bin/lms")
   );
+}
+
+function throwRuntimeSurveyRustCoreRequired(details = {}) {
+  const error = new Error("Runtime survey capture requires direct Rust daemon-core model_mount projection support.");
+  error.status = 501;
+  error.code = "model_mount_runtime_survey_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.runtime_survey",
+    ...details,
+    evidence_refs: [
+      "model_mount_runtime_survey_js_facade_retired",
+      "rust_daemon_core_runtime_survey_required",
+      "agentgres_runtime_survey_projection_required",
+    ],
+  };
+  throw error;
 }

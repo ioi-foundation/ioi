@@ -14551,6 +14551,73 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 720
+
+```yaml
+slice: 720
+phase: 10-authoritative-js-facade-retirement
+objective: retire public runtime-survey JS receipt/probe facade until direct
+  Rust daemon-core runtime-survey projection APIs own capture and readback
+owner_boundary:
+  route_or_surface: model-mounting runtime survey capture
+  authority_gate: runtime survey capture now fails closed at
+    `model_mount.runtime_survey` before JS hardware probing, runtime-engine
+    reads, LM Studio public command execution, JS `runtime_survey` receipt
+    creation, or projection writes
+  execution_backend: none in JS for public runtime-survey capture; Rust
+    daemon-core must own survey capture, LM Studio/runtime probing policy,
+    Agentgres admission, receipt/state-root binding, and projection
+    materialization before this surface can execute again
+  truth_path: no JS `runtime_survey` receipt creation from the public survey
+    facade; latest survey remains a read adapter over existing admitted
+    receipt details and consumes canonical snake_case fields only
+  projection_path: direct Rust daemon-core runtime-survey/projection APIs must
+    materialize runtime survey truth before public capture/read surfaces can
+    return fresh admitted data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/runtime-survey.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires runtime survey capture to fail closed
+    before JS probes, engine reads, LM Studio command execution, and JS receipt
+    creation
+  - focused daemon tests prove the public capture facade leaves receipts empty
+    and still verifies latest readback consumes canonical snake_case admitted
+    receipt details without camelCase aliases
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/runtime-survey.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - route handlers may still enter runtime survey through JS protocol
+      adapters, but capture fails closed until direct Rust daemon-core
+      projection APIs are verified
+    - LM Studio public runtime probe helpers remain lower-level discovery
+      helpers for future Rust-owned projection plumbing; they must not be used
+      by the public JS facade to mint accepted survey truth
+    - schedule a matrix-compaction pass once the next model-mount read or
+      catalog-provider runtime-material Rust-core extraction/facade-retirement
+      seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14566,7 +14633,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 719 and the provider-inventory JS read-facade retirement pass:
+Current expected behavior after Slice 720 and the runtime-survey JS receipt/probe facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

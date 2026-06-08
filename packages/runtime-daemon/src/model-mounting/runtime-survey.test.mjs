@@ -68,25 +68,52 @@ const deps = {
   stableHash: (value) => `hash:${value}`,
 };
 
-test("runtimeSurvey records selected engines, hardware, LM Studio survey, and receipt", () => {
+test("runtimeSurvey facade fails closed before JS probes, engine reads, or receipt creation", () => {
   const state = fakeState();
+  let hardwareCalls = 0;
+  let engineCalls = 0;
+  let lmStudioCalls = 0;
+  state.listRuntimeEngines = () => {
+    engineCalls += 1;
+    return [{ id: "engine_a", selected: true }];
+  };
+  state.lmStudioRuntimeSurvey = () => {
+    lmStudioCalls += 1;
+    return { status: "available" };
+  };
 
-  const survey = runtimeSurvey(state, deps);
+  assert.throws(
+    () => runtimeSurvey(state, {
+      ...deps,
+      hardwareSnapshot: () => {
+        hardwareCalls += 1;
+        return { cpuCount: 8 };
+      },
+    }),
+    (error) => {
+      assert.equal(error.code, "model_mount_runtime_survey_rust_core_required");
+      assert.equal(error.status, 501);
+      assert.equal(error.details.rust_core_boundary, "model_mount.runtime_survey");
+      assert.equal(error.details.operation, "runtime_survey");
+      assert.equal(error.details.operation_kind, "model_mount.runtime_survey.capture");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_mount_runtime_survey_js_facade_retired",
+        "rust_daemon_core_runtime_survey_required",
+        "agentgres_runtime_survey_projection_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "checkedAt"), false);
+      assert.equal(Object.hasOwn(error.details, "engineCount"), false);
+      assert.equal(Object.hasOwn(error.details, "selectedEngines"), false);
+      assert.equal(Object.hasOwn(error.details, "runtimePreference"), false);
+      assert.equal(Object.hasOwn(error.details, "lmStudio"), false);
+      return true;
+    },
+  );
 
-  assert.equal(survey.schemaVersion, "schema.v1");
-  assert.equal(survey.engines.length, 2);
-  assert.deepEqual(survey.hardware, { cpuCount: 8 });
-  assert.equal(survey.lmStudio.status, "available");
-  assert.equal(state.receipts[0].details.checked_at, "2026-06-03T12:00:00.000Z");
-  assert.equal(state.receipts[0].details.engine_count, 2);
-  assert.deepEqual(state.receipts[0].details.selected_engines, ["engine_a"]);
-  assert.deepEqual(state.receipts[0].details.runtime_preference, { selectedEngineId: "engine_a" });
-  assert.equal(state.receipts[0].details.lm_studio.status, "available");
-  assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "engineCount"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "selectedEngines"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "runtimePreference"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "lmStudio"), false);
+  assert.equal(hardwareCalls, 0);
+  assert.equal(engineCalls, 0);
+  assert.equal(lmStudioCalls, 0);
+  assert.deepEqual(state.receipts, []);
 });
 
 test("latestRuntimeSurvey reports not-checked state and checked receipts", () => {
@@ -103,13 +130,30 @@ test("latestRuntimeSurvey reports not-checked state and checked receipts", () =>
     lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
   });
 
-  runtimeSurvey(state, deps);
+  state.receipts.push({
+    id: "receipt_1",
+    kind: "runtime_survey",
+    createdAt: "2026-06-03T12:00:00.000Z",
+    details: {
+      checked_at: "2026-06-03T12:00:00.000Z",
+      engine_count: 2,
+      selected_engines: ["engine_a"],
+      runtime_preference: { selectedEngineId: "engine_a" },
+      hardware: { cpuCount: 8 },
+      lm_studio: { status: "available" },
+    },
+  });
   const latest = latestRuntimeSurvey(state, deps);
 
   assert.equal(latest.status, "checked");
   assert.equal(latest.receiptId, "receipt_1");
   assert.equal(latest.engineCount, 2);
   assert.deepEqual(latest.selectedEngines, ["engine_a"]);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "engineCount"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "selectedEngines"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "runtimePreference"), false);
+  assert.equal(Object.hasOwn(state.receipts[0].details, "lmStudio"), false);
 });
 
 test("lmStudioRuntimeEngines returns hashed public runtime list records", () => {
