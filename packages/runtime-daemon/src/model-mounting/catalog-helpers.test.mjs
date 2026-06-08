@@ -12,9 +12,9 @@ test("catalog download policy accepts canonical request fields", () => {
   const policy = normalizeDownloadPolicy(
     {
       transfer_approved: true,
-      bandwidth_limit_bps: 4096,
+      bandwidth_bps: 4096,
       retry_limit: 3,
-      resume_download: false,
+      resume: false,
       cleanup_partial: false,
     },
     {
@@ -53,6 +53,9 @@ test("catalog download policy rejects retired request aliases", () => {
           retryLimit: 2,
           resumeDownload: false,
           cleanupPartial: false,
+          bandwidth_limit_bps: 4096,
+          resume_download: false,
+          retries: 4,
         },
         { isFixture: false, maxBytes: 8192, source: "https://example.test/model.gguf" },
       ),
@@ -66,13 +69,15 @@ test("catalog download policy rejects retired request aliases", () => {
         "retryLimit",
         "resumeDownload",
         "cleanupPartial",
+        "bandwidth_limit_bps",
+        "resume_download",
+        "retries",
       ]);
       assert.deepEqual(error.details.canonical_fields, [
         "transfer_approved",
         "bandwidth_bps",
-        "bandwidth_limit_bps",
         "retry_limit",
-        "resume_download",
+        "resume",
         "cleanup_partial",
       ]);
       return true;
@@ -105,7 +110,7 @@ test("destructive confirmation accepts canonical request fields", () => {
   );
   assert.equal(
     destructiveConfirmationState(
-      { destructive_confirmed: true },
+      { confirm_destructive: true },
       { required: true, action: "model_storage_cleanup" },
     ).confirmed,
     true,
@@ -119,6 +124,7 @@ test("destructive confirmation rejects retired request aliases", () => {
         {
           confirmDestructive: true,
           destructiveConfirmed: true,
+          destructive_confirmed: true,
         },
         { required: true, action: "model_storage_cleanup" },
       ),
@@ -128,10 +134,10 @@ test("destructive confirmation rejects retired request aliases", () => {
       assert.deepEqual(error.details.retired_aliases, [
         "confirmDestructive",
         "destructiveConfirmed",
+        "destructive_confirmed",
       ]);
       assert.deepEqual(error.details.canonical_fields, [
         "confirm_destructive",
-        "destructive_confirmed",
       ]);
       return true;
     },

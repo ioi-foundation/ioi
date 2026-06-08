@@ -47,12 +47,11 @@ This pass compacted Slice 758 catalog-provider OAuth callback state
 alias-retirement evidence.
 This pass compacted Slice 759 catalog-provider runtime-material read-cache
 retirement evidence.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades, canonical input
-helpers, local projection helpers, and migration transport are not terminal
-substrate.
+Slice 760 retired catalog download policy request synonyms from the remaining
+JS helper facade; schedule its matrix-compaction pass on the next resume before
+starting unrelated route-family work. Preserve the live owner map, terminal
+blockers, and the fact that fail-closed JS facades, canonical input helpers,
+local projection helpers, and migration transport are not terminal substrate.
 
 ## Purpose
 
@@ -159,8 +158,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 759
-  catalog-provider runtime-material read-cache retirement compaction.
+- Next scheduled matrix-compaction pass: Slice 760 catalog download policy
+  request-synonym retirement, after this verified seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14343,6 +14342,47 @@ remain authoritative for current and target ownership.
   that seam lands, and do not encode runtime-material readback, fail-closed
   catalog-provider control facades, vault/custody helpers, or command transport
   as terminal architecture.
+
+## Implementation Slice 760: Catalog Download Policy Request-Synonym Retirement
+
+Status: implemented on 2026-06-08; compaction scheduled for the next resume
+before unrelated route-family work.
+
+Scope:
+
+- Retire alternate snake_case request synonyms from the catalog download policy
+  and destructive-confirmation helper facade.
+- Keep the facade fail-closed and non-authoritative while direct Rust
+  daemon-core catalog/download/filesystem/admission ownership remains pending.
+
+Implementation:
+
+- `normalizeDownloadPolicy()` now reads only canonical `bandwidth_bps`,
+  `retry_limit`, `resume`, `cleanup_partial`, and `transfer_approved` request
+  fields before policy evaluation.
+- `bandwidth_limit_bps`, `resume_download`, and `retries` are retired request
+  aliases and fail closed with `catalog_download_policy_request_aliases_retired`
+  before approval or transfer policy evaluation.
+- `destructiveConfirmationState()` now reads only `confirm_destructive`.
+- `destructive_confirmed` is a retired request alias and fails closed with
+  `destructive_confirmation_request_aliases_retired` before destructive action
+  evaluation.
+- Existing camelCase policy aliases remain retired.
+
+Evidence:
+
+- `packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs`
+- `packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs`
+- Conformance anchors:
+  `model-mount-catalog-download-policy-request-aliases-retired` and
+  `model-mount-destructive-confirmation-request-aliases-retired`
+
+Terminal note:
+
+- This slice narrows a JS facade contract; it does not make the helper terminal
+  architecture. Rust daemon-core catalog/download admission still needs to own
+  transfer policy, destructive action authority, receipt/state-root binding,
+  Agentgres admission, record-state, projection, replay, and conformance.
 
 ## Command State
 

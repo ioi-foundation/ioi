@@ -395,7 +395,9 @@ function runDocs() {
       /Slice 759 retired catalog-provider runtime-material read-cache writes/.test(guide) &&
       /no longer writes vault refs or caches\s+resolved, missing, or failed vault material into `catalogProviderRuntimeMaterials`/.test(guide) &&
       /The Slice 759 catalog-provider runtime-material read-cache retirement\s+matrix-compaction pass is complete/.test(guide) &&
-      /No matrix-compaction pass is pending until\s+the next Rust-core extraction or facade-retirement seam lands/.test(guide) &&
+      /Slice 760 retired catalog download policy request synonyms/.test(guide) &&
+      /`bandwidth_limit_bps`,\s+`resume_download`, `retries`, and `destructive_confirmed` can no longer steer\s+catalog transfer policy or destructive confirmation/.test(guide) &&
+      /Schedule the Slice 760 matrix-compaction pass on the next resume/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -419,7 +421,9 @@ function runDocs() {
       /then\s+compacted Slice 757 server-control local cache read-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 758 catalog-provider OAuth callback state\s+alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 759 catalog-provider runtime-material read-cache\s+retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 760 retired catalog download policy request synonyms from the remaining\s+JS helper facade/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 760 catalog download policy\s+request-synonym retirement/.test(matrix) &&
+      /Implementation Slice 760: Catalog Download Policy Request-Synonym Retirement/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -607,7 +611,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 759 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 759\s+catalog-provider runtime-material read-cache retirement compaction/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 760 catalog download policy\s+request-synonym retirement/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
@@ -616,6 +620,7 @@ function runDocs() {
       /runtime material lookup no longer writes vault refs or local runtime-material cache entries/.test(
         implementationMatrix,
       ) &&
+      /reject retired `bandwidth_limit_bps`, `resume_download`, `retries`, and\s+`destructive_confirmed` synonyms before policy evaluation/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
       ) &&
@@ -11442,27 +11447,27 @@ function runReceipts() {
       /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*const approved = Boolean\(body\.transfer_approved \?\? isFixture\);/.test(
         catalogApprovalDecisionBlock,
       ) &&
-      /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*body\.bandwidth_bps \?\?[\s\S]*body\.bandwidth_limit_bps \?\?[\s\S]*process\.env\.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS/.test(
+      /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*body\.bandwidth_bps \?\? process\.env\.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS/.test(
         normalizeDownloadPolicyBlock,
       ) &&
-      /const retryLimit = normalizeNonNegativeInteger\(body\.retry_limit \?\? body\.retries \?\? 0,\s*0\);/.test(
+      /const retryLimit = normalizeNonNegativeInteger\(body\.retry_limit \?\? 0,\s*0\);/.test(
         normalizeDownloadPolicyBlock,
       ) &&
-      /const resume = truthy\(body\.resume \?\? body\.resume_download \?\? true\);/.test(
+      /const resume = truthy\(body\.resume \?\? true\);/.test(
         normalizeDownloadPolicyBlock,
       ) &&
       /const cleanupPartialOnCancel = truthy\(body\.cleanup_partial \?\? true\);/.test(
         normalizeDownloadPolicyBlock,
       ) &&
-      !/body\.(?:transferApproved|bandwidthBps|bandwidthLimitBps|retryLimit|resumeDownload|cleanupPartial)\b/.test(
+      !/body\.(?:transferApproved|bandwidthBps|bandwidthLimitBps|retryLimit|resumeDownload|cleanupPartial|bandwidth_limit_bps|resume_download|retries)\b/.test(
         `${catalogApprovalDecisionBlock}\n${normalizeDownloadPolicyBlock}`,
       ) &&
       /catalog download policy accepts canonical request fields/.test(catalogHelpersTest) &&
       /catalog download policy rejects retired request aliases/.test(catalogHelpersTest) &&
-      /retired_aliases,\s*\[\s*"transferApproved",\s*"bandwidthBps",\s*"bandwidthLimitBps",\s*"retryLimit",\s*"resumeDownload",\s*"cleanupPartial",\s*\]/.test(
+      /retired_aliases,\s*\[\s*"transferApproved",\s*"bandwidthBps",\s*"bandwidthLimitBps",\s*"retryLimit",\s*"resumeDownload",\s*"cleanupPartial",\s*"bandwidth_limit_bps",\s*"resume_download",\s*"retries",\s*\]/.test(
         catalogHelpersTest,
       ) &&
-      /canonical_fields,\s*\[\s*"transfer_approved",\s*"bandwidth_bps",\s*"bandwidth_limit_bps",\s*"retry_limit",\s*"resume_download",\s*"cleanup_partial",\s*\]/.test(
+      /canonical_fields,\s*\[\s*"transfer_approved",\s*"bandwidth_bps",\s*"retry_limit",\s*"resume",\s*"cleanup_partial",\s*\]/.test(
         catalogHelpersTest,
       ) &&
       /catalogApprovalDecision\(\{ isFixture: false,\s*body: \{ transferApproved: true \} \}\)/.test(
@@ -11472,7 +11477,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
     ],
-    "Phase 9/11 is pending: catalog download policy helpers must fail closed on retired camelCase policy aliases before approval or transfer policy evaluation",
+    "Phase 9/11 is pending: catalog download policy helpers must fail closed on retired policy aliases before approval or transfer policy evaluation",
   );
   assertCheck(
     result,
@@ -11480,16 +11485,16 @@ function runReceipts() {
     /RETIRED_DESTRUCTIVE_CONFIRMATION_REQUEST_ALIASES/.test(catalogHelpers) &&
       /CANONICAL_DESTRUCTIVE_CONFIRMATION_REQUEST_FIELDS/.test(catalogHelpers) &&
       /destructive_confirmation_request_aliases_retired/.test(catalogHelpers) &&
-      /assertCanonicalDestructiveConfirmationRequestBody\(body\);[\s\S]*const confirmed = Boolean\(body\.confirm_destructive \?\? body\.destructive_confirmed \?\? false\);/.test(
+      /assertCanonicalDestructiveConfirmationRequestBody\(body\);[\s\S]*const confirmed = Boolean\(body\.confirm_destructive \?\? false\);/.test(
         destructiveConfirmationStateBlock,
       ) &&
-      !/body\.(?:confirmDestructive|destructiveConfirmed)\b/.test(destructiveConfirmationStateBlock) &&
+      !/body\.(?:confirmDestructive|destructiveConfirmed|destructive_confirmed)\b/.test(destructiveConfirmationStateBlock) &&
       /destructive confirmation accepts canonical request fields/.test(catalogHelpersTest) &&
       /destructive confirmation rejects retired request aliases/.test(catalogHelpersTest) &&
-      /retired_aliases,\s*\[\s*"confirmDestructive"\s*,\s*"destructiveConfirmed"\s*,?\s*\]/.test(
+      /retired_aliases,\s*\[\s*"confirmDestructive"\s*,\s*"destructiveConfirmed"\s*,\s*"destructive_confirmed"\s*,?\s*\]/.test(
         catalogHelpersTest,
       ) &&
-      /canonical_fields,\s*\[\s*"confirm_destructive"\s*,\s*"destructive_confirmed"\s*,?\s*\]/.test(
+      /canonical_fields,\s*\[\s*"confirm_destructive"\s*,?\s*\]/.test(
         catalogHelpersTest,
       ) &&
       !/body\.confirmDestructive\b/.test(storageOperationsTest),

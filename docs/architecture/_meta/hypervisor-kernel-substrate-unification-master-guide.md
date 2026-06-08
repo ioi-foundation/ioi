@@ -395,6 +395,20 @@ custody, receipts, Agentgres admission, record-state, replay, and conformance.
 The Slice 759 catalog-provider runtime-material read-cache retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
+Slice 760 retired catalog download policy request synonyms that were still
+accepted as alternate canonical fields: `bandwidth_limit_bps`,
+`resume_download`, `retries`, and `destructive_confirmed` can no longer steer
+catalog transfer policy or destructive confirmation before the Rust-core
+required boundary. The public facade now accepts only `bandwidth_bps`,
+`retry_limit`, `resume`, `cleanup_partial`, `transfer_approved`, and
+`confirm_destructive` for those helper decisions, while camelCase policy aliases
+continue to fail closed. This does not claim terminal catalog/download
+migration: direct Rust daemon-core catalog/download/filesystem/admission APIs
+still need to own transfer policy admission, destructive action authority,
+receipt binding, Agentgres admission, record-state, projection, replay, and
+conformance. Schedule the Slice 760 matrix-compaction pass on the next resume
+after this seam lands; do not encode the remaining JS helper as terminal
+architecture.
 
 ## Part II: Target Execution Model
 

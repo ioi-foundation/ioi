@@ -19,25 +19,27 @@ const RETIRED_CATALOG_DOWNLOAD_POLICY_REQUEST_ALIASES = [
   "retryLimit",
   "resumeDownload",
   "cleanupPartial",
+  "bandwidth_limit_bps",
+  "resume_download",
+  "retries",
 ];
 
 const CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS = [
   "transfer_approved",
   "bandwidth_bps",
-  "bandwidth_limit_bps",
   "retry_limit",
-  "resume_download",
+  "resume",
   "cleanup_partial",
 ];
 
 const RETIRED_DESTRUCTIVE_CONFIRMATION_REQUEST_ALIASES = [
   "confirmDestructive",
   "destructiveConfirmed",
+  "destructive_confirmed",
 ];
 
 const CANONICAL_DESTRUCTIVE_CONFIRMATION_REQUEST_FIELDS = [
   "confirm_destructive",
-  "destructive_confirmed",
 ];
 
 export function modelCatalogFileFormat(filePath) {
@@ -195,12 +197,10 @@ export function catalogApprovalDecision({ isFixture, body = {} }) {
 export function normalizeDownloadPolicy(body = {}, { isFixture, maxBytes, source } = {}) {
   assertCanonicalCatalogDownloadPolicyRequestBody(body);
   const bandwidthLimitBps = normalizeOptionalBytes(
-    body.bandwidth_bps ??
-      body.bandwidth_limit_bps ??
-      process.env.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS,
+    body.bandwidth_bps ?? process.env.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS,
   );
-  const retryLimit = normalizeNonNegativeInteger(body.retry_limit ?? body.retries ?? 0, 0);
-  const resume = truthy(body.resume ?? body.resume_download ?? true);
+  const retryLimit = normalizeNonNegativeInteger(body.retry_limit ?? 0, 0);
+  const resume = truthy(body.resume ?? true);
   const cleanupPartialOnCancel = truthy(body.cleanup_partial ?? true);
   const approvalDecision = catalogApprovalDecision({ isFixture, body });
   return {
@@ -250,7 +250,7 @@ export function assertDownloadPolicyAllowed(policy, source) {
 
 export function destructiveConfirmationState(body = {}, { required = true, action = "destructive_action" } = {}) {
   assertCanonicalDestructiveConfirmationRequestBody(body);
-  const confirmed = Boolean(body.confirm_destructive ?? body.destructive_confirmed ?? false);
+  const confirmed = Boolean(body.confirm_destructive ?? false);
   return {
     required,
     confirmed: required ? confirmed : true,
