@@ -13376,6 +13376,53 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 675
+
+```yaml
+slice: 675
+phase: 10-authoritative-js-facade-retirement
+objective: retire operator-control Rust-planning fail-closed detail aliases
+owner_boundary:
+  route_or_surface: runtime-backed operator interrupt and steer state-update
+    helpers in the daemon store
+  authority_gate: unchanged; operator interrupt/steer run-state transitions
+    remain Rust policy-planned before any run write is committed
+  execution_backend: Rust policy state-update planner through the command
+    bridge; JS remains only the product/control adapter for interrupt/steer
+    route handling
+  truth_path: fail-closed planner errors expose canonical `thread_id`,
+    `run_id`, `operation_kind`, and `expected_operation_kind` details only,
+    so error handling cannot depend on retired camelCase JS detail aliases
+  projection_path: unchanged; no runtime event is accepted when the Rust
+    planner omits a run record or required operation kind
+touched_files:
+  daemon:
+    - packages/runtime-daemon/src/index.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-thread-control.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - operator-control planner-invalid and missing-operation-kind failures expose
+    canonical snake_case details without duplicate camelCase aliases
+  - interrupt and steer run writes remain blocked when Rust planning fails
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/index.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test --test-name-pattern "runtime-backed operator controls fail closed without Rust-planned" packages/runtime-daemon/src/runtime-thread-control.test.mjs
+    - npm run hypervisor-conformance:bridge
+  replay_or_shadow_comparison: not_applicable
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader operator-control JS facade retirement remains pending until the
+      route family collapses fully behind stable Rust daemon-core APIs
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

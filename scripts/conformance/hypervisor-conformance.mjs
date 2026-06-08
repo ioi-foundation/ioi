@@ -5038,6 +5038,34 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "operator-control-state-update-error-detail-aliases-retired",
+    /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*operation_kind:\s*operationKind\s*\}/.test(
+      runtimeDaemonIndex,
+    ) &&
+      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*operation_kind:\s*expectedOperationKind\s*\}/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeDaemonIndex) &&
+      /assertNoRetiredOperatorControlDetailAliases\(error\.details\)/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /error\.details\.thread_id/.test(runtimeThreadControlTest) &&
+      /error\.details\.run_id/.test(runtimeThreadControlTest) &&
+      /error\.details\.operation_kind/.test(runtimeThreadControlTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/error\.details\.(?:threadId|runId|operationKind|expectedOperationKind)\b/.test(
+        runtimeThreadControlTest,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+    ],
+    "Phase 10/11 is pending: operator-control Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "run-cancel-state-update-live-bridge",
     /RunCancelStateUpdateCore/.test(policyCore) &&
       /RunCancelStateUpdateRequest/.test(policyCore) &&

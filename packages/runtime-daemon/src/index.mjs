@@ -690,7 +690,7 @@ function plannedOperatorControlRunRecord(stateUpdate, threadId, runId, operation
       status: 502,
       code: "operator_control_state_update_planner_invalid",
       message: "Rust operator-control state planning did not return a run record.",
-      details: { threadId, runId, operationKind },
+      details: { thread_id: threadId, run_id: runId, operation_kind: operationKind },
     });
   }
   return updatedRun;
@@ -703,7 +703,7 @@ function requiredOperatorControlOperationKind(stateUpdate, threadId, runId, expe
       status: 502,
       code: "operator_control_state_update_operation_kind_missing",
       message: "Rust operator-control state planning did not return an operation kind.",
-      details: { threadId, runId, operationKind: expectedOperationKind },
+      details: { thread_id: threadId, run_id: runId, operation_kind: expectedOperationKind },
     });
   }
   if (operationKind !== expectedOperationKind) {
@@ -712,10 +712,10 @@ function requiredOperatorControlOperationKind(stateUpdate, threadId, runId, expe
       code: "operator_control_state_update_operation_kind_mismatch",
       message: "Rust operator-control state planning returned an unexpected operation kind.",
       details: {
-        threadId,
-        runId,
-        expectedOperationKind,
-        operationKind,
+        thread_id: threadId,
+        run_id: runId,
+        expected_operation_kind: expectedOperationKind,
+        operation_kind: operationKind,
       },
     });
   }

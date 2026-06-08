@@ -18,6 +18,12 @@ async function fetchJson(url, options = {}) {
   return body;
 }
 
+function assertNoRetiredOperatorControlDetailAliases(details) {
+  for (const key of ["threadId", "runId", "operationKind", "expectedOperationKind"]) {
+    assert.equal(Object.hasOwn(details ?? {}, key), false, `${key} detail alias must be absent`);
+  }
+}
+
 function runtimeControlBridge(calls, hooks = {}) {
   return {
     bridgeId: "runtime-control-test-bridge",
@@ -901,7 +907,14 @@ test("runtime-backed operator controls fail closed without Rust-planned runs", a
 
     await assert.rejects(
       () => interruptStore.interruptTurn(thread.thread_id, turnId, { reason: "operator_stop" }),
-      (error) => error.code === "operator_control_state_update_planner_invalid",
+      (error) => {
+        assert.equal(error.code, "operator_control_state_update_planner_invalid");
+        assert.equal(error.details.thread_id, thread.thread_id);
+        assert.equal(error.details.run_id, run.id);
+        assert.equal(error.details.operation_kind, "turn.interrupt");
+        assertNoRetiredOperatorControlDetailAliases(error.details);
+        return true;
+      },
     );
     assert.equal(
       interruptCalls.some(
@@ -939,7 +952,14 @@ test("runtime-backed operator controls fail closed without Rust-planned runs", a
 
     assert.throws(
       () => steerStore.steerTurn(thread.thread_id, turnId, { guidance: "stay fail-closed" }),
-      (error) => error.code === "operator_control_state_update_planner_invalid",
+      (error) => {
+        assert.equal(error.code, "operator_control_state_update_planner_invalid");
+        assert.equal(error.details.thread_id, thread.thread_id);
+        assert.equal(error.details.run_id, run.id);
+        assert.equal(error.details.operation_kind, "turn.steer");
+        assertNoRetiredOperatorControlDetailAliases(error.details);
+        return true;
+      },
     );
     assert.equal(
       steerCalls.some(
@@ -990,7 +1010,10 @@ test("runtime-backed operator controls fail closed without Rust-planned operatio
       () => interruptStore.interruptTurn(thread.thread_id, turnId, { reason: "operator_stop" }),
       (error) => {
         assert.equal(error.code, "operator_control_state_update_operation_kind_missing");
-        assert.equal(error.details.operationKind, "turn.interrupt");
+        assert.equal(error.details.thread_id, thread.thread_id);
+        assert.equal(error.details.run_id, run.id);
+        assert.equal(error.details.operation_kind, "turn.interrupt");
+        assertNoRetiredOperatorControlDetailAliases(error.details);
         return true;
       },
     );
@@ -1043,7 +1066,10 @@ test("runtime-backed operator controls fail closed without Rust-planned operatio
       () => steerStore.steerTurn(thread.thread_id, turnId, { guidance: "stay fail-closed" }),
       (error) => {
         assert.equal(error.code, "operator_control_state_update_operation_kind_missing");
-        assert.equal(error.details.operationKind, "turn.steer");
+        assert.equal(error.details.thread_id, thread.thread_id);
+        assert.equal(error.details.run_id, run.id);
+        assert.equal(error.details.operation_kind, "turn.steer");
+        assertNoRetiredOperatorControlDetailAliases(error.details);
         return true;
       },
     );
