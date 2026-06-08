@@ -1067,6 +1067,12 @@ function runBridge() {
   const runtimeApiBridgeTest = exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
     : "";
+  const runtimeAgentServiceAdapter = exists("packages/runtime-daemon/src/runtime-agent-service-adapter.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agent-service-adapter.mjs")
+    : "";
+  const runtimeAgentServiceAdapterTest = exists("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs")
+    : "";
   const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
     : "";
@@ -5794,6 +5800,34 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
     "Phase 9/10 is pending: runtime bridge thread-start agent updates must be planned by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "runtime-agent-service-adapter-result-bridge-id-alias-retired",
+    /const \{ bridgeId: _retiredBridgeId, \.\.\.canonicalResult \} = result;/.test(
+      runtimeAgentServiceAdapter,
+    ) &&
+      /bridge_id:\s*canonicalResult\.bridge_id \?\? this\.bridgeId/.test(
+        runtimeAgentServiceAdapter,
+      ) &&
+      !/bridge_id:\s*result\.bridge_id \?\? result\.bridgeId/.test(
+        runtimeAgentServiceAdapter,
+      ) &&
+      /RuntimeAgentService command adapter ignores retired bridgeId result alias/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
+      /bridgeId:\s*"retired-bridge-result"/.test(runtimeAgentServiceAdapterTest) &&
+      /result\.bridge_id,\s*"canonical-adapter-bridge"/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
+      /Object\.hasOwn\(result,\s*"bridgeId"\),\s*false/.test(
+        runtimeAgentServiceAdapterTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-agent-service-adapter.mjs",
+      "packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs",
+    ],
+    "Phase 10/11 is pending: RuntimeAgentService command adapter results must expose canonical bridge_id without deriving from or leaking retired bridgeId aliases",
   );
   assertCheck(
     result,

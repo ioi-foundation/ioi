@@ -13394,6 +13394,51 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 678
+
+```yaml
+slice: 678
+phase: 10-authoritative-js-facade-retirement
+objective: retire RuntimeAgentService command adapter result bridgeId alias
+owner_boundary:
+  route_or_surface: RuntimeAgentService command adapter result normalization
+  authority_gate: unchanged; adapter remains command-bridge migration transport
+    and cannot mint accepted truth
+  execution_backend: runtime-agent-service command bridge transport; JS adapter
+    exposes canonical protocol result fields only
+  truth_path: bridge results expose canonical `bridge_id` from `result.bridge_id`
+    or the configured adapter bridge id, without deriving from or leaking retired
+    `bridgeId`
+  projection_path: runtime bridge projections consume canonical bridge identity
+    only
+touched_files:
+  daemon:
+    - packages/runtime-daemon/src/runtime-agent-service-adapter.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - RuntimeAgentService command adapter strips retired `bridgeId` result aliases
+  - bridge conformance rejects deriving canonical bridge identity from retired
+    camelCase result fields
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-agent-service-adapter.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test --test-name-pattern "RuntimeAgentService command adapter ignores retired bridgeId result alias" packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs
+    - npm run hypervisor-conformance:bridge
+  replay_or_shadow_comparison: not_applicable
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader runtime-agent-service command adapter option/env cleanup and
+      terminal Rust daemon-core protocol API collapse remain pending
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

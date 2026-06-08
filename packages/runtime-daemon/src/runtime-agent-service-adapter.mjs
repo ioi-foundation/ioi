@@ -108,10 +108,11 @@ export class RuntimeAgentServiceCommandAdapter {
         { operation, bridgeId: this.bridgeId },
       );
     }
+    const { bridgeId: _retiredBridgeId, ...canonicalResult } = result;
     return {
-      bridge_id: result.bridge_id ?? result.bridgeId ?? this.bridgeId,
+      bridge_id: canonicalResult.bridge_id ?? this.bridgeId,
       source: result.source ?? "runtime_service",
-      ...result,
+      ...canonicalResult,
     };
   }
 }

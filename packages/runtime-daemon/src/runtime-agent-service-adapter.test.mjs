@@ -94,6 +94,35 @@ console.log(JSON.stringify({
   assert.equal(events[0].payload.tool_name, "file__read");
 });
 
+test("RuntimeAgentService command adapter ignores retired bridgeId result alias", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-bridge-alias-"));
+  const bridgeScript = path.join(tempDir, "bridge-alias-probe.mjs");
+  fs.writeFileSync(
+    bridgeScript,
+    `
+console.log(JSON.stringify({
+  ok: true,
+  result: {
+    bridgeId: "retired-bridge-result",
+    source: "runtime_service",
+    turn_id: "turn_alias"
+  }
+}));
+`,
+  );
+
+  const adapter = createRuntimeAgentServiceCommandAdapter({
+    command: process.execPath,
+    args: [bridgeScript],
+    bridgeId: "canonical-adapter-bridge",
+  });
+  const result = await adapter.submitTurn({ thread_id: "thread_alias" });
+
+  assert.equal(result.bridge_id, "canonical-adapter-bridge");
+  assert.equal(Object.hasOwn(result, "bridgeId"), false);
+  assert.equal(result.turn_id, "turn_alias");
+});
+
 test("RuntimeAgentService command adapter treats runtime event streaming as timeout activity", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-activity-"));
   const bridgeScript = path.join(tempDir, "bridge-activity-probe.mjs");
