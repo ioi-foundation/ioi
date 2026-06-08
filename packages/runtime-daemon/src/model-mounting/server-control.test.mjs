@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -12,6 +12,7 @@ import {
   serverStart,
   serverStatus,
   serverStop,
+  writeServerControlState,
   writeServerLog,
 } from "./server-control.mjs";
 
@@ -95,30 +96,36 @@ test("server control projects gateway status from mounted state", () => {
   }
 });
 
-test("server control records lifecycle operations, state, and log ids", () => {
+test("server control facade operations fail closed until Rust core owns control", () => {
   const state = fakeState();
   try {
-    const stopped = serverStop(state, null, { schema_version: SCHEMA });
-    assert.equal(stopped.controlStatus, "stopped");
-    assert.equal(stopped.lastServerOperation, "server_stop");
-    assert.equal(stopped.receiptId, "receipt.server_stop.1");
-    assert.match(stopped.logId, /^server_log_/);
-    assert.equal(state.recordStateCommits[0].record_dir, "server-control");
-    assert.equal(state.recordStateCommits[0].record_id, "server-control.default");
-    assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.server_control.write");
-    assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.server_stop.1"]);
-    assert.equal(state.recordStateCommits[0].record.operation, "server_stop");
-    assert.equal(JSON.parse(readFileSync(join(state.stateDir, "server-state.json"), "utf8")).id, "server-control.default");
+    const cases = [
+      [() => serverStart(state, null, { schema_version: SCHEMA }), "model_mount.server_control.start"],
+      [() => serverStop(state, null, { schema_version: SCHEMA }), "model_mount.server_control.stop"],
+      [() => serverRestart(state, "http://daemon.test", { schema_version: SCHEMA }), "model_mount.server_control.restart"],
+    ];
 
-    const restarted = serverRestart(state, "http://daemon.test", { schema_version: SCHEMA });
-    assert.equal(restarted.controlStatus, "running");
-    assert.equal(restarted.lastServerOperation, "server_restart");
-    assert.equal(state.receipts.at(-1).details.previousControlStatus, "stopped");
-    assert.equal(state.receipts.at(-1).details.previousReceiptId, "receipt.server_stop.1");
+    for (const [run, operationKind] of cases) {
+      assert.throws(run, (error) => {
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "model_mount_server_control_rust_core_required");
+        assert.equal(error.details.operation_kind, operationKind);
+        assert.equal(error.details.rust_core_boundary, "model_mount.server_control");
+        assert.deepEqual(error.details.evidence_refs, [
+          "public_server_control_js_facade_retired",
+          "rust_daemon_core_server_control_required",
+        ]);
+        assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+        assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+        assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+        return true;
+      });
+    }
 
-    const started = serverStart(state, null, { schema_version: SCHEMA });
-    assert.equal(started.lastServerOperation, "server_start");
-    assert.equal(serverLogRecords(state, { limit: 10 }).length, 3);
+    assert.deepEqual(state.receipts, []);
+    assert.deepEqual(state.recordStateCommits, []);
+    assert.equal(existsSync(join(state.stateDir, "server-state.json")), false);
+    assert.equal(existsSync(join(state.stateDir, "server-logs", "server.jsonl")), false);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }
@@ -127,12 +134,18 @@ test("server control records lifecycle operations, state, and log ids", () => {
 test("server control ignores retired schemaVersion option before record-state commit", () => {
   const state = fakeState();
   try {
-    const stopped = serverStop(state, null, {
-      schema_version: SCHEMA,
-      schemaVersion: "schema.retired",
-    });
-    assert.equal(stopped.schemaVersion, SCHEMA);
-    assert.equal(state.recordStateCommits[0].record.schemaVersion, SCHEMA);
+    assert.throws(
+      () => serverStop(state, null, {
+        schema_version: SCHEMA,
+        schemaVersion: "schema.retired",
+      }),
+      (error) => {
+        assert.equal(error.code, "model_mount_server_control_rust_core_required");
+        assert.equal(error.details.operation_kind, "model_mount.server_control.stop");
+        return true;
+      },
+    );
+    assert.deepEqual(state.recordStateCommits, []);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }
@@ -146,56 +159,53 @@ test("server control ignores retired schemaVersion option before record-state co
   }
 });
 
-test("server control state fails closed before local cache write without Rust Agentgres record-state commit", () => {
+test("server control state writes fail closed before Rust admission or local cache writes", () => {
   const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
   try {
     assert.throws(
-      () => serverStop(state, null, { schema_version: SCHEMA }),
+      () => writeServerControlState(state, {
+        schemaVersion: SCHEMA,
+        status: "stopped",
+        operation: "server_stop",
+        receiptId: "receipt.server_stop.1",
+      }),
       (error) => {
-        assert.equal(error.status, 500);
-        assert.equal(error.code, "model_mount_server_control_state_commit_unconfigured");
-        assert.equal(error.details.record_dir, "server-control");
-        assert.equal(error.details.record_id, "server-control.default");
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "model_mount_server_control_rust_core_required");
+        assert.equal(error.details.operation_kind, "model_mount.server_control.write");
         assert.equal(error.details.server_control_id, "server-control.default");
         assert.equal(error.details.receipt_id, "receipt.server_stop.1");
         return true;
       },
     );
+    assert.deepEqual(state.recordStateCommits, []);
     assert.equal(existsSync(join(state.stateDir, "server-state.json")), false);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }
 });
 
-test("server control logs and events are redacted and limit bounded", () => {
+test("server control logs and events fail closed before local ring-buffer reads or appends", () => {
   const state = fakeState();
   try {
-    for (let index = 0; index < 4; index += 1) {
-      state.now = `2026-06-03T20:45:0${index}.000Z`;
-      writeServerLog(state, {
-        event: "provider_probe",
-        status: "ok",
-        authorization: "Bearer secret-token",
-        nested: { apiKey: "secret-key" },
+    const cases = [
+      [() => writeServerLog(state, { event: "provider_probe", authorization: "Bearer secret-token" }), "model_mount.server_control.log_append"],
+      [() => serverLogRecords(state, { limit: 2 }), "model_mount.server_control.log_projection"],
+      [() => serverLogs(state, { limit: "500" }, { schema_version: SCHEMA }), "model_mount.server_control.logs_read"],
+      [() => serverEvents(state, { limit: 1 }, { schema_version: SCHEMA }), "model_mount.server_control.events_read"],
+    ];
+
+    for (const [run, operationKind] of cases) {
+      assert.throws(run, (error) => {
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "model_mount_server_control_rust_core_required");
+        assert.equal(error.details.operation_kind, operationKind);
+        return true;
       });
     }
 
-    const records = serverLogRecords(state, { limit: 2 });
-    assert.equal(records.length, 2);
-    assert.equal(records[0].authorization, "[REDACTED]");
-    assert.equal(records[0].nested.apiKey, "[REDACTED]");
-
-    const logs = serverLogs(state, { limit: "500" }, { schema_version: SCHEMA });
-    assert.equal(logs.kind, "server_logs");
-    assert.equal(logs.redaction, "redacted");
-    assert.equal(logs.records.length, 5);
-    assert.equal(state.receipts.at(-1).details.limit, 200);
-
-    const events = serverEvents(state, { limit: 1 }, { schema_version: SCHEMA });
-    assert.equal(events.kind, "server_events");
-    assert.equal(events.events.length, 1);
-    assert.equal(events.events[0].event, "server_events_read");
+    assert.deepEqual(state.receipts, []);
+    assert.equal(existsSync(join(state.stateDir, "server-logs", "server.jsonl")), false);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }

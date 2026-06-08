@@ -59,7 +59,8 @@ provider-control JS fallback retirement evidence through slice 701, plus
 model load/unload JS provider-driver fallback retirement evidence through slice
 702, plus public backend lifecycle JS facade retirement evidence through slice
 703, plus workflow-edit legacy applied-event replay retirement evidence through
-slice 704.
+slice 704, plus public server-control JS facade retirement evidence through
+slice 705.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -113,6 +114,12 @@ Remaining terminal blockers:
   creating JS-authored lifecycle receipts, mutating backend records, or reading
   local backend logs; direct Rust daemon-core backend lifecycle/control/projection
   ownership remains the required terminal path.
+- Public model server start/stop/restart/logs/events and local server-control
+  cache/log helpers now fail closed instead of creating JS lifecycle receipts,
+  writing `server-state.json`, appending server log ring-buffer records, or
+  projecting log/event reads as accepted truth; direct Rust daemon-core
+  server-control/state/log/event/projection ownership remains the required
+  terminal path.
 - Approved workflow-edit apply now fails closed instead of writing workflow JSON
   or emitting a JS-created `workflow.edit_applied` event, and legacy
   `workflow.edit_applied` replay cannot satisfy apply idempotency; Rust

@@ -1,11 +1,7 @@
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import { readLines } from "./local-system-probes.mjs";
-import { normalizeLimit, parseJsonMaybe } from "./provider-protocol.mjs";
-import { readJson, redact, writeJson } from "./io.mjs";
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
+import { readJson } from "./io.mjs";
 
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
 
@@ -69,151 +65,72 @@ export function writeServerControlState(state, controlState) {
     id: SERVER_CONTROL_RECORD_ID,
     ...controlState,
   };
-  commitModelMountRecordState(state, {
-    recordDir: "server-control",
-    record,
-    operation_kind: "model_mount.server_control.write",
-    receipt_refs: [record.receiptId],
-    unconfiguredCode: "model_mount_server_control_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Model-mount server-control persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: {
-      server_control_id: record.id,
-    },
+  void state;
+  throwServerControlRustCoreRequired("model_mount.server_control.write", {
+    server_control_id: record.id,
+    receipt_id: record.receiptId ?? null,
   });
-  writeJson(path.join(state.stateDir, "server-state.json"), record);
-  return record;
 }
 
 export function serverStart(state, baseUrl, options) {
-  return recordServerOperation(state, "server_start", "running", baseUrl, {
-    requestedAction: "start",
-    compatibilitySurface: "lms server start",
-  }, options);
+  void state;
+  void baseUrl;
+  void options;
+  throwServerControlRustCoreRequired("model_mount.server_control.start");
 }
 
 export function serverStop(state, baseUrl, options) {
-  return recordServerOperation(state, "server_stop", "stopped", baseUrl, {
-    requestedAction: "stop",
-    compatibilitySurface: "lms server stop",
-    note: "The daemon process remains reachable so governed clients can restart the model gateway.",
-  }, options);
+  void state;
+  void baseUrl;
+  void options;
+  throwServerControlRustCoreRequired("model_mount.server_control.stop");
 }
 
 export function serverRestart(state, baseUrl, options) {
-  const previousState = serverControlState(state, options);
-  return recordServerOperation(state, "server_restart", "running", baseUrl, {
-    requestedAction: "restart",
-    compatibilitySurface: "lms server start|stop",
-    previousControlStatus: previousState.status,
-    previousReceiptId: previousState.receiptId,
-  }, options);
-}
-
-export function recordServerOperation(state, operation, status, baseUrl, details = {}, options) {
-  const occurredAt = state.nowIso();
-  const receipt = state.lifecycleReceipt(operation, {
-    modelId: "ioi-local-server",
-    state: status,
-    gatewayStatus: "running",
-    nativeBaseUrl: baseUrl ? `${baseUrl}/api/v1` : "/api/v1",
-    openAiCompatibleBaseUrl: baseUrl ? `${baseUrl}/v1` : "/v1",
-    evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", operation],
-    ...details,
-  });
-  const controlState = writeServerControlState(state, {
-    schemaVersion: options?.schema_version,
-    status,
-    gatewayStatus: "running",
-    operation,
-    updatedAt: occurredAt,
-    receiptId: receipt.id,
-    evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", operation],
-  });
-  const log = writeServerLog(state, {
-    event: operation,
-    status,
-    gatewayStatus: "running",
-    receiptId: receipt.id,
-    details,
-  });
-  return {
-    ...serverStatus(state, baseUrl, options),
-    controlStatus: controlState.status,
-    lastServerOperation: operation,
-    lastServerOperationAt: occurredAt,
-    lastServerReceiptId: receipt.id,
-    receiptId: receipt.id,
-    logId: log.id,
-  };
+  void state;
+  void baseUrl;
+  void options;
+  throwServerControlRustCoreRequired("model_mount.server_control.restart");
 }
 
 export function serverLogs(state, query = {}, { schema_version } = {}) {
-  const schemaVersion = schema_version;
-  const limit = normalizeLimit(query.limit, 80, 200);
-  const receipt = state.lifecycleReceipt("server_logs_read", {
-    modelId: "ioi-local-server",
-    state: "read",
-    limit,
-    evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", "redacted_log_access"],
-  });
-  writeServerLog(state, {
-    event: "server_logs_read",
-    status: "read",
-    receiptId: receipt.id,
-    limit,
-  });
-  return {
-    schemaVersion,
-    kind: "server_logs",
-    redaction: "redacted",
-    receiptId: receipt.id,
-    records: serverLogRecords(state, { limit }),
-  };
+  void state;
+  void query;
+  void schema_version;
+  throwServerControlRustCoreRequired("model_mount.server_control.logs_read");
 }
 
 export function serverEvents(state, query = {}, { schema_version } = {}) {
-  const schemaVersion = schema_version;
-  const limit = normalizeLimit(query.limit, 80, 200);
-  const receipt = state.lifecycleReceipt("server_events_read", {
-    modelId: "ioi-local-server",
-    state: "read",
-    limit,
-    evidenceRefs: ["ioi_daemon_public_runtime_api", "server_log_ring_buffer", "event_tail"],
-  });
-  writeServerLog(state, {
-    event: "server_events_read",
-    status: "read",
-    receiptId: receipt.id,
-    limit,
-  });
-  return {
-    schemaVersion,
-    kind: "server_events",
-    redaction: "redacted",
-    receiptId: receipt.id,
-    events: serverLogRecords(state, { limit }),
-  };
+  void state;
+  void query;
+  void schema_version;
+  throwServerControlRustCoreRequired("model_mount.server_control.events_read");
 }
 
 export function serverLogRecords(state, { limit = 80 } = {}) {
-  const filePath = path.join(state.stateDir, "server-logs", "server.jsonl");
-  return readLines(filePath)
-    .map((line) => parseJsonMaybe(line))
-    .filter(Boolean)
-    .sort((left, right) => String(left.createdAt ?? "").localeCompare(String(right.createdAt ?? "")))
-    .slice(-normalizeLimit(limit, 80, 200));
+  void state;
+  void limit;
+  throwServerControlRustCoreRequired("model_mount.server_control.log_projection");
 }
 
 export function writeServerLog(state, event) {
-  const record = {
-    id: `server_log_${crypto.randomUUID()}`,
-    createdAt: state.nowIso(),
-    source: "ioi-local-server",
-    ...redact(event),
+  void state;
+  void event;
+  throwServerControlRustCoreRequired("model_mount.server_control.log_append");
+}
+
+function throwServerControlRustCoreRequired(operation_kind, details = {}) {
+  const error = new Error("Server-control facade requires Rust daemon-core model_mount server-control ownership.");
+  error.status = 501;
+  error.code = "model_mount_server_control_rust_core_required";
+  error.details = {
+    operation_kind,
+    rust_core_boundary: "model_mount.server_control",
+    evidence_refs: [
+      "public_server_control_js_facade_retired",
+      "rust_daemon_core_server_control_required",
+    ],
+    ...details,
   };
-  const filePath = path.join(state.stateDir, "server-logs", "server.jsonl");
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.appendFileSync(filePath, `${JSON.stringify(record)}\n`);
-  return record;
+  throw error;
 }

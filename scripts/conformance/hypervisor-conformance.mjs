@@ -11474,33 +11474,52 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-server-control-record-state",
-    /commitModelMountRecordState/.test(serverControl) &&
-      /recordDir:\s*"server-control"/.test(serverControl) &&
-      /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(serverControl) &&
-      /model_mount\.server_control\.write/.test(serverControl) &&
-      /schemaVersion:\s*options\?\.schema_version/.test(serverControl) &&
-      !/schemaVersion:\s*options\?\.schemaVersion/.test(serverControl) &&
-      !/schemaVersion:\s*options\.schemaVersion/.test(serverControl) &&
-      /model_mount_server_control_state_commit_unconfigured/.test(serverControl) &&
-      /commitModelMountRecordState\(state,[\s\S]*?writeJson\(path\.join\(state\.stateDir,\s*"server-state\.json"\),\s*record\)/.test(
-        serverControl,
-      ) &&
+    /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(serverControl) &&
+      /throwServerControlRustCoreRequired/.test(serverControl) &&
+      /model_mount_server_control_rust_core_required/.test(serverControl) &&
+      /rust_core_boundary:\s*"model_mount\.server_control"/.test(serverControl) &&
+      /public_server_control_js_facade_retired/.test(serverControl) &&
+      /rust_daemon_core_server_control_required/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.start"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.stop"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.restart"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.logs_read"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.events_read"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_projection"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_append"\)/.test(serverControl) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.write"/.test(serverControl) &&
+      !/commitModelMountRecordState/.test(serverControl) &&
+      !/writeJson\(path\.join\(state\.stateDir,\s*"server-state\.json"\)/.test(serverControl) &&
+      !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(serverControl) &&
+      !/fs\.appendFileSync/.test(serverControl) &&
+      !/readLines\(filePath\)/.test(serverControl) &&
       /server control ignores retired schemaVersion option before record-state commit/.test(
         serverControlTest,
       ) &&
       /schema_version:\s*SCHEMA/.test(serverControlTest) &&
       /schemaVersion:\s*"schema\.retired"/.test(serverControlTest) &&
-      /server control state fails closed before local cache write without Rust Agentgres record-state commit/.test(
+      /server control facade operations fail closed until Rust core owns control/.test(
+        serverControlTest,
+      ) &&
+      /server control state writes fail closed before Rust admission or local cache writes/.test(
+        serverControlTest,
+      ) &&
+      /server control logs and events fail closed before local ring-buffer reads or appends/.test(
         serverControlTest,
       ) &&
       /recordStateCommits/.test(serverControlTest) &&
-      /existsSync\(join\(state\.stateDir,\s*"server-state\.json"\)\),\s*false/.test(serverControlTest),
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(serverControlTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(serverControlTest) &&
+      /existsSync\(join\(state\.stateDir,\s*"server-state\.json"\)\),\s*false/.test(serverControlTest) &&
+      /existsSync\(join\(state\.stateDir,\s*"server-logs",\s*"server\.jsonl"\)\),\s*false/.test(
+        serverControlTest,
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/server-control.mjs",
       "packages/runtime-daemon/src/model-mounting/server-control.test.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
-    "Phase 9/11 is pending: server-control state must commit through Rust Agentgres record-state admission before local server-state cache writes",
+    "Phase 9/11 is pending: public server-control facade must fail closed until Rust daemon-core model_mount owns server-control receipts, state, logs, events, and projection",
   );
   assertCheck(
     result,
