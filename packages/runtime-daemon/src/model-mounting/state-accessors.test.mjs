@@ -157,7 +157,7 @@ test("resolveEndpoint prefers explicit endpoint, existing model endpoint, mount 
   );
 });
 
-test("model accessors find artifacts and persist provider-direct mount artifacts", () => {
+test("model accessors find artifacts and fail closed before provider-direct artifact mutation", () => {
   const state = fakeState();
   const providerRecord = state.providers.get("provider.local");
 
@@ -169,55 +169,45 @@ test("model accessors find artifacts and persist provider-direct mount artifacts
   );
 
   assert.equal(modelForProviderMount(state, "model.local", providerRecord, {}, state.now, deps).id, "artifact.local");
-  const mounted = modelForProviderMount(
-    state,
-    "remote-model",
-    providerRecord,
-    {
-      display_name: "Remote Model",
-      size_bytes: "123",
-      context_window: "4096",
-      capabilities: ["chat", "vision"],
-      privacy_class: "hosted_private",
-    },
-    state.now,
-    deps,
-  );
-
-  assert.equal(mounted.id, "provider.local.remote.model");
-  assert.equal(mounted.source, "openai_compatible_provider_direct_mount");
-  assert.equal(mounted.sizeBytes, 123);
-  assert.equal(mounted.contextWindow, 4096);
-  assert.deepEqual(mounted.capabilities, ["chat", "vision"]);
-  assert.equal(mounted.privacyClass, "hosted_private");
-  assert.equal(state.artifacts.get(mounted.id), mounted);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-artifacts");
-  assert.equal(state.recordStateCommits.at(-1).record_id, mounted.id);
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.artifact.provider_direct_mount");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, []);
-});
-
-test("provider-direct mount artifacts fail closed without Rust Agentgres record-state commit", () => {
-  const state = fakeState();
-  const providerRecord = state.providers.get("provider.local");
-  delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
-    () => modelForProviderMount(state, "remote-model", providerRecord, {}, state.now, deps),
+    () =>
+      modelForProviderMount(
+        state,
+        "remote-model",
+        providerRecord,
+        {
+          display_name: "Remote Model",
+          size_bytes: "123",
+          context_window: "4096",
+          capabilities: ["chat", "vision"],
+          privacy_class: "hosted_private",
+        },
+        state.now,
+        deps,
+      ),
     (error) => {
-      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "model-artifacts");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_state_accessor_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.projection");
+      assert.equal(error.details.operation_kind, "model_mount.artifact.provider_direct_mount");
       assert.equal(error.details.artifact_id, "provider.local.remote.model");
+      assert.equal(error.details.provider_id, "provider.local");
+      assert.equal(error.details.provider_kind, "openai");
+      assert.equal(error.details.model_id, "remote-model");
+      assert.equal(Object.hasOwn(error.details, "artifactId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "modelId"), false);
       return true;
     },
   );
 
   assert.equal(state.artifacts.has("provider.local.remote.model"), false);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 
-test("ensureLoaded refreshes existing instance and writes it back", async () => {
+test("ensureLoaded reuses existing instance without JS touch mutation", async () => {
   const state = fakeState();
   state.instances.set("instance.loaded", {
     id: "instance.loaded",
@@ -229,20 +219,17 @@ test("ensureLoaded refreshes existing instance and writes it back", async () => 
 
   const updated = await ensureLoaded(state, state.endpoints.get("endpoint.active"), deps);
 
-  assert.equal(state.evictions, 1);
+  assert.equal(state.evictions, 0);
   assert.equal(updated.id, "instance.loaded");
-  assert.equal(updated.lastUsedAt, state.now);
-  assert.equal(updated.expiresAt, "2026-06-04T04:05:00.000Z");
+  assert.equal(updated.lastUsedAt, "old");
+  assert.equal(updated.expiresAt, undefined);
   assert.equal(state.instances.get("instance.loaded"), updated);
   assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-instances");
-  assert.equal(state.recordStateCommits.at(-1).record_id, "instance.loaded");
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.instance.touch");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, []);
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.loadedLookups, [["endpoint.active", false]]);
 });
 
-test("ensureLoaded existing instance touch fails closed without Rust Agentgres record-state commit", async () => {
+test("ensureLoaded existing instance reuse does not require JS record-state commit", async () => {
   const state = fakeState();
   state.instances.set("instance.loaded", {
     id: "instance.loaded",
@@ -253,17 +240,11 @@ test("ensureLoaded existing instance touch fails closed without Rust Agentgres r
   });
   delete state.commitRuntimeModelMountRecordState;
 
-  await assert.rejects(
-    () => ensureLoaded(state, state.endpoints.get("endpoint.active"), deps),
-    (error) => {
-      assert.equal(error.code, "model_mount_instance_state_commit_unconfigured");
-      assert.equal(error.details.record_dir, "model-instances");
-      assert.equal(error.details.instance_id, "instance.loaded");
-      return true;
-    },
-  );
+  const loaded = await ensureLoaded(state, state.endpoints.get("endpoint.active"), deps);
 
+  assert.equal(loaded.id, "instance.loaded");
   assert.equal(state.instances.get("instance.loaded").lastUsedAt, "old");
+  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 

@@ -14206,6 +14206,74 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 715
+
+```yaml
+slice: 715
+phase: 10-authoritative-js-facade-retirement
+objective: retire model-mount state-accessor JS artifact/instance mutation
+  facades while preserving read/projection adapter behavior
+owner_boundary:
+  route_or_surface: model-mounting state accessors for provider-direct artifact
+    materialization and loaded-instance touch/eviction
+  authority_gate: missing provider-direct artifacts now fail closed at
+    `model_mount.projection`; existing loaded instances are reused from the
+    current projection without JS `lastUsedAt`/`expiresAt` touch writes
+  execution_backend: none in JS for accessor-created artifact or instance
+    mutation; Rust daemon-core model_mount projection/Agentgres admission must
+    own provider-direct artifact materialization, instance touch/eviction, and
+    projection watermarks
+  truth_path: no JS provider-direct artifact record-state commit, artifact-map
+    mutation, instance touch record-state commit, instance-map mutation, or
+    local eviction maintenance call from the state accessor surface
+  projection_path: state accessor reads remain adapters over current maps; if no
+    loaded instance exists, `ensureLoaded` still delegates to the Rust-planned
+    model-loading path
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/state-accessors.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires
+    `model_mount_state_accessor_rust_core_required` for provider-direct
+    artifact materialization and rejects reintroducing state-accessor
+    artifact/instance commit imports, map writes, or local eviction maintenance
+  - focused daemon tests prove provider-direct artifact creation fails with
+    canonical snake_case details before record-state commit or artifact-map
+    mutation, and existing loaded instances are reused without JS touch commits
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/state-accessors.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - state accessors still read current JS maps until Rust daemon-core
+      model_mount projection APIs own provider/model/endpoint/route/instance
+      reads directly
+    - `ensureLoaded` still delegates no-instance cases to the existing
+      Rust-planned `loadModel` route; extract direct Rust model-loading control
+      and projection before terminal conformance
+    - schedule a matrix-compaction pass once the next model-instance or MCP
+      Rust-core extraction/facade-retirement seam is clear, so this accessor
+      retirement remains migration evidence rather than terminal JS shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14221,7 +14289,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 714 and the provider upsert JS mutation-facade retirement pass:
+Current expected behavior after Slice 715 and the state-accessor JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

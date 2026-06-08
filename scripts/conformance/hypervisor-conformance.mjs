@@ -11811,21 +11811,32 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-state-accessor-record-state-commits",
-    /commitModelArtifactRecordState/.test(stateAccessors) &&
-      /commitModelInstanceRecordState/.test(stateAccessors) &&
+    "model-mount-state-accessor-js-mutation-retired",
+    /throwStateAccessorRustCoreRequired/.test(stateAccessors) &&
+      /model_mount_state_accessor_rust_core_required/.test(stateAccessors) &&
+      /rust_core_boundary:\s*"model_mount\.projection"/.test(stateAccessors) &&
+      /model_mount_state_accessor_js_mutation_retired/.test(stateAccessors) &&
+      /rust_daemon_core_model_mount_projection_required/.test(stateAccessors) &&
+      /agentgres_model_mount_record_truth_required/.test(stateAccessors) &&
+      !/commitModelArtifactRecordState/.test(stateAccessors) &&
+      !/commitModelInstanceRecordState/.test(stateAccessors) &&
       /model_mount\.artifact\.provider_direct_mount/.test(stateAccessors) &&
-      /model_mount\.instance\.touch/.test(stateAccessors) &&
+      !/model_mount\.instance\.touch/.test(stateAccessors) &&
+      !/state\.artifacts\.set/.test(stateAccessors) &&
+      !/state\.instances\.set/.test(stateAccessors) &&
+      !/state\.evictExpiredInstances\(\)/.test(stateAccessors) &&
       !/state\.writeMap\("model-artifacts"/.test(stateAccessors) &&
       !/state\.writeMap\("model-instances"/.test(stateAccessors) &&
       /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
       /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
-      /provider-direct mount artifacts fail closed without Rust Agentgres record-state commit/.test(
+      /fail closed before provider-direct artifact mutation/.test(
         stateAccessorsTest,
       ) &&
-      /ensureLoaded existing instance touch fails closed without Rust Agentgres record-state commit/.test(
+      /reuses existing instance without JS touch mutation/.test(
         stateAccessorsTest,
       ) &&
+      /existing instance reuse does not require JS record-state commit/.test(stateAccessorsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(stateAccessorsTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(stateAccessorsTest),
     [
       "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
@@ -11833,7 +11844,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
     ],
-    "Phase 9/10 is pending: model-mount accessor-created artifact and instance records must commit through Rust Agentgres record-state admission instead of direct JS map persistence",
+    "Phase 9/10 is pending: model-mount state accessor mutation facades must fail closed or reuse projections without JS artifact/instance writes",
   );
   assertCheck(
     result,

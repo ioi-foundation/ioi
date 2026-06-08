@@ -1,6 +1,3 @@
-import { commitModelArtifactRecordState } from "./model-artifact-record-state.mjs";
-import { commitModelInstanceRecordState } from "./model-instance-record-state.mjs";
-
 export function provider(state, providerId, deps = {}) {
   const { notFound } = deps;
   const record = state.providers.get(providerId);
@@ -42,32 +39,18 @@ export function getModel(state, id, deps = {}) {
 
 export function modelForProviderMount(state, modelId, providerRecord, body = {}, now = state.nowIso(), deps = {}) {
   const {
-    driverNameForProvider,
-    normalizeScopes,
     safeId,
   } = deps;
   const artifact = [...state.artifacts.values()].find(
     (item) => item.id === modelId || (item.modelId === modelId && item.providerId === providerRecord.id),
   );
   if (artifact) return artifact;
-  const mounted = {
-    id: `${safeId(providerRecord.id)}.${safeId(modelId)}`,
-    providerId: providerRecord.id,
-    modelId,
-    displayName: body.display_name ?? body.displayName ?? modelId,
-    family: body.family ?? providerRecord.kind,
-    quantization: body.quantization ?? null,
-    sizeBytes: Number.isFinite(Number(body.size_bytes ?? body.sizeBytes)) ? Number(body.size_bytes ?? body.sizeBytes) : null,
-    contextWindow: Number.isFinite(Number(body.context_window ?? body.contextWindow)) ? Number(body.context_window ?? body.contextWindow) : null,
-    capabilities: normalizeScopes(body.capabilities, providerRecord.capabilities ?? ["chat", "responses", "embeddings"]),
-    privacyClass: body.privacy_class ?? body.privacyClass ?? providerRecord.privacyClass,
-    source: `${driverNameForProvider(providerRecord)}_provider_direct_mount`,
-    state: "available",
-    discoveredAt: now,
-  };
-  commitModelArtifactRecordState(state, mounted, "model_mount.artifact.provider_direct_mount", []);
-  state.artifacts.set(mounted.id, mounted);
-  return mounted;
+  throwStateAccessorRustCoreRequired("model_mount.artifact.provider_direct_mount", {
+    artifact_id: `${safeId(providerRecord.id)}.${safeId(modelId)}`,
+    provider_id: providerRecord?.id ?? null,
+    provider_kind: providerRecord?.kind ?? null,
+    model_id: modelId,
+  });
 }
 
 export function resolveEndpoint(state, endpointId, modelId, deps = {}) {
@@ -89,18 +72,24 @@ export function resolveEndpoint(state, endpointId, modelId, deps = {}) {
 }
 
 export async function ensureLoaded(state, endpointRecord, deps = {}) {
-  const { expiresAt } = deps;
-  state.evictExpiredInstances();
   const existing = state.loadedInstanceForEndpoint(endpointRecord.id, false);
-  if (existing) {
-    const updated = {
-      ...existing,
-      lastUsedAt: state.nowIso(),
-      expiresAt: expiresAt(state.nowIso(), existing.loadPolicy),
-    };
-    commitModelInstanceRecordState(state, updated, "model_mount.instance.touch", []);
-    state.instances.set(updated.id, updated);
-    return updated;
-  }
+  if (existing) return existing;
   return state.loadModel({ endpoint_id: endpointRecord.id, load_policy: endpointRecord.loadPolicy });
+}
+
+export function throwStateAccessorRustCoreRequired(operation_kind, details = {}) {
+  const error = new Error("Model-mount state accessor mutation requires Rust daemon-core ownership.");
+  error.status = 501;
+  error.code = "model_mount_state_accessor_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.projection",
+    operation_kind,
+    ...details,
+    evidence_refs: [
+      "model_mount_state_accessor_js_mutation_retired",
+      "rust_daemon_core_model_mount_projection_required",
+      "agentgres_model_mount_record_truth_required",
+    ],
+  };
+  throw error;
 }
