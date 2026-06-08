@@ -305,7 +305,7 @@ export function validateMcpServerRecords(servers = []) {
         message: "MCP HTTP/SSE server requires network egress in containment policy.",
       });
     }
-    const secretRefs = server.secretRefs ?? server.secret_refs ?? {};
+    const secretRefs = server.secret_refs ?? {};
     for (const [key, value] of Object.entries(secretRefs)) {
       if (value?.invalidVaultRef) {
         issues.push({

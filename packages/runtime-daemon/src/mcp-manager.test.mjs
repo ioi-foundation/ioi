@@ -30,6 +30,40 @@ test("MCP manager validation emits canonical output fields only", () => {
   assert.equal(Object.hasOwn(validation.warnings[0], "serverId"), false);
 });
 
+test("MCP manager validation ignores retired secretRefs aliases", () => {
+  const canonical = validateMcpServerRecords([
+    {
+      id: "mcp.secret",
+      transport: "stdio",
+      command: "npx",
+      secret_refs: {
+        Authorization: { invalidVaultRef: true },
+      },
+      secretRefs: {
+        Authorization: { invalidVaultRef: false },
+      },
+    },
+  ]);
+
+  assert.equal(canonical.ok, false);
+  assert.equal(canonical.issues[0].code, "mcp_secret_not_vault_ref");
+  assert.equal(canonical.issues[0].server_id, "mcp.secret");
+  assert.equal(Object.hasOwn(canonical.issues[0], "serverId"), false);
+
+  const retiredOnly = validateMcpServerRecords([
+    {
+      id: "mcp.retired-secret",
+      transport: "stdio",
+      command: "npx",
+      secretRefs: {
+        Authorization: { invalidVaultRef: true },
+      },
+    },
+  ]);
+
+  assert.equal(retiredOnly.ok, true);
+});
+
 test("MCP manager validation input consumes canonical MCP JSON fields only", () => {
   const canonicalRecords = mcpServerRecordsFromValidationInput({
     mcp_json: {

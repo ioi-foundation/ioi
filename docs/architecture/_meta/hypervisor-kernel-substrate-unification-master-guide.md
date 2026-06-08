@@ -589,9 +589,19 @@ authority, transport containment, StepModuleRouter dispatch, receipt binding,
 Agentgres expected-head/state-root binding, registry truth, replay, SDK/IDE
 protocol coverage, and conformance. Do not encode the remaining JS MCP
 manager/catalog helpers as terminal architecture. The Slice 772 MCP manager
-transport/containment alias-retirement matrix-compaction pass is complete. No
-matrix-compaction pass is pending until the next Rust-core extraction or
-facade-retirement seam lands.
+transport/containment alias-retirement matrix-compaction pass is complete.
+Slice 773 retired the MCP manager validation `secretRefs` fallback. MCP manager
+validation now reads only canonical `secret_refs`, so retired camelCase
+`secretRefs` can no longer feed vault-ref validation, satisfy or suppress
+`mcp_secret_not_vault_ref` diagnostics, or create duplicate secret truth at the
+manager validation boundary. This does not claim terminal MCP manager migration:
+direct Rust daemon-core MCP control/admission/projection still needs to own
+wallet authority, transport containment, StepModuleRouter dispatch, receipt
+binding, Agentgres expected-head/state-root binding, registry truth, replay,
+SDK/IDE protocol coverage, and conformance. Do not encode the remaining JS MCP
+manager/catalog helpers as terminal architecture. The Slice 773 MCP manager
+validation secret-ref alias-retirement matrix-compaction pass is pending and
+must run before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 
