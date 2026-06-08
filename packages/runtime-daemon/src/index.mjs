@@ -18,6 +18,7 @@ import { computerUseProviderRegistryReport } from "./computer-use-provider-regis
 import {
   computerUseAuthorityScopesForInput,
   computerUseControlActionForInput,
+  computerUseObservationRetentionModeForInput,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindFromText,
   nativeBrowserActionKindIsReadOnly,
@@ -2527,9 +2528,10 @@ export class AgentgresRuntimeStateStore {
       optionalString(input.url)?.replace(/^/, "Inspect browser surface at ") ??
       "Inspect the native browser surface without external side effects.";
     const runId = `run_${safeId(toolCallId)}`;
-    const observationRetentionMode =
-      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
-      "prompt_visible_summary_only";
+    const observationRetentionMode = computerUseObservationRetentionModeForInput(
+      input,
+      "prompt_visible_summary_only",
+    );
     const requestedActionKind = nativeBrowserActionKindForInput(input, goal);
     const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
       ? "computer_use.native_browser.read"
@@ -2777,9 +2779,10 @@ export class AgentgresRuntimeStateStore {
       optionalString(input.prompt ?? input.goal ?? input.objective ?? request.prompt ?? request.goal) ??
       "Inspect the visual GUI surface without external side effects.";
     const runId = `run_${safeId(toolCallId)}`;
-    const observationRetentionMode =
-      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
-      "local_redacted_artifacts";
+    const observationRetentionMode = computerUseObservationRetentionModeForInput(
+      input,
+      "local_redacted_artifacts",
+    );
     const requestedActionKind = nativeBrowserActionKindForInput(input, goal);
     const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
       ? "computer_use.visual_gui.read"
@@ -3014,9 +3017,10 @@ export class AgentgresRuntimeStateStore {
       optionalString(input.prompt ?? input.goal ?? input.objective ?? request.prompt ?? request.goal) ??
       "Inspect the sandboxed computer fixture without external side effects.";
     const runId = `run_${safeId(toolCallId)}`;
-    const observationRetentionMode =
-      optionalString(input.observationRetentionMode ?? input.observation_retention_mode) ??
-      "no_persistence";
+    const observationRetentionMode = computerUseObservationRetentionModeForInput(
+      input,
+      "no_persistence",
+    );
     const requestedActionKind = nativeBrowserActionKindForInput(input, goal);
     const requestedActionAuthority = nativeBrowserActionKindIsReadOnly(requestedActionKind)
       ? "computer_use.sandboxed_hosted.read"

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   computerUseAuthorityScopesForInput,
   computerUseControlActionForInput,
+  computerUseObservationRetentionModeForInput,
   nativeBrowserActionKindForInput,
   nativeBrowserActionKindIsReadOnly,
   nativeBrowserActionKindValue,
@@ -32,6 +33,28 @@ test("computer-use inputs consume canonical authority scopes only", () => {
       authorityScopes: ["scope.retired"],
     }),
     [],
+  );
+});
+
+test("computer-use inputs consume canonical observation retention only", () => {
+  assert.equal(
+    computerUseObservationRetentionModeForInput(
+      {
+        observation_retention_mode: "local_redacted_artifacts",
+        observationRetentionMode: "local_raw_artifacts",
+      },
+      "prompt_visible_summary_only",
+    ),
+    "local_redacted_artifacts",
+  );
+  assert.equal(
+    computerUseObservationRetentionModeForInput(
+      {
+        observationRetentionMode: "local_raw_artifacts",
+      },
+      "prompt_visible_summary_only",
+    ),
+    "prompt_visible_summary_only",
   );
 });
 

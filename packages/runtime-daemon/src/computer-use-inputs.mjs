@@ -71,6 +71,10 @@ export function computerUseAuthorityScopesForInput(input = {}) {
     .filter(Boolean);
 }
 
+export function computerUseObservationRetentionModeForInput(input = {}, fallback = null) {
+  return optionalString(input.observation_retention_mode) ?? fallback;
+}
+
 export function nativeBrowserSessionModeForInput(input = {}) {
   const explicit = optionalString(
     input.session_mode ??

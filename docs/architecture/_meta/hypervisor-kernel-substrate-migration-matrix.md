@@ -15,7 +15,8 @@ slice 655, plus managed-session inspection/control bridge request alias evidence
 through slice 657, and run-cancel fail-closed detail alias evidence through
 slice 658, plus diagnostics operator-override not-found detail alias evidence
 through slice 659, plus computer-use route authority-scope alias evidence
-through slice 660.
+through slice 660. Slice 661 is expanded below pending the next scheduled
+matrix-compaction pass.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -13333,6 +13334,57 @@ closeout:
   push: required after verification
 ```
 
+### Slice 661: computer-use route observation-retention alias retirement
+
+```yaml
+ImplementationSlice:
+  objective: prevent retired `observationRetentionMode` input aliases from
+    steering computer-use route retention metadata before StepModule/Rust dispatch
+  owner_boundary:
+    route_or_surface: runtime-daemon computer-use native-browser, visual-GUI,
+      and sandboxed-hosted invocation metadata
+    authority_gate: retention metadata must use canonical
+      `observation_retention_mode`; retired `observationRetentionMode` input is
+      ignored
+    execution_backend: existing computer-use StepModule/Rust dispatch lanes
+    truth_path: receipt/projection metadata receives only canonical
+      `observation_retention_mode`
+    projection_path: computer-use projection continues reading canonical
+      `metadata.observation_retention_mode`
+  touched_files:
+    docs:
+      - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    daemon:
+      - packages/runtime-daemon/src/computer-use-inputs.mjs
+      - packages/runtime-daemon/src/index.mjs
+    rust_core: []
+    ide: []
+    tests:
+      - packages/runtime-daemon/src/computer-use-inputs.test.mjs
+      - scripts/conformance/hypervisor-conformance.mjs
+  conformance_checks:
+    - retired camelCase `observationRetentionMode` request aliases cannot
+      influence computer-use route retention metadata
+    - bridge conformance pins the alias retirement before future route-family
+      work resumes
+  verification:
+    commands:
+      - node --test packages/runtime-daemon/src/computer-use-inputs.test.mjs
+      - node --check scripts/conformance/hypervisor-conformance.mjs
+      - node --check packages/runtime-daemon/src/index.mjs
+      - node --check packages/runtime-daemon/src/computer-use-inputs.mjs
+    replay_or_shadow_comparison: not_applicable
+  cleanup:
+    legacy_paths_removed: true
+    compatibility_shims_remaining:
+      - broader computer-use route-family JS facade remains migration transport
+        until Rust core ownership and facade retirement are complete
+  closeout:
+    git_diff_check: required
+    commit: required
+    push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13348,7 +13400,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 660 and the ninety-sixth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 661 and the ninety-sixth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

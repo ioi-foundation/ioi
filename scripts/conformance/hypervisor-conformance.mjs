@@ -3385,12 +3385,22 @@ function runBridge() {
       /input\.session_mode \?\?\s*[\r\n\s]*input\.computer_use_session_mode/.test(computerUseInputs) &&
       /computerUseAuthorityScopesForInput/.test(computerUseInputs) &&
       /normalizeArray\(input\.authority_scopes\)/.test(computerUseInputs) &&
+      /computerUseObservationRetentionModeForInput/.test(computerUseInputs) &&
+      /optionalString\(input\.observation_retention_mode\)/.test(
+        computerUseInputs,
+      ) &&
       /input\.controlled_relaunch === true/.test(computerUseInputs) &&
       /input\.cdp_endpoint_url \?\?\s*[\r\n\s]*input\.cdp_endpoint \?\?\s*[\r\n\s]*input\.cdp_websocket_url \?\?\s*[\r\n\s]*input\.cdp_ws_url \?\?\s*[\r\n\s]*input\.web_socket_debugger_url/.test(computerUseInputs) &&
       /computer-use inputs consume canonical authority scopes only/.test(
         computerUseInputsTest,
       ) &&
+      /computer-use inputs consume canonical observation retention only/.test(
+        computerUseInputsTest,
+      ) &&
       /authorityScopes: \["scope\.retired"\]/.test(computerUseInputsTest) &&
+      /observationRetentionMode: "local_raw_artifacts"/.test(
+        computerUseInputsTest,
+      ) &&
       /assert\.deepEqual\(\s*[\r\n\s]*computerUseAuthorityScopesForInput\(\{\s*[\r\n\s]*authorityScopes: \["scope\.retired"\]/.test(
         computerUseInputsTest,
       ) &&
@@ -3403,10 +3413,11 @@ function runBridge() {
       /assert\.equal\(nativeBrowserHasExplicitCdpEndpoint\(\{ cdpWsUrl: "ws:\/\/localhost\/devtools" \}\), false\)/.test(
         computerUseInputsTest,
       ) &&
-      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|authorityScopes|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
+      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|authorityScopes|observationRetentionMode|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
         `${computerUseInputs}\n${computerUseToolIdentityBodies.slice(1, 5).join("\n")}`,
       ) &&
       !/input\.authorityScopes\b/.test(runtimeDaemonIndex) &&
+      !/input\.observationRetentionMode\b/.test(runtimeDaemonIndex) &&
       !/authorityScopes:\s*normalizeArray/.test(runtimeDaemonIndex),
     [
       "packages/runtime-daemon/src/computer-use-inputs.mjs",
@@ -3432,6 +3443,28 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: computer-use route metadata must ignore retired authorityScopes input aliases before StepModule/Rust dispatch",
+  );
+  assertCheck(
+    result,
+    "computer-use-route-observation-retention-alias-retired",
+    /computerUseObservationRetentionModeForInput\(\s*[\r\n\s]*input,\s*[\r\n\s]*"prompt_visible_summary_only"/.test(
+      runtimeDaemonIndex,
+    ) &&
+      /computerUseObservationRetentionModeForInput\(\s*[\r\n\s]*input,\s*[\r\n\s]*"local_redacted_artifacts"/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /computerUseObservationRetentionModeForInput\(\s*[\r\n\s]*input,\s*[\r\n\s]*"no_persistence"/.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/optionalString\(input\.observationRetentionMode\s*\?\?\s*input\.observation_retention_mode\)/.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "packages/runtime-daemon/src/computer-use-inputs.mjs",
+      "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use route metadata must ignore retired observationRetentionMode input aliases before StepModule/Rust dispatch",
   );
   assertCheck(
     result,
