@@ -11,71 +11,36 @@ function fakeState() {
   return {
     artifacts: new Map(),
     endpoints: new Map(),
-    modelRoot: "/models",
     recordStateCommits: [],
     receipts: [],
     writes: [],
     projections: 0,
-    now: "2026-06-03T23:30:00.000Z",
-    backendRegistry() {
-      return [{ id: "backend.native", kind: "native_local" }];
-    },
     endpoint(endpointId) {
-      const endpoint = this.endpoints.get(endpointId);
-      if (!endpoint) throw new Error(`missing endpoint ${endpointId}`);
-      return endpoint;
+      throw new Error(`endpoint lookup should not run: ${endpointId}`);
     },
     getModel(modelId) {
-      return [...this.artifacts.values()].find((artifact) => artifact.modelId === modelId);
+      throw new Error(`artifact lookup should not run: ${modelId}`);
     },
     lifecycleReceipt(kind, details) {
       const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, details };
       this.receipts.push(receipt);
       return receipt;
     },
-    modelForProviderMount(modelId, provider, body, now) {
-      return {
-        id: `provider-artifact.${modelId}`,
-        modelId,
-        providerId: provider.id,
-        capabilities: body.capabilities ?? ["chat"],
-        artifactPath: null,
-        mountedAt: now,
-      };
+    modelForProviderMount() {
+      throw new Error("provider artifact mount lookup should not run");
     },
     nowIso() {
-      return this.now;
+      throw new Error("clock should not run");
     },
     provider(providerId) {
-      return {
-        id: providerId,
-        kind: providerId === "provider.fixture" ? "fixture" : "custom_http",
-        apiFormat: "openai",
-        driver: providerId === "provider.fixture" ? "fixture" : "openai_compatible",
-        baseUrl: providerId === "provider.fixture" ? null : "http://127.0.0.1:8080/v1",
-        privacyClass: "workspace",
-      };
+      throw new Error(`provider lookup should not run: ${providerId}`);
     },
     writeMap(name, map) {
-      this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
+      this.writes.push([name, [...map.values()]]);
     },
     commitRuntimeModelMountRecordState(request) {
-      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
-      return {
-        record_id: request.record_id,
-        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
-        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
-        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
-        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
-        written_record: request.record,
-        storage_record: {
-          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
-          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
-          admission: {
-            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
-          },
-        },
-      };
+      this.recordStateCommits.push(request);
+      throw new Error("record-state commit should not run");
     },
     writeProjection() {
       this.projections += 1;
@@ -84,69 +49,35 @@ function fakeState() {
 }
 
 const deps = {
-  defaultBackendForProvider(provider) {
-    return provider.kind === "fixture" ? "backend.native" : "backend.remote";
+  inspectLocalArtifact() {
+    throw new Error("artifact inspection should not run");
   },
-  driverForProviderKind(kind) {
-    return kind === "fixture" ? "fixture" : "openai_compatible";
+  materializeImportArtifact() {
+    throw new Error("artifact materialization should not run");
   },
-  importTargetPath(root, modelId, sourcePath) {
-    return `${root}/${modelId}/${sourcePath.split("/").pop()}`;
-  },
-  inspectLocalArtifact(sourcePath) {
-    return {
-      path: sourcePath,
-      sizeBytes: 123,
-      checksum: `checksum:${sourcePath}`,
-    };
-  },
-  materializeImportArtifact(root, modelId, sourcePath, importMode) {
-    assert.equal(importMode, "copy");
-    return `${root}/${modelId}/${sourcePath.split("/").pop()}`;
-  },
-  normalizeImportMode(value) {
-    return value ?? "operator";
-  },
-  normalizeLoadPolicy(value) {
-    return { mode: value ?? "on_demand" };
-  },
-  normalizeScopes(value, fallback = []) {
-    return Array.isArray(value) ? value : fallback;
-  },
-  parseLocalModelMetadata(filePath) {
-    return {
-      family: "llama",
-      format: filePath.endsWith(".gguf") ? "gguf" : null,
-      quantization: "Q4_K_M",
-      contextWindow: 8192,
-    };
+  parseLocalModelMetadata() {
+    throw new Error("metadata parsing should not run");
   },
   requiredString(value, field) {
     if (typeof value !== "string" || !value) throw new Error(`${field} is required`);
     return value;
   },
-  runtimeError({ status, code, message }) {
-    const error = new Error(message);
-    error.status = status;
-    error.code = code;
-    return error;
-  },
-  safeId(value) {
-    return String(value).replace(/[^a-z0-9]+/gi, "_");
-  },
-  schemaVersion: "schema.artifact-endpoint.test",
-  stableHash(value) {
-    return `hash:${value}`;
+  runtimeError({ status, code, message, details }) {
+    return Object.assign(new Error(message), { status, code, details });
   },
 };
 
+function assertNoMutation(state) {
+  assert.equal(state.artifacts.size, 0);
+  assert.equal(state.endpoints.size, 0);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.projections, 0);
+}
+
 test("model import rejects retired request aliases before artifact inspection", () => {
   const state = fakeState();
-  const calls = [];
-  state.nowIso = () => {
-    calls.push(["nowIso"]);
-    return state.now;
-  };
 
   assert.throws(
     () =>
@@ -163,17 +94,7 @@ test("model import rejects retired request aliases before artifact inspection", 
           contextWindow: 8192,
           privacyClass: "local_private",
         },
-        {
-          ...deps,
-          requiredString(...args) {
-            calls.push(["requiredString", ...args]);
-            return args[0];
-          },
-          inspectLocalArtifact(...args) {
-            calls.push(["inspectLocalArtifact", ...args]);
-            return {};
-          },
-        },
+        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -189,131 +110,58 @@ test("model import rejects retired request aliases before artifact inspection", 
         "contextWindow",
         "privacyClass",
       ]);
-      assert.deepEqual(error.details.canonical_fields, [
-        "model_id",
-        "source_path",
-        "local_path",
-        "import_mode",
-        "provider_id",
-        "display_name",
-        "size_bytes",
-        "context_window",
-        "privacy_class",
-      ]);
       assert.equal(Object.hasOwn(error.details, "modelId"), false);
-      assert.equal(Object.hasOwn(error.details, "importMode"), false);
       return true;
     },
   );
-  assert.deepEqual(calls, []);
-  assert.equal(state.artifacts.size, 0);
-  assert.equal(state.receipts.length, 0);
+  assertNoMutation(state);
 });
 
-test("model import dry-run returns hashes and receipt without mutating artifacts", () => {
+test("artifact and endpoint mutation facades fail closed until Rust core owns them", () => {
   const state = fakeState();
+  const cases = [
+    [
+      () => importModel(state, { model_id: "llama-test", source_path: "/tmp/model.gguf" }, deps),
+      "model_mount.artifact.import",
+      { model_id: "llama-test" },
+    ],
+    [
+      () => mountEndpoint(state, { model_id: "llama-test", provider_id: "provider.fixture" }, deps),
+      "model_mount.endpoint.mount",
+      { model_id: "llama-test" },
+    ],
+    [
+      () => unmountEndpoint(state, { endpoint_id: "endpoint.llama" }, deps),
+      "model_mount.endpoint.unmount",
+      { endpoint_id: "endpoint.llama" },
+    ],
+  ];
 
-  const result = importModel(
-    state,
-    { model_id: "llama-test", path: "/tmp/model.gguf", import_mode: "dry_run" },
-    deps,
-  );
-
-  assert.equal(result.schemaVersion, "schema.artifact-endpoint.test");
-  assert.equal(result.status, "dry_run");
-  assert.equal(result.sourcePathHash, "hash:/tmp/model.gguf");
-  assert.equal(result.targetPathHash, "hash:/models/llama-test/model.gguf");
-  assert.equal(result.metadata.family, "llama");
-  assert.equal(result.receiptId, "receipt.model_import_dry_run.1");
-  assert.equal(state.artifacts.size, 0);
-  assert.equal(state.receipts[0].details.model_id, "llama-test");
-  assert.equal(state.receipts[0].details.provider_id, "provider.autopilot.local");
-  assert.equal(state.receipts[0].details.source_path_hash, "hash:/tmp/model.gguf");
-  assert.equal(state.receipts[0].details.target_path_hash, "hash:/models/llama-test/model.gguf");
-  assert.equal(state.receipts[0].details.import_mode, "dry_run");
-  assert.equal(Object.hasOwn(state.receipts[0].details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "providerId"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "sourcePathHash"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "targetPathHash"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "importMode"), false);
-});
-
-test("model import materializes local artifacts and writes projection", () => {
-  const state = fakeState();
-
-  const artifact = importModel(
-    state,
-    { model_id: "llama-test", path: "/tmp/model.gguf", import_mode: "copy", capabilities: ["chat", "embeddings"] },
-    deps,
-  );
-
-  assert.equal(artifact.id, "import.llama_test");
-  assert.equal(artifact.artifactPath, "/models/llama-test/model.gguf");
-  assert.deepEqual(artifact.capabilities, ["chat", "embeddings"]);
-  assert.equal(artifact.backendRegistry[0].id, "backend.native");
-  assert.equal(state.artifacts.get(artifact.id).receiptId, "receipt.model_import.1");
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-artifacts");
-  assert.equal(state.recordStateCommits[0].record_id, "import.llama_test");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.artifact.import");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, ["receipt.model_import.1"]);
-  assert.equal(state.receipts.at(-1).kind, "model_import");
-  assert.equal(state.receipts.at(-1).details.artifact_id, "import.llama_test");
-  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
-  assert.equal(state.receipts.at(-1).details.provider_id, "provider.autopilot.local");
-  assert.equal(state.receipts.at(-1).details.artifact_path_hash, "hash:/models/llama-test/model.gguf");
-  assert.equal(state.receipts.at(-1).details.source_path_hash, "hash:/tmp/model.gguf");
-  assert.equal(state.receipts.at(-1).details.import_mode, "copy");
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "artifactPathHash"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "sourcePathHash"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "importMode"), false);
-  assert.equal(state.projections, 1);
-});
-
-test("model import fails closed without Rust Agentgres artifact record-state commit", () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
-
-  assert.throws(
-    () =>
-      importModel(
-        state,
-        { model_id: "llama-test", path: "/tmp/model.gguf", import_mode: "copy" },
-        deps,
-      ),
-    (error) => {
-      assert.equal(error.code, "model_mount_artifact_state_commit_unconfigured");
-      assert.equal(error.details.artifact_id, "import.llama_test");
-      assert.equal(error.details.record_dir, "model-artifacts");
+  for (const [run, operationKind, expectedDetails] of cases) {
+    assert.throws(run, (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_artifact_endpoint_rust_core_required");
+      assert.equal(error.details.operation_kind, operationKind);
+      assert.equal(error.details.rust_core_boundary, "model_mount.artifact_endpoint");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_artifact_endpoint_js_facade_retired",
+        "rust_daemon_core_artifact_endpoint_required",
+      ]);
+      for (const [key, value] of Object.entries(expectedDetails)) {
+        assert.equal(error.details[key], value);
+      }
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
-    },
-  );
+    });
+  }
 
-  assert.equal(state.artifacts.size, 0);
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.projections, 0);
+  assertNoMutation(state);
 });
 
-test("mount endpoint rejects retired request aliases before provider lookup", () => {
+test("mount and unmount still reject retired request aliases before Rust-core boundary", () => {
   const state = fakeState();
-  const calls = [];
-  state.nowIso = () => {
-    calls.push(["nowIso"]);
-    return state.now;
-  };
-  state.getModel = (...args) => {
-    calls.push(["getModel", ...args]);
-    return null;
-  };
-  state.provider = (...args) => {
-    calls.push(["provider", ...args]);
-    return {};
-  };
 
   assert.throws(
     () =>
@@ -342,155 +190,21 @@ test("mount endpoint rejects retired request aliases before provider lookup", ()
         "backendId",
         "loadPolicy",
       ]);
-      assert.deepEqual(error.details.canonical_fields, [
-        "model_id",
-        "provider_id",
-        "api_format",
-        "base_url",
-        "privacy_class",
-        "backend_id",
-        "load_policy",
-      ]);
       assert.equal(Object.hasOwn(error.details, "modelId"), false);
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
       return true;
     },
   );
-  assert.deepEqual(calls, []);
-  assert.equal(state.endpoints.size, 0);
-  assert.equal(state.receipts.length, 0);
-});
-
-test("mount endpoint derives provider, artifact, backend, load policy, and receipt", () => {
-  const state = fakeState();
-  state.artifacts.set("artifact.llama", {
-    id: "artifact.llama",
-    providerId: "provider.fixture",
-    modelId: "llama-test",
-    capabilities: ["chat"],
-    artifactPath: "/models/llama-test/model.gguf",
-  });
-
-  const endpoint = mountEndpoint(state, { model_id: "llama-test", load_policy: "resident" }, deps);
-
-  assert.equal(endpoint.id, "endpoint.provider_fixture.llama_test");
-  assert.equal(endpoint.providerId, "provider.fixture");
-  assert.equal(endpoint.baseUrl, "local://ioi-daemon/model-fixture");
-  assert.equal(endpoint.backendId, "backend.native");
-  assert.deepEqual(endpoint.loadPolicy, { mode: "resident" });
-  assert.equal(state.endpoints.get(endpoint.id).receiptId, "receipt.model_mount.1");
-  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-endpoints");
-  assert.equal(state.recordStateCommits.at(-1).record_id, "endpoint.provider_fixture.llama_test");
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.endpoint.mount");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, ["receipt.model_mount.1"]);
-  assert.equal(state.receipts.at(-1).kind, "model_mount");
-  assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.provider_fixture.llama_test");
-  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
-  assert.equal(state.receipts.at(-1).details.provider_id, "provider.fixture");
-  assert.deepEqual(state.receipts.at(-1).details.load_policy, { mode: "resident" });
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "loadPolicy"), false);
-});
-
-test("unmount endpoint rejects retired request aliases before endpoint lookup", () => {
-  const state = fakeState();
-  const calls = [];
-  state.endpoint = (...args) => {
-    calls.push(["endpoint", ...args]);
-    throw new Error("endpoint lookup should not run");
-  };
 
   assert.throws(
-    () =>
-      unmountEndpoint(
-        state,
-        { endpointId: "endpoint.a" },
-        {
-          ...deps,
-          requiredString(...args) {
-            calls.push(["requiredString", ...args]);
-            return args[0];
-          },
-        },
-      ),
+    () => unmountEndpoint(state, { endpointId: "endpoint.llama" }, deps),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_unmount_endpoint_request_aliases_retired");
       assert.deepEqual(error.details.retired_aliases, ["endpointId"]);
-      assert.deepEqual(error.details.canonical_fields, ["endpoint_id"]);
       assert.equal(Object.hasOwn(error.details, "endpointId"), false);
       return true;
     },
   );
-  assert.deepEqual(calls, []);
-  assert.equal(state.receipts.length, 0);
-});
 
-test("mount endpoint validates explicit model id and supports provider mount fallback", () => {
-  const state = fakeState();
-
-  assert.throws(() => mountEndpoint(state, {}, deps), (error) => error.status === 400 && error.code === "model_id_required");
-
-  const endpoint = mountEndpoint(
-    state,
-    { model_id: "remote-model", provider_id: "provider.remote", id: "endpoint.remote" },
-    deps,
-  );
-  assert.equal(endpoint.id, "endpoint.remote");
-  assert.equal(endpoint.artifactId, "provider-artifact.remote-model");
-  assert.equal(endpoint.baseUrl, "http://127.0.0.1:8080/v1");
-});
-
-test("mount endpoint fails closed without Rust Agentgres endpoint record-state commit", () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
-  state.artifacts.set("artifact.llama", {
-    id: "artifact.llama",
-    providerId: "provider.fixture",
-    modelId: "llama-test",
-    capabilities: ["chat"],
-  });
-
-  assert.throws(
-    () => mountEndpoint(state, { model_id: "llama-test", load_policy: "resident" }, deps),
-    (error) => {
-      assert.equal(error.code, "model_mount_endpoint_state_commit_unconfigured");
-      assert.equal(error.details.endpoint_id, "endpoint.provider_fixture.llama_test");
-      assert.equal(error.details.record_dir, "model-endpoints");
-      return true;
-    },
-  );
-
-  assert.equal(state.endpoints.size, 0);
-  assert.deepEqual(state.writes, []);
-});
-
-test("unmount endpoint updates status and emits receipt", () => {
-  const state = fakeState();
-  state.endpoints.set("endpoint.a", {
-    id: "endpoint.a",
-    providerId: "provider.fixture",
-    modelId: "llama-test",
-    status: "mounted",
-  });
-
-  const result = unmountEndpoint(state, { endpoint_id: "endpoint.a" }, deps);
-
-  assert.equal(result.status, "unmounted");
-  assert.equal(result.unmountedAt, state.now);
-  assert.equal(state.endpoints.get("endpoint.a").status, "unmounted");
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits.at(-1).record_dir, "model-endpoints");
-  assert.equal(state.recordStateCommits.at(-1).record_id, "endpoint.a");
-  assert.equal(state.recordStateCommits.at(-1).operation_kind, "model_mount.endpoint.unmount");
-  assert.deepEqual(state.recordStateCommits.at(-1).receipt_refs, ["receipt.model_unmount.1"]);
-  assert.equal(state.receipts.at(-1).kind, "model_unmount");
-  assert.equal(state.receipts.at(-1).details.endpoint_id, "endpoint.a");
-  assert.equal(state.receipts.at(-1).details.model_id, "llama-test");
-  assert.equal(state.receipts.at(-1).details.provider_id, "provider.fixture");
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "endpointId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "modelId"), false);
-  assert.equal(Object.hasOwn(state.receipts.at(-1).details, "providerId"), false);
+  assertNoMutation(state);
 });

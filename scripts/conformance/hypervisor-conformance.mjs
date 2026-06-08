@@ -10606,51 +10606,42 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-artifact-endpoint-receipt-detail-aliases-retired",
-    /model_id:\s*modelId/.test(artifactEndpointReceiptBlocks) &&
-      /provider_id:\s*body\.provider_id/.test(artifactEndpointReceiptBlocks) &&
-      /source_path_hash:\s*sourceInfo\?\.path/.test(artifactEndpointReceiptBlocks) &&
-      /target_path_hash:\s*targetPreview/.test(artifactEndpointReceiptBlocks) &&
-      /import_mode:\s*importMode/.test(artifactEndpointReceiptBlocks) &&
-      /artifact_id:\s*artifact\.id/.test(artifactEndpointReceiptBlocks) &&
-      /artifact_path_hash:\s*artifact\.artifactPath/.test(artifactEndpointReceiptBlocks) &&
-      /endpoint_id:\s*endpoint\.id/.test(artifactEndpointReceiptBlocks) &&
-      /endpoint_id:\s*endpointId/.test(artifactEndpointReceiptBlocks) &&
-      /load_policy:\s*endpoint\.loadPolicy/.test(artifactEndpointReceiptBlocks) &&
-      /commitModelArtifactRecordState/.test(modelArtifactRecordState) &&
-      /commitModelEndpointRecordState/.test(modelEndpointRecordState) &&
-      /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
-      /recordDir:\s*"model-endpoints"/.test(modelEndpointRecordState) &&
-      /model_mount\.artifact\.import/.test(artifactEndpointOperations) &&
-      /model_mount\.endpoint\.mount/.test(artifactEndpointOperations) &&
-      /model_mount\.endpoint\.unmount/.test(artifactEndpointOperations) &&
-      /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
-      /model_mount_endpoint_state_commit_unconfigured/.test(modelEndpointRecordState) &&
+    "model-mount-artifact-endpoint-js-facade-retired",
+    /throwArtifactEndpointRustCoreRequired/.test(artifactEndpointOperations) &&
+      /model_mount_artifact_endpoint_rust_core_required/.test(artifactEndpointOperations) &&
+      /rust_core_boundary:\s*"model_mount\.artifact_endpoint"/.test(artifactEndpointOperations) &&
+      /public_artifact_endpoint_js_facade_retired/.test(artifactEndpointOperations) &&
+      /rust_daemon_core_artifact_endpoint_required/.test(artifactEndpointOperations) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import",\s*\{ model_id: modelId \},\s*deps\)/.test(
+        artifactEndpointOperations,
+      ) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.mount",\s*\{ model_id: modelId \},\s*deps\)/.test(
+        artifactEndpointOperations,
+      ) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.unmount",\s*\{ endpoint_id: endpointId \},\s*deps\)/.test(
+        artifactEndpointOperations,
+      ) &&
+      !/state\.lifecycleReceipt\("model_(?:import|mount|unmount)/.test(artifactEndpointOperations) &&
+      !/commitModelArtifactRecordState/.test(artifactEndpointOperations) &&
+      !/commitModelEndpointRecordState/.test(artifactEndpointOperations) &&
       !/state\.writeMap\("model-artifacts"/.test(artifactEndpointOperations) &&
       !/state\.writeMap\("model-endpoints"/.test(artifactEndpointOperations) &&
-      !/\b(?:artifactId|modelId|providerId|sourcePathHash|targetPathHash|importMode|artifactPathHash|endpointId|loadPolicy)\s*:/.test(
-        artifactEndpointReceiptBlocks,
-      ) &&
-      /recordStateCommits/.test(artifactEndpointOperationsTest) &&
-      /model import fails closed without Rust Agentgres artifact record-state commit/.test(
+      !/state\.artifacts\.set/.test(artifactEndpointOperations) &&
+      !/state\.endpoints\.set/.test(artifactEndpointOperations) &&
+      !/materializeImportArtifact/.test(artifactEndpointOperations) &&
+      !/\S/.test(artifactEndpointReceiptBlocks) &&
+      /artifact and endpoint mutation facades fail closed until Rust core owns them/.test(
         artifactEndpointOperationsTest,
       ) &&
-      /mount endpoint fails closed without Rust Agentgres endpoint record-state commit/.test(
-        artifactEndpointOperationsTest,
-      ) &&
+      /model_mount_artifact_endpoint_rust_core_required/.test(artifactEndpointOperationsTest) &&
       /model_mount\.artifact\.import/.test(artifactEndpointOperationsTest) &&
       /model_mount\.endpoint\.mount/.test(artifactEndpointOperationsTest) &&
       /model_mount\.endpoint\.unmount/.test(artifactEndpointOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"sourcePathHash"\),\s*false/.test(
-        artifactEndpointOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactPathHash"\),\s*false/.test(
-        artifactEndpointOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"loadPolicy"\),\s*false/.test(
-        artifactEndpointOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"endpointId"\),\s*false/.test(
+      /public_artifact_endpoint_js_facade_retired/.test(artifactEndpointOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(artifactEndpointOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(artifactEndpointOperationsTest) &&
+      /assert\.equal\(state\.projections,\s*0\)/.test(artifactEndpointOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(
         artifactEndpointOperationsTest,
       ),
     [
@@ -10659,7 +10650,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: artifact endpoint lifecycle receipts must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: artifact/endpoint mutation must fail closed until Rust daemon-core owns artifact, endpoint, receipt, record-state, and projection semantics",
   );
   assertCheck(
     result,
@@ -10668,14 +10659,7 @@ function runReceipts() {
       /model_import_request_aliases_retired/.test(artifactEndpointOperations) &&
       /assertCanonicalModelImportRequestBody\(body\);/.test(artifactEndpointImportBlock) &&
       /requiredString\(body\.model_id,\s*"model_id"\)/.test(artifactEndpointImportBlock) &&
-      /body\.path \?\? body\.source_path \?\? body\.local_path/.test(artifactEndpointImportBlock) &&
-      /normalizeImportMode\(body\.import_mode \?\? body\.mode/.test(artifactEndpointImportBlock) &&
-      /provider_id:\s*body\.provider_id \?\?/.test(artifactEndpointImportBlock) &&
-      /providerId:\s*body\.provider_id \?\?/.test(artifactEndpointImportBlock) &&
-      /displayName:\s*body\.display_name \?\? modelId/.test(artifactEndpointImportBlock) &&
-      /sizeBytes:\s*body\.size_bytes \?\? importedInfo\?\.sizeBytes/.test(artifactEndpointImportBlock) &&
-      /contextWindow:\s*body\.context_window \?\? metadata\.contextWindow/.test(artifactEndpointImportBlock) &&
-      /privacyClass:\s*body\.privacy_class \?\? "local_private"/.test(artifactEndpointImportBlock) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import"/.test(artifactEndpointImportBlock) &&
       !/body\.(?:modelId|sourcePath|localPath|importMode|providerId|displayName|sizeBytes|contextWindow|privacyClass)\b/.test(
         artifactEndpointImportBlock,
       ) &&
@@ -10699,19 +10683,16 @@ function runReceipts() {
       /assertCanonicalEndpointMountRequestBody\(body\);/.test(artifactEndpointMountBlock) &&
       /assertCanonicalEndpointUnmountRequestBody\(body\);/.test(artifactEndpointUnmountBlock) &&
       /const modelId = body\.model_id;/.test(artifactEndpointMountBlock) &&
-      /const explicitProviderId = body\.provider_id;/.test(artifactEndpointMountBlock) &&
-      /apiFormat:\s*body\.api_format \?\? provider\.apiFormat/.test(artifactEndpointMountBlock) &&
-      /body\.base_url \?\?\s*provider\.baseUrl/.test(artifactEndpointMountBlock) &&
-      /privacyClass:\s*body\.privacy_class \?\? provider\.privacyClass/.test(artifactEndpointMountBlock) &&
-      /backendId:\s*body\.backend_id \?\? defaultBackendForProvider\(provider\)/.test(artifactEndpointMountBlock) &&
-      /loadPolicy:\s*normalizeLoadPolicy\(body\.load_policy\)/.test(artifactEndpointMountBlock) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.mount"/.test(artifactEndpointMountBlock) &&
       /requiredString\(body\.endpoint_id \?\? body\.id,\s*"endpoint_id"\)/.test(artifactEndpointUnmountBlock) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.unmount"/.test(artifactEndpointUnmountBlock) &&
       !/body\.(?:modelId|providerId|apiFormat|baseUrl|privacyClass|backendId|loadPolicy)\b/.test(
         artifactEndpointMountBlock,
       ) &&
       !/body\.endpointId\b/.test(artifactEndpointUnmountBlock) &&
-      /mount endpoint rejects retired request aliases before provider lookup/.test(artifactEndpointOperationsTest) &&
-      /unmount endpoint rejects retired request aliases before endpoint lookup/.test(artifactEndpointOperationsTest) &&
+      /mount and unmount still reject retired request aliases before Rust-core boundary/.test(
+        artifactEndpointOperationsTest,
+      ) &&
       /retired_aliases,\s*\[\s*"modelId",\s*"providerId",\s*"apiFormat",\s*"baseUrl",\s*"privacyClass",\s*"backendId",\s*"loadPolicy",\s*\]/.test(
         artifactEndpointOperationsTest,
       ) &&
@@ -10728,24 +10709,17 @@ function runReceipts() {
     /RETIRED_MODEL_STORAGE_REQUEST_ALIASES/.test(storageOperations) &&
       /CANONICAL_MODEL_STORAGE_REQUEST_FIELDS/.test(storageOperations) &&
       /model_storage_request_aliases_retired/.test(storageOperations) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*state\.downloadStatus\(jobId\)/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwStorageRustCoreRequired\("model_mount\.download\.cancel"/.test(
         cancelDownloadBlock,
       ) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*state\.getModel\(id\)/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwStorageRustCoreRequired\("model_mount\.artifact\.delete"/.test(
         deleteModelArtifactBlock,
       ) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*listModelFiles\(state\.modelRoot\)/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwStorageRustCoreRequired\("model_mount\.storage\.cleanup"/.test(
         cleanupModelStorageBlock,
       ) &&
-      /truthy\(body\.cleanup_partial \?\? true\)/.test(cancelDownloadBlock) &&
-      /truthy\(body\.dry_run\)/.test(deleteModelArtifactBlock) &&
-      /truthy\(body\.remove_orphans \?\? false\)/.test(cleanupModelStorageBlock) &&
       !/body\.(?:cleanupPartial|dryRun|removeOrphans)\b/.test(storageOperations) &&
-      /cancelDownload rejects retired cleanup alias before job lookup/.test(storageOperationsTest) &&
-      /deleteModelArtifact rejects retired dry-run alias before artifact lookup/.test(
-        storageOperationsTest,
-      ) &&
-      /cleanupModelStorage rejects retired cleanup alias before scanning/.test(storageOperationsTest) &&
+      /storage mutations reject retired aliases before Rust-core boundary/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"cleanupPartial"\s*\]/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"dryRun"\s*\]/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"removeOrphans"\s*\]/.test(storageOperationsTest) &&
@@ -10760,66 +10734,48 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-storage-lifecycle-detail-aliases-retired",
-    /job_id:\s*jobId/.test(storageLifecycleReceiptBlocks) &&
-      /model_id:\s*job\.modelId/.test(storageLifecycleReceiptBlocks) &&
-      /provider_id:\s*job\.providerId/.test(storageLifecycleReceiptBlocks) &&
-      /bytes_completed:\s*job\.bytesCompleted/.test(storageLifecycleReceiptBlocks) &&
-      /bytes_total:\s*job\.bytesTotal/.test(storageLifecycleReceiptBlocks) &&
-      /cleanup_partial:\s*cleanupPartial/.test(storageLifecycleReceiptBlocks) &&
-      /cleanup_state:\s*cleanupState/.test(storageLifecycleReceiptBlocks) &&
-      /projected_freed_bytes:\s*projectedFreedBytes/.test(storageLifecycleReceiptBlocks) &&
-      /artifact_id:\s*artifact\.id/.test(storageLifecycleReceiptBlocks) &&
-      /artifact_path_hash:\s*artifact\.artifactPath/.test(storageLifecycleReceiptBlocks) &&
-      /affected_endpoint_ids:\s*endpointIds/.test(storageLifecycleReceiptBlocks) &&
-      /affected_instance_ids:\s*instanceIds/.test(storageLifecycleReceiptBlocks) &&
-      /endpoint_ids:\s*endpointIds/.test(storageLifecycleReceiptBlocks) &&
-      /scanned_file_count:\s*files\.length/.test(storageLifecycleReceiptBlocks) &&
-      /orphan_count:\s*orphans\.length/.test(storageLifecycleReceiptBlocks) &&
-      /orphan_path_hashes:\s*orphans\.map/.test(storageLifecycleReceiptBlocks) &&
-      /orphan_bytes:\s*orphanBytes/.test(storageLifecycleReceiptBlocks) &&
-      /remove_orphans:\s*removeOrphans/.test(storageLifecycleReceiptBlocks) &&
-      /cleaned_bytes:\s*cleanedBytes/.test(storageLifecycleReceiptBlocks) &&
-      /removed_orphan_count:\s*removedOrphanCount/.test(storageLifecycleReceiptBlocks) &&
-      /destructive_confirmation:\s*destructiveConfirmation/.test(storageLifecycleReceiptBlocks) &&
-      /details:\s*\{\s*artifact_id:\s*artifact\.id,\s*instance_ids:\s*instanceIds\s*\}/.test(storageOperations) &&
-      /details:\s*\{\s*orphan_count:\s*orphans\.length,\s*projected_freed_bytes:\s*orphanBytes\s*\}/.test(
+    "model-mount-storage-js-facade-retired",
+    /throwStorageRustCoreRequired/.test(storageOperations) &&
+      /model_mount_storage_rust_core_required/.test(storageOperations) &&
+      /rust_core_boundary:\s*"model_mount\.storage"/.test(storageOperations) &&
+      /public_model_storage_js_facade_retired/.test(storageOperations) &&
+      /rust_daemon_core_model_storage_required/.test(storageOperations) &&
+      /throwStorageRustCoreRequired\("model_mount\.download\.cancel",\s*\{ job_id: jobId \},\s*deps\)/.test(
         storageOperations,
       ) &&
-      /commitModelDownloadRecordState/.test(modelDownloadRecordState) &&
-      /recordDir:\s*"model-downloads"/.test(modelDownloadRecordState) &&
-      /model_mount_download_state_commit_unconfigured/.test(modelDownloadRecordState) &&
-      /model_mount\.download\.cancel/.test(cancelDownloadBlock) &&
-      !/state\.writeMap\("model-downloads"/.test(cancelDownloadBlock) &&
-      /recordStateCommits/.test(storageOperationsTest) &&
-      /cancelDownload fails closed without Rust Agentgres download record-state commit/.test(
-        storageOperationsTest,
+      /throwStorageRustCoreRequired\("model_mount\.artifact\.delete",\s*\{ artifact_id: id \},\s*deps\)/.test(
+        storageOperations,
       ) &&
-      /commitModelArtifactRecordState/.test(deleteModelArtifactBlock) &&
-      /commitModelEndpointRecordState/.test(deleteModelArtifactBlock) &&
-      /model_mount\.artifact\.delete/.test(deleteModelArtifactBlock) &&
-      /model_mount\.endpoint\.delete_with_artifact/.test(deleteModelArtifactBlock) &&
+      /throwStorageRustCoreRequired\("model_mount\.storage\.cleanup",\s*\{\},\s*deps\)/.test(
+        storageOperations,
+      ) &&
+      !/state\.lifecycleReceipt\("model_(?:download_canceled|artifact_delete|artifact_delete_dry_run|storage_cleanup)"/.test(storageOperations) &&
+      !/commitModelDownloadRecordState/.test(storageOperations) &&
+      !/commitModelArtifactRecordState/.test(storageOperations) &&
+      !/commitModelEndpointRecordState/.test(storageOperations) &&
+      !/fs\.rmSync/.test(storageOperations) &&
+      !/state\.writeMap\("model-downloads"/.test(cancelDownloadBlock) &&
       !/state\.writeMap\("model-artifacts"/.test(deleteModelArtifactBlock) &&
       !/state\.writeMap\("model-endpoints"/.test(deleteModelArtifactBlock) &&
-      /deleteModelArtifact fails closed without Rust Agentgres artifact record-state commit/.test(
-        storageOperationsTest,
-      ) &&
+      !/state\.downloads\.set/.test(storageOperations) &&
+      !/state\.artifacts\.delete/.test(storageOperations) &&
+      !/state\.endpoints\.set/.test(storageOperations) &&
       /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(storageOperations) &&
-      !/\b(?:jobId|modelId|providerId|bytesCompleted|bytesTotal|cleanupPartial|cleanupState|projectedFreedBytes|downloadPolicy|artifactId|artifactPathHash|affectedEndpointIds|affectedInstanceIds|endpointIds|scannedFileCount|orphanCount|orphanPathHashes|orphanBytes|removeOrphans|cleanedBytes|removedOrphanCount|destructiveConfirmation)\s*:/.test(
-        storageLifecycleReceiptBlocks,
-      ) &&
+      !/\S/.test(storageLifecycleReceiptBlocks) &&
       !/notFound\(`Download job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(storageOperations) &&
-      !/details:\s*\{\s*(?:artifactId|orphanCount)\b/.test(storageOperations) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"projectedFreedBytes"\),\s*false/.test(
-        storageOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactPathHash"\),\s*false/.test(
-        storageOperationsTest,
-      ) &&
+      /model storage mutation facades fail closed until Rust core owns them/.test(storageOperationsTest) &&
+      /model_mount_storage_rust_core_required/.test(storageOperationsTest) &&
+      /model_mount\.download\.cancel/.test(storageOperationsTest) &&
+      /model_mount\.artifact\.delete/.test(storageOperationsTest) &&
+      /model_mount\.storage\.cleanup/.test(storageOperationsTest) &&
+      /public_model_storage_js_facade_retired/.test(storageOperationsTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(storageOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(storageOperationsTest) &&
+      /assert\.equal\(state\.projections,\s*0\)/.test(storageOperationsTest) &&
       /assert\.equal\(error\.details\.job_id,\s*"missing"\)/.test(storageOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"jobId"\),\s*false/.test(storageOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"artifactId"\)\s*===\s*false/.test(storageOperationsTest) &&
-      /Object\.hasOwn\(error\.details,\s*"orphanCount"\)\s*===\s*false/.test(storageOperationsTest),
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(storageOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(storageOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
@@ -10827,7 +10783,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: model storage lifecycle receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: model storage mutation must fail closed until Rust daemon-core owns download cancel, artifact delete, cleanup, receipt, record-state, filesystem, and projection semantics",
   );
   assertCheck(
     result,
