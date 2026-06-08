@@ -627,6 +627,11 @@ Matrix compaction timing:
   compacted into the route-family range while preserving the approval
   authority/state-update command boundary as migration transport and terminal
   direct Rust daemon-core API ownership as the remaining target.
+- One-hundred-twenty-sixth scheduled pass completed on 2026-06-08: the runtime
+  Agentgres daemon-core command-envelope evidence after slice 690 was compacted
+  into the route-family range while preserving the runtime Agentgres
+  admission/commit command boundary as migration transport and terminal direct
+  Rust daemon-core API ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13467,72 +13472,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 690: Runtime Agentgres Daemon-Core Command Envelope
-
-```yaml
-slice: 690
-phase: 9-rust-daemon-core-extraction
-objective: move runtime Agentgres storage admission and runtime state commit
-  operations off the generic StepModule command envelope and old
-  Agentgres-specific command env onto the Rust daemon-core command envelope
-owner_boundary:
-  route_or_surface: storage backend write admission plus runtime run, agent,
-    memory, subagent, artifact, model-mount record, and model-mount receipt
-    state commits
-  authority_gate: Rust Agentgres admission remains the admitted-truth owner; JS
-    can only submit canonical commit/admission requests through the daemon-core
-    command envelope
-  execution_backend: Rust daemon-core Agentgres admission through
-    `ioi.runtime.daemon_core.command.v1`; the existing command binary remains
-    temporary transport only
-  truth_path: storage writes and runtime state commits must be Rust-admitted
-    before any durable local JSON mutation or projected state can proceed
-  projection_path: receipts conformance requires the JS runner to use
-    `IOI_RUNTIME_DAEMON_CORE_COMMAND`, emit
-    `ioi.runtime.daemon_core.command.v1`, ignore retired
-    `IOI_RUNTIME_AGENTGRES_COMMAND`/`IOI_STEP_MODULE_COMMAND` envs, and reject
-    retired StepModule command envelopes for Agentgres truth-path operations
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs
-  rust_core_transport:
-    - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  tests:
-    - packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - receipts conformance requires daemon-core command env/schema in the runtime
-    Agentgres runner
-  - receipts conformance requires the Rust command parser to classify runtime
-    Agentgres storage/commit operations as daemon-core operations
-  - focused Rust tests prove retired `ioi.step_module.command_bridge.v1`
-    storage admission and runtime commit envelopes fail closed
-  - focused JS tests prove retired runtime-Agentgres and StepModule envs no
-    longer configure runtime Agentgres admission
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge runtime_agentgres_ -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:receipts
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core API extraction remains pending beyond
-      this runtime Agentgres command-envelope split
-    - non-Agentgres route families still using the StepModule command transport
-      remain scheduled for their own Rust daemon-core API/protocol seams
-closeout:
-  git_diff_check: required
-  commit: required after verification
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13548,7 +13487,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 690 and the one-hundred-twenty-fifth 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 690 and the one-hundred-twenty-sixth 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
