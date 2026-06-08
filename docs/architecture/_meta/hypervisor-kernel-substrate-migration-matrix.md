@@ -657,6 +657,11 @@ Matrix compaction timing:
   compacted into the route-family range while preserving the governed proposal
   admission command boundary as migration transport and terminal direct Rust
   daemon-core API ownership as the remaining target.
+- One-hundred-thirty-first scheduled pass completed on 2026-06-08: the
+  workspace restore daemon-core command-envelope evidence after slice 695 was
+  compacted into the route-family range while preserving the restore/snapshot
+  command boundary as migration transport and terminal direct Rust daemon-core
+  API ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13497,63 +13502,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 695: Workspace Restore Daemon-Core Command Envelope
-
-```yaml
-objective: move workspace restore policy planning, preview/apply operations, and
-  snapshot capture off the generic StepModule command envelope and retired
-  workspace-restore command envs onto the Rust daemon-core command envelope.
-owner_boundary:
-  route_or_surface: workspace restore and snapshot daemon runner
-  authority_gate: Rust workspace_restore core resolves policy, preview/apply
-    file operations, and snapshot capture before daemon facades can mutate or
-    project restore state
-  execution_backend: ioi.runtime.daemon_core.command.v1 through
-    IOI_RUNTIME_DAEMON_CORE_COMMAND as bounded migration transport
-  truth_path: restore apply remains Rust-planned/executed before JS facade
-    result assembly; retired StepModule command envelopes fail before file write
-  projection_path: daemon runner and bridge conformance require daemon-core
-    command env/schema, ignore retired workspace-restore/StepModule command
-    envs, and reject retired StepModule envelopes for workspace restore apply
-touched_files:
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs
-  - packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs
-  - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  - scripts/conformance/hypervisor-conformance.mjs
-conformance_delta:
-  - bridge conformance now requires the workspace restore runner to use
-    IOI_RUNTIME_DAEMON_CORE_COMMAND and ioi.runtime.daemon_core.command.v1
-  - Rust command parser classifies plan_workspace_restore_apply_policy,
-    preview_workspace_restore_operations, apply_workspace_restore_operations,
-    and capture_workspace_snapshot_files as daemon-core operations
-  - focused Rust negative proof rejects the retired
-    ioi.step_module.command_bridge.v1 envelope before workspace restore apply
-    can write a file
-  - focused JS runner proof ignores retired IOI_WORKSPACE_RESTORE_COMMAND and
-    IOI_STEP_MODULE_COMMAND envs
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge workspace_restore -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge workspace_snapshot -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge test_run_node_test_reports_passed -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core workspace-restore API extraction remains
-      pending; the command binary is migration transport only until restore and
-      snapshot operations are exposed through the direct Rust daemon-core
-      protocol surface
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13569,7 +13517,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 695 and the one-hundred-thirtieth 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 695 and the one-hundred-thirty-first 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
