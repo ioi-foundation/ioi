@@ -225,43 +225,43 @@ export interface ModelRoute {
 }
 
 export interface ModelCapabilityContract {
-  schemaVersion: "ioi.model-capability.v1" | string;
+  schema_version: "ioi.model-capability.v1" | string;
   object: "ioi.model_capability" | string;
   id: string;
-  routeId: string;
+  route_id: string;
   role: string;
-  modelRole: string;
+  model_role: string;
   capability: ModelCapability | string;
-  primitiveCapability: string;
-  authorityScopeRequirements: string[];
-  policyTarget: string;
-  privacyTier: string;
-  providerPriority: string[];
-  fallbackPolicy: Record<string, unknown>;
-  fallbackEvidence?: Array<Record<string, unknown>>;
-  costEstimateVisibility: Record<string, unknown>;
-  credentialReadiness: {
+  primitive_capability: string;
+  authority_scope_requirements: string[];
+  policy_target: string;
+  privacy_tier: string;
+  provider_priority: string[];
+  fallback_policy: Record<string, unknown>;
+  fallback_evidence?: Array<Record<string, unknown>>;
+  cost_estimate_visibility: Record<string, unknown>;
+  credential_readiness: {
     status: "not_required" | "ready" | "missing" | "degraded" | "disabled" | "unknown" | string;
-    checkedAt?: string | null;
+    checked_at?: string | null;
     reason?: string | null;
-    evidenceRefs?: string[];
+    evidence_refs?: string[];
   };
-  vaultReadiness?: Record<string, unknown>;
-  byokRequired?: boolean;
-  receiptBehavior: {
-    receiptRequired: boolean;
-    requiredReceiptTypes: string[];
+  vault_readiness?: Record<string, unknown>;
+  byok_required?: boolean;
+  receipt_behavior: {
+    receipt_required: boolean;
+    required_receipt_types: string[];
   };
-  workflowAvailability: {
+  workflow_availability: {
     available: boolean;
     reason?: string | null;
-    configFields?: string[];
-    evidenceRefs?: string[];
+    config_fields?: string[];
+    evidence_refs?: string[];
   };
-  agentAvailability: {
+  agent_availability: {
     available: boolean;
     reason?: string | null;
-    evidenceRefs?: string[];
+    evidence_refs?: string[];
   };
   candidates?: Array<Record<string, unknown>>;
 }

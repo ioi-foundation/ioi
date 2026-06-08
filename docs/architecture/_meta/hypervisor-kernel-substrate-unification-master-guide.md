@@ -837,6 +837,26 @@ memory output alias-retirement matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands; do not encode the command bridge or JS transport
 wrappers as terminal architecture.
+Slice 790 retired the public model-capability protocol output aliases that
+still advertised the pre-canonical model_mount contract shape to SDK/API
+consumers. `modelCapabilities()` and `ModelCapabilityContract` now expose
+canonical snake_case response fields for capability identity, route identity,
+authority requirements, policy target, provider priority, fallback policy,
+fallback evidence, cost visibility, credential/vault readiness, receipt
+behavior, workflow/agent availability, and candidate readiness. Retired output
+fields such as `schemaVersion`, `routeId`, `modelRole`,
+`primitiveCapability`, `authorityScopeRequirements`, `policyTarget`,
+`privacyTier`, `providerPriority`, `fallbackPolicy`, `fallbackEvidence`,
+`costEstimateVisibility`, `credentialReadiness`, `vaultReadiness`,
+`byokRequired`, `receiptBehavior`, `workflowAvailability`,
+`agentAvailability`, `endpointId`, `providerId`, `vaultRequired`, and
+`evidenceRefs` are no longer part of the daemon or SDK model-capability
+protocol contract. This still does not claim terminal model_mount migration:
+direct Rust daemon-core route-control/projection APIs, Agentgres-admitted route
+truth, wallet authority binding, StepModuleRouter dispatch, replay, and direct
+Rust API replacement for command transport still need ownership. The Slice 790
+model-capability protocol alias-retirement matrix-compaction pass is scheduled
+for the next resume cycle before unrelated route-family work continues.
 
 ## Part II: Target Execution Model
 

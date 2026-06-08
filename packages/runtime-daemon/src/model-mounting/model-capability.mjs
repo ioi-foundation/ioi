@@ -32,65 +32,65 @@ function modelCapabilityForRoute(route, context) {
     candidateReadiness(route, endpointId, index, context),
   );
   const readyCandidates = candidates.filter((candidate) => candidate.ready);
-  const missingVaultCount = candidates.filter((candidate) => candidate.vaultRequired && !candidate.vaultReady).length;
+  const missingVaultCount = candidates.filter((candidate) => candidate.vault_required && !candidate.vault_ready).length;
   const selectedCandidate = readyCandidates[0] ?? candidates[0] ?? null;
   const credentialStatus = readinessStatus(route, candidates, readyCandidates);
   const available = route.status === "active" && readyCandidates.length > 0;
   const capability = selectedCandidate?.capability ?? "chat";
 
   return {
-    schemaVersion: MODEL_CAPABILITY_SCHEMA_VERSION,
+    schema_version: MODEL_CAPABILITY_SCHEMA_VERSION,
     object: "ioi.model_capability",
     id: `model-capability:${route.id}`,
-    routeId: route.id,
+    route_id: route.id,
     role: route.role,
-    modelRole: route.role,
+    model_role: route.role,
     capability,
-    primitiveCapability: `prim:model.${capability}`,
-    authorityScopeRequirements: [`route.use:${route.id}`, `model.${capability}:*`],
-    policyTarget: modelPolicyTarget(route.id),
-    privacyTier: route.privacy,
-    providerPriority: route.providerEligibility,
-    fallbackPolicy: {
+    primitive_capability: `prim:model.${capability}`,
+    authority_scope_requirements: [`route.use:${route.id}`, `model.${capability}:*`],
+    policy_target: modelPolicyTarget(route.id),
+    privacy_tier: route.privacy,
+    provider_priority: route.providerEligibility,
+    fallback_policy: {
       allowed: route.fallback.length > 1,
-      endpointIds: route.fallback,
-      deniedProviders: route.deniedProviders,
-      selectedEndpointId: selectedCandidate?.endpointId ?? null,
-      deterministicOrder: true,
+      endpoint_ids: route.fallback,
+      denied_providers: route.deniedProviders,
+      selected_endpoint_id: selectedCandidate?.endpoint_id ?? null,
+      deterministic_order: true,
     },
-    fallbackEvidence: candidates.map((candidate) => candidate.evidence),
-    costEstimateVisibility: {
+    fallback_evidence: candidates.map((candidate) => candidate.evidence),
+    cost_estimate_visibility: {
       visible: true,
-      maxCostUsd: route.maxCostUsd,
-      maxLatencyMs: route.maxLatencyMs,
+      max_cost_usd: route.maxCostUsd,
+      max_latency_ms: route.maxLatencyMs,
       source: "model_route_policy",
     },
-    credentialReadiness: {
+    credential_readiness: {
       status: credentialStatus,
       reason: readinessReason(route, candidates, readyCandidates),
-      evidenceRefs: compactEvidence(candidates.flatMap((candidate) => candidate.evidenceRefs)),
+      evidence_refs: compactEvidence(candidates.flatMap((candidate) => candidate.evidence_refs)),
     },
-    vaultReadiness: {
+    vault_readiness: {
       status: missingVaultCount === 0 ? "ready" : "missing",
-      requiredCount: candidates.filter((candidate) => candidate.vaultRequired).length,
-      configuredCount: candidates.filter((candidate) => candidate.vaultRequired && candidate.vaultReady).length,
-      missingCount: missingVaultCount,
+      required_count: candidates.filter((candidate) => candidate.vault_required).length,
+      configured_count: candidates.filter((candidate) => candidate.vault_required && candidate.vault_ready).length,
+      missing_count: missingVaultCount,
     },
-    byokRequired: candidates.some((candidate) => candidate.vaultRequired),
-    receiptBehavior: {
-      receiptRequired: true,
-      requiredReceiptTypes: ["model_route_selection", "model_invocation"],
+    byok_required: candidates.some((candidate) => candidate.vault_required),
+    receipt_behavior: {
+      receipt_required: true,
+      required_receipt_types: ["model_route_selection", "model_invocation"],
     },
-    workflowAvailability: {
+    workflow_availability: {
       available,
       reason: available ? "At least one route candidate is executable." : "No executable model route candidate is ready.",
-      configFields: ["modelRef", "routeId", "modelBinding"],
-      evidenceRefs: compactEvidence(candidates.flatMap((candidate) => candidate.evidenceRefs)),
+      config_fields: ["model_ref", "route_id", "model_binding"],
+      evidence_refs: compactEvidence(candidates.flatMap((candidate) => candidate.evidence_refs)),
     },
-    agentAvailability: {
+    agent_availability: {
       available,
       reason: available ? "Agent runtime can request this route capability." : "Agent runtime must resolve model readiness first.",
-      evidenceRefs: compactEvidence(candidates.flatMap((candidate) => candidate.evidenceRefs)),
+      evidence_refs: compactEvidence(candidates.flatMap((candidate) => candidate.evidence_refs)),
     },
     candidates,
   };
@@ -115,26 +115,26 @@ function candidateReadiness(route, endpointId, priority, { artifactByModelId, en
   ]);
 
   return {
-    endpointId,
+    endpoint_id: endpointId,
     priority,
-    modelId: endpoint?.modelId ?? null,
-    providerId: provider?.id ?? null,
-    providerKind: provider?.kind ?? null,
+    model_id: endpoint?.modelId ?? null,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
     capability: firstCapability(endpoint?.capabilities ?? artifact?.capabilities),
-    privacyTier: endpoint?.privacyClass ?? provider?.privacyClass ?? route.privacy,
+    privacy_tier: endpoint?.privacyClass ?? provider?.privacyClass ?? route.privacy,
     status: ready ? "ready" : "blocked",
     ready,
-    vaultRequired,
-    vaultReady,
+    vault_required: vaultRequired,
+    vault_ready: vaultReady,
     reason,
-    evidenceRefs,
+    evidence_refs: evidenceRefs,
     evidence: {
-      endpointId,
-      providerId: provider?.id ?? null,
+      endpoint_id: endpointId,
+      provider_id: provider?.id ?? null,
       status: ready ? "ready" : "blocked",
       reason,
-      vaultRequired,
-      vaultReady,
+      vault_required: vaultRequired,
+      vault_ready: vaultReady,
     },
   };
 }
@@ -151,7 +151,7 @@ function modelPolicyTarget(routeId) {
 function readinessStatus(route, candidates, readyCandidates) {
   if (route.status !== "active") return "disabled";
   if (readyCandidates.length > 0) return "ready";
-  if (candidates.some((candidate) => candidate.vaultRequired && !candidate.vaultReady)) return "missing";
+  if (candidates.some((candidate) => candidate.vault_required && !candidate.vault_ready)) return "missing";
   return "degraded";
 }
 
