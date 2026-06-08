@@ -25,12 +25,69 @@ function defaultRuntimeJobRecordForRun(run = {}) {
   };
 }
 
+const runtimeTaskJobControlFacadeRetirementEvidenceRefs = [
+  "runtime_task_job_control_js_facade_retired",
+  "runtime_task_create_js_facade_retired",
+  "runtime_task_cancel_js_facade_retired",
+  "runtime_job_cancel_js_facade_retired",
+  "rust_daemon_core_runtime_task_job_control_required",
+  "agentgres_runtime_task_job_truth_required",
+];
+
 export function createRuntimeTaskJobSurface({
   notFound: notFoundDep = defaultNotFound,
   optionalString: optionalStringDep = optionalString,
   runtimeJobRecordForRun: runtimeJobRecordForRunDep = defaultRuntimeJobRecordForRun,
   runtimeTaskRecordForRun: runtimeTaskRecordForRunDep = defaultRuntimeTaskRecordForRun,
+  runtimeError: runtimeErrorDep = null,
 } = {}) {
+  function throwRuntimeTaskJobRustCoreRequired({
+    operation,
+    operationKind,
+    taskId = null,
+    jobId = null,
+  }) {
+    const error = runtimeErrorDep
+      ? runtimeErrorDep({
+          status: 501,
+          code: "runtime_task_job_control_rust_core_required",
+          message:
+            "Runtime task/job lifecycle mutations require direct Rust daemon-core admission and persistence.",
+          details: {
+            rust_core_boundary: "runtime.task_job_control",
+            operation,
+            operation_kind: operationKind,
+            ...(taskId ? { task_id: taskId } : {}),
+            ...(jobId ? { job_id: jobId } : {}),
+            evidence_refs: [
+              ...runtimeTaskJobControlFacadeRetirementEvidenceRefs,
+              `${operation}_js_facade_retired`,
+            ],
+          },
+        })
+      : Object.assign(
+          new Error(
+            "Runtime task/job lifecycle mutations require direct Rust daemon-core admission and persistence.",
+          ),
+          {
+            status: 501,
+            code: "runtime_task_job_control_rust_core_required",
+            details: {
+              rust_core_boundary: "runtime.task_job_control",
+              operation,
+              operation_kind: operationKind,
+              ...(taskId ? { task_id: taskId } : {}),
+              ...(jobId ? { job_id: jobId } : {}),
+              evidence_refs: [
+                ...runtimeTaskJobControlFacadeRetirementEvidenceRefs,
+                `${operation}_js_facade_retired`,
+              ],
+            },
+          },
+        );
+    throw error;
+  }
+
   return {
     listJobs(store, options = {}) {
       const agentId = options.agent_id ?? undefined;
@@ -41,25 +98,12 @@ export function createRuntimeTaskJobSurface({
         .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
     },
     createTask(store, body = {}) {
-      const agentId = optionalStringDep(body.agent_id);
-      const agentOptions = body.agent ?? body.agent_options ?? {};
-      const agent = agentId
-        ? store.getAgent(agentId)
-        : store.createAgent({
-            ...agentOptions,
-            local: {
-              cwd: body.cwd ?? store.defaultCwd,
-              ...(agentOptions.local ?? {}),
-            },
-            model: body.model ?? agentOptions.model,
-          });
-      const options = body.options && typeof body.options === "object" ? body.options : {};
-      const run = store.createRun(agent.id, {
-        mode: body.mode ?? "send",
-        prompt: body.prompt ?? "",
-        options,
+      void store;
+      void body;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_task_create",
+        operationKind: "task.create",
       });
-      return runtimeTaskRecordForRunDep(run);
     },
     listTasks(store, options = {}) {
       const agentId = options.agent_id ?? undefined;
@@ -75,9 +119,12 @@ export function createRuntimeTaskJobSurface({
       return task;
     },
     cancelTask(store, taskId) {
-      const task = this.getTask(store, taskId);
-      const canceledRun = store.cancelRun(task.runId);
-      return runtimeTaskRecordForRunDep(canceledRun);
+      void store;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_task_cancel",
+        operationKind: "task.cancel",
+        taskId,
+      });
     },
     getJob(store, jobId) {
       const job = this.listJobs(store).find((candidate) => candidate.jobId === jobId);
@@ -85,9 +132,12 @@ export function createRuntimeTaskJobSurface({
       return job;
     },
     cancelJob(store, jobId) {
-      const job = this.getJob(store, jobId);
-      const canceledRun = store.cancelRun(job.runId);
-      return runtimeJobRecordForRunDep(canceledRun);
+      void store;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_job_cancel",
+        operationKind: "job.cancel",
+        jobId,
+      });
     },
   };
 }

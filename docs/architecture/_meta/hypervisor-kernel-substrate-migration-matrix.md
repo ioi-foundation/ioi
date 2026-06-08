@@ -6,9 +6,10 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 732; Slices 733-735 are intentionally
-left expanded as the current runtime bridge thread/turn and runtime subagent
-control facade-retirement/legacy-body deletion seams.
+route-family slice ledger through Slice 732; Slices 733-736 are intentionally
+left expanded as the current runtime bridge thread/turn, runtime subagent
+control facade-retirement/legacy-body deletion, and runtime task/job control
+facade-retirement seams.
 Earlier 2026-06-08 compaction
 passes compacted IDE, MCP, thread-control, coding-tool, Agentgres state-commit,
 model-mount, workspace-restore, command-envelope, route fallback, provider,
@@ -21,7 +22,7 @@ snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
-matrix-compaction pass once the post-Slice-735 seam is concrete, before
+matrix-compaction pass once the post-Slice-736 seam is concrete, before
 unrelated route-family work resumes.
 
 ## Purpose
@@ -118,7 +119,7 @@ Matrix compaction timing:
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
 - Next scheduled matrix-compaction pass: pending after the next concrete
-  Rust-core extraction or JS-facade retirement seam clarifies how Slices 733-735
+  Rust-core extraction or JS-facade retirement seam clarifies how Slices 733-736
   can be compacted without obscuring terminal blockers. Schedule that pass only
   after the next seam verifies and lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
@@ -13771,6 +13772,34 @@ test_gap:
 next_compaction:
   - Schedule the matrix-compaction pass after the next Rust-core extraction or JS-facade retirement seam clarifies whether Slices 733-735 should be compacted together.
 
+## Implementation Slice 736
+
+status: verified
+date: 2026-06-08
+route_or_surface: runtime task/job lifecycle control
+goal_phase:
+  - Phase 10: Rust daemon core extraction
+  - Phase 11: authoritative JS facade retirement
+target_owner: Rust daemon core `step_router`/`agentgres_admission`/`projection`
+current_owner_before_slice: JS runtime-daemon task/job surface could create tasks by directly selecting or synthesizing an agent, creating a run, projecting the run as a task, and canceling tasks/jobs by resolving public ids to run ids then calling `cancelRun`.
+implementation_notes:
+  - `createTask`, `cancelTask`, and `cancelJob` now fail closed with `runtime_task_job_control_rust_core_required`.
+  - The fail-closed guard runs before JS agent lookup/synthesis, `createAgent`, `createRun`, public-id-to-run cancellation resolution, `cancelRun`, or task/job lifecycle projection as accepted mutation truth.
+  - `listTasks`, `listJobs`, `getTask`, and `getJob` remain read/projection adapters over already-admitted run/task/job records.
+  - Added `runtime-task-job-control-js-facade-retired` compositor conformance so task/job create/cancel cannot silently regrow a JS lifecycle mutation path while direct Rust daemon-core task/job admission is pending.
+verification:
+  - node --check packages/runtime-daemon/src/runtime-task-job-surface.mjs
+  - node --check packages/runtime-daemon/src/runtime-task-job-surface.test.mjs
+  - node --test packages/runtime-daemon/src/runtime-task-job-surface.test.mjs
+  - hypervisor-conformance:compositor
+  - hypervisor-conformance:docs
+  - hypervisor-conformance
+  - git diff --check
+test_gap:
+  - Terminal direct Rust daemon-core task/job admission/projection APIs are still pending; this slice removes JS create/cancel authority and keeps read helpers as projection adapters.
+next_compaction:
+  - Schedule the matrix-compaction pass after the next Rust-core extraction or JS-facade retirement seam clarifies whether Slices 733-736 should be compacted together.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13786,8 +13815,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 735 and the runtime subagent lifecycle
-control legacy-body deletion pass:
+Current expected behavior after Slice 736 and the runtime task/job lifecycle
+control facade-retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

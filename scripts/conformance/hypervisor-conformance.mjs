@@ -318,7 +318,7 @@ function runDocs() {
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-      /Slices\s+733-735 are intentionally left expanded as the current runtime bridge thread\/turn\s+and runtime subagent control facade-retirement\/legacy-body deletion seams/.test(guide) &&
+      /Slices\s+733-736 are intentionally left expanded as the current runtime bridge thread\/turn,\s+runtime subagent control facade-retirement\/legacy-body deletion, and runtime\s+task\/job control facade-retirement seams/.test(guide) &&
       /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
@@ -334,7 +334,7 @@ function runDocs() {
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /Slices 733-735 are intentionally\s+left expanded as the current runtime bridge thread\/turn and runtime subagent\s+control facade-retirement\/legacy-body deletion seams/.test(
+      /Slices 733-736 are intentionally\s+left expanded as the current runtime bridge thread\/turn, runtime subagent\s+control facade-retirement\/legacy-body deletion, and runtime task\/job control\s+facade-retirement seams/.test(
         matrix,
       ) &&
       /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
@@ -15219,6 +15219,22 @@ function runCompositor() {
     "listTasks(store, options = {})",
     "getTask(store",
   );
+  const runtimeTaskJobControlFacadeRetired =
+    /runtime_task_job_control_rust_core_required/.test(runtimeTaskJobSurface) &&
+    /runtime_task_job_control_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_task_create_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_task_cancel_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_job_cancel_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /rust_daemon_core_runtime_task_job_control_required/.test(runtimeTaskJobSurface) &&
+    /agentgres_runtime_task_job_truth_required/.test(runtimeTaskJobSurface) &&
+    !/store\.createAgent\(/.test(runtimeTaskJobSurface) &&
+    !/store\.createRun\(/.test(runtimeTaskJobSurface) &&
+    !/store\.cancelRun\(/.test(runtimeTaskJobSurface) &&
+    /runtime task job mutation facades fail closed before JS lifecycle mutation/.test(
+      runtimeTaskJobSurfaceTest,
+    ) &&
+    /assertRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobSurfaceTest) &&
+    /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeTaskJobSurfaceTest);
   const runtimeSubagentSdkOutputContractStatusBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeSubagentOutputContractStatus",
@@ -16059,7 +16075,7 @@ function runCompositor() {
       /runtime task job surface default projections ignore retired task and job id fallbacks/.test(
         runtimeTaskJobSurfaceTest,
       ) &&
-      /runtime task job surface gets and cancels tasks and jobs by public id only/.test(
+      /runtime task job surface gets tasks and jobs by public id only/.test(
         runtimeTaskJobSurfaceTest,
       ) &&
       /surface\.getTask\(store,\s*"run-a"\)/.test(runtimeTaskJobSurfaceTest) &&
@@ -18891,14 +18907,17 @@ function runCompositor() {
       ) &&
       /^\s*cwd\?: string;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
       /^\s*prompt\?: string;/m.test(runtimeTaskSdkCreateOptionsBlock) &&
-      /body\.agent_id/.test(runtimeTaskJobCreateTaskBlock) &&
-      /body\.agent_options/.test(runtimeTaskJobCreateTaskBlock) &&
-      /body\.cwd/.test(runtimeTaskJobCreateTaskBlock) &&
-      /prompt: body\.prompt \?\? ""/.test(runtimeTaskJobCreateTaskBlock) &&
-      /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
-      /route\.legacy-options/.test(runtimeTaskJobSurfaceTest) &&
-      /Retired objective ignored/.test(runtimeTaskJobSurfaceTest) &&
-      /Retired goal ignored/.test(runtimeTaskJobSurfaceTest) &&
+      (runtimeTaskJobControlFacadeRetired ||
+        (
+          /body\.agent_id/.test(runtimeTaskJobCreateTaskBlock) &&
+          /body\.agent_options/.test(runtimeTaskJobCreateTaskBlock) &&
+          /body\.cwd/.test(runtimeTaskJobCreateTaskBlock) &&
+          /prompt: body\.prompt \?\? ""/.test(runtimeTaskJobCreateTaskBlock) &&
+          /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
+          /route\.legacy-options/.test(runtimeTaskJobSurfaceTest) &&
+          /Retired objective ignored/.test(runtimeTaskJobSurfaceTest) &&
+          /Retired goal ignored/.test(runtimeTaskJobSurfaceTest)
+        )) &&
       !/^\s*(?:agentId|agentOptions|workspace)\?:/m.test(
         runtimeTaskSdkCreateOptionsBlock,
       ) &&
@@ -18916,6 +18935,16 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task create request types and daemon create surfaces must not advertise, read, or forward retired identity/options/workspace/prompt aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-task-job-control-js-facade-retired",
+    runtimeTaskJobControlFacadeRetired,
+    [
+      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime task/job create and cancel mutation facades must stay retired before JS agent/run creation or run cancellation",
   );
   assertCheck(
     result,

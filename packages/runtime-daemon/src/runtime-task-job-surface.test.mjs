@@ -49,18 +49,6 @@ function harness() {
       calls.push({ name: "getAgent", agentId });
       return { id: agentId };
     },
-    createAgent(input) {
-      calls.push({ name: "createAgent", input });
-      return { id: "agent-created" };
-    },
-    createRun(agentId, input) {
-      calls.push({ name: "createRun", agentId, input });
-      return run("run-created", "running", "2026-06-04T00:00:03.000Z");
-    },
-    cancelRun(runId) {
-      calls.push({ name: "cancelRun", runId });
-      return run(runId, "cancelled", "2026-06-04T00:00:04.000Z");
-    },
   };
   return { calls, store, surface };
 }
@@ -133,73 +121,67 @@ test("runtime task job surface default projections ignore retired task and job i
   ]);
 });
 
-test("runtime task job surface creates task with existing or synthesized agent", () => {
+function assertRuntimeTaskJobRustCoreRequired(error, {
+  operation,
+  operationKind,
+  taskId = null,
+  jobId = null,
+}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_task_job_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.task_job_control");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  if (taskId) assert.equal(error.details.task_id, taskId);
+  if (jobId) assert.equal(error.details.job_id, jobId);
+  assert.equal(error.details.evidence_refs.includes("runtime_task_job_control_js_facade_retired"), true);
+  assert.equal(error.details.evidence_refs.includes(`${operation}_js_facade_retired`), true);
+  assert.equal(
+    error.details.evidence_refs.includes("rust_daemon_core_runtime_task_job_control_required"),
+    true,
+  );
+  return true;
+}
+
+test("runtime task job mutation facades fail closed before JS lifecycle mutation", () => {
   const { calls, store, surface } = harness();
 
-  assert.equal(surface.createTask(store, { agent_id: "agent-one", prompt: "Do it" }).taskId, "task-run-created");
-  assert.equal(surface.createTask(store, {
-    cwd: "/workspace/custom",
-    model: "route.local-first",
-    prompt: "Make it so",
-    options: "ignored",
-  }).taskId, "task-run-created");
-  assert.equal(surface.createTask(store, {
-    agentId: "legacy-agent",
-    agentOptions: {
-      local: { cwd: "/workspace/legacy-options" },
-      model: "route.legacy-options",
-    },
-    workspace: "/workspace/legacy",
-    prompt: "Legacy aliases ignored",
-    objective: "Retired objective ignored",
-    goal: "Retired goal ignored",
-  }).taskId, "task-run-created");
+  assert.throws(
+    () => surface.createTask(store, { agent_id: "agent-one", prompt: "Do it" }),
+    (error) =>
+      assertRuntimeTaskJobRustCoreRequired(error, {
+        operation: "runtime_task_create",
+        operationKind: "task.create",
+      }),
+  );
+  assert.throws(
+    () => surface.cancelTask(store, "task-run-a"),
+    (error) =>
+      assertRuntimeTaskJobRustCoreRequired(error, {
+        operation: "runtime_task_cancel",
+        operationKind: "task.cancel",
+        taskId: "task-run-a",
+      }),
+  );
+  assert.throws(
+    () => surface.cancelJob(store, "job-run-b"),
+    (error) =>
+      assertRuntimeTaskJobRustCoreRequired(error, {
+        operation: "runtime_job_cancel",
+        operationKind: "job.cancel",
+        jobId: "job-run-b",
+      }),
+  );
 
-  assert.deepEqual(calls.filter((call) => call.name === "getAgent"), [
-    { name: "getAgent", agentId: "agent-one" },
-  ]);
-  const createAgentCalls = calls.filter((call) => call.name === "createAgent");
-  assert.deepEqual(createAgentCalls.map((call) => call.input.local), [
-    { cwd: "/workspace/custom" },
-    { cwd: "/workspace/default" },
-  ]);
-  assert.deepEqual(createAgentCalls.map((call) => call.input.model), [
-    "route.local-first",
-    undefined,
-  ]);
-  assert.deepEqual(calls.filter((call) => call.name === "createRun").map((call) => ({
-    agentId: call.agentId,
-    mode: call.input.mode,
-    prompt: call.input.prompt,
-    options: call.input.options,
-  })), [
-    { agentId: "agent-one", mode: "send", prompt: "Do it", options: {} },
-    { agentId: "agent-created", mode: "send", prompt: "Make it so", options: {} },
-    { agentId: "agent-created", mode: "send", prompt: "Legacy aliases ignored", options: {} },
-  ]);
+  assert.deepEqual(calls, []);
 });
 
-test("runtime task job surface gets and cancels tasks and jobs by public id only", () => {
+test("runtime task job surface gets tasks and jobs by public id only", () => {
   const { calls, store, surface } = harness();
 
   assert.equal(surface.getTask(store, "task-run-a").runId, "run-a");
   assert.equal(surface.getJob(store, "job-run-b").runId, "run-b");
-  assert.deepEqual(surface.cancelTask(store, "task-run-a"), {
-    taskId: "task-run-a",
-    runId: "run-a",
-    status: "cancelled",
-    createdAt: "2026-06-04T00:00:04.000Z",
-  });
-  assert.deepEqual(surface.cancelJob(store, "job-run-b"), {
-    jobId: "job-run-b",
-    runId: "run-b",
-    status: "cancelled",
-    createdAt: "2026-06-04T00:00:04.000Z",
-  });
-  assert.deepEqual(calls.filter((call) => call.name === "cancelRun"), [
-    { name: "cancelRun", runId: "run-a" },
-    { name: "cancelRun", runId: "run-b" },
-  ]);
+  assert.deepEqual(calls.filter((call) => call.name === "listRuns").length, 2);
   const runIdTask = thrownBy(() => surface.getTask(store, "run-a"));
   assert.match(runIdTask.message, /Task not found/);
   assert.equal(runIdTask.details.task_id, "run-a");
