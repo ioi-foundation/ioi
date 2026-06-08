@@ -676,6 +676,11 @@ Matrix compaction timing:
   was compacted into the route-family range while preserving package invocation
   admission as migration transport and terminal direct Rust daemon-core API
   ownership as the remaining target.
+- One-hundred-thirty-fourth scheduled pass completed on 2026-06-08: runtime
+  model-route JS fallback-retirement evidence after slice 698 was compacted into
+  the model-mounting and JS-facade-retirement rows while preserving fail-closed
+  route-decision behavior and terminal direct Rust daemon-core API ownership as
+  the remaining target.
 
 ## Implementation Slice 0
 
@@ -13516,56 +13521,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 698: Runtime Model-Route JS Fallback Retirement
-
-```yaml
-objective: retire the runtime model-route helper path that caught a rejected
-  route decision and minted a second JS fallback route-selection receipt.
-owner_boundary:
-  route_or_surface: runtime model-route selection helper and daemon store facade
-  authority_gate: Rust/model_mount route selection and receipt admission remains
-    the only route-decision path; rejected route decisions fail closed instead
-    of being replaced by a JS-created local-first fallback
-  execution_backend: model_mount route decision through the existing Rust-owned
-    admission path; no new bridge surface added
-  truth_path: JS no longer creates fallback route-selection receipts with
-    runtime_model_route_fallback evidence after a rejected primary route
-  projection_path: route decision projection continues to read canonical
-    snake_case receipt details from the admitted route receipt
-touched_files:
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - docs/architecture/_meta/implementation-matrix.md
-  - packages/runtime-daemon/src/threads/model-route-selection.mjs
-  - packages/runtime-daemon/src/threads/model-route-selection.test.mjs
-  - packages/runtime-daemon/src/index.mjs
-  - scripts/conformance/hypervisor-conformance.mjs
-conformance_delta:
-  - bridge conformance now requires runtime model-route selection to expose
-    selectModelRoute without selectModelRouteWithFallback
-  - bridge conformance rejects runtime_model_route_fallback evidence creation in
-    the runtime helper
-  - focused JS proof verifies rejected route selection does not create a fallback
-    receipt
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/threads/model-route-selection.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:compositor
-    - npm run hypervisor-conformance:docs
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - broader hosted/non-migrated provider transports and model-mount JS store
-      demotion remain pending until direct Rust daemon-core API ownership is
-      complete
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13581,7 +13536,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 698 and the one-hundred-thirty-third 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 698 and the one-hundred-thirty-fourth 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
