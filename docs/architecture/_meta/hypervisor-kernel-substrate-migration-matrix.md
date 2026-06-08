@@ -33,11 +33,11 @@ facade-retirement evidence, then compacted Slice 747 model tokenizer/context-fit
 facade-retirement evidence, then compacted Slice 748 direct model lifecycle
 receipt helper facade-retirement evidence. This pass compacted Slice 749 public
 model invocation facade-retirement evidence, then compacted Slice 750 runtime
-model-route selection facade-retirement evidence. Slice 751 stream-cancel
-receipt facade retirement has landed and scheduled the next compaction pass.
-Next resume instruction: run the scheduled matrix-compaction pass before
-starting unrelated route-family work; preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades are not terminal substrate.
+model-route selection facade-retirement evidence, then compacted Slice 751
+stream-cancel receipt facade-retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -132,8 +132,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 751 stream-cancel
-  receipt facade retirement. Run it before starting unrelated route-family work.
+- Next scheduled matrix-compaction pass: none pending after the Slice 751
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14032,46 +14033,33 @@ above remain authoritative for current and target ownership.
   read-only projection adapters, or migration transport as terminal
   architecture.
 
-## Implementation Slice 751: Model Stream-Cancel Receipt Facade Retirement
+## Compacted Implementation Slice Evidence: 751
 
-date: 2026-06-08
-phase: 10
-owner_map_row: `model-mounting`
-implementation_matrix_object: `ModelInvocationControl`
-status: verified
-target_execution_owner: Rust daemon core `model_mount` stream lifecycle
-current_surface_retired:
-- `packages/runtime-daemon/src/openai-compat-routes.mjs`
-- `recordModelStreamCanceled(...)`
-authority_change:
-- OpenAI-compatible stream cancellation now throws
-  `model_mount_stream_cancel_rust_core_required` before JS
+The expanded Slice 751 ledger was compacted on 2026-06-08 after the
+OpenAI-compatible stream-cancel receipt facade-retirement seam landed. This
+slice remains active migration evidence, not terminal architecture. The
+`ModelInvocationControl` implementation-matrix row, conformance command
+contract, and terminal blockers above remain authoritative for current and
+target ownership.
+
+- Slice 751 retired JS-authored stream-cancel receipt construction in
+  `packages/runtime-daemon/src/openai-compat-routes.mjs`.
+  `recordModelStreamCanceled` now fails closed with
+  `model_mount_stream_cancel_rust_core_required` before
   `model_invocation_stream_canceled` receipt construction.
 - The fail-closed detail envelope retains canonical snake_case stream lifecycle
   fields for Rust admission: invocation receipt, route, model, endpoint,
   provider, backend, stream source, provider response kind, backend evidence,
   tool receipt refs, frames written, status, and reason.
-legacy_paths_removed:
-- JS no longer calls `mounts.receipt("model_invocation_stream_canceled", ...)`
-  from the OpenAI-compatible stream-cancel helper.
-compatibility_shims_remaining: []
-temporary_transport:
-- none for stream cancellation; direct Rust `model_mount` stream lifecycle
-  admission remains the required replacement.
-conformance:
-- `model-mount-stream-cancel-js-facade-retired`
-- `model_mount_stream_cancel_rust_core_required`
-- `model_mount_stream_cancel_js_facade_retired`
-- `rust_daemon_core_model_stream_cancel_required`
-- `agentgres_model_stream_cancel_truth_required`
-verification:
-- `node --check packages/runtime-daemon/src/openai-compat-routes.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs`
-- `node --test packages/runtime-daemon/src/openai-compat-routes.test.mjs`
-next:
-- Run the scheduled matrix-compaction pass before starting unrelated
-  route-family work. The compaction must keep `ModelInvocationControl` aligned
-  with the fail-closed stream lifecycle state and must not encode fail-closed JS
-  helpers, read-only projection adapters, or command transport as terminal
+- Conformance anchors include `model-mount-stream-cancel-js-facade-retired`,
+  `model_mount_stream_cancel_js_facade_retired`,
+  `rust_daemon_core_model_stream_cancel_required`, and
+  `agentgres_model_stream_cancel_truth_required`.
+- Scheduled matrix-compaction obligation from Slice 751 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS stream lifecycle helpers,
+  read-only projection adapters, or migration transport as terminal
   architecture.
 
 ## Command State
