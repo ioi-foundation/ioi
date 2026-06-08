@@ -11,10 +11,10 @@ export function createRuntimeEventPayloadHelpers({
   normalizeArray,
   uniqueStrings,
 } = {}) {
-function payloadSummaryForRunEvent(event) {
+  function payloadSummaryForRunEvent(event) {
     const summary = {
-      run_id: event.runId,
-      agent_id: event.agentId,
+      run_id: event.run_id,
+      agent_id: event.agent_id,
       summary: event.summary,
     };
     if (isComputerUseRunEventType(event.type)) {

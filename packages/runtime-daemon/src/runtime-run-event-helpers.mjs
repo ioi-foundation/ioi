@@ -177,7 +177,7 @@ export function createRuntimeRunEventHelpers({
   }
 
   function receiptRefsForRunEvent(event) {
-    if (event.type === "run_started") return [`receipt_${event.runId}_policy`];
+    if (event.type === "run_started") return [`receipt_${event.run_id}_policy`];
     if (isComputerUseRunEventType(event.type)) {
       return [event.data?.receipt_id].filter(Boolean);
     }
@@ -250,7 +250,7 @@ export function createRuntimeRunEventHelpers({
         ...normalizeArray(event.data?.receipt_refs),
       ].filter(Boolean);
     }
-    if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.runId}_agentgres`];
+    if (event.type === "completed" || event.type === "canceled") return [`receipt_${event.run_id}_agentgres`];
     return [];
   }
 

@@ -102,7 +102,11 @@ test("runtime run event helpers preserve payload records, receipts, and artifact
     gamma: "{\"nested\":true}",
   });
 
-  assert.deepEqual(runtime.receiptRefsForRunEvent({ type: "run_started", runId: "run-one" }), ["receipt_run-one_policy"]);
+  assert.deepEqual(runtime.receiptRefsForRunEvent({
+    type: "run_started",
+    run_id: "run-one",
+    runId: "retired-run",
+  }), ["receipt_run-one_policy"]);
   assert.deepEqual(runtime.receiptRefsForRunEvent({
     type: "hook_dry_run_plan",
     data: { receipt_id: "receipt-hook", policy_receipt_id: "receipt-policy" },

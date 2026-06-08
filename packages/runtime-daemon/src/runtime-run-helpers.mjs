@@ -105,11 +105,11 @@ export function createRuntimeRunHelpers({
   function makeEvent(runId, agentId, index, type, summary, data) {
     return {
       id: `${runId}:event:${String(index).padStart(3, "0")}:${type}`,
-      runId,
-      agentId,
+      run_id: runId,
+      agent_id: agentId,
       type,
       cursor: `${runId}:${index}`,
-      createdAt: new Date().toISOString(),
+      created_at: new Date().toISOString(),
       summary,
       data,
     };

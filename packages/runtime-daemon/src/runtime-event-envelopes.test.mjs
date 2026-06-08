@@ -129,8 +129,10 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
     event: {
       id: "event-one",
       type: "policy_blocked",
-      runId: "run-one",
-      createdAt: "2026-06-03T00:00:00.000Z",
+      run_id: "run-one",
+      runId: "retired-run",
+      created_at: "2026-06-03T00:00:00.000Z",
+      createdAt: "1999-01-01T00:00:00.000Z",
       data: {
         reason: "post_edit_diagnostics_findings",
         policy_decision_refs: ["policy-one"],
@@ -157,8 +159,10 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
     event: {
       id: "event-two",
       type: "computer_use_observation",
-      runId: "run-one",
-      createdAt: "2026-06-03T00:00:00.000Z",
+      run_id: "run-one",
+      runId: "retired-run",
+      created_at: "2026-06-03T00:00:00.000Z",
+      createdAt: "1999-01-01T00:00:00.000Z",
       data: {
         event_kind: "ComputerUse.CanonicalObservation",
         eventKind: "RetiredComputerUseObservation",
@@ -178,6 +182,8 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
   });
 
   assert.equal(computerUse.payload_schema_version, "computer.v1");
+  assert.equal(computerUse.idempotency_key, "run:run-one:event:event-two");
+  assert.equal(computerUse.created_at, "2026-06-03T00:00:00.000Z");
   assert.equal(computerUse.source_event_kind, "ComputerUse.CanonicalObservation");
   assert.equal(computerUse.component_kind, "computer_use_harness");
   assert.equal(computerUse.workflow_graph_id, "graph-canonical");
@@ -188,6 +194,8 @@ test("tti envelopes preserve diagnostics and computer-use public envelopes", () 
   assert.notEqual(computerUse.workflow_graph_id, "graph-retired");
   assert.notEqual(computerUse.tool_call_id, "tool-retired");
   assert.notEqual(computerUse.approval_id, "approval-retired");
+  assert.notEqual(computerUse.idempotency_key, "run:retired-run:event:event-two");
+  assert.notEqual(computerUse.created_at, "1999-01-01T00:00:00.000Z");
   assert.deepEqual(computerUse.rollback_refs.includes("rollback-retired"), false);
 });
 

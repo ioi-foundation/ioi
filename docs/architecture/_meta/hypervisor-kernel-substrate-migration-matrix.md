@@ -13383,7 +13383,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 666 and the one-hundred-second 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 667:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13819,3 +13819,52 @@ reconstruct the active seam without carrying every per-slice paragraph.
 | `hypervisor-conformance:negative` | pass | All required forbidden-path negative fixtures are implemented at the Rust guard level. |
 | `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal migration is still not claimed until live route families are routed through Rust core and JS facade retirement is complete. |
 | `npm run build --workspace=@ioi/agent-ide` | pass | Migrated IDE protocol-client helpers and adjacent replay/projection surfaces compile under the current package TypeScript target. |
+
+## Slice 667: Runtime Run-Event Top-Level Identity Alias Retirement
+
+phase: 10-authoritative-js-facade-retirement
+route/surface: runtime run-event producer, payload summary, envelope, and receipt projection
+owner target: Rust core `projection` with daemon JS reduced to canonical event adapter
+
+objective: retire the remaining camelCase top-level run-event identity fields
+before runtime payload, TTI envelope, and receipt projection helpers can treat
+`runId`, `agentId`, or `createdAt` as canonical run-event state.
+
+implementation:
+
+- `packages/runtime-daemon/src/runtime-run-helpers.mjs` now emits run events with
+  canonical `run_id`, `agent_id`, and `created_at` fields from `makeEvent`,
+  without duplicate top-level `runId`, `agentId`, or `createdAt` fields.
+- `packages/runtime-daemon/src/runtime-event-payloads.mjs`,
+  `packages/runtime-daemon/src/runtime-event-envelopes.mjs`, and
+  `packages/runtime-daemon/src/runtime-run-event-helpers.mjs` now consume
+  canonical top-level event identity for payload summaries, idempotency keys,
+  created-at binding, and run-started/completed receipt refs.
+- Focused tests prove the producer omits retired top-level aliases, payload
+  summaries ignore poisoned `runId`/`agentId`, TTI envelopes use canonical
+  `run_id`/`created_at` even when retired aliases are present, and receipt refs
+  are derived from canonical `run_id`.
+- `scripts/conformance/hypervisor-conformance.mjs` adds
+  `runtime-run-event-top-level-identity-aliases-retired` to the compositor tier
+  so the run-event projection seam cannot regress to camelCase identity.
+
+verification:
+
+- `node --test packages/runtime-daemon/src/runtime-run-helpers.test.mjs`
+- `node --test packages/runtime-daemon/src/runtime-event-payloads.test.mjs`
+- `node --test packages/runtime-daemon/src/runtime-event-envelopes.test.mjs`
+- `node --test packages/runtime-daemon/src/runtime-run-event-helpers.test.mjs`
+- `node --check packages/runtime-daemon/src/runtime-run-helpers.mjs`
+- `node --check packages/runtime-daemon/src/runtime-event-payloads.mjs`
+- `node --check packages/runtime-daemon/src/runtime-event-envelopes.mjs`
+- `node --check packages/runtime-daemon/src/runtime-run-event-helpers.mjs`
+- `node --check scripts/conformance/hypervisor-conformance.mjs`
+- `npm run hypervisor-conformance:compositor`
+
+terminal impact:
+
+- This is facade retirement, not terminal completion. It narrows the runtime
+  replay/projection split-brain surface by ensuring newly produced daemon run
+  events present canonical snake_case identity before payload/envelope/receipt
+  projection, while broader route-family Rust-core extraction and JS facade
+  retirement remain open blockers.

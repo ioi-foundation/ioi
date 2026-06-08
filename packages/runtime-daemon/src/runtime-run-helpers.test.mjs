@@ -75,8 +75,13 @@ test("runtime run helpers preserve capability sequence and event ids", () => {
 
   const event = runtime.makeEvent("run-one", "agent-one", 7, "runtime_task", "Task recorded", { ok: true });
   assert.equal(event.id, "run-one:event:007:runtime_task");
+  assert.equal(event.run_id, "run-one");
+  assert.equal(event.agent_id, "agent-one");
   assert.equal(event.cursor, "run-one:7");
   assert.equal(event.summary, "Task recorded");
   assert.deepEqual(event.data, { ok: true });
-  assert.match(event.createdAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.match(event.created_at, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(Object.hasOwn(event, "runId"), false);
+  assert.equal(Object.hasOwn(event, "agentId"), false);
+  assert.equal(Object.hasOwn(event, "createdAt"), false);
 });

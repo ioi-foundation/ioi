@@ -338,8 +338,8 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
   const computerUse = runtime.payloadSummaryForRunEvent({
     id: "event-one",
     type: "computer_use_observation",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     summary: "Observed page",
     data: {
       event_kind: "ComputerUse.Observation",
@@ -385,8 +385,8 @@ test("runtime event payloads preserve computer-use and memory summaries", () => 
   const memory = runtime.payloadSummaryForRunEvent({
     id: "event-two",
     type: "memory_update",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "MemoryPolicy.Canonical",
       eventKind: "RetiredMemoryEventKind",
@@ -456,8 +456,8 @@ test("runtime event payloads consume canonical diagnostics injection and blockin
   const injected = runtime.payloadSummaryForRunEvent({
     id: "event-one",
     type: "lsp_diagnostics_injected",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       injection_id: "injection-one",
       diagnostic_status: "findings",
@@ -485,8 +485,8 @@ test("runtime event payloads consume canonical diagnostics injection and blockin
   const blocked = runtime.payloadSummaryForRunEvent({
     id: "event-two",
     type: "policy_blocked",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       gate_id: "gate-one",
       policy_decision_id: "policy-one",
@@ -512,8 +512,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const repo = runtime.payloadSummaryForRunEvent({
     id: "event-one",
     type: "repository_context",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "RepositoryContext.Canonical",
       eventKind: "RetiredRepositoryContext",
@@ -568,8 +568,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const branchPolicy = runtime.payloadSummaryForRunEvent({
     id: "event-branch-policy",
     type: "branch_policy",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "BranchPolicyDecision.Canonical",
       eventKind: "RetiredBranchPolicyDecision",
@@ -627,8 +627,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const github = runtime.payloadSummaryForRunEvent({
     id: "event-github-context",
     type: "github_context",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "GitHubContext.Canonical",
       eventKind: "RetiredGitHubContext",
@@ -692,8 +692,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const issue = runtime.payloadSummaryForRunEvent({
     id: "event-issue-context",
     type: "issue_context",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "IssueContext.Canonical",
       eventKind: "RetiredIssueContext",
@@ -752,8 +752,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const prAttempt = runtime.payloadSummaryForRunEvent({
     id: "event-pr-attempt",
     type: "pr_attempt",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "PrAttemptRecord.Canonical",
       eventKind: "RetiredPrAttemptRecord",
@@ -841,8 +841,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const reviewGate = runtime.payloadSummaryForRunEvent({
     id: "event-review-gate",
     type: "review_gate",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "ReviewGateDecision.Canonical",
       eventKind: "RetiredReviewGateDecision",
@@ -922,8 +922,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const githubPrCreatePlan = runtime.payloadSummaryForRunEvent({
     id: "event-github-pr-create-plan",
     type: "github_pr_create_plan",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "GitHubPrCreatePlan.Canonical",
       eventKind: "RetiredGitHubPrCreatePlan",
@@ -1027,8 +1027,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const skillHookManifest = runtime.payloadSummaryForRunEvent({
     id: "event-skill-hook-manifest",
     type: "skill_hook_manifest",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "ActiveSkillHookManifest.Canonical",
       eventKind: "RetiredActiveSkillHookManifest",
@@ -1071,8 +1071,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const hookDryRunPlan = runtime.payloadSummaryForRunEvent({
     id: "event-hook-dry-run-plan",
     type: "hook_dry_run_plan",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "HookDryRunPlan.Canonical",
       eventKind: "RetiredHookDryRunPlan",
@@ -1121,8 +1121,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const hookInvocationLedger = runtime.payloadSummaryForRunEvent({
     id: "event-hook-invocation-ledger",
     type: "hook_invocation_ledger",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "HookInvocationLedger.Canonical",
       eventKind: "RetiredHookInvocationLedger",
@@ -1179,8 +1179,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const task = runtime.payloadSummaryForRunEvent({
     id: "event-two",
     type: "runtime_task",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "RuntimeTaskRecord.Canonical",
       eventKind: "RetiredRuntimeTaskRecord",
@@ -1229,8 +1229,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const checklist = runtime.payloadSummaryForRunEvent({
     id: "event-three",
     type: "runtime_checklist",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "RuntimeChecklistRecord.Canonical",
       eventKind: "RetiredRuntimeChecklistRecord",
@@ -1279,8 +1279,8 @@ test("runtime event payloads preserve repository and runtime record summaries", 
   const job = runtime.payloadSummaryForRunEvent({
     id: "event-four",
     type: "job_completed",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       event_kind: "JobCompleted.Canonical",
       eventKind: "RetiredJobCompleted",
@@ -1338,8 +1338,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const usage = runtime.payloadSummaryForRunEvent({
     id: "event-one",
     type: "usage_delta",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       stage: "completion_streamed",
       total_tokens: 42,
@@ -1361,8 +1361,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const legacyUsage = runtime.payloadSummaryForRunEvent({
     id: "event-legacy-usage",
     type: "usage_delta",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: legacyDataFor(retiredUsageSummaryReaderAliasKeys),
   });
 
@@ -1376,8 +1376,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const contextDelta = runtime.payloadSummaryForRunEvent({
     id: "event-context-delta",
     type: "context_pressure_delta",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       usage_total_tokens: 42,
       usage_context_pressure: 0.4,
@@ -1392,8 +1392,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const legacyContextDelta = runtime.payloadSummaryForRunEvent({
     id: "event-legacy-context-delta",
     type: "context_pressure_delta",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: legacyDataFor(retiredContextPressureDeltaSummaryReaderAliasKeys),
   });
 
@@ -1407,8 +1407,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const alert = runtime.payloadSummaryForRunEvent({
     id: "event-two",
     type: "context_pressure_alert",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       alert_id: "alert-one",
       alert_level: "warning",
@@ -1424,8 +1424,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const legacyAlert = runtime.payloadSummaryForRunEvent({
     id: "event-legacy-alert",
     type: "context_pressure_alert",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: legacyDataFor(retiredContextPressureAlertSummaryReaderAliasKeys),
   });
 
@@ -1439,8 +1439,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const usageFinal = runtime.payloadSummaryForRunEvent({
     id: "event-usage-final",
     type: "usage_final",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       total_tokens: 42,
       input_tokens: 30,
@@ -1456,8 +1456,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const legacyUsageFinal = runtime.payloadSummaryForRunEvent({
     id: "event-legacy-usage-final",
     type: "usage_final",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: legacyDataFor(retiredUsageFinalSummaryReaderAliasKeys),
   });
 
@@ -1471,8 +1471,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const route = runtime.payloadSummaryForRunEvent({
     id: "event-three",
     type: "model_route_decision",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       decision_id: "decision-one",
       route_id: "route.local-first",
@@ -1495,8 +1495,8 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   const legacyRoute = runtime.payloadSummaryForRunEvent({
     id: "event-legacy-route",
     type: "model_route_decision",
-    runId: "run-one",
-    agentId: "agent-one",
+    run_id: "run-one",
+    agent_id: "agent-one",
     data: {
       eventKind: "LegacyModelRouteDecision",
       decisionId: "decision-legacy",
@@ -1513,4 +1513,26 @@ test("runtime event payloads preserve usage and model route summaries", () => {
   assert.equal(legacyRoute.route_id, null);
   assert.equal(legacyRoute.provider_kind, null);
   assert.equal(legacyRoute.fallback_triggered, false);
+});
+
+test("runtime event payload summaries ignore retired top-level identity aliases", () => {
+  const runtime = helpers();
+
+  const summary = runtime.payloadSummaryForRunEvent({
+    id: "event-canonical-identity",
+    type: "delta",
+    run_id: "run-canonical",
+    runId: "run-retired",
+    agent_id: "agent-canonical",
+    agentId: "agent-retired",
+    summary: "Task recorded",
+    data: {},
+  });
+
+  assert.equal(summary.run_id, "run-canonical");
+  assert.equal(summary.agent_id, "agent-canonical");
+  assert.notEqual(summary.run_id, "run-retired");
+  assert.notEqual(summary.agent_id, "agent-retired");
+  assert.equal(Object.hasOwn(summary, "runId"), false);
+  assert.equal(Object.hasOwn(summary, "agentId"), false);
 });

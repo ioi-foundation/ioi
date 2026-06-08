@@ -151,7 +151,7 @@ export function createRuntimeEventEnvelopeHelpers({
       thread_id: threadId,
       turn_id: turnId,
       item_id: `${turnId}:item:${doctorHash(event.id).slice(0, 12)}`,
-      idempotency_key: `run:${event.runId}:event:${event.id}`,
+      idempotency_key: `run:${event.run_id}:event:${event.id}`,
       source: isDiagnosticsInjection || isDiagnosticsBlockingGate ? "runtime_auto" : "daemon_bridge",
       source_event_kind: isDiagnosticsInjection
         ? "LspDiagnostics.Injected"
@@ -163,7 +163,7 @@ export function createRuntimeEventEnvelopeHelpers({
       event_kind: eventKind,
       status: runtimeEventStatusForRunEvent(event),
       actor: event.type === "delta" ? "assistant" : "runtime",
-      created_at: event.createdAt,
+      created_at: event.created_at,
       workspace_root: workspaceRoot,
       workflow_graph_id: event.data?.workflow_graph_id ?? null,
       component_kind: componentKindForRunEvent(event),

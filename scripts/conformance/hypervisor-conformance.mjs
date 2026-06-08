@@ -13877,6 +13877,15 @@ function runCompositor() {
   const runtimeEventPayloadsTest = exists("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-payloads.test.mjs")
     : "";
+  const runtimeRunHelpers = exists("packages/runtime-daemon/src/runtime-run-helpers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-helpers.mjs")
+    : "";
+  const runtimeRunHelpersTest = exists("packages/runtime-daemon/src/runtime-run-helpers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-helpers.test.mjs")
+    : "";
+  const runtimeRunEventHelpers = exists("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-run-event-helpers.mjs")
+    : "";
   const runtimeComputerUsePayloadSummaryBlock =
     runtimeEventPayloads.match(/if \(isComputerUseRunEventType\(event\.type\)\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
   const runtimeMemoryUpdatePayloadSummaryBlock =
@@ -16423,6 +16432,34 @@ function runCompositor() {
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 10/11 is pending: runtime event payloads and SDK projection must use canonical envelope ids/kinds instead of legacy payload aliases",
+  );
+  assertCheck(
+    result,
+    "runtime-run-event-top-level-identity-aliases-retired",
+    /run_id:\s*runId/.test(runtimeRunHelpers) &&
+      /agent_id:\s*agentId/.test(runtimeRunHelpers) &&
+      /created_at:\s*new Date\(\)\.toISOString\(\)/.test(runtimeRunHelpers) &&
+      !/\n\s+runId,\n|\n\s+agentId,\n|\n\s+createdAt:/.test(runtimeRunHelpers) &&
+      /run_id:\s*event\.run_id/.test(runtimeEventPayloads) &&
+      /agent_id:\s*event\.agent_id/.test(runtimeEventPayloads) &&
+      !/\bevent\.(?:runId|agentId|createdAt)\b/.test(
+        `${runtimeEventPayloads}\n${runtimeEventEnvelopes}\n${runtimeRunEventHelpers}`,
+      ) &&
+      /runtime event payload summaries ignore retired top-level identity aliases/.test(
+        runtimeEventPayloadsTest,
+      ) &&
+      /Object\.hasOwn\(event,\s*"runId"\),\s*false/.test(runtimeRunHelpersTest) &&
+      /Object\.hasOwn\(event,\s*"agentId"\),\s*false/.test(runtimeRunHelpersTest) &&
+      /Object\.hasOwn\(event,\s*"createdAt"\),\s*false/.test(runtimeRunHelpersTest),
+    [
+      "packages/runtime-daemon/src/runtime-run-helpers.mjs",
+      "packages/runtime-daemon/src/runtime-run-helpers.test.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.mjs",
+      "packages/runtime-daemon/src/runtime-event-payloads.test.mjs",
+      "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
+      "packages/runtime-daemon/src/runtime-run-event-helpers.mjs",
+    ],
+    "Phase 10/11 is pending: runtime run events must use canonical top-level run_id/agent_id/created_at before payload, envelope, and receipt projection",
   );
   assertCheck(
     result,
