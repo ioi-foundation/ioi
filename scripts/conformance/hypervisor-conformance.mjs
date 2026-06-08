@@ -503,7 +503,7 @@ function runDocs() {
       /The Slice 786 memory manager projection\s+Rust-core matrix-compaction pass is complete/.test(guide) &&
       /Slice 787 retired the memory projection input compatibility fallback at the\s+Rust boundary/.test(guide) &&
       /Retired `injectionEnabled`, `readOnly`,\s+`writeRequiresApproval`, `subagentInheritance`, `recordsPath`, `policiesPath`,\s+`effectivePolicyId`, `memoryKey`, and `factHash` fields can no longer steer/.test(guide) &&
-      /Slice 787 memory projection input alias-retirement\s+matrix-compaction pass is scheduled/.test(guide) &&
+      /Slice 787 memory projection input alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -556,8 +556,9 @@ function runDocs() {
       /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 785 MCP JS validation helper-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 786 memory manager status\/validation Rust-core\s+projection evidence/.test(matrix) &&
+      /This pass compacted Slice 787 memory projection input alias-retirement evidence/.test(matrix) &&
       /Slice 787 retired memory projection input compatibility aliases at the Rust\s+boundary/.test(matrix) &&
-      /Next resume instruction: run the scheduled Slice 787 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -836,9 +837,9 @@ function runDocs() {
       /MemoryManagerStatusProjectionCore/.test(matrix) &&
       /plan_memory_manager_status_projection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 786 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 787/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 787 is now pending/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 787 memory projection input\s+alias-retirement evidence/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 787/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 787 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
