@@ -153,6 +153,15 @@ function assertNoRetiredDetailAliases(details) {
   }
 }
 
+function assertNoRetiredThreadControlOutputAliases(result) {
+  for (const key of ["workspaceTrustWarning", "workspaceTrustWarningEvent"]) {
+    assert.equal(Object.hasOwn(result, key), false);
+  }
+  for (const key of ["controlKind", "workspaceTrustWarning", "workspaceTrustWarningEventId"]) {
+    assert.equal(Object.hasOwn(result.control, key), false);
+  }
+}
+
 test("thread control surface updates mode controls through Rust planner and emits workspace trust warning", () => {
   const store = createStore();
   const plannerCalls = [];
@@ -167,6 +176,7 @@ test("thread control surface updates mode controls through Rust planner and emit
 
   assert.equal(result.control.schema_version, "ioi.runtime.thread-controls.v1");
   assert.equal(Object.hasOwn(result.control, "schemaVersion"), false);
+  assertNoRetiredThreadControlOutputAliases(result);
   assert.equal(result.control.control_kind, "mode");
   assert.equal(result.control.mode, "review");
   assert.equal(result.control.approval_mode, "human_required");
@@ -201,6 +211,7 @@ test("thread control surface updates model controls through route selection and 
     workflow_graph_id: "graph_1",
   });
 
+  assertNoRetiredThreadControlOutputAliases(result);
   assert.equal(result.control.control_kind, "thinking");
   assert.equal(result.control.model.selectedModel, "local-model");
   assert.equal(result.control.model.reasoningEffort, "none");

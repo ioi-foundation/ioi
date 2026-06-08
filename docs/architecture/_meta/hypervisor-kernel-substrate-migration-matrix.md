@@ -13375,6 +13375,65 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 674
+
+```yaml
+slice: 674
+date: 2026-06-07
+phase: 10-authoritative-js-facade-retirement
+route_or_surface: runtime thread-control surface output facade
+status: verified
+summary: >
+  Thread-control surface responses now expose only canonical snake_case control
+  and workspace-trust fields, retiring duplicate `controlKind`,
+  `workspaceTrustWarning`, `workspaceTrustWarningEventId`, and
+  `workspaceTrustWarningEvent` output aliases from the daemon response shape.
+rust_core_alignment:
+  authority: thread-control state updates still fail closed unless Rust policy
+    core returns the expected operation kind.
+  routing: model and thinking controls continue to route through canonical
+    model-route payloads before Rust state planning.
+  truth_path: returned control records now match the canonical fields used by
+    the Rust bridge and context-policy runner, reducing JS facade-only schema
+    duplication.
+  facade_retirement: removed camelCase response aliases from the live daemon
+    thread-control surface.
+files:
+  runtime_daemon:
+    - packages/runtime-daemon/src/runtime-thread-control-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
+  conformance:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance now requires thread-control surface responses to keep
+    `workspace_trust_warning`, `workspace_trust_warning_event`,
+    `control_kind`, and `workspace_trust_warning_event_id` while rejecting the
+    retired camelCase duplicates
+  - focused runtime-daemon tests assert the removed aliases are absent from
+    both mode-control and thinking/model-control surface results
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-thread-control-surface.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      thread-control response facade cleanup
+    - other route families still expose JS facade surfaces until their Rust-core
+      owner boundaries are verified and compacted
+closeout:
+  git_diff_check: passed
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

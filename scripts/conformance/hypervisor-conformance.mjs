@@ -7451,6 +7451,35 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-thread-control-surface-output-aliases-retired",
+    /workspace_trust_warning:\s*workspaceTrustWarning/.test(runtimeThreadControlSurface) &&
+      /workspace_trust_warning_event:\s*workspaceTrustWarningEvent/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      /control_kind:\s*controlKind/.test(runtimeThreadControlSurface) &&
+      /workspace_trust_warning_event_id:\s*workspaceTrustWarningEvent\?\.event_id \?\? null/.test(
+        runtimeThreadControlSurface,
+      ) &&
+      !/^\s*workspaceTrustWarning\s*,/m.test(runtimeThreadControlSurface) &&
+      !/control:\s*\{(?:(?!\n\s*\},\n\s*event,)[\s\S])*^\s*controlKind\s*,/m.test(
+        runtimeThreadControlSurface,
+      ) &&
+      !/^\s*workspaceTrustWarningEventId\s*:/m.test(runtimeThreadControlSurface) &&
+      !/^\s*workspaceTrustWarningEvent\s*:/m.test(runtimeThreadControlSurface) &&
+      /assertNoRetiredThreadControlOutputAliases\(result\)/.test(
+        runtimeThreadControlSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(result\.control,\s*key\),\s*false/.test(
+        runtimeThreadControlSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+    ],
+    "Phase 10 is pending: thread-control surface responses must expose canonical snake_case output fields without retired camelCase duplicates",
+  );
+  assertCheck(
+    result,
     "runtime-thread-control-model-route-payload-aliases-retired",
     /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*route_id: model\.route_id \?\? "route\.local-first"/.test(
       threadRuntimeControls,

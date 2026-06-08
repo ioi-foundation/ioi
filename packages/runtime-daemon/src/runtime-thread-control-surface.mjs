@@ -204,11 +204,9 @@ export function createRuntimeThreadControlSurface({
       return {
         ...thread,
         workspace_trust_warning: workspaceTrustWarning,
-        workspaceTrustWarning,
         control: {
           schema_version: runtimeThreadControlsSchemaVersion,
           control_kind: controlKind,
-          controlKind,
           mode: nextControls.mode,
           approval_mode: nextControls.approvalMode,
           model: nextControls.model,
@@ -217,13 +215,10 @@ export function createRuntimeThreadControlSurface({
           receipt_refs: event.receipt_refs,
           policy_decision_refs: event.policy_decision_refs,
           workspace_trust_warning: workspaceTrustWarning,
-          workspaceTrustWarning,
           workspace_trust_warning_event_id: workspaceTrustWarningEvent?.event_id ?? null,
-          workspaceTrustWarningEventId: workspaceTrustWarningEvent?.event_id ?? null,
         },
         event,
         workspace_trust_warning_event: workspaceTrustWarningEvent,
-        workspaceTrustWarningEvent: workspaceTrustWarningEvent,
       };
     },
     appendThreadRuntimeControlEvent(store, {
