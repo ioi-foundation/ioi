@@ -76,12 +76,13 @@ evidence.
 This pass compacted Slice 773 MCP manager validation `secretRefs`
 alias-retirement evidence.
 This pass compacted Slice 774 MCP server validation Rust-core evidence.
-Slice 775 retired the public MCP status JS validation decision path.
+This pass compacted Slice 775 MCP status validation Rust-core evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice only after compacting the Slice 775 MCP
-status validation Rust-core evidence. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -188,8 +189,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending for Slice 775 MCP status
-  validation Rust-core evidence.
+- Next scheduled matrix-compaction pass: none pending after Slice 775 MCP status
+  validation Rust-core compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15278,7 +15279,7 @@ servers })`.
   that seam lands, and do not encode the command bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice Evidence: 775
+## Compacted Implementation Slice Evidence: 775
 
 Slice 775 retired the public MCP status JS validation decision path.
 `runtime-mcp-catalog-surface.mjs` no longer imports, injects, or calls
@@ -15297,8 +15298,13 @@ containment, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
 coverage, and conformance. The lower-level `mcp-manager.mjs` validator remains
 only as a focused canonical-shape helper during migration; do not encode it as
-terminal public MCP validation architecture. Schedule and run a
-matrix-compaction pass for Slice 775 before unrelated route-family work resumes.
+terminal public MCP validation architecture.
+
+Scheduled matrix-compaction obligation from Slice 775 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode the command bridge, read-only helper
+adapters, or fail-closed JS surfaces as terminal architecture.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
