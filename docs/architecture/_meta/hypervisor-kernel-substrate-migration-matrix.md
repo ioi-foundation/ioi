@@ -13670,6 +13670,85 @@ The expanded Slice 708-726 ledger was compacted on 2026-06-08 after Slice 726 ve
 - Slices 721-726 retired runtime control JS authority for hot thread/run surfaces: run cancellation, agent/run creation, operator interrupt/steer, approval request/decision/revoke, thread-bound context-policy/compaction controls, and diagnostics repair execution/operator-override/retry/resolution/event append helpers now fail closed before JS accepted-truth resolution, agent/run lookup, runtime-event append, Rust planner invocation from the JS facade, run/agent map mutation, retry `createRun`, or JS persistence. Rust planners and command envelopes remain migration transport only until direct Rust daemon-core admission/projection APIs own Agentgres expected-head/state-root binding, wallet authority, receipt/event materialization, replay, and persistence.
 - Scheduled matrix-compaction obligation from Slice 726 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge as terminal shape.
 
+## Implementation Slice 727
+
+```yaml
+slice: 727
+phase: 10-authoritative-js-facade-retirement
+objective: retire public coding-tool budget recovery JS approval, retry-event,
+  projection, and run-state persistence facades until direct Rust daemon-core
+  budget recovery admission owns retry truth
+owner_boundary:
+  route_or_surface: runtime coding-tool budget recovery control and blocked
+    event projection helpers
+  authority_gate: coding-tool budget recovery now fails closed at
+    `runtime.coding_tool_budget_recovery` before JS run/agent lookup, accepted
+    event projection, approval request/decision calls, runtime-event append,
+    Rust planner invocation from the JS facade, run-map mutation, or `writeRun`
+    persistence
+  execution_backend: none in JS for public coding-tool budget recovery control;
+    the existing Rust budget-recovery state planner bridge remains migration
+    plumbing only and must not be used by the JS facade to persist accepted retry
+    truth
+  truth_path: no JS approval request/decision route, no JS
+    `workflow.run.retry_completed` event append, no retry-count projection from
+    JS event streams, and no run record mutation from public budget-recovery
+    facades; Rust daemon core must own wallet authority, Agentgres admission,
+    expected heads/state-root binding, policy/approval receipts,
+    retry-event materialization, projection, and persistence before this control
+    can execute again
+  projection_path: latest blocked-event lookup is not an accepted JS projection
+    path anymore; direct Rust daemon-core budget-recovery projection APIs must
+    materialize blocked/recovery state before public surfaces can return
+    accepted data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps the Rust coding-tool budget-recovery state
+    planner available as migration plumbing but requires the public JS
+    budget-recovery facade to fail closed before planner invocation or JS run
+    writes
+  - focused daemon tests prove canonical snake_case fail-closed details, no
+    run/agent lookup, no JS event projection, no approval request/decision calls,
+    no runtime event append, no Rust planner call from the JS facade, no run-map
+    mutation, and no JS run persistence for budget recovery control and
+    blocked-event projection
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public coding-tool budget recovery product/API routes may still call the
+      budget-recovery adapter, but that adapter now fails closed until direct
+      Rust daemon-core budget-recovery admission/projection APIs are verified
+    - Rust budget-recovery state planner bridges remain migration transport for
+      the future direct Rust budget-recovery API; they must not be mistaken for
+      terminal JS-owned approval, event, projection, or run-state persistence
+      after context compaction
+    - schedule a matrix-compaction pass once the next runtime control,
+      subagent, MCP, thread-memory, or event-append Rust-core extraction/
+      facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13685,8 +13764,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 726 and the diagnostics repair JS
-execution/event/state facade retirement pass:
+Current expected behavior after Slice 727 and the coding-tool budget recovery JS
+approval/event/projection/state facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

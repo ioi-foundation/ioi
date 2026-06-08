@@ -4623,46 +4623,31 @@ function runBridge() {
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunnerDep\.planCodingToolBudgetRecoveryStateUpdate/.test(
+      /runtime_coding_tool_budget_recovery_rust_core_required/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /plannedCodingToolBudgetRecoveryRunRecord/.test(
+      /rust_core_boundary:\s*"runtime\.coding_tool_budget_recovery"/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /plannedCodingToolBudgetRecoveryOperationKind/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      /details:\s*\{ thread_id: threadId, run_id: runId \}/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      /details:\s*\{ thread_id: threadId, run_id: runId, operation_kind: "workflow\.run\.retry_completed" \}/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      /expected_operation_kind:\s*"workflow\.run\.retry_completed"/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      /operation_kind:\s*operationKind/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /planCodingToolBudgetRecoveryStateUpdate/.test(
+      /workflow\.run\.coding_tool_budget_recovery/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      /coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /budget recovery surface fails closed without Rust-planned retry run/.test(
+      /Budget recovery facade must not persist run state in JS/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /budget recovery surface fails closed without Rust-planned operation kind/.test(
+      /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /operatorControls\[0\]\.approval_id/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /Object\.hasOwn\(store\.runs\.get\("run_alpha"\)\.operatorControls\[0\],\s*"approvalId"\),\s*false/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /assertNoRetiredBudgetRecoveryErrorDetailAliases\(error\.details\)/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
+      !/planCodingToolBudgetRecoveryStateUpdate/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      !/store\.(?:getRun|getAgent|projectThreadEvents|requestThreadApproval|decideThreadApproval|appendRuntimeEvent|writeRun|runs\.set)\b/.test(
+        runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeCodingToolBudgetRecoverySurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"workflow\.run\.retry_completed"/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      !/\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
+      !/\b(?:threadId|runId|operationKind|expectedOperationKind|approvalId|sourceEventId)\s*:/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
@@ -4674,67 +4659,39 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge while the public JS facade fails closed before planner invocation or JS persistence",
   );
   assertCheck(
     result,
-    "coding-tool-budget-recovery-request-aliases-retired",
-    /optionalString\(request\.thread_id\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /optionalString\(request\.workflow_graph_id\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /\.\.\.normalizeArray\(request\.receipt_refs\)/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /turn_id: turnId/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /workflow_graph_id: workflowGraphId/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /workflow_node_id: workflowNodeId/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /approval_manifest: approvalManifest/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /receipt_refs: receiptRefs/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /\.\.\.normalizeArray\(request\.target_node_ids\)/.test(runtimeCodingToolBudgetRecovery) &&
-      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecovery) &&
-      /budget recovery surface ignores retired request identity aliases/.test(
+    "coding-tool-budget-recovery-control-js-facade-retired",
+    /runtime_coding_tool_budget_recovery_rust_core_required/.test(
+      runtimeCodingToolBudgetRecoverySurface,
+    ) &&
+      /coding_tool_budget_recovery_js_facade_retired/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /coding_tool_budget_blocked_event_js_projection_retired/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      /coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /coding-tool budget blocked-event projection facade fails closed before JS projection reads/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /coding-tool budget recovery defaults action canonically while ignoring retired aliases/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /threadId: "thread_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /recoveryAction: "retry_approved"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /requestedBy: "operator_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
+      /recoveryAction: "retry_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /sourceEventId: "event_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /approvalId: "approval_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /workflowGraphId: "graph_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /workflowNodeId: "node_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /targetNodeIds: \["node_target_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /receiptRefs: \["receipt_retired"\]/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /policyDecisionRefs: \["policy_retired"\]/.test(
+      /assertNoRetiredBudgetRecoveryDetailAliases\(error\.details\)/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /recoveryPolicy: \{[\s\S]*requiresApproval: false,[\s\S]*retryLimit: 9/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /idempotencyKey: "budget_recovery_idempotency_retired"/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /budget recovery surface accepts canonical retry idempotency key/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /notFound\(`Run not found for thread: \$\{runId\}`,\s*\{ run_id: runId, thread_id: threadId \}\)/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      /error\.details\.thread_id, "thread_other"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /error\.details\.run_id, "run_alpha"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
-      /idempotency_key: "budget_recovery_idempotency_canonical"/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /retry\.event\.idempotency_key,\s*\n\s*"run:run_alpha:coding-tool-budget-recovery\.retry:approval_budget:1"/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /request\.receipt_refs\.includes\("receipt_retired"\), false/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /request\.policy_decision_refs\.includes\("policy_retired"\), false/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
+      /\.\.\.normalizeArray\(request\.target_node_ids\)/.test(runtimeCodingToolBudgetRecovery) &&
+      /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecovery) &&
       !/request\.(?:threadId|workflowNodeId|workflowGraphId|recoveryAction|requestedBy|sourceEventId|approvalId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/.test(
-        runtimeCodingToolBudgetRecoverySurface,
-      ) &&
-      !/notFound\(`Run not found for thread: \$\{runId\}`,\s*\{ runId, threadId \}\)/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       !/request\.(?:targetNodeIds|workflowNodeId|recoveryPolicy|retryLimit)\b/.test(
@@ -4745,7 +4702,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery requests must use canonical thread/workflow/target/approval/policy fields before approval and Rust state planning",
+    "Phase 10/11 is pending: coding-tool budget recovery control must fail closed before JS approval calls, accepted-event append, Rust planner invocation from the JS facade, projection reads, run mutation, or persistence",
   );
   assertCheck(
     result,
@@ -4762,24 +4719,6 @@ function runBridge() {
       /blockReason:\s*"coding_tool_budget_exceeded"/.test(
         runtimeCodingToolBudgetRecoveryTest,
       ) &&
-      /budget recovery surface ignores retired blocked payload aliases/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /budget recovery surface ignores retired retry event identity aliases/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /approvalId: "approval_payload_retired"/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /workflowNodeId: "node_payload_retired"/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /targetNodeIds: \["node_payload_retired"\]/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /sourceEventId: "event_budget_blocked"/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
       !/blockedPayload\.(?:approvalManifest|recoveryPolicy|targetNodeIds|workflowGraphId|workflowNodeId|approvalId)\b/.test(
         runtimeCodingToolBudgetRecovery,
       ) &&
@@ -4787,6 +4726,9 @@ function runBridge() {
         runtimeCodingToolBudgetRecovery,
       ) &&
       !/manifest\.recoveryPolicy\b/.test(runtimeCodingToolBudgetRecovery) &&
+      /coding_tool_budget_blocked_event_js_projection_retired/.test(
+        runtimeCodingToolBudgetRecoverySurface,
+      ) &&
       !/blockedPayload\.(?:approvalId|workflowGraphId|workflowNodeId)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
@@ -17087,8 +17029,6 @@ function runCompositor() {
     "coding-tool-budget-recovery-output-aliases-retired",
     codingToolBudgetRecoveryPolicyBlock.length > 0 &&
       codingToolBudgetRecoveryResultBlock.length > 0 &&
-      codingToolBudgetRecoveryApprovalManifestBlock.length > 0 &&
-      codingToolBudgetRecoveryRetryPayloadBlock.length > 0 &&
       /budget recovery retry limit and result envelope emit canonical fields only/.test(
         runtimeCodingToolBudgetRecoveryTest,
       ) &&
@@ -17098,10 +17038,7 @@ function runCompositor() {
       /Object\.hasOwn\(result,\s*alias\),\s*false/.test(
         runtimeCodingToolBudgetRecoveryTest,
       ) &&
-      /Object\.hasOwn\(request\.approval_manifest,\s*alias\),\s*false/.test(
-        runtimeCodingToolBudgetRecoverySurfaceTest,
-      ) &&
-      /Object\.hasOwn\(retry\.event\.payload_summary,\s*"retryCount"\),\s*false/.test(
+      /coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /schema_version:\s*(?:\n\s*policy\.schema_version\s*\?\?\s*)?WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION/.test(
@@ -17129,24 +17066,12 @@ function runCompositor() {
       /assert\.notEqual\(retiredInputResult\.approval_id,\s*"approval_retired"\)/.test(
         runtimeCodingToolBudgetRecoveryTest,
       ) &&
-      codingToolBudgetRecoverySurfaceResultCalls.length >= 6 &&
-      codingToolBudgetRecoverySurfaceResultCalls.every(
-        (call) =>
-          !/^\s*(?:threadId|turnId|approvalId|sourceEventId|targetNodeIds|workflowGraphId|workflowNodeId|recoveryPolicy|approvalEvent|decisionEvent|receiptRefs|policyDecisionRefs)\s*:/m.test(
-            call,
-          ),
+      /runtime_coding_tool_budget_recovery_rust_core_required/.test(
+        runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /thread_id:\s*threadId/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /approval_id:\s*approvalId/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /target_node_ids:\s*targetNodeIds/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /schema_version:\s*WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_SCHEMA_VERSION/.test(
-        codingToolBudgetRecoveryApprovalManifestBlock,
+      /coding_tool_budget_recovery_js_facade_retired/.test(
+        runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /recovery_policy:\s*recoveryPolicy/.test(
-        codingToolBudgetRecoveryApprovalManifestBlock,
-      ) &&
-      /retry_count:\s*retryCount \+ 1/.test(codingToolBudgetRecoveryRetryPayloadBlock) &&
-      /retry_limit:\s*retryLimit/.test(codingToolBudgetRecoveryRetryPayloadBlock) &&
       !/^\s*(?:schemaVersion|requiresApproval|allowOverride|retryLimit|approvalScope|operatorRole|targetNodeIds)\s*:/m.test(
         codingToolBudgetRecoveryPolicyBlock,
       ) &&
@@ -17156,11 +17081,9 @@ function runCompositor() {
       !/^\s*(?:schemaVersion|recoveryAction|runId|threadId|turnId|approvalId|sourceEventId|targetNodeIds|workflowGraphId|workflowNodeId|recoveryPolicy|eventId|approvalEventId|approvalDecisionEventId|receiptRefs|policyDecisionRefs|approvalEvent|decisionEvent)\s*[:,]/m.test(
         codingToolBudgetRecoveryResultBlock,
       ) &&
-      !/^\s*(?:schemaVersion|recoveryAction|sourceEventId|approvalId|runId|threadId|turnId|workflowGraphId|workflowNodeId|targetNodeIds|recoveryPolicy)\s*[:,]/m.test(
-        codingToolBudgetRecoveryApprovalManifestBlock,
-      ) &&
-      !/^\s*(?:eventKind|recoveryAction|approvalSatisfied|approvalDecisionEventId|retryCount|retryLimit)\s*[:,]/m.test(
-        codingToolBudgetRecoveryRetryPayloadBlock,
+      !/codingToolBudgetRecoveryResult\(\{/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      !/appendRuntimeEvent|requestThreadApproval|decideThreadApproval|planCodingToolBudgetRecoveryStateUpdate|writeRun/.test(
+        runtimeCodingToolBudgetRecoverySurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery.mjs",
