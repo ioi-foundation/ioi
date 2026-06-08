@@ -625,7 +625,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 760 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 762 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 763 direct\s+conversation-artifact store writer retirement verification/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 763 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 763 direct\s+conversation-artifact store writer retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,

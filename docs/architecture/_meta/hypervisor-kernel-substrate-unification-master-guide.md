@@ -452,8 +452,9 @@ projection still need to own lifecycle execution, receipt binding, ArtifactRef
 and PayloadRef admission, Agentgres expected-head/state-root binding,
 projection, replay, SDK/IDE protocol coverage, and conformance. Do not encode
 the remaining JS read adapter as terminal architecture.
-Schedule the next matrix-compaction pass after Slice 763 direct
-conversation-artifact store writer retirement is verified and pushed.
+The Slice 763 direct conversation-artifact store writer retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
