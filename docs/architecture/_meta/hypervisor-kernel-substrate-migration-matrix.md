@@ -55,7 +55,7 @@ Sprint priorities:
 | 1 | Route-family Rust ownership | Every remaining live route family has a Rust core owner for consequential execution/admission decisions, with JS reduced to protocol/product adapter code. |
 | 2 | JS facade retirement | Migrated routes cannot call JS execution logic, append accepted truth directly, or preserve compatibility aliases that can bypass canonical Rust-owned fields. |
 | 3 | Bridge scaffolding retirement | Command-bridge routes either collapse into Rust daemon-core protocol APIs or are documented as temporary transport with no independent authority, no accepted-truth mutation, and no compatibility-shim semantics. |
-| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, model-mount accepted-receipt transition/head bridge-field retirement, runtime usage request-metadata alias-retirement, workspace-change control/inspection bridge request alias-retirement, managed-session inspection/control bridge request alias-retirement, run-cancel fail-closed detail alias-retirement, diagnostics operator-override not-found detail alias-retirement, computer-use route authority-scope alias-retirement, and computer-use route observation-retention alias-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
+| 4 | Matrix cleanup | Schedule a matrix-compaction pass once the next Rust-core extraction/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal; scheduled compaction passes ran on 2026-06-07 after IDE computer-use projection, MCP, thread-control/coding-tool detail, managed-session/context-policy/approval/thread-memory, agent-status, agent/subagent persistence, SDK runtime usage, Rust/daemon Agentgres state-commit receipt/head/root/materialization/daemon-persistence identity/memory/model-mount option/diagnostics/runtime-bridge/workspace-restore planning, contract, fail-closed detail alias, runtime thread-control model-payload, runtime skill-hook governance, Rust thread-control agent-state model-route input, runtime-engine request facade-retirement, computer-use request-lease lane facade-retirement, computer-use request-lease approval facade-retirement, computer-use request-lease action-kind facade-retirement, computer-use request-lease provider facade-retirement, computer-use request-lease target-ref facade-retirement, computer-use request-lease session-mode facade-retirement, computer-use request-lease observation-retention facade-retirement, computer-use request-lease binding facade-retirement, computer-use request-lease result-output facade-retirement, computer-use request-lease catalog facade-retirement, StepModule ABI helper facade-retirement, runtime coding-tool StepModule context facade-retirement, runtime coding-tool Rust-live result wrapper facade-retirement, runtime coding-tool Rust-live failure result facade-retirement, runtime coding-tool Rust-live data-plane input facade-retirement, runtime coding-tool artifact-draft facade-retirement, runtime artifact-state reload facade-retirement, StepModule runner workspace-root facade-retirement, MCP manager workspace-root context facade-retirement, MCP stdio workspace-root cwd fallback retirement, diagnostics feedback repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context snapshot/rollback alias retirement, diagnostics feedback compacted repair-context source tool-call alias retirement, workspace restore result output alias retirement, signed replay notebook output alias retirement, signed replay notebook restore/snapshot input alias retirement, signed replay event-kind identity helper, signed replay event-payload alias retirement, worker contribution result-payload alias retirement, worker contribution request/worker alias retirement, workspace trust gate payload alias retirement, IDE receipt gate panel alias retirement, IDE runtime policy/edit-proposal policy alias retirement, IDE workflow edit proposal control alias retirement, IDE diagnostics repair action alias retirement, IDE L1 settlement control attempt/input alias retirement, IDE L1 settlement workflow-logic alias retirement, governed-improvement proposal identity alias retirement, model-mount accepted-receipt transition/head bridge-field retirement, runtime usage request-metadata alias-retirement, workspace-change control/inspection bridge request alias-retirement, managed-session inspection/control bridge request alias-retirement, run-cancel fail-closed detail alias-retirement, diagnostics operator-override not-found detail alias-retirement, computer-use route authority-scope alias-retirement, computer-use route observation-retention alias-retirement, computer-use route workflow-node alias-retirement, and computer-use control-action alias-retirement slices clarified the seams, while rows still distinguish current wired proof from terminal target and planned HypervisorOS, custody-proof, private-operator, and lifecycle concepts stay marked planned until code, receipts, and conformance guards exist. |
 | 5 | Terminal proof | `hypervisor-conformance` moves from "pass at current tier surface" to terminal only after the master guide terminal conditions are all true. |
 
 Remaining terminal blockers:
@@ -152,6 +152,11 @@ Matrix compaction timing:
 - Ninety-ninth scheduled pass completed on 2026-06-07: the computer-use route
   workflow-node alias-retirement evidence after slice 663 was compacted into the
   route-family range while preserving computer-use route-family JS facade
+  retirement as migration transport and terminal Rust daemon-core ownership as
+  the remaining target.
+- One-hundredth scheduled pass completed on 2026-06-07: the computer-use
+  control-action alias-retirement evidence after slice 664 was compacted into
+  the route-family range while preserving computer-use route-family JS facade
   retirement as migration transport and terminal Rust daemon-core ownership as
   the remaining target.
 - First scheduled pass completed on 2026-06-07: the historical append-only
@@ -13351,63 +13356,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 664
-
-```yaml
-slice: 664
-phase: 10-authoritative-js-facade-retirement
-objective: retire the computer-use control-action compatibility alias before
-  control receipt and authority metadata are emitted
-owner_boundary:
-  route_or_surface: `computer_use.control` runtime thread-tool route selector
-  authority_gate: unchanged; the control route still emits
-    `computer_use.control.${action}` authority scope metadata after canonical
-    action selection
-  execution_backend: unchanged; this slice removes a JS facade alias before
-    control receipt metadata reaches the existing route path
-  truth_path: canonical `control_action`, `action`, or `command` can select
-    pause/resume/abort/cleanup; retired `controlAction` no longer steers the
-    control action and falls back to the safe default pause when supplied alone
-  projection_path: bridge conformance requires the canonical control-action
-    selector and focused tests prove retired-only `controlAction` is ignored
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/computer-use-inputs.mjs
-  tests:
-    - packages/runtime-daemon/src/computer-use-inputs.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires `computerUseControlActionForInput` to consume
-    canonical `control_action`, `action`, and `command` without the retired
-    `controlAction` alias
-  - focused daemon tests prove canonical `control_action` wins when paired with
-    retired `controlAction`
-  - focused daemon tests prove retired-only `controlAction` falls closed to the
-    safe default pause action
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/computer-use-inputs.test.mjs
-    - node --check packages/runtime-daemon/src/computer-use-inputs.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core API extraction remains pending beyond this
-      computer-use route facade cleanup
-    - remaining computer-use route family JS facade code is migration transport
-      until Rust daemon-core ownership is extracted for the full route family
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13423,7 +13371,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 664 and the ninety-ninth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 664 and the one-hundredth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
