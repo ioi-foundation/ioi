@@ -34,11 +34,13 @@ facade-retirement evidence, then compacted Slice 748 direct model lifecycle
 receipt helper facade-retirement evidence. This pass compacted Slice 749 public
 model invocation facade-retirement evidence, then compacted Slice 750 runtime
 model-route selection facade-retirement evidence, then compacted Slice 751
-stream-cancel receipt facade-retirement evidence. Slice 752 receipt-gate
-receipt facade retirement has landed and scheduled the next compaction pass.
-Next resume instruction: run the scheduled matrix-compaction pass before
-starting unrelated route-family work; preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades are not terminal substrate.
+stream-cancel receipt facade-retirement evidence, then compacted Slice 752
+receipt-gate receipt facade-retirement evidence.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades are not terminal
+substrate.
 
 ## Purpose
 
@@ -133,8 +135,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 752 receipt-gate
-  receipt facade retirement. Run it before starting unrelated route-family work.
+- Next scheduled matrix-compaction pass: none pending after Slice 752
+  receipt-gate receipt facade-retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14062,48 +14064,32 @@ target ownership.
   read-only projection adapters, or migration transport as terminal
   architecture.
 
-## Implementation Slice 752: Model Receipt-Gate Receipt Facade Retirement
+## Compacted Implementation Slice Evidence: 752
 
-date: 2026-06-08
-phase: 10
-owner_map_row: `model-mounting`
-implementation_matrix_object: `ModelReceiptGateControl`
-status: verified
-target_execution_owner: Rust daemon core receipt-gate admission
-current_surface_retired:
-- `packages/runtime-daemon/src/model-mounting/validation.mjs`
-- `validateReceiptGate(...)`
-- `packages/runtime-daemon/src/model-mounting.mjs#validateReceiptGate`
-authority_change:
-- Direct receipt-gate validation now throws
+The expanded Slice 752 ledger was compacted on 2026-06-08 after the model
+receipt-gate receipt facade-retirement seam landed. This slice remains active
+migration evidence, not terminal architecture. The `ModelReceiptGateControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
+
+- Slice 752 retired JS-authored receipt-gate receipt construction in
+  `packages/runtime-daemon/src/model-mounting/validation.mjs`.
+  `validateReceiptGate(...)` now fails closed with
   `model_mount_receipt_gate_rust_core_required` after canonical receipt/gate
-  context evaluation and before JS `workflow_receipt_gate` or
+  context evaluation and before `workflow_receipt_gate` or
   `workflow_receipt_gate_blocked` receipt construction.
 - The fail-closed detail envelope retains canonical snake_case gate admission
-  fields: receipt id, gate status, failures, route/model/endpoint/backend ids,
-  and required tool receipt ids.
-legacy_paths_removed:
-- JS no longer calls `createReceipt("workflow_receipt_gate", ...)` or
-  `createReceipt("workflow_receipt_gate_blocked", ...)` from receipt-gate
-  validation.
-compatibility_shims_remaining: []
-temporary_transport:
-- none for receipt-gate validation; direct Rust daemon-core receipt-gate
-  admission remains the required replacement.
-conformance:
-- `model-mount-receipt-gate-js-facade-retired`
-- `model_mount_receipt_gate_rust_core_required`
-- `model_mount_receipt_gate_js_facade_retired`
-- `rust_daemon_core_model_receipt_gate_required`
-- `agentgres_model_receipt_gate_truth_required`
-verification:
-- `node --check packages/runtime-daemon/src/model-mounting/validation.mjs packages/runtime-daemon/src/model-mounting/validation.test.mjs`
-- `node --test packages/runtime-daemon/src/model-mounting/validation.test.mjs`
-next:
-- Run the scheduled matrix-compaction pass before starting unrelated
-  route-family work. The compaction must keep `ModelReceiptGateControl` aligned
-  with the fail-closed receipt-gate state and must not encode fail-closed JS
-  helpers, read-only projection adapters, or command transport as terminal
+  fields for Rust admission: receipt id, gate status, failures,
+  route/model/endpoint/backend ids, and required tool receipt ids.
+- Conformance anchors include `model-mount-receipt-gate-js-facade-retired`,
+  `model_mount_receipt_gate_js_facade_retired`,
+  `rust_daemon_core_model_receipt_gate_required`, and
+  `agentgres_model_receipt_gate_truth_required`.
+- Scheduled matrix-compaction obligation from Slice 752 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS receipt-gate helpers,
+  read-only projection adapters, or migration transport as terminal
   architecture.
 
 ## Command State
