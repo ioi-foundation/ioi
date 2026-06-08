@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const CONTEXT_POLICY_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
-export const CONTEXT_POLICY_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
-export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const CONTEXT_POLICY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const CONTEXT_POLICY_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
@@ -246,7 +246,7 @@ export class RustContextPolicyRunner {
     }
     if (!this.command) {
       throw new ContextPolicyRunnerError(
-        "Context policy requires IOI_STEP_MODULE_COMMAND for Rust policy evaluation.",
+        "Context policy requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core policy evaluation.",
         "context_policy_bridge_unconfigured",
         {
           env: CONTEXT_POLICY_COMMAND_ENV,

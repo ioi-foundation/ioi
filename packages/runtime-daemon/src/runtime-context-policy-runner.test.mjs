@@ -10,6 +10,8 @@ import {
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+  CONTEXT_POLICY_COMMAND_ARGS_ENV,
+  CONTEXT_POLICY_COMMAND_ENV,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -23,6 +25,7 @@ import {
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  createContextPolicyRunnerFromEnv,
   normalizeAgentCreateStateUpdateBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
   normalizeOperatorInterruptStateUpdateBridgeResult,
@@ -36,10 +39,22 @@ function assertNoRetiredOperationKindDetailAliases(details) {
   }
 }
 
+test("context policy runner env uses daemon-core command boundary", () => {
+  const runner = createContextPolicyRunnerFromEnv({
+    [CONTEXT_POLICY_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [CONTEXT_POLICY_COMMAND_ARGS_ENV]: "--json",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
+  });
+
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
+});
+
 test("context budget policy runner sends generic Rust policy bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -100,7 +115,7 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
 test("coding tool budget runner sends Rust policy bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -149,7 +164,7 @@ test("coding tool budget runner sends Rust policy bridge request", () => {
 test("compaction policy runner sends Rust policy bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -217,7 +232,7 @@ test("compaction policy runner sends Rust policy bridge request", () => {
 test("context compaction runner sends Rust plan bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -278,7 +293,7 @@ test("context compaction runner sends Rust plan bridge request", () => {
 test("context compaction state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -357,7 +372,7 @@ test("context compaction state update runner sends Rust state update bridge requ
 test("coding tool budget recovery state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -427,7 +442,7 @@ test("coding tool budget recovery state update runner sends Rust state update br
 test("diagnostics operator override state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -510,7 +525,7 @@ test("diagnostics operator override state update runner sends Rust state update 
 test("operator interrupt state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -585,7 +600,7 @@ test("operator interrupt state update runner sends Rust state update bridge requ
 test("operator steer state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -655,7 +670,7 @@ test("operator steer state update runner sends Rust state update bridge request"
 test("run cancel state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -724,7 +739,7 @@ test("run cancel state update runner sends Rust state update bridge request", ()
 test("thread control agent state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -803,7 +818,7 @@ test("thread control agent state update runner sends Rust state update bridge re
 test("mcp control agent state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -864,7 +879,7 @@ test("mcp control agent state update runner sends Rust state update bridge reque
 test("thread memory agent state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -922,7 +937,7 @@ test("thread memory agent state update runner sends Rust state update bridge req
 test("runtime bridge thread start agent state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -985,7 +1000,7 @@ test("runtime bridge thread start agent state update runner sends Rust state upd
 test("runtime bridge turn run state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -1042,7 +1057,7 @@ test("runtime bridge turn run state update runner sends Rust state update bridge
 test("subagent record state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -1096,7 +1111,7 @@ test("subagent record state update runner sends Rust state update bridge request
 test("agent create state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -1146,7 +1161,7 @@ test("agent create state update runner sends Rust state update bridge request", 
 test("agent status state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -1194,7 +1209,7 @@ test("agent status state update runner sends Rust state update bridge request", 
 test("run create state update runner sends Rust state update bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
-    command: "ioi-step-module-bridge",
+    command: "ioi-runtime-daemon-core",
     spawnSyncImpl(_command, _args, options) {
       captured = JSON.parse(options.input);
       return {
@@ -1252,7 +1267,7 @@ test("context policy runner fails closed without bridge command", () => {
 
   assert.throws(
     () => runner.evaluateContextBudgetPolicy({ usage_telemetry: { total_tokens: 1 } }),
-    /Context policy requires IOI_STEP_MODULE_COMMAND/,
+    /Context policy requires IOI_RUNTIME_DAEMON_CORE_COMMAND/,
   );
 });
 

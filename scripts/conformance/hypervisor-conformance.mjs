@@ -4468,13 +4468,22 @@ function runBridge() {
       /runtime_event_idempotency_key/.test(policyCore) &&
       /evaluate_context_budget_policy/.test(bridgeModule) &&
       /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /is_daemon_core_policy_operation/.test(bridgeModule) &&
+      /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(bridgeModule) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeContextPolicyRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeContextPolicyRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyRunner) &&
       /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
       /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
+      /context policy runner env uses daemon-core command boundary/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /context budget policy runner sends generic Rust policy bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&

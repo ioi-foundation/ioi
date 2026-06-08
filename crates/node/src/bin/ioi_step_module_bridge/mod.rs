@@ -80,7 +80,9 @@ use std::time::{Duration, Instant};
 
 mod computer_use;
 
-const COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
+const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
+const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
+const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
@@ -660,12 +662,13 @@ fn run_bridge() -> Result<Value, BridgeError> {
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
     let envelope: BridgeEnvelope = serde_json::from_value(raw_request.clone())
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
-    if envelope.schema_version != COMMAND_SCHEMA_VERSION {
+    let expected_schema_version = expected_command_schema_version(&envelope.operation);
+    if envelope.schema_version != expected_schema_version {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, envelope.schema_version
+                expected_schema_version, envelope.schema_version
             ),
         ));
     }
@@ -987,6 +990,39 @@ fn run_bridge() -> Result<Value, BridgeError> {
             format!("unsupported operation {other}"),
         )),
     }
+}
+
+fn expected_command_schema_version(operation: &str) -> &'static str {
+    if is_daemon_core_policy_operation(operation) {
+        DAEMON_CORE_COMMAND_SCHEMA_VERSION
+    } else {
+        STEP_MODULE_COMMAND_SCHEMA_VERSION
+    }
+}
+
+fn is_daemon_core_policy_operation(operation: &str) -> bool {
+    matches!(
+        operation,
+        "evaluate_context_budget_policy"
+            | "evaluate_coding_tool_budget_policy"
+            | "evaluate_compaction_policy"
+            | "plan_context_compaction"
+            | "plan_context_compaction_state_update"
+            | "plan_coding_tool_budget_recovery_state_update"
+            | "plan_diagnostics_operator_override_state_update"
+            | "plan_operator_interrupt_state_update"
+            | "plan_operator_steer_state_update"
+            | "plan_run_cancel_state_update"
+            | "plan_thread_control_agent_state_update"
+            | "plan_mcp_control_agent_state_update"
+            | "plan_thread_memory_agent_state_update"
+            | "plan_runtime_bridge_thread_start_agent_state_update"
+            | "plan_runtime_bridge_turn_run_state_update"
+            | "plan_subagent_record_state_update"
+            | "plan_agent_create_state_update"
+            | "plan_run_create_state_update"
+            | "plan_agent_status_state_update"
+    )
 }
 
 fn run_coding_tool_step_module(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
@@ -2298,12 +2334,12 @@ fn evaluate_context_budget_policy_bridge(
     source: &'static str,
     error_code: &'static str,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2342,12 +2378,12 @@ fn evaluate_context_budget_policy_bridge(
 fn evaluate_compaction_policy(
     request: CompactionPolicyBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2393,12 +2429,12 @@ fn evaluate_compaction_policy(
 fn plan_context_compaction(
     request: ContextCompactionPlanBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2443,12 +2479,12 @@ fn plan_context_compaction(
 fn plan_context_compaction_state_update(
     request: ContextCompactionStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2484,12 +2520,12 @@ fn plan_context_compaction_state_update(
 fn plan_mcp_control_agent_state_update(
     request: McpControlAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2522,12 +2558,12 @@ fn plan_mcp_control_agent_state_update(
 fn plan_thread_memory_agent_state_update(
     request: ThreadMemoryAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2560,12 +2596,12 @@ fn plan_thread_memory_agent_state_update(
 fn plan_runtime_bridge_thread_start_agent_state_update(
     request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2598,12 +2634,12 @@ fn plan_runtime_bridge_thread_start_agent_state_update(
 fn plan_runtime_bridge_turn_run_state_update(
     request: RuntimeBridgeTurnRunStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2635,12 +2671,12 @@ fn plan_runtime_bridge_turn_run_state_update(
 fn plan_subagent_record_state_update(
     request: SubagentRecordStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2669,12 +2705,12 @@ fn plan_subagent_record_state_update(
 fn plan_coding_tool_budget_recovery_state_update(
     request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2707,12 +2743,12 @@ fn plan_coding_tool_budget_recovery_state_update(
 fn plan_diagnostics_operator_override_state_update(
     request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2745,12 +2781,12 @@ fn plan_diagnostics_operator_override_state_update(
 fn plan_operator_interrupt_state_update(
     request: OperatorInterruptStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2784,12 +2820,12 @@ fn plan_operator_interrupt_state_update(
 fn plan_operator_steer_state_update(
     request: OperatorSteerStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2819,12 +2855,12 @@ fn plan_operator_steer_state_update(
 fn plan_run_cancel_state_update(
     request: RunCancelStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2857,12 +2893,12 @@ fn plan_run_cancel_state_update(
 fn plan_thread_control_agent_state_update(
     request: ThreadControlAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2895,12 +2931,12 @@ fn plan_thread_control_agent_state_update(
 fn plan_agent_create_state_update(
     request: AgentCreateStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2930,12 +2966,12 @@ fn plan_agent_create_state_update(
 fn plan_agent_status_state_update(
     request: AgentStatusStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -2964,12 +3000,12 @@ fn plan_agent_status_state_update(
 fn plan_run_create_state_update(
     request: RunCreateStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7909,7 +7945,7 @@ mod tests {
     #[test]
     fn bridge_evaluates_context_budget_policy_through_rust_core() {
         let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "evaluate_context_budget_policy",
             "backend": "rust_policy",
             "request": {
@@ -7960,9 +7996,34 @@ mod tests {
     }
 
     #[test]
+    fn context_policy_rejects_step_module_command_schema() {
+        let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "evaluate_context_budget_policy",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.context-budget-policy-request.v1",
+                "usage_telemetry": { "total_tokens": 10 },
+                "thresholds": { "max_total_tokens": 100 },
+                "mode": "simulate",
+                "scope": "thread",
+                "thread_id": "thread_budget",
+                "turn_id": "turn_budget"
+            }
+        }))
+        .expect("context budget bridge request");
+
+        let error = evaluate_context_budget_policy(request)
+            .expect_err("context policy must reject StepModule bridge schema");
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
     fn bridge_evaluates_coding_tool_budget_policy_through_rust_core() {
         let request: ContextBudgetPolicyBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "evaluate_coding_tool_budget_policy",
             "backend": "rust_policy",
             "request": {
@@ -8009,7 +8070,7 @@ mod tests {
     #[test]
     fn bridge_evaluates_compaction_policy_through_rust_core() {
         let request: CompactionPolicyBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "evaluate_compaction_policy",
             "backend": "rust_policy",
             "request": {
@@ -8070,7 +8131,7 @@ mod tests {
     #[test]
     fn bridge_plans_context_compaction_through_rust_core() {
         let request: ContextCompactionPlanBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_context_compaction",
             "backend": "rust_policy",
             "request": {
@@ -8128,7 +8189,7 @@ mod tests {
     #[test]
     fn bridge_plans_context_compaction_state_update_through_rust_core() {
         let request: ContextCompactionStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_context_compaction_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8191,7 +8252,7 @@ mod tests {
     fn bridge_plans_coding_tool_budget_recovery_state_update_through_rust_core() {
         let request: CodingToolBudgetRecoveryStateUpdateBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "plan_coding_tool_budget_recovery_state_update",
                 "backend": "rust_policy",
                 "request": {
@@ -8245,7 +8306,7 @@ mod tests {
     fn bridge_plans_diagnostics_operator_override_state_update_through_rust_core() {
         let request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "plan_diagnostics_operator_override_state_update",
                 "backend": "rust_policy",
                 "request": {
@@ -8328,7 +8389,7 @@ mod tests {
     #[test]
     fn bridge_plans_operator_interrupt_state_update_through_rust_core() {
         let request: OperatorInterruptStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_operator_interrupt_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8386,7 +8447,7 @@ mod tests {
     #[test]
     fn bridge_plans_operator_steer_state_update_through_rust_core() {
         let request: OperatorSteerStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_operator_steer_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8439,7 +8500,7 @@ mod tests {
     #[test]
     fn bridge_plans_run_cancel_state_update_through_rust_core() {
         let request: RunCancelStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_run_cancel_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8496,7 +8557,7 @@ mod tests {
     #[test]
     fn bridge_plans_thread_control_agent_state_update_through_rust_core() {
         let request: ThreadControlAgentStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_thread_control_agent_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8574,7 +8635,7 @@ mod tests {
     #[test]
     fn bridge_plans_mcp_control_agent_state_update_through_rust_core() {
         let request: McpControlAgentStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_mcp_control_agent_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8627,7 +8688,7 @@ mod tests {
     #[test]
     fn bridge_plans_thread_memory_agent_state_update_through_rust_core() {
         let request: ThreadMemoryAgentStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_thread_memory_agent_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8669,7 +8730,7 @@ mod tests {
     fn bridge_plans_runtime_bridge_thread_start_agent_state_update_through_rust_core() {
         let request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest =
             serde_json::from_value(json!({
-                "schema_version": COMMAND_SCHEMA_VERSION,
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
                 "operation": "plan_runtime_bridge_thread_start_agent_state_update",
                 "backend": "rust_policy",
                 "request": {
@@ -8714,7 +8775,7 @@ mod tests {
     #[test]
     fn bridge_plans_runtime_bridge_turn_run_state_update_through_rust_core() {
         let request: RuntimeBridgeTurnRunStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_runtime_bridge_turn_run_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8757,7 +8818,7 @@ mod tests {
     #[test]
     fn bridge_plans_subagent_record_state_update_through_rust_core() {
         let request: SubagentRecordStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_subagent_record_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8793,7 +8854,7 @@ mod tests {
     #[test]
     fn bridge_plans_agent_create_state_update_through_rust_core() {
         let request: AgentCreateStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_agent_create_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8826,7 +8887,7 @@ mod tests {
     #[test]
     fn bridge_plans_agent_status_state_update_through_rust_core() {
         let request: AgentStatusStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_agent_status_state_update",
             "backend": "rust_policy",
             "request": {
@@ -8859,7 +8920,7 @@ mod tests {
     #[test]
     fn bridge_plans_run_create_state_update_through_rust_core() {
         let request: RunCreateStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_run_create_state_update",
             "backend": "rust_policy",
             "request": {
