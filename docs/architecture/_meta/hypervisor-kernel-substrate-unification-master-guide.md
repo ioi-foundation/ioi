@@ -589,8 +589,9 @@ authority, transport containment, StepModuleRouter dispatch, receipt binding,
 Agentgres expected-head/state-root binding, registry truth, replay, SDK/IDE
 protocol coverage, and conformance. Do not encode the remaining JS MCP
 manager/catalog helpers as terminal architecture. The Slice 772 MCP manager
-transport/containment alias-retirement matrix-compaction pass is pending and
-must run before unrelated route-family work resumes.
+transport/containment alias-retirement matrix-compaction pass is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
