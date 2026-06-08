@@ -625,7 +625,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 760 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 762 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 762\s+catalog-provider config-update helper retirement compaction/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 763 direct\s+conversation-artifact store writer retirement verification/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
@@ -15998,6 +15998,34 @@ function runCompositor() {
     ) &&
     /assertConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactSurfaceTest) &&
     /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeConversationArtifactSurfaceTest);
+  const conversationArtifactStoreJsWritersRetired =
+    /runtime_conversation_artifact_store_rust_core_required/.test(conversationArtifacts) &&
+    /runtime_conversation_artifact_store_js_writers_retired/.test(conversationArtifacts) &&
+    /conversation_artifact_create_js_store_writer_retired/.test(conversationArtifacts) &&
+    /conversation_artifact_action_js_store_writer_retired/.test(conversationArtifacts) &&
+    /conversation_artifact_export_js_store_writer_retired/.test(conversationArtifacts) &&
+    /conversation_artifact_promote_js_store_writer_retired/.test(conversationArtifacts) &&
+    /rust_daemon_core_conversation_artifact_control_required/.test(conversationArtifacts) &&
+    /agentgres_conversation_artifact_truth_required/.test(conversationArtifacts) &&
+    !/commitRuntimeArtifactRecord/.test(conversationArtifacts) &&
+    !/commitRuntimeArtifactState\(/.test(conversationArtifacts) &&
+    !/writeText\(/.test(conversationArtifacts) &&
+    !/writeBuffer\(/.test(conversationArtifacts) &&
+    !/writeJson\(/.test(conversationArtifacts) &&
+    !/#createRevisionFiles/.test(conversationArtifacts) &&
+    !/#receipt/.test(conversationArtifacts) &&
+    !/#write/.test(conversationArtifacts) &&
+    /conversation artifact direct store mutations fail closed before JS artifact-state writes/.test(
+      conversationArtifactsTest,
+    ) &&
+    /assertConversationArtifactStoreRustCoreRequired/.test(conversationArtifactsTest) &&
+    /commit must not be reached/.test(conversationArtifactsTest) &&
+    /fs\.readdirSync\(path\.join\(stateDir,\s*"conversation-artifacts",\s*"records"\)\)/.test(
+      conversationArtifactsTest,
+    ) &&
+    /fs\.readdirSync\(path\.join\(stateDir,\s*"conversation-artifacts",\s*"receipts"\)\)/.test(
+      conversationArtifactsTest,
+    );
   assertCheck(
     result,
     "rust-projection-core",
@@ -16047,9 +16075,11 @@ function runCompositor() {
   assertCheck(
     result,
     "conversation-artifact-aliases-retired",
-    /thread_id:\s*input\.thread_id \?\? null/.test(conversationArtifacts) &&
-      /turn_id:\s*input\.turn_id \?\? null/.test(conversationArtifacts) &&
-      /output_modality:\s*input\.output_modality \?\? null/.test(conversationArtifacts) &&
+    /thread_id:\s*overrides\.thread_id \?\? "thread-one"/.test(conversationArtifactsTest) &&
+      /turn_id:\s*overrides\.turn_id \?\? "turn-one"/.test(conversationArtifactsTest) &&
+      /output_modality:\s*overrides\.output_modality \?\? "web_preview"/.test(
+        conversationArtifactsTest,
+      ) &&
       /const threadId = query\.thread_id \?\? null/.test(conversationArtifacts) &&
       /\.filter\(\(record\) => !threadId \|\| record\.thread_id === threadId\)/.test(conversationArtifacts) &&
       (runtimeConversationArtifactMutationFacadeRetired ||
@@ -16063,24 +16093,12 @@ function runCompositor() {
       /\?thread_id=\$\{encodeURIComponent\(threadId\)\}/.test(conversationArtifactSdkListMethodBlock) &&
       /client\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(conversationArtifactProofScript) &&
       /artifact_class: artifactClass/.test(conversationArtifactProofScript) &&
-      /commitRuntimeArtifactRecord/.test(conversationArtifacts) &&
-      /this\.commitRuntimeArtifactState = options\.commitRuntimeArtifactState/.test(conversationArtifacts) &&
-      /commitRuntimeArtifactRecord\(\s*this,\s*\{ \.\.\.receipt, receipt_refs: \[receipt\.id\] \},\s*"artifact\.conversation_receipt"/.test(
-        conversationArtifacts,
-      ) &&
-      /commitRuntimeArtifactRecord\(this,\s*persisted,\s*"artifact\.conversation_record"\)/.test(
-        conversationArtifacts,
-      ) &&
+      conversationArtifactStoreJsWritersRetired &&
       !/writeJson\(path\.join\(this\.receiptsDir/.test(conversationArtifacts) &&
       !/writeJson\(path\.join\(this\.recordsDir/.test(conversationArtifacts) &&
       /new ConversationArtifactStore\(this\.stateDir,\s*\{[\s\S]*commitRuntimeArtifactState: \(request\) => this\.commitRuntimeArtifactState\(request\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /conversation artifact persistence fails closed without Rust Agentgres artifact-state commit/.test(
-        conversationArtifactsTest,
-      ) &&
-      /operation_kind,\s*"artifact\.conversation_receipt"/.test(conversationArtifactsTest) &&
-      /operation_kind,\s*"artifact\.conversation_record"/.test(conversationArtifactsTest) &&
       !/^\s*(?:schemaVersion|artifactId|threadId|turnId|artifactClass|outputModality|stateLabel|generatedFiles|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|actionSchemaVersion|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt|previewInline)\s*:/m.test(
         conversationArtifactCreateRecordBlock,
       ) &&
@@ -16093,7 +16111,6 @@ function runCompositor() {
       /Object\.hasOwn\(artifact,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(revision,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(ref,\s*key\),\s*false/.test(conversationArtifactsTest) &&
-      /Object\.hasOwn\(receipt,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /surface\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
         runtimeConversationArtifactSurfaceTest,
       ) &&
@@ -16116,6 +16133,16 @@ function runCompositor() {
       "scripts/run-autopilot-conversation-artifact-embedded-document-canvas-goal.mjs",
     ],
     "Phase 10/11 is pending: conversation artifact records, refs, revisions, actions, routes, and SDK queries must use the canonical snake_case contract without duplicate compatibility aliases",
+  );
+  assertCheck(
+    result,
+    "conversation-artifact-store-js-writers-retired",
+    conversationArtifactStoreJsWritersRetired,
+    [
+      "packages/runtime-daemon/src/conversation-artifacts.mjs",
+      "packages/runtime-daemon/src/conversation-artifacts.test.mjs",
+    ],
+    "Phase 10/11 is pending: direct ConversationArtifactStore mutation writers must stay retired until Rust daemon-core owns artifact admission and persistence",
   );
   assertCheck(
     result,

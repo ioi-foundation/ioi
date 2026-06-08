@@ -437,6 +437,23 @@ remaining JS source/auth helpers as terminal architecture.
 The Slice 762 catalog-provider config-update helper retirement
 matrix-compaction pass is complete. No matrix-compaction pass is pending until
 the next Rust-core extraction or facade-retirement seam lands.
+Slice 763 retired the hidden `ConversationArtifactStore` JS mutation writers
+behind the already retired public conversation-artifact control facade. The
+store no longer imports the JS artifact-state committer, materializes generated
+artifact files, creates conversation-artifact receipts, writes accepted
+conversation-artifact records, or exposes private `#receipt`/`#write` mutation
+bodies. Direct `create`, `action`, `exportArtifact`, and `promoteArtifact`
+calls now fail closed with `runtime_conversation_artifact_store_rust_core_required`
+before JS file writes, record writes, receipt synthesis, or Agentgres artifact
+state commits can occur. The remaining store is a read/projection adapter over
+already-admitted canonical records only. This does not claim terminal
+conversation-artifact migration: direct Rust daemon-core artifact admission and
+projection still need to own lifecycle execution, receipt binding, ArtifactRef
+and PayloadRef admission, Agentgres expected-head/state-root binding,
+projection, replay, SDK/IDE protocol coverage, and conformance. Do not encode
+the remaining JS read adapter as terminal architecture.
+Schedule the next matrix-compaction pass after Slice 763 direct
+conversation-artifact store writer retirement is verified and pushed.
 
 ## Part II: Target Execution Model
 

@@ -5,154 +5,220 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { ConversationArtifactStore } from "./conversation-artifacts.mjs";
+import {
+  CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
+  CONVERSATION_ARTIFACT_REVISION_SCHEMA_VERSION,
+  CONVERSATION_ARTIFACT_SCHEMA_VERSION,
+  ConversationArtifactStore,
+} from "./conversation-artifacts.mjs";
 
-function testStore(stateDir, commits = []) {
-  return new ConversationArtifactStore(stateDir, {
-    commitRuntimeArtifactState: fakeArtifactCommitter(stateDir, commits),
-  });
+function writeJson(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-function fakeArtifactCommitter(stateDir, commits) {
-  return (request) => {
-    commits.push(JSON.parse(JSON.stringify(request)));
-    const safeId = String(request.artifact_id).replace(/[^A-Za-z0-9._-]/g, "_");
-    const recordPath = `artifacts/${safeId}.json`;
-    const absolutePath = path.join(stateDir, recordPath);
-    fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
-    fs.writeFileSync(absolutePath, `${JSON.stringify(request.artifact, null, 2)}\n`);
-    return {
-      artifact_id: request.artifact_id,
-      object_ref: `agentgres://runtime-state/artifacts/${safeId}/records/${recordPath}`,
-      content_hash: `sha256:${safeId}`,
-      admission_hash: `sha256:admission:${safeId}`,
-      commit_hash: `sha256:commit:${safeId}`,
-      written_record: {
-        record_path: recordPath,
-        absolute_path: absolutePath,
+function writeText(filePath, value) {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, String(value));
+}
+
+function seedConversationArtifact(stateDir, overrides = {}) {
+  const artifactId = overrides.id ?? "artifact_canonical_web";
+  const revisionId = overrides.revision_id ?? "rev_001";
+  const previewPath = path.join(
+    stateDir,
+    "conversation-artifacts",
+    "assets",
+    artifactId,
+    revisionId,
+    "index.html",
+  );
+  writeText(previewPath, "<!doctype html><main><h1>Canonical website</h1></main>");
+  const record = {
+    schema_version: CONVERSATION_ARTIFACT_SCHEMA_VERSION,
+    object: "ioi.conversation_artifact",
+    id: artifactId,
+    artifact_id: artifactId,
+    thread_id: overrides.thread_id ?? "thread-one",
+    turn_id: overrides.turn_id ?? "turn-one",
+    artifact_class: overrides.artifact_class ?? "static_html_js",
+    output_modality: overrides.output_modality ?? "web_preview",
+    title: overrides.title ?? "Canonical website",
+    status: "preview_ready",
+    state_label: "Preview ready",
+    summary: "Already admitted Rust/Agentgres projection.",
+    generated_files: null,
+    renderer: {
+      kind: "sandboxed_web_preview",
+      label: "Static HTML/CSS/JS",
+      sandboxed: true,
+      network: "deny_by_default",
+      filesystem: "no_ambient_access",
+      actions: "typed_daemon_requests",
+    },
+    source_refs: [],
+    original_refs: [],
+    projection_refs: [],
+    preview_refs: [
+      {
+        ref: `artifact://${artifactId}/${revisionId}/preview/index.html`,
+        role: "preview",
+        path: `assets/${artifactId}/${revisionId}/index.html`,
+        file_name: "index.html",
+        media_type: "text/html",
       },
-      storage_record: {
-        record_path: recordPath,
-        object_ref: `agentgres://runtime-state/artifacts/${safeId}/records/${recordPath}`,
-        content_hash: `sha256:${safeId}`,
-        receipt_refs: request.receipt_refs,
-        admission: {
-          admission_hash: `sha256:admission:${safeId}`,
-        },
+    ],
+    trace_refs: [`trace:conversation-artifact:${artifactId}`],
+    policy_refs: [
+      "policy:artifact.renderer.sandbox",
+      "policy:artifact.actions.daemon_typed",
+      "policy:artifact.chat.hide_raw_refs",
+    ],
+    receipt_refs: ["receipt_artifact_create"],
+    action_schema_version: CONVERSATION_ARTIFACT_ACTION_SCHEMA_VERSION,
+    actions: ["edit", "rebuild", "export", "promote", "rollback"],
+    revisions: [
+      {
+        schema_version: CONVERSATION_ARTIFACT_REVISION_SCHEMA_VERSION,
+        object: "ioi.conversation_artifact_revision",
+        id: revisionId,
+        revision_id: revisionId,
+        artifact_id: artifactId,
+        status: "ready",
+        summary: "Initial admitted projection.",
+        source_refs: [],
+        original_refs: [],
+        projection_refs: [],
+        preview_refs: [
+          {
+            ref: `artifact://${artifactId}/${revisionId}/preview/index.html`,
+            role: "preview",
+            path: `assets/${artifactId}/${revisionId}/index.html`,
+            file_name: "index.html",
+            media_type: "text/html",
+          },
+        ],
+        log_refs: [],
+        rollback_refs: [],
+        created_at: "2026-06-08T00:00:00.000Z",
       },
-    };
+    ],
+    latest_revision_id: revisionId,
+    export_refs: [],
+    promotion_refs: [],
+    fidelity: null,
+    created_at: overrides.created_at ?? "2026-06-08T00:00:00.000Z",
+    updated_at: overrides.updated_at ?? "2026-06-08T00:00:00.000Z",
+    evidence: {
+      runtimeOwned: true,
+      guiOwnsExecutionSemantics: false,
+      rawRefsHiddenFromChat: true,
+    },
   };
+  writeJson(path.join(stateDir, "artifacts", `${artifactId}.json`), record);
+  return record;
 }
 
-test("static website artifacts require model-authored source", async () => {
+function assertConversationArtifactStoreRustCoreRequired(error, {
+  operation,
+  operationKind,
+  artifactId = null,
+}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_conversation_artifact_store_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.conversation_artifact_control");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  if (artifactId) assert.equal(error.details.artifact_id, artifactId);
+  assert.equal(
+    error.details.evidence_refs.includes("runtime_conversation_artifact_store_js_writers_retired"),
+    true,
+  );
+  assert.equal(error.details.evidence_refs.includes(`${operation}_js_store_writer_retired`), true);
+  assert.equal(
+    error.details.evidence_refs.includes("rust_daemon_core_conversation_artifact_control_required"),
+    true,
+  );
+  for (const key of [
+    "rustCoreBoundary",
+    "operationKind",
+    "artifactId",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(error.details, key), false, `retired detail alias ${key} must be absent`);
+  }
+  return true;
+}
+
+test("conversation artifact direct store mutations fail closed before JS artifact-state writes", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
-    const store = testStore(stateDir);
+    const store = new ConversationArtifactStore(stateDir, {
+      commitRuntimeArtifactState(request) {
+        throw new Error(`commit must not be reached: ${request.operation_kind}`);
+      },
+    });
+
     assert.throws(
-      () => store.create({
-        artifact_class: "static_html_js",
-        title: "Post-quantum computers website",
-        prompt: "Create a website that explains post-quantum computers",
-      }),
-      /require model-authored HTML\/CSS\/JS source/
+      () => store.create({ title: "Draft" }),
+      (error) =>
+        assertConversationArtifactStoreRustCoreRequired(error, {
+          operation: "conversation_artifact_create",
+          operationKind: "artifact.conversation.create",
+        }),
+    );
+    assert.throws(
+      () => store.action("artifact-one", { action: "edit" }),
+      (error) =>
+        assertConversationArtifactStoreRustCoreRequired(error, {
+          operation: "conversation_artifact_action",
+          operationKind: "artifact.conversation.action",
+          artifactId: "artifact-one",
+        }),
+    );
+    assert.throws(
+      () => store.exportArtifact("artifact-one", { format: "zip" }),
+      (error) =>
+        assertConversationArtifactStoreRustCoreRequired(error, {
+          operation: "conversation_artifact_export",
+          operationKind: "artifact.conversation.export",
+          artifactId: "artifact-one",
+        }),
+    );
+    assert.throws(
+      () => store.promoteArtifact("artifact-one", { target: "canvas" }),
+      (error) =>
+        assertConversationArtifactStoreRustCoreRequired(error, {
+          operation: "conversation_artifact_promote",
+          operationKind: "artifact.conversation.promote",
+          artifactId: "artifact-one",
+        }),
     );
 
-    const imported = store.create({
-      artifact_class: "imported_document",
-      title: "Imported document fixture",
-      prompt: "Preserve this document and export it.",
-    }).artifact;
-    store.action(imported.id, { action: "export" });
-    const exported = store.list().find((entry) => entry.id === imported.id);
-    assert.equal(exported.export_refs[0].media_type, "application/vnd.oasis.opendocument.text");
-
-    const patch = store.create({
-      artifact_class: "diff_patch",
-      title: "Patch fixture",
-      prompt: "Review and rollback this patch.",
-    }).artifact;
-    store.action(patch.id, { action: "approve" });
-    store.action(patch.id, { action: "apply" });
-    store.action(patch.id, { action: "rollback" });
-    const rolledBack = store.list().find((entry) => entry.id === patch.id);
-    assert.equal(rolledBack.status, "rolled_back");
+    assert.deepEqual(fs.readdirSync(path.join(stateDir, "conversation-artifacts", "records")), []);
+    assert.deepEqual(fs.readdirSync(path.join(stateDir, "conversation-artifacts", "receipts")), []);
+    assert.equal(fs.existsSync(path.join(stateDir, "artifacts")), false);
   } finally {
     await rm(stateDir, { recursive: true, force: true });
   }
 });
 
-test("static website artifacts can use model-authored HTML/CSS/JS", async () => {
+test("conversation artifact store projects canonical snake_case admitted records without retired aliases", async () => {
   const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
   try {
-    const commits = [];
-    const store = testStore(stateDir, commits);
-    const { artifact } = store.create({
-      artifact_class: "static_html_js",
-      title: "Neighborhood bakery website",
-      prompt: "Create a website about a neighborhood bakery",
-      generated_files: {
-        title: "Neighborhood bakery website",
-        summary: "Fresh model-authored bakery landing page.",
-        html: "<main><section class=\"hero\"><h1>Morning Crumb Bakery</h1><p>Small-batch bread, pastry, and coffee from a corner bakery.</p></section></main>",
-        css: ".hero{min-height:70vh;background:#f7e2c4;color:#2d1b11;padding:48px}",
-        js: "document.body.dataset.ready='true';",
-      },
-    });
-
-    assert.equal(artifact.preview_inline.media_type, "text/html");
-    assert.match(artifact.preview_inline.text, /Morning Crumb Bakery/);
-    assert.match(artifact.preview_inline.text, /small-batch bread/i);
-    assert.match(artifact.preview_inline.text, /<style>\.hero/);
-    assert.match(artifact.preview_inline.text, /document\.body\.dataset\.ready/);
-    assert.doesNotMatch(artifact.preview_inline.text, /What it means/);
-    assert.equal(commits[0].operation_kind, "artifact.conversation_receipt");
-    assert.equal(commits[1].operation_kind, "artifact.conversation_record");
-    assert.deepEqual(commits[1].receipt_refs, artifact.receipt_refs);
-    assert.equal(fs.existsSync(path.join(stateDir, "conversation-artifacts", "records", `${artifact.id}.json`)), false);
-
-    assert.throws(
-      () => store.action(artifact.id, {
-        action: "rebuild",
-        generated_files: {
-          title: "Neighborhood bakery website",
-          html: "",
-        },
-      }),
-      /require model-authored HTML\/CSS\/JS source/
-    );
-  } finally {
-    await rm(stateDir, { recursive: true, force: true });
-  }
-});
-
-test("conversation artifact store emits canonical snake_case without retired aliases", async () => {
-  const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
-  try {
-    const store = testStore(stateDir);
-    const { artifact, receipt } = store.create({
-      artifact_class: "static_html_js",
-      thread_id: "thread-one",
-      turn_id: "turn-one",
-      output_modality: "web_preview",
-      title: "Canonical website",
-      prompt: "Create a canonical website.",
-      generated_files: {
-        title: "Canonical website",
-        html: "<main><h1>Canonical website</h1></main>",
-      },
-    });
-    store.create({
-      artifact_class: "markdown_html_report",
+    const seeded = seedConversationArtifact(stateDir);
+    seedConversationArtifact(stateDir, {
+      id: "artifact_second",
+      revision_id: "rev_002",
       thread_id: "thread-two",
       title: "Second canonical artifact",
-      prompt: "Create a second artifact.",
+      updated_at: "2026-06-08T00:01:00.000Z",
     });
+    const store = new ConversationArtifactStore(stateDir);
 
-    const actionResult = store.action(artifact.id, { action: "export" });
+    const artifact = store.get(seeded.id);
     const revision = artifact.revisions[0];
     const ref = artifact.preview_refs[0];
-    const promotionResult = store.action(artifact.id, { action: "promote" });
-    const promotion = promotionResult.artifact.promotion_refs[0];
 
     assert.equal(artifact.schema_version, "ioi.conversation_artifact.v1");
     assert.equal(artifact.thread_id, "thread-one");
@@ -160,14 +226,12 @@ test("conversation artifact store emits canonical snake_case without retired ali
     assert.equal(artifact.artifact_class, "static_html_js");
     assert.equal(artifact.output_modality, "web_preview");
     assert.equal(artifact.preview_inline.media_type, "text/html");
+    assert.match(artifact.preview_inline.text, /Canonical website/);
     assert.equal(ref.media_type, "text/html");
     assert.equal(ref.file_name, "index.html");
     assert.equal(revision.schema_version, "ioi.conversation_artifact_revision.v1");
     assert.equal(revision.artifact_id, artifact.id);
-    assert.equal(actionResult.schema_version, "ioi.conversation_artifact_action.v1");
-    assert.equal(actionResult.artifact.export_refs[0].media_type, "text/html");
-    assert.equal(promotion.created_at, promotionResult.artifact.promotion_refs[0].created_at);
-    assert.equal(receipt.artifact_id, artifact.id);
+    assert.deepEqual(store.revisions(artifact.id), artifact.revisions);
 
     const retiredKeys = [
       "schemaVersion",
@@ -195,7 +259,6 @@ test("conversation artifact store emits canonical snake_case without retired ali
     ];
     for (const key of retiredKeys) {
       assert.equal(Object.hasOwn(artifact, key), false, `retired artifact alias ${key} must be absent`);
-      assert.equal(Object.hasOwn(actionResult.artifact, key), false, `retired action artifact alias ${key} must be absent`);
     }
     for (const key of ["schemaVersion", "revisionId", "artifactId", "sourceRefs", "originalRefs", "projectionRefs", "previewRefs", "logRefs", "rollbackRefs", "createdAt"]) {
       assert.equal(Object.hasOwn(revision, key), false, `retired revision alias ${key} must be absent`);
@@ -203,39 +266,10 @@ test("conversation artifact store emits canonical snake_case without retired ali
     for (const key of ["fileName", "mediaType"]) {
       assert.equal(Object.hasOwn(ref, key), false, `retired ref alias ${key} must be absent`);
     }
-    for (const key of ["schemaVersion", "policyVerdict"]) {
-      assert.equal(Object.hasOwn(actionResult, key), false, `retired action result alias ${key} must be absent`);
-    }
-    for (const key of ["artifactId", "policyRefs", "createdAt"]) {
-      assert.equal(Object.hasOwn(receipt, key), false, `retired receipt alias ${key} must be absent`);
-    }
-    assert.equal(Object.hasOwn(promotion, "createdAt"), false);
 
     assert.equal(store.list({ thread_id: "thread-one" }).length, 1);
     assert.equal(store.list({ threadId: "thread-one" }).length, 2);
-    assert.equal(testStore(stateDir).get(artifact.id)?.artifact_id, artifact.id);
-  } finally {
-    await rm(stateDir, { recursive: true, force: true });
-  }
-});
-
-test("conversation artifact persistence fails closed without Rust Agentgres artifact-state commit", async () => {
-  const stateDir = await mkdtemp(path.join(tmpdir(), "ioi-conversation-artifact-"));
-  try {
-    const store = new ConversationArtifactStore(stateDir);
-    assert.throws(
-      () => store.create({
-        artifact_class: "markdown_html_report",
-        title: "Unadmitted artifact",
-        prompt: "This must not persist without Rust admission.",
-      }),
-      /Runtime artifact state commits require Rust Agentgres admission/,
-    );
-    assert.equal(fs.existsSync(path.join(stateDir, "conversation-artifacts", "receipts")), true);
-    assert.equal(fs.readdirSync(path.join(stateDir, "conversation-artifacts", "receipts")).length, 0);
-    assert.equal(fs.existsSync(path.join(stateDir, "conversation-artifacts", "records")), true);
-    assert.equal(fs.readdirSync(path.join(stateDir, "conversation-artifacts", "records")).length, 0);
-    assert.equal(fs.existsSync(path.join(stateDir, "artifacts")), false);
+    assert.equal(new ConversationArtifactStore(stateDir).get(artifact.id)?.artifact_id, artifact.id);
   } finally {
     await rm(stateDir, { recursive: true, force: true });
   }

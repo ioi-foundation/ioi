@@ -53,6 +53,8 @@ This pass compacted Slice 761 model-mount route-selection policy alias
 retirement evidence.
 This pass compacted Slice 762 catalog-provider config-update helper retirement
 evidence.
+This pass landed Slice 763 direct conversation-artifact store writer retirement
+evidence; compaction is now scheduled after this verified seam.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule the next
 matrix-compaction pass only after that seam lands. Preserve the live owner map,
@@ -165,8 +167,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 762
-  catalog-provider config-update helper retirement compaction.
+- Next scheduled matrix-compaction pass: pending after Slice 763 direct
+  conversation-artifact store writer retirement verification.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14448,6 +14450,56 @@ remain authoritative for current and target ownership.
   that seam lands, and do not encode remaining JS read/protocol helpers,
   fail-closed catalog-provider control facades, or command transport as terminal
   architecture.
+
+## Implementation Slice 763
+
+```yaml
+name: direct-conversation-artifact-store-writer-retirement
+date: 2026-06-08
+phase: 10/11
+route_family: RuntimeConversationArtifactControl
+owner_target: Rust daemon-core conversation-artifact admission/projection
+status: verified-current-tier
+scope:
+  files:
+    - packages/runtime-daemon/src/conversation-artifacts.mjs
+    - packages/runtime-daemon/src/conversation-artifacts.test.mjs
+    - packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs
+    - packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+    - docs/architecture/_meta/implementation-matrix.md
+changes:
+  - removed the hidden `ConversationArtifactStore` JS mutation writer bodies
+    behind the already fail-closed public conversation-artifact facade
+  - removed the JS artifact-state committer import and local generated artifact
+    materializer helpers from `conversation-artifacts.mjs`
+  - direct `create`, `action`, `exportArtifact`, and `promoteArtifact` calls now
+    fail closed with `runtime_conversation_artifact_store_rust_core_required`
+    before JS file writes, record writes, receipt synthesis, or Agentgres
+    artifact-state commits can occur
+  - list/get/revisions remain read/projection adapters over already-admitted
+    canonical records only
+  - conformance now requires the direct store writer-retirement evidence and
+    rejects reintroduced `commitRuntimeArtifactRecord`, generated file writers,
+    private receipt/write helpers, or artifact-state commit calls in the store
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/conversation-artifacts.test.mjs packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs
+    - node --check packages/runtime-daemon/src/conversation-artifacts.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - conversation artifact list/get/revisions remain JS read/projection
+      adapters until direct Rust daemon-core projection APIs own the surface
+    - SDK/IDE route protocol coverage still needs final direct Rust
+      admission/projection ownership before terminal migration is claimed
+closeout:
+  terminal_rust_core_pending: true
+  matrix_compaction: scheduled after this verified seam
+```
 
 ## Command State
 
