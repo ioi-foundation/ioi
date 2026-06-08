@@ -56,6 +56,23 @@ function assertNoRetiredRuntimeBridgeEventPayloadAliases(payload) {
   }
 }
 
+function assertRuntimeBridgeThreadRustCoreRequired(error, {
+  operation,
+  operationKind,
+  runtimeProfile,
+  evidenceRef,
+}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_bridge_thread_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.bridge_thread");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.runtime_profile, runtimeProfile);
+  assert.equal(error.details.evidence_refs.includes(evidenceRef), true);
+  assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
+  return true;
+}
+
 class BridgeUnavailableError extends Error {
   constructor(details = {}) {
     super("bridge unavailable");
@@ -262,43 +279,9 @@ function turnDeps() {
   };
 }
 
-test("runtime bridge thread creation starts bridge and persists updated agent", async () => {
+test("runtime bridge thread creation fails closed before JS bridge dispatch and agent persistence", async () => {
   const store = fakeStore();
 
-  const thread = await createRuntimeBridgeThread(store, {
-    request: { runtime_profile: "runtime_service" },
-    options: { local: { cwd: "/workspace" } },
-    runtimeProfile: "runtime_service",
-  }, deps());
-
-  const start = store.calls.find((call) => call.operation === "start_thread");
-  assert.equal(start.input.threadId, "thread_agent_runtime");
-  assert.equal(start.input.workspaceRoot, "/workspace");
-  assert.deepEqual(start.input.modelRouteDecision, { routeId: "route.local-first" });
-
-  const write = store.calls.find((call) => call.operation === "write_agent");
-  assert.equal(write.operationKind, "thread.runtime_bridge.start");
-  assert.equal(write.agent.runtimeSessionId, "session_runtime");
-  assert.equal(write.agent.runtimeBridgeId, "bridge_runtime");
-  assert.equal(write.agent.fixtureProfile, null);
-  const planner = store.calls.find((call) => call.operation === "plan_runtime_bridge_thread_start_agent_state_update");
-  assert.equal(planner.input.thread_id, "thread_agent_runtime");
-  assert.equal(planner.input.session_id, "session_runtime");
-  assert.equal(planner.input.bridge_id, "bridge_runtime");
-
-  assert.equal(store.calls.some((call) => call.operation === "append_event"), true);
-  assert.equal(thread.runtime_session_id, "session_runtime");
-});
-
-test("runtime bridge thread creation fails closed without Rust-planned agent projection", async () => {
-  const store = fakeStore({
-    bridgeStartStateUpdate: {
-      status: "planned",
-      operation_kind: "thread.runtime_bridge.start",
-      agent: null,
-    },
-  });
-
   await assert.rejects(
     createRuntimeBridgeThread(store, {
       request: { runtime_profile: "runtime_service" },
@@ -306,71 +289,27 @@ test("runtime bridge thread creation fails closed without Rust-planned agent pro
       runtimeProfile: "runtime_service",
     }, deps()),
     (error) => {
-      assert.equal(error.code, "runtime_bridge_thread_start_state_update_planner_invalid");
-      assert.equal(error.details.thread_id, "thread_agent_runtime");
-      assert.equal(error.details.runtime_profile, "runtime_service");
-      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
-      return true;
+      return assertRuntimeBridgeThreadRustCoreRequired(error, {
+        operation: "runtime_bridge_thread_start",
+        operationKind: "thread.runtime_bridge.start",
+        runtimeProfile: "runtime_service",
+        evidenceRef: "runtime_bridge_thread_start_js_facade_retired",
+      });
     },
   );
+  assert.equal(store.calls.some((call) => call.operation === "assert_bridge"), false);
+  assert.equal(store.calls.some((call) => call.operation === "create_agent"), false);
+  assert.equal(store.calls.some((call) => call.operation === "start_thread"), false);
   assert.equal(
-    store.calls.some((call) => call.operation === "write_agent"),
+    store.calls.some((call) => call.operation === "plan_runtime_bridge_thread_start_agent_state_update"),
     false,
-  );
-  assert.equal(
-    store.calls.some((call) => call.operation === "append_event"),
-    false,
-  );
-});
-
-test("runtime bridge thread creation fails closed without Rust-planned operation kind", async () => {
-  const store = fakeStore({
-    bridgeStartStateUpdate: {
-      status: "planned",
-      agent: {
-        id: "agent_runtime",
-        runtimeSessionId: "session_runtime",
-      },
-    },
-  });
-
-  await assert.rejects(
-    createRuntimeBridgeThread(store, {
-      request: { runtime_profile: "runtime_service" },
-      options: { local: { cwd: "/workspace" } },
-      runtimeProfile: "runtime_service",
-    }, deps()),
-    (error) => {
-      assert.equal(error.code, "runtime_bridge_thread_start_state_update_operation_kind_missing");
-      assert.equal(error.details.thread_id, "thread_agent_runtime");
-      assert.equal(error.details.runtime_profile, "runtime_service");
-      assert.equal(error.details.operation_kind, "thread.runtime_bridge.start");
-      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
-      return true;
-    },
   );
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
   assert.equal(store.calls.some((call) => call.operation === "append_event"), false);
+  assert.equal(store.agents.size, 0);
 });
 
-test("runtime bridge thread creation maps bridge unavailable errors", async () => {
-  const store = fakeStore({ bridgeError: new BridgeUnavailableError({ reason: "not configured" }) });
-
-  await assert.rejects(
-    createRuntimeBridgeThread(store, {
-      request: { runtime_profile: "runtime_service" },
-      options: {},
-      runtimeProfile: "runtime_service",
-    }, deps()),
-    (error) => {
-      assert.equal(error.input.operation, "start_thread");
-      assert.equal(error.input.details.reason, "not configured");
-      return true;
-    },
-  );
-});
-
-test("runtime bridge turn creation submits clamped bridge request and persists run", async () => {
+test("runtime bridge turn creation fails closed before JS bridge dispatch and run persistence", async () => {
   const store = fakeTurnStore({
     liveEvent: { event_kind: "turn.delta", turn_id: "turn_live", run_id: "run_live" },
   });
@@ -381,130 +320,35 @@ test("runtime bridge turn creation submits clamped bridge request and persists r
     runtimeSessionId: "session_runtime",
   };
 
-  const turn = await createRuntimeBridgeTurn(store, {
-    agent,
-    threadId: "thread_agent_runtime",
-    request: { prompt: "hello", max_steps: 2, options: { max_steps: 4 } },
-    diagnosticsFeedback: { injectionId: "diag_1" },
-  }, turnDeps());
-
-  const submit = store.calls.find((call) => call.operation === "submit_turn");
-  assert.equal(submit.input.request.max_steps, 8);
-  assert.equal(submit.input.options.maxSteps, 8);
-  assert.equal(submit.input.sessionId, "session_runtime");
-  assert.equal(submit.input.streamedEventsOnly, true);
-
-  assert.equal(store.calls.some((call) => call.operation === "register_in_flight"), true);
-  assert.equal(store.calls.filter((call) => call.operation === "append_event").length, 3);
-
-  const write = store.calls.find((call) => call.operation === "write_run");
-  assert.equal(write.operationKind, "turn.runtime_bridge.submit");
-  assert.equal(write.run.id, "run_runtime");
-  assert.equal(write.run.projection.events[0].event_kind, "lsp.diagnostics.injected");
-  const planner = store.calls.find((call) => call.operation === "plan_runtime_bridge_turn_run_state_update");
-  assert.equal(planner.input.thread_id, "thread_agent_runtime");
-  assert.equal(planner.input.projection.run_id, "run_runtime");
-  assert.equal(Object.hasOwn(planner.input.projection, "runId"), false);
-  assert.equal(planner.input.run.id, "run_runtime");
-
-  assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
-  assert.deepEqual(turn, { turn_id: "turn_runtime", run_id: "run_runtime" });
-});
-
-test("runtime bridge turn creation fails closed without Rust-planned run projection", async () => {
-  const store = fakeTurnStore({
-    bridgeTurnRunStateUpdate: {
-      status: "planned",
-      operation_kind: "turn.runtime_bridge.submit",
-      run: null,
-    },
-  });
-  const agent = {
-    id: "agent_runtime",
-    cwd: "/workspace",
-    runtimeProfile: "runtime_service",
-    runtimeSessionId: "session_runtime",
-  };
-
   await assert.rejects(
     createRuntimeBridgeTurn(store, {
       agent,
       threadId: "thread_agent_runtime",
-      request: { prompt: "hello" },
+      request: { prompt: "hello", max_steps: 2, options: { maxSteps: 4 } },
+      diagnosticsFeedback: { injectionId: "diag_1" },
     }, turnDeps()),
     (error) => {
-      assert.equal(error.code, "runtime_bridge_turn_run_state_update_planner_invalid");
       assert.equal(error.details.thread_id, "thread_agent_runtime");
-      assert.equal(error.details.run_id, "run_runtime");
-      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
-      return true;
+      assert.equal(error.details.agent_id, "agent_runtime");
+      return assertRuntimeBridgeThreadRustCoreRequired(error, {
+        operation: "runtime_bridge_turn_submit",
+        operationKind: "turn.runtime_bridge.submit",
+        runtimeProfile: "runtime_service",
+        evidenceRef: "runtime_bridge_turn_submit_js_facade_retired",
+      });
     },
   );
-  assert.equal(store.calls.some((call) => call.operation === "write_run"), false);
-});
-
-test("runtime bridge turn creation fails closed without Rust-planned operation kind", async () => {
-  const store = fakeTurnStore({
-    bridgeTurnRunStateUpdate: {
-      status: "planned",
-      run: {
-        id: "run_runtime",
-        turnId: "turn_runtime",
-      },
-    },
-  });
-  const agent = {
-    id: "agent_runtime",
-    cwd: "/workspace",
-    runtimeProfile: "runtime_service",
-    runtimeSessionId: "session_runtime",
-  };
-
-  await assert.rejects(
-    createRuntimeBridgeTurn(store, {
-      agent,
-      threadId: "thread_agent_runtime",
-      request: { prompt: "hello" },
-    }, turnDeps()),
-    (error) => {
-      assert.equal(error.code, "runtime_bridge_turn_run_state_update_operation_kind_missing");
-      assert.equal(error.details.thread_id, "thread_agent_runtime");
-      assert.equal(error.details.run_id, "run_runtime");
-      assert.equal(error.details.operation_kind, "turn.runtime_bridge.submit");
-      assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
-      return true;
-    },
+  assert.equal(store.calls.some((call) => call.operation === "assert_bridge"), false);
+  assert.equal(store.calls.some((call) => call.operation === "submit_turn"), false);
+  assert.equal(store.calls.some((call) => call.operation === "register_in_flight"), false);
+  assert.equal(store.calls.some((call) => call.operation === "unregister_in_flight"), false);
+  assert.equal(store.calls.some((call) => call.operation === "append_event"), false);
+  assert.equal(
+    store.calls.some((call) => call.operation === "plan_runtime_bridge_turn_run_state_update"),
+    false,
   );
   assert.equal(store.calls.some((call) => call.operation === "write_run"), false);
   assert.equal(store.runs.size, 0);
-});
-
-test("runtime bridge turn creation maps bridge unavailable errors and cleans in-flight turn", async () => {
-  const store = fakeTurnStore({
-    liveEvent: { event_kind: "turn.delta", turn_id: "turn_live", run_id: "run_live" },
-    bridgeError: new BridgeUnavailableError({ reason: "not configured" }),
-  });
-  const agent = {
-    id: "agent_runtime",
-    cwd: "/workspace",
-    runtimeProfile: "runtime_service",
-    runtimeSessionId: "session_runtime",
-  };
-
-  await assert.rejects(
-    createRuntimeBridgeTurn(store, {
-      agent,
-      threadId: "thread_agent_runtime",
-      request: { prompt: "hello" },
-    }, turnDeps()),
-    (error) => {
-      assert.equal(error.input.operation, "submit_turn");
-      assert.equal(error.input.details.reason, "not configured");
-      return true;
-    },
-  );
-
-  assert.equal(store.calls.some((call) => call.operation === "unregister_in_flight"), true);
   assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
 });
 

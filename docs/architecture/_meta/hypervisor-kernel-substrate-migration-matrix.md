@@ -6,7 +6,9 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 732. Earlier 2026-06-08 compaction
+route-family slice ledger through Slice 732; Slice 733 is intentionally left
+expanded as the current runtime bridge thread/turn facade-retirement seam.
+Earlier 2026-06-08 compaction
 passes compacted IDE, MCP, thread-control, coding-tool, Agentgres state-commit,
 model-mount, workspace-restore, command-envelope, route fallback, provider,
 workflow-edit, lifecycle, runtime-engine, artifact/storage, and related
@@ -18,8 +20,8 @@ snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
-matrix-compaction pass immediately after that seam is concrete, before unrelated
-route-family work resumes.
+matrix-compaction pass once the post-Slice-733 seam is concrete, before
+unrelated route-family work resumes.
 
 ## Purpose
 
@@ -114,10 +116,10 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after the Slice 732
-  workspace snapshot/restore mutation compaction. Schedule the next pass only
-  after the next concrete Rust-core extraction or JS-facade retirement seam
-  verifies and lands.
+- Next scheduled matrix-compaction pass: pending after the next concrete
+  Rust-core extraction or JS-facade retirement seam clarifies how Slice 733 can be
+  compacted without obscuring terminal blockers. Schedule that pass only after
+  the next seam verifies and lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13684,6 +13686,33 @@ The expanded Slice 727-732 ledger was compacted on 2026-06-08 after Slice 732 ve
 - Slice 732 retired workspace snapshot/restore JS mutation authority: snapshot capture, snapshot artifact materialization, snapshot event append, restore preview/apply, restore artifact materialization, and restore event append now fail closed before JS file capture, restore bridge dispatch, filesystem restore writes, artifact records, Agentgres artifact-state commits from JS, `codingArtifacts` map mutation, or `appendRuntimeEvent`. List/content-package helpers remain read/projection adapters only, and Rust-live `file.apply_patch` remains completed when retired JS snapshot admission fails without adding JS snapshot receipt/artifact refs. Direct Rust daemon-core workspace snapshot/restore admission still must own capture, preview/apply, policy/approval, receipt/state-root binding, ArtifactRef/PayloadRef admission, projection, and replay before the route family is terminal.
 - Scheduled matrix-compaction obligation from Slice 732 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge, read-only helper adapters, or fail-closed JS surfaces as terminal architecture.
 
+## Implementation Slice 733
+
+status: verified
+date: 2026-06-08
+route_or_surface: runtime bridge thread start and turn submit
+goal_phase:
+  - Phase 10: Rust daemon core extraction
+  - Phase 11: authoritative JS facade retirement
+target_owner: Rust daemon core `step_router`/`agentgres_admission`/`projection`
+current_owner_before_slice: JS runtime-daemon facade called the runtime bridge, normalized bridge events, invoked Rust state planners as migration plumbing, and then persisted accepted agent/run/event truth through JS maps, `writeAgent`, `writeRun`, `appendRuntimeEvent`, and in-flight turn bookkeeping.
+implementation_notes:
+  - `createRuntimeBridgeThread` now fails closed with `runtime_bridge_thread_rust_core_required` before runtime-bridge availability probing, JS agent creation, bridge `startThread`, Rust planner invocation from the facade, `agents` map mutation, `writeAgent`, or runtime-event append.
+  - `createRuntimeBridgeTurn` now fails closed with the same Rust-core-required code before max-step compatibility shaping, bridge `submitTurn`, live-event normalization append, in-flight registration, Rust planner invocation from the facade, `runs` map mutation, `writeRun`, or runtime-event append.
+  - Existing bridge control and normalization helpers remain migration/projection plumbing only; they are not encoded as the long-term authority shape.
+  - The implementation matrix now carries `RuntimeBridgeThreadTurnControl` so future resumes target direct Rust daemon-core admission, persistence, replay, and projection rather than preserving the Node/MJS helper as architecture.
+verification:
+  - node --check packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs
+  - node --check packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs
+  - node --test packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs
+  - hypervisor-conformance:bridge
+  - hypervisor-conformance:compositor
+  - hypervisor-conformance:docs
+  - hypervisor-conformance
+  - git diff --check
+next_compaction:
+  - Schedule a matrix-compaction pass once the next Rust-core extraction or JS-facade retirement seam is clearer; do not compact immediately unless the next slice expands this ledger enough to obscure the owner map.
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13699,7 +13728,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 732 and the workspace snapshot/restore
+Current expected behavior after Slice 733 and the runtime bridge thread/turn
 mutation facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future

@@ -315,12 +315,14 @@ function runDocs() {
       ) &&
       /First complete a verified slice that clarifies the\s+next Rust-core extraction or JS-facade retirement owner boundary; then run the\s+scheduled matrix-compaction pass/.test(
         guide,
-	      ) &&
-	      /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
-	      /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
-	      /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
-	        guide,
-	      ) &&
+      ) &&
+      /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
+      /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
+      /Slice 733\s+is intentionally left expanded as the current runtime bridge thread\/turn\s+facade-retirement seam/.test(guide) &&
+      /The next compaction pass is pending after the next seam\s+is clear enough/.test(guide) &&
+      /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
+        guide,
+      ) &&
       /`ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(
         matrix,
       ) &&
@@ -329,12 +331,15 @@ function runDocs() {
       /Schedule a matrix-compaction pass once the next Rust-core extraction\/facade-retirement seam is clearer, not as a prerequisite to resuming the migration goal/.test(
         matrix,
       ) &&
-	      /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
-	        matrix,
-	      ) &&
-	      /Next scheduled matrix-compaction pass: none pending after the Slice 732\s+workspace snapshot\/restore mutation compaction/.test(
-	        matrix,
-	      ) &&
+      /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
+        matrix,
+      ) &&
+      /Slice 733 is intentionally left\s+expanded as the current runtime bridge thread\/turn facade-retirement seam/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: pending after the next concrete\s+Rust-core extraction or JS-facade retirement seam/.test(
+        matrix,
+      ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(
 	        matrix,
 	      ),
@@ -5499,7 +5504,7 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "runtime-bridge-thread-start-agent-state-update-live-bridge",
+    "runtime-bridge-thread-create-js-facade-retired",
     /RuntimeBridgeThreadStartAgentStateUpdateCore/.test(policyCore) &&
       /RuntimeBridgeTurnRunStateUpdateCore/.test(policyCore) &&
       /RuntimeBridgeThreadStartAgentStateUpdateRequest/.test(policyCore) &&
@@ -5579,59 +5584,46 @@ function runBridge() {
       /Object\.hasOwn\(captured\.request\.projection,\s*"runId"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunner\.planRuntimeBridgeThreadStartAgentStateUpdate/.test(
-        runtimeBridgeThread,
-      ) &&
-      /contextPolicyRunner\.planRuntimeBridgeTurnRunStateUpdate/.test(
-        runtimeBridgeThread,
-      ) &&
-      /requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
-      /stateUpdateProjection\s*=\s*\{\s*run_id:\s*runDraft\.id/.test(runtimeBridgeThread) &&
-      /projection:\s*stateUpdateProjection/.test(runtimeBridgeThread) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*runtime_profile:\s*runtimeProfile\s*\}/.test(
-        runtimeBridgeThread,
-      ) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runDraft\.id\s*\}/.test(
-        runtimeBridgeThread,
-      ) &&
-      /details:\s*\{\s*runtime_profile:\s*runtimeProfile,\s*operation:\s*"start_thread"\s*\}/.test(
-        runtimeBridgeThread,
-      ) &&
-      /details:\s*\{\s*runtime_profile:\s*agent\.runtimeProfile,\s*operation:\s*"submit_turn",\s*turn_id:\s*turnId\s*\}/.test(
-        runtimeBridgeThread,
-      ) &&
+      /runtime_bridge_thread_rust_core_required/.test(runtimeBridgeThread) &&
+      /runtime_bridge_thread_start_js_facade_retired/.test(runtimeBridgeThread) &&
+      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeBridgeThread) &&
+      /rust_daemon_core_runtime_bridge_thread_start_required/.test(runtimeBridgeThread) &&
+      /rust_daemon_core_runtime_bridge_turn_required/.test(runtimeBridgeThread) &&
+      /agentgres_runtime_bridge_thread_start_truth_required/.test(runtimeBridgeThread) &&
+      /agentgres_runtime_bridge_turn_truth_required/.test(runtimeBridgeThread) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|sessionId|runtimeProfile|operationKind|expectedOperationKind)\s*:/.test(
         runtimeBridgeThread,
       ) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.runtime_bridge\.start"/.test(
+      !/contextPolicyRunner\.planRuntimeBridgeThreadStartAgentStateUpdate/.test(
         runtimeBridgeThread,
       ) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.runtime_bridge\.submit"/.test(
+      !/contextPolicyRunner\.planRuntimeBridgeTurnRunStateUpdate/.test(runtimeBridgeThread) &&
+      !/requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
+      !/store\.runtimeBridge\.startThread/.test(runtimeBridgeThread) &&
+      !/store\.runtimeBridge\.submitTurn/.test(runtimeBridgeThread) &&
+      !/store\.agents\.set|store\.runs\.set|store\.writeAgent|store\.writeRun|store\.appendRuntimeEvent|store\.registerInFlightRuntimeTurn/.test(
         runtimeBridgeThread,
       ) &&
-      /runtime bridge thread creation fails closed without Rust-planned agent projection/.test(
+      /runtime bridge thread creation fails closed before JS bridge dispatch and agent persistence/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /runtime bridge thread creation fails closed without Rust-planned operation kind/.test(
+      /runtime bridge turn creation fails closed before JS bridge dispatch and run persistence/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /runtime bridge turn creation fails closed without Rust-planned run projection/.test(
+      /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeBridgeThreadTest) &&
+      /store\.calls\.some\(\(call\) => call\.operation === "start_thread"\), false/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /planner\.input\.projection\.run_id/.test(runtimeBridgeThreadTest) &&
-      /Object\.hasOwn\(planner\.input\.projection,\s*"runId"\),\s*false/.test(
+      /store\.calls\.some\(\(call\) => call\.operation === "submit_turn"\), false/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /runtime bridge turn creation fails closed without Rust-planned operation kind/.test(
+      /store\.calls\.some\(\(call\) => call\.operation === "plan_runtime_bridge_thread_start_agent_state_update"\),\s*false/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /assertNoRetiredRuntimeBridgeErrorDetailAliases\(error\.details\)/.test(
+      /store\.calls\.some\(\(call\) => call\.operation === "plan_runtime_bridge_turn_run_state_update"\),\s*false/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /error\.details\.thread_id/.test(runtimeBridgeThreadTest) &&
-      /error\.details\.run_id/.test(runtimeBridgeThreadTest) &&
       /error\.details\.runtime_profile/.test(runtimeBridgeThreadTest) &&
-      /error\.details\.turn_id/.test(runtimeBridgeThreadTest) &&
       /runtime profile request normalization ignores retired camelCase aliases/.test(
         runtimeApiBridgeTest,
       ) &&
@@ -5642,12 +5634,7 @@ function runBridge() {
       !/const updated = \{\s*\.\.\.agent,\s*runtimeProfile,\s*runtimeSessionId/s.test(
         runtimeBridgeThread,
       ) &&
-      !/store\.runs\.set\(runDraft\.id,\s*runDraft\)/.test(
-        runtimeBridgeThread,
-      ) &&
-      !/store\.writeRun\(runDraft,/.test(
-        runtimeBridgeThread,
-      ),
+      !/store\.runs\.set\(runDraft\.id,\s*runDraft\)/.test(runtimeBridgeThread),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -5658,7 +5645,7 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 9/10 is pending: runtime bridge thread-start agent updates must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: runtime bridge thread start/turn creation JS facades must stay retired before bridge dispatch, Rust-planner calls from the facade, JS event append, or JS agent/run persistence while direct Rust daemon-core admission is extracted",
   );
   assertCheck(
     result,
