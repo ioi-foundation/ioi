@@ -14903,6 +14903,85 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 725
+
+```yaml
+slice: 725
+phase: 10-authoritative-js-facade-retirement
+objective: retire public thread-bound context-policy JS event and state
+  persistence facades until direct Rust daemon-core context-policy admission
+  owns context budget, compaction policy, and context compaction transitions
+owner_boundary:
+  route_or_surface: runtime context-budget evaluation, compaction-policy
+    evaluation, and context compaction controls
+  authority_gate: thread-bound context-budget evaluation, compaction-policy
+    evaluation, and context compaction now fail closed at
+    `runtime.context_policy` before agent/run lookup, runtime-event append,
+    Rust policy planner invocation from the JS facade, run/agent map mutation,
+    or `writeRun`/`writeAgent` persistence
+  execution_backend: none in JS for thread-bound context-policy controls; the
+    existing Rust context-policy runners and state-update planners remain
+    migration plumbing only and must not be used by the JS facade to persist
+    accepted context-policy truth
+  truth_path: no JS `context_budget.evaluated`,
+    `compaction_policy.evaluated`, approval-required compaction-policy event,
+    or `context.compacted` event append, and no run/agent state mutation from
+    public thread-bound context-policy facades; Rust daemon-core must own
+    policy authority, Agentgres admission, expected heads/state-root binding,
+    receipt/event materialization, projection, and persistence before these
+    controls can execute again
+  projection_path: workflow-only context-budget evaluation remains
+    projection-only and does not append accepted thread truth; direct Rust
+    daemon-core context-policy projection APIs must materialize thread/run
+    context-policy truth before public thread-bound surfaces can return accepted
+    data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-context-policy-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps Rust context-policy and context-compaction
+    planner bridges available as migration plumbing but requires public
+    thread-bound JS context-policy facades to fail closed before lookup, event
+    append, planner calls, map mutation, and persistence
+  - focused daemon tests prove canonical snake_case fail-closed details, no
+    runtime event stream writes, no agent/run lookup, and no JS persistence for
+    context compaction, thread-bound context-budget evaluation, and compaction
+    policy evaluation
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-context-policy-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public context-policy product/API routes may still call context-policy
+      adapters, but thread-bound adapters now fail closed until direct Rust
+      daemon-core context-policy admission/projection APIs are verified
+    - Rust context-policy runner and planner bridges remain migration plumbing
+      for the future direct Rust context-policy API; they must not be mistaken
+      for terminal JS-owned policy event or state persistence after context
+      compaction
+    - schedule a matrix-compaction pass once the next diagnostics,
+      budget-recovery, MCP-control, thread-control, or event-append Rust-core
+      extraction/facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14918,8 +14997,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 724 and the approval request/decision/
-revoke JS event/state persistence facade retirement pass:
+Current expected behavior after Slice 725 and the thread-bound context-policy
+JS event/state persistence facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

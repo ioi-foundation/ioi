@@ -4496,16 +4496,20 @@ function runBridge() {
       /context budget policy runner sends generic Rust policy bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /result\.runtime_event_item_id/.test(runtimeContextPolicySurface) &&
-      /result\.runtime_event_idempotency_key/.test(runtimeContextPolicySurface) &&
-      !/context-budget:\$\{safeIdDep\(result\.policy_decision_id\)\}/.test(
-        runtimeContextPolicySurface,
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
+      /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
+      /context_budget_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
+      /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /thread-bound context budget facade fails closed before event append or JS lookup/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      !/appendRuntimeEvent|agentForThread|getRun|writeRun|writeAgent/.test(
+        runtimeContextBudgetEvaluationBlock,
       ) &&
       /context policy runner fails closed without bridge command/.test(
         runtimeContextPolicyRunnerTest,
-      ) &&
-      /context policy surface ignores retired context-budget identity request aliases/.test(
-        runtimeContextPolicySurfaceTest,
       ) &&
       !/\brequest\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
         runtimeContextBudgetEvaluationBlock,
@@ -4539,8 +4543,10 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: generic context-budget policy must be evaluated by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: generic context-budget policy bridge remains migration plumbing, while thread-bound daemon context-budget event facades must fail closed until Rust daemon-core owns admission and persistence",
   );
   assertCheck(
     result,
@@ -6041,11 +6047,13 @@ function runBridge() {
       /compaction policy runner sends Rust policy bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /result\.runtime_event_item_id/.test(runtimeContextPolicySurface) &&
-      /result\.runtime_event_idempotency_key/.test(runtimeContextPolicySurface) &&
-      /result\.compact_idempotency_key/.test(runtimeContextPolicySurface) &&
-      !/compaction-policy:\$\{safeIdDep\(result\.policy_decision_id\)\}/.test(
-        runtimeContextPolicySurface,
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
+      /compaction_policy_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
+      /compaction policy facade fails closed before event append, compaction execution, or JS persistence/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      /compaction policy still rejects missing thread id as a request error/.test(
+        runtimeContextPolicySurfaceTest,
       ) &&
       /policyRunner\.evaluateCompactionPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.compaction-policy-request\.v1"/.test(
@@ -6063,57 +6071,30 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
     ],
-    "Phase 9/10 is pending: compaction policy decisions must be evaluated by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: compaction policy bridge remains migration plumbing, while thread-bound daemon compaction-policy event facades must fail closed until Rust daemon-core owns admission and persistence",
   );
   assertCheck(
     result,
     "context-policy-request-aliases-retired",
-    /const turnId =\s*\n\s*optionalStringDep\(request\.turn_id\)/.test(
+    /for \(const retiredField of \[[\s\S]*?"eventKind"[\s\S]*?"workflowNodeId"[\s\S]*?\]\)/.test(
       runtimeContextPolicySurface,
     ) &&
-      /workflow_graph_id: optionalStringDep\(request\.workflow_graph_id\) \?\? null/.test(
-        runtimeContextPolicySurface,
-      ) &&
-      /workflow_node_id: optionalStringDep\(request\.workflow_node_id\) \?\? null/.test(
-        runtimeContextPolicySurface,
-      ) &&
-      /optionalStringDep\(request\.thread_id\) \?\? threadId/.test(
-        runtimeContextPolicySurface,
-      ) &&
-      /for \(const retiredField of \["eventKind", "threadId", "turnId"\]\)/.test(
-        runtimeContextPolicySurface,
-      ) &&
-      /optionalStringDep\(request\.event_kind\) \?\?/.test(runtimeContextPolicySurface) &&
-      /context policy surface ignores retired compaction request identity aliases/.test(
+      /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      /compaction policy surface ignores retired request identity aliases/.test(
+      /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      /turnId: "turn-retired"/.test(runtimeContextPolicySurfaceTest) &&
-      /workflowGraphId: "graph-retired"/.test(runtimeContextPolicySurfaceTest) &&
-      /workflowNodeId: "node-retired"/.test(runtimeContextPolicySurfaceTest) &&
-      /requestedBy: "operator-retired"/.test(runtimeContextPolicySurfaceTest) &&
-      /planRequest\.requested_by,\s*null/.test(runtimeContextPolicySurfaceTest) &&
+      /turnId:\s*"turn_retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /workflowGraphId:\s*"graph_retired"/.test(runtimeContextPolicySurfaceTest) &&
+      /workflowNodeId:\s*"node_retired"/.test(runtimeContextPolicySurfaceTest) &&
       /idempotencyKey: "context_budget_idempotency_retired"/.test(
-        runtimeContextPolicySurfaceTest,
-      ) &&
-      /context policy surface accepts canonical context-budget idempotency key/.test(
-        runtimeContextPolicySurfaceTest,
-      ) &&
-      /idempotency_key: "context_budget_idempotency_canonical"/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       /idempotencyKey: "context_compaction_idempotency_retired"/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       /compactIdempotencyKey: "compaction_execute_idempotency_retired"/.test(
-        runtimeContextPolicySurfaceTest,
-      ) &&
-      /idempotency_key: "context_compaction_idempotency_canonical"/.test(
-        runtimeContextPolicySurfaceTest,
-      ) &&
-      /compact_idempotency_key: "compaction_execute_idempotency_canonical"/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
       /eventKind: "RuntimeCompactionPolicy\.Retired"/.test(runtimeContextPolicySurfaceTest) &&
@@ -6127,28 +6108,20 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: context policy and compaction requests must ignore retired JS facade identity/event aliases before Rust policy planning",
+    "Phase 10/11 is pending: context policy facades must ignore retired JS facade identity/event aliases and fail closed before thread-bound Rust planning or JS event persistence",
   );
   assertCheck(
     result,
     "context-policy-error-detail-aliases-retired",
-    /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId,\s*target_kind:/.test(
-      runtimeContextPolicySurface,
-    ) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agentId,\s*target_kind:/.test(
-        runtimeContextPolicySurface,
-      ) &&
-      /target_id:\s*targetId/.test(runtimeContextPolicySurface) &&
-      /expected_operation_kind:\s*"thread\.compact"/.test(runtimeContextPolicySurface) &&
-      /context policy surface rejects unexpected Rust-planned compaction operation kind with canonical details/.test(
+    /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
+      /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
+      /thread_id:\s*threadId/.test(runtimeContextPolicySurface) &&
+      /run_id:\s*requestedRunId/.test(runtimeContextPolicySurface) &&
+      /assertNoRetiredContextPolicyDetailAliases\(error\.details\)/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
-      /assertNoRetiredDetailAliases\(error\.details\?\.details\)/.test(
-        runtimeContextPolicySurfaceTest,
-      ) &&
-      /error\.details\?\.details\.thread_id/.test(runtimeContextPolicySurfaceTest) &&
-      /error\.details\?\.details\.target_kind/.test(runtimeContextPolicySurfaceTest) &&
-      /error\.details\?\.details\.expected_operation_kind/.test(runtimeContextPolicySurfaceTest) &&
+      /error\.details\.thread_id/.test(runtimeContextPolicySurfaceTest) &&
+      /error\.details\.operation_kind/.test(runtimeContextPolicySurfaceTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|agentId|targetId|targetKind|operationKind|expectedOperationKind)\s*:/.test(
         runtimeContextPolicySurface,
       ),
@@ -6156,7 +6129,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: context policy Rust-planning fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: context policy facade fail-closed details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
   assertCheck(
     result,
@@ -6368,9 +6341,12 @@ function runBridge() {
       /context compaction runner sends Rust plan bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunnerDep\.planContextCompaction/.test(runtimeContextPolicySurface) &&
-      /planContextCompaction/.test(runtimeContextPolicySurfaceTest) &&
-      !/compactHash|createHash/.test(runtimeContextPolicySurface),
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
+      /context_compaction_js_facade_retired/.test(runtimeContextPolicySurface) &&
+      /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      !/planContextCompaction|compactHash|createHash/.test(runtimeContextPolicySurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -6379,7 +6355,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: context-compaction event planning must be produced by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: context-compaction planning bridge remains migration plumbing, while public JS compactThread must fail closed until Rust daemon-core owns event admission and persistence",
   );
   assertCheck(
     result,
@@ -6427,24 +6403,19 @@ function runBridge() {
       !/operation_kind:\s*optionalString\(result\.operation_kind\s*\?\?\s*record\.operation_kind\)\s*\?\?/.test(
         runtimeContextPolicyRunner,
       ) &&
-      /contextPolicyRunnerDep\.planContextCompactionStateUpdate/.test(
+      /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
+      /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicySurface) &&
+      /agentgres_context_compaction_state_truth_required/.test(runtimeContextPolicySurface) &&
+      /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
+        runtimeContextPolicySurfaceTest,
+      ) &&
+      !/planContextCompactionStateUpdate|plannedContextCompactionRunRecord|plannedContextCompactionAgentRecord|plannedContextCompactionOperationKind/.test(
         runtimeContextPolicySurface,
       ) &&
-      /plannedContextCompactionRunRecord/.test(runtimeContextPolicySurface) &&
-      /plannedContextCompactionAgentRecord/.test(runtimeContextPolicySurface) &&
-      /plannedContextCompactionOperationKind/.test(runtimeContextPolicySurface) &&
-      /planContextCompactionStateUpdate/.test(runtimeContextPolicySurfaceTest) &&
-      /context policy surface fails closed without Rust-planned compaction target records/.test(
-        runtimeContextPolicySurfaceTest,
+      !/appendOperatorControlDep|contextCompaction:\s*\{|writeRun|writeAgent|\.runs\.set|\.agents\.set/.test(
+        runtimeContextPolicySurface,
       ) &&
-      /context policy surface fails closed without Rust-planned compaction operation kind/.test(
-        runtimeContextPolicySurfaceTest,
-      ) &&
-      !/appendOperatorControlDep|contextCompaction:\s*\{/.test(runtimeContextPolicySurface) &&
       !/stateUpdate\.run\s*\?\?\s*latestRun/.test(runtimeContextPolicySurface) &&
-      !/stateUpdate\.agent\s*\?\?\s*\{\s*\.\.\.agent,\s*updatedAt: event\.created_at\s*\}/.test(
-        runtimeContextPolicySurface,
-      ) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"thread\.compact"/.test(
         runtimeContextPolicySurface,
       ),
@@ -6456,7 +6427,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: context-compaction run/agent state updates must be planned by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: context-compaction state-update bridge remains migration plumbing, while public JS compactThread must fail closed until Rust daemon-core owns Agentgres-bound state persistence",
   );
   assertCheck(
     result,

@@ -1,228 +1,56 @@
 import {
-  RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
-  RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-} from "./runtime-contract-constants.mjs";
-import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
-import {
   contextBudgetUsageTelemetryFromRequest,
-  evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy,
 } from "./threads/context-budget-policy.mjs";
-import {
-  eventStreamIdForThread,
-  fixtureProfileForAgent,
-  runtimeSessionIdForAgent,
-  threadIdForAgent,
-  turnIdForRun,
-} from "./runtime-identifiers.mjs";
-import {
-  operatorControlSource,
-  optionalString,
-} from "./runtime-value-helpers.mjs";
+import { optionalString } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeContextPolicySurface({
-  RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION: compactionPolicySchemaVersion = RUNTIME_COMPACTION_POLICY_SCHEMA_VERSION,
-  RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION: contextBudgetSchemaVersion = RUNTIME_CONTEXT_BUDGET_SCHEMA_VERSION,
-  contextPolicyRunner: contextPolicyRunnerDep = createContextPolicyRunnerFromEnv(),
   contextBudgetUsageTelemetryFromRequest: contextBudgetUsageTelemetryFromRequestDep = contextBudgetUsageTelemetryFromRequest,
-  evaluateCompactionPolicyDecision: evaluateCompactionPolicyDecisionDep = evaluateCompactionPolicyDecision,
   evaluateContextBudgetPolicy: evaluateContextBudgetPolicyDep = evaluateContextBudgetPolicy,
-  eventStreamIdForThread: eventStreamIdForThreadDep = eventStreamIdForThread,
-  fixtureProfileForAgent: fixtureProfileForAgentDep = fixtureProfileForAgent,
-  operatorControlSource: operatorControlSourceDep = operatorControlSource,
   optionalString: optionalStringDep = optionalString,
   runtimeError,
-  runtimeSessionIdForAgent: runtimeSessionIdForAgentDep = runtimeSessionIdForAgent,
-  threadIdForAgent: threadIdForAgentDep = threadIdForAgent,
-  turnIdForRun: turnIdForRunDep = turnIdForRun,
 } = {}) {
-  function plannedContextCompactionRunRecord(stateUpdate, threadId, runId) {
-    const updatedRun = stateUpdate.run;
-    if (!updatedRun?.id) {
-      throw runtimeError({
-        status: 502,
-        code: "context_compaction_state_update_planner_invalid",
-        message: "Rust context compaction state planning did not return a run record.",
-        details: {
-          thread_id: threadId,
-          run_id: runId,
-          target_kind: stateUpdate.target_kind ?? "run",
-        },
-      });
-    }
-    return updatedRun;
-  }
-
-  function plannedContextCompactionAgentRecord(stateUpdate, threadId, agentId) {
-    const updatedAgent = stateUpdate.agent;
-    if (!updatedAgent?.id) {
-      throw runtimeError({
-        status: 502,
-        code: "context_compaction_state_update_planner_invalid",
-        message: "Rust context compaction state planning did not return an agent record.",
-        details: {
-          thread_id: threadId,
-          agent_id: agentId,
-          target_kind: stateUpdate.target_kind ?? "agent",
-        },
-      });
-    }
-    return updatedAgent;
-  }
-
-  function plannedContextCompactionOperationKind(stateUpdate, threadId, targetId, targetKind) {
-    const operationKind = optionalStringDep(stateUpdate.operation_kind);
-    if (!operationKind) {
-      throw runtimeError({
-        status: 502,
-        code: "context_compaction_state_update_operation_kind_missing",
-        message: "Rust context compaction state planning did not return an operation kind.",
-        details: {
-          thread_id: threadId,
-          target_id: targetId,
-          target_kind: targetKind,
-          operation_kind: "thread.compact",
-        },
-      });
-    }
-    if (operationKind !== "thread.compact") {
-      throw runtimeError({
-        status: 502,
-        code: "context_compaction_state_update_operation_kind_mismatch",
-        message: "Rust context compaction state planning returned an unexpected operation kind.",
-        details: {
-          thread_id: threadId,
-          target_id: targetId,
-          target_kind: targetKind,
-          expected_operation_kind: "thread.compact",
-          operation_kind: operationKind,
-        },
-      });
-    }
-    return operationKind;
+  function throwContextPolicyRustCoreRequired(operation, operationKind, details = {}) {
+    throw runtimeError({
+      status: 501,
+      code: "runtime_context_policy_rust_core_required",
+      message: "Runtime context policy control requires direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.context_policy",
+        operation,
+        operation_kind: operationKind,
+        ...details,
+      },
+    });
   }
 
   return {
     compactThread(store, threadId, request = {}) {
-      const agent = store.agentForThread(threadId);
-      const runs = store.listRuns(agent.id);
-      const latestRun = runs.at(-1);
-      const turnId =
-        optionalStringDep(request.turn_id) ??
-        (latestRun ? turnIdForRunDep(latestRun.id) : "");
-      const now = new Date().toISOString();
-      const streamId = eventStreamIdForThreadDep(threadId);
-      const previousLatestSeq = store.latestRuntimeEventSeq(streamId);
-      const plan = contextPolicyRunnerDep.planContextCompaction({
+      throwContextPolicyRustCoreRequired("context_compaction", "thread.compact", {
         thread_id: threadId,
-        agent_id: agent.id,
-        turn_id: turnId || null,
-        run_id: latestRun?.id ?? null,
-        session_id: runtimeSessionIdForAgentDep(agent),
-        workspace_root: agent.cwd,
-        reason: optionalStringDep(request.reason ?? request.message ?? request.input) ?? null,
-        scope: optionalStringDep(request.scope) ?? null,
-        source: optionalStringDep(request.source) ?? null,
-        requested_by: optionalStringDep(request.actor ?? request.requested_by) ?? null,
-        workflow_graph_id: optionalStringDep(request.workflow_graph_id) ?? null,
-        workflow_node_id: optionalStringDep(request.workflow_node_id) ?? null,
-        event_stream_id: streamId,
-        previous_latest_seq: previousLatestSeq,
-        idempotency_key: optionalStringDep(request.idempotency_key) ?? null,
+        evidence_refs: [
+          "context_compaction_js_facade_retired",
+          "rust_daemon_core_context_compaction_required",
+          "agentgres_context_compaction_state_truth_required",
+        ],
       });
-      const source = plan.event_source ?? operatorControlSourceDep(request.source);
-      const reason =
-        optionalStringDep(plan.reason ?? plan.payload?.reason) ?? "operator requested context compaction";
-      const scope = optionalStringDep(plan.scope ?? plan.payload?.scope) ?? "thread";
-      const event = store.appendRuntimeEvent({
-        event_stream_id: streamId,
-        thread_id: plan.thread_id ?? threadId,
-        turn_id: plan.turn_id ?? turnId,
-        item_id: plan.item_id,
-        idempotency_key: plan.idempotency_key,
-        source,
-        source_event_kind: plan.source_event_kind,
-        event_kind: plan.event_kind,
-        status: "completed",
-        actor: plan.actor ?? "user",
-        created_at: now,
-        workspace_root: plan.workspace_root ?? agent.cwd,
-        workflow_graph_id: plan.workflow_graph_id ?? null,
-        workflow_node_id: plan.workflow_node_id ?? "runtime.context-compact",
-        component_kind: plan.component_kind,
-        payload_schema_version: plan.payload_schema_version,
-        payload: plan.payload,
-        receipt_refs: plan.receipt_refs,
-        policy_decision_refs: plan.policy_decision_refs,
-        artifact_refs: plan.artifact_refs,
-        rollback_refs: plan.rollback_refs,
-        redaction_profile: plan.redaction_profile,
-        fixture_profile: fixtureProfileForAgentDep(agent),
-      });
-      const stateUpdate = contextPolicyRunnerDep.planContextCompactionStateUpdate({
-        thread_id: threadId,
-        agent_id: agent.id,
-        run_id: latestRun?.id ?? null,
-        target_kind: latestRun ? "run" : "agent",
-        run: latestRun ?? null,
-        agent,
-        event_id: event.event_id,
-        seq: event.seq,
-        created_at: event.created_at,
-        source,
-        reason,
-        scope,
-      });
-      if (latestRun) {
-        const updated = plannedContextCompactionRunRecord(stateUpdate, threadId, latestRun.id);
-        const operationKind = plannedContextCompactionOperationKind(
-          stateUpdate,
-          threadId,
-          latestRun.id,
-          "run",
-        );
-        store.runs.set(latestRun.id, updated);
-        store.writeRun(updated, operationKind);
-        return store.threadForAgent(agent);
-      }
-      const updatedAgent = plannedContextCompactionAgentRecord(stateUpdate, threadId, agent.id);
-      const operationKind = plannedContextCompactionOperationKind(
-        stateUpdate,
-        threadId,
-        agent.id,
-        "agent",
-      );
-      store.agents.set(updatedAgent.id, updatedAgent);
-      store.writeAgent(updatedAgent, operationKind);
-      return store.threadForAgent(updatedAgent);
     },
 
     evaluateContextBudget(store, { threadId = null, runId = null, request = {} } = {}) {
       const requestedRunId = optionalStringDep(request.run_id) ?? runId;
-      const run = requestedRunId ? store.getRun(requestedRunId) : null;
-      const requestedThreadId =
-        optionalStringDep(request.thread_id) ??
-        threadId ??
-        (run ? threadIdForAgentDep(run.agentId) : null);
-      const scope =
-        optionalStringDep(request.scope) ??
-        (requestedRunId ? "run" : requestedThreadId ? "thread" : "workflow");
-      const usageTelemetry =
-        contextBudgetUsageTelemetryFromRequestDep(request) ??
-        (requestedRunId
-          ? store.usageForRun(requestedRunId)
-          : requestedThreadId
-            ? store.usageForThread(requestedThreadId)
-            : store.listUsage({ group_by: "thread" }));
-      let eventAgent = null;
-      let eventLatestRun = run ?? null;
-      if (requestedThreadId && !eventLatestRun) {
-        eventAgent = store.agentForThread(requestedThreadId);
-        eventLatestRun = store.listRuns(eventAgent.id).at(-1) ?? null;
+      const requestedThreadId = optionalStringDep(request.thread_id) ?? threadId;
+      if (requestedThreadId || requestedRunId) {
+        throwContextPolicyRustCoreRequired("context_budget_evaluation", "context_budget.evaluate", {
+          thread_id: requestedThreadId,
+          run_id: requestedRunId,
+          evidence_refs: [
+            "context_budget_evaluation_js_event_facade_retired",
+            "rust_daemon_core_context_budget_event_required",
+            "agentgres_context_budget_event_truth_required",
+          ],
+        });
       }
-      const eventTurnId =
-        optionalStringDep(request.turn_id) ??
-        (eventLatestRun ? turnIdForRunDep(eventLatestRun.id) : null);
+
       const canonicalRequest = { ...request };
       for (const retiredField of [
         "eventKind",
@@ -234,63 +62,24 @@ export function createRuntimeContextPolicySurface({
       ]) {
         delete canonicalRequest[retiredField];
       }
-      const result = evaluateContextBudgetPolicyDep({
+      const usageTelemetry =
+        contextBudgetUsageTelemetryFromRequestDep(canonicalRequest) ??
+        store.listUsage({ group_by: "thread" });
+
+      return evaluateContextBudgetPolicyDep({
         usageTelemetry,
         request: {
           ...canonicalRequest,
-          scope,
-          thread_id: requestedThreadId,
-          turn_id: eventTurnId,
-          run_id: requestedRunId,
+          scope: optionalStringDep(canonicalRequest.scope) ?? "workflow",
+          thread_id: null,
+          turn_id: null,
+          run_id: null,
         },
       });
-
-      if (!requestedThreadId) return result;
-
-      const agent = eventAgent ?? store.agentForThread(requestedThreadId);
-      const now = new Date().toISOString();
-      const event = store.appendRuntimeEvent({
-        event_stream_id: eventStreamIdForThreadDep(requestedThreadId),
-        thread_id: requestedThreadId,
-        turn_id: eventTurnId ?? "",
-        item_id: result.runtime_event_item_id,
-        idempotency_key:
-          optionalStringDep(request.idempotency_key) ??
-          result.runtime_event_idempotency_key,
-        source: operatorControlSourceDep(request.source),
-        source_event_kind:
-          optionalStringDep(request.event_kind) ??
-          "RuntimeContextBudget.Evaluate",
-        event_kind: result.runtime_event_kind,
-        status: result.runtime_event_status,
-        actor: optionalStringDep(request.actor) ?? "operator",
-        created_at: now,
-        workspace_root: agent.cwd,
-        workflow_graph_id: request.workflow_graph_id ?? null,
-        workflow_node_id:
-          request.workflow_node_id ?? "runtime.context-budget",
-        component_kind: "context_budget",
-        payload_schema_version: contextBudgetSchemaVersion,
-        payload_summary: result,
-        receipt_refs: result.receipt_refs,
-        policy_decision_refs: result.policy_decision_refs,
-        artifact_refs: [],
-        rollback_refs: [],
-        redaction_profile: "internal",
-        fixture_profile: fixtureProfileForAgentDep(agent),
-      });
-      return {
-        ...result,
-        event,
-        event_id: event.event_id,
-        eventId: event.event_id,
-        seq: event.seq,
-      };
     },
 
     evaluateCompactionPolicy(store, { threadId, request = {} } = {}) {
-      const requestedThreadId =
-        optionalStringDep(request.thread_id) ?? threadId;
+      const requestedThreadId = optionalStringDep(request.thread_id) ?? threadId;
       if (!requestedThreadId) {
         throw runtimeError({
           status: 400,
@@ -298,86 +87,14 @@ export function createRuntimeContextPolicySurface({
           message: "Compaction policy evaluation requires a thread id.",
         });
       }
-      const agent = store.agentForThread(requestedThreadId);
-      const latestRun = store.listRuns(agent.id).at(-1) ?? null;
-      const turnId =
-        optionalStringDep(request.turn_id) ??
-        (latestRun ? turnIdForRunDep(latestRun.id) : "");
-      const canonicalRequest = { ...request };
-      for (const retiredField of ["eventKind", "threadId", "turnId"]) {
-        delete canonicalRequest[retiredField];
-      }
-      const result = evaluateCompactionPolicyDecisionDep({
-        threadId: requestedThreadId,
-        turnId,
-        request: canonicalRequest,
-      });
-      const streamId = eventStreamIdForThreadDep(requestedThreadId);
-      let compactEvent = null;
-      if (
-        result.action === "compact" &&
-        result.approval_satisfied &&
-        result.execute_compaction
-      ) {
-        const previousLatestSeq = store.latestRuntimeEventSeq(streamId);
-        store.compactThread(requestedThreadId, {
-          reason: result.compact_reason,
-          scope: result.compact_scope,
-          turn_id: turnId,
-          source: request.source,
-          actor: optionalStringDep(request.actor) ?? "operator",
-          workflow_graph_id: result.workflow_graph_id,
-          workflow_node_id: result.compact_workflow_node_id,
-          idempotency_key:
-            optionalStringDep(request.compact_idempotency_key) ??
-            result.compact_idempotency_key,
-        });
-        compactEvent =
-          store.runtimeEventsForStream(streamId, { since_seq: previousLatestSeq }).find(
-            (event) => event.component_kind === "context_compaction",
-          ) ?? null;
-        result.compaction_executed = Boolean(compactEvent);
-        result.compaction_event_id = compactEvent?.event_id ?? null;
-        result.compaction_seq = compactEvent?.seq ?? null;
-      }
-      const now = new Date().toISOString();
-      const event = store.appendRuntimeEvent({
-        event_stream_id: streamId,
+      throwContextPolicyRustCoreRequired("compaction_policy_evaluation", "compaction_policy.evaluate", {
         thread_id: requestedThreadId,
-        turn_id: turnId,
-        item_id: result.runtime_event_item_id,
-        idempotency_key:
-          optionalStringDep(request.idempotency_key) ??
-          result.runtime_event_idempotency_key,
-        source: operatorControlSourceDep(request.source),
-        source_event_kind:
-          optionalStringDep(request.event_kind) ??
-          "RuntimeCompactionPolicy.Evaluate",
-        event_kind: result.runtime_event_kind,
-        status: result.runtime_event_status,
-        actor: optionalStringDep(request.actor) ?? "operator",
-        created_at: now,
-        workspace_root: agent.cwd,
-        workflow_graph_id: result.workflow_graph_id,
-        workflow_node_id: result.workflow_node_id,
-        approval_id: result.approval_id,
-        component_kind: "compaction_policy",
-        payload_schema_version: compactionPolicySchemaVersion,
-        payload_summary: result,
-        receipt_refs: result.receipt_refs,
-        policy_decision_refs: result.policy_decision_refs,
-        artifact_refs: compactEvent ? compactEvent.artifact_refs : [],
-        rollback_refs: [],
-        redaction_profile: "internal",
-        fixture_profile: fixtureProfileForAgentDep(agent),
+        evidence_refs: [
+          "compaction_policy_evaluation_js_event_facade_retired",
+          "rust_daemon_core_compaction_policy_event_required",
+          "agentgres_compaction_policy_event_truth_required",
+        ],
       });
-      return {
-        ...result,
-        event,
-        event_id: event.event_id,
-        eventId: event.event_id,
-        seq: event.seq,
-      };
     },
   };
 }
