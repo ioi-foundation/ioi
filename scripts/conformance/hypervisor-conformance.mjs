@@ -319,7 +319,7 @@ function runDocs() {
       /Slice 742 thread runtime-control\s+facade-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
-      /Resume with the next\s+verified Rust-core extraction or facade-retirement slice/.test(guide) &&
+      /Slice 743 has opened the\s+next verified Rust-core extraction \/\s+facade-retirement seam/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
@@ -329,7 +329,7 @@ function runDocs() {
       /The Slice 742\s+thread runtime-control facade-retirement compaction is complete/.test(
         guide,
       ) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /The next compaction pass is\s+scheduled after Slice 743/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -338,7 +338,7 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
+      /Next resume instruction: Slice 743 opened the next Rust-core extraction \/\s+facade-retirement seam/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -354,12 +354,12 @@ function runDocs() {
         matrix,
       ) &&
       /thread-control-js-facade-retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 742\s+compaction/.test(
+      /Next scheduled matrix-compaction pass: pending after Slice 743/.test(
         matrix,
       ) &&
-	      /encoding the command bridge as\s+terminal shape/.test(
-	        matrix,
-	      ),
+      /encoding the command bridge as\s+terminal shape/.test(
+        matrix,
+      ),
     [GUIDE, MATRIX],
     "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",
   );
@@ -20254,33 +20254,23 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "workspace-trust-acknowledgement-aliases-retired",
-    /retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
-      /const modeWorkflowNodeId =\s*\n\s*request\.workflow_node_id \?\?\s*\n\s*modeEvent\?\.workflow_node_id \?\?/.test(
-        workspaceTrustWarningBody,
-      ) &&
-      /const workflowNodeId =\s*\n\s*request\.workspace_trust_workflow_node_id \?\?\s*\n\s*request\.trust_warning_workflow_node_id \?\?/.test(
-        workspaceTrustWarningBody,
-      ) &&
-      /workspace trust warning ignores retired request aliases/.test(
+    "workspace-trust-control-js-facade-retired",
+    /runtime_workspace_trust_control_rust_core_required/.test(workspaceTrustState) &&
+      /runtime_workspace_trust_control_js_facade_retired/.test(workspaceTrustState) &&
+      /runtime_workspace_trust_warning_js_facade_retired/.test(workspaceTrustState) &&
+      /runtime_workspace_trust_acknowledgement_js_facade_retired/.test(workspaceTrustState) &&
+      /runtime_workspace_trust_event_append_js_retired/.test(workspaceTrustState) &&
+      /rust_daemon_core_workspace_trust_control_required/.test(workspaceTrustState) &&
+      /agentgres_workspace_trust_truth_required/.test(workspaceTrustState) &&
+      /workspace trust warning facade fails closed before JS event append/.test(
         workspaceTrustStateTest,
       ) &&
-      /workspaceTrustWorkflowNodeId: "runtime\.workspace-trust\.retired"/.test(
+      /workspace trust acknowledgement facade fails closed before lookup or append/.test(
         workspaceTrustStateTest,
       ) &&
-      /trustWarningWorkflowNodeId: "runtime\.trust-warning\.retired"/.test(
-        workspaceTrustStateTest,
-      ) &&
-      /workspace_trust_acknowledgement_request_aliases_retired/.test(
-        workspaceTrustAcknowledgementBody,
-      ) &&
-      /const normalizedWarningId = optionalString\(warningId \?\? request\.warning_id\)/.test(
-        workspaceTrustAcknowledgementBody,
-      ) &&
-      /source_event_id:\s*sourceEventId/.test(workspaceTrustAcknowledgementBody) &&
-      /daemon_enforced:\s*true/.test(workspaceTrustAcknowledgementBody) &&
-      /workspace_trust_acknowledgement:\s*payload/.test(workspaceTrustAcknowledgementBody) &&
-      /workspace_trust_acknowledgement_event:\s*event/.test(workspaceTrustAcknowledgementBody) &&
+      /assertWorkspaceTrustRustCoreRequired/.test(workspaceTrustStateTest) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(workspaceTrustStateTest) &&
+      /assert\.deepEqual\(events,\s*\[\]\)/.test(workspaceTrustStateTest) &&
       /workflow_graph_id:\s*string \| null;/.test(agentIdeRuntimeControlNodes) &&
       /workflow_node_id:\s*string;/.test(agentIdeRuntimeControlNodes) &&
       /event_kind:\s*typeof RUNTIME_WORKSPACE_TRUST_ACKNOWLEDGEMENT_SOURCE_EVENT_KIND;/.test(
@@ -20298,15 +20288,12 @@ function runCompositor() {
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
         agentIdeRuntimeControlNodesTest,
       ) &&
-      /workspace trust acknowledgement rejects retired request aliases/.test(
-        workspaceTrustStateTest,
+      !/retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
+      !/store\.agentForThread|store\.runtimeEventStream|store\.appendRuntimeEvent|store\.threadForAgent/.test(
+        workspaceTrustState,
       ) &&
-      /Object\.hasOwn\(result,\s*"workspaceTrustAcknowledgement"\),\s*false/.test(
-        workspaceTrustStateTest,
-      ) &&
-      /Object\.hasOwn\(result\.workspace_trust_acknowledgement,\s*"schemaVersion"\),\s*false/.test(
-        workspaceTrustStateTest,
-      ) &&
+      !/workspace_trust_acknowledgement:\s*payload/.test(workspaceTrustAcknowledgementBody) &&
+      !/workspace_trust_acknowledgement_event:\s*event/.test(workspaceTrustAcknowledgementBody) &&
       !/^\s*(?:schemaVersion|acknowledgementId|warningId|warningEventId|sourceEventId|acknowledgedAt|acknowledgedBy|approvalMode|trustProfile|threadId|agentId|sessionId|workflowGraphId|workflowNodeId|controlSurface|daemonEnforced|canvasLocalTrustStateAccepted|commandExecuted|workspaceTrustAcknowledgement|workspaceTrustAcknowledgementEvent)\s*:/m.test(
         workspaceTrustAcknowledgementBody,
       ) &&
@@ -20325,7 +20312,7 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.ts",
       "packages/agent-ide/src/runtime/workflow-runtime-control-nodes.test.ts",
     ],
-    "Phase 10/11 is pending: workspace-trust acknowledgement requests and daemon envelopes must use canonical snake_case fields without camelCase compatibility aliases",
+    "Phase 10/11 is pending: workspace-trust warning and acknowledgement controls must fail closed until Rust daemon-core owns event admission, receipt binding, persistence, replay, and projection",
   );
   assertCheck(
     result,

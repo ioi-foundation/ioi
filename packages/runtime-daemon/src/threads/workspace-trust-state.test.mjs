@@ -60,139 +60,93 @@ function createHarness() {
   return { agent, calls, events, state, store };
 }
 
-test("workspace trust state emits warnings only for trust-sensitive modes", () => {
-  const { agent, events, state, store } = createHarness();
+function assertNoRetiredDetailAliases(details) {
+  for (const key of [
+    "rustCoreBoundary",
+    "operationKind",
+    "requestedOperation",
+    "requestedControlKind",
+    "threadId",
+    "evidenceRefs",
+  ]) {
+    assert.equal(Object.hasOwn(details, key), false);
+  }
+}
 
-  assert.equal(
-    state.appendWorkspaceTrustWarningEvent(store, {
+function assertWorkspaceTrustRustCoreRequired(
+  error,
+  { operation, controlKind, threadId = "thread_a" } = {},
+) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_workspace_trust_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.workspace_trust_control");
+  assert.equal(error.details.operation, "workspace_trust_control");
+  assert.equal(error.details.operation_kind, "workspace_trust_control");
+  assert.equal(error.details.requested_operation, operation);
+  assert.equal(error.details.requested_control_kind, controlKind);
+  assert.equal(error.details.thread_id, threadId);
+  assert.deepEqual(error.details.evidence_refs, [
+    "runtime_workspace_trust_control_js_facade_retired",
+    "runtime_workspace_trust_warning_js_facade_retired",
+    "runtime_workspace_trust_acknowledgement_js_facade_retired",
+    "runtime_workspace_trust_event_append_js_retired",
+    "rust_daemon_core_workspace_trust_control_required",
+    "agentgres_workspace_trust_truth_required",
+  ]);
+  assertNoRetiredDetailAliases(error.details);
+}
+
+test("workspace trust warning facade fails closed before JS event append", () => {
+  const { agent, calls, events, state, store } = createHarness();
+
+  assert.throws(
+    () => state.appendWorkspaceTrustWarningEvent(store, {
       agent,
       threadId: "thread_a",
-      controls: { mode: "ask", approvalMode: "default" },
-      request: {},
+      controls: { mode: "review", approvalMode: "auto_review" },
+      request: {
+        workflowNodeId: "runtime.mode.retired",
+        workspaceTrustWorkflowNodeId: "runtime.workspace-trust.retired",
+        trustWarningWorkflowNodeId: "runtime.trust-warning.retired",
+      },
       source: "test",
       requestedBy: "operator",
       workflowGraphId: "graph",
+      modeEvent: { workflow_node_id: "runtime.mode.canonical-event" },
       now: "2026-06-04T00:00:00.000Z",
     }),
-    null,
-  );
-
-  const event = state.appendWorkspaceTrustWarningEvent(store, {
-    agent,
-    threadId: "thread_a",
-    controls: { mode: "review", approvalMode: "auto_review" },
-    request: { workflow_node_id: "runtime.mode" },
-    source: "test",
-    requestedBy: "operator",
-    workflowGraphId: "graph",
-    now: "2026-06-04T00:00:00.000Z",
-  });
-
-  assert.equal(events.length, 1);
-  assert.equal(event.event_kind, "workspace.trust_warning");
-  assert.equal(event.payload_schema_version, "trust.warning.v1");
-  assert.equal(event.workflow_node_id, "runtime.mode.workspace-trust");
-  assert.equal(event.fixture_profile, "fixture.test");
-});
-
-test("workspace trust warning ignores retired request aliases", () => {
-  const { agent, state, store } = createHarness();
-
-  const event = state.appendWorkspaceTrustWarningEvent(store, {
-    agent,
-    threadId: "thread_a",
-    controls: { mode: "review", approvalMode: "auto_review" },
-    request: {
-      workflowNodeId: "runtime.mode.retired",
-      workspaceTrustWorkflowNodeId: "runtime.workspace-trust.retired",
-      trustWarningWorkflowNodeId: "runtime.trust-warning.retired",
+    (error) => {
+      assertWorkspaceTrustRustCoreRequired(error, {
+        operation: "warning",
+        controlKind: "workspace_trust_warning",
+      });
+      return true;
     },
-    source: "test",
-    requestedBy: "operator",
-    workflowGraphId: "graph",
-    modeEvent: { workflow_node_id: "runtime.mode.canonical-event" },
-    now: "2026-06-04T00:00:00.000Z",
-  });
+  );
 
-  assert.equal(event.workflow_node_id, "runtime.mode.canonical-event.workspace-trust");
-  assert.equal(event.payload_summary.workflow_node_id, "runtime.mode.canonical-event.workspace-trust");
+  assert.deepEqual(calls, []);
+  assert.deepEqual(events, []);
 });
 
-test("workspace trust acknowledgement validates warning id and missing warnings", () => {
-  const { state, store } = createHarness();
+test("workspace trust acknowledgement facade fails closed before lookup or append", () => {
+  const { calls, events, state, store } = createHarness();
 
   assert.throws(
-    () => state.acknowledgeWorkspaceTrustWarning(store, "thread_a", "", {}),
-    (error) => error.code === "workspace_trust_warning_id_required",
+    () => state.acknowledgeWorkspaceTrustWarning(store, "thread_a", "warning_1", {
+      sourceEventId: "warning_event_retired",
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "runtime.thread-mode.workspace-trust",
+      idempotencyKey: "idem-retired",
+    }),
+    (error) => {
+      assertWorkspaceTrustRustCoreRequired(error, {
+        operation: "acknowledge",
+        controlKind: "workspace_trust_acknowledgement",
+      });
+      return true;
+    },
   );
-  assert.throws(
-    () => state.acknowledgeWorkspaceTrustWarning(store, "thread_a", "missing", {}),
-    (error) => error.code === "workspace_trust_warning_not_found",
-  );
-});
 
-test("workspace trust acknowledgement records a daemon-owned acknowledgement event", () => {
-  const { agent, state, store } = createHarness();
-  const warning = state.appendWorkspaceTrustWarningEvent(store, {
-    agent,
-    threadId: "thread_a",
-    controls: { mode: "yolo", approvalMode: "full_access" },
-    request: {},
-    source: "test",
-    requestedBy: "operator",
-    workflowGraphId: "graph",
-    now: "2026-06-04T00:00:00.000Z",
-  });
-
-  const result = state.acknowledgeWorkspaceTrustWarning(store, "thread_a", warning.event_id, {
-    source: "ack_source",
-    actor: "heath",
-    reason: "Reviewed local workspace trust.",
-  });
-
-  assert.equal(result.event.event_kind, "workspace.trust_acknowledged");
-  assert.equal(result.event.payload_schema_version, "trust.ack.v1");
-  assert.equal(result.workspace_trust_acknowledgement.warning_id, warning.event_id);
-  assert.equal(result.workspace_trust_acknowledgement.acknowledged_by, "heath");
-  assert.equal(result.workspace_trust_acknowledgement.command_executed, false);
-  assert.equal(result.workspace_trust_acknowledgement.session_id, "session_agent_a");
-  assert.equal(Object.hasOwn(result, "workspaceTrustAcknowledgement"), false);
-  assert.equal(Object.hasOwn(result, "workspaceTrustAcknowledgementEvent"), false);
-  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "schemaVersion"), false);
-  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "warningId"), false);
-  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "sourceEventId"), false);
-  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "acknowledgedBy"), false);
-  assert.equal(Object.hasOwn(result.workspace_trust_acknowledgement, "daemonEnforced"), false);
-});
-
-test("workspace trust acknowledgement rejects retired request aliases", () => {
-  const { agent, state, store } = createHarness();
-  const warning = state.appendWorkspaceTrustWarningEvent(store, {
-    agent,
-    threadId: "thread_a",
-    controls: { mode: "yolo", approvalMode: "full_access" },
-    request: {},
-    source: "test",
-    requestedBy: "operator",
-    workflowGraphId: "graph",
-    now: "2026-06-04T00:00:00.000Z",
-  });
-
-  assert.throws(
-    () =>
-      state.acknowledgeWorkspaceTrustWarning(store, "thread_a", warning.event_id, {
-        sourceEventId: warning.event_id,
-        workflowGraphId: "graph",
-        workflowNodeId: "runtime.thread-mode.workspace-trust",
-        idempotencyKey: "idem-retired",
-      }),
-    (error) =>
-      error.code === "workspace_trust_acknowledgement_request_aliases_retired" &&
-      error.details.thread_id === "thread_a" &&
-      error.details.retired_aliases.includes("sourceEventId") &&
-      error.details.retired_aliases.includes("workflowGraphId") &&
-      error.details.retired_aliases.includes("workflowNodeId") &&
-      error.details.retired_aliases.includes("idempotencyKey") &&
-      Object.hasOwn(error.details, "threadId") === false,
-  );
+  assert.deepEqual(calls, []);
+  assert.deepEqual(events, []);
 });

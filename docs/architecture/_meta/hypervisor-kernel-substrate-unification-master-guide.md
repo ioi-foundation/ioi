@@ -275,9 +275,10 @@ with no independent authority or compatibility-shim behavior.
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement
 matrix-compaction pass is complete. The Slice 742 thread runtime-control
-facade-retirement matrix-compaction pass is complete. Resume with the next
-verified Rust-core extraction or facade-retirement slice, and schedule the next
-matrix-compaction pass only after that seam lands.
+facade-retirement matrix-compaction pass is complete. Slice 743 has opened the
+next verified Rust-core extraction / facade-retirement seam. Schedule the next
+matrix-compaction pass after Slice 743 lands and before unrelated route-family
+work resumes.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
 Slice 732 workspace snapshot/restore mutation compaction is complete. The Slice
 733-740 runtime bridge thread/turn, runtime subagent, runtime task/job,
@@ -285,10 +286,11 @@ thread-fork, conversation-artifact, permanent agent-delete, and agent
 lifecycle/status-control facade-retirement compaction is complete. The Slice 741
 thread-memory control facade-retirement compaction is complete. The Slice 742
 thread runtime-control facade-retirement compaction is complete. No
-matrix-compaction pass is pending until the next seam lands; future compactions
-must preserve evidence, distinguish interim bridge scaffolding and fail-closed
-JS facades from terminal Rust daemon-core shape, and avoid encoding command
-transport or read-only JS helpers as long-term substrate.
+matrix-compaction pass was pending before Slice 743. The next compaction pass is
+scheduled after Slice 743 so future resumes preserve evidence, distinguish
+interim bridge scaffolding and fail-closed JS facades from terminal Rust
+daemon-core shape, and avoid encoding command transport or read-only JS helpers
+as long-term substrate.
 
 ## Part II: Target Execution Model
 
