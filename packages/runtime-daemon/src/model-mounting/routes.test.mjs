@@ -9,6 +9,7 @@ import {
   routeSelectionReceiptForState,
   selectRoute,
   selectRouteForState,
+  persistModelRouteSelectionState,
   testRoute,
   upsertRoute,
   upsertRouteRecord,
@@ -52,22 +53,6 @@ function admitModelMountRouteDecision(request) {
     route_decision_hash: "sha256:test",
     receipt_refs: request.receipt_refs,
     evidence_refs: ["rust_model_mount_core", "model_mount://route_decision/test"],
-  };
-}
-
-function commitRuntimeModelMountRecordState(request) {
-  return {
-    record_id: request.record_id,
-    object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
-    content_hash: `sha256:${request.record_id}`,
-    admission_hash: `admit:${request.record_id}`,
-    commit_hash: `commit:${request.record_id}`,
-    written_record: request.record,
-    storage_record: {
-      object_ref: `agentgres://model-mounting/records/${request.record_dir}/${request.record_id}`,
-      content_hash: `sha256:${request.record_id}`,
-      admission: { admission_hash: `admit:${request.record_id}` },
-    },
   };
 }
 
@@ -611,12 +596,20 @@ test("model mounting route request ignores retired policy privacy profile alias"
   assert.equal(Object.hasOwn(request, "privacyProfile"), false);
 });
 
-test("model mounting route state operations preserve delegate wiring", () => {
+test("model mounting route selection operations preserve delegate wiring without route state mutation", () => {
   const writes = [];
   const receipts = [];
-  const recordStateCommits = [];
+  const route = {
+    id: "route.review",
+    role: "Review",
+    fallback: ["endpoint.local"],
+    deniedProviders: [],
+    providerEligibility: [],
+    privacy: "local_or_enterprise",
+    maxCostUsd: 1,
+  };
   const state = {
-    routes: new Map(),
+    routes: new Map([[route.id, route]]),
     endpoints: new Map([["endpoint.local", {
       id: "endpoint.local",
       modelId: "model.local",
@@ -641,10 +634,6 @@ test("model mounting route state operations preserve delegate wiring", () => {
       return endpoint;
     },
     admitModelMountRouteDecision: admitModelMountRouteDecision,
-    commitRuntimeModelMountRecordState(request) {
-      recordStateCommits.push(request);
-      return commitRuntimeModelMountRecordState(request);
-    },
     nextReceiptId: () => "receipt-route",
     provider(providerId) {
       return this.providers.get(providerId);
@@ -662,22 +651,6 @@ test("model mounting route state operations preserve delegate wiring", () => {
     },
   };
 
-  const route = upsertRoute(state, {
-    role: "Review",
-    fallback: ["endpoint.local"],
-  }, { normalizeScopes, safeId });
-  assert.equal(route.id, "route.review");
-  assert.equal(state.routes.get(route.id), route);
-  assert.equal(writes.length, 0);
-  assert.equal(receipts[0].kind, "model_route_upsert");
-  assert.equal(receipts[0].details.route_id, "route.review");
-  assert.equal(Object.hasOwn(receipts[0].details, "routeId"), false);
-  assert.equal(recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(recordStateCommits[0].record_dir, "model-routes");
-  assert.equal(recordStateCommits[0].record_id, "route.review");
-  assert.equal(recordStateCommits[0].operation_kind, "model_mount.route.write");
-  assert.deepEqual(recordStateCommits[0].receipt_refs, [receipts[0].id]);
-  assert.equal(recordStateCommits[0].record.stateReceiptId, receipts[0].id);
   assert.deepEqual(endpointIdsForExplicitModelForState(state, route, "missing-model", { normalizeScopes }), ["endpoint.missing-model"]);
 
   const selection = selectRouteForState(state, {
@@ -712,9 +685,8 @@ test("model mounting route state operations preserve delegate wiring", () => {
   assert.equal(receipts.at(-1).details.model_mount_route_decision_ref, "model_mount://route_decision/test");
 });
 
-test("model mounting route helpers test routes through state compatibility methods", () => {
-  const writes = [];
-  const recordStateCommits = [];
+test("model mounting public route control facades fail closed before selection, receipts, or state mutation", () => {
+  const calls = [];
   const routes = new Map([["route.local-first", {
     id: "route.local-first",
     fallback: ["endpoint.local"],
@@ -723,124 +695,83 @@ test("model mounting route helpers test routes through state compatibility metho
     privacy: "local_or_enterprise",
     maxCostUsd: 1,
   }]]);
-  const selection = {
-    route: routes.get("route.local-first"),
-    endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
-    provider: { id: "provider.local" },
-  };
-  const receipt = { id: "receipt-route-test" };
   const state = {
     routes,
     route(routeId) {
-      return routes.get(routeId);
-    },
-    selectRoute(input) {
-      assert.deepEqual(input, {
-        modelId: "model.local",
-        routeId: "route.local-first",
-        capability: "chat",
-        policy: { privacy: "local_only" },
-      });
-      return selection;
-    },
-    routeSelectionReceipt(receiptSelection, payload) {
-      assert.equal(receiptSelection, selection);
-      assert.deepEqual(payload, {
-        body: {
-          model: "model.local",
-          model_policy: { privacy: "local_only" },
-          route_id: "route.local-first",
-        },
-        capability: "chat",
-      });
-      return receipt;
-    },
-    commitRuntimeModelMountRecordState(request) {
-      recordStateCommits.push(request);
-      return commitRuntimeModelMountRecordState(request);
-    },
-    writeMap(dir, map) {
-      writes.push({ dir, map });
-    },
-  };
-
-  const result = testRoute(state, "route.local-first", {
-    model: "model.local",
-    model_policy: { privacy: "local_only" },
-  });
-
-  assert.equal(result.receipt, receipt);
-  assert.equal(result.route.lastSelectedModel, "model.local");
-  assert.equal(result.route.lastReceiptId, "receipt-route-test");
-  assert.equal(routes.get("route.local-first"), result.route);
-  assert.equal(writes.length, 0);
-  assert.equal(recordStateCommits.length, 1);
-  assert.equal(recordStateCommits[0].record_dir, "model-routes");
-  assert.equal(recordStateCommits[0].record_id, "route.local-first");
-  assert.equal(recordStateCommits[0].operation_kind, "model_mount.route.test");
-  assert.deepEqual(recordStateCommits[0].receipt_refs, ["receipt-route-test"]);
-  assert.equal(recordStateCommits[0].record.lastReceiptId, "receipt-route-test");
-});
-
-test("model mounting route upsert fails closed without Rust Agentgres record-state commit", () => {
-  const state = {
-    routes: new Map(),
-    receipt(kind, payload) {
-      return { id: "receipt-route-upsert", kind, ...payload };
-    },
-  };
-
-  const error = captureError(() =>
-    upsertRoute(state, { role: "Review", fallback: ["endpoint.local"] }, { normalizeScopes, safeId }),
-  );
-
-  assert.equal(error.status, 500);
-  assert.equal(error.code, "model_mount_route_state_commit_unconfigured");
-  assert.equal(error.details.route_id, "route.review");
-  assert.equal(error.details.receipt_id, "receipt-route-upsert");
-  assert.equal(Object.hasOwn(error.details, "routeId"), false);
-  assert.equal(Object.hasOwn(error.details, "receiptId"), false);
-  assert.equal(state.routes.size, 0);
-});
-
-test("model mounting route test fails closed without Rust Agentgres record-state commit", () => {
-  const routes = new Map([["route.local-first", {
-    id: "route.local-first",
-    fallback: ["endpoint.local"],
-    deniedProviders: [],
-    providerEligibility: [],
-    privacy: "local_or_enterprise",
-    maxCostUsd: 1,
-  }]]);
-  const selection = {
-    route: routes.get("route.local-first"),
-    endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
-    provider: { id: "provider.local" },
-  };
-  const state = {
-    routes,
-    route(routeId) {
+      calls.push(["route", routeId]);
       return routes.get(routeId);
     },
     selectRoute() {
-      return selection;
+      calls.push(["selectRoute"]);
     },
     routeSelectionReceipt() {
-      return { id: "receipt-route-test" };
+      calls.push(["routeSelectionReceipt"]);
+    },
+    receipt() {
+      calls.push(["receipt"]);
+    },
+    writeMap(dir, map) {
+      calls.push(["writeMap", dir, map]);
     },
   };
 
-  const error = captureError(() =>
+  const upsertError = captureError(() =>
+    upsertRoute(state, { role: "Review", fallback: ["endpoint.local"] }, { normalizeScopes, safeId }),
+  );
+  assert.equal(upsertError.status, 501);
+  assert.equal(upsertError.code, "model_mount_route_control_rust_core_required");
+  assert.equal(upsertError.details.rust_core_boundary, "model_mount.route_control");
+  assert.equal(upsertError.details.operation_kind, "model_mount.route.write");
+  assert.equal(upsertError.details.route_id, "route.review");
+
+  const testError = captureError(() =>
     testRoute(state, "route.local-first", {
       model: "model.local",
       model_policy: { privacy: "local_only" },
     }),
   );
+  assert.equal(testError.status, 501);
+  assert.equal(testError.code, "model_mount_route_control_rust_core_required");
+  assert.equal(testError.details.operation_kind, "model_mount.route.test");
+  assert.equal(testError.details.route_id, "route.local-first");
+  assert.deepEqual(calls, []);
+  assert.equal(routes.has("route.review"), false);
+  assert.equal(routes.get("route.local-first").lastReceiptId, undefined);
+});
 
-  assert.equal(error.status, 500);
-  assert.equal(error.code, "model_mount_route_state_commit_unconfigured");
+test("model mounting route selection state persistence fails closed before JS route map mutation", () => {
+  const routes = new Map([["route.local-first", {
+    id: "route.local-first",
+    fallback: ["endpoint.local"],
+    deniedProviders: [],
+    providerEligibility: [],
+    privacy: "local_or_enterprise",
+    maxCostUsd: 1,
+  }]]);
+  const state = {
+    routes,
+  };
+
+  const error = captureError(() =>
+    persistModelRouteSelectionState(
+      state,
+      routes.get("route.local-first"),
+      "model.local",
+      "receipt-route-test",
+      "model_mount.route.invocation_selection",
+    ),
+  );
+
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "model_mount_route_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "model_mount.route_control");
+  assert.equal(error.details.operation_kind, "model_mount.route.invocation_selection");
   assert.equal(error.details.route_id, "route.local-first");
   assert.equal(error.details.receipt_id, "receipt-route-test");
+  assert.equal(error.details.selected_model, "model.local");
+  assert.equal(Object.hasOwn(error.details, "routeId"), false);
+  assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+  assert.equal(Object.hasOwn(error.details, "selectedModel"), false);
   assert.equal(routes.get("route.local-first").lastReceiptId, undefined);
 });
 

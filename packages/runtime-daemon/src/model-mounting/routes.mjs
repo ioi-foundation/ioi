@@ -1,5 +1,3 @@
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
-
 const RETIRED_ROUTE_SELECTION_REQUEST_ALIASES = [
   "modelId",
   "modelPolicy",
@@ -70,17 +68,9 @@ export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
 export function upsertRoute(state, body = {}, deps = {}) {
   const { normalizeScopes, safeId } = deps;
   const route = upsertRouteRecord(body, { normalizeScopes, safeId });
-  const receipt = modelRouteRecordStateReceipt(state, route, "model_route_upsert", {
-    summary: `Model route ${route.id} updated.`,
-    evidence_refs: ["model_router.route_config", route.id],
+  throwModelRouteControlRustCoreRequired("model_mount.route.write", {
+    route_id: route.id,
   });
-  const stored = {
-    ...route,
-    stateReceiptId: receipt.id,
-  };
-  commitModelRouteRecordState(state, stored, "model_mount.route.write", [receipt.id]);
-  state.routes.set(stored.id, stored);
-  return stored;
 }
 
 export function endpointIdsForExplicitModel({
@@ -341,23 +331,9 @@ export function routeSelectionReceiptForState(state, selection, options = {}, de
 
 export function testRoute(state, routeId, body = {}) {
   assertCanonicalRouteSelectionRequestBody(body);
-  const route = state.route(routeId);
-  const capability = body.capability ?? "chat";
-  const selection = state.selectRoute({
-    modelId: body.model ?? body.model_id,
-    routeId,
-    capability,
-    policy: body.model_policy ?? {},
+  throwModelRouteControlRustCoreRequired("model_mount.route.test", {
+    route_id: routeId,
   });
-  const receipt = state.routeSelectionReceipt(selection, { body: { ...body, route_id: routeId }, capability });
-  const updatedRoute = {
-    ...route,
-    lastSelectedModel: selection.endpoint.modelId,
-    lastReceiptId: receipt.id,
-  };
-  commitModelRouteRecordState(state, updatedRoute, "model_mount.route.test", [receipt.id]);
-  state.routes.set(routeId, updatedRoute);
-  return { route: updatedRoute, selection, receipt };
 }
 
 export function persistModelRouteSelectionState(
@@ -367,14 +343,11 @@ export function persistModelRouteSelectionState(
   receiptId,
   operation_kind = "model_mount.route.selection_update",
 ) {
-  const route = {
-    ...routeRecord,
-    lastSelectedModel: selectedModel,
-    lastReceiptId: receiptId,
-  };
-  commitModelRouteRecordState(state, route, operation_kind, [receiptId]);
-  state.routes.set(route.id, route);
-  return route;
+  throwModelRouteControlRustCoreRequired(operation_kind, {
+    route_id: routeRecord?.id ?? null,
+    selected_model: selectedModel ?? null,
+    receipt_id: receiptId ?? null,
+  });
 }
 
 export function modelMountRouteDecisionRequestForSelection({
@@ -441,46 +414,21 @@ function routeDecisionReceiptIdRequiredError() {
   return error;
 }
 
-function modelRouteRecordStateReceipt(state, route, operation, { summary, evidence_refs: evidenceRefs }) {
-  if (typeof state.receipt !== "function") {
-    const error = new Error("Model route state changes require receipt creation before Rust Agentgres record-state commit.");
-    error.status = 500;
-    error.code = "model_mount_route_state_receipt_required";
-    error.details = {
-      route_id: route?.id ?? null,
-      operation,
-    };
-    throw error;
-  }
-  return state.receipt(operation, {
-    summary,
-    redaction: "redacted",
-    evidenceRefs,
-    details: {
-      route_id: route.id,
-      role: route.role,
-      privacy: route.privacy,
-      quality: route.quality,
-      status: route.status,
-      fallback: route.fallback,
-      provider_eligibility: route.providerEligibility,
-      denied_providers: route.deniedProviders,
-    },
-  });
-}
-
-function commitModelRouteRecordState(state, record, operation_kind, receipt_refs) {
-  return commitModelMountRecordState(state, {
-    recordDir: "model-routes",
-    record,
+export function throwModelRouteControlRustCoreRequired(operation_kind, details = {}) {
+  const error = new Error("Model route control requires Rust daemon-core ownership.");
+  error.status = 501;
+  error.code = "model_mount_route_control_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.route_control",
     operation_kind,
-    receipt_refs,
-    unconfiguredCode: "model_mount_route_state_commit_unconfigured",
-    unconfiguredMessage: "Model route persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: {
-      route_id: record?.id ?? null,
-    },
-  });
+    ...details,
+    evidence_refs: [
+      "model_mount_route_control_js_facade_retired",
+      "rust_daemon_core_route_control_required",
+      "agentgres_route_truth_required",
+    ],
+  };
+  throw error;
 }
 
 function assertCanonicalRouteSelectionRequestBody(body = {}) {

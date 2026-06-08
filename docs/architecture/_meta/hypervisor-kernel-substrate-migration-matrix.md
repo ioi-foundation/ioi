@@ -14065,6 +14065,80 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 713
+
+```yaml
+slice: 713
+phase: 10-authoritative-js-facade-retirement
+objective: retire model route-control JS mutation truth for public route
+  upsert/test and invocation/tokenizer route-selection state back-writes
+owner_boundary:
+  route_or_surface: model-mounting route records and last-selected route state
+  authority_gate: public route upsert/test and direct route-selection state
+    persistence fail closed at `model_mount.route_control`; invocation and
+    tokenizer utilities keep Rust-admitted route-selection receipts but no
+    longer write duplicate JS route record truth
+  execution_backend: none in JS for route-control mutation; Rust daemon-core
+    model_mount must own route record mutation, route-control receipts,
+    Agentgres record-state admission, and route projection
+  truth_path: no JS `model_route_upsert` receipt, `model-routes` record-state
+    commit, route-map mutation, tokenizer route-selection state commit, or
+    invocation route-selection state commit
+  projection_path: route-selection receipts and provider invocation receipts
+    still carry Rust-admitted route-decision evidence; route record
+    last-selected/read projections remain adapters until direct Rust route
+    projection APIs land
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/routes.mjs
+    - packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/routes.test.mjs
+    - packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs
+    - packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires
+    `model_mount_route_control_rust_core_required` for JS route-control
+    mutation attempts
+  - conformance rejects reintroducing JS model-route record-state commit
+    helpers, route-control receipt writes, tokenizer/invocation
+    `persistModelRouteSelectionState` calls, or route selection commit
+    operation kinds from tokenizer/invocation utilities
+  - focused daemon tests prove route upsert/test fail before selection,
+    receipt creation, record-state commit, writeMap, or route-map mutation,
+    and tokenizer/invocation receipts no longer mutate route records
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/routes.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - route list/get read adapters still expose current route records until
+      Rust daemon-core route projection owns this surface
+    - route-selection receipts still flow through the JS facade into Rust
+      admission until direct Rust daemon-core model route API extraction lands
+    - schedule a matrix-compaction pass once this route-control seam and the
+      next adjacent Rust-core extraction/facade-retirement cut are clear, so
+      this remains migration evidence rather than terminal JS route shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14080,7 +14154,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 712 and the catalog-provider OAuth auth-header refresh JS mutation-facade retirement pass:
+Current expected behavior after Slice 713 and the model route-control JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

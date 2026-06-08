@@ -149,39 +149,24 @@ test("modelTokenizerUtility records route and redacted tokenization receipt", ()
   assert.equal(Object.hasOwn(utility.receipt.payload.details, "inputHash"), false);
   assert.equal(Object.hasOwn(utility.receipt.payload.details, "tokenCount"), false);
   assert.equal(Object.hasOwn(utility.receipt.payload.details, "contextWindow"), false);
-  assert.equal(state.routes.get("route.local-first").lastSelectedModel, "llama-test");
+  assert.equal(state.routes.get("route.local-first").lastSelectedModel, undefined);
   assert.equal(state.writes.length, 0);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-routes");
-  assert.equal(state.recordStateCommits[0].record_id, "route.local-first");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.route.tokenizer_selection");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, [utility.receipt.id]);
-  assert.equal(state.recordStateCommits[0].record.lastReceiptId, utility.receipt.id);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
-test("modelTokenizerUtility fails closed without Rust Agentgres route record-state commit", () => {
+test("modelTokenizerUtility does not require JS route record-state commit", () => {
   const state = fakeState();
   delete state.commitRuntimeModelMountRecordState;
 
-  assert.throws(
-    () =>
-      modelTokenizerUtility(
-        state,
-        { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "tokenize" },
-        deps,
-      ),
-    (error) => {
-      assert.equal(error.status, 500);
-      assert.equal(error.code, "model_mount_route_state_commit_unconfigured");
-      assert.equal(error.details.route_id, "route.local-first");
-      assert.equal(error.details.receipt_id, "receipt.model_tokenization.1");
-      assert.equal(Object.hasOwn(error.details, "routeId"), false);
-      assert.equal(Object.hasOwn(error.details, "receiptId"), false);
-      return true;
-    },
+  const utility = modelTokenizerUtility(
+    state,
+    { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "tokenize" },
+    deps,
   );
+
+  assert.equal(utility.receipt.kind, "model_tokenization");
   assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("modelTokenizerUtility rejects retired request aliases before authorization", () => {

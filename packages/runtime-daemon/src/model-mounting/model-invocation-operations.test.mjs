@@ -560,7 +560,7 @@ test("model invocations reject retired authority request aliases before authoriz
   assert.deepEqual(state.authorizationCalls, []);
 });
 
-test("invokeModel routes provider calls, records receipts, updates route state, and finalizes response state", async () => {
+test("invokeModel routes provider calls, records receipts, avoids JS route state mutation, and finalizes response state", async () => {
   const state = fakeState();
 
   const result = await invokeModel(
@@ -625,15 +625,9 @@ test("invokeModel routes provider calls, records receipts, updates route state, 
   assert.equal(result.receipt.details.memory.enabled, true);
   assert.equal(result.receipt.details.coalesced, false);
   assert.equal(state.recordedConversations[0].responseId, "resp.custom");
-  assert.equal(state.routes.get("route.local-first").lastReceiptId, result.receipt.id);
+  assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
   assert.equal(state.writes.some(([name]) => name === "model-routes"), false);
-  assert.equal(state.recordStateCommits.length, 1);
-  assert.equal(state.recordStateCommits[0].schema_version, "ioi.runtime_model_mount_record_state_commit.v1");
-  assert.equal(state.recordStateCommits[0].record_dir, "model-routes");
-  assert.equal(state.recordStateCommits[0].record_id, "route.local-first");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.route.invocation_selection");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, [result.receipt.id]);
-  assert.equal(state.recordStateCommits[0].record.lastReceiptId, result.receipt.id);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("invokeModel routes native-local non-stream provider invocation through Rust model_mount", async () => {
@@ -825,7 +819,7 @@ test("startModelStream returns native stream invocations with stream-only receip
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "streamStatus"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "streamSource"), false);
   assert.equal(Object.hasOwn(result.invocation.receipt.details, "providerResponseKind"), false);
-  assert.equal(state.routes.get("route.local-first").lastReceiptId, result.invocation.receipt.id);
+  assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
 });
 
 test("startModelStream fails closed when selected Rust provider backend lacks native stream execution", async () => {

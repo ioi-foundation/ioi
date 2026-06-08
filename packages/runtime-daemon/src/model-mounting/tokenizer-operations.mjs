@@ -1,5 +1,3 @@
-import { persistModelRouteSelectionState } from "./routes.mjs";
-
 const RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES = [
   "routeId",
   "modelPolicy",
@@ -58,14 +56,7 @@ export function modelTokenizerUtility(state, { authorization, requiredScope, bod
       context_window: contextWindow,
     },
   });
-  const route = persistModelRouteSelectionState(
-    state,
-    selection.route,
-    selection.endpoint.modelId,
-    receipt.id,
-    "model_mount.route.tokenizer_selection",
-  );
-  return { token, input, tokens, promptTokens, contextWindow, selection: { ...selection, route }, routeReceipt, receipt };
+  return { token, input, tokens, promptTokens, contextWindow, selection, routeReceipt, receipt };
 }
 
 export function tokenizeModel(state, { authorization, requiredScope = "model.tokenize:*", body = {} }, deps = {}) {

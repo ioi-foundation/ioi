@@ -7003,11 +7003,13 @@ function runBridge() {
       (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 2 &&
       /const policy = body\.model_policy \?\? \{\};/.test(modelRoutes) &&
       /const requestedModel = body\.model \?\? body\.model_id \?\? null;/.test(modelRoutes) &&
-      /modelId:\s*body\.model \?\? body\.model_id/.test(modelRoutes) &&
-      /policy:\s*body\.model_policy \?\? \{\}/.test(modelRoutes) &&
+      /throwModelRouteControlRustCoreRequired\("model_mount\.route\.test"/.test(modelRoutes) &&
+      !/modelId:\s*body\.model \?\? body\.model_id/.test(modelRoutes) &&
+      !/policy:\s*body\.model_policy \?\? \{\}/.test(modelRoutes) &&
       !/body\.(?:modelId|modelPolicy|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(modelRoutes) &&
       /route receipt rejects retired request aliases before receipt allocation/.test(modelRoutesTest) &&
       /test route rejects retired request aliases before route lookup/.test(modelRoutesTest) &&
+      /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
       /retired_aliases/.test(modelRoutesTest) &&
       /canonical_fields/.test(modelRoutesTest),
     [
@@ -7055,18 +7057,27 @@ function runBridge() {
       /deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
       /lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
       /lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
-      /commitModelRouteRecordState/.test(modelRoutes) &&
-      /commitModelMountRecordState/.test(modelRoutes) &&
-      /recordDir:\s*"model-routes"/.test(modelRoutes) &&
+      /throwModelRouteControlRustCoreRequired/.test(modelRoutes) &&
+      /model_mount_route_control_rust_core_required/.test(modelRoutes) &&
+      /rust_core_boundary:\s*"model_mount\.route_control"/.test(modelRoutes) &&
+      /model_mount_route_control_js_facade_retired/.test(modelRoutes) &&
+      /rust_daemon_core_route_control_required/.test(modelRoutes) &&
+      /agentgres_route_truth_required/.test(modelRoutes) &&
       /model_mount\.route\.write/.test(modelRoutes) &&
       /model_mount\.route\.test/.test(modelRoutes) &&
       /persistModelRouteSelectionState/.test(modelRoutes) &&
       /model_mount\.route\.selection_update/.test(modelRoutes) &&
-      /model_mount\.route\.tokenizer_selection/.test(modelTokenizerOperations) &&
-      /model_mount\.route\.invocation_selection/.test(modelInvocationOps) &&
-      /model_mount_route_state_commit_unconfigured/.test(modelRoutes) &&
+      !/commitModelRouteRecordState/.test(modelRoutes) &&
+      !/commitModelMountRecordState/.test(modelRoutes) &&
+      !/recordDir:\s*"model-routes"/.test(modelRoutes) &&
+      !/model_mount\.route\.tokenizer_selection/.test(modelTokenizerOperations) &&
+      !/model_mount\.route\.invocation_selection/.test(modelInvocationOps) &&
+      !/model_mount_route_state_commit_unconfigured/.test(modelRoutes) &&
+      !/model_mount_route_state_receipt_required/.test(modelRoutes) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(modelRoutes) &&
       !/normalizeModelRouteRecordStateCommit/.test(modelRoutes) &&
+      !/persistModelRouteSelectionState/.test(modelTokenizerOperations) &&
+      !/persistModelRouteSelectionState/.test(modelInvocationOps) &&
       !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
       !/state\.writeMap\("model-routes"/.test(modelTokenizerOperations) &&
       !/state\.writeMap\("model-routes"/.test(modelInvocationOps) &&
@@ -7074,14 +7085,16 @@ function runBridge() {
         modelRoutes,
       ) &&
       /route upsert rejects retired request aliases before state write/.test(modelRoutesTest) &&
-      /route upsert fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
-      /route test fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
-      /recordStateCommits/.test(modelRoutesTest) &&
+      /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
+      /route selection state persistence fails closed before JS route map mutation/.test(modelRoutesTest) &&
+      /does not require JS route record-state commit/.test(modelTokenizerOperationsTest) &&
+      /avoids JS route state mutation/.test(modelInvocationOpsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelInvocationOpsTest) &&
+      !/route upsert fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
+      !/route test fails closed without Rust Agentgres record-state commit/.test(modelRoutesTest) &&
       /recordStateCommits/.test(modelTokenizerOperationsTest) &&
       /recordStateCommits/.test(modelInvocationOpsTest) &&
-      /modelTokenizerUtility fails closed without Rust Agentgres route record-state commit/.test(
-        modelTokenizerOperationsTest,
-      ) &&
       /retired_aliases,\s*\[\s*"maxCostUsd",\s*"maxLatencyMs",\s*"providerEligibility",\s*"deniedProviders",\s*"lastSelectedModel",\s*"lastReceiptId",\s*\]/.test(
         modelRoutesTest,
       ) &&
@@ -7100,7 +7113,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
-    "Phase 3/10 is pending: model route upsert request bodies must fail closed on retired camelCase policy/status aliases before route state writes",
+    "Phase 3/10 is pending: model route control JS facades must fail closed and invocation/tokenizer route selections must not write duplicate JS route truth",
   );
   assertCheck(
     result,
