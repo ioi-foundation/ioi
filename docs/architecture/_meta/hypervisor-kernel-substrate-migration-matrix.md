@@ -615,6 +615,11 @@ Matrix compaction timing:
   was compacted into the route-family range while preserving IDE authority
   boundary visualization as adapter behavior and terminal Rust daemon-core
   authority/projection ownership as the remaining target.
+- One-hundred-twenty-fourth scheduled pass completed on 2026-06-08: the
+  context-policy daemon-core command-envelope evidence after slice 688 was
+  compacted into the route-family range while preserving the
+  context-policy/state-update command boundary as migration transport and
+  terminal direct Rust daemon-core API ownership as the remaining target.
 
 ## Implementation Slice 0
 
@@ -13455,72 +13460,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 688: Context-Policy Daemon-Core Command Envelope
-
-```yaml
-slice: 688
-phase: 9-rust-daemon-core-extraction
-objective: move the context-policy and state-update runner off the generic
-  StepModule command envelope and onto an explicit Rust daemon-core command
-  envelope
-owner_boundary:
-  route_or_surface: runtime context policy, compaction, operator-control,
-    thread-control, MCP-control, thread-memory, runtime-bridge,
-    agent/run/status, and subagent state-update planning
-  authority_gate: Rust policy/state-update cores remain the decision owners;
-    the JS facade can only invoke the daemon-core command envelope
-  execution_backend: Rust daemon-core policy/state-update planners through
-    `ioi.runtime.daemon_core.command.v1`; the existing command binary remains
-    temporary transport only
-  truth_path: planned state updates must still carry Rust operation kinds before
-    any JS persistence path can proceed
-  projection_path: bridge conformance requires the JS runner to use
-    `IOI_RUNTIME_DAEMON_CORE_COMMAND`, emit
-    `ioi.runtime.daemon_core.command.v1`, and reject the retired StepModule
-    bridge schema for context-policy operations
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/runtime-context-policy-runner.mjs
-  rust_core_transport:
-    - crates/node/src/bin/ioi_step_module_bridge/mod.rs
-  tests:
-    - packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires daemon-core command env/schema in the context
-    policy runner
-  - bridge conformance requires the Rust command parser to classify context
-    policy/state-update operations as daemon-core policy operations
-  - focused Rust tests prove daemon-core envelopes pass and retired
-    `ioi.step_module.command_bridge.v1` context-policy envelopes fail closed
-  - focused JS tests prove `IOI_STEP_MODULE_COMMAND` no longer configures the
-    context-policy runner
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs
-    - cargo test -p ioi-node --bin ioi-step-module-bridge context_policy_rejects_step_module_command_schema -- --nocapture
-    - cargo test -p ioi-node --bin ioi-step-module-bridge bridge_evaluates_context_budget_policy_through_rust_core -- --nocapture
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal direct Rust daemon-core API extraction remains pending beyond
-      this command-envelope split
-    - other non-context route families still use the StepModule command
-      transport until their own Rust daemon-core API/protocol seams are
-      verified and retired
-closeout:
-  git_diff_check: required
-  commit: required after verification
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13536,7 +13475,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 688 and the one-hundred-twenty-third 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 688 and the one-hundred-twenty-fourth 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
