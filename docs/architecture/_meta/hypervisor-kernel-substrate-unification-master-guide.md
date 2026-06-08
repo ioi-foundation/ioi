@@ -434,9 +434,9 @@ control/projection still needs to own configuration, OAuth state/session
 custody, wallet/cTEE vault binding, auth-header refresh, receipts, Agentgres
 admission, record-state, projection, replay, and conformance. Do not encode the
 remaining JS source/auth helpers as terminal architecture.
-Schedule the Slice 762 catalog-provider config-update helper retirement
-matrix-compaction pass on the next resume before starting unrelated
-route-family work.
+The Slice 762 catalog-provider config-update helper retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

@@ -403,7 +403,7 @@ function runDocs() {
       /The Slice 761 model-mount route-selection policy alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 762 retired the hidden catalog-provider JS config-update helper/.test(guide) &&
       /`model-mounting\.mjs` no longer imports or injects `catalogProviderConfigUpdate`/.test(guide) &&
-      /Schedule the Slice 762 catalog-provider config-update helper retirement\s+matrix-compaction pass on the next resume/.test(guide) &&
+      /The Slice 762 catalog-provider config-update helper retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -429,9 +429,10 @@ function runDocs() {
       /This pass compacted Slice 759 catalog-provider runtime-material read-cache\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 760 catalog download policy request-synonym\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 761 model-mount route-selection policy alias\s+retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; because Slice 762 has now landed,\s+perform the scheduled Slice 762 matrix-compaction pass before unrelated\s+route-family work/.test(matrix) &&
+      /This pass compacted Slice 762 catalog-provider config-update helper retirement\s+evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
-      /Implementation Slice: 762/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 760/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -623,7 +624,8 @@ function runDocs() {
       ) &&
       /Scheduled matrix-compaction obligation from Slice 760 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 762\s+catalog-provider config-update helper retirement/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 762 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 762\s+catalog-provider config-update helper retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,

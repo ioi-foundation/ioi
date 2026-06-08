@@ -51,10 +51,11 @@ This pass compacted Slice 760 catalog download policy request-synonym
 retirement evidence.
 This pass compacted Slice 761 model-mount route-selection policy alias
 retirement evidence.
+This pass compacted Slice 762 catalog-provider config-update helper retirement
+evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; because Slice 762 has now landed,
-perform the scheduled Slice 762 matrix-compaction pass before unrelated
-route-family work. Preserve the live owner map,
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
 terminal blockers, and the fact that fail-closed JS facades, canonical input
 helpers, local projection helpers, and migration transport are not terminal
 substrate.
@@ -164,8 +165,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 762
-  catalog-provider config-update helper retirement.
+- Next scheduled matrix-compaction pass: none pending after Slice 762
+  catalog-provider config-update helper retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14414,74 +14415,39 @@ target ownership.
   fail-closed route-control facades, model_mount admission transport, or command
   transport as terminal architecture.
 
-## Implementation Slice: 762
+## Compacted Implementation Slice Evidence: 762
 
-```yaml
-slice: 762
-status: verified
-date: 2026-06-08
-objective: retire the hidden catalog-provider JS config-update helper and
-  source shortcut inputs so catalog-provider custody/config writes cannot bypass
-  the public Rust-core-required control facade
-phase: 10/11
-route_family:
-  name: model-mount catalog-provider control
-  route_or_surface: catalog-provider configuration/OAuth support helpers
-  authority_gate: public catalog-provider mutation facades remain fail-closed at
-    `model_mount.catalog_provider_control`; the removed helper can no longer
-    bind vault material, write vault refs, or synthesize config records from JS
-  execution_backend: Rust daemon-core catalog-provider control target; current
-    JS helpers are protocol/read adapters only
-  truth_path: no JS catalog-provider config-update helper remains to create
-    duplicate config/custody truth
-  projection_path: catalog-provider list/get/runtime-material read adapters
-    remain non-authoritative until direct Rust projection APIs own the surface
-files_changed:
-  - packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs
-  - packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs
-  - packages/runtime-daemon/src/model-mounting.mjs
-  - scripts/conformance/hypervisor-conformance.mjs
-  - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
-  - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  - docs/architecture/_meta/implementation-matrix.md
-conformance:
-  - model-mount-catalog-provider-source-request-aliases-retired
-  - model-mount-catalog-provider-auth-request-aliases-retired
-verification:
-  - node --test packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs
-  - node --check scripts/conformance/hypervisor-conformance.mjs
-  - node scripts/conformance/hypervisor-conformance.mjs docs
-  - node scripts/conformance/hypervisor-conformance.mjs
-  - git diff --check
-matrix_compaction:
-  scheduled: true
-  reason: compact this expanded catalog-provider helper-retirement evidence once
-    the slice is pushed, while preserving the terminal Rust daemon-core
-    catalog-provider control target and the non-authoritative status of the
-    remaining read/protocol helpers
-```
+The expanded Slice 762 ledger was compacted on 2026-06-08 after
+catalog-provider config-update helper retirement landed. This slice remains
+active migration evidence, not terminal architecture. The
+`ModelCatalogProviderControl` implementation-matrix row, model-mounting
+route-family row, conformance command contract, and terminal blockers above
+remain authoritative for current and target ownership.
 
-Slice 762 removes `catalogProviderConfigUpdate` from the model-mounting runtime
-surface and from the catalog-provider config module. The helper was no longer
-part of the public catalog-provider mutation path, but it still encoded the old
-JS authority shape: deriving config records, binding source material through the
-vault port, calling `writeVaultRefs`, and returning runtime material outside
-direct Rust daemon-core catalog-provider control.
-
-Catalog-provider source material parsing now accepts only canonical
-`manifest_path` and `base_url`. Retired `path`, `url`, `manifestPath`, and
-`baseUrl` inputs fail closed before any vault binding path. The auth/config
-conformance guard now requires the writer helper to stay absent from
-`catalog-provider-config.mjs` and `model-mounting.mjs`, and also requires that
-the config module not contain a `state.vault.bindVaultRef` JS writer.
-
-This slice intentionally does not claim terminal catalog-provider control
-migration. Direct Rust daemon-core catalog-provider control/projection still
-needs to own configuration, OAuth state/session custody, wallet/cTEE vault
-binding, auth-header refresh, receipts, Agentgres admission, record-state,
-projection, replay, and conformance. The next resume should perform the
-scheduled Slice 762 matrix-compaction pass before unrelated route-family work,
-without encoding the remaining JS read/protocol helpers as terminal substrate.
+- Slice 762 removed the hidden `catalogProviderConfigUpdate` JS writer from the
+  model-mounting runtime surface and from `catalog-provider-config.mjs`.
+- The removed helper can no longer bind source material, call `writeVaultRefs`,
+  synthesize catalog-provider configuration records, or return runtime material
+  outside direct Rust daemon-core catalog-provider control.
+- Catalog-provider source material parsing accepts only canonical
+  `manifest_path` and `base_url`; retired `path`, `url`, `manifestPath`, and
+  `baseUrl` fail closed before any vault binding path.
+- Conformance anchors
+  `model-mount-catalog-provider-source-request-aliases-retired` and
+  `model-mount-catalog-provider-auth-request-aliases-retired` guard this slice,
+  including the absence of `catalogProviderConfigUpdate` and
+  `state.vault.bindVaultRef` from the config module.
+- This slice intentionally does not claim terminal catalog-provider control
+  migration. Direct Rust daemon-core catalog-provider control/projection still
+  needs to own configuration, OAuth state/session custody, wallet/cTEE vault
+  binding, auth-header refresh, receipts, Agentgres admission, record-state,
+  projection, replay, and conformance.
+- Scheduled matrix-compaction obligation from Slice 762 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode remaining JS read/protocol helpers,
+  fail-closed catalog-provider control facades, or command transport as terminal
+  architecture.
 
 ## Command State
 
