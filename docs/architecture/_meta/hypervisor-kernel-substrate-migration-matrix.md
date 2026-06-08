@@ -111,10 +111,14 @@ Slice 791 moved route-selection receipt authoring to the Rust model_mount
 route-decision admission boundary; its matrix-compaction pass is complete.
 Slice 792 moved model_mount read-projection authoring to Rust daemon-core
 projection planning; its matrix-compaction pass is complete.
+Slice 793 moved canonical model_mount projection persistence behind Rust
+projection-plan evidence; its matrix-compaction pass is scheduled after this
+verified slice.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+facade-retirement implementation slice, then compact Slice 793 evidence once
+the next seam is clear. Preserve the live owner map, terminal blockers, and the
+fact that fail-closed JS facades, canonical input helpers, local projection
+helpers, and migration transport are not terminal substrate.
 
 ## Purpose
 
@@ -15897,3 +15901,38 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 state materialization as terminal architecture.
+
+## Implementation Slice Evidence: 793
+
+Slice 793 moved canonical model_mount projection persistence behind Rust
+daemon-core projection-plan evidence. The daemon `writeProjection()` method now
+requests `canonicalProjectionWritePlan()` from the Rust-backed projection
+planner and passes the returned plan into `AgentgresModelMountingStore`.
+`AgentgresModelMountingStore.writeProjection()` now rejects direct JS projection
+writes with `model_mount_projection_direct_write_forbidden` unless the
+canonical projection write carries the Rust source, backend, projection kind,
+projection identity, and evidence refs from `plan_model_mount_read_projection`.
+
+This removes the direct authoritative JS persistence seam
+`store.writeProjection("model-mounting-canonical", this.projection())`. The
+remaining local projection file materialization and command transport are
+migration plumbing only: they are not terminal architecture, and direct Rust
+daemon-core projection APIs over Agentgres-backed state remain open blockers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/store.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This does not claim terminal model_mount migration: JS still prepares current
+state input for the Rust planner, local projection files still exist as
+materialized projection cache, command transport still needs replacement by a
+direct Rust daemon-core API, and Agentgres-backed projection reads/watermarks
+must still move fully under Rust core ownership.
+
+Scheduled matrix-compaction obligation from Slice 793 is pending after this
+verified slice. The next resume should either compact this evidence once the
+next Rust-core extraction/facade-retirement seam is clear or continue with that
+next seam while preserving the non-terminal status of command transport, JS
+wrapper calls, and local projection materialization.

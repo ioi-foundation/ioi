@@ -160,7 +160,8 @@ export class AgentgresModelMountingStore {
     return receipt;
   }
 
-  writeProjection(name, projection) {
+  writeProjection(name, projection, options = {}) {
+    assertRustAuthoredModelMountProjection(name, projection, options?.rustProjection);
     writeJson(path.join(this.stateDir, "projections", `${safeFileName(name)}.json`), projection);
     emitRemoteBoundaryEvent(process.env.IOI_AGENTGRES_URL, "/operations", {
       port: "AgentgresModelMountingStorePort",
@@ -169,6 +170,9 @@ export class AgentgresModelMountingStore {
       projection: name,
       watermark: projection?.watermark ?? null,
       source: projection?.source ?? null,
+      rustSource: options?.rustProjection?.source ?? null,
+      rustBackend: options?.rustProjection?.backend ?? null,
+      evidenceRefs: options?.rustProjection?.evidence_refs ?? [],
     });
   }
 
@@ -207,6 +211,51 @@ export class AgentgresModelMountingStore {
       receipt,
       receipt_refs: [receipt.id],
     }));
+  }
+}
+
+function assertRustAuthoredModelMountProjection(name, projection, rustProjection) {
+  const missing = [];
+  const mismatches = [];
+  const evidenceRefs = Array.isArray(rustProjection?.evidence_refs) ? rustProjection.evidence_refs : [];
+
+  if (name !== "model-mounting-canonical") mismatches.push("projection_name");
+  if (!rustProjection || typeof rustProjection !== "object") missing.push("rust_projection_plan");
+  if (rustProjection?.source !== "rust_model_mount_read_projection_command") {
+    mismatches.push("rust_projection.source");
+  }
+  if (rustProjection?.backend !== "rust_model_mount_read_projection") {
+    mismatches.push("rust_projection.backend");
+  }
+  if (rustProjection?.projection_kind !== "projection") {
+    mismatches.push("rust_projection.projection_kind");
+  }
+  if (rustProjection?.projection !== projection) {
+    mismatches.push("rust_projection.projection_identity");
+  }
+  if (projection?.source !== "agentgres_model_mounting_projection") {
+    mismatches.push("projection.source");
+  }
+  for (const evidenceRef of [
+    "rust_daemon_core_model_mount_projection",
+    "agentgres_model_mount_read_truth",
+    "model_mount_js_read_projection_authoring_retired",
+  ]) {
+    if (!evidenceRefs.includes(evidenceRef)) missing.push(`evidence_refs.${evidenceRef}`);
+  }
+
+  if (missing.length > 0 || mismatches.length > 0) {
+    throw runtimeError({
+      status: 403,
+      code: "model_mount_projection_direct_write_forbidden",
+      message: "Model-mounting projection persistence requires a Rust daemon-core projection plan.",
+      details: {
+        projection: name ?? null,
+        missing,
+        mismatches,
+        canonical_persistence: "rust_daemon_core_model_mount_projection_plan",
+      },
+    });
   }
 }
 

@@ -351,6 +351,56 @@ test("receipt lookup returns persisted receipts and fails closed with canonical 
   );
 });
 
+test("canonical projection writes fail closed without Rust projection plan evidence", () => {
+  const { appended, stateDir, store } = testStore();
+  const projection = {
+    schemaVersion: "model.mount.schema",
+    source: "agentgres_model_mounting_projection",
+    watermark: 1,
+  };
+
+  assert.throws(
+    () => store.writeProjection("model-mounting-canonical", projection),
+    (error) =>
+      error.code === "model_mount_projection_direct_write_forbidden" &&
+      error.details.missing.includes("rust_projection_plan") &&
+      error.details.missing.includes("evidence_refs.rust_daemon_core_model_mount_projection"),
+  );
+  assert.equal(
+    fs.existsSync(path.join(stateDir, "projections", "model-mounting-canonical.json")),
+    false,
+  );
+  assert.deepEqual(appended, []);
+});
+
+test("canonical projection writes persist only after Rust projection planning", () => {
+  const { appended, stateDir, store } = testStore();
+  const projection = {
+    schemaVersion: "model.mount.schema",
+    source: "agentgres_model_mounting_projection",
+    watermark: 1,
+  };
+  const rustProjection = {
+    source: "rust_model_mount_read_projection_command",
+    backend: "rust_model_mount_read_projection",
+    projection_kind: "projection",
+    projection,
+    evidence_refs: [
+      "rust_daemon_core_model_mount_projection",
+      "agentgres_model_mount_read_truth",
+      "model_mount_js_read_projection_authoring_retired",
+    ],
+  };
+
+  store.writeProjection("model-mounting-canonical", projection, { rustProjection });
+
+  assert.deepEqual(
+    JSON.parse(fs.readFileSync(path.join(stateDir, "projections", "model-mounting-canonical.json"), "utf8")),
+    projection,
+  );
+  assert.deepEqual(appended, []);
+});
+
 test("model lifecycle receipt writes fail closed without provider kind and Rust instance lifecycle binding", () => {
   const { appended, stateDir, store } = testStore();
 

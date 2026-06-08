@@ -523,6 +523,12 @@ function runDocs() {
       /`plan_model_mount_read_projection` now authors the canonical\s+model_mount projection/.test(guide) &&
       /`model_mount_read_projection_rust_core_required`/.test(guide) &&
       /Slice 792 model_mount read-projection Rust-authoring matrix-compaction pass is\s+complete/.test(guide) &&
+      /Slice 793 moved canonical model_mount projection persistence behind the Rust\s+daemon-core projection plan/.test(guide) &&
+      /`canonicalProjectionWritePlan\(\)`/.test(guide) &&
+      /`model_mount_projection_direct_write_forbidden`/.test(guide) &&
+      /Slice 793\s+model_mount projection-persistence Rust-plan matrix-compaction pass is\s+scheduled/.test(guide) &&
+      /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
+      /Implementation Slice Evidence: 793/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -13576,6 +13582,36 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/projections.mjs",
     ],
     "Phase 5/11 is pending: model-mount receipt persistence must pass through Rust Agentgres receipt-state storage admission and must not append duplicate JS operation-log records after Rust binding and Agentgres admission",
+  );
+  assertCheck(
+    result,
+    "model-mount-projection-persistence-rust-core",
+    /canonicalProjectionWritePlan/.test(modelMountingState) &&
+      /this\.readProjectionFacade\.canonicalProjectionWritePlan\(this\)/.test(modelMountingState) &&
+      /rustProjection:\s*plan/.test(modelMountingState) &&
+      !/store\.writeProjection\("model-mounting-canonical",\s*this\.projection\(\)\)/.test(modelMountingState) &&
+      /function canonicalProjectionWritePlan/.test(read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")) &&
+      /rustReadProjectionPlan\(state,\s*"projection"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs"),
+      ) &&
+      /assertRustAuthoredModelMountProjection/.test(modelMountStore) &&
+      /model_mount_projection_direct_write_forbidden/.test(modelMountStore) &&
+      /rust_daemon_core_model_mount_projection/.test(modelMountStore) &&
+      /agentgres_model_mount_read_truth/.test(modelMountStore) &&
+      /model_mount_js_read_projection_authoring_retired/.test(modelMountStore) &&
+      /canonical projection writes fail closed without Rust projection plan evidence/.test(modelMountStoreTest) &&
+      /canonical projection writes persist only after Rust projection planning/.test(modelMountStoreTest) &&
+      /canonicalProjectionWritePlan\(state\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs"),
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 5/10 is pending: canonical model_mount projection persistence must require a Rust daemon-core projection plan and direct JS projection writes must fail closed",
   );
   assertCheck(
     result,

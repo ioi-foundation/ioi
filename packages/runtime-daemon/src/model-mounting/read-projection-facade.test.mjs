@@ -101,6 +101,7 @@ function createState() {
         projection: rustProjectionFixture(request),
         evidence_refs: [
           "rust_daemon_core_model_mount_projection",
+          "agentgres_model_mount_read_truth",
           "model_mount_js_read_projection_authoring_retired",
         ],
       };
@@ -289,6 +290,12 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
 
+  const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
+  assert.equal(projectionWritePlan.source, "rust_model_mount_read_projection_command");
+  assert.equal(projectionWritePlan.projection_kind, "projection");
+  assert.equal(projectionWritePlan.projection.source, "agentgres_model_mounting_projection");
+  assert.equal(projectionWritePlan.evidence_refs.includes("agentgres_model_mount_read_truth"), true);
+
   const summary = facade.projectionSummary(state);
   assert.equal(summary.schemaVersion, "model.mount.schema");
   assert.equal(summary.receiptCount, 4);
@@ -306,6 +313,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(authority.wallet.port, "WalletAuthorityPort");
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "projection_summary",
+    "projection",
     "projection",
     "projection_summary",
     "receipt_replay",

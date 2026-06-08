@@ -895,6 +895,23 @@ complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands; do not encode the command bridge,
 JS transport wrappers, or local state materialization as terminal architecture.
 
+Slice 793 moved canonical model_mount projection persistence behind the Rust
+daemon-core projection plan. `writeProjection()` now requests
+`canonicalProjectionWritePlan()` from the Rust read-projection planner and
+`AgentgresModelMountingStore.writeProjection()` rejects direct JS projection
+objects with `model_mount_projection_direct_write_forbidden` unless the write
+carries the Rust projection source, backend, projection kind, and evidence refs.
+This removes the direct `store.writeProjection("model-mounting-canonical",
+this.projection())` path as an authoritative JS projection persistence seam.
+This still does not claim terminal model_mount migration: JS still materializes
+current state input and local projection files through migration transport, and
+direct Rust daemon-core projection APIs over Agentgres-backed state still need
+to replace the command boundary and local projection store. The Slice 793
+model_mount projection-persistence Rust-plan matrix-compaction pass is
+scheduled once this verified slice lands; do not encode the command bridge,
+JS transport wrappers, or local projection materialization as terminal
+architecture.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

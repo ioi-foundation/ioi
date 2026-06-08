@@ -122,6 +122,10 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "projection");
   }
 
+  function canonicalProjectionWritePlan(state) {
+    return rustReadProjectionPlan(state, "projection");
+  }
+
   function adapterBoundaries(state) {
     return buildAdapterBoundaries(state);
   }
@@ -178,6 +182,11 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function rustReadProjection(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
+    const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, receiptId });
+    return result.projection;
+  }
+
+  function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
     if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
       throwReadProjectionRustCoreRequired(projectionKind, {
         base_url: baseUrl,
@@ -199,7 +208,7 @@ export function createModelMountingReadProjectionFacade({
         backend: result?.backend ?? null,
       });
     }
-    return result.projection;
+    return result;
   }
 
   function readProjectionInput(state, baseUrl = null) {
@@ -268,6 +277,7 @@ export function createModelMountingReadProjectionFacade({
   return {
     adapterBoundaries,
     authoritySnapshot,
+    canonicalProjectionWritePlan,
     latestProviderHealth,
     latestVaultHealth,
     listArtifacts,

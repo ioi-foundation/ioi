@@ -660,7 +660,10 @@ export class ModelMountingState {
     if (this.writingProjection) return;
     this.writingProjection = true;
     try {
-      this.store.writeProjection("model-mounting-canonical", this.projection());
+      const plan = this.readProjectionFacade.canonicalProjectionWritePlan(this);
+      this.store.writeProjection("model-mounting-canonical", plan.projection, {
+        rustProjection: plan,
+      });
     } finally {
       this.writingProjection = false;
     }
