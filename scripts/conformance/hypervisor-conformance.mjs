@@ -317,7 +317,7 @@ function runDocs() {
         guide,
 	      ) &&
 	      /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
-	      /Slice 732\s+retired workspace snapshot\/restore JS mutation authority/.test(guide) &&
+	      /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
 	      /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
 	        guide,
 	      ) &&
@@ -332,7 +332,7 @@ function runDocs() {
 	      /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
 	        matrix,
 	      ) &&
-	      /Next scheduled matrix-compaction pass: pending after Slice 732 retired the\s+workspace snapshot\/restore mutation JS facades/.test(
+	      /Next scheduled matrix-compaction pass: none pending after the Slice 732\s+workspace snapshot\/restore mutation compaction/.test(
 	        matrix,
 	      ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(

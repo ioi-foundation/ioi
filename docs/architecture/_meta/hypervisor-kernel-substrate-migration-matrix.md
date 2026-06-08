@@ -6,19 +6,20 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 731. Earlier 2026-06-08 compaction
+route-family slice ledger through Slice 732. Earlier 2026-06-08 compaction
 passes compacted IDE, MCP, thread-control, coding-tool, Agentgres state-commit,
 model-mount, workspace-restore, command-envelope, route fallback, provider,
 workflow-edit, lifecycle, runtime-engine, artifact/storage, and related
 facade-retirement evidence through Slice 726. This pass compacted Slices 727-730
 into coding-tool budget/governance, workflow-edit, and MCP control
 facade-retirement evidence and Slice 731 into coding-tool artifact mutation
-facade-retirement evidence while preserving the terminal Rust daemon-core target
-and the bridge-scaffolding guardrail.
-Next resume instruction: run the scheduled matrix-compaction pass for Slice 732
-before unrelated route-family work resumes, while preserving the distinction
-between fail-closed JS facades, temporary bridge transport, and terminal Rust
-daemon-core API ownership.
+facade-retirement evidence, then compacted Slice 732 into workspace
+snapshot/restore mutation facade-retirement evidence while preserving the
+terminal Rust daemon-core target and the bridge-scaffolding guardrail.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule and run the next
+matrix-compaction pass immediately after that seam is concrete, before unrelated
+route-family work resumes.
 
 ## Purpose
 
@@ -113,11 +114,10 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 732 retired the
-  workspace snapshot/restore mutation JS facades. Run this pass before starting
-  unrelated route-family work, while preserving the terminal Rust daemon-core
-  ownership target and avoiding encoding read-only JS helpers or bridge
-  transport as long-term substrate.
+- Next scheduled matrix-compaction pass: none pending after the Slice 732
+  workspace snapshot/restore mutation compaction. Schedule the next pass only
+  after the next concrete Rust-core extraction or JS-facade retirement seam
+  verifies and lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13672,106 +13672,17 @@ The expanded Slice 708-726 ledger was compacted on 2026-06-08 after Slice 726 ve
 - Slices 721-726 retired runtime control JS authority for hot thread/run surfaces: run cancellation, agent/run creation, operator interrupt/steer, approval request/decision/revoke, thread-bound context-policy/compaction controls, and diagnostics repair execution/operator-override/retry/resolution/event append helpers now fail closed before JS accepted-truth resolution, agent/run lookup, runtime-event append, Rust planner invocation from the JS facade, run/agent map mutation, retry `createRun`, or JS persistence. Rust planners and command envelopes remain migration transport only until direct Rust daemon-core admission/projection APIs own Agentgres expected-head/state-root binding, wallet authority, receipt/event materialization, replay, and persistence.
 - Scheduled matrix-compaction obligation from Slice 726 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge as terminal shape.
 
-## Compacted Implementation Slice Evidence: 727-731
+## Compacted Implementation Slice Evidence: 727-732
 
-The expanded Slice 727-731 ledger was compacted on 2026-06-08 after Slice 731 verified the runtime coding-tool artifact mutation facade-retirement seam. These slices remain active migration evidence, not terminal architecture. The route-family owner map, implementation matrix, conformance command contract, and terminal blockers above remain authoritative for current and target ownership.
+The expanded Slice 727-732 ledger was compacted on 2026-06-08 after Slice 732 verified the workspace snapshot/restore mutation facade-retirement seam. These slices remain active migration evidence, not terminal architecture. The route-family owner map, implementation matrix, conformance command contract, and terminal blockers above remain authoritative for current and target ownership.
 
 - Slice 727 retired public coding-tool budget recovery JS authority: budget recovery control and blocked-event projection now fail closed before JS run/agent lookup, accepted event projection, approval request/decision calls, runtime-event append, Rust planner invocation from the JS facade, run-map mutation, or `writeRun` persistence. Rust daemon-core budget recovery admission/projection must still own wallet authority, Agentgres expected-head/state-root binding, policy/approval receipts, retry-event materialization, projection, and persistence before this control can execute again.
 - Slice 728 retired coding-tool governance approval-block and budget-block JS authority: those facades now fail closed before JS approval request persistence, runtime-event append, JS-created blocked result envelopes, receipt/policy ref assembly, or duplicate response-truth construction. Approval-satisfaction remains only a canonical read helper until direct Rust approval/governance projection APIs replace it.
 - Slice 729 retired workflow-edit proposal/apply JS authority: proposal, target/context, approval-request, and apply controls now fail closed before JS agent/run lookup, workspace path resolution, `workflow.edit_proposed` append, approval persistence, proposal/apply envelope construction, workflow JSON writes, or legacy `workflow.edit_applied` replay as accepted truth. Proposal and approval read helpers remain temporary non-terminal adapters.
 - Slice 730 retired MCP control JS authority: MCP import/add/remove/enable/disable, validate/status-record, live discovery, live invocation, control event append, Rust state-planner invocation from the JS facade, agent registry mutation, and `writeAgent` persistence now fail closed at `runtime.mcp_control`. `mcpStatusForAgent` remains a read-only canonical helper over current registry records until direct Rust MCP projection APIs own the status surface.
 - Slice 731 retired runtime coding-tool artifact mutation JS authority: artifact draft materialization, visual observation artifact materialization, and command-stream event append helpers now fail closed before JS artifact record construction, local visual artifact file reads, Agentgres artifact-state commits from JS, `codingArtifacts` map mutation, or `appendRuntimeEvent`. Artifact read/retrieve helpers remain temporary data-plane projection adapters for migrated Rust-live tools until Rust daemon-core coding-tool artifact/event admission owns materialization, receipt binding, Agentgres expected-head/state-root binding, ArtifactRef/PayloadRef admission, and projection.
-- Scheduled matrix-compaction obligation from Slice 731 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge, read-only helper adapters, or fail-closed JS surfaces as terminal architecture.
-
-## Implementation Slice 732: Workspace Snapshot/Restore Mutation Facade Retirement
-
-```yaml
-implementation_slice:
-  id: 732
-  phase: 10/11
-  objective: retire workspace snapshot and restore JS mutation authority before
-    direct Rust daemon-core workspace snapshot/restore admission is available
-  route_or_surface: runtime workspace snapshot and restore surface
-  authority_gate: unchanged; JS facade now fails closed before capture,
-    restore policy/operation dispatch, filesystem restore writes, artifact
-    materialization, or accepted event append
-  truth_path: workspace snapshot/restore accepted truth must be admitted by the
-    Rust daemon core through Agentgres expected-head/state-root binding,
-    receipt binding, ArtifactRef/PayloadRef admission, rollback refs, and
-    projection
-  projection_path: list/content-package helpers remain read/projection adapters
-    over already-admitted snapshot artifacts and events only
-  rust_core_boundary:
-    - runtime.workspace_snapshot
-    - workspace_restore apply-policy planning
-    - workspace_restore preview/apply operation planning
-    - workspace snapshot capture
-    - receipt_binder
-    - agentgres_admission
-    - projection
-  js_facade_retirement:
-    - `prepareWorkspaceSnapshotForPatch` returns `null` for unapplied patches and
-      fails closed for applied patches before JS capture/materialization
-    - snapshot artifact materialization fails closed before artifact records,
-      `codingArtifacts` mutation, or Agentgres artifact-state commit calls
-    - snapshot event append fails closed before `appendRuntimeEvent`
-    - restore preview/apply fail closed before agent lookup, content package
-      lookup, bridge runner dispatch, policy planning, filesystem restore writes,
-      artifact materialization, or event append
-    - restore preview/apply artifact and event helpers fail closed before JS
-      accepted-truth construction
-    - Rust-live `file.apply_patch` remains completed when retired JS snapshot
-      admission fails, without adding JS snapshot receipt/artifact refs
-  files_touched:
-    - packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs
-    - packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs
-    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs
-    - packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
-  conformance_updates:
-    - bridge conformance now treats `runtime-workspace-restore-runner.mjs` as
-      migration transport and requires the JS snapshot/restore facade not to call
-      the runner for mutation
-    - receipts conformance now requires workspace snapshot/restore artifact
-      materializers to fail closed before `commitRuntimeArtifactRecord`
-    - compositor conformance now proves fail-closed snapshot/restore mutation and
-      absence of JS result/event/artifact accepted-truth assembly instead of
-      proving aliases on JS-created results
-  verification:
-    commands:
-      - node --check packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs
-      - node --check packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs
-      - node --check packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs
-      - node --check packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
-      - node --check scripts/conformance/hypervisor-conformance.mjs
-      - node --test packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs
-      - node --test packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs
-      - npm run hypervisor-conformance:bridge
-      - npm run hypervisor-conformance:receipts
-      - npm run hypervisor-conformance:compositor
-      - npm run hypervisor-conformance:docs
-      - npm run hypervisor-conformance
-      - git diff --check
-  replay_or_shadow_comparison: focused daemon tests prove applied Rust-live patch
-    execution remains completed when JS snapshot admission is retired, while
-    snapshot/restore accepted-truth helpers fail closed before mutation
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - read-only workspace snapshot list/content-package projection helpers remain
-      until direct Rust daemon-core projection APIs own the workspace snapshot
-      read surface
-    - workspace restore command runner remains migration transport only; it is
-      not terminal architecture
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-  next_matrix_compaction: scheduled before unrelated route-family work
-```
+- Slice 732 retired workspace snapshot/restore JS mutation authority: snapshot capture, snapshot artifact materialization, snapshot event append, restore preview/apply, restore artifact materialization, and restore event append now fail closed before JS file capture, restore bridge dispatch, filesystem restore writes, artifact records, Agentgres artifact-state commits from JS, `codingArtifacts` map mutation, or `appendRuntimeEvent`. List/content-package helpers remain read/projection adapters only, and Rust-live `file.apply_patch` remains completed when retired JS snapshot admission fails without adding JS snapshot receipt/artifact refs. Direct Rust daemon-core workspace snapshot/restore admission still must own capture, preview/apply, policy/approval, receipt/state-root binding, ArtifactRef/PayloadRef admission, projection, and replay before the route family is terminal.
+- Scheduled matrix-compaction obligation from Slice 732 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge, read-only helper adapters, or fail-closed JS surfaces as terminal architecture.
 
 ## Command State
 
