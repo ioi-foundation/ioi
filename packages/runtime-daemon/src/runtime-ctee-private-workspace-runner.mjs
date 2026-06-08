@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const CTEE_PRIVATE_WORKSPACE_COMMAND_ENV = "IOI_CTEE_PRIVATE_WORKSPACE_COMMAND";
-export const CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV = "IOI_CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS";
-export const CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const CTEE_PRIVATE_WORKSPACE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_CTEE_PRIVATE_WORKSPACE_BACKEND = "ctee_operator";
 
 const RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES = [
@@ -53,7 +53,7 @@ export class RustCteePrivateWorkspaceRunner {
     }
     if (!this.command) {
       throw new CteePrivateWorkspaceRunnerError(
-        "Private Workspace cTEE execution requires IOI_CTEE_PRIVATE_WORKSPACE_COMMAND for Rust cTEE admission.",
+        "Private Workspace cTEE execution requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core cTEE custody admission.",
         "ctee_private_workspace_bridge_unconfigured",
         {
           env: CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,

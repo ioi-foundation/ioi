@@ -1012,6 +1012,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "commit_runtime_model_mount_record_state"
             | "commit_runtime_model_mount_receipt_state"
             | "authorize_external_capability_exit"
+            | "execute_private_workspace_ctee_action"
             | "plan_coding_tool_approval_manifest"
             | "plan_approval_request_state_update"
             | "plan_approval_decision_state_update"
@@ -1781,12 +1782,12 @@ fn bind_model_mount_invocation_receipt(
 fn execute_private_workspace_ctee_action(
     request: CteePrivateWorkspaceBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7126,7 +7127,7 @@ mod tests {
     #[test]
     fn bridge_executes_private_workspace_ctee_action_through_rust_core() {
         let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "execute_private_workspace_ctee_action",
             "backend": "ctee_operator",
             "invocation": {
@@ -7219,6 +7220,85 @@ mod tests {
             "PrivateWorkspaceCteeAction"
         );
         assert_eq!(response["projection_record"]["status"], "live");
+    }
+
+    #[test]
+    fn ctee_private_workspace_rejects_step_module_command_schema() {
+        let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "execute_private_workspace_ctee_action",
+            "backend": "ctee_operator",
+            "invocation": {
+                "schema_version": "ioi.step_module_invocation.v1",
+                "invocation_id": "invocation://ctee.bridge.test",
+                "run_id": "run:ctee",
+                "task_id": "task:ctee",
+                "thread_id": "thread:ctee",
+                "workflow_graph_id": "workflow.ctee",
+                "workflow_node_id": "node.ctee.private-workspace",
+                "context_chamber_ref": "chamber:ctee",
+                "action_proposal_ref": "action:ctee:private-workspace",
+                "gate_result_ref": "gate:ctee:private-workspace",
+                "module_ref": {
+                    "kind": "private_workspace_ctee_action",
+                    "id": "private_workspace.mount",
+                    "version": "1",
+                    "manifest_ref": "module://ctee/private-workspace@1"
+                },
+                "actor": {
+                    "actor_id": "runtime:hypervisor-daemon",
+                    "runtime_node_ref": "node://private-workspace"
+                },
+                "authority": {
+                    "authority_grant_refs": ["grant://ctee/private-workspace"],
+                    "policy_hash": "sha256:ctee-policy",
+                    "primitive_capabilities": ["prim:private_workspace.mount"],
+                    "authority_scopes": ["scope:ctee.private_workspace"],
+                    "approval_ref": "approval://declassify"
+                },
+                "input": {
+                    "input_hash": "sha256:ctee-input",
+                    "expected_schema_ref": "schema://ctee/private-workspace/input",
+                    "context_refs": ["ctx://redacted"],
+                    "artifact_refs": ["artifact://encrypted-capsule"],
+                    "payload_refs": ["payload://sealed-private-workspace"],
+                    "state_root_before": "sha256:ctee-before",
+                    "projection_watermark": "agentgres:ctee:0",
+                    "data_plane_handle": null
+                },
+                "custody": {
+                    "privacy_profile": "private_workspace_ctee",
+                    "plaintext_policy": {
+                        "node_plaintext_allowed": false,
+                        "declassification_required": true
+                    },
+                    "custody_proof_ref": "artifact://custody-proof",
+                    "leakage_profile_ref": "artifact://leakage-profile"
+                },
+                "execution": {
+                    "backend": "ctee_operator",
+                    "idempotency_key": "idem:ctee.bridge",
+                    "deadline_ms": 300000,
+                    "resource_lease_ref": "lease://ctee",
+                    "retry_policy_ref": null
+                }
+            },
+            "node_trust": {
+                "runtime_node_ref": "node://rented-untrusted",
+                "trusted_for_plaintext": false,
+                "attestation_ref": null
+            }
+        }))
+        .expect("ctee bridge request");
+
+        let error = execute_private_workspace_ctee_action(request)
+            .expect_err("daemon-core cTEE custody rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

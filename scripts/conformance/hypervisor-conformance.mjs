@@ -13637,6 +13637,9 @@ function runCtee() {
       /PrivateWorkspaceCteeModule/.test(bridgeModule) &&
       /rust_ctee_private_workspace_command/.test(bridgeModule) &&
       /accepted_receipt_append/.test(bridgeModule) &&
+      /ctee_private_workspace_rejects_step_module_command_schema/.test(
+        bridgeModule,
+      ) &&
       /bridge_executes_private_workspace_ctee_action_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 7 is pending: daemon command bridge must expose Rust cTEE execution with receipt/admission/projection artifacts",
@@ -13645,7 +13648,10 @@ function runCtee() {
     result,
     "ctee-daemon-runner",
     /CTEE_PRIVATE_WORKSPACE_COMMAND_ENV/.test(cteePrivateWorkspaceRunner) &&
-      /IOI_CTEE_PRIVATE_WORKSPACE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(cteePrivateWorkspaceRunner) &&
+      !/IOI_CTEE_PRIVATE_WORKSPACE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
       /RustCteePrivateWorkspaceRunner/.test(cteePrivateWorkspaceRunner) &&
       /createCteePrivateWorkspaceRunnerFromEnv/.test(cteePrivateWorkspaceRunner) &&
       /createCteePrivateWorkspaceRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -13655,6 +13661,7 @@ function runCtee() {
       /ctee_operator/.test(cteePrivateWorkspaceRunner) &&
       /ctee_private_workspace_bridge_unconfigured/.test(cteePrivateWorkspaceRunner) &&
       /cTEE private workspace runner sends execution bridge request/.test(cteePrivateWorkspaceRunnerTest) &&
+      /cTEE private workspace runner env uses daemon-core command boundary/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner fails closed without command/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner surfaces Rust execution rejection/.test(cteePrivateWorkspaceRunnerTest) &&
       /runtime store mounts cTEE private workspace runner from options/.test(

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV,
   CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
   RustCteePrivateWorkspaceRunner,
   createCteePrivateWorkspaceRunnerFromEnv,
@@ -144,12 +145,18 @@ test("cTEE private workspace runner sends execution bridge request", () => {
   assert.deepEqual(result.receipt_refs, ["receipt://ctee/private-workspace/daemon-runner"]);
 });
 
-test("cTEE private workspace runner can be configured from env", () => {
+test("cTEE private workspace runner env uses daemon-core command boundary", () => {
   const runner = createCteePrivateWorkspaceRunnerFromEnv({
-    [CTEE_PRIVATE_WORKSPACE_COMMAND_ENV]: "mock-ctee-bridge",
+    [CTEE_PRIVATE_WORKSPACE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV]: "--json",
+    IOI_CTEE_PRIVATE_WORKSPACE_COMMAND: "retired-ctee-bridge",
+    IOI_CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS: "--retired-ctee",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-ctee-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("cTEE private workspace runner rejects retired bridge request aliases before command invocation", () => {
