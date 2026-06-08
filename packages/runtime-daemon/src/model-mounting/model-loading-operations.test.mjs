@@ -387,6 +387,82 @@ test("loadEstimate derives native resource estimate and backend defaults", () =>
   assert.deepEqual(estimate.evidenceRefs, ["model_load_option_estimate", "runtime_engine_preference"]);
 });
 
+test("loadModel fails closed for non-migrated provider before JS driver execution", async () => {
+  const state = fakeState();
+  state.endpointRecord = {
+    ...state.endpointRecord,
+    providerId: "provider.remote",
+    apiFormat: "openai_compatible",
+    backendId: "backend.remote",
+  };
+  state.endpointById.set(state.endpointRecord.id, state.endpointRecord);
+  state.providerRecord = {
+    id: "provider.remote",
+    kind: "openai_compatible",
+    driver: "openai_compatible",
+    apiFormat: "openai_compatible",
+  };
+
+  await assert.rejects(
+    () => loadModel(state, { endpoint_id: "endpoint.local.llama", id: "instance.remote" }, deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_model_loading_backend_unmigrated");
+      assert.equal(error.details.operation, "model_load");
+      assert.equal(error.details.provider_id, "provider.remote");
+      assert.equal(error.details.provider_kind, "openai_compatible");
+      assert.equal(error.details.provider_driver, "openai_compatible");
+      assert.equal(error.details.api_format, "openai_compatible");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+      return true;
+    },
+  );
+
+  assert.deepEqual(state.driverCalls, []);
+  assert.equal(state.instances.has("instance.remote"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+});
+
+test("unloadModel fails closed for non-migrated provider before JS driver execution", async () => {
+  const state = fakeState();
+  state.providerRecord = {
+    id: "provider.remote",
+    kind: "custom_http",
+    driver: "openai_compatible",
+    apiFormat: "openai_compatible",
+  };
+  state.instances.set("instance.remote", {
+    id: "instance.remote",
+    endpointId: "endpoint.local.llama",
+    providerId: "provider.remote",
+    modelId: "llama-test",
+    status: "loaded",
+  });
+
+  await assert.rejects(
+    () => unloadModel(state, { instance_id: "instance.remote" }, deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_model_loading_backend_unmigrated");
+      assert.equal(error.details.operation, "model_unload");
+      assert.equal(error.details.provider_id, "provider.remote");
+      assert.equal(error.details.provider_kind, "custom_http");
+      assert.equal(error.details.provider_driver, "openai_compatible");
+      assert.equal(error.details.api_format, "openai_compatible");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+      return true;
+    },
+  );
+
+  assert.deepEqual(state.driverCalls, []);
+  assert.equal(state.instances.get("instance.remote").status, "loaded");
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
+});
+
 test("unloadModel updates loaded instance and records provider evidence", async () => {
   const state = fakeState();
   state.instances.set("instance.loaded", {

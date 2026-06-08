@@ -55,7 +55,9 @@ worker/service package daemon-core command-envelope evidence through slice 697,
 plus runtime model-route JS fallback retirement evidence through slice 698, plus
 model provider JS invocation retirement evidence through slice 699, plus
 workflow-edit direct JS mutation retirement evidence through slice 700, plus
-provider-control JS fallback retirement evidence through slice 701.
+provider-control JS fallback retirement evidence through slice 701, plus
+model load/unload JS provider-driver fallback retirement evidence through slice
+702.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -101,10 +103,10 @@ Remaining terminal blockers:
   projection, cTEE custody, replay, and conformance are not yet extracted as one
   authoritative Rust daemon core for every hot route family.
 - Hosted/openai-compatible, Ollama, LM Studio, llama.cpp, vLLM, custom HTTP, and
-  other non-migrated provider execution, health, inventory, and control
-  backends now fail closed before JS driver execution or stateless provider
-  control; they still require concrete Rust workload_client/model_mount backend
-  extraction before those routes are live again.
+  other non-migrated provider execution, model load/unload, health, inventory,
+  and control backends now fail closed before JS driver execution or stateless
+  provider control; they still require concrete Rust workload_client/model_mount
+  backend extraction before those routes are live again.
 - Approved workflow-edit apply now fails closed instead of writing workflow JSON
   or emitting a JS-created `workflow.edit_applied` event; Rust daemon-core
   workflow mutation admission/execution remains the required terminal path.

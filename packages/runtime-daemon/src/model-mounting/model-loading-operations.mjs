@@ -1,4 +1,5 @@
 import {
+  modelMountProviderKindRequiresRustInstanceLifecycle,
   modelMountInstanceLifecycleFields,
   planModelMountInstanceLifecycleForMigratedProvider,
 } from "./model-instance-lifecycle.mjs";
@@ -40,6 +41,7 @@ export async function loadModel(state, body = {}, deps = {}) {
   const provider = state.provider(endpoint.providerId);
   const loadPolicy = normalizeLoadPolicy(body.load_policy ?? endpoint.loadPolicy);
   const runtimePreference = state.runtimePreferenceForEndpoint(endpoint);
+  assertModelLoadingRustBackend(provider, "model_load");
   const requestLoadOptions = body.load_options ?? {};
   const runtimeDefaults = { ...state.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
   if (body.load_policy && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
@@ -188,6 +190,7 @@ export async function unloadModel(state, body = {}, deps = {}) {
     : state.loadedInstanceForEndpoint(state.resolveEndpoint(body.endpoint_id, body.model_id).id);
   const endpoint = state.endpoint(instance.endpointId);
   const provider = state.provider(instance.providerId);
+  assertModelLoadingRustBackend(provider, "model_unload");
   const driverResult = await state.driverForProvider(provider).unload({ state, provider, endpoint, instance, body });
   const instanceLifecycle = planModelMountInstanceLifecycleForMigratedProvider({
     state,
@@ -222,6 +225,27 @@ export async function unloadModel(state, body = {}, deps = {}) {
   commitModelInstanceRecordState(state, stored, "model_mount.instance.unload", [receipt.id]);
   state.instances.set(instance.id, stored);
   return stored;
+}
+
+function assertModelLoadingRustBackend(provider = {}, operation) {
+  if (providerHasRustModelLoadingBackend(provider)) return;
+  const error = new Error("Model load/unload requires a Rust model_mount provider lifecycle backend.");
+  error.status = 501;
+  error.code = "model_mount_model_loading_backend_unmigrated";
+  error.details = {
+    operation,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+    provider_driver: provider?.driver ?? null,
+    api_format: provider?.apiFormat ?? null,
+  };
+  throw error;
+}
+
+function providerHasRustModelLoadingBackend(provider = {}) {
+  return modelMountProviderKindRequiresRustInstanceLifecycle(provider.kind) ||
+    provider.driver === "native_local" ||
+    provider.apiFormat === "ioi_native";
 }
 
 function assertCanonicalModelLoadingRequestBody(body = {}) {

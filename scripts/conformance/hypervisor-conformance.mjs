@@ -10371,6 +10371,13 @@ function runReceipts() {
       /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
       /model_mount\.instance\.load/.test(modelLoadingOperations) &&
       /model_mount\.instance\.unload/.test(modelLoadingOperations) &&
+      /model_mount_model_loading_backend_unmigrated/.test(modelLoadingOperations) &&
+      /assertModelLoadingRustBackend\(provider,\s*"model_load"\)[\s\S]*?state\.driverForProvider\(provider\)\.load/.test(
+        modelLoadingOperations,
+      ) &&
+      /assertModelLoadingRustBackend\(provider,\s*"model_unload"\)[\s\S]*?state\.driverForProvider\(provider\)\.unload/.test(
+        modelLoadingOperations,
+      ) &&
       /model_mount\.instance\.evict/.test(loadedInstances) &&
       /model_mount\.instance\.supersede/.test(loadedInstances) &&
       /model_mount_instance_state_commit_unconfigured/.test(modelInstanceRecordState) &&
@@ -10384,6 +10391,13 @@ function runReceipts() {
       /unloadModel fails closed without Rust Agentgres instance record-state commit/.test(
         modelLoadingOperationsTest,
       ) &&
+      /loadModel fails closed for non-migrated provider before JS driver execution/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /unloadModel fails closed for non-migrated provider before JS driver execution/.test(
+        modelLoadingOperationsTest,
+      ) &&
+      /assert\.deepEqual\(state\.driverCalls,\s*\[\]\)/.test(modelLoadingOperationsTest) &&
       /instance lifecycle maintenance fails closed without Rust Agentgres record-state commit/.test(
         loadedInstancesTest,
       ) &&
