@@ -721,8 +721,9 @@ This still does not claim terminal MCP migration: direct Rust daemon-core MCP
 registry truth, live transport discovery and containment, wallet authority,
 StepModuleRouter dispatch, receipt binding, Agentgres admission, replay, and
 SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
-Slice 782 MCP helper summary-retirement matrix-compaction pass is pending and
-must run before unrelated route-family work resumes.
+Slice 782 MCP helper summary-retirement matrix-compaction pass is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
