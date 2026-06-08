@@ -539,8 +539,9 @@ needs to own visual artifact materialization, receipt binding,
 ArtifactRef/PayloadRef admission, Agentgres expected-head/state-root binding,
 projection, replay, SDK/IDE protocol coverage, and conformance. Do not encode
 the remaining fail-closed JS artifact facade as terminal architecture.
-Schedule the Slice 768 matrix-compaction pass before unrelated route-family
-work.
+The Slice 768 visual artifact path alias-retirement matrix-compaction pass is
+complete. No matrix-compaction pass is pending until the next Rust-core
+extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

@@ -421,7 +421,7 @@ function runDocs() {
       /The Slice 767 MCP manager\/catalog\/helper config\/source handoff alias-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 768 retired visual observation artifact materialization path alias\s+fallback metadata/.test(guide) &&
       /`has_screenshot_path`, `has_som_path`, and `has_ax_path` only from canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(guide) &&
-      /Schedule the Slice 768 matrix-compaction pass before unrelated route-family\s+work/.test(guide) &&
+      /The Slice 768 visual artifact path alias-retirement matrix-compaction pass is\s+complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -453,8 +453,8 @@ function runDocs() {
       /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state\s+committer injection retirement evidence/.test(matrix) &&
       /This pass compacted Slice 767 MCP manager\/catalog\/helper config\/source handoff\s+alias-retirement evidence/.test(matrix) &&
-      /Slice 768 retired visual observation artifact materialization path alias\s+fallback metadata/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first only after compacting Slice 768/.test(matrix) &&
+      /This pass compacted Slice 768 visual observation artifact materialization path\s+alias fallback metadata retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -660,9 +660,10 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 766 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 767/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 767 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 768/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 768/.test(matrix) &&
       /visual observation artifact materialization path alias\s+fallback metadata/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 768 visual artifact path alias\s+retirement compaction/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 768 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 768 visual\s+artifact path alias retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&

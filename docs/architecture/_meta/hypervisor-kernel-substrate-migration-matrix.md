@@ -63,13 +63,14 @@ This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state
 committer injection retirement evidence.
 This pass compacted Slice 767 MCP manager/catalog/helper config/source handoff
 alias-retirement evidence.
-Slice 768 retired visual observation artifact materialization path alias
-fallback metadata in the coding-tool artifact mutation fail-closed surface.
+This pass compacted Slice 768 visual observation artifact materialization path
+alias fallback metadata retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first only after compacting Slice 768.
-Preserve the live owner map, terminal blockers, and the fact that fail-closed
-JS facades, canonical input helpers, local projection helpers, and migration
-transport are not terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -176,8 +177,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: Slice 768 visual artifact path alias
-  retirement compaction, before unrelated route-family work.
+- Next scheduled matrix-compaction pass: none pending after Slice 768 visual
+  artifact path alias retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -14633,73 +14634,35 @@ ownership.
   that seam lands, and do not encode the remaining JS MCP read/config helpers
   or command transport as terminal architecture.
 
-## Implementation Slice Evidence: 768
+## Compacted Implementation Slice Evidence: 768
 
-```yaml
-slice: 768
-phase: 10-authoritative-js-facade-retirement
-objective: retire visual observation artifact path alias fallback metadata
-  before the coding-tool artifact mutation facade reaches Rust-core-required
-  fail-closed details
-owner_boundary:
-  route_or_surface: runtime coding-tool visual observation artifact
-    materialization
-  authority_gate: unchanged; visual artifact materialization remains
-    fail-closed until Rust daemon-core artifact admission owns the mutation
-  execution_backend: no JS artifact materialization; the facade only raises the
-    Rust-core-required boundary with canonical metadata
-  truth_path: Agentgres admitted artifact truth remains pending direct Rust
-    daemon-core materialization, ArtifactRef/PayloadRef admission, receipt
-    binding, expected-head/state-root binding, and projection
-  projection_path: fail-closed details expose only canonical
-    `has_screenshot_path`, `has_som_path`, and `has_ax_path` booleans derived
-    from canonical `screenshot_path`, `som_path`, and `ax_path`
-touched_files:
-  docs:
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
-  js_facade:
-    - packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs
-  tests:
-    - packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires visual artifact fail-closed metadata to read
-    canonical `input?.screenshot_path`, `input?.som_path`, and `input?.ax_path`
-  - bridge conformance rejects retired `input?.screenshotPath`,
-    `input?.somPath`, and `input?.axPath` fallback reads in the materializer
-  - focused daemon test proves retired path aliases do not set canonical
-    `has_*_path` details and do not leak into error details
-verification:
-  commands:
-    - node --check packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs
-    - node --check packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - node --test packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance:negative
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core visual artifact admission and projection APIs
-      remain pending beyond this fail-closed metadata cleanup
-    - artifact read/retrieve helpers remain data-plane projection adapters for
-      migrated Rust-live tools until direct Rust daemon-core coding-tool
-      artifact/event admission owns materialization and replay
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
+The expanded Slice 768 ledger was compacted on 2026-06-08 after visual
+observation artifact materialization path alias fallback metadata retirement
+landed. This slice remains active migration evidence, not terminal
+architecture. The `RuntimeCodingToolArtifactMutationControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
 
-Matrix compaction is scheduled after Slice 768 and before unrelated
-route-family work. The compaction must preserve that this slice retired only a
-fallback metadata shim on an already fail-closed JS facade; it does not make the
-JS facade a terminal artifact materializer.
+- Retired the remaining visual observation artifact materialization path alias
+  fallback metadata on the coding-tool artifact mutation fail-closed surface.
+- `runtime-coding-tool-artifact-surface.mjs` now derives
+  `has_screenshot_path`, `has_som_path`, and `has_ax_path` only from canonical
+  `input?.screenshot_path`, `input?.som_path`, and `input?.ax_path`.
+- Retired `input?.screenshotPath`, `input?.somPath`, and `input?.axPath`
+  fallback reads can no longer make the fail-closed metadata report local path
+  presence, and those retired aliases do not leak into error details.
+- Focused daemon tests and bridge conformance prove the canonical-only path
+  metadata and reject reintroducing the retired camelCase path reads.
+- This slice intentionally does not claim terminal visual artifact migration.
+  Direct Rust daemon-core coding-tool artifact admission still needs to own
+  visual artifact materialization, receipt binding, ArtifactRef/PayloadRef
+  admission, Agentgres expected-head/state-root binding, projection, replay,
+  SDK/IDE protocol coverage, and conformance.
+- Scheduled matrix-compaction obligation from Slice 768 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode the fail-closed JS artifact facade as a
+  terminal artifact materializer.
 
 ## Command State
 
