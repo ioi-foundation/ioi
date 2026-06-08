@@ -17,11 +17,21 @@ function server(id, tools = [{ name: "search" }], extra = {}) {
   };
 }
 
-function harness({ stateUpdateOverride = null } = {}) {
-  const events = [];
-  const statePlannerCalls = [];
-  const transportCalls = [];
-  const writes = [];
+function runtimeError({ status, code, message, details }) {
+  const error = new Error(message);
+  error.status = status;
+  error.code = code;
+  error.details = details;
+  return error;
+}
+
+function failIfCalled(name) {
+  return () => {
+    throw new Error(`${name} must not be reached by the retired JS MCP control facade`);
+  };
+}
+
+function harness() {
   const agent = {
     id: "agent-one",
     cwd: "/workspace",
@@ -31,7 +41,10 @@ function harness({ stateUpdateOverride = null } = {}) {
         server("mcp.docs", [
           { name: "search", side_effect_class: "read" },
           { name: "write", side_effect_class: "write" },
-        ]),
+        ], {
+          resources: [{ uri: "docs://index" }],
+          prompts: [{ name: "summarize" }],
+        }),
       ],
     },
   };
@@ -42,163 +55,30 @@ function harness({ stateUpdateOverride = null } = {}) {
         tool_name: tool.name,
         stable_tool_id: `${item.id}.${tool.name}`,
         side_effect_class: tool.side_effect_class ?? "read",
-        workflow_node_id: `runtime.mcp-tool.${item.id}.${tool.name}`,
       })),
     );
   const surface = createRuntimeMcpControlSurface({
     RUNTIME_MCP_MANAGER_INVOCATION_SCHEMA_VERSION: "invoke.schema",
     RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION: "status.schema",
     RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION: "validation.schema",
-    contextPolicyRunner: {
-      planMcpControlAgentStateUpdate(request) {
-        statePlannerCalls.push(request);
-        return {
-          status: "planned",
-          operation_kind: `thread.${request.control_kind}`,
-          updated_at: request.created_at,
-          control: {
-            controlKind: request.control_kind,
-            eventId: request.event_id,
-            seq: request.seq,
-          },
-          agent: {
-            ...request.agent,
-            updatedAt: request.created_at,
-          },
-          ...stateUpdateOverride,
-        };
-      },
-    },
-    doctorHash() {
-      return "hash1234567890abcdef";
-    },
-    eventStreamIdForThread(threadId) {
-      return `stream:${threadId}`;
-    },
-    fixtureProfileForAgent() {
-      return "fixture.profile";
-    },
-    discoverMcpStdioCatalog(server, options) {
-      transportCalls.push({ name: "discoverMcpStdioCatalog", server, options });
-      return {
-        executionMode: "retired_live_stdio",
-        authBoundary: { retired: true },
-        tools: server.tools ?? [],
-        resources: server.resources ?? [],
-        prompts: server.prompts ?? [],
-      };
-    },
-    invokeMcpStdioTool(server, toolName, input, options) {
-      transportCalls.push({ name: "invokeMcpStdioTool", server, toolName, input, options });
-      return {
-        ok: true,
-        status: "completed",
-        transport: "stdio",
-        execution_mode: "live_stdio",
-        executionMode: "retired_live_stdio",
-        result: { ok: true },
-      };
-    },
-    mcpLiveExecutionModeForServer(server, request = {}) {
-      return request.live_transport === true || server.execution_mode === "live_stdio" ? "live_stdio" : null;
-    },
-    mcpRegistryWithServers(registry, servers) {
-      return { ...registry, servers };
-    },
-    mcpServerRecordFromAddRequest(input) {
-      return server(input.id ?? "mcp.added", input.tools ?? [{ name: "added" }], input);
-    },
-    mcpServerRecordsFromMutationInput(input) {
-      return input.servers ?? [];
-    },
     mcpToolsForServers,
-    mcpTransportEvidenceRef() {
-      return "mcp.transport.fixture";
-    },
-    mcpTransportSummary() {
-      return "simulated manager receipt";
-    },
-    resolveMcpToolRecord(servers, toolId, request = {}) {
-      const requestedTool = request.tool_name ?? request.name ?? String(toolId ?? "").split(".").at(-1);
-      const requestedServer = request.server_id ?? String(toolId ?? "").split(".").slice(0, -1).join(".");
-      const foundServer =
-        servers.find((item) => item.id === requestedServer) ??
-        servers.find((item) => (item.tools ?? []).some((tool) => tool.name === requestedTool));
-      return { server: foundServer ?? null, toolName: requestedTool };
-    },
-    runtimeError({ status, code, message, details }) {
-      const error = new Error(message);
-      error.status = status;
-      error.code = code;
-      error.details = details;
-      return error;
-    },
+    runtimeError,
     validateMcpServerRecords(servers) {
       const issues = servers.some((item) => item.invalid) ? [{ code: "invalid_server" }] : [];
       return { ok: issues.length === 0, issues, warnings: [] };
     },
   });
   const store = {
-    agents: new Map([["agent-one", agent]]),
-    homeDir: "/home/user",
-    modelMounting: { vault: {} },
-    agentForThread(threadId) {
-      assert.equal(threadId, "thread-agent-one");
-      return this.agents.get("agent-one");
-    },
-    appendRuntimeEvent(event) {
-      const record = {
-        ...event,
-        event_id: `event-${events.length + 1}`,
-        id: `event-${events.length + 1}`,
-        seq: events.length + 1,
-        created_at: "2026-06-04T12:00:00.000Z",
-      };
-      events.push(record);
-      return record;
-    },
-    listMcpServers({ thread_id }) {
-      assert.equal(thread_id, "thread-agent-one");
-      return this.agents.get("agent-one").mcpRegistry.servers;
-    },
-    mcpStatus({ thread_id }) {
-      const servers = this.listMcpServers({ thread_id });
-      const tools = mcpToolsForServers(servers);
-      return {
-        schema_version: "status.schema",
-        object: "ioi.runtime_mcp_manager_status",
-        status: "ready",
-        server_count: servers.length,
-        tool_count: tools.length,
-        resource_count: 0,
-        prompt_count: 0,
-        servers,
-        tools,
-        resources: [],
-        prompts: [],
-      };
-    },
-    threadForAgent() {
-      return { thread_id: "thread-agent-one", latest_turn_id: "turn-one" };
-    },
-    validateMcp(input = {}) {
-      const servers = input.servers ?? [];
-      return {
-        schema_version: "validation.schema",
-        ok: !servers.some((item) => item.invalid),
-        status: servers.some((item) => item.invalid) ? "blocked" : "pass",
-        server_count: servers.length,
-        issue_count: servers.some((item) => item.invalid) ? 1 : 0,
-        issues: servers.some((item) => item.invalid) ? [{ code: "invalid_server" }] : [],
-        warnings: [],
-        servers,
-      };
-    },
-    writeAgent(record, reason) {
-      writes.push({ record, reason });
-    },
+    agents: { set: failIfCalled("agents.set") },
+    agentForThread: failIfCalled("agentForThread"),
+    appendRuntimeEvent: failIfCalled("appendRuntimeEvent"),
+    listMcpServers: failIfCalled("listMcpServers"),
+    mcpStatus: failIfCalled("mcpStatus"),
+    threadForAgent: failIfCalled("threadForAgent"),
+    validateMcp: failIfCalled("validateMcp"),
+    writeAgent: failIfCalled("writeAgent"),
   };
-  return { events, statePlannerCalls, store, surface, transportCalls, writes };
+  return { agent, store, surface };
 }
 
 function assertNoRetiredDetailAliases(details) {
@@ -210,594 +90,159 @@ function assertNoRetiredDetailAliases(details) {
     "controlKind",
     "operationKind",
     "expectedOperationKind",
+    "requiredCore",
+    "migrationTransportOnly",
   ]) {
     assert.equal(Object.hasOwn(details ?? {}, alias), false, `${alias} detail alias must be absent`);
   }
 }
 
-test("runtime MCP control surface applies add, remove, and blocked mutation envelopes", () => {
-  const { events, statePlannerCalls, store, surface } = harness();
+function assertRustCoreRequired(error, operation, operationKind) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "mcp_control_rust_core_required");
+  assert.equal(error.details.boundary, "runtime.mcp_control");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.required_core, "rust_daemon_core");
+  assert.equal(error.details.migration_transport_only, false);
+  assertNoRetiredDetailAliases(error.details);
+}
 
-  assert.throws(
-    () => surface.importMcp(store, {}),
-    (error) => error.status === 400 && error.code === "mcp_thread_required",
-  );
-  assert.throws(
-    () => surface.importMcp(store, { threadId: "thread-agent-one", servers: [] }),
-    (error) => error.status === 400 && error.code === "mcp_thread_required",
-  );
+test("runtime MCP control surface keeps read-only status projection canonical", () => {
+  const { agent, surface } = harness();
 
-  const added = surface.addMcpServer(store, {
-    thread_id: "thread-agent-one",
-    threadId: "thread-retired",
-    workflow_node_id: "runtime.mcp-server.extra.canonical",
-    workflowNodeId: "runtime.mcp-server.extra.retired",
-    id: "mcp.extra",
-    tools: [{ name: "extra" }],
-    evidenceRefs: ["retired.alias"],
-  });
-  assert.equal(added.event_kind, "McpServerAdded");
-  assert.equal(added.add_count, 1);
-  assert.equal(added.policy_decision, "registry_write_allowed");
-  assert.equal(Object.hasOwn(added, "addCount"), false);
-  const addedServer = store.agents.get("agent-one").mcpRegistry.servers.at(-1);
-  assert.equal(Object.hasOwn(addedServer, "evidenceRefs"), false);
-  assert.equal(addedServer.evidence_refs.includes("retired.alias"), false);
-  assert.equal(addedServer.evidence_refs.includes("mcp.manager.server.add"), true);
-  assert.equal(events.at(-1).payload_schema_version, "status.schema");
-  assert.equal(events.at(-1).workflow_node_id, "runtime.mcp-server.extra.canonical");
-  assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
-  assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_add");
-  assert.equal(statePlannerCalls.at(-1).agent.mcpRegistry.servers.some((item) => item.id === "mcp.extra"), true);
+  const status = surface.mcpStatusForAgent(agent);
 
-  assert.throws(
-    () => surface.removeThreadMcpServer(store, "thread-agent-one", null, { serverId: "mcp.extra" }),
-    (error) => error.status === 404 && error.code === "not_found",
-  );
-
-  const removed = surface.removeThreadMcpServer(store, "thread-agent-one", null, {
-    server_id: "mcp.extra",
-    serverId: "mcp.retired",
-    workflow_node_id: "runtime.mcp-server.remove.canonical",
-    workflowNodeId: "runtime.mcp-server.remove.retired",
-  });
-  assert.equal(removed.event_kind, "McpServerRemoved");
-  assert.equal(removed.removed_count, 1);
-  assert.equal(removed.server_id, "mcp.extra");
-  assert.equal(Object.hasOwn(removed, "serverId"), false);
-  assert.equal(Object.hasOwn(removed, "removedCount"), false);
-  assert.equal(events.at(-1).workflow_node_id, "runtime.mcp-server.remove.canonical");
-  assert.equal(store.agents.get("agent-one").mcpRegistry.servers.some((item) => item.id === "mcp.extra"), false);
-  assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_remove");
-
-  const blocked = surface.applyThreadMcpServerMutation(store, {
-    threadId: "thread-agent-one",
-    agent: store.agents.get("agent-one"),
-    request: {},
-    mutationKind: "import",
-    sourceEventKind: "OperatorControl.McpImport",
-    eventKind: "mcp.servers_imported",
-    workflowNodeId: "runtime.mcp-manager.import",
-    serversToUpsert: [server("mcp.invalid", [], { invalid: true })],
-  });
-  assert.equal(blocked.event_kind, "McpServersImportBlocked");
-  assert.equal(blocked.policy_decision, "registry_write_blocked");
-  assert.equal(blocked.issues[0].code, "invalid_server");
-  assert.equal(Object.hasOwn(blocked, "proposedServers"), false);
-  assert.equal(events.at(-1).payload_schema_version, "validation.schema");
-  assert.equal(statePlannerCalls.at(-1).control_kind, "mcp_import");
-  assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
-    "mcp_add",
-    "mcp_remove",
-    "mcp_import",
-  ]);
-});
-
-test("runtime MCP control surface records enable, status, and validation controls", async () => {
-  const { events, statePlannerCalls, store, surface, writes } = harness();
-  store.agents.get("agent-one").mcpRegistry.servers[0].evidenceRefs = ["retired.alias"];
-
-  const disabled = surface.setThreadMcpServerEnabled(store, "thread-agent-one", "mcp.docs", false);
-  assert.equal(disabled.event_kind, "McpServerDisabled");
-  assert.equal(disabled.enabled, false);
-  assert.equal(disabled.server_id, "mcp.docs");
-  assert.equal(disabled.server.status, "disabled");
-  assert.equal(Object.hasOwn(disabled, "serverId"), false);
-  assert.equal(Object.hasOwn(disabled.server, "evidenceRefs"), false);
-  assert.equal(disabled.server.evidence_refs.includes("retired.alias"), false);
-  assert.equal(disabled.server.evidence_refs.includes("mcp.manager.server.disable"), true);
-  assert.equal(events.at(-1).event_kind, "mcp.server_disabled");
-
-  const status = await surface.recordThreadMcpStatus(store, "thread-agent-one");
-  assert.equal(status.event_kind, "McpCatalogStatus");
   assert.equal(status.schema_version, "status.schema");
+  assert.equal(status.object, "ioi.runtime_mcp_manager_status");
+  assert.equal(status.status, "ready");
   assert.equal(status.server_count, 1);
+  assert.equal(status.enabled_server_count, 1);
   assert.equal(status.tool_count, 2);
+  assert.equal(status.enabled_tool_count, 2);
+  assert.equal(status.resource_count, 1);
+  assert.equal(status.prompt_count, 1);
+  assert.deepEqual(status.tools.map((tool) => tool.stable_tool_id), [
+    "mcp.docs.search",
+    "mcp.docs.write",
+  ]);
+  assert.equal(Object.hasOwn(status.resources[0], "serverId"), false);
   assert.equal(Object.hasOwn(status, "schemaVersion"), false);
   assert.equal(Object.hasOwn(status, "serverCount"), false);
-  assert.equal(Object.hasOwn(status, "toolCount"), false);
-  assert.match(status.summary, /MCP catalog has 1 server/);
-
-  const statusWithAssets = surface.mcpStatusForAgent({
-    ...store.agents.get("agent-one"),
-    mcpRegistry: {
-      servers: [
-        server("mcp.assets", [], {
-          resources: [{ uri: "file:///workspace/README.md" }],
-          prompts: [{ name: "summarize" }],
-        }),
-      ],
-    },
-  });
-  assert.equal(statusWithAssets.resources[0].server_id, "mcp.assets");
-  assert.equal(statusWithAssets.prompts[0].server_id, "mcp.assets");
-  assert.equal(Object.hasOwn(statusWithAssets, "enabledToolCount"), false);
-  assert.equal(Object.hasOwn(statusWithAssets.resources[0], "serverId"), false);
-  assert.equal(Object.hasOwn(statusWithAssets.prompts[0], "serverId"), false);
-
-  const validation = surface.validateThreadMcp(store, "thread-agent-one");
-  assert.equal(validation.event_kind, "McpValidationReport");
-  assert.equal(validation.status, "pass");
-
-  const canonicalValidation = surface.validateThreadMcp(store, "thread-agent-one", {
-    servers: [server("mcp.invalid", [], { invalid: true })],
-    mcpServers: [server("mcp.retired", [], { invalid: false })],
-  });
-  assert.equal(canonicalValidation.status, "blocked");
-  assert.equal(canonicalValidation.issue_count, 1);
-
-  const retiredValidation = surface.validateThreadMcp(store, "thread-agent-one", {
-    mcpServers: [server("mcp.invalid", [], { invalid: true })],
-  });
-  assert.equal(retiredValidation.status, "pass");
-
-  assert.equal(writes.length >= 3, true);
-  assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
-    "mcp_disable",
-    "mcp_status",
-    "mcp_validate",
-    "mcp_validate",
-    "mcp_validate",
-  ]);
+  assert.equal(Object.hasOwn(status, "enabledServerCount"), false);
 });
 
-test("runtime MCP control events ignore retired policy decision aliases", () => {
-  const { events, surface, store } = harness();
-  const agent = store.agents.get("agent-one");
-
-  const event = surface.appendThreadMcpControlEvent(store, {
-    threadId: "thread-agent-one",
-    agent,
-    request: {},
-    controlKind: "mcp_invoke",
-    sourceEventKind: "McpToolInvocation",
-    eventKind: "mcp.tool_invoked",
-    componentKind: "mcp_control",
-    workflowNodeId: "runtime.mcp-tool.invoke",
-    payloadSchemaVersion: "invoke.schema",
-    status: "completed",
-    payload: {
-      policyDecision: "retired_alias_allow",
-      event_kind: "McpToolInvocation",
-      control_kind: "mcp_invoke",
-      status: "completed",
-    },
-  });
-
-  assert.equal(event.policy_decision_refs.some((ref) => ref.includes("invoke_allowed")), true);
-  assert.equal(event.policy_decision_refs.some((ref) => ref.includes("retired_alias_allow")), false);
-  assert.equal(Object.hasOwn(event, "policyDecision"), false);
-  assert.equal(Object.hasOwn(event.event.payload_summary, "policyDecision"), false);
-  assert.equal(events.at(-1), event.event);
-});
-
-test("runtime MCP control surface fails closed without Rust-planned operation kind", () => {
-  const { statePlannerCalls, store, surface, writes } = harness({
-    stateUpdateOverride: {
-      operation_kind: null,
-    },
-  });
-
-  assert.throws(
-    () =>
-      surface.addMcpServer(store, {
-        thread_id: "thread-agent-one",
-        id: "mcp.extra",
-        tools: [{ name: "extra" }],
-    }),
-    (error) => {
-      assert.equal(error.code, "mcp_control_state_update_operation_kind_missing");
-      assert.equal(error.details.operation_kind, "thread.mcp_add");
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.equal(writes.length, 0);
-  assert.equal(statePlannerCalls.length, 1);
-  assert.equal(store.agents.get("agent-one").mcpRegistry.servers.length, 1);
-});
-
-test("runtime MCP control surface invokes tools with receipt-backed policy outcomes", async () => {
-  const { events, statePlannerCalls, store, surface } = harness();
-  store.agents.get("agent-one").runtimeControls.approvalMode = "yolo";
-
-  const completed = await surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.docs.search", {
-    input: { q: "runtime" },
-  });
-  assert.equal(completed.event_kind, "McpToolInvocation");
-  assert.equal(completed.status, "completed");
-  assert.equal(completed.policy_decision, "invoke_allowed");
-  assert.equal(completed.invocation.schema_version, "invoke.schema");
-  assert.equal(completed.invocation.result.fixture, true);
-  assert.equal(completed.invocation.result.server_id, "mcp.docs");
-  assert.equal(completed.invocation.result.tool_name, "search");
-  assert.equal(completed.invocation.containment.receipt_required, true);
-  assert.equal(completed.invocation.containment.execution_mode, "simulated_manager_receipt");
-  assert.deepEqual(completed.invocation.evidence_refs.slice(0, 3), [
-    "mcp.manager.tool.invoke",
-    "mcp_containment_receipt",
-    "mcp.transport.fixture",
-  ]);
-  for (const field of [
-    "schemaVersion",
-    "toolCallId",
-    "threadId",
-    "agentId",
-    "serverId",
-    "toolName",
-    "inputHash",
-    "outputHash",
-    "sideEffectClass",
-    "requiresApproval",
-    "approvalMode",
-    "transportExecution",
-    "evidenceRefs",
-  ]) {
-    assert.equal(Object.hasOwn(completed.invocation, field), false);
-  }
-  assert.equal(Object.hasOwn(completed.invocation.result, "serverId"), false);
-  assert.equal(Object.hasOwn(completed.invocation.result, "toolName"), false);
-  assert.equal(Object.hasOwn(completed.invocation.transport_execution, "executionMode"), false);
-  assert.equal(Object.hasOwn(completed.invocation.containment, "receiptRequired"), false);
-  assert.equal(Object.hasOwn(completed.invocation.containment, "executionMode"), false);
-
-  const blocked = await surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.docs.write", {
-    input: { path: "README.md" },
-  });
-  assert.equal(blocked.status, "blocked");
-  assert.equal(blocked.policy_decision, "invoke_blocked");
-  assert.equal(blocked.invocation.approval_mode, "agent");
-  assert.deepEqual(blocked.invocation.blockers, ["approval_required"]);
-  assert.equal(events.at(-1).status, "blocked");
-  assert.deepEqual(statePlannerCalls.map((call) => call.control_kind), [
-    "mcp_invoke",
-    "mcp_invoke",
-  ]);
-});
-
-test("runtime MCP control surface ignores retired threadId request alias", async () => {
+test("runtime MCP control facade rejects retired threadId alias before JS lookup", async () => {
   const { store, surface } = harness();
 
   assert.throws(
-    () =>
-      surface.addMcpServer(store, {
-        threadId: "thread-agent-one",
-        id: "mcp.retired",
-        tools: [{ name: "retired" }],
-      }),
-    (error) => error.status === 400 && error.code === "mcp_thread_required",
-  );
-  assert.throws(
-    () => surface.setMcpServerEnabled(store, "mcp.docs", false, { threadId: "thread-agent-one" }),
-    (error) => error.status === 400 && error.code === "mcp_thread_required",
-  );
-
-  await assert.rejects(
-    () =>
-      surface.invokeMcpTool(store, {
-        threadId: "thread-agent-one",
-        tool_id: "mcp.docs.search",
-      }),
-    (error) => error.status === 400 && error.code === "mcp_thread_required",
-  );
-
-  const invoked = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    threadId: "thread-retired",
-    tool_id: "mcp.docs.search",
-    toolId: "mcp.retired.nope",
-    serverId: "mcp.retired",
-    toolName: "retired",
-    input: { q: "canonical" },
-  });
-  assert.equal(invoked.status, "completed");
-  assert.equal(invoked.thread_id, "thread-agent-one");
-});
-
-test("runtime MCP control error details use canonical fields", async () => {
-  const { store, surface } = harness();
-
-  assert.throws(
-    () => surface.removeMcpServer(store, "mcp.docs", {}),
+    () => surface.importMcp(store, { threadId: "thread-agent-one", servers: [] }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "mcp_thread_required");
-      assert.equal(error.details.server_id, "mcp.docs");
       assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
   assert.throws(
-    () => surface.setMcpServerEnabled(store, "mcp.docs", false, {}),
+    () => surface.addMcpServer(store, { threadId: "thread-agent-one", id: "mcp.new" }),
     (error) => {
       assert.equal(error.status, 400);
-      assert.equal(error.details.server_id, "mcp.docs");
+      assert.equal(error.code, "mcp_thread_required");
       assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
-  assert.throws(
-    () => surface.removeThreadMcpServer(store, "thread-agent-one", "mcp.missing", {}),
-    (error) => {
-      assert.equal(error.status, 404);
-      assert.equal(error.details.thread_id, "thread-agent-one");
-      assert.equal(error.details.server_id, "mcp.missing");
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-
   await assert.rejects(
-    () => surface.invokeMcpTool(store, { tool_id: "mcp.docs.search" }),
+    () => surface.invokeMcpTool(store, { threadId: "thread-retired", tool_id: "mcp.docs.search" }),
     (error) => {
       assert.equal(error.status, 400);
-      assert.equal(error.details.tool_id, "mcp.docs.search");
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-  await assert.rejects(
-    () => surface.invokeThreadMcpTool(store, "thread-agent-one", "mcp.missing.nope", {
-      server_id: "mcp.missing",
-    }),
-    (error) => {
-      assert.equal(error.status, 404);
-      assert.equal(error.details.thread_id, "thread-agent-one");
-      assert.equal(error.details.tool_id, "mcp.missing.nope");
-      assert.equal(error.details.server_id, "mcp.missing");
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-  await assert.rejects(
-    () => surface.invokeThreadMcpTool(store, "thread-agent-one", null, { server_id: "mcp.docs" }),
-    (error) => {
-      assert.equal(error.status, 400);
-      assert.equal(error.details.thread_id, "thread-agent-one");
-      assert.equal(error.details.server_id, "mcp.docs");
-      assert.equal(error.details.tool_id, null);
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-  await assert.rejects(
-    () => surface.invokeThreadMcpTool(store, "thread-agent-one", null, {
-      server_id: "mcp.docs",
-      tool_name: "missing",
-    }),
-    (error) => {
-      assert.equal(error.status, 404);
-      assert.equal(error.details.thread_id, "thread-agent-one");
-      assert.equal(error.details.server_id, "mcp.docs");
-      assert.equal(error.details.tool_name, "missing");
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-
-  const mismatched = harness({ stateUpdateOverride: { operation_kind: "thread.mcp_wrong" } });
-  assert.throws(
-    () => mismatched.surface.addThreadMcpServer(mismatched.store, "thread-agent-one", {
-      id: "mcp.extra",
-      tools: [{ name: "extra" }],
-    }),
-    (error) => {
-      assert.equal(error.status, 502);
-      assert.equal(error.details.thread_id, "thread-agent-one");
-      assert.equal(error.details.control_kind, "mcp_add");
-      assert.equal(error.details.expected_operation_kind, "thread.mcp_add");
-      assert.equal(error.details.operation_kind, "thread.mcp_wrong");
+      assert.equal(error.code, "mcp_thread_required");
       assertNoRetiredDetailAliases(error.details);
       return true;
     },
   );
 });
 
-test("runtime MCP control surface ignores retired invoke identity aliases", async () => {
+test("runtime MCP control mutations fail closed before JS state mutation", () => {
   const { store, surface } = harness();
+
+  const cases = [
+    {
+      run: () => surface.importMcp(store, { thread_id: "thread-agent-one", servers: [] }),
+      operation: "import_mcp",
+      operationKind: "thread.mcp_import",
+    },
+    {
+      run: () => surface.addMcpServer(store, { thread_id: "thread-agent-one", id: "mcp.new" }),
+      operation: "add_mcp_server",
+      operationKind: "thread.mcp_add",
+    },
+    {
+      run: () => surface.removeMcpServer(store, "mcp.docs", { thread_id: "thread-agent-one" }),
+      operation: "remove_mcp_server",
+      operationKind: "thread.mcp_remove",
+    },
+    {
+      run: () => surface.setMcpServerEnabled(store, "mcp.docs", false, { thread_id: "thread-agent-one" }),
+      operation: "disable_mcp_server",
+      operationKind: "thread.mcp_disable",
+    },
+    {
+      run: () =>
+        surface.applyThreadMcpServerMutation(store, {
+          threadId: "thread-agent-one",
+          mutationKind: "add",
+        }),
+      operation: "apply_mcp_server_mutation",
+      operationKind: "thread.mcp_add",
+    },
+    {
+      run: () =>
+        surface.appendThreadMcpControlEvent(store, {
+          threadId: "thread-agent-one",
+          controlKind: "mcp_invoke",
+        }),
+      operation: "append_mcp_control_event",
+      operationKind: "thread.mcp_invoke",
+    },
+  ];
+
+  for (const item of cases) {
+    assert.throws(item.run, (error) => {
+      assertRustCoreRequired(error, item.operation, item.operationKind);
+      return true;
+    });
+  }
+});
+
+test("runtime MCP live exits fail closed before JS transport invocation", async () => {
+  const { agent, store, surface } = harness();
 
   await assert.rejects(
     () =>
       surface.invokeMcpTool(store, {
         thread_id: "thread-agent-one",
-        toolId: "mcp.docs.search",
+        tool_id: "mcp.docs.search",
       }),
-    (error) => error.status === 404 && error.code === "not_found",
+    (error) => {
+      assertRustCoreRequired(error, "invoke_mcp_tool", "thread.mcp_invoke");
+      assert.equal(error.details.tool_id, "mcp.docs.search");
+      return true;
+    },
   );
-
-  const invoked = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    server_id: "mcp.docs",
-    tool_name: "search",
-    toolId: "mcp.retired.nope",
-    serverId: "mcp.retired",
-    toolName: "retired",
-    input: { q: "canonical identity" },
-  });
-  assert.equal(invoked.status, "completed");
-  assert.equal(invoked.server_id, "mcp.docs");
-  assert.equal(invoked.tool_name, "search");
-});
-
-test("runtime MCP control surface ignores retired timeoutMs request alias", async () => {
-  const { store, surface, transportCalls } = harness();
-
-  const canonicalInvoke = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    live_transport: true,
-    timeout_ms: 1234,
-    timeoutMs: 9999,
-  });
-  assert.equal(transportCalls.at(-1).name, "invokeMcpStdioTool");
-  assert.equal(transportCalls.at(-1).options.timeout_ms, 1234);
-  assert.equal(Object.hasOwn(transportCalls.at(-1).options, "timeoutMs"), false);
-  assert.equal(canonicalInvoke.invocation.transport_execution.execution_mode, "live_stdio");
-  assert.equal(
-    Object.hasOwn(canonicalInvoke.invocation.transport_execution, "executionMode"),
-    false,
+  await assert.rejects(
+    () =>
+      surface.mcpStatusWithLiveDiscovery(
+        store,
+        { status: "ready", servers: [] },
+        agent,
+        { thread_id: "thread-agent-one", live_discovery: true },
+      ),
+    (error) => {
+      assertRustCoreRequired(error, "mcp_live_discovery", "thread.mcp_status");
+      assert.equal(error.details.agent_id, "agent-one");
+      return true;
+    },
   );
-
-  await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    live_transport: true,
-    timeoutMs: 9999,
-  });
-  assert.equal(transportCalls.at(-1).options.timeout_ms, undefined);
-  assert.equal(Object.hasOwn(transportCalls.at(-1).options, "timeoutMs"), false);
-});
-
-test("runtime MCP control surface ignores retired mcpMode request alias", async () => {
-  const { store, surface, transportCalls } = harness();
-
-  await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    live_transport: true,
-    mcp_mode: "strict",
-    mcpMode: "retired",
-  });
-  assert.equal(transportCalls.at(-1).name, "invokeMcpStdioTool");
-  assert.equal(transportCalls.at(-1).options.mcp_mode, "strict");
-  assert.equal(Object.hasOwn(transportCalls.at(-1).options, "mcpMode"), false);
-
-  await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    live_transport: true,
-    mcpMode: "retired",
-  });
-  assert.equal(transportCalls.at(-1).options.mcp_mode, undefined);
-  assert.equal(Object.hasOwn(transportCalls.at(-1).options, "mcpMode"), false);
-});
-
-test("runtime MCP control surface ignores retired liveDiscovery request alias", async () => {
-  const { store, surface, transportCalls } = harness();
-
-  const liveStatus = await surface.recordThreadMcpStatus(store, "thread-agent-one", {
-    live_discovery: true,
-    liveDiscovery: false,
-    live_transport: true,
-  });
-  assert.equal(transportCalls.at(-1).name, "discoverMcpStdioCatalog");
-  assert.equal(liveStatus.live_discovery.status, "completed");
-  assert.equal(liveStatus.catalog_summaries.length, 1);
-  assert.equal(liveStatus.returned_tool_count, 3);
-  assert.equal(liveStatus.live_discovery.servers[0].server_id, "mcp.docs");
-  assert.equal(liveStatus.live_discovery.servers[0].execution_mode, "live_stdio");
-  assert.equal(liveStatus.live_discovery.servers[0].auth_boundary, null);
-  assert.equal(liveStatus.live_discovery.servers[0].returned_tool_count, 2);
-  assert.equal(Object.hasOwn(liveStatus, "liveDiscovery"), false);
-  assert.equal(Object.hasOwn(liveStatus, "catalogSummaries"), false);
-  assert.equal(Object.hasOwn(liveStatus, "catalogToolCount"), false);
-  assert.equal(Object.hasOwn(liveStatus, "returnedToolCount"), false);
-  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "serverId"), false);
-  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "executionMode"), false);
-  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "returnedToolCount"), false);
-  assert.equal(Object.hasOwn(liveStatus.live_discovery.servers[0], "catalogSummary"), false);
-
-  transportCalls.length = 0;
-  await surface.recordThreadMcpStatus(store, "thread-agent-one", {
-    liveDiscovery: true,
-    live_transport: true,
-  });
-  assert.equal(transportCalls.length, 0);
-});
-
-test("runtime MCP control surface ignores retired event metadata request aliases", async () => {
-  const { events, store, surface } = harness();
-
-  await surface.recordThreadMcpStatus(store, "thread-agent-one", {
-    turn_id: "turn-canonical",
-    turnId: "turn-retired",
-    workflow_graph_id: "graph-canonical",
-    workflowGraphId: "graph-retired",
-    idempotency_key: "idem-canonical",
-    idempotencyKey: "idem-retired",
-  });
-  assert.equal(events.at(-1).turn_id, "turn-canonical");
-  assert.equal(events.at(-1).workflow_graph_id, "graph-canonical");
-  assert.equal(events.at(-1).idempotency_key, "idem-canonical");
-
-  await surface.recordThreadMcpStatus(store, "thread-agent-one", {
-    turnId: "turn-retired",
-    workflowGraphId: "graph-retired",
-    idempotencyKey: "idem-retired",
-  });
-  assert.equal(events.at(-1).turn_id, "turn-one");
-  assert.equal(events.at(-1).workflow_graph_id, null);
-  assert.match(events.at(-1).idempotency_key, /^thread:thread-agent-one:mcp:mcp_status:/);
-});
-
-test("runtime MCP control surface ignores retired invoke policy aliases", async () => {
-  const { store, surface } = harness();
-
-  const canonicalSideEffect = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    side_effect_class: "write",
-    sideEffectClass: "read",
-  });
-  assert.equal(canonicalSideEffect.status, "blocked");
-  assert.deepEqual(canonicalSideEffect.invocation.blockers, ["approval_required"]);
-
-  const retiredSideEffect = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    sideEffectClass: "write",
-  });
-  assert.equal(retiredSideEffect.status, "completed");
-
-  const canonicalRequiresApproval = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    requires_approval: true,
-    requiresApproval: false,
-  });
-  assert.equal(canonicalRequiresApproval.status, "blocked");
-  assert.deepEqual(canonicalRequiresApproval.invocation.blockers, ["approval_required"]);
-
-  const retiredRequiresApproval = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.search",
-    requiresApproval: true,
-  });
-  assert.equal(retiredRequiresApproval.status, "completed");
-
-  const canonicalApproved = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.write",
-    approved: true,
-    approvalGranted: false,
-  });
-  assert.equal(canonicalApproved.status, "completed");
-
-  const retiredApprovalGranted = await surface.invokeMcpTool(store, {
-    thread_id: "thread-agent-one",
-    tool_id: "mcp.docs.write",
-    approvalGranted: true,
-  });
-  assert.equal(retiredApprovalGranted.status, "blocked");
-  assert.deepEqual(retiredApprovalGranted.invocation.blockers, ["approval_required"]);
 });

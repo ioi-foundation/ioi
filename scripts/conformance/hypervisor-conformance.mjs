@@ -310,12 +310,8 @@ function runDocs() {
       /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
       /must\s+not be treated as the terminal substrate/.test(guide) &&
       /collapse into the Rust daemon core API/.test(guide) &&
-      /Resume-goal scheduling marker: do not make matrix pruning the first action when\s+the migration goal resumes/.test(
-        guide,
-      ) &&
-      /First complete a verified slice that clarifies the\s+next Rust-core extraction or JS-facade retirement owner boundary; then run the\s+scheduled matrix-compaction pass/.test(
-        guide,
-      ) &&
+      /Resume-goal scheduling marker: Slice 730 clarified the MCP control\s+facade-retirement owner boundary/.test(guide) &&
+      /run the scheduled matrix-compaction pass before starting unrelated route-family\s+work/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -5252,7 +5248,7 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "mcp-control-agent-state-update-live-bridge",
+    "mcp-control-js-facade-retired",
     /McpControlAgentStateUpdateCore/.test(policyCore) &&
       /McpControlAgentStateUpdateRequest/.test(policyCore) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -5295,23 +5291,31 @@ function runBridge() {
       /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(
-        runtimeMcpControlSurface,
-      ) &&
-      /requiredMcpControlOperationKind/.test(runtimeMcpControlSurface) &&
       /mcpStatusForAgent/.test(runtimeMcpControlSurface) &&
-      !/store\.agents\.set\(agent\.id,\s*updatedAgent\)/.test(runtimeMcpControlSurface) &&
-      !/store\.writeAgent\(updatedAgent,\s*`thread\.\$\{controlKind\}`\)/.test(
+      /throwMcpControlRustCoreRequired/.test(runtimeMcpControlSurface) &&
+      /mcp_control_rust_core_required/.test(runtimeMcpControlSurface) &&
+      /boundary:\s*"runtime\.mcp_control"/.test(runtimeMcpControlSurface) &&
+      /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
+      /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
+      !/contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(
         runtimeMcpControlSurface,
       ) &&
+      !/requiredMcpControlOperationKind/.test(runtimeMcpControlSurface) &&
+      !/store\.appendRuntimeEvent/.test(runtimeMcpControlSurface) &&
+      !/store\.agents\.set/.test(runtimeMcpControlSurface) &&
+      !/store\.writeAgent/.test(runtimeMcpControlSurface) &&
+      !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpControlSurface) &&
+      !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeMcpControlSurface,
       ) &&
-      /planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurfaceTest) &&
-      /runtime MCP control surface fails closed without Rust-planned operation kind/.test(
+      /runtime MCP control mutations fail closed before JS state mutation/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex),
+      /runtime MCP live exits fail closed before JS transport invocation/.test(
+        runtimeMcpControlSurfaceTest,
+      ) &&
+      /mcp_control_rust_core_required/.test(runtimeMcpControlSurfaceTest),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -5319,9 +5323,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
-      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: MCP control agent state updates must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: MCP control mutations and live transport exits must be retired from the JS facade and routed through the Rust daemon core API",
   );
   assertCheck(
     result,
@@ -14378,7 +14381,7 @@ function runCompositor() {
     : "";
   const runtimeMcpControlStatusForAgentBlock =
     runtimeMcpControlSurface.match(
-      /mcpStatusForAgent\(agent\) \{[\s\S]*?\n    \},\n    removeMcpServer/,
+      /mcpStatusForAgent\(agent\) \{[\s\S]*?\n    \},\n    importThreadMcp/,
     )?.[0] ?? "";
   const runtimeMcpControlLiveDiscoveryBlock =
     runtimeMcpControlSurface.match(
@@ -14465,6 +14468,24 @@ function runCompositor() {
   const runtimeMcpCatalogSummaryReturnBlock =
     runtimeMcpCatalogSummaryBlock.match(/return \{\n\s+schema_version:[\s\S]*?\n\s+\};/)?.[0] ??
     "";
+  const runtimeMcpControlFacadeRetired =
+    /throwMcpControlRustCoreRequired/.test(runtimeMcpControlSurface) &&
+    /mcp_control_rust_core_required/.test(runtimeMcpControlSurface) &&
+    /boundary:\s*"runtime\.mcp_control"/.test(runtimeMcpControlSurface) &&
+    /required_core:\s*"rust_daemon_core"/.test(runtimeMcpControlSurface) &&
+    /migration_transport_only:\s*false/.test(runtimeMcpControlSurface) &&
+    /runtime MCP control mutations fail closed before JS state mutation/.test(
+      runtimeMcpControlSurfaceTest,
+    ) &&
+    /runtime MCP live exits fail closed before JS transport invocation/.test(
+      runtimeMcpControlSurfaceTest,
+    ) &&
+    !/store\.appendRuntimeEvent/.test(runtimeMcpControlSurface) &&
+    !/store\.agents\.set/.test(runtimeMcpControlSurface) &&
+    !/store\.writeAgent/.test(runtimeMcpControlSurface) &&
+    !/invokeMcp(?:Stdio|Http)ToolDep/.test(runtimeMcpControlSurface) &&
+    !/discoverMcp(?:Stdio|Http)CatalogDep/.test(runtimeMcpControlSurface) &&
+    !/contextPolicyRunnerDep\.planMcpControlAgentStateUpdate/.test(runtimeMcpControlSurface);
   const agentIdeTerminalRunLaunch = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-terminal-coding-loop-run-launch.ts",
   )
@@ -20924,13 +20945,11 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-thread-request-alias-retired",
-    /input\.thread_id/.test(runtimeMcpControlSurface) &&
+    runtimeMcpControlFacadeRetired &&
+      /input\.thread_id/.test(runtimeMcpControlSurface) &&
       /request\.thread_id/.test(runtimeMcpControlSurface) &&
       /threadId: "thread-retired"/.test(runtimeMcpControlSurfaceTest) &&
       /surface\.importMcp\(store, \{ threadId: "thread-agent-one"/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /surface\.invokeMcpTool\(store, \{\s*threadId: "thread-agent-one"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
       /const threadId = optionalString\(query\.thread_id\)/.test(publicRuntimeRoutes) &&
@@ -20955,11 +20974,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-server-request-alias-retired",
-    /request\.server_id/.test(runtimeMcpRemoveThreadServerBlock) &&
-      /serverId: "mcp\.extra"/.test(runtimeMcpControlSurfaceTest) &&
-      /serverId: "mcp\.retired"/.test(runtimeMcpControlSurfaceTest) &&
+    runtimeMcpControlFacadeRetired &&
+      /server_id: serverId \?\? request\.server_id \?\? null/.test(runtimeMcpControlSurface) &&
       /^\s*server_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
-      !/request\.serverId\b/.test(runtimeMcpRemoveThreadServerBlock) &&
+      !/request\.serverId\b/.test(runtimeMcpControlSurface) &&
       !/^\s*serverId\?:/m.test(runtimeMcpSdkServerControlInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
@@ -20971,9 +20989,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-workflow-node-request-alias-retired",
-    /request\.workflow_node_id/.test(runtimeMcpControlSurface) &&
-      /workflowNodeId: "runtime\.mcp-server\.extra\.retired"/.test(runtimeMcpControlSurfaceTest) &&
-      /workflowNodeId: "runtime\.mcp-server\.remove\.retired"/.test(runtimeMcpControlSurfaceTest) &&
+    runtimeMcpControlFacadeRetired &&
       /^\s*workflow_node_id\?: string;/m.test(runtimeMcpSdkValidationInputBlock) &&
       !/request\.workflowNodeId\b/.test(runtimeMcpControlSurface) &&
       !/^\s*workflowNodeId\?:/m.test(runtimeMcpSdkValidationInputBlock),
@@ -21044,15 +21060,10 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-invoke-policy-request-aliases-retired",
-    /request\.side_effect_class/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /request\.requires_approval/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /request\.approval_granted/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /sideEffectClass: "write"/.test(runtimeMcpControlSurfaceTest) &&
-      /requiresApproval: true/.test(runtimeMcpControlSurfaceTest) &&
-      /approvalGranted: true/.test(runtimeMcpControlSurfaceTest) &&
+    runtimeMcpControlFacadeRetired &&
       /^\s*side_effect_class\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       /^\s*requires_approval\?: boolean;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
-      !/request\.(?:sideEffectClass|requiresApproval|approvalGranted)\b/.test(runtimeMcpInvokeThreadToolBlock) &&
+      !/request\.(?:sideEffectClass|requiresApproval|approvalGranted)\b/.test(runtimeMcpControlSurface) &&
       !/^\s*(?:sideEffectClass|requiresApproval)\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
@@ -21064,17 +21075,12 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-invoke-mode-request-alias-retired",
-    /request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /mcp_mode:\s*request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
+    runtimeMcpControlFacadeRetired &&
       /IOI_MCP_MODE:\s*optionalString\(options\.mcp_mode\) \?\? "development"/.test(
         runtimeMcpManager,
       ) &&
-      /mcpMode: "retired"/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(transportCalls\.at\(-1\)\.options,\s*"mcpMode"\)/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      !/request\.mcpMode\b/.test(runtimeMcpInvokeThreadToolBlock) &&
-      !/mcpMode:\s*request\.mcp_mode/.test(runtimeMcpInvokeThreadToolBlock) &&
+      !/request\.mcpMode\b/.test(runtimeMcpControlSurface) &&
+      !/mcpMode:\s*request\.mcp_mode/.test(runtimeMcpControlSurface) &&
       !/options\.mcpMode\b/.test(runtimeMcpManager) &&
       !/^\s*mcpMode\?:/m.test(runtimeMcpSdkToolInvokeInputBlock),
     [
@@ -21087,8 +21093,8 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-live-discovery-request-alias-retired",
-    /request\.live_discovery/.test(runtimeMcpControlSurface) &&
-      /liveDiscovery: true/.test(runtimeMcpControlSurfaceTest) &&
+    runtimeMcpControlFacadeRetired &&
+      /live_discovery: true/.test(runtimeMcpControlSurfaceTest) &&
       !/request\.liveDiscovery\b/.test(runtimeMcpControlSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
@@ -21103,10 +21109,9 @@ function runCompositor() {
       /raw\.mcp_servers/.test(runtimeMcpServerRecordsFromMutationInputBlock) &&
       /input\.mcp_json \?\? input/.test(runtimeMcpManagerValidationInputBlock) &&
       /raw\.mcp_servers \?\? raw\.servers/.test(runtimeMcpManagerValidationInputBlock) &&
-      /request\.mcp_json \|\| request\.servers/.test(runtimeMcpControlSurface) &&
+      runtimeMcpControlFacadeRetired &&
       /mcpJson:\s*\{/.test(runtimeMcpHelpersTest) &&
       /mcpJson:\s*\{/.test(runtimeMcpManagerTest) &&
-      /mcpServers:\s*\[server\("mcp\.invalid"/.test(runtimeMcpControlSurfaceTest) &&
       /^\s*mcp_json\?: Record<string, unknown>;/m.test(runtimeMcpSdkValidationInputBlock) &&
       !/request\.mcpJson\b/.test(
         `${runtimeMcpServerRecordsFromMutationInputBlock}\n${runtimeMcpControlSurface}`,
@@ -21441,19 +21446,13 @@ function runCompositor() {
       /assert\.notEqual\(catalog\.cwd,\s*path\.resolve\(retiredCwd\)\)/.test(
         runtimeMcpManagerTest,
       ) &&
-      /execution_mode:\s*catalog\.execution_mode \?\? liveMode/.test(runtimeMcpControlLiveDiscoveryBlock) &&
-      /auth_boundary:\s*catalog\.auth_boundary \?\? null/.test(runtimeMcpControlLiveDiscoveryBlock) &&
-      /executionMode:\s*"retired_live_stdio"/.test(runtimeMcpControlSurfaceTest) &&
-      /authBoundary:\s*\{\s*retired:\s*true\s*\}/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(canonicalInvoke\.invocation\.transport_execution,\s*"executionMode"\)/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
+      runtimeMcpControlFacadeRetired &&
       !/^\s*(?:executionMode|serverUrl|protocolVersion|serverInfo|toolCount|listedTools|resourceCount|listedResources|promptCount|listedPrompts|authBoundary)\s*:/m.test(
         runtimeMcpManagerLiveOutputBlock,
       ) &&
       !/server\.containment\?\.workspaceRoot\b/.test(runtimeMcpManager) &&
       !/server\.workspaceRoot\b/.test(runtimeMcpManager) &&
-      !/catalog\.(?:executionMode|authBoundary)\b/.test(runtimeMcpControlLiveDiscoveryBlock),
+      !/catalog\.(?:executionMode|authBoundary)\b/.test(runtimeMcpControlSurface),
     [
       "packages/runtime-daemon/src/mcp-manager.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
@@ -21482,8 +21481,6 @@ function runCompositor() {
       /server_id:\s*server\.id \?\? null/.test(runtimeMcpCatalogSummaryBlock) &&
       /stable_resource_id:\s*resource\.stable_resource_id/.test(runtimeMcpCatalogSummaryBlock) &&
       /stable_prompt_id:\s*prompt\.stable_prompt_id/.test(runtimeMcpCatalogSummaryBlock) &&
-      /preview_limit:\s*previewLimit/.test(runtimeMcpControlLiveDiscoveryBlock) &&
-      /force_full_catalog:\s*forceFullCatalog/.test(runtimeMcpControlLiveDiscoveryBlock) &&
       /live_mode:\s*liveMode/.test(runtimeMcpCatalogSurface) &&
       /error_code:\s*optionalStringDep/.test(runtimeMcpCatalogSurface) &&
       /preview_limit:\s*mcpCatalogPreviewLimitDep/.test(runtimeMcpCatalogSurface) &&
@@ -21498,7 +21495,7 @@ function runCompositor() {
         `${runtimeMcpCatalogExposureBlock}\n${runtimeMcpCatalogSummaryBlock}`,
       ) &&
       !/\b(?:previewLimit|forceFullCatalog|liveMode|errorCode)\s*:/.test(
-        `${runtimeMcpControlLiveDiscoveryBlock}\n${runtimeMcpCatalogSurface}`,
+        `${runtimeMcpControlSurface}\n${runtimeMcpCatalogSurface}`,
       ) &&
       /mcpToolIdentityMatches\(\{[\s\S]*stable_tool_id:[\s\S]*workflow_node_id:[\s\S]*tool_name:[\s\S]*server_id:/.test(
         runtimeMcpHelpersTest,
@@ -21586,25 +21583,15 @@ function runCompositor() {
       /enabled_server_count:\s*enabledServers\.length/.test(runtimeMcpControlStatusForAgentBlock) &&
       /enabled_tool_count:\s*enabledTools\.length/.test(runtimeMcpControlStatusForAgentBlock) &&
       /server_id:\s*server\.id/.test(runtimeMcpControlStatusForAgentBlock) &&
-      /returned_tool_count:\s*exposure\.tools\.length/.test(runtimeMcpControlLiveDiscoveryBlock) &&
-      /catalog_summaries:\s*catalogSummaries/.test(runtimeMcpControlLiveDiscoveryBlock) &&
-      /catalog_tool_count:\s*catalogSummaries\.reduce/.test(runtimeMcpControlLiveDiscoveryBlock) &&
-      /live_discovery:\s*\{/.test(runtimeMcpControlLiveDiscoveryBlock) &&
+      runtimeMcpControlFacadeRetired &&
       /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(statusWithAssets\.resources\[0\],\s*"serverId"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(liveStatus,\s*"liveDiscovery"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(liveStatus,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(liveStatus\.live_discovery\.servers\[0\],\s*"serverId"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
+      /Object\.hasOwn\(status\.resources\[0\],\s*"serverId"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
       !/^\s*(?:schemaVersion|serverCount|enabledServerCount|toolCount|enabledToolCount|resourceCount|promptCount)\s*:/m.test(
         runtimeMcpControlStatusForAgentBlock,
       ) &&
       !/serverId:\s*server\.id/.test(runtimeMcpControlStatusForAgentBlock) &&
       !/^\s*(?:serverId|executionMode|authBoundary|returnedToolCount|catalogSummary|catalogExposure|toolCount|resourceCount|promptCount|catalogSummaries|catalogToolCount|liveDiscovery)\s*:/m.test(
-        runtimeMcpControlLiveDiscoveryBlock,
+        runtimeMcpControlSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
@@ -21615,61 +21602,15 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-mutation-output-aliases-retired",
-    /server_id:\s*server\.id/.test(runtimeMcpRemoveThreadServerBlock) &&
-      /removed_count:\s*1/.test(runtimeMcpRemoveThreadServerBlock) &&
-      /proposed_servers:\s*proposedServers/.test(runtimeMcpApplyThreadServerMutationBlock) &&
-      /\[\`\$\{mutationKind\}_count`\]:\s*proposedServers\.length/.test(
-        runtimeMcpApplyThreadServerMutationBlock,
-      ) &&
-      /evidence_refs:\s*uniqueStringsDep/.test(runtimeMcpApplyThreadServerMutationBlock) &&
-      /server_id:\s*updatedServer\.id/.test(runtimeMcpSetThreadServerEnabledBlock) &&
-      /evidence_refs:\s*uniqueStringsDep/.test(runtimeMcpSetThreadServerEnabledBlock) &&
-      /Object\.hasOwn\(added,\s*"addCount"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(removed,\s*"serverId"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(removed,\s*"removedCount"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(blocked,\s*"proposedServers"\),\s*false/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(disabled\.server,\s*"evidenceRefs"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /addedServer\.evidence_refs\.includes\("retired\.alias"\), false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /addedServer\.evidence_refs\.includes\("mcp\.manager\.server\.add"\), true/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /disabled\.server\.evidence_refs\.includes\("retired\.alias"\), false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /disabled\.server\.evidence_refs\.includes\("mcp\.manager\.server\.disable"\), true/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /optionalStringDep\(canonicalPayload\.policy_decision\)/.test(
-        runtimeMcpAppendThreadControlEventBlock,
-      ) &&
-      !/payload\.policyDecision/.test(runtimeMcpAppendThreadControlEventBlock) &&
-      /canonicalPayload/.test(runtimeMcpAppendThreadControlEventBlock) &&
-      /runtime MCP control events ignore retired policy decision aliases/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /policyDecision: "retired_alias_allow"/.test(runtimeMcpControlSurfaceTest) &&
-      /event\.policy_decision_refs\.some\(\(ref\) => ref\.includes\("invoke_allowed"\)\),\s*true/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(event,\s*"policyDecision"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(event\.event\.payload_summary,\s*"policyDecision"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      !/serverId:\s*server\.id/.test(runtimeMcpRemoveThreadServerBlock) &&
-      !/removedCount\s*:/.test(runtimeMcpRemoveThreadServerBlock) &&
-      !/proposedServers\s*:/.test(runtimeMcpApplyThreadServerMutationBlock) &&
-      !/\[\`\$\{mutationKind\}Count`\]/.test(runtimeMcpApplyThreadServerMutationBlock) &&
-      !/evidenceRefs\s*:/.test(runtimeMcpApplyThreadServerMutationBlock) &&
-      !/server\.evidenceRefs\b/.test(runtimeMcpApplyThreadServerMutationBlock) &&
-      !/serverId:\s*updatedServer\.id/.test(runtimeMcpSetThreadServerEnabledBlock) &&
-      !/evidenceRefs\s*:/.test(runtimeMcpSetThreadServerEnabledBlock) &&
-      !/server\.evidenceRefs\b/.test(runtimeMcpSetThreadServerEnabledBlock),
+    runtimeMcpControlFacadeRetired &&
+      /runtime MCP control mutations fail closed before JS state mutation/.test(runtimeMcpControlSurfaceTest) &&
+      !/serverId:\s*server\.id/.test(runtimeMcpControlSurface) &&
+      !/removedCount\s*:/.test(runtimeMcpControlSurface) &&
+      !/proposedServers\s*:/.test(runtimeMcpControlSurface) &&
+      !/\[\`\$\{mutationKind\}Count`\]/.test(runtimeMcpControlSurface) &&
+      !/evidenceRefs\s*:/.test(runtimeMcpControlSurface) &&
+      !/server\.evidenceRefs\b/.test(runtimeMcpControlSurface) &&
+      !/policyDecision/.test(runtimeMcpControlSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
@@ -21679,18 +21620,12 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-error-detail-aliases-retired",
-    /details:\s*\{\s*server_id:\s*serverId \?\? null\s*\}/.test(runtimeMcpControlSurface) &&
-      /server_id:\s*serverId \?\? request\.server_id \?\? null/.test(
-        runtimeMcpControlSurface,
-      ) &&
-      /details:\s*\{\s*tool_id:\s*request\.tool_id \?\? null\s*\}/.test(
-        runtimeMcpControlSurface,
-      ) &&
-      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeMcpControlSurface) &&
-      /runtime MCP control error details use canonical fields/.test(runtimeMcpControlSurfaceTest) &&
+    runtimeMcpControlFacadeRetired &&
+      /server_id: serverId \?\? request\.server_id \?\? null/.test(runtimeMcpControlSurface) &&
+      /tool_id: toolId \?\? request\.tool_id \?\? null/.test(runtimeMcpControlSurface) &&
+      /operation_kind: operationKind/.test(runtimeMcpControlSurface) &&
+      /runtime MCP control mutations fail closed before JS state mutation/.test(runtimeMcpControlSurfaceTest) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeMcpControlSurfaceTest) &&
-      /error\.details\.server_id/.test(runtimeMcpControlSurfaceTest) &&
-      /error\.details\.expected_operation_kind/.test(runtimeMcpControlSurfaceTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|serverId|toolId|toolName|controlKind|operationKind|expectedOperationKind)\s*:/.test(
         runtimeMcpControlSurface,
       ),
@@ -21703,24 +21638,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-invocation-output-aliases-retired",
-    /schema_version:\s*invocationSchemaVersion/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /tool_call_id:\s*toolCallId/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /thread_id:\s*threadId/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /agent_id:\s*agent\.id/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /server_id:\s*server\.id/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /tool_name:\s*toolName/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /input_hash:\s*inputHash/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /output_hash:\s*outputHash/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /side_effect_class:\s*sideEffectClass/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /requires_approval:\s*requiresApproval/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /approval_mode:\s*approvalMode/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /optionalStringDep\(agent\.runtimeControls\?\.approval_mode\)/.test(
-        runtimeMcpInvokeThreadToolBlock,
-      ) &&
-      !/agent\.runtimeControls\?\.approvalMode/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /transport_execution:\s*transportExecution/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /receipt_required:\s*true/.test(runtimeMcpInvocationEnvelopeBlock) &&
-      /evidence_refs:\s*\[/.test(runtimeMcpInvocationEnvelopeBlock) &&
+    runtimeMcpControlFacadeRetired &&
       /const executionMode = transportExecution\?\.execution_mode/.test(runtimeMcpTransportMetadataBlock) &&
       /mcpTransportEvidenceRef\(\{ execution_mode: "live_stdio", executionMode: "live_http" \}\), "mcp\.transport\.stdio\.live"/.test(
         runtimeMcpHelpersTest,
@@ -21728,37 +21646,19 @@ function runCompositor() {
       /mcpTransportEvidenceRef\(\{ executionMode: "live_stdio" \}\), "mcp\.manager\.simulated_receipt"/.test(
         runtimeMcpHelpersTest,
       ) &&
-      /tools\.find\(\(candidate\) => candidate\.tool_name === toolName\)/.test(
-        runtimeMcpInvokeThreadToolBlock,
-      ) &&
-      /optionalStringDep\(toolEntry\.side_effect_class\)/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /toolEntry\.workflow_node_id/.test(runtimeMcpInvokeThreadToolBlock) &&
-      /output = \{ ok: true, fixture: true, server_id: server\.id, tool_name: toolName \}/.test(
-        runtimeMcpInvokeThreadToolBlock,
-      ) &&
-      /for \(const field of \[[\s\S]*"schemaVersion"[\s\S]*"toolCallId"[\s\S]*"transportExecution"[\s\S]*"evidenceRefs"[\s\S]*\]\) \{\n    assert\.equal\(Object\.hasOwn\(completed\.invocation,\s*field\),\s*false\);/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /runtimeControls\.approvalMode = "yolo"/.test(runtimeMcpControlSurfaceTest) &&
-      /blocked\.invocation\.approval_mode,\s*"agent"/.test(runtimeMcpControlSurfaceTest) &&
-      /Object\.hasOwn\(completed\.invocation\.result,\s*"serverId"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(completed\.invocation\.containment,\s*"receiptRequired"\),\s*false/.test(
-        runtimeMcpControlSurfaceTest,
-      ) &&
+      /runtime MCP live exits fail closed before JS transport invocation/.test(runtimeMcpControlSurfaceTest) &&
       !/^\s*(?:schemaVersion|toolCallId|threadId|agentId|serverId|toolName|inputHash|outputHash|sideEffectClass|requiresApproval|approvalMode|transportExecution|evidenceRefs)\s*:/m.test(
-        runtimeMcpInvocationEnvelopeBlock,
+        runtimeMcpControlSurface,
       ) &&
-      !/^\s*(?:receiptRequired|executionMode)\s*:/m.test(runtimeMcpInvocationEnvelopeBlock) &&
+      !/^\s*(?:receiptRequired|executionMode)\s*:/m.test(runtimeMcpControlSurface) &&
       !/transportExecution\?\.executionMode/.test(runtimeMcpTransportMetadataBlock) &&
       !/\b(?:candidate|toolEntry)\.(?:toolName|sideEffectClass|workflowNodeId)\b/.test(
-        runtimeMcpInvokeThreadToolBlock,
+        runtimeMcpControlSurface,
       ) &&
       !/(?:serverId|toolName|stableToolId|sideEffectClass|workflowNodeId):\s*(?:item\.id|tool\.name|`\$\{item\.id\}\.\$\{tool\.name\}`|tool\.sideEffectClass|`runtime\.mcp-tool\.\$\{item\.id\}\.\$\{tool\.name\}`)/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      !/output = \{[^}]*\b(?:serverId|toolName)\s*:/m.test(runtimeMcpInvokeThreadToolBlock),
+      !/output = \{[^}]*\b(?:serverId|toolName)\s*:/m.test(runtimeMcpControlSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs",
@@ -21768,12 +21668,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-control-event-metadata-request-aliases-retired",
-    /request\.turn_id/.test(runtimeMcpControlSurface) &&
-      /request\.workflow_graph_id/.test(runtimeMcpControlSurface) &&
-      /request\.idempotency_key/.test(runtimeMcpControlSurface) &&
-      /turnId: "turn-retired"/.test(runtimeMcpControlSurfaceTest) &&
-      /workflowGraphId: "graph-retired"/.test(runtimeMcpControlSurfaceTest) &&
-      /idempotencyKey: "idem-retired"/.test(runtimeMcpControlSurfaceTest) &&
+    runtimeMcpControlFacadeRetired &&
       /^\s*workflow_graph_id\?: string;/m.test(runtimeMcpSdkValidationInputBlock) &&
       /^\s*turn_id\?: string;/m.test(runtimeMcpSdkThreadMcpInputBlock) &&
       /^\s*idempotency_key\?: string;/m.test(runtimeMcpSdkThreadMcpInputBlock) &&

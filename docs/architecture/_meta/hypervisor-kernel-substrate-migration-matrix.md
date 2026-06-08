@@ -15,10 +15,11 @@ into model-mount wallet/custody and catalog-provider control, model
 route/provider/lifecycle control, and runtime run/thread/approval/context-policy/
 diagnostics-repair control route-family evidence while preserving the terminal
 Rust daemon-core target and the bridge-scaffolding guardrail.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule and run the next
-matrix-compaction pass immediately after that seam is concrete, before unrelated
-route-family work resumes.
+Next resume instruction: Slice 730 has clarified the MCP control
+facade-retirement seam. Run the next matrix-compaction pass before starting
+unrelated route-family work, while preserving MCP control facade retirement as
+migration evidence and direct Rust daemon-core MCP control/admission/projection
+as the terminal target.
 
 ## Purpose
 
@@ -113,10 +114,11 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after the Slice 726
-  diagnostics repair control compaction. Schedule the next pass only after the
-  next concrete Rust-core extraction or JS-facade retirement seam verifies and
-  lands.
+- Next scheduled matrix-compaction pass: pending after Slice 730, which retired
+  the MCP control JS mutation/live-transport facades and clarified the next
+  route-family seam. Run this compaction before unrelated implementation work,
+  and do not encode the command bridge or the read-only MCP status helper as
+  terminal ownership.
 - Future-resumption trigger: resume the migration goal by carrying out that next
   Rust-core extraction or facade-retirement slice first. Once the seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13904,6 +13906,83 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 730
+
+```yaml
+slice: 730
+phase: 10-authoritative-js-facade-retirement
+objective: retire MCP control JS mutation, live-discovery, live-invocation,
+  event-append, and agent-registry persistence facades until direct Rust
+  daemon-core MCP control/admission/projection APIs own registry truth and
+  external transport exits
+owner_boundary:
+  route_or_surface: runtime MCP control surface
+  authority_gate: MCP control now fails closed at `runtime.mcp_control` before
+    JS thread/agent lookup, live MCP stdio/http discovery or invocation,
+    `appendRuntimeEvent`, Rust state-planner invocation from the JS facade,
+    `agents.set`, or `writeAgent` persistence
+  execution_backend: none in JS for MCP import/add/remove/enable/disable,
+    validate/status-record, live discovery, or tool invocation; the existing
+    Rust MCP state-update planner remains migration plumbing only and cannot be
+    used by this JS facade to persist accepted MCP registry truth
+  truth_path: no JS MCP registry mutation, no JS-created MCP control events, no
+    JS transport execution as accepted invocation truth, and no retired camelCase
+    detail aliases in the fail-closed boundary; Rust daemon core must own wallet
+    authority for external exits, Agentgres expected-head/state-root binding,
+    MCP control receipts, registry admission, containment, projection, replay,
+    and persistence before these controls can execute again
+  projection_path: `mcpStatusForAgent` remains a canonical read-only helper over
+    current registry records; it is not terminal authority and must be replaced
+    or demoted once direct Rust MCP projection APIs own the status surface
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-mcp-control-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance keeps the Rust MCP state-update planner available as
+    migration plumbing but now requires the public JS MCP control facade to fail
+    closed before planner invocation, JS event append, JS registry mutation,
+    JS persistence, or live MCP transport calls
+  - focused daemon tests poison store lookup, event append, registry mutation,
+    validation, and persistence hooks, then prove canonical snake_case
+    fail-closed details for import/add/remove/enable/disable/mutation append,
+    live discovery, and live invocation
+  - focused status tests prove the remaining read-only status helper emits
+    canonical snake_case projection fields without retired output aliases
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-mcp-control-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - product/API routes may still call the MCP control adapter, but the adapter
+      now fails closed until direct Rust daemon-core MCP control/admission/
+      projection APIs are verified
+    - `mcpStatusForAgent` remains a read-only projection helper over current
+      registry records; schedule its demotion or replacement once Rust MCP
+      projection APIs are concrete
+    - schedule and run the pending matrix-compaction pass before unrelated
+      route-family work, preserving this slice as MCP control facade-retirement
+      evidence without treating the command bridge or read helper as terminal
+      architecture
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13919,8 +13998,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 729 and the workflow-edit JS
-proposal/apply facade retirement pass:
+Current expected behavior after Slice 730 and the MCP control JS
+mutation/live-transport facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
