@@ -148,210 +148,141 @@ function createSurface(plannerCalls = [], { threadControlStateUpdate = null } = 
 }
 
 function assertNoRetiredDetailAliases(details) {
-  for (const key of ["threadId", "controlKind", "operationKind", "expectedOperationKind"]) {
+  for (const key of [
+    "rustCoreBoundary",
+    "operationKind",
+    "requestedControlKind",
+    "threadId",
+    "evidenceRefs",
+  ]) {
     assert.equal(Object.hasOwn(details, key), false);
   }
 }
 
-function assertNoRetiredThreadControlOutputAliases(result) {
-  for (const key of ["workspaceTrustWarning", "workspaceTrustWarningEvent"]) {
-    assert.equal(Object.hasOwn(result, key), false);
-  }
-  for (const key of ["controlKind", "workspaceTrustWarning", "workspaceTrustWarningEventId"]) {
-    assert.equal(Object.hasOwn(result.control, key), false);
-  }
+function assertThreadControlRustCoreRequired(error, { threadId = "thread_1", controlKind } = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_thread_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.thread_control");
+  assert.equal(error.details.operation, "thread_control");
+  assert.equal(error.details.operation_kind, "thread_control");
+  assert.equal(error.details.thread_id, threadId);
+  assert.equal(error.details.requested_control_kind, controlKind);
+  assert.deepEqual(error.details.evidence_refs, [
+    "runtime_thread_control_js_facade_retired",
+    "runtime_thread_mode_control_js_facade_retired",
+    "runtime_thread_model_control_js_facade_retired",
+    "runtime_thread_thinking_control_js_facade_retired",
+    "runtime_thread_control_event_js_facade_retired",
+    "rust_daemon_core_thread_control_required",
+    "agentgres_thread_control_truth_required",
+  ]);
+  assertNoRetiredDetailAliases(error.details);
 }
 
-test("thread control surface updates mode controls through Rust planner and emits workspace trust warning", () => {
+function assertNoThreadControlMutation(store, plannerCalls) {
+  assert.deepEqual(store.events, []);
+  assert.deepEqual(store.routeRequests, []);
+  assert.deepEqual(store.writes, []);
+  assert.equal(store.agents.get("agent_1").runtimeControls.mode, "agent");
+  assert.deepEqual(plannerCalls, []);
+}
+
+test("thread control mode/model/thinking facades fail closed before JS mutation", () => {
   const store = createStore();
   const plannerCalls = [];
   const surface = createSurface(plannerCalls);
 
-  const result = surface.updateThreadMode(store, "thread_1", {
-    mode: "review",
-    actor: "operator_1",
-    source: "agent_studio",
-    workflow_graph_id: "graph_1",
-  });
-
-  assert.equal(result.control.schema_version, "ioi.runtime.thread-controls.v1");
-  assert.equal(Object.hasOwn(result.control, "schemaVersion"), false);
-  assertNoRetiredThreadControlOutputAliases(result);
-  assert.equal(result.control.control_kind, "mode");
-  assert.equal(result.control.mode, "review");
-  assert.equal(result.control.approval_mode, "human_required");
-  assert.equal(result.control.workspace_trust_warning.warning_id, "workspace_trust_warning_1");
-  assert.equal(result.event.event_kind, "thread.mode_updated");
-  assert.equal(result.event.payload_schema_version, "ioi.runtime.thread-mode-control.v1");
-  assert.equal(result.event.source_event_kind, "OperatorControl.Mode");
-  assert.equal(store.events[1].event_kind, "workspace.trust_warning");
-  assert.equal(store.agents.get("agent_1").runtimeControls.mode, "review");
-  assert.equal(store.writes[0].operationKind, "thread.mode");
-  assert.equal(plannerCalls.length, 1);
-  assert.equal(plannerCalls[0].control_kind, "mode");
-  assert.equal(plannerCalls[0].thread_id, "thread_1");
-  assert.equal(plannerCalls[0].event_id, "evt_1");
-  assert.equal(plannerCalls[0].workspace_trust_warning_event_id, "evt_2");
-  assert.equal(plannerCalls[0].controls.mode, "review");
-});
-
-test("thread control surface updates model controls through route selection and Rust planner", () => {
-  const store = createStore();
-  const plannerCalls = [];
-  const surface = createSurface(plannerCalls);
-
-  const result = surface.updateThreadThinking(store, "thread_1", {
-    thinking: "off",
-    model: {
-      id: "auto",
-      route_id: "route.local-first",
-      privacy: "local_private",
-    },
-    workflow_node_id: "runtime.model-router.custom",
-    workflow_graph_id: "graph_1",
-  });
-
-  assertNoRetiredThreadControlOutputAliases(result);
-  assert.equal(result.control.control_kind, "thinking");
-  assert.equal(result.control.model.selectedModel, "local-model");
-  assert.equal(result.control.model.reasoningEffort, "none");
-  assert.equal(result.control.model.privacy, "local_private");
-  assert.equal(result.control.model.allow_hosted_fallback, null);
-  assert.equal(Object.hasOwn(result.control.model, "allowHostedFallback"), false);
-  assert.equal(result.event.event_kind, "model.route_decision");
-  assert.equal(result.event.source_event_kind, "OperatorControl.Thinking");
-  assert.equal(result.event.payload_schema_version, "ioi.runtime.model-route-control.v1");
-  assert.deepEqual(result.event.receipt_refs, ["receipt_route_1"]);
-  assert.equal(store.routeRequests[0].input.model.route_id, "route.local-first");
-  assert.equal(Object.hasOwn(store.routeRequests[0].input.model, "routeId"), false);
-  assert.equal(store.routeRequests[0].context.evidenceRefs[0], "runtime_thread_thinking_control");
-  assert.equal(store.agents.get("agent_1").modelRouteReceiptId, "receipt_route_1");
-  assert.equal(store.writes[0].operationKind, "thread.thinking");
-  assert.equal(plannerCalls.length, 1);
-  assert.equal(plannerCalls[0].control_kind, "thinking");
-  assert.equal(plannerCalls[0].model_route.receipt_id, "receipt_route_1");
-  assert.equal(plannerCalls[0].model_route.route_id, "route.local-first");
-  assert.equal(Object.hasOwn(plannerCalls[0].model_route, "receiptId"), false);
-  assert.equal(Object.hasOwn(plannerCalls[0].model_route, "routeId"), false);
-  assert.equal(plannerCalls[0].controls.model.selectedModel, "local-model");
-});
-
-test("thread control surface ignores retired request identity aliases", () => {
-  const store = createStore();
-  const plannerCalls = [];
-  const surface = createSurface(plannerCalls);
-
-  const modeResult = surface.updateThreadMode(store, "thread_1", {
-    mode: "review",
-    interactionMode: "yolo",
-    approvalMode: "never",
-    requestedBy: "operator_retired",
-    workflowGraphId: "graph_retired",
-    workflowNodeId: "node_retired",
-    idempotencyKey: "thread_control_idempotency_retired",
-  });
-
-  assert.equal(modeResult.event.payload.mode, "review");
-  assert.equal(modeResult.event.payload.approval_mode, "human_required");
-  assert.equal(modeResult.event.payload.requested_by, "operator");
-  assert.equal(modeResult.event.workflow_graph_id, null);
-  assert.equal(modeResult.event.workflow_node_id, "runtime.thread-mode");
-  assert.match(modeResult.event.idempotency_key, /^thread:thread_1:control\.mode:/);
-  assert.equal(store.events[1].workflow_graph_id, null);
-  assert.equal(store.events[1].payload_summary.approval_mode, "human_required");
-  assert.equal(plannerCalls[0].controls.mode, "review");
-  assert.equal(plannerCalls[0].controls.approvalMode, "human_required");
-
-  const modelResult = surface.updateThreadThinking(store, "thread_1", {
-    thinking: "off",
-    model: {
-      id: "auto",
-      route_id: "route.local-first",
-    },
-    workflowGraphId: "graph_model_retired",
-    workflowNodeId: "node_model_retired",
-    idempotencyKey: "thread_thinking_idempotency_retired",
-  });
-
-  assert.equal(store.routeRequests[0].context.workflowGraphId, null);
-  assert.equal(store.routeRequests[0].context.workflowNodeId, "runtime.model-router");
-  assert.equal(modelResult.event.workflow_graph_id, null);
-  assert.equal(modelResult.event.workflow_node_id, "runtime.model-router");
-  assert.match(modelResult.event.idempotency_key, /^thread:thread_1:control\.thinking:/);
-});
-
-test("thread control surface accepts canonical idempotency key", () => {
-  const store = createStore();
-  const plannerCalls = [];
-  const surface = createSurface(plannerCalls);
-
-  const result = surface.updateThreadMode(store, "thread_1", {
-    mode: "review",
-    idempotency_key: "thread_control_idempotency_canonical",
-  });
-
-  assert.equal(result.event.idempotency_key, "thread_control_idempotency_canonical");
-});
-
-test("thread control surface fails closed without Rust-planned operation kind", () => {
-  const store = createStore();
-  const plannerCalls = [];
-  const surface = createSurface(plannerCalls, {
-    threadControlStateUpdate: {
-      operation_kind: null,
-    },
-  });
-
-  assert.throws(
-    () =>
-      surface.updateThreadMode(store, "thread_1", {
+  for (const [operation, call, controlKind] of [
+    [
+      "mode",
+      () => surface.updateThreadMode(store, "thread_1", {
         mode: "review",
         actor: "operator_1",
         source: "agent_studio",
+        workflow_graph_id: "graph_1",
       }),
-    (error) => {
-      assert.equal(error.code, "thread_control_state_update_operation_kind_missing");
-      assert.equal(error.details.thread_id, "thread_1");
-      assert.equal(error.details.control_kind, "mode");
-      assert.equal(error.details.operation_kind, "thread.mode");
-      assertNoRetiredDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.equal(store.writes.length, 0);
-  assert.equal(store.agents.get("agent_1").runtimeControls.mode, "agent");
-  assert.equal(plannerCalls.length, 1);
+      "mode",
+    ],
+    [
+      "model",
+      () => surface.updateThreadModel(store, "thread_1", {
+        model: { id: "auto", route_id: "route.local-first" },
+        workflow_node_id: "runtime.model-router.custom",
+      }),
+      "model",
+    ],
+    [
+      "thinking",
+      () => surface.updateThreadThinking(store, "thread_1", {
+        thinking: "off",
+        model: {
+          id: "auto",
+          route_id: "route.local-first",
+          privacy: "local_private",
+        },
+        workflow_node_id: "runtime.model-router.custom",
+        workflow_graph_id: "graph_1",
+      }),
+      "thinking",
+    ],
+  ]) {
+    assert.throws(
+      call,
+      (error) => {
+        assertThreadControlRustCoreRequired(error, { controlKind });
+        return true;
+      },
+      operation,
+    );
+    assertNoThreadControlMutation(store, plannerCalls);
+  }
 });
 
-test("thread control surface rejects unexpected Rust-planned operation kind with canonical details", () => {
+test("thread runtime-control and direct event facades fail closed before JS event append", () => {
   const store = createStore();
   const plannerCalls = [];
-  const surface = createSurface(plannerCalls, {
-    threadControlStateUpdate: {
-      operation_kind: "thread.memory_status",
-    },
-  });
+  const surface = createSurface(plannerCalls);
 
   assert.throws(
-    () =>
-      surface.updateThreadMode(store, "thread_1", {
-        mode: "review",
-        actor: "operator_1",
-        source: "agent_studio",
-      }),
+    () => surface.updateThreadRuntimeControls(store, "thread_1", {
+      control: "mode",
+      mode: "review",
+      workflowGraphId: "graph_retired",
+      workflowNodeId: "node_retired",
+      idempotencyKey: "thread_control_idempotency_retired",
+    }),
     (error) => {
-      assert.equal(error.code, "thread_control_state_update_operation_kind_mismatch");
-      assert.equal(error.details.thread_id, "thread_1");
-      assert.equal(error.details.control_kind, "mode");
-      assert.equal(error.details.expected_operation_kind, "thread.mode");
-      assert.equal(error.details.operation_kind, "thread.memory_status");
-      assertNoRetiredDetailAliases(error.details);
+      assertThreadControlRustCoreRequired(error, { controlKind: "mode" });
       return true;
     },
   );
-  assert.equal(store.writes.length, 0);
-  assert.equal(store.agents.get("agent_1").runtimeControls.mode, "agent");
-  assert.equal(plannerCalls.length, 1);
+
+  assert.throws(
+    () => surface.appendThreadRuntimeControlEvent(store, {
+      agent: { id: "agent_1", cwd: "/tmp/runtime-thread-control-test" },
+      threadId: "thread_1",
+      controlKind: "thinking",
+      controls: {
+        model: {
+          id: "auto",
+          routeId: "route.local-first",
+          workflowNodeId: "runtime.model-router.retired",
+        },
+      },
+      request: { idempotency_key: "canonical" },
+      source: "agent_studio",
+      requestedBy: "operator",
+      workflowGraphId: "graph_1",
+      modelRoute: { receiptId: "receipt_route_1" },
+      now: "2026-06-04T12:00:00.000Z",
+    }),
+    (error) => {
+      assertThreadControlRustCoreRequired(error, { controlKind: "thinking" });
+      return true;
+    },
+  );
+
+  assertNoThreadControlMutation(store, plannerCalls);
 });
 
 test("thread control surface delegates workspace trust acknowledgement", () => {

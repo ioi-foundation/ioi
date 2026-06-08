@@ -316,14 +316,14 @@ function runDocs() {
       /Slice 741 thread-memory control facade-retirement\s+matrix-compaction pass is complete/.test(
         guide,
       ) &&
-      /Resume with the next verified Rust-core\s+extraction or facade-retirement slice/.test(guide) &&
+      /Slice 742 has opened the next verified\s+Rust-core extraction \/\s+facade-retirement seam/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
       /The Slice 741\s+thread-memory control facade-retirement compaction is complete/.test(
         guide,
       ) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /The next compaction pass is\s+scheduled after Slice 742/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -332,7 +332,7 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
+      /Next resume instruction: Slice 742 opened the next Rust-core extraction \/\s+facade-retirement seam/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -343,7 +343,7 @@ function runDocs() {
         matrix,
       ) &&
       /thread-memory-control-js-facade-retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 741\s+compaction/.test(
+      /Next scheduled matrix-compaction pass: pending after Slice 742/.test(
         matrix,
       ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(
@@ -4984,7 +4984,7 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "thread-control-agent-state-update-live-bridge",
+    "thread-control-js-facade-retired",
     /ThreadControlAgentStateUpdateCore/.test(policyCore) &&
       /ThreadControlAgentStateUpdateRequest/.test(policyCore) &&
       /THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -5043,14 +5043,24 @@ function runBridge() {
       /Object\.hasOwn\(result\.control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
-      /contextPolicyRunnerDep\.planThreadControlAgentStateUpdate/.test(
+      /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_mode_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_thinking_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /rust_daemon_core_thread_control_required/.test(runtimeThreadControlSurface) &&
+      /agentgres_thread_control_truth_required/.test(runtimeThreadControlSurface) &&
+      !/contextPolicyRunnerDep\.planThreadControlAgentStateUpdate/.test(
         runtimeThreadControlSurface,
       ) &&
-      /model_route:\s*threadControlAgentStateUpdateModelRoute\(modelRoute\)/.test(
+      !/model_route:\s*threadControlAgentStateUpdateModelRoute\(modelRoute\)/.test(
         runtimeThreadControlSurface,
       ) &&
-      /requiredThreadControlOperationKind/.test(runtimeThreadControlSurface) &&
+      !/requiredThreadControlOperationKind/.test(runtimeThreadControlSurface) &&
+      !/store\.agentForThread|store\.resolveModelRoute|store\.appendRuntimeEvent|store\.agents\.set|store\.writeAgent/.test(
+        runtimeThreadControlSurface,
+      ) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeThreadControlSurface,
       ) &&
@@ -5058,13 +5068,15 @@ function runBridge() {
       !/modelId:\s*modelRoute\.selectedModel|runtimeControls:\s*nextControls/.test(
         runtimeThreadControlSurface,
       ) &&
-      /thread control surface updates mode controls through Rust planner/.test(
+      /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
-      /thread control surface updates model controls through route selection and Rust planner/.test(
+      /thread runtime-control and direct event facades fail closed before JS event append/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
-      /thread control surface fails closed without Rust-planned operation kind/.test(
+      /assertThreadControlRustCoreRequired/.test(runtimeThreadControlSurfaceTest) &&
+      /assertNoThreadControlMutation/.test(runtimeThreadControlSurfaceTest) &&
+      /assert\.deepEqual\(plannerCalls,\s*\[\]\)/.test(
         runtimeThreadControlSurfaceTest,
       ),
     [
@@ -5076,53 +5088,18 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: thread-control agent state updates must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: thread-control public facades must fail closed until Rust daemon-core owns control admission, event materialization, persistence, replay, and projection; planner bridge remains migration plumbing only",
   );
   assertCheck(
     result,
     "thread-control-request-aliases-retired",
-    /const workflowGraphId = request\.workflow_graph_id \?\? null;/.test(
-      runtimeThreadControlSurface,
-    ) &&
-      /const workflowNodeId =\s*\n\s*request\.workflow_node_id \?\?/.test(
-        runtimeThreadControlSurface,
-      ) &&
-      /thread control surface ignores retired request identity aliases/.test(
+    /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
+      /thread runtime-control and direct event facades fail closed before JS event append/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /workflowGraphId: "graph_retired"/.test(runtimeThreadControlSurfaceTest) &&
       /workflowNodeId: "node_retired"/.test(runtimeThreadControlSurfaceTest) &&
-      /interactionMode: "yolo"/.test(runtimeThreadControlSurfaceTest) &&
-      /approvalMode: "never"/.test(runtimeThreadControlSurfaceTest) &&
-      /requestedBy: "operator_retired"/.test(runtimeThreadControlSurfaceTest) &&
-      /modeResult\.event\.payload\.requested_by,\s*"operator"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /plannerCalls\[0\]\.controls\.approvalMode,\s*"human_required"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
       /idempotencyKey: "thread_control_idempotency_retired"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /workflowGraphId: "graph_model_retired"/.test(runtimeThreadControlSurfaceTest) &&
-      /workflowNodeId: "node_model_retired"/.test(runtimeThreadControlSurfaceTest) &&
-      /idempotencyKey: "thread_thinking_idempotency_retired"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /thread control surface accepts canonical idempotency key/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /idempotency_key: "thread_control_idempotency_canonical"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /modeResult\.event\.workflow_graph_id, null/.test(runtimeThreadControlSurfaceTest) &&
-      /modeResult\.event\.workflow_node_id, "runtime\.thread-mode"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /assert\.match\(modeResult\.event\.idempotency_key, \/\^thread:thread_1:control\\\.mode:\//.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /assert\.match\(modelResult\.event\.idempotency_key, \/\^thread:thread_1:control\\\.thinking:\//.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /workflowNodeId: "node-retired"/.test(threadRuntimeControlsTest) &&
@@ -5134,12 +5111,6 @@ function runBridge() {
       ) &&
       /threadMode: "review"/.test(threadRuntimeControlsTest) &&
       /approvalMode: "human_required"/.test(threadRuntimeControlsTest) &&
-      /store\.routeRequests\[0\]\.context\.workflowGraphId, null/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
-      /store\.routeRequests\[0\]\.context\.workflowNodeId, "runtime\.model-router"/.test(
-        runtimeThreadControlSurfaceTest,
-      ) &&
       /workflowGraphId: "graph-retired-context"/.test(threadRuntimeControlsTest) &&
       /workflow_node_id: "runtime\.model-router"/.test(threadRuntimeControlsTest) &&
       /workflow_node_type: "Model Router"/.test(threadRuntimeControlsTest) &&
@@ -5191,19 +5162,18 @@ function runBridge() {
   assertCheck(
     result,
     "thread-control-error-detail-aliases-retired",
-    /details:\s*\{\s*thread_id:\s*threadId,\s*control_kind:\s*controlKind\s*\}/.test(
+    /rust_core_boundary:\s*"runtime\.thread_control"/.test(
       runtimeThreadControlSurface,
     ) &&
-      /operation_kind:\s*expectedOperationKind/.test(runtimeThreadControlSurface) &&
-      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeThreadControlSurface) &&
-      /thread control surface rejects unexpected Rust-planned operation kind with canonical details/.test(
+      /requested_control_kind:\s*controlKind \?\? null/.test(runtimeThreadControlSurface) &&
+      /thread_id:\s*threadId/.test(runtimeThreadControlSurface) &&
+      /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadControlSurfaceTest) &&
       /error\.details\.thread_id/.test(runtimeThreadControlSurfaceTest) &&
-      /error\.details\.control_kind/.test(runtimeThreadControlSurfaceTest) &&
-      /error\.details\.expected_operation_kind/.test(runtimeThreadControlSurfaceTest) &&
-      !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind)\s*:/.test(
+      /error\.details\.requested_control_kind/.test(runtimeThreadControlSurfaceTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind|requestedControlKind)\s*:/.test(
         runtimeThreadControlSurface,
       ),
     [
@@ -7432,16 +7402,14 @@ function runBridge() {
     result,
     "runtime-thread-hosted-fallback-alias-retired",
     /allow_hosted_fallback/.test(threadRuntimeControls) &&
-      /allow_hosted_fallback/.test(runtimeThreadControlSurface) &&
       !/allowHostedFallback/.test(threadRuntimeControls) &&
       !/allowHostedFallback/.test(runtimeThreadControlSurface) &&
       /retiredAliasInput/.test(threadRuntimeControlsTest) &&
       /Object\.hasOwn\(retiredAliasInput\.model,\s*"allowHostedFallback"\),\s*false/.test(
         threadRuntimeControlsTest,
       ) &&
-      /Object\.hasOwn\(result\.control\.model,\s*"allowHostedFallback"\),\s*false/.test(
-        runtimeThreadControlSurfaceTest,
-      ),
+      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /assertThreadControlRustCoreRequired/.test(runtimeThreadControlSurfaceTest),
     [
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
@@ -7455,10 +7423,10 @@ function runBridge() {
     "runtime-thread-control-schema-version-output-alias-retired",
     /schema_version:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
       !/schemaVersion:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
-      /schema_version:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
       !/schemaVersion:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
       /Object\.hasOwn\(controls,\s*"schemaVersion"\),\s*false/.test(threadRuntimeControlsTest) &&
-      /Object\.hasOwn\(result\.control,\s*"schemaVersion"\),\s*false/.test(
+      /runtime_thread_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
+      /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
         runtimeThreadControlSurfaceTest,
       ),
     [
@@ -7472,26 +7440,16 @@ function runBridge() {
   assertCheck(
     result,
     "runtime-thread-control-surface-output-aliases-retired",
-    /workspace_trust_warning:\s*workspaceTrustWarning/.test(runtimeThreadControlSurface) &&
-      /workspace_trust_warning_event:\s*workspaceTrustWarningEvent/.test(
-        runtimeThreadControlSurface,
-      ) &&
-      /control_kind:\s*controlKind/.test(runtimeThreadControlSurface) &&
-      /workspace_trust_warning_event_id:\s*workspaceTrustWarningEvent\?\.event_id \?\? null/.test(
-        runtimeThreadControlSurface,
-      ) &&
+    /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&
       !/^\s*workspaceTrustWarning\s*,/m.test(runtimeThreadControlSurface) &&
-      !/control:\s*\{(?:(?!\n\s*\},\n\s*event,)[\s\S])*^\s*controlKind\s*,/m.test(
-        runtimeThreadControlSurface,
-      ) &&
+      !/control:\s*\{(?:(?!\n\s*\},\n\s*event,)[\s\S])*^\s*controlKind\s*,/m.test(runtimeThreadControlSurface) &&
       !/^\s*workspaceTrustWarningEventId\s*:/m.test(runtimeThreadControlSurface) &&
       !/^\s*workspaceTrustWarningEvent\s*:/m.test(runtimeThreadControlSurface) &&
-      /assertNoRetiredThreadControlOutputAliases\(result\)/.test(
+      /thread runtime-control and direct event facades fail closed before JS event append/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
-      /Object\.hasOwn\(result\.control,\s*key\),\s*false/.test(
-        runtimeThreadControlSurfaceTest,
-      ),
+      /assertNoThreadControlMutation/.test(runtimeThreadControlSurfaceTest),
     [
       "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
@@ -7518,11 +7476,11 @@ function runBridge() {
       !/bodyModel\.(?:modelId|routeId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)/.test(
         threadRuntimeControls,
       ) &&
-      /modelRoute\.decision\?\.reasoning_effort/.test(runtimeThreadControlSurface) &&
-      /modelRoute\.decision\?\.workflow_node_id/.test(runtimeThreadControlSurface) &&
       !/modelRoute\.decision\?\.(?:reasoningEffort|workflowNodeId)/.test(
         runtimeThreadControlSurface,
       ) &&
+      !/store\.resolveModelRoute/.test(runtimeThreadControlSurface) &&
+      /runtime_thread_model_control_js_facade_retired/.test(runtimeThreadControlSurface) &&
       /thread runtime control model payloads use canonical route-selection fields/.test(
         threadRuntimeControlsTest,
       ) &&
@@ -7535,7 +7493,7 @@ function runBridge() {
       /assert\.equal\(input\.model\.route_id,\s*"route\.canonical"\)/.test(
         threadRuntimeControlsTest,
       ) &&
-      /Object\.hasOwn\(store\.routeRequests\[0\]\.input\.model,\s*"routeId"\),\s*false/.test(
+      /assertNoThreadControlMutation\(store,\s*plannerCalls\)/.test(
         runtimeThreadControlSurfaceTest,
       ),
     [
