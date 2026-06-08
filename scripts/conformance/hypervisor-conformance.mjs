@@ -5957,14 +5957,18 @@ function runBridge() {
       /agent status state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
-      /contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
-      /requiredPlannedOperationKind\(stateUpdate,\s*"agent\.create",\s*"agent"\)/.test(
-        runtimeAgentRunLifecycle,
-      ) &&
-      /requiredPlannedOperationKind\(stateUpdate,\s*"run\.create",\s*"run"\)/.test(
-        runtimeAgentRunLifecycle,
-      ) &&
+      /runtime_agent_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /runtime_run_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /rust_core_boundary:\s*boundary/.test(runtimeAgentRunLifecycle) &&
+      /runtime_agent_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+      /runtime_run_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+      /rust_daemon_core_agent_create_required/.test(runtimeAgentRunLifecycle) &&
+      /rust_daemon_core_run_create_required/.test(runtimeAgentRunLifecycle) &&
+      /agentgres_agent_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
+      /agentgres_run_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
+      !/contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      !/requiredPlannedOperationKind/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"agent\.create"/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.create"/.test(runtimeAgentRunLifecycle) &&
       /contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
@@ -5985,25 +5989,28 @@ function runBridge() {
       !/store\.agents\.set\(agent\.id,\s*agent\)|store\.runs\.set\(runtimeRun\.id,\s*runtimeRun\)/.test(
         runtimeAgentRunLifecycle,
       ) &&
-      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
-      /plan_agent_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
-      /plan_run_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
-      /createAgent fails closed without Rust-planned operation kind/.test(
+      !/store\.agents\.set|store\.runs\.set|store\.writeAgent|store\.writeRun/.test(
+        runtimeAgentRunLifecycle,
+      ) &&
+      /return createAgentState\(this,\s*options\);/.test(runtimeDaemonIndex) &&
+      /return createRunState\(this,\s*agentId,\s*request\);/.test(runtimeDaemonIndex) &&
+      !/createAgentState\(this,\s*options,\s*\{/.test(runtimeDaemonIndex) &&
+      !/createRunState\(this,\s*agentId,\s*request,\s*\{/.test(runtimeDaemonIndex) &&
+      /createAgent facade fails closed before Rust planning or JS persistence/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /createAgent ignores retired initial runtime-control aliases before Rust planning/.test(
+      /createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /createRun fails closed without Rust-planned operation kind/.test(
+      /createRun missing-agent path is still Rust-core required and does not read JS agent state/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      /createRun ignores retired thread and approval mode request aliases before Rust planning/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /createRun ignores retired persisted approval mode alias before Rust planning/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /agent\.runtimeControls\?\.approval_mode/.test(runtimeAgentRunLifecycle) &&
+      /assertNoRetiredLifecycleDetailAliases/.test(runtimeAgentRunLifecycleTest) &&
+      /assert\.deepEqual\(store\.writes,\s*\[\]\)/.test(runtimeAgentRunLifecycleTest) &&
+      /assert\.deepEqual\(store\.routeCalls,\s*\[\]\)/.test(runtimeAgentRunLifecycleTest) &&
+      /assert\.deepEqual\(store\.memoryCalls,\s*\[\]\)/.test(runtimeAgentRunLifecycleTest) &&
+      !/plan_agent_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
+      !/plan_run_create_state_update/.test(runtimeAgentRunLifecycleTest) &&
       !/agent\.runtimeControls\?\.approvalMode/.test(runtimeAgentRunLifecycle) &&
       /options\.interaction_mode \?\? "agent"/.test(threadRuntimeControls) &&
       !/options\.mode \?\? options\.interaction_mode/.test(threadRuntimeControls) &&
@@ -6051,7 +6058,7 @@ function runBridge() {
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
-    "Phase 9/10 is pending: agent/run create state updates must be planned by Rust policy core through the command bridge",
+    "Phase 9/10 is pending: public agent/run creation must fail closed until Rust daemon-core owns state admission and persistence; bridge planners remain migration plumbing only",
   );
   assertCheck(
     result,
@@ -17033,20 +17040,17 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-agent-run-lifecycle-usage-aliases-retired",
-    !/^\s*usageTelemetry,?\s*$/m.test(runtimeAgentRunLifecycle) &&
-      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeAgentRunLifecycle) &&
-      /retiredRuntimeRunUsageAliasKeys/.test(runtimeAgentRunLifecycleTest) &&
-      /assertMissingKeys\(run,\s*retiredRuntimeRunUsageAliasKeys\)/.test(
-        runtimeAgentRunLifecycleTest,
-      ) &&
-      /assertMissingKeys\(run\.trace,\s*retiredRuntimeRunUsageAliasKeys\)/.test(
+    !/usageTelemetry|runtimeUsage/.test(runtimeAgentRunLifecycle) &&
+      !/usageTelemetry|runtimeUsage/.test(runtimeAgentRunLifecycleTest) &&
+      /runtime_run_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
         runtimeAgentRunLifecycleTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
       "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime agent run lifecycle records must not emit retired usage telemetry aliases",
+    "Phase 10/11 is pending: runtime agent run lifecycle JS facade must fail closed before it can emit retired usage telemetry aliases",
   );
   assertCheck(
     result,
@@ -21038,7 +21042,7 @@ function runCompositor() {
       ) &&
       !/request\.diagnosticsFeedback\b/.test(runtimeAgentRunLifecycle) &&
       /diagnosticsFeedback:\s*\{\s*diagnostic_status:\s*"alias"\s*\}/.test(runtimeAgentRunLifecycleTest) &&
-      /assert\.deepEqual\(run\.diagnosticsFeedback,\s*\{\s*diagnostic_status:\s*"clean"\s*\}\)/.test(
+      /createRun facade fails closed before route, memory, Rust planning, or JS persistence/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
       /compact diagnostics feedback emits canonical envelope/.test(diagnosticsFeedbackTest) &&

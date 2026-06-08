@@ -1,160 +1,55 @@
-import crypto from "node:crypto";
-import path from "node:path";
-
-import { runtimeUsageTelemetryForRun } from "./usage-telemetry.mjs";
-
-function requiredPlannedOperationKind(stateUpdate, expectedOperationKind, recordKind) {
-  const operationKind =
-    typeof stateUpdate?.operation_kind === "string" && stateUpdate.operation_kind.trim()
-      ? stateUpdate.operation_kind
-      : null;
-  if (!operationKind) {
-    const error = new Error(
-      `Rust policy state-update planning did not return an operation kind for ${recordKind} creation.`,
-    );
-    error.code = "runtime_lifecycle_state_update_operation_kind_missing";
-    error.details = {
-      record_kind: recordKind,
-      operation_kind: expectedOperationKind,
-    };
-    throw error;
-  }
-  if (operationKind !== expectedOperationKind) {
-    const error = new Error(
-      `Rust policy state-update planning returned an unexpected operation kind for ${recordKind} creation.`,
-    );
-    error.code = "runtime_lifecycle_state_update_operation_kind_mismatch";
-    error.details = {
-      record_kind: recordKind,
-      expected_operation_kind: expectedOperationKind,
-      operation_kind: operationKind,
-    };
-    throw error;
-  }
-  return operationKind;
+export function createAgent(store, options = {}) {
+  throwRuntimeLifecycleRustCoreRequired({
+    code: "runtime_agent_create_rust_core_required",
+    message: "Agent creation requires direct Rust daemon-core state admission and persistence.",
+    boundary: "runtime.agent_create",
+    operation: "agent_create",
+    operation_kind: "agent.create",
+    requested_cwd: options.local?.cwd ?? store.defaultCwd ?? null,
+    requested_runtime: options.hosted ? "hosted" : options.runtime ?? null,
+    evidence_refs: [
+      "runtime_agent_create_js_facade_retired",
+      "rust_daemon_core_agent_create_required",
+      "agentgres_agent_create_state_truth_required",
+    ],
+  });
 }
 
-export function createAgent(store, options = {}, deps = {}) {
-  const {
-    contextPolicyRunner,
-    ensureProviderAvailable,
-    initialThreadRuntimeControls,
-    mcpRegistryForWorkspace,
-    randomUUID = () => crypto.randomUUID(),
-    runtimeModeForOptions,
-    summarizeAgentOptions,
-  } = deps;
-  const now = new Date().toISOString();
-  const cwd = path.resolve(options.local?.cwd ?? store.defaultCwd);
-  const runtime = runtimeModeForOptions(options);
-  ensureProviderAvailable(runtime, options);
-  const modelRoute = store.resolveModelRoute(options, {
-    evidenceRefs: ["runtime_agent_model_route"],
-    workflowNodeId: "runtime.model-router",
-    workflowNodeType: "Model Router",
+export function createRun(_store, agentId, request = {}) {
+  throwRuntimeLifecycleRustCoreRequired({
+    code: "runtime_run_create_rust_core_required",
+    message: "Run creation requires direct Rust daemon-core state admission and persistence.",
+    boundary: "runtime.run_create",
+    operation: "run_create",
+    operation_kind: "run.create",
+    agent_id: agentId ?? null,
+    requested_mode: request.mode ?? "send",
+    evidence_refs: [
+      "runtime_run_create_js_facade_retired",
+      "rust_daemon_core_run_create_required",
+      "agentgres_run_create_state_truth_required",
+    ],
   });
-  const agent = {
-    id: `agent_${randomUUID()}`,
-    status: "active",
-    runtime,
-    cwd,
-    modelId: modelRoute.selectedModel,
-    requestedModelId: modelRoute.requestedModelId,
-    modelRouteId: modelRoute.routeId,
-    modelRouteEndpointId: modelRoute.endpointId,
-    modelRouteProviderId: modelRoute.providerId,
-    modelRouteReceiptId: modelRoute.receiptId,
-    modelRouteDecision: modelRoute.decision,
-    runtimeControls: initialThreadRuntimeControls(options, modelRoute, now),
-    mcpRegistry: mcpRegistryForWorkspace(cwd, {
-      ...options,
-      homeDir: store.homeDir,
-    }),
-    createdAt: now,
-    updatedAt: now,
-    options: summarizeAgentOptions(cwd, options),
-  };
-  if (typeof contextPolicyRunner?.planAgentCreateStateUpdate !== "function") {
-    throw new Error("Agent creation requires Rust policy state-update planning.");
-  }
-  const stateUpdate = contextPolicyRunner.planAgentCreateStateUpdate({ agent });
-  const plannedAgent = stateUpdate.agent;
-  if (!plannedAgent?.id) {
-    throw new Error("Rust policy state-update planning did not return an agent record.");
-  }
-  const operationKind = requiredPlannedOperationKind(stateUpdate, "agent.create", "agent");
-  store.agents.set(plannedAgent.id, plannedAgent);
-  store.writeAgent(plannedAgent, operationKind);
-  return plannedAgent;
 }
 
-export function createRun(store, agentId, request = {}, deps = {}) {
-  const {
-    approvalModeForThreadMode,
-    buildRun,
-    contextPolicyRunner,
-    ensureProviderAvailable,
-    runtimeUsageTelemetryForRun: usageForRun = runtimeUsageTelemetryForRun,
-    threadIdForAgent,
-    threadModeForRunMode,
-  } = deps;
-  const agent = store.getAgent(agentId);
-  ensureProviderAvailable(agent.runtime, agent.options);
-  const mode = request.mode ?? "send";
-  const threadMode = request.thread_mode ?? threadModeForRunMode(mode, agent.runtimeControls?.mode);
-  const approvalMode =
-    request.approval_mode ??
-    agent.runtimeControls?.approval_mode ??
-    approvalModeForThreadMode(threadMode);
-  const prompt =
-    request.prompt ??
-    (mode === "learn"
-      ? `Learn governed task-family updates for ${request.options?.taskFamily ?? "runtime"}`
-      : "");
-  const modelRoute = store.resolveRunModelRoute(agent, request);
-  const memory = store.resolveRunMemory(agent, request, prompt);
-  const skillHookCatalog = store.skillHookCatalog({ cwd: agent.cwd });
-  const run = buildRun({
-    agent,
-    mode,
-    prompt,
-    request,
-    source: "local_daemon_agentgres",
-    modelRoute,
-    memory,
-    skillHookCatalog,
-    diagnosticsFeedback: request.diagnostics_feedback ?? null,
-  });
-  const runtimeRunDraft = {
-    ...run,
-    threadMode,
-    approvalMode,
+function throwRuntimeLifecycleRustCoreRequired({
+  code,
+  message,
+  boundary,
+  operation,
+  operation_kind,
+  evidence_refs,
+  ...details
+}) {
+  const error = new Error(message);
+  error.status = 501;
+  error.code = code;
+  error.details = {
+    rust_core_boundary: boundary,
+    operation,
+    operation_kind,
+    ...details,
+    evidence_refs,
   };
-  const usageTelemetry = usageForRun({
-    run: runtimeRunDraft,
-    agent,
-    threadId: threadIdForAgent(agent.id),
-  });
-  const runtimeRun = {
-    ...runtimeRunDraft,
-    usage: usageTelemetry,
-    usage_telemetry: usageTelemetry,
-    trace: {
-      ...runtimeRunDraft.trace,
-      usage: usageTelemetry,
-      usage_telemetry: usageTelemetry,
-    },
-  };
-  if (typeof contextPolicyRunner?.planRunCreateStateUpdate !== "function") {
-    throw new Error("Run creation requires Rust policy state-update planning.");
-  }
-  const stateUpdate = contextPolicyRunner.planRunCreateStateUpdate({ run: runtimeRun });
-  const plannedRun = stateUpdate.run;
-  if (!plannedRun?.id) {
-    throw new Error("Rust policy state-update planning did not return a run record.");
-  }
-  const operationKind = requiredPlannedOperationKind(stateUpdate, "run.create", "run");
-  store.runs.set(plannedRun.id, plannedRun);
-  store.writeRun(plannedRun, operationKind);
-  return plannedRun;
+  throw error;
 }

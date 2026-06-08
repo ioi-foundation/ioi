@@ -14685,6 +14685,83 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 722
+
+```yaml
+slice: 722
+phase: 10-authoritative-js-facade-retirement
+objective: retire public agent/run create JS state persistence facades until
+  direct Rust daemon-core agent/run admission and persistence own lifecycle
+  creation
+owner_boundary:
+  route_or_surface: runtime agent and run creation
+  authority_gate: agent and run creation now fail closed at
+    `runtime.agent_create` and `runtime.run_create` before JS model-route
+    resolution, provider availability checks, memory resolution, skill/MCP
+    registry assembly, usage telemetry assembly, Rust policy planner invocation
+    from the JS facade, agent/run map mutation, or `writeAgent`/`writeRun`
+    persistence
+  execution_backend: none in JS for public agent/run creation; the existing Rust
+    agent/run create state-update planners remain migration plumbing only and
+    must not be used by the JS facade to persist accepted lifecycle truth
+  truth_path: no JS agent/run record mutation or `writeAgent("agent.create")` /
+    `writeRun("run.create")` from public create facades; Rust daemon-core must
+    own Agentgres admission, expected heads/state-root binding, authority and
+    custody checks, projection materialization, and persistence before creation
+    can execute again
+  projection_path: direct Rust daemon-core agent/run projection APIs must
+    materialize agent, run, thread/turn, usage, memory, and route-binding truth
+    before public creation surfaces can return accepted data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs
+    - packages/runtime-daemon/src/index.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps the Rust agent/run create planner bridge
+    available as migration plumbing but requires public JS creation facades to
+    fail closed before planner calls, route/memory/registry assembly, map
+    mutation, and `writeAgent`/`writeRun`
+  - compositor conformance requires the retired JS lifecycle facade to fail
+    closed before emitting usage telemetry or diagnostics compatibility aliases
+  - focused daemon tests prove canonical snake_case fail-closed details and no
+    JS writes, route reads, memory reads, or agent-state reads for create
+    requests
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs
+    - node --check packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - thread, task/job, diagnostics, subagent, SDK, and public route handlers may
+      still call public agent/run creation adapters, but those adapters now fail
+      closed until direct Rust daemon-core admission/persistence APIs are
+      verified
+    - Rust agent/run create planner bridges remain migration plumbing for the
+      future direct Rust lifecycle API; they must not be mistaken for terminal
+      JS-owned lifecycle persistence after context compaction
+    - schedule a matrix-compaction pass once the next runtime control, thread
+      turn creation, or event append Rust-core extraction/facade-retirement seam
+      is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14700,8 +14777,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 721 and the run-cancel JS persistence
-facade retirement pass:
+Current expected behavior after Slice 722 and the agent/run create JS
+persistence facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

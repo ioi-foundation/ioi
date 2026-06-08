@@ -962,14 +962,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   createAgent(options = {}) {
-    return createAgentState(this, options, {
-      contextPolicyRunner: this.contextPolicyRunner,
-      ensureProviderAvailable,
-      initialThreadRuntimeControls,
-      mcpRegistryForWorkspace,
-      runtimeModeForOptions,
-      summarizeAgentOptions,
-    });
+    return createAgentState(this, options);
   }
 
   listAgents() {
@@ -996,15 +989,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   createRun(agentId, request = {}) {
-    return createRunState(this, agentId, request, {
-      approvalModeForThreadMode,
-      buildRun,
-      contextPolicyRunner: this.contextPolicyRunner,
-      ensureProviderAvailable,
-      runtimeUsageTelemetryForRun,
-      threadIdForAgent,
-      threadModeForRunMode,
-    });
+    return createRunState(this, agentId, request);
   }
 
   resolveModelRoute(options = {}, context = {}) {
