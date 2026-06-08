@@ -43,10 +43,11 @@ use ioi_services::agentic::runtime::kernel::policy::{
     McpManagerCatalogProjectionRequest, McpManagerCatalogSummaryProjectionCore,
     McpManagerCatalogSummaryProjectionRequest, McpManagerStatusProjectionCore,
     McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
-    McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationRequest,
-    OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
-    OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
-    RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
+    McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationInputCore,
+    McpServerValidationInputRequest, McpServerValidationRequest, OperatorInterruptStateUpdateCore,
+    OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
+    OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
+    RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
@@ -485,6 +486,16 @@ struct McpServerValidationBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: McpServerValidationRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct McpServerValidationInputBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpServerValidationInputRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -958,6 +969,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
             let request: McpServerValidationBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             validate_mcp_servers(request)
+        }
+        "project_mcp_server_validation_input" => {
+            let request: McpServerValidationInputBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            project_mcp_server_validation_input(request)
         }
         "plan_mcp_manager_status_projection" => {
             let request: McpManagerStatusProjectionBridgeRequest =
@@ -2701,6 +2718,42 @@ fn validate_mcp_servers(request: McpServerValidationBridgeRequest) -> Result<Val
         "warning_count": record.warning_count,
         "issues": record.issues.clone(),
         "warnings": record.warnings.clone(),
+    }))
+}
+
+fn project_mcp_server_validation_input(
+    request: McpServerValidationInputBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "project_mcp_server_validation_input" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = McpServerValidationInputCore
+        .project(&request.request)
+        .map_err(|error| {
+            BridgeError::new("mcp_server_validation_input_invalid", format!("{error:?}"))
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_server_validation_input_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "workspace_root": record.workspace_root.clone(),
+        "server_count": record.server_count,
+        "servers": record.servers.clone(),
     }))
 }
 
@@ -9459,6 +9512,56 @@ mod tests {
         assert_eq!(response["issues"][0]["code"], "mcp_remote_url_invalid");
         assert_eq!(response["issues"][1]["code"], "mcp_remote_network_blocked");
         assert!(response["issues"][0].get("serverId").is_none());
+    }
+
+    #[test]
+    fn bridge_projects_mcp_server_validation_input_through_rust_core() {
+        let request: McpServerValidationInputBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "project_mcp_server_validation_input",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.mcp-server-validation-input-request.v1",
+                "workspace_root": "/workspace",
+                "input": {
+                    "mcp_json": {
+                        "mcp_servers": {
+                            "docs": {
+                                "transport": "stdio",
+                                "command": "npx",
+                                "tools": {
+                                    "search": { "description": "Search docs" }
+                                }
+                            }
+                        }
+                    },
+                    "mcpJson": {
+                        "mcpServers": {
+                            "retired": {
+                                "transport": "stdio",
+                                "command": "retired"
+                            }
+                        }
+                    }
+                }
+            }
+        }))
+        .expect("mcp server validation input bridge request");
+
+        let response = project_mcp_server_validation_input(request)
+            .expect("mcp server validation input projected");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_server_validation_input_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "projected");
+        assert_eq!(response["workspace_root"], "/workspace");
+        assert_eq!(response["server_count"], 1);
+        assert_eq!(response["servers"][0]["id"], "mcp.docs");
+        assert_eq!(response["servers"][0]["tool_count"], 1);
+        assert!(response["servers"][0].get("sourceScope").is_none());
     }
 
     #[test]

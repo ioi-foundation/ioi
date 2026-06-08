@@ -85,6 +85,8 @@ This pass compacted Slice 780 MCP public catalog Rust-core evidence.
 This pass compacted Slice 781 MCP catalog summary Rust-core evidence.
 This pass compacted Slice 782 MCP helper summary-retirement evidence.
 This pass compacted Slice 783 MCP helper mutation/registry-retirement evidence.
+Slice 784 moved MCP validation-input parsing into Rust daemon-core migration
+transport.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice. Preserve the live owner map, terminal
 blockers, and the fact that fail-closed JS facades, canonical input helpers,
@@ -195,8 +197,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending until the next concrete
-  Rust-core extraction or facade-retirement seam lands.
+- Next scheduled matrix-compaction pass: pending for Slice 784 MCP
+  validation-input Rust-core evidence.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15418,16 +15420,16 @@ facade and into Rust daemon-core migration transport.
 `McpManagerValidationProjectionRecord` own public validation status, counts,
 issue/warning counts, and canonical server/tool/resource/prompt row embedding;
 the bridge exposes `plan_mcp_manager_validation_projection`, and the JS runner
-uses `planMcpManagerValidationProjection()`. `validateMcp()` still parses
-canonical validation input during migration, but it now routes canonical server
-records through `validateMcpServers({ servers })`, catalog rows through
+uses `planMcpManagerValidationProjection()`. At Slice 779, `validateMcp()`
+still parsed canonical validation input during migration, but routed canonical
+server records through `validateMcpServers({ servers })`, catalog rows through
 `planMcpManagerCatalogProjection({ servers })`, and the public envelope through
 the Rust validation projection. Focused JS, Rust service, and Rust bridge tests
 prove the envelope is Rust-produced without retired camelCase count or stable-id
 aliases.
 
-This does not claim terminal MCP migration: direct Rust daemon-core MCP registry
-truth, validation input parsing, live catalog discovery, wallet authority,
+This did not claim terminal MCP migration: direct Rust daemon-core MCP registry
+truth, validation-input parsing, live catalog discovery, wallet authority,
 transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
 conformance still need to own the whole MCP control/projection path.
@@ -15528,8 +15530,7 @@ remaining `mcpRegistryWithServers()`, `mcpServerRecordsFromMutationInput()`,
 `mcpServerRecordFromAddRequest()`, `mcpResourceKey()`, and `mcpPromptKey()`
 exports in `runtime-mcp-helpers.mjs` were only preserved by helper-local tests
 and could be mistaken for an alternate JS MCP registry or mutation projection
-path. Those exports and tests are now removed; canonical validation-input
-parsing remains in `mcp-manager.mjs`, and public validation/catalog/status
+path. Those exports and tests are now removed; public validation/catalog/status
 projection remains Rust daemon-core migration transport.
 
 This does not claim terminal MCP migration: direct Rust daemon-core MCP registry
@@ -15543,3 +15544,36 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode the command bridge, read-only helper
 adapters, or fail-closed JS surfaces as terminal architecture.
+
+## Implementation Slice Evidence: 784
+
+Slice 784 moved MCP validation-input parsing out of the JS MCP manager helper
+and into Rust daemon-core migration transport. `McpServerValidationInputCore`,
+`McpServerValidationInputRequest`, and `McpServerValidationInputRecord` now own
+canonical raw validation input projection from `mcp_json` / `mcp_servers` into
+snake_case MCP server records before `validate_mcp_servers`. The command bridge
+exposes `project_mcp_server_validation_input`, and
+`runtime-context-policy-runner.mjs` exposes
+`projectMcpServerValidationInput()`.
+
+`mcpServerRecordsFromValidationInput()` remains as a JS transport wrapper only:
+it no longer walks `input.mcp_json`, `raw.mcp_servers`, or retired
+`mcpJson` / `mcpServers` request shapes itself. Public `validateMcp()` now
+projects raw validation input through Rust, sends the Rust-projected server
+records through `validateMcpServers({ servers })`, derives catalog rows through
+`planMcpManagerCatalogProjection({ servers })`, and returns the validation
+envelope through `planMcpManagerValidationProjection(...)`.
+
+This does not claim terminal MCP migration: direct Rust daemon-core MCP registry
+truth, live catalog discovery/transport containment, wallet authority,
+StepModuleRouter dispatch, receipt binding, Agentgres expected-head/state-root
+binding, replay, SDK/IDE protocol coverage, and conformance still need to own
+the whole MCP control/projection path. Schedule and run a matrix-compaction pass
+for Slice 784 before unrelated route-family work resumes.
+
+| Command | Expected status now | Reason |
+| --- | --- | --- |
+| `hypervisor-conformance:docs` | pass | Master-guide, matrix, and implementation matrix state record Slice 784 as Rust-owned validation-input projection, not terminal MCP migration. |
+| `hypervisor-conformance:bridge` | pass | Rust policy core, command bridge, and JS runner expose and test `project_mcp_server_validation_input`. |
+| `hypervisor-conformance:compositor` | pass | MCP manager helper conformance now requires validation-input parsing to route through `projectMcpServerValidationInput()` and forbids local JS raw-input walking. |
+| `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal MCP registry/control/admission/replay migration is still not claimed. |

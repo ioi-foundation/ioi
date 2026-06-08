@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createContextPolicyRunnerFromEnv } from "./runtime-context-policy-runner.mjs";
 
 export const RUNTIME_MCP_MANAGER_STATUS_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status.v1";
@@ -87,31 +88,14 @@ export function mcpRegistryForWorkspace(cwd, options = {}) {
   };
 }
 
-export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot) {
-  const raw = input.mcp_json ?? input;
-  const servers = raw.mcp_servers ?? raw.servers ?? (Array.isArray(raw) ? raw : null);
-  if (Array.isArray(servers)) {
-    return servers.map((server, index) =>
-      normalizeMcpServerRecord(
-        server.label ?? server.name ?? server.id ?? `server_${index + 1}`,
-        server,
-        {
-          workspace_root: workspaceRoot,
-          source: server.source ?? "validation_input",
-          source_scope: server.source_scope ?? "validation",
-          status: server.status ?? "configured",
-        },
-      ),
-    );
-  }
-  return Object.entries(servers ?? {}).map(([label, config]) =>
-    normalizeMcpServerRecord(label, config, {
-      workspace_root: workspaceRoot,
-      source: "validation_input",
-      source_scope: "validation",
-      status: "configured",
-    }),
-  );
+export function mcpServerRecordsFromValidationInput(input = {}, workspaceRoot, options = {}) {
+  const contextPolicyRunner =
+    options.contextPolicyRunner ?? createContextPolicyRunnerFromEnv();
+  const projection = contextPolicyRunner.projectMcpServerValidationInput({
+    input,
+    workspace_root: workspaceRoot,
+  });
+  return Array.isArray(projection.servers) ? projection.servers : [];
 }
 
 export function normalizeMcpServerRecord(label, config = {}, context = {}) {

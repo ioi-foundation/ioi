@@ -284,7 +284,9 @@ export function createRuntimeMcpCatalogSurface({
       const workspaceRoot = pathResolve(
         input.cwd ?? input.workspace_root ?? store.defaultCwd,
       );
-      const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot);
+      const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot, {
+        contextPolicyRunner,
+      });
       const validation = contextPolicyRunner.validateMcpServers({ servers });
       const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
       return contextPolicyRunner.planMcpManagerValidationProjection({

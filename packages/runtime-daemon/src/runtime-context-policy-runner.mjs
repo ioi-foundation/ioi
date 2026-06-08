@@ -23,6 +23,8 @@ export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-control-agent-state-update-request.v1";
 export const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-server-validation-request.v1";
+export const MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-server-validation-input-request.v1";
 export const MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-validation-projection-request.v1";
 export const MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -172,6 +174,14 @@ export class RustContextPolicyRunner {
     return normalizeMcpServerValidationBridgeResult(this.evaluateRawPolicy({
       operation: "validate_mcp_servers",
       schemaVersion: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  projectMcpServerValidationInput(request = {}) {
+    return normalizeMcpServerValidationInputBridgeResult(this.evaluateRawPolicy({
+      operation: "project_mcp_server_validation_input",
+      schemaVersion: MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -717,6 +727,21 @@ export function normalizeMcpServerValidationBridgeResult(value = {}) {
       numberValue(result.warning_count ?? record.warning_count) ?? warnings.length,
     issues,
     warnings,
+  };
+}
+
+export function normalizeMcpServerValidationInputBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const servers = arrayValue(result.servers ?? record.servers);
+  return {
+    ...record,
+    source: result.source ?? record.source ?? "rust_mcp_server_validation_input_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    status: optionalString(result.status ?? record.status) ?? "projected",
+    workspace_root: optionalString(result.workspace_root ?? record.workspace_root) ?? null,
+    server_count: numberValue(result.server_count ?? record.server_count) ?? servers.length,
+    servers,
   };
 }
 

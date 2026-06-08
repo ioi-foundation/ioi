@@ -53,6 +53,10 @@ pub const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation-request.v1";
 pub const MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation.v1";
+pub const MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-server-validation-input-request.v1";
+pub const MCP_SERVER_VALIDATION_INPUT_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-server-validation-input.v1";
 pub const MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-validation-projection-request.v1";
 pub const MCP_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION: &str =
@@ -252,6 +256,14 @@ pub enum McpControlAgentStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum McpServerValidationError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum McpServerValidationInputError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1001,6 +1013,26 @@ pub struct McpServerValidationRecord {
     pub warning_count: usize,
     pub issues: Vec<Value>,
     pub warnings: Vec<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerValidationInputRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub input: Value,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpServerValidationInputRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub workspace_root: Option<String>,
+    pub server_count: usize,
+    pub servers: Vec<Value>,
     pub generated_at: String,
 }
 
@@ -2805,6 +2837,75 @@ impl McpServerValidationCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct McpServerValidationInputCore;
+
+impl McpServerValidationInputCore {
+    pub fn project(
+        &self,
+        request: &McpServerValidationInputRequest,
+    ) -> Result<McpServerValidationInputRecord, McpServerValidationInputError> {
+        request.validate()?;
+        let workspace_root = request
+            .workspace_root
+            .as_deref()
+            .and_then(|value| optional_trimmed(Some(value)));
+        let raw = request.input.get("mcp_json").unwrap_or(&request.input);
+        let servers = raw
+            .get("mcp_servers")
+            .or_else(|| raw.get("servers"))
+            .or_else(|| if raw.is_array() { Some(raw) } else { None });
+        let records = match servers {
+            Some(Value::Array(items)) => items
+                .iter()
+                .enumerate()
+                .map(|(index, server)| {
+                    let label = mcp_validation_server_label(server)
+                        .unwrap_or_else(|| format!("server_{}", index + 1));
+                    normalize_mcp_validation_server_record(
+                        &label,
+                        server,
+                        workspace_root.as_deref(),
+                        json_string_value(server, "source")
+                            .as_deref()
+                            .unwrap_or("validation_input"),
+                        json_string_value(server, "source_scope")
+                            .as_deref()
+                            .unwrap_or("validation"),
+                        json_string_value(server, "status")
+                            .as_deref()
+                            .unwrap_or("configured"),
+                    )
+                })
+                .collect::<Vec<_>>(),
+            Some(Value::Object(map)) => map
+                .iter()
+                .map(|(label, config)| {
+                    normalize_mcp_validation_server_record(
+                        label,
+                        config,
+                        workspace_root.as_deref(),
+                        "validation_input",
+                        "validation",
+                        "configured",
+                    )
+                })
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+
+        Ok(McpServerValidationInputRecord {
+            schema_version: MCP_SERVER_VALIDATION_INPUT_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_mcp_server_validation_input".to_string(),
+            status: "projected".to_string(),
+            workspace_root,
+            server_count: records.len(),
+            servers: records,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct McpManagerValidationProjectionCore;
 
 impl McpManagerValidationProjectionCore {
@@ -3652,6 +3753,18 @@ impl McpServerValidationRequest {
         if self.schema_version != MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION {
             return Err(McpServerValidationError::InvalidSchemaVersion {
                 expected: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl McpServerValidationInputRequest {
+    pub fn validate(&self) -> Result<(), McpServerValidationInputError> {
+        if self.schema_version != MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION {
+            return Err(McpServerValidationInputError::InvalidSchemaVersion {
+                expected: MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
                 actual: self.schema_version.clone(),
             });
         }
@@ -4542,6 +4655,231 @@ fn mcp_validation_diagnostic(
             .unwrap_or(Value::Null),
     );
     Value::Object(diagnostic)
+}
+
+fn mcp_validation_server_label(server: &Value) -> Option<String> {
+    json_string_value(server, "label")
+        .or_else(|| json_string_value(server, "name"))
+        .or_else(|| json_string_value(server, "id"))
+}
+
+fn normalize_mcp_validation_server_record(
+    label: &str,
+    config: &Value,
+    workspace_root: Option<&str>,
+    source: &str,
+    source_scope: &str,
+    status: &str,
+) -> Value {
+    let name = optional_trimmed(Some(label))
+        .or_else(|| json_string_value(config, "label"))
+        .or_else(|| json_string_value(config, "name"))
+        .unwrap_or_else(|| "mcp".to_string());
+    let id = json_string_value(config, "id").unwrap_or_else(|| format!("mcp.{}", safe_id(&name)));
+    let server_url = json_string_value(config, "server_url")
+        .or_else(|| json_string_value(config, "url"))
+        .or_else(|| json_string_value(config, "endpoint"));
+    let transport = normalize_mcp_transport(json_string_value(config, "transport").or_else(|| {
+        server_url.as_ref().map(|url| {
+            if url.contains("/sse") {
+                "sse".to_string()
+            } else {
+                "http".to_string()
+            }
+        })
+    }));
+    let enabled = config.get("enabled").and_then(Value::as_bool) != Some(false)
+        && config.get("disabled").and_then(Value::as_bool) != Some(true);
+    let allowed_tools = normalize_mcp_allowed_tools(config);
+    let resources = normalize_mcp_catalog_items_for_validation(
+        config
+            .get("resources")
+            .or_else(|| config.get("allowed_resources")),
+        "resource",
+    );
+    let prompts = normalize_mcp_catalog_items_for_validation(
+        config
+            .get("prompts")
+            .or_else(|| config.get("allowed_prompts")),
+        "prompt",
+    );
+    let headers = config
+        .get("headers")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let env = config
+        .get("env")
+        .and_then(Value::as_object)
+        .cloned()
+        .unwrap_or_default();
+    let header_secret_refs = public_mcp_secret_refs(&headers, "header");
+    let env_secret_refs = public_mcp_secret_refs(&env, "env");
+    let secret_refs = merge_json_objects(&env_secret_refs, &header_secret_refs);
+    let header_names = {
+        let mut names = headers.keys().cloned().collect::<Vec<_>>();
+        names.sort();
+        names
+    };
+    let containment_mode = json_string_value(config, "containment_mode")
+        .or_else(|| json_path_string(config, &["containment", "mode"]))
+        .unwrap_or_else(|| "sandboxed".to_string());
+    let allow_network_egress = config
+        .get("allow_network_egress")
+        .and_then(Value::as_bool)
+        .or_else(|| json_bool_path(config, &["containment", "allow_network_egress"]))
+        .unwrap_or(server_url.is_some());
+    let allow_child_processes = config
+        .get("allow_child_processes")
+        .and_then(Value::as_bool)
+        .or_else(|| json_bool_path(config, &["containment", "allow_child_processes"]))
+        .unwrap_or_else(|| json_string_value(config, "command").is_some());
+    let source_path = json_string_value(config, "source_path");
+    let config_source = json_string_value(config, "source").unwrap_or_else(|| source.to_string());
+    let config_source_scope =
+        json_string_value(config, "source_scope").unwrap_or_else(|| source_scope.to_string());
+    let config_compatibility = json_string_value(config, "config_compatibility");
+    let mut evidence_refs = vec![
+        "mcp.manager.validation_input".to_string(),
+        config_source.clone(),
+        config_source_scope.clone(),
+        id.clone(),
+    ];
+    if let Some(path) = &source_path {
+        evidence_refs.push(path.clone());
+    }
+    if let Some(compatibility) = &config_compatibility {
+        evidence_refs.push(compatibility.clone());
+    }
+    evidence_refs.sort();
+    evidence_refs.dedup();
+
+    json!({
+        "schema_version": MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION,
+        "id": id,
+        "label": name,
+        "name": name,
+        "enabled": enabled,
+        "status": json_string_value(config, "status").unwrap_or_else(|| status.to_string()),
+        "transport": transport,
+        "command": json_string_value(config, "command"),
+        "args": config.get("args").and_then(Value::as_array).map(|items| {
+            items.iter().map(|item| {
+                item.as_str().map(ToString::to_string).unwrap_or_else(|| item.to_string())
+            }).collect::<Vec<_>>()
+        }).unwrap_or_default(),
+        "server_url": server_url,
+        "endpoint": server_url,
+        "header_names": header_names,
+        "header_secret_refs": header_secret_refs,
+        "env_secret_refs": env_secret_refs,
+        "source": config_source,
+        "source_path": source_path,
+        "source_scope": config_source_scope,
+        "config_compatibility": config_compatibility,
+        "workspace_root": workspace_root,
+        "allowed_tools": allowed_tools,
+        "tool_count": allowed_tools.len(),
+        "resources": resources,
+        "resource_count": resources.len(),
+        "prompts": prompts,
+        "prompt_count": prompts.len(),
+        "containment": {
+            "mode": containment_mode,
+            "allow_network_egress": allow_network_egress,
+            "allow_child_processes": allow_child_processes,
+            "workspace_root": workspace_root,
+        },
+        "secret_refs": secret_refs,
+        "vault_boundary": {
+            "required": !secret_refs.as_object().unwrap_or(&serde_json::Map::new()).is_empty(),
+            "header_ref_count": header_secret_refs.as_object().map(|map| map.len()).unwrap_or(0),
+            "env_ref_count": env_secret_refs.as_object().map(|map| map.len()).unwrap_or(0),
+            "secret_values_included": false,
+            "runtime_resolution": "execution_time_only",
+        },
+        "health": {
+            "status": if json_string_value(config, "status").as_deref() == Some("connected") { "connected" } else { "not_connected" },
+            "live_probe": false,
+            "reason": "read_only_catalog_status",
+        },
+        "evidence_refs": evidence_refs,
+    })
+}
+
+fn normalize_mcp_allowed_tools(config: &Value) -> Vec<String> {
+    let mut tools = Vec::new();
+    if let Some(items) = config.get("allowed_tools").and_then(Value::as_array) {
+        for item in items {
+            if let Some(text) = item.as_str().and_then(|text| optional_trimmed(Some(text))) {
+                tools.push(text);
+            } else if let Some(name) = mcp_catalog_field_string(item, &["name", "tool_name"]) {
+                tools.push(name);
+            }
+        }
+    }
+    if let Some(map) = config.get("tools").and_then(Value::as_object) {
+        tools.extend(map.keys().cloned());
+    }
+    tools.sort();
+    tools.dedup();
+    tools
+}
+
+fn normalize_mcp_catalog_items_for_validation(
+    value: Option<&Value>,
+    fallback_key: &str,
+) -> Vec<Value> {
+    mcp_catalog_items(value)
+        .into_iter()
+        .enumerate()
+        .map(|(index, item)| {
+            if item.is_object() {
+                item
+            } else {
+                json!({ fallback_key: mcp_catalog_value_string(&item).unwrap_or_else(|| format!("{fallback_key}_{index}")) })
+            }
+        })
+        .collect()
+}
+
+fn public_mcp_secret_refs(source: &serde_json::Map<String, Value>, prefix: &str) -> Value {
+    let mut refs = serde_json::Map::new();
+    for (key, value) in source {
+        match value {
+            Value::String(text) if text.starts_with("vault://") => {
+                refs.insert(key.clone(), Value::String(text.clone()));
+            }
+            Value::Object(object) if object.contains_key("secret_ref") => {
+                refs.insert(
+                    key.clone(),
+                    object.get("secret_ref").cloned().unwrap_or(Value::Null),
+                );
+            }
+            Value::Object(object) if object.contains_key("invalidVaultRef") => {
+                refs.insert(key.clone(), Value::Object(object.clone()));
+            }
+            Value::Null => {}
+            _ => {
+                refs.insert(
+                    key.clone(),
+                    json!({
+                        "invalidVaultRef": true,
+                        "source": prefix,
+                    }),
+                );
+            }
+        }
+    }
+    Value::Object(refs)
+}
+
+fn merge_json_objects(left: &Value, right: &Value) -> Value {
+    let mut merged = left.as_object().cloned().unwrap_or_default();
+    if let Some(right) = right.as_object() {
+        merged.extend(right.clone());
+    }
+    Value::Object(merged)
 }
 
 fn json_path_string(value: &Value, path: &[&str]) -> Option<String> {
@@ -5557,6 +5895,33 @@ mod tests {
         }
     }
 
+    fn mcp_server_validation_input_request() -> McpServerValidationInputRequest {
+        McpServerValidationInputRequest {
+            schema_version: MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION.to_string(),
+            workspace_root: Some("/workspace".to_string()),
+            input: json!({
+                "mcp_json": {
+                    "mcp_servers": {
+                        "docs": {
+                            "transport": "stdio",
+                            "command": "npx",
+                            "tools": {
+                                "search": { "description": "Search docs" }
+                            },
+                            "sourcePath": "/retired/mcp.json",
+                            "source_scope": "validation"
+                        }
+                    }
+                },
+                "mcpJson": {
+                    "mcpServers": {
+                        "retired": { "transport": "stdio", "command": "retired" }
+                    }
+                }
+            }),
+        }
+    }
+
     fn thread_memory_agent_state_update_request() -> ThreadMemoryAgentStateUpdateRequest {
         ThreadMemoryAgentStateUpdateRequest {
             schema_version: THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION.to_string(),
@@ -6308,6 +6673,30 @@ mod tests {
         assert_eq!(record.warning_count, 0);
         assert!(record.issues.is_empty());
         assert!(record.warnings.is_empty());
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_server_validation_input() {
+        let record = McpServerValidationInputCore
+            .project(&mcp_server_validation_input_request())
+            .expect("mcp server validation input");
+
+        assert_eq!(
+            record.schema_version,
+            MCP_SERVER_VALIDATION_INPUT_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_mcp_server_validation_input");
+        assert_eq!(record.status, "projected");
+        assert_eq!(record.workspace_root.as_deref(), Some("/workspace"));
+        assert_eq!(record.server_count, 1);
+        assert_eq!(record.servers[0]["id"], "mcp.docs");
+        assert_eq!(record.servers[0]["label"], "docs");
+        assert_eq!(record.servers[0]["workspace_root"], "/workspace");
+        assert_eq!(record.servers[0]["source_scope"], "validation");
+        assert_eq!(record.servers[0]["tool_count"], 1);
+        assert_eq!(record.servers[0]["allowed_tools"][0], "search");
+        assert!(record.servers[0].get("sourcePath").is_none());
+        assert!(record.servers[0].get("sourceScope").is_none());
     }
 
     #[test]

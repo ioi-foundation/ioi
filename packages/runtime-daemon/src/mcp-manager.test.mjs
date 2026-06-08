@@ -65,6 +65,29 @@ test("MCP manager validation ignores retired secretRefs aliases", () => {
 });
 
 test("MCP manager validation input consumes canonical MCP JSON fields only", () => {
+  const calls = [];
+  const contextPolicyRunner = {
+    projectMcpServerValidationInput(request) {
+      calls.push(request);
+      return {
+        source: "rust_mcp_server_validation_input_command",
+        backend: "rust_policy",
+        status: "projected",
+        workspace_root: request.workspace_root,
+        server_count: request.input.mcp_json?.mcp_servers ? 1 : 0,
+        servers: request.input.mcp_json?.mcp_servers
+          ? [
+              {
+                id: "mcp.canonical",
+                label: "canonical",
+                source_scope: "validation",
+                workspace_root: request.workspace_root,
+              },
+            ]
+          : [],
+      };
+    },
+  };
   const canonicalRecords = mcpServerRecordsFromValidationInput({
     mcp_json: {
       mcp_servers: {
@@ -76,8 +99,12 @@ test("MCP manager validation input consumes canonical MCP JSON fields only", () 
         retired: { transport: "stdio", command: "retired" },
       },
     },
-  }, "/workspace");
+  }, "/workspace", { contextPolicyRunner });
   assert.deepEqual(canonicalRecords.map((record) => record.label), ["canonical"]);
+  assert.equal(calls[0].workspace_root, "/workspace");
+  assert.equal(calls[0].input.mcp_json.mcp_servers.canonical.command, "npx");
+  assert.equal(canonicalRecords[0].source_scope, "validation");
+  assert.equal(Object.hasOwn(canonicalRecords[0], "sourceScope"), false);
 
   const retiredRecords = mcpServerRecordsFromValidationInput({
     mcpJson: {
@@ -85,8 +112,9 @@ test("MCP manager validation input consumes canonical MCP JSON fields only", () 
         retired: { transport: "stdio", command: "retired" },
       },
     },
-  }, "/workspace");
+  }, "/workspace", { contextPolicyRunner });
   assert.deepEqual(retiredRecords, []);
+  assert.equal(calls.length, 2);
 });
 
 test("MCP manager registry and server records emit canonical output fields only", () => {

@@ -669,9 +669,9 @@ Rust daemon-core ownership. The Slice 778 MCP status catalog-projection
 Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands.
 Slice 779 moved public MCP validation envelope projection into Rust daemon-core
-migration transport. `validateMcp()` still parses canonical validation input in
-the JS facade during migration, but it now sends canonical server records
-through `validate_mcp_servers`, derives validation catalog rows through
+migration transport. At that slice, `validateMcp()` still parsed canonical
+validation input in the JS facade during migration, but sent canonical server
+records through `validate_mcp_servers`, derived validation catalog rows through
 `plan_mcp_manager_catalog_projection`, and returns the public validation
 envelope through `McpManagerValidationProjectionCore` /
 `plan_mcp_manager_validation_projection`; the JS facade no longer derives the
@@ -738,6 +738,19 @@ coverage still need direct Rust daemon-core ownership. The Slice 783 MCP helper
 mutation/registry-retirement matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands.
+Slice 784 moved MCP validation-input parsing into Rust daemon-core migration
+transport. `McpServerValidationInputCore` /
+`project_mcp_server_validation_input` now owns canonical raw `mcp_json` /
+`mcp_servers` normalization into snake_case MCP server records before
+`validate_mcp_servers`; `mcpServerRecordsFromValidationInput()` remains only a
+JS transport wrapper around `contextPolicyRunner.projectMcpServerValidationInput`
+and no longer walks raw validation JSON itself. This still does not claim
+terminal MCP migration: direct Rust daemon-core MCP registry truth, live
+transport discovery and containment, wallet authority, StepModuleRouter
+dispatch, receipt binding, Agentgres admission, replay, and SDK/IDE protocol
+coverage still need direct Rust daemon-core ownership. The Slice 784 MCP
+validation-input Rust-core matrix-compaction pass is pending until the next
+Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

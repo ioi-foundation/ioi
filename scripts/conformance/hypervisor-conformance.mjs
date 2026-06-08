@@ -490,6 +490,10 @@ function runDocs() {
       /Slice 783 retired the dead helper-level JS MCP mutation\/registry projection\s+path/.test(guide) &&
       /no longer exports\s+`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, or `mcpPromptKey\(\)`/.test(guide) &&
       /The Slice 783 MCP helper\s+mutation\/registry-retirement matrix-compaction pass is complete/.test(guide) &&
+      /Slice 784 moved MCP validation-input parsing into Rust daemon-core migration\s+transport/.test(guide) &&
+      /McpServerValidationInputCore/.test(guide) &&
+      /project_mcp_server_validation_input/.test(guide) &&
+      /The Slice 784 MCP\s+validation-input Rust-core matrix-compaction pass is pending/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -539,6 +543,7 @@ function runDocs() {
       /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
+      /Slice 784 moved MCP validation-input parsing into Rust daemon-core migration\s+transport/.test(matrix) &&
       /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
@@ -807,12 +812,17 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 783/.test(matrix) &&
       /`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, and `mcpPromptKey\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 783 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 784/.test(matrix) &&
+      /McpServerValidationInputCore/.test(matrix) &&
+      /project_mcp_server_validation_input/.test(matrix) &&
+      /Schedule and run a matrix-compaction pass\s+for Slice 784 before unrelated route-family work resumes/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 784 MCP\s+validation-input Rust-core evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
-      /public MCP validation decisions now send normalized canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
+      /public MCP validation input projection now routes raw canonical `mcp_json`\/`mcp_servers`\s+input through Rust daemon-core `McpServerValidationInputCore`\/`project_mcp_server_validation_input` migration transport/.test(implementationMatrix) &&
+      /public MCP validation decisions now send Rust-projected canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
       /public MCP validation envelopes now route through Rust daemon-core\s+`McpManagerValidationProjectionCore`\/`plan_mcp_manager_validation_projection`/.test(implementationMatrix) &&
       /public MCP status plus agent-scoped `mcpStatusForAgent` catalog row inputs now\s+route through Rust daemon-core `McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection`/.test(implementationMatrix) &&
       /public MCP list\/search declared catalog row inputs now route through Rust daemon-core\s+`McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection` instead of JS\s+`mcpToolsForServers`\/`mcpResourcesForServers`\/`mcpPromptsForServers` builders/.test(implementationMatrix) &&
@@ -820,7 +830,7 @@ function runDocs() {
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
       /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
-      /live catalog discovery and validation-input parsing remain read-only\/projection\s+migration helpers, not terminal validation, status projection, public validation\s+projection, catalog row projection, catalog summary projection, or registry authority/.test(implementationMatrix) &&
+      /live catalog discovery remains a read-only\/projection migration helper, and\s+validation-input projection now routes through Rust migration transport/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
@@ -5765,6 +5775,10 @@ function runBridge() {
       /rust_policy_validates_mcp_servers/.test(policyCore) &&
       /rust_policy_rejects_invalid_mcp_server_records/.test(policyCore) &&
       /rust_policy_rejects_invalid_mcp_server_validation_schema/.test(policyCore) &&
+      /McpServerValidationInputCore/.test(policyCore) &&
+      /McpServerValidationInputRequest/.test(policyCore) &&
+      /MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_projects_mcp_server_validation_input/.test(policyCore) &&
       /McpManagerStatusProjectionCore/.test(policyCore) &&
       /McpManagerStatusProjectionRequest/.test(policyCore) &&
       /MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -5795,6 +5809,10 @@ function runBridge() {
       /McpServerValidationBridgeRequest/.test(bridgeModule) &&
       /rust_mcp_server_validation_command/.test(bridgeModule) &&
       /bridge_validates_mcp_servers_through_rust_core/.test(bridgeModule) &&
+      /project_mcp_server_validation_input/.test(bridgeModule) &&
+      /McpServerValidationInputBridgeRequest/.test(bridgeModule) &&
+      /rust_mcp_server_validation_input_command/.test(bridgeModule) &&
+      /bridge_projects_mcp_server_validation_input_through_rust_core/.test(bridgeModule) &&
       /plan_mcp_manager_status_projection/.test(bridgeModule) &&
       /McpManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       /rust_mcp_manager_status_projection_command/.test(bridgeModule) &&
@@ -5836,6 +5854,9 @@ function runBridge() {
       /MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
+      /MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
       /MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
@@ -5854,6 +5875,9 @@ function runBridge() {
       /MCP server validation runner sends Rust daemon-core validation request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /MCP server validation input runner sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /MCP manager status projection runner sends Rust daemon-core projection request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
@@ -5870,6 +5894,12 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.source,\s*"rust_mcp_server_validation_command"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.operation,\s*"project_mcp_server_validation_input"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.source,\s*"rust_mcp_server_validation_input_command"/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /captured\.operation,\s*"plan_mcp_manager_status_projection"/.test(
@@ -15350,7 +15380,7 @@ function runCompositor() {
     )?.[0] ?? "";
   const runtimeMcpManagerValidationInputBlock =
     runtimeMcpManager.match(
-      /export function mcpServerRecordsFromValidationInput\(input = \{\}, workspaceRoot\) \{[\s\S]*?\n}\n\nexport function normalizeMcpServerRecord/,
+      /export function mcpServerRecordsFromValidationInput\(input = \{\}, workspaceRoot, options = \{\}\) \{[\s\S]*?\n}\n\nexport function normalizeMcpServerRecord/,
     )?.[0] ?? "";
   const runtimeMcpManagerRegistryBlock =
     runtimeMcpManager.match(
@@ -22252,12 +22282,15 @@ function runCompositor() {
     result,
     "runtime-mcp-json-shape-request-aliases-retired",
     !/mcpServerRecordsFromMutationInput/.test(`${runtimeMcpHelpers}\n${runtimeMcpHelpersTest}`) &&
-      /input\.mcp_json \?\? input/.test(runtimeMcpManagerValidationInputBlock) &&
-      /raw\.mcp_servers \?\? raw\.servers/.test(runtimeMcpManagerValidationInputBlock) &&
+      /projectMcpServerValidationInput\(\{/.test(runtimeMcpManagerValidationInputBlock) &&
+      /workspace_root:\s*workspaceRoot/.test(runtimeMcpManagerValidationInputBlock) &&
+      /contextPolicyRunner/.test(runtimeMcpManagerValidationInputBlock) &&
       runtimeMcpControlFacadeRetired &&
       /mcpJson:\s*\{/.test(runtimeMcpManagerTest) &&
       /^\s*mcp_json\?: Record<string, unknown>;/m.test(runtimeMcpSdkValidationInputBlock) &&
       !/request\.mcpJson\b/.test(runtimeMcpControlSurface) &&
+      !/input\.mcp_json \?\? input/.test(runtimeMcpManagerValidationInputBlock) &&
+      !/raw\.mcp_servers\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/input\.mcpJson\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/raw\.mcpServers\b/.test(runtimeMcpManagerValidationInputBlock) &&
       !/request\.mcpServers\b/.test(runtimeMcpControlSurface) &&

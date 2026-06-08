@@ -19,6 +19,7 @@ import {
   MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -942,6 +943,64 @@ test("MCP server validation runner sends Rust daemon-core validation request", (
   assert.equal(result.issue_count, 1);
   assert.equal(result.issues[0].server_id, "mcp.secret");
   assert.equal(Object.hasOwn(result.issues[0], "serverId"), false);
+});
+
+test("MCP server validation input runner sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_mcp_server_validation_input_command",
+            backend: "rust_policy",
+            status: "projected",
+            workspace_root: "/workspace",
+            server_count: 1,
+            servers: [
+              {
+                id: "mcp.docs",
+                label: "docs",
+                source_scope: "validation",
+                workspace_root: "/workspace",
+              },
+            ],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.projectMcpServerValidationInput({
+    input: {
+      mcp_json: {
+        mcp_servers: {
+          docs: { transport: "stdio", command: "npx" },
+        },
+      },
+    },
+    workspace_root: "/workspace",
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "project_mcp_server_validation_input");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.workspace_root, "/workspace");
+  assert.equal(captured.request.input.mcp_json.mcp_servers.docs.command, "npx");
+  assert.equal(result.source, "rust_mcp_server_validation_input_command");
+  assert.equal(result.status, "projected");
+  assert.equal(result.server_count, 1);
+  assert.equal(result.servers[0].source_scope, "validation");
+  assert.equal(Object.hasOwn(result.servers[0], "sourceScope"), false);
 });
 
 test("MCP manager status projection runner sends Rust daemon-core projection request", () => {
