@@ -160,6 +160,11 @@ Matrix compaction timing:
   the route-family range while preserving computer-use route-family JS facade
   retirement as migration transport and terminal Rust daemon-core ownership as
   the remaining target.
+- One-hundred-first scheduled pass completed on 2026-06-07: the MCP manager
+  validation input alias-retirement evidence after slice 665 was compacted into
+  the route-family range while preserving MCP manager JS facade retirement as
+  migration transport and terminal Rust daemon-core ownership as the remaining
+  target.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,
@@ -13357,63 +13362,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 665
-
-```yaml
-slice: 665
-phase: 10-authoritative-js-facade-retirement
-objective: retire MCP manager validation `mcpJson` and `mcpServers`
-  compatibility aliases before validation records are created
-owner_boundary:
-  route_or_surface: runtime MCP manager validation input parser
-  authority_gate: unchanged; this slice changes validation input parsing only
-    and does not grant MCP authority or mutate accepted truth
-  execution_backend: unchanged; MCP validation remains a daemon facade helper
-    pending terminal Rust daemon-core ownership
-  truth_path: canonical `mcp_json.mcp_servers` or `mcp_json.servers` can
-    produce validation records; retired `mcpJson.mcpServers` no longer feeds
-    validation records and fails closed to an empty record set when supplied
-    alone
-  projection_path: compositor conformance now scans the MCP manager parser
-    alongside the existing runtime MCP helper/control-surface JSON-shape guard
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  daemon_facade:
-    - packages/runtime-daemon/src/mcp-manager.mjs
-  tests:
-    - packages/runtime-daemon/src/mcp-manager.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - compositor conformance requires the MCP manager validation parser to read
-    canonical `input.mcp_json` and `raw.mcp_servers`
-  - compositor conformance rejects direct `input.mcpJson` and `raw.mcpServers`
-    validation parser fallbacks
-  - focused MCP manager tests prove canonical MCP JSON wins and retired-only
-    MCP JSON input produces no validation records
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/mcp-manager.test.mjs
-    - node --check packages/runtime-daemon/src/mcp-manager.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:compositor
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core API extraction remains pending beyond this MCP
-      manager validation facade cleanup
-    - broader MCP manager output and control surfaces remain migration
-      transport until Rust daemon-core ownership is extracted for the full MCP
-      route family
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13429,7 +13377,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 665 and the one-hundredth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 665 and the one-hundred-first 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
