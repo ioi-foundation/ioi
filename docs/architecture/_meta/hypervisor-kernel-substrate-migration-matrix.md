@@ -41,14 +41,14 @@ public model invocation dead JS body retirement evidence, then compacted Slice
 This pass compacted Slice 755 workflow-edit read-helper facade-retirement
 evidence after workflow-edit apply authority was already fail-closed, then
 compacted Slice 756 backend-process plan and provider load-option compatibility
-alias-retirement evidence from the Rust model_mount process-plan boundary. Slice
-757 then retired local `server-state.json` readback from public model server
-status projection.
+alias-retirement evidence from the Rust model_mount process-plan boundary, then
+compacted Slice 757 server-control local cache read-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first by compacting Slice 757 evidence
-before unrelated route-family work. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -143,16 +143,16 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 757 server-control
-  local cache read retirement.
+- Next scheduled matrix-compaction pass: none pending after Slice 757
+  server-control local cache read-retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
   route-family work; do not let context compaction demote this to optional
   evidence pruning.
-- Next resume order is mandatory: compact Slice 757 server-control local cache
-  read-retirement evidence before starting unrelated route-family work, then
-  continue the next concrete Rust-core extraction or facade-retirement seam.
+- Next resume order is mandatory: clarify a concrete Rust-core
+  extraction/facade-retirement seam with a verified slice, then schedule and run
+  the next matrix-compaction pass before starting unrelated route-family work.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -14234,57 +14234,37 @@ for current and target ownership.
   fail-closed model_mount facades, or command transport as terminal
   architecture.
 
-## Implementation Slice 757: Server-Control Local Cache Read Retirement
+## Compacted Implementation Slice Evidence: 757
 
-Date: 2026-06-08.
-Objective: remove the last local server-control cache read that could let
-`server-state.json` act as duplicate status truth for public model server
-projection.
+The expanded Slice 757 ledger was compacted on 2026-06-08 after server-control
+local cache read retirement landed. This slice remains active migration
+evidence, not terminal architecture. The `ModelServerControl`
+implementation-matrix row, model-mounting route-family row, conformance command
+contract, and terminal blockers above remain authoritative for current and
+target ownership.
 
-Files changed:
-
-- `packages/runtime-daemon/src/model-mounting/server-control.mjs`
-- `packages/runtime-daemon/src/model-mounting/server-control.test.mjs`
-- conformance and source-of-truth docs.
-
-Legacy paths removed:
-
-- `serverControlState()` no longer imports `fs`, `path`, or `readJson`.
-- `serverControlState()` no longer checks for or reads
-  `${state.stateDir}/server-state.json`.
+- Slice 757 retired the local `server-state.json` cache read that could let
+  stale local state act as duplicate status truth for public model server
+  projection.
+- `serverControlState()` no longer imports `fs`, `path`, or `readJson`, and no
+  longer checks for or reads `${state.stateDir}/server-state.json`.
 - `serverStatus()` no longer projects stale `server-state.json` fields such as
   legacy `status`, `operation`, `updatedAt`, or `receiptId`.
-
-Current behavior:
-
 - Public server start/stop/restart/log/event/write helpers remain fail-closed at
   `model_mount.server_control` until Rust daemon-core owns the authoritative
   control path.
-- Public server status remains a non-authoritative gateway/read adapter over
-  mounted in-memory state, with server-control fields fixed to the default
-  projection instead of local cache truth.
-- Focused tests write a stale `server-state.json` and prove `serverStatus()`
-  ignores its stopped operation and legacy receipt.
-
-Target behavior:
-
-- Direct Rust daemon-core model_mount server-control/state/log/event/projection
-  APIs own server status, control state, log/event projection, receipt binding,
-  Agentgres admission, and replay. JS status projection remains migration
-  adapter code only and must not become terminal architecture.
-
-Conformance:
-
-- `model-mount-server-control-record-state` now guards that server-control source
-  does not import local fs/path readers, read `server-state.json`, append local
-  logs, write local cache state, or lifecycle-receipt through JS.
-
-Compaction:
-
-- Schedule the next matrix-compaction pass after Slice 757. On resume, compact
-  this slice before unrelated route-family work while preserving the terminal
-  Rust daemon-core target and the fact that JS status projection is temporary
-  migration scaffolding.
+- This slice intentionally does not claim terminal model_mount server-control
+  migration. Direct Rust daemon-core model_mount server-control/state/log/event/
+  projection APIs still need to own server status, control state, log/event
+  projection, receipt binding, Agentgres admission, and replay.
+- Conformance anchor `model-mount-server-control-record-state` guards this
+  slice.
+- Scheduled matrix-compaction obligation from Slice 757 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode non-authoritative JS status projection,
+  fail-closed model_mount facades, local cache helpers, or command transport as
+  terminal architecture.
 
 ## Command State
 
@@ -14303,7 +14283,7 @@ hypervisor-conformance:negative
 
 Current expected behavior after the Slice 733-757 runtime/model-mount/
 workflow-edit facade-retirement, load-option alias-retirement, and
-server-control local cache read-retirement implementation passes:
+server-control local cache read-retirement compaction and implementation passes:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

@@ -362,12 +362,14 @@ server-control status, operation, timestamp, or receipt truth. This does not
 claim terminal model_mount server-control migration: direct Rust daemon-core
 server-control/state/log/event/projection APIs still need to own server status,
 control state, log/event projection, receipt binding, Agentgres admission, and
-replay. The Slice 757 matrix-compaction pass is pending and must run before
-unrelated route-family work resumes. Future compactions must preserve evidence,
-distinguish interim bridge scaffolding, canonical JS input filtering,
-non-authoritative JS status projection, and fail-closed JS facades from terminal
-Rust daemon-core shape, and avoid encoding command transport, canonical input
-helpers, or read-only JS helpers as long-term substrate.
+replay. The Slice 757 server-control local cache read-retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands. Future
+compactions must preserve evidence, distinguish interim bridge scaffolding,
+canonical JS input filtering, non-authoritative JS status projection, and
+fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
+command transport, canonical input helpers, or read-only JS helpers as
+long-term substrate.
 
 ## Part II: Target Execution Model
 
