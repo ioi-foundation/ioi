@@ -148,6 +148,11 @@ Matrix compaction timing:
   route-family range while preserving Rust workload live execution as the current
   migrated coding-tool backend and terminal Rust daemon-core ownership as the
   remaining target.
+- Ninety-ninth scheduled pass completed on 2026-06-07: the computer-use route
+  workflow-node alias-retirement evidence after slice 663 was compacted into the
+  route-family range while preserving computer-use route-family JS facade
+  retirement as migration transport and terminal Rust daemon-core ownership as
+  the remaining target.
 - First scheduled pass completed on 2026-06-07: the historical append-only
   evidence after the route-family owner map was compacted into route-family
   ranges while preserving the live owner map, terminal blockers,
@@ -13345,62 +13350,6 @@ closeout:
   push: required after verification
 ```
 
-## Implementation Slice 663
-
-```yaml
-slice: 663
-phase: 10-authoritative-js-facade-retirement
-objective: retire computer-use route workflow-node metadata aliases before
-  StepModule/Rust dispatch
-owner_boundary:
-  route_or_surface: native-browser, visual-GUI, and sandboxed-hosted
-    computer-use route metadata
-  authority_gate: unchanged; wallet.network-bound action/approval gates still
-    precede act-level computer-use execution
-  execution_backend: unchanged; this slice tightens daemon facade metadata before
-    the current StepModule/Rust bridge dispatch
-  truth_path: route metadata consumes canonical `workflow_node_ids` only and no
-    longer admits retired `workflowNodeIds` into route-family projection metadata
-  projection_path: bridge conformance requires all three computer-use route
-    families to call `computerUseWorkflowNodeIdsForInput(input)` and rejects the
-    retired `input.workflowNodeIds ?? input.workflow_node_ids` fallback
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  runtime_daemon:
-    - packages/runtime-daemon/src/computer-use-inputs.mjs
-    - packages/runtime-daemon/src/index.mjs
-  tests:
-    - packages/runtime-daemon/src/computer-use-inputs.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - bridge conformance requires a canonical workflow-node selector in
-    `computer-use-inputs.mjs`
-  - bridge conformance requires native-browser, visual-GUI, and sandboxed-hosted
-    route metadata to use the selector
-  - focused tests prove retired `workflowNodeIds` alone no longer populates route
-    workflow-node metadata
-verification:
-  commands:
-    - node --test packages/runtime-daemon/src/computer-use-inputs.test.mjs
-    - node --check packages/runtime-daemon/src/computer-use-inputs.mjs
-    - node --check packages/runtime-daemon/src/index.mjs
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:bridge
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core API extraction remains pending beyond this
-      computer-use route metadata facade cleanup
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13416,7 +13365,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 663 and the ninety-eighth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 663 and the ninety-ninth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
