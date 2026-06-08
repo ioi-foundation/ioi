@@ -1,6 +1,5 @@
 import { runtimeError } from "./io.mjs";
 import { modelMountProviderKindRequiresRustInstanceLifecycle } from "./model-instance-lifecycle.mjs";
-import { commitModelMountRecordState } from "./record-state-commits.mjs";
 
 const RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES = [
   "authScheme",
@@ -67,108 +66,10 @@ export function normalizeProviderSecretRef(state, kind, body = {}, existingSecre
 }
 
 export async function providerHealth(state, providerId, deps = {}) {
-  const {
-    providerHasVaultRef,
-    providerHealthFailureStatus,
-    publicProvider,
-    safeId,
-  } = deps;
   const provider = state.provider(providerId);
-  assertProviderRustLifecycleBackend(provider, "provider_health");
-  const checkedAt = state.nowIso();
-  try {
-    const driverResult = await state.driverForProvider(provider).health(provider, { state });
-    assertProviderOperationLifecycleBound(provider, driverResult, "provider_health");
-    const status = driverResult.status ?? (provider.status === "configured" ? "available" : provider.status);
-    const receipt = state.receipt("provider_health", {
-      summary: `Provider ${providerId} health is ${status}.`,
-      redaction: "redacted",
-      evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
-      details: {
-        provider_id: providerId,
-        provider_kind: provider.kind,
-        status,
-        http_status: driverResult.httpStatus ?? null,
-        auth_vault_ref_hash: driverResult.authEvidence?.vaultRefHash ?? null,
-        provider_auth_evidence_refs: driverResult.authEvidence?.evidenceRefs ?? [],
-        provider_auth_header_names: driverResult.authEvidence?.headerNames ?? [],
-        ...providerLifecycleReceiptFields(driverResult.model_mount_provider_lifecycle),
-      },
-    });
-    const updated = {
-      ...provider,
-      status,
-      discovery: {
-        ...provider.discovery,
-        checkedAt,
-        lastHealthCheck: {
-          status,
-          evidenceRefs: driverResult.evidenceRefs ?? provider.discovery?.evidenceRefs ?? [],
-          httpStatus: driverResult.httpStatus ?? null,
-          authVaultRefHash: driverResult.authEvidence?.vaultRefHash ?? null,
-          receiptId: receipt.id,
-        },
-        ...(driverResult.publicCli ? { publicCli: driverResult.publicCli } : {}),
-      },
-    };
-    commitProviderRecordState(state, updated, "model_mount.provider.health_update", [receipt.id]);
-    commitProviderHealthStateRecord(state, {
-      id: `health.${safeId(providerId)}`,
-      providerId,
-      status,
-      checkedAt,
-      receiptId: receipt.id,
-      evidenceRefs: driverResult.evidenceRefs ?? [],
-    });
-    state.providers.set(providerId, updated);
-    state.writeProjection();
-    return publicProvider(updated, providerHasVaultRef(updated) ? state.vault.vaultRefMetadata(updated.secretRef) : null);
-  } catch (error) {
-    throw error;
-  }
-}
-
-function commitProviderHealthStateRecord(state, record) {
-  return commitModelMountRecordState(state, {
-    recordDir: "provider-health",
-    record,
-    operation_kind: "model_mount.provider_health.write",
-    receipt_refs: [record.receiptId],
-    unconfiguredCode: "model_mount_provider_health_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Model-mount provider health persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: {
-      provider_id: record?.providerId ?? null,
-    },
+  throwProviderHealthRustCoreRequired(provider, "provider_health", {
+    operation_kind: "model_mount.provider.health",
   });
-}
-
-function commitProviderRecordState(state, record, operation_kind, receipt_refs) {
-  return commitModelMountRecordState(state, {
-    recordDir: "model-providers",
-    record,
-    operation_kind,
-    receipt_refs,
-    unconfiguredCode: "model_mount_provider_state_commit_unconfigured",
-    unconfiguredMessage:
-      "Model provider persistence requires Rust Agentgres record-state commit.",
-    unconfiguredDetails: {
-      provider_id: record?.id ?? null,
-      provider_kind: record?.kind ?? null,
-    },
-  });
-}
-
-function providerLifecycleReceiptFields(lifecycle) {
-  if (!lifecycle) return {};
-  return {
-    model_mount_provider_lifecycle_action: lifecycle.action,
-    model_mount_provider_lifecycle_status: lifecycle.status,
-    model_mount_provider_lifecycle_hash: lifecycle.lifecycle_hash,
-    model_mount_provider_lifecycle_evidence_refs: lifecycle.evidence_refs ?? [],
-    model_mount_provider_lifecycle_execution_backend: lifecycle.execution_backend,
-    model_mount_provider_lifecycle_backend_id: lifecycle.backend_id,
-  };
 }
 
 export async function listProviderModels(state, providerId) {
@@ -233,21 +134,6 @@ export async function stopProvider(state, providerId, deps = {}) {
   throw providerControlRustCoreRequired(provider, "provider_stop");
 }
 
-function assertProviderRustLifecycleBackend(provider, operation) {
-  if (providerHasRustModelMountLifecycleBackend(provider)) return;
-  const error = new Error("Provider lifecycle operation requires Rust model_mount lifecycle backend support.");
-  error.status = 501;
-  error.code = "model_mount_provider_lifecycle_backend_unmigrated";
-  error.details = {
-    operation,
-    provider_id: provider?.id ?? null,
-    provider_kind: provider?.kind ?? null,
-    provider_driver: provider?.driver ?? null,
-    api_format: provider?.apiFormat ?? null,
-  };
-  throw error;
-}
-
 function assertProviderRustInventoryBackend(provider, operation) {
   if (providerHasRustModelMountInventoryBackend(provider)) return;
   const error = new Error("Provider inventory operation requires Rust model_mount inventory backend support.");
@@ -259,19 +145,6 @@ function assertProviderRustInventoryBackend(provider, operation) {
     provider_kind: provider?.kind ?? null,
     provider_driver: provider?.driver ?? null,
     api_format: provider?.apiFormat ?? null,
-  };
-  throw error;
-}
-
-function assertProviderOperationLifecycleBound(provider, result, operation) {
-  if (result?.model_mount_provider_lifecycle) return;
-  const error = new Error("Provider lifecycle operation requires Rust model_mount lifecycle planning.");
-  error.status = 502;
-  error.code = "model_mount_provider_lifecycle_planning_required";
-  error.details = {
-    operation,
-    provider_id: provider?.id ?? null,
-    provider_kind: provider?.kind ?? null,
   };
   throw error;
 }
@@ -306,6 +179,27 @@ function providerControlRustCoreRequired(provider, operation, details = {}) {
     ],
   };
   return error;
+}
+
+function throwProviderHealthRustCoreRequired(provider, operation, details = {}) {
+  const error = new Error("Provider health requires direct Rust daemon-core support.");
+  error.status = 501;
+  error.code = "model_mount_provider_health_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.provider_health",
+    operation,
+    ...details,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+    provider_driver: provider?.driver ?? null,
+    api_format: provider?.apiFormat ?? null,
+    evidence_refs: [
+      "model_mount_provider_health_js_facade_retired",
+      "rust_daemon_core_provider_health_required",
+      "agentgres_provider_health_record_truth_required",
+    ],
+  };
+  throw error;
 }
 
 function providerHasRustModelMountLifecycleBackend(provider = {}) {

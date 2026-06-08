@@ -11496,111 +11496,72 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-provider-health-receipt-direct-write-guard",
-    /model_mount_provider_lifecycle/.test(
-      read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
+    "model-mount-provider-health-js-facade-retired",
+    /model_mount_provider_health_rust_core_required/.test(
+      read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
     ) &&
-      /providerLifecycleReceiptFields/.test(
+      /rust_core_boundary:\s*"model_mount\.provider_health"/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
-      /assertProviderHealthReceiptBound/.test(
-        modelMountReceiptWriteGuards,
-      ) &&
-      /model_mount_provider_health_receipt_direct_append_forbidden/.test(
-        modelMountReceiptWriteGuards,
-      ) &&
-      /model_mount_provider_lifecycle_hash/.test(
+      /model_mount_provider_health_js_facade_retired/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      /RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(agentgresAdmissionCore) &&
-      /RuntimeModelMountRecordStateCommitRequest/.test(agentgresAdmissionCore) &&
-      /RuntimeModelMountRecordStateCommitRecord/.test(agentgresAdmissionCore) &&
-      /commit_runtime_model_mount_record_state/.test(agentgresAdmissionCore) &&
-      /commits_runtime_model_mount_record_state_with_storage_admission/.test(agentgresAdmissionCore) &&
-      /runtime_model_mount_record_state_commit_requires_receipts/.test(agentgresAdmissionCore) &&
-      /runtime_model_mount_record_state_commit_rejects_retired_receipt_refs_alias/.test(agentgresAdmissionCore) &&
-      /runtime_model_mount_record_state_commit_rejects_retired_receipt_id_alias/.test(agentgresAdmissionCore) &&
-      /runtime_model_mount_record_state_commit_rejects_mismatched_record_id/.test(agentgresAdmissionCore) &&
-      !/fn runtime_model_mount_record_receipt_refs[\s\S]*?json_string_array\(record,\s*"receiptRefs"\)[\s\S]*?fn validate_runtime_model_mount_receipt_id/.test(
-        agentgresAdmissionCore,
-      ) &&
-      !/fn runtime_model_mount_record_receipt_refs[\s\S]*?json_string\(record,\s*"receiptId"\)[\s\S]*?fn validate_runtime_model_mount_receipt_id/.test(
-        agentgresAdmissionCore,
-      ) &&
-      /pub fn commit_runtime_model_mount_record_state/.test(runtimeKernelModule) &&
-      /commit_runtime_model_mount_record_state/.test(bridgeModule) &&
-      /RuntimeModelMountRecordStateCommitBridgeRequest/.test(bridgeModule) &&
-      /rust_agentgres_runtime_model_mount_record_state_commit_command/.test(bridgeModule) &&
-      /bridge_commits_runtime_model_mount_record_state_through_rust_core/.test(bridgeModule) &&
-      /commitRuntimeModelMountRecordState/.test(runtimeAgentgresRunner) &&
-      /normalizeRuntimeModelMountRecordStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
-      /runtime Agentgres runner sends runtime model-mount record-state commit bridge request/.test(
-        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
-      ) &&
-      !/\b(?:operationKind|receiptRefs)\b/.test(
-        read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs"),
-      ) &&
-      /operation_kind/.test(read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")) &&
-      /receipt_refs/.test(read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")) &&
-      /model-mount record-state commit ignores retired option aliases before Rust admission/.test(
-        read("packages/runtime-daemon/src/model-mounting/record-state-commits.test.mjs"),
-      ) &&
-      /commitRuntimeModelMountRecordState: \(request\) => this\.commitRuntimeModelMountRecordState\(request\)/.test(
-        runtimeDaemonIndex,
-      ) &&
-      /commitRuntimeModelMountRecordState\(request\)/.test(runtimeDaemonIndex) &&
-      /this\.commitRuntimeModelMountRecordState = commitRuntimeModelMountRecordState/.test(
-        read("packages/runtime-daemon/src/model-mounting.mjs"),
-      ) &&
-      /commitProviderHealthStateRecord/.test(
+      /rust_daemon_core_provider_health_required/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      /model_mount_provider_health_state_commit_unconfigured/.test(
+      /agentgres_provider_health_record_truth_required/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      !/writeJson\(pathModule\.join\(state\.stateDir,\s*"provider-health"/.test(
+      /model_mount\.provider\.health/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
-      /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
-      !/modelMountProviderLifecycle|providerLifecycleHash/.test(
+      !/commitModelMountRecordState/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
-      /retired_aliases\.includes\("providerKind"\)/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      !/commitProviderHealthStateRecord/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
-      /local provider health receipts carry Rust lifecycle bindings/.test(
+      !/commitProviderRecordState/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/providerLifecycleReceiptFields/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/state\.driverForProvider\(provider\)\.health/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/state\.receipt\("provider_health"/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/state\.providers\.set/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      !/state\.writeProjection/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
+      ) &&
+      /provider health mutation facade fails closed before JS driver, receipt, or provider write/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /provider health persistence fails closed without Rust Agentgres record-state commit/.test(
+      /provider health does not depend on retired JS Agentgres record-state commit shim/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /record_dir,\s*"provider-health"/.test(
+      /local provider health also fails closed until direct Rust core control exists/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
-      /provider health receipt writes fail closed without provider kind/.test(
-        read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /assert\.equal\(state\.projections,\s*0\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ),
     [
-      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
-      "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs",
-      "packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs",
-      "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
-      "packages/runtime-daemon/src/model-mounting/record-state-commits.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/store.mjs",
-      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
-      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
-    "Phase 9/10 is pending: direct JS provider health receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount lifecycle binding",
+    "Phase 9/10 is pending: public provider health JS mutation facade must fail closed before driver execution, provider_health receipts, provider/provider-health record-state commits, provider-map mutation, or projection writes",
   );
   assertCheck(
     result,
@@ -11617,9 +11578,6 @@ function runReceipts() {
       ) &&
       /model_mount_provider_control_receipt_direct_append_forbidden/.test(
         modelMountReceiptWriteGuards,
-      ) &&
-      /model_mount_provider_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
       ) &&
       /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
       /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
@@ -12337,11 +12295,8 @@ function runReceipts() {
       !/commitProviderRecordState\(state,\s*provider,\s*"model_mount\.provider\.write",\s*\[\]\)/.test(
         providerUpsertBlock,
       ) &&
-      /recordDir:\s*"model-providers"/.test(providerOperations) &&
-      /model_mount\.provider\.health_update/.test(providerOperations) &&
       !/model_mount\.provider\.start/.test(providerOperations) &&
       !/model_mount\.provider\.stop/.test(providerOperations) &&
-      /model_mount_provider_state_commit_unconfigured/.test(providerOperations) &&
       !/state\.writeMap\("model-providers"/.test(providerOperations) &&
       !/body\.(?:authScheme|authHeaderName|apiFormat|baseUrl|privacyClass|evidenceRefs)\b/.test(
         providerUpsertBlock,
@@ -12356,7 +12311,6 @@ function runReceipts() {
       /recordStateCommits/.test(providerOperationsTest) &&
       /model_mount\.provider\.write/.test(providerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(providerOperationsTest) &&
-      /model_mount\.provider\.health_update/.test(providerOperationsTest) &&
       /provider start and stop fail closed until direct Rust core control exists/.test(providerOperationsTest) &&
       /retired_aliases,\s*\[\s*"authScheme"\s*,\s*"authHeaderName"\s*,\s*"apiFormat"\s*,\s*"baseUrl"\s*,\s*"privacyClass"\s*,\s*"evidenceRefs"\s*,?\s*\]/.test(
         providerOperationsTest,
@@ -12401,21 +12355,19 @@ function runReceipts() {
     "model-mount-provider-operation-detail-aliases-retired",
     /provider_id:\s*providerId/.test(providerOperations) &&
       /provider_kind:\s*provider\.kind/.test(providerOperations) &&
-      /http_status:\s*driverResult\.httpStatus/.test(providerOperations) &&
-      /auth_vault_ref_hash:\s*driverResult\.authEvidence\?\.vaultRefHash/.test(providerOperations) &&
-      /provider_auth_evidence_refs:\s*driverResult\.authEvidence\?\.evidenceRefs/.test(providerOperations) &&
       /model_count:\s*resolved\.length/.test(providerOperations) &&
       /loaded_count:\s*resolved\.length/.test(providerOperations) &&
-      /model_mount_provider_lifecycle_backend_unmigrated/.test(providerOperations) &&
       /model_mount_provider_inventory_backend_unmigrated/.test(providerOperations) &&
       /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
+      /model_mount_provider_health_rust_core_required/.test(providerOperations) &&
+      !/model_mount_provider_lifecycle_backend_unmigrated/.test(providerOperations) &&
+      !/model_mount_provider_lifecycle_planning_required/.test(providerOperations) &&
       !/provider_stateless_start|provider_stateless_stop/.test(providerOperations) &&
       !/function providerHealthFailure/.test(providerOperations) &&
       !/details:\s*\{[^}]*\b(?:providerId|providerKind|httpStatus|authVaultRefHash|providerAuthEvidenceRefs|providerAuthHeaderNames|failureCode|failureStatus|providerErrorHash|vaultRefConfigured|resolvedMaterial|modelId|modelCount|loadedCount|evidenceRefs|providerHealthStatus|providerHealthReceiptId)\s*:/.test(
         providerOperations,
       ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.payload\.details,\s*"httpStatus"\),\s*false/.test(providerOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerOperationsTest) &&
       /hosted provider health fails closed before JS driver execution/.test(providerOperationsTest) &&
       /assert\.equal\(healthCalls,\s*0\)/.test(providerOperationsTest) &&
       /provider model and loaded lists require Rust inventory before local fallbacks/.test(providerOperationsTest) &&

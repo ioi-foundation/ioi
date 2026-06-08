@@ -14403,9 +14403,6 @@ cleanup:
   compatibility_shims_remaining:
     - estimate-only load and loaded-instance lookup remain JS read/projection
       adapters until direct Rust daemon-core projection APIs own these surfaces
-    - provider health still persists provider status and provider-health
-      projections through current JS-adapted record-state commit helpers after
-      Rust lifecycle evidence; extract direct Rust provider health/control next
     - route handlers still enter model loading through JS protocol adapters,
       but real mutation now fails closed until the direct Rust core API is
       verified
@@ -14413,6 +14410,73 @@ cleanup:
       Rust-core extraction/facade-retirement seam is clear, so the now-retired
       instance lifecycle facades remain migration evidence rather than terminal
       Node/MJS shape
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
+## Implementation Slice 718
+
+```yaml
+slice: 718
+phase: 10-authoritative-js-facade-retirement
+objective: retire provider-health JS mutation facade for public health checks
+owner_boundary:
+  route_or_surface: model-mounting provider health
+  authority_gate: provider health now fails closed at
+    `model_mount.provider_health` before JS provider driver execution,
+    `provider_health` receipt creation, provider/provider-health record-state
+    commits, provider-map mutation, or projection writes
+  execution_backend: none in JS for provider health transitions; direct Rust
+    daemon-core provider health/control/projection APIs must own health driver
+    execution, wallet/cTEE authority context, Agentgres admission, and
+    projection materialization
+  truth_path: no JS `provider_health` lifecycle receipt creation, no JS
+    `model-providers` or `provider-health` record-state commit from the public
+    health facade, no provider map mutation, and no JS projection write
+  projection_path: provider reads remain current projection adapters; provider
+    health has no JS projection-only mutation path until Rust projection owns
+    the surface
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts/full conformance requires provider health to stay free of JS
+    health driver calls, `provider_health` receipts, provider/provider-health
+    record-state commits, provider-map writes, and projection writes
+  - focused daemon tests prove fixture, hosted/custom, and native-local
+    provider health calls fail closed before JS driver execution, receipt
+    creation, record-state commit, provider mutation, or projection writes
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - provider reads/listing and provider inventory/list-loaded still return
+      through JS protocol/read adapters until direct Rust daemon-core
+      projection APIs own the list/read surfaces
+    - route handlers still enter provider health through JS protocol adapters,
+      but the real mutation now fails closed until the direct Rust core API is
+      verified
+    - schedule a matrix-compaction pass once the next MCP or provider
+      inventory/read-projection Rust-core extraction/facade-retirement seam is
+      clear, so the now-retired provider-health facade remains migration
+      evidence rather than terminal Node/MJS shape
 closeout:
   git_diff_check: required
   commit: required
@@ -14434,7 +14498,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 717 and the model-instance lifecycle JS mutation-facade retirement pass:
+Current expected behavior after Slice 718 and the provider-health JS mutation-facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
