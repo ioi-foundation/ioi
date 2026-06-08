@@ -135,7 +135,7 @@ const deps = {
     return error;
   },
   safeFileName: (value) => String(value).replace(/[^a-z0-9._-]+/gi, "_"),
-  schemaVersion: "schema.v1",
+  schema_version: "schema.v1",
   stableHash: (value) => `hash:${JSON.stringify(value)}`,
 };
 
@@ -324,4 +324,26 @@ test("runtime engine requests ignore retired camelCase aliases", () => {
   assert.deepEqual(state.receipts[0].details.default_load_options, { normalized: true });
   assert.equal(Object.hasOwn(state.receipts[0].details, "defaultLoadOptions"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "operatorLabel"), false);
+});
+
+test("runtime engine operations ignore retired schemaVersion deps alias", () => {
+  const state = fakeState();
+  const result = selectRuntimeEngine(
+    state,
+    { engine_id: "backend.llama-cpp" },
+    { ...deps, schemaVersion: "schema.retired" },
+  );
+
+  assert.equal(result.schemaVersion, "schema.v1");
+  assert.equal(state.recordStateCommits[0].record_dir, "runtime-preferences");
+  assert.equal(state.recordStateCommits[0].record_id, "default");
+  assert.equal(Object.hasOwn(state.recordStateCommits[0], "schemaVersion"), false);
+
+  const aliasOnlyState = fakeState();
+  const aliasOnly = selectRuntimeEngine(
+    aliasOnlyState,
+    { engine_id: "backend.llama-cpp" },
+    { ...deps, schema_version: undefined, schemaVersion: "schema.retired.only" },
+  );
+  assert.equal(aliasOnly.schemaVersion, undefined);
 });

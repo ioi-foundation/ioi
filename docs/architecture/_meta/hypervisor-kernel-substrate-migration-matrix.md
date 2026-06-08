@@ -13387,6 +13387,67 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
+## Implementation Slice 671
+
+```yaml
+slice: 671
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime-engine schemaVersion deps aliases before
+  model-mount runtime preference/profile records cross into Rust Agentgres
+  record-state admission
+owner_boundary:
+  route_or_surface: model-mount runtime-engine selection/profile persistence
+  authority_gate: unchanged; runtime-engine preference/profile updates still
+    require lifecycle receipts and Rust Agentgres record-state admission before
+    projection writes
+  execution_backend: JS remains the product/API runtime-engine facade, but the
+    mounted store adapter now passes canonical `schema_version` into
+    runtime-engine helpers
+  truth_path: runtime preference and runtime-engine profile records commit
+    through `commitModelMountRecordState` and
+    `commitRuntimeModelMountRecordState` using canonical record-state commit
+    fields
+  projection_path: runtime-engine responses keep the current API-facing
+    `schemaVersion` projection field while retired deps aliases cannot steer the
+    response schema marker or persistence-adjacent helper input
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  js_facade:
+    - packages/runtime-daemon/src/model-mounting.mjs
+    - packages/runtime-daemon/src/model-mounting/runtime-engines.mjs
+  tests:
+    - packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - receipts conformance requires runtime-engine helpers to destructure
+    `schema_version` from deps instead of `schemaVersion`
+  - focused daemon tests poison retired `schemaVersion` deps and prove canonical
+    `schema_version` is the only value used for runtime-engine operation
+    responses at the record-state admission boundary
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/runtime-engines.mjs
+    - node --check packages/runtime-daemon/src/model-mounting.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:receipts
+  replay_or_shadow_comparison: runtime-engine selection fixtures now pass both
+    canonical `schema_version` and retired `schemaVersion`, and only canonical
+    deps values affect runtime-engine operation responses and record-state
+    admission inputs
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public runtime-engine response shape is unchanged for this slice
+    - terminal Rust daemon-core API extraction remains pending beyond this JS
+      facade-retirement seam
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 Current expected behavior after Slice 670 and the one-hundred-sixth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future

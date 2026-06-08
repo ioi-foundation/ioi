@@ -11100,6 +11100,11 @@ function runReceipts() {
       /model_mount\.runtime_preference\.write/.test(runtimeEngines) &&
       /model_mount\.runtime_engine_profile\.write/.test(runtimeEngines) &&
       /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngines) &&
+      /const \{ requiredString,\s*runtimeError,\s*schema_version \} = deps;/.test(runtimeEngines) &&
+      /normalizeRuntimeEngineDefaultLoadOptions,\s*schema_version,\s*stableHash,/.test(runtimeEngines) &&
+      /const \{ schema_version,\s*stableHash \} = deps;/.test(runtimeEngines) &&
+      !/const \{ requiredString,\s*runtimeError,\s*schemaVersion \} = deps;/.test(runtimeEngines) &&
+      !/const \{ schemaVersion,\s*stableHash \} = deps;/.test(runtimeEngines) &&
       /runtime_engine_record_state_commit_unconfigured/.test(runtimeEngines) &&
       /runtime_engine_record_state_commit_invalid/.test(runtimeEngines) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(runtimeEngines) &&
@@ -11110,6 +11115,9 @@ function runReceipts() {
       /recordStateCommits/.test(runtimeEnginesTest) &&
       /runtime engine state persistence fails closed without Rust Agentgres record-state commit/.test(runtimeEnginesTest) &&
       /operation_kind,\s*"model_mount\.runtime_engine_profile\.delete"/.test(runtimeEnginesTest) &&
+      /schema_version:\s*"schema\.v1"/.test(runtimeEnginesTest) &&
+      /runtime engine operations ignore retired schemaVersion deps alias/.test(runtimeEnginesTest) &&
+      /schemaVersion:\s*"schema\.retired"/.test(runtimeEnginesTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&

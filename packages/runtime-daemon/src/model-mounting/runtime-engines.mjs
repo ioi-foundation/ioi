@@ -76,7 +76,8 @@ export function runtimeEngine(state, engineId, deps = {}) {
 }
 
 export function selectRuntimeEngine(state, body = {}, deps = {}) {
-  const { requiredString, runtimeError, schemaVersion } = deps;
+  const { requiredString, runtimeError, schema_version } = deps;
+  const schemaVersion = schema_version;
   const engineId = requiredString(body.engine_id, "engine_id");
   const checkedAt = state.nowIso();
   const engines = listRuntimeEngines(state);
@@ -122,9 +123,10 @@ export function selectRuntimeEngine(state, body = {}, deps = {}) {
 export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
   const {
     normalizeRuntimeEngineDefaultLoadOptions,
-    schemaVersion,
+    schema_version,
     stableHash,
   } = deps;
+  const schemaVersion = schema_version;
   const engine = runtimeEngine(state, engineId, deps);
   const now = state.nowIso();
   const existing = runtimeEngineProfile(state, engineId) ?? {};
@@ -171,7 +173,8 @@ export function updateRuntimeEngine(state, engineId, body = {}, deps = {}) {
 }
 
 export function removeRuntimeEngineOverride(state, engineId, deps = {}) {
-  const { schemaVersion, stableHash } = deps;
+  const { schema_version, stableHash } = deps;
+  const schemaVersion = schema_version;
   runtimeEngine(state, engineId, deps);
   const existing = runtimeEngineProfile(state, engineId);
   const receipt = state.lifecycleReceipt("runtime_engine_profile_remove", {

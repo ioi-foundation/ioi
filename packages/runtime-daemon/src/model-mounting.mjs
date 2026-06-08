@@ -1399,7 +1399,7 @@ export class ModelMountingState {
       notFound,
       requiredString,
       runtimeError,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_SCHEMA_VERSION,
     });
   }
 
@@ -1407,7 +1407,7 @@ export class ModelMountingState {
     return updateRuntimeEngineState(this, engineId, body, {
       normalizeRuntimeEngineDefaultLoadOptions,
       notFound,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_SCHEMA_VERSION,
       stableHash,
     });
   }
@@ -1416,7 +1416,7 @@ export class ModelMountingState {
     return removeRuntimeEngineOverrideState(this, engineId, {
       notFound,
       safeFileName,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      schema_version: MODEL_MOUNT_SCHEMA_VERSION,
       stableHash,
     });
   }
