@@ -13749,6 +13749,84 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 728
+
+```yaml
+slice: 728
+phase: 10-authoritative-js-facade-retirement
+objective: retire public coding-tool governance JS approval-block and
+  budget-block control facades until direct Rust daemon-core governance
+  admission owns approval/block truth
+owner_boundary:
+  route_or_surface: runtime coding-tool governance approval-block and
+    budget-block helpers
+  authority_gate: coding-tool governance control now fails closed at
+    `runtime.coding_tool_governance` before JS approval request persistence,
+    JS runtime-event append, JS-created blocked response envelopes,
+    receipt/policy ref assembly, or duplicate response-truth construction
+  execution_backend: none in JS for public coding-tool approval-block or
+    budget-block control; approval and policy Rust planner/command-envelope
+    paths remain migration transport only and must not be treated as terminal
+    JS-owned governance execution
+  truth_path: no JS `approval.required` request creation from the governance
+    facade, no JS `policy.blocked` append for coding-tool budget exhaustion, no
+    JS result envelope minted as accepted blocked truth, and no retired
+    camelCase detail aliases in the fail-closed boundary; Rust daemon core must
+    own wallet authority, Agentgres admission, expected heads/state-root
+    binding, approval/budget receipts, event materialization, projection, and
+    persistence before these controls can execute again
+  projection_path: approval-satisfaction remains a canonical snake_case read
+    helper for the current invocation contract, but it is not terminal
+    authority; direct Rust daemon-core approval/governance projection APIs must
+    replace that read helper before terminal conformance
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance now requires the governance approval-block and
+    budget-block facades to fail closed before JS approval persistence,
+    runtime-event append, result envelope construction, or retired detail alias
+    emission
+  - focused daemon tests poison `requestThreadApproval` and
+    `appendRuntimeEvent`, then prove canonical snake_case fail-closed details
+    with Rust-core, wallet/approval, Agentgres truth, and policy evidence refs
+  - existing approval-satisfaction checks remain canonical snake_case read
+    evidence only; they do not declare terminal governance authority
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:compositor
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - runtime coding-tool invocation still calls the governance adapter surface,
+      but approval-block and budget-block now fail closed until direct Rust
+      daemon-core governance admission/projection APIs are verified
+    - approval-satisfaction remains a read helper over current runtime events;
+      schedule its retirement once the Rust approval/governance projection seam
+      is concrete
+    - schedule a matrix-compaction pass once the next runtime control,
+      subagent, MCP, thread-memory, event-append, or approval-satisfaction
+      Rust-core extraction/facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13764,8 +13842,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 727 and the coding-tool budget recovery JS
-approval/event/projection/state facade retirement pass:
+Current expected behavior after Slice 728 and the coding-tool governance JS
+approval-block/budget-block facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

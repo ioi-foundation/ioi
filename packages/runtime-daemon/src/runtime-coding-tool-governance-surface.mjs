@@ -1,18 +1,7 @@
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
-  doctorHash,
-  normalizeArray,
-  operatorControlSource,
   optionalString,
-  safeId,
-  uniqueStrings,
 } from "./runtime-value-helpers.mjs";
-import {
-  CODING_TOOL_PACK_ID,
-  CODING_TOOL_RESULT_SCHEMA_VERSION,
-  codingToolInputSummary,
-  codingToolSourceEventKind,
-} from "./coding-tools.mjs";
 
 function defaultApprovalReasonForDecisionEvent(event = {}) {
   const payload = event.payload_summary ?? event.payload ?? {};
@@ -32,7 +21,28 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
     approvalLeaseStateForDecision = defaultApprovalLeaseStateForDecision,
     approvalReasonForDecisionEvent = defaultApprovalReasonForDecisionEvent,
     codingToolApprovalManifestsMatch = defaultCodingToolApprovalManifestsMatch,
+    runtimeError = ({ status = 500, code = "runtime_error", message = code, details = {} } = {}) => {
+      const error = new Error(message);
+      error.status = status;
+      error.code = code;
+      error.details = details;
+      return error;
+    },
   } = deps;
+
+  function throwGovernanceRustCoreRequired(operation, operationKind, details = {}) {
+    throw runtimeError({
+      status: 501,
+      code: "runtime_coding_tool_governance_rust_core_required",
+      message: "Runtime coding-tool governance control requires direct Rust daemon-core authority admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.coding_tool_governance",
+        operation,
+        operation_kind: operationKind,
+        ...details,
+      },
+    });
+  }
 
   function codingToolApprovalSatisfaction(store, { threadId, approval_manifest: approvalManifest, request }) {
     const approvalId = optionalString(request.approval_id);
@@ -95,228 +105,61 @@ export function createRuntimeCodingToolGovernanceSurface(deps = {}) {
   }
 
   function blockCodingToolForApproval(store, {
-    agent,
     threadId,
     turnId,
     toolId,
     toolCallId,
-    receiptId,
-    input,
-    request,
+    request = {},
     workflowGraphId,
     workflowNodeId,
-    requestRollbackRefs,
-    diagnosticsRepairContext,
     approval_manifest: approvalManifest,
-    toolContract,
   }) {
-    const approvalId = `approval_coding_tool_${safeId(toolId)}_${doctorHash(
-      `${threadId}:${turnId || "thread"}:${toolCallId}`,
-    ).slice(0, 16)}`;
-    const error = {
-      code: "coding_tool_approval_required",
-      message: `${toolId} requires approval before execution in ${approvalManifest.thread_mode} mode.`,
-      details: {
-        toolId,
-        tool_call_id: toolCallId,
-        thread_mode: approvalManifest.thread_mode,
-        approval_mode: approvalManifest.approval_mode,
-        policy_reason: approvalManifest.policy_reason,
-      },
-    };
-    const approval = store.requestThreadApproval(threadId, {
-      ...request,
-      source: operatorControlSource(request.source),
-      turn_id: turnId,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      action: "coding_tool.invoke",
-      actor: "runtime",
-      reason: error.message,
-      scope: "coding_tool",
-      idempotency_key: `thread:${threadId}:approval.required:${approvalId}`,
-      approval_id: approvalId,
-      tool_id: toolId,
-      effect_class: approvalManifest.effect_class,
-      risk_domain: approvalManifest.risk_domain,
-      authority_scope_requirements: approvalManifest.authority_scope_requirements,
-      approval_manifest: approvalManifest,
-      receipt_refs: [receiptId],
-      policy_decision_refs: [`policy_coding_tool_${safeId(toolId)}_approval_required`],
-    });
-    const result = {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      tool_name: toolId,
-      status: "blocked",
-      approval_required: true,
-      approval_id: approval.approval_id,
-      approval_manifest: approvalManifest,
-      input_summary: codingToolInputSummary(toolId, input),
-      error,
-    };
-    return {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      object: "ioi.runtime_coding_tool_result",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: toolId,
-      tool_call_id: toolCallId,
+    throwGovernanceRustCoreRequired("coding_tool_approval_block", "coding_tool.approval.block", {
       thread_id: threadId,
       turn_id: turnId || null,
-      status: "blocked",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      shell_fallback_used: false,
-      approval_required: true,
-      approval_id: approval.approval_id,
-      approval_manifest: approvalManifest,
-      receipt_refs: approval.receipt_refs,
-      artifact_refs: [],
-      rollback_refs: uniqueStrings(requestRollbackRefs),
-      event: null,
-      approval,
-      approval_event_id: approval.event_id,
-      workspace_snapshot: null,
-      workspace_snapshot_event: null,
-      auto_diagnostics: null,
-      diagnostics_repair_context: diagnosticsRepairContext,
-      tool_contract: toolContract ?? null,
-      result,
-      error,
-    };
+      tool_id: optionalString(toolId) ?? null,
+      tool_call_id: optionalString(toolCallId) ?? null,
+      workflow_graph_id: optionalString(workflowGraphId) ?? null,
+      workflow_node_id: optionalString(workflowNodeId) ?? null,
+      approval_mode: optionalString(approvalManifest?.approval_mode) ?? null,
+      effect_class: optionalString(approvalManifest?.effect_class) ?? null,
+      risk_domain: optionalString(approvalManifest?.risk_domain) ?? null,
+      source: optionalString(request.source) ?? null,
+      evidence_refs: [
+        "coding_tool_approval_block_js_facade_retired",
+        "rust_daemon_core_coding_tool_approval_block_required",
+        "agentgres_coding_tool_approval_block_truth_required",
+      ],
+    });
   }
 
   function blockCodingToolForBudget(store, {
-    agent,
     threadId,
     turnId,
     toolId,
     toolCallId,
-    receiptId,
-    input,
-    request,
+    request = {},
     workflowGraphId,
     workflowNodeId,
-    requestRollbackRefs,
-    diagnosticsRepairContext,
     budgetPolicy,
-    toolContract,
     codingToolIdempotencyKey,
   }) {
-    const receiptRefs = uniqueStrings([
-      receiptId,
-      ...normalizeArray(budgetPolicy.receipt_refs),
-    ]);
-    const policyDecisionRefs = uniqueStrings(
-      budgetPolicy.policy_decision_refs,
-    );
-    const error = {
-      code: "coding_tool_budget_exceeded",
-      message: `${toolId} blocked because the workflow coding-tool budget was exceeded.`,
-      details: {
-        toolId,
-        tool_call_id: toolCallId,
-        reason: "coding_tool_budget_exceeded",
-        budget_status: "exceeded",
-        context_budget_status: budgetPolicy.status,
-        context_budget: budgetPolicy,
-        budget_usage_telemetry: budgetPolicy.usage_telemetry,
-      },
-    };
-    const result = {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      tool_name: toolId,
-      status: "blocked",
-      budget_status: "exceeded",
-      context_budget_status: budgetPolicy.status,
-      context_budget: budgetPolicy,
-      input_summary: codingToolInputSummary(toolId, input),
-      error,
-    };
-    const rollbackRefs = uniqueStrings(requestRollbackRefs);
-    const payloadSummary = {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      event_kind: "CodingToolBudgetBlocked",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: toolId,
-      tool_call_id: toolCallId,
+    throwGovernanceRustCoreRequired("coding_tool_budget_block", "policy.blocked", {
       thread_id: threadId,
       turn_id: turnId || null,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      status: "blocked",
-      summary: error.message,
-      shell_fallback_used: false,
-      input_summary: codingToolInputSummary(toolId, input),
-      result_summary: { status: "blocked", reason: "coding_tool_budget_exceeded" },
-      result,
-      error,
-      rollback_refs: rollbackRefs,
-      diagnostics_repair_context: diagnosticsRepairContext,
-      approval_required: false,
-      budget_status: "exceeded",
-      context_budget_status: budgetPolicy.status,
-      context_budget: budgetPolicy,
-      budget_usage_telemetry: budgetPolicy.usage_telemetry,
-      policy_decision_refs: policyDecisionRefs,
-      receipt_id: receiptId,
-      receipt_count: receiptRefs.length,
-      artifact_count: 0,
-    };
-    const event = store.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:coding-tool:${safeId(toolId)}:${doctorHash(toolCallId).slice(0, 12)}`,
-      idempotency_key:
-        codingToolIdempotencyKey ??
-        `thread:${threadId}:coding-tool:${toolCallId}:budget-blocked`,
-      source: operatorControlSource(request.source),
-      source_event_kind: codingToolSourceEventKind(toolId),
-      event_kind: "policy.blocked",
-      status: "blocked",
-      actor: "runtime",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "coding_tool",
-      tool_call_id: toolCallId,
-      artifact_refs: [],
-      receipt_refs: receiptRefs,
-      policy_decision_refs: policyDecisionRefs,
-      rollback_refs: rollbackRefs,
-      payload_schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      payload_summary: payloadSummary,
+      tool_id: optionalString(toolId) ?? null,
+      tool_call_id: optionalString(toolCallId) ?? null,
+      workflow_graph_id: optionalString(workflowGraphId) ?? null,
+      workflow_node_id: optionalString(workflowNodeId) ?? null,
+      coding_tool_idempotency_key: optionalString(codingToolIdempotencyKey) ?? null,
+      context_budget_status: optionalString(budgetPolicy?.status) ?? null,
+      source: optionalString(request.source) ?? null,
+      evidence_refs: [
+        "coding_tool_budget_block_js_facade_retired",
+        "rust_daemon_core_coding_tool_budget_block_required",
+        "agentgres_coding_tool_budget_block_truth_required",
+      ],
     });
-    return {
-      schema_version: CODING_TOOL_RESULT_SCHEMA_VERSION,
-      object: "ioi.runtime_coding_tool_result",
-      tool_pack: CODING_TOOL_PACK_ID,
-      tool_name: toolId,
-      tool_call_id: toolCallId,
-      thread_id: threadId,
-      turn_id: turnId || null,
-      status: "blocked",
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      shell_fallback_used: false,
-      budget_status: "exceeded",
-      context_budget: budgetPolicy,
-      receipt_refs: event.receipt_refs,
-      policy_decision_refs: event.policy_decision_refs,
-      artifact_refs: [],
-      rollback_refs: rollbackRefs,
-      event,
-      workspace_snapshot: null,
-      workspace_snapshot_event: null,
-      auto_diagnostics: null,
-      diagnostics_repair_context: diagnosticsRepairContext,
-      tool_contract: toolContract ?? null,
-      result,
-      error,
-    };
   }
 
   return {

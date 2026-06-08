@@ -3586,29 +3586,15 @@ function runBridge() {
     !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
       runtimeCodingToolInvocationSurface,
     ) &&
-      !/budgetUsageTelemetry:\s*budgetPolicy\.usageTelemetry/.test(
-        runtimeCodingToolGovernanceSurface,
-      ) &&
       /budget_usage_telemetry:\s*budgetPolicy\.usage_telemetry/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
-      /budget_usage_telemetry:\s*budgetPolicy\.usage_telemetry/.test(
-        runtimeCodingToolGovernanceSurface,
-      ) &&
       /hasOwnProperty\.call\(\s*error\.details,\s*"budgetUsageTelemetry"/.test(
         runtimeCodingToolInvocationSurfaceTest,
-      ) &&
-      /hasOwnProperty\.call\(\s*result\.result\.error\.details,\s*"budgetUsageTelemetry"/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      /hasOwnProperty\.call\(\s*result\.event\.payload_summary,\s*"budgetUsageTelemetry"/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
-      "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
     ],
     "Phase 10/11 is pending: coding-tool budget block responses must expose canonical budget_usage_telemetry without duplicate budgetUsageTelemetry",
   );
@@ -3643,66 +3629,35 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: coding-tool budget block details must expose canonical snake_case fields without duplicate camelCase aliases",
   );
-  const codingToolBudgetBlockBody =
-    runtimeCodingToolGovernanceSurface.match(
-      /  function blockCodingToolForBudget\(store, \{[\s\S]*?(?=\n  return \{)/,
-    )?.[0] ?? "";
   assertCheck(
     result,
-    "coding-tool-governance-budget-block-response-aliases-retired",
-    /schema_version:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolBudgetBlockBody) &&
-      /tool_name:\s*toolId/.test(codingToolBudgetBlockBody) &&
-      /budget_status:\s*"exceeded"/.test(codingToolBudgetBlockBody) &&
-      /context_budget_status:\s*budgetPolicy\.status/.test(codingToolBudgetBlockBody) &&
-      /context_budget:\s*budgetPolicy/.test(codingToolBudgetBlockBody) &&
-      /input_summary:\s*codingToolInputSummary\(toolId,\s*input\)/.test(
-        codingToolBudgetBlockBody,
-      ) &&
-      /policy_decision_refs:\s*policyDecisionRefs/.test(codingToolBudgetBlockBody) &&
-      /receipt_refs:\s*event\.receipt_refs/.test(codingToolBudgetBlockBody) &&
-      /normalizeArray\(budgetPolicy\.receipt_refs\)/.test(codingToolBudgetBlockBody) &&
-      /budgetPolicy\.policy_decision_refs/.test(codingToolBudgetBlockBody) &&
-      !/budgetPolicy\.receiptRefs/.test(codingToolBudgetBlockBody) &&
-      !/budgetPolicy\.policyDecisionRefs/.test(codingToolBudgetBlockBody) &&
-      /receiptRefs: \["receipt-retired-budget"\]/.test(
+    "coding-tool-governance-budget-block-js-facade-retired",
+      /runtime_coding_tool_governance_rust_core_required/.test(runtimeCodingToolGovernanceSurface) &&
+      /rust_core_boundary:\s*"runtime\.coding_tool_governance"/.test(runtimeCodingToolGovernanceSurface) &&
+      /throwGovernanceRustCoreRequired\("coding_tool_budget_block",\s*"policy\.blocked"/.test(runtimeCodingToolGovernanceSurface) &&
+      /coding_tool_budget_block_js_facade_retired/.test(runtimeCodingToolGovernanceSurface) &&
+      /rust_daemon_core_coding_tool_budget_block_required/.test(runtimeCodingToolGovernanceSurface) &&
+      /agentgres_coding_tool_budget_block_truth_required/.test(runtimeCodingToolGovernanceSurface) &&
+      /coding-tool governance budget block facade fails closed before JS event append/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /policyDecisionRefs: \["policy-retired-budget"\]/.test(
+      /appendRuntimeEvent must not be called by the retired JS governance facade/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /result\.receipt_refs\.includes\("receipt-retired-budget"\),\s*false/.test(
+      /assertNoRetiredGovernanceDetailAliases\(error\.details\)/.test(
         runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /result\.policy_decision_refs\.includes\("policy-retired-budget"\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      !/schemaVersion:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolBudgetBlockBody) &&
-      !/toolName:\s*toolId/.test(codingToolBudgetBlockBody) &&
-      !/budgetStatus:\s*"exceeded"/.test(codingToolBudgetBlockBody) &&
-      !/contextBudgetStatus:\s*budgetPolicy\.status/.test(codingToolBudgetBlockBody) &&
-      !/contextBudget:\s*budgetPolicy/.test(codingToolBudgetBlockBody) &&
-      !/inputSummary:\s*codingToolInputSummary/.test(codingToolBudgetBlockBody) &&
-      !/policyDecisionRefs:\s*event\.policy_decision_refs/.test(codingToolBudgetBlockBody) &&
-      !/receiptRefs:\s*event\.receipt_refs/.test(codingToolBudgetBlockBody) &&
-      !/approvalRequired:\s*false/.test(codingToolBudgetBlockBody) &&
-      !/workspaceSnapshot:\s*null/.test(codingToolBudgetBlockBody) &&
-      !/workspaceSnapshotEvent:\s*null/.test(codingToolBudgetBlockBody) &&
-      !/autoDiagnostics:\s*null/.test(codingToolBudgetBlockBody) &&
-      !/toolContract:\s*toolContract/.test(codingToolBudgetBlockBody) &&
-      /Object\.hasOwn\(result,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(result\.result,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(result\.event\.payload_summary,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ),
+      !/store\.appendRuntimeEvent\(/.test(runtimeCodingToolGovernanceSurface) &&
+      !/CODING_TOOL_RESULT_SCHEMA_VERSION/.test(runtimeCodingToolGovernanceSurface) &&
+      !/codingToolInputSummary/.test(runtimeCodingToolGovernanceSurface) &&
+      !/codingToolSourceEventKind/.test(runtimeCodingToolGovernanceSurface) &&
+      !/budgetPolicy\.receiptRefs/.test(runtimeCodingToolGovernanceSurface) &&
+      !/budgetPolicy\.policyDecisionRefs/.test(runtimeCodingToolGovernanceSurface),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool governance budget block responses must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: coding-tool governance budget blocking must fail closed before JS event append or response-truth construction",
   );
   assertCheck(
     result,
@@ -3983,10 +3938,6 @@ function runBridge() {
     ],
     "Phase 10/11 is pending: coding-tool approval workflow policy handoff must use canonical snake_case request fields before Rust authority planning",
   );
-  const codingToolApprovalBlockBody =
-    runtimeCodingToolGovernanceSurface.match(
-      /  function blockCodingToolForApproval\(store, \{[\s\S]*?(?=\n  function blockCodingToolForBudget)/,
-    )?.[0] ?? "";
   const codingToolApprovalSatisfactionBody =
     runtimeCodingToolGovernanceSurface.match(
       /  function codingToolApprovalSatisfaction\(store, \{[\s\S]*?(?=\n  function blockCodingToolForApproval)/,
@@ -4038,38 +3989,23 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "coding-tool-approval-block-response-aliases-retired",
-    /schema_version:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolApprovalBlockBody) &&
-      /tool_name:\s*toolId/.test(codingToolApprovalBlockBody) &&
-      /approval_required:\s*true/.test(codingToolApprovalBlockBody) &&
-      /approval_id:\s*approval\.approval_id/.test(codingToolApprovalBlockBody) &&
-      /approval_manifest:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
-      /idempotency_key:\s*`thread:\$\{threadId\}:approval\.required:\$\{approvalId\}`/.test(
-        codingToolApprovalBlockBody,
+    "coding-tool-approval-block-js-facade-retired",
+      /runtime_coding_tool_governance_rust_core_required/.test(runtimeCodingToolGovernanceSurface) &&
+      /rust_core_boundary:\s*"runtime\.coding_tool_governance"/.test(runtimeCodingToolGovernanceSurface) &&
+      /throwGovernanceRustCoreRequired\("coding_tool_approval_block",\s*"coding_tool\.approval\.block"/.test(runtimeCodingToolGovernanceSurface) &&
+      /coding_tool_approval_block_js_facade_retired/.test(runtimeCodingToolGovernanceSurface) &&
+      /rust_daemon_core_coding_tool_approval_block_required/.test(runtimeCodingToolGovernanceSurface) &&
+      /agentgres_coding_tool_approval_block_truth_required/.test(runtimeCodingToolGovernanceSurface) &&
+      /coding-tool governance approval block facade fails closed before JS approval persistence/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /approval_id:\s*approvalId/.test(codingToolApprovalBlockBody) &&
-      /tool_id:\s*toolId/.test(codingToolApprovalBlockBody) &&
-      /authority_scope_requirements:\s*approvalManifest\.authority_scope_requirements/.test(
-        codingToolApprovalBlockBody,
+      /requestThreadApproval must not be called by the retired JS governance facade/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      /input_summary:\s*codingToolInputSummary\(toolId,\s*input\)/.test(
-        codingToolApprovalBlockBody,
+      /assertNoRetiredGovernanceDetailAliases\(error\.details\)/.test(
+        runtimeCodingToolGovernanceSurfaceTest,
       ) &&
-      !/schemaVersion:\s*CODING_TOOL_RESULT_SCHEMA_VERSION/.test(codingToolApprovalBlockBody) &&
-      !/toolName:\s*toolId/.test(codingToolApprovalBlockBody) &&
-      !/approvalRequired:\s*true/.test(codingToolApprovalBlockBody) &&
-      !/approvalId:\s*approval\.approval_id/.test(codingToolApprovalBlockBody) &&
-      !/idempotencyKey:\s*`thread:\$\{threadId\}:approval\.required:\$\{approvalId\}`/.test(
-        codingToolApprovalBlockBody,
-      ) &&
-      !/approvalId:\s*approvalId/.test(codingToolApprovalBlockBody) &&
-      !/approvalManifest:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
-      !/authorityScopeRequirements:\s*approvalManifest/.test(codingToolApprovalBlockBody) &&
-      !/inputSummary:\s*codingToolInputSummary/.test(codingToolApprovalBlockBody) &&
-      !/workspaceSnapshot:\s*null/.test(codingToolApprovalBlockBody) &&
-      !/workspaceSnapshotEvent:\s*null/.test(codingToolApprovalBlockBody) &&
-      !/autoDiagnostics:\s*null/.test(codingToolApprovalBlockBody) &&
-      !/toolContract:\s*toolContract/.test(codingToolApprovalBlockBody) &&
+      !/store\.requestThreadApproval\(/.test(runtimeCodingToolGovernanceSurface) &&
       !/approvalRequired:\s*Boolean\(approvalManifest\)/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
@@ -4095,12 +4031,6 @@ function runBridge() {
       /approvalSatisfaction\?\.approval_id/.test(runtimeCodingToolInvocationSurface) &&
       !/approvalSatisfaction\?\.approvalId/.test(runtimeCodingToolInvocationSurface) &&
       !/^\s*diagnosticsRepairContext,\s*$/m.test(codingToolInvocationPayloadSummaryBlock) &&
-      /Object\.hasOwn\(result,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(result\.result,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
       /Object\.hasOwn\(result\.event\.payload_summary,\s*field\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
@@ -4112,12 +4042,6 @@ function runBridge() {
       ) &&
       /Object\.hasOwn\(approvalCall\.input,\s*"approvalManifest"\),\s*false/.test(
         runtimeCodingToolInvocationSurfaceTest,
-      ) &&
-      /store\.approvalRequests\[0\]\.request\.idempotency_key/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(store\.approvalRequests\[0\]\.request,\s*field\),\s*false/.test(
-        runtimeCodingToolGovernanceSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-coding-tool-governance-surface.mjs",
@@ -4125,7 +4049,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool approval block responses must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: coding-tool approval blocking must fail closed before JS approval persistence or response-truth construction",
   );
   assertCheck(
     result,
