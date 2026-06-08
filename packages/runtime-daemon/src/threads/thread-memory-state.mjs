@@ -24,6 +24,7 @@ export function createThreadMemoryState({
   safeId,
   threadIdForAgent,
   validateMemoryProjection,
+  contextPolicyRunner,
 } = {}) {
   const memoryRuntimeError = runtimeError ?? (({ status = 500, code = "thread_memory_state_error", message, details }) =>
     Object.assign(new Error(message), { status, code, details }));
@@ -193,8 +194,9 @@ export function createThreadMemoryState({
 
   function memoryStatus(store, options = {}) {
     const projection = store.memoryProjectionForContext(options);
+    const runner = store.contextPolicyRunner ?? contextPolicyRunner;
     return {
-      ...memoryStatusForProjection(projection),
+      ...memoryStatusForProjection(projection, { contextPolicyRunner: runner }),
       thread_id: projection.threadId ?? null,
       agent_id: projection.agentId ?? null,
       workspace: projection.workspace ?? null,
@@ -206,7 +208,8 @@ export function createThreadMemoryState({
       input.projection && typeof input.projection === "object"
         ? input.projection
         : store.memoryProjectionForContext(input);
-    const validation = validateMemoryProjection(projection);
+    const runner = store.contextPolicyRunner ?? contextPolicyRunner;
+    const validation = validateMemoryProjection(projection, { contextPolicyRunner: runner });
     return {
       ...validation,
       thread_id: projection.threadId ?? null,

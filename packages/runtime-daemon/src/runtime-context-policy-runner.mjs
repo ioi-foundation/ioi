@@ -33,6 +33,10 @@ export const MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-catalog-projection-request.v1";
 export const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-catalog-summary-projection-request.v1";
+export const MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.memory-manager-validation-projection-request.v1";
+export const MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.memory-manager-status-projection-request.v1";
 export const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-memory-agent-state-update-request.v1";
 export const RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -214,6 +218,22 @@ export class RustContextPolicyRunner {
     return normalizeMcpManagerCatalogSummaryProjectionBridgeResult(this.evaluateRawPolicy({
       operation: "plan_mcp_manager_catalog_summary_projection",
       schemaVersion: MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planMemoryManagerValidationProjection(request = {}) {
+    return normalizeMemoryManagerValidationProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_memory_manager_validation_projection",
+      schemaVersion: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planMemoryManagerStatusProjection(request = {}) {
+    return normalizeMemoryManagerStatusProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_memory_manager_status_projection",
+      schemaVersion: MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -806,6 +826,79 @@ export function normalizeMcpManagerValidationProjectionBridgeResult(value = {}) 
     tools: arrayValue(result.tools ?? record.tools),
     resources: arrayValue(result.resources ?? record.resources),
     prompts: arrayValue(result.prompts ?? record.prompts),
+  };
+}
+
+export function normalizeMemoryManagerStatusProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const evidenceRefs = stringArray(result.evidence_refs ?? record.evidence_refs);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_memory_manager_status_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object:
+      optionalString(result.object ?? record.object) ??
+      "ioi.runtime_memory_manager_status",
+    status: optionalString(result.status ?? record.status) ?? "needs_review",
+    disabled: Boolean(result.disabled ?? record.disabled),
+    injection_enabled: Boolean(result.injection_enabled ?? record.injection_enabled ?? true),
+    read_only: Boolean(result.read_only ?? record.read_only),
+    write_requires_approval: Boolean(
+      result.write_requires_approval ?? record.write_requires_approval,
+    ),
+    write_blocked_reason:
+      optionalString(result.write_blocked_reason ?? record.write_blocked_reason) ?? null,
+    record_count: numberValue(result.record_count ?? record.record_count) ?? 0,
+    scope_count: numberValue(result.scope_count ?? record.scope_count) ?? 0,
+    memory_key_count: numberValue(result.memory_key_count ?? record.memory_key_count) ?? 0,
+    scopes: stringArray(result.scopes ?? record.scopes),
+    memory_keys: stringArray(result.memory_keys ?? record.memory_keys),
+    policy: objectRecord(result.policy ?? record.policy) ?? {},
+    paths: objectRecord(result.paths ?? record.paths) ?? {},
+    filters: objectRecord(result.filters ?? record.filters) ?? {},
+    records: arrayValue(result.records ?? record.records),
+    validation: objectRecord(result.validation ?? record.validation) ?? {},
+    routes: objectRecord(result.routes ?? record.routes) ?? {},
+    evidence_refs: evidenceRefs,
+  };
+}
+
+export function normalizeMemoryManagerValidationProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const issues = arrayValue(result.issues ?? record.issues);
+  const warnings = arrayValue(result.warnings ?? record.warnings);
+  const ok = Boolean(result.ok ?? record.ok);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_memory_manager_validation_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object:
+      optionalString(result.object ?? record.object) ??
+      "ioi.runtime_memory_manager_validation",
+    ok,
+    status:
+      optionalString(result.status ?? record.status) ??
+      (ok ? "pass" : "blocked"),
+    issue_count: numberValue(result.issue_count ?? record.issue_count) ?? issues.length,
+    warning_count:
+      numberValue(result.warning_count ?? record.warning_count) ?? warnings.length,
+    record_count: numberValue(result.record_count ?? record.record_count) ?? 0,
+    issues,
+    warnings,
+    policy: objectRecord(result.policy ?? record.policy) ?? {},
+    paths: objectRecord(result.paths ?? record.paths) ?? {},
+    filters: objectRecord(result.filters ?? record.filters) ?? {},
+    records: arrayValue(result.records ?? record.records),
   };
 }
 

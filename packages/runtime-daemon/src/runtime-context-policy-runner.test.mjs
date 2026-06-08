@@ -21,6 +21,8 @@ import {
   MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_INPUT_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+  MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1066,6 +1068,121 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
   assert.equal(result.routes.search_tools, "/v1/mcp/tools/search");
   assert.equal(Object.hasOwn(result, "serverCount"), false);
   assert.equal(Object.hasOwn(result.routes, "searchTools"), false);
+});
+
+test("memory manager status projection runner sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_memory_manager_status_projection_command",
+            backend: "rust_policy",
+            schema_version: "ioi.runtime.memory-manager-status.v1",
+            object: "ioi.runtime_memory_manager_status",
+            status: "ready",
+            disabled: false,
+            injection_enabled: true,
+            read_only: false,
+            write_requires_approval: true,
+            write_blocked_reason: "memory_write_requires_approval",
+            record_count: 1,
+            scope_count: 1,
+            memory_key_count: 1,
+            scopes: ["thread"],
+            memory_keys: ["project"],
+            policy: { id: "policy.thread" },
+            paths: { records_path: "/state/memory" },
+            filters: {},
+            records: [{ id: "memory.one" }],
+            validation: { ok: true },
+            routes: { status: "/v1/threads/{thread_id}/memory/status" },
+            evidence_refs: ["runtime_memory_manager"],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const projection = { policy: { id: "policy.thread" }, records: [{ id: "memory.one" }] };
+  const result = runner.planMemoryManagerStatusProjection({
+    status_schema_version: "ioi.runtime.memory-manager-status.v1",
+    projection,
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_memory_manager_status_projection");
+  assert.equal(
+    captured.request.schema_version,
+    MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_memory_manager_status_projection_command");
+  assert.equal(result.status, "ready");
+  assert.equal(result.write_requires_approval, true);
+  assert.deepEqual(result.memory_keys, ["project"]);
+  assert.equal(result.routes.status, "/v1/threads/{thread_id}/memory/status");
+  assert.equal(Object.hasOwn(result, "memoryKeys"), false);
+  assert.equal(Object.hasOwn(result, "writeRequiresApproval"), false);
+});
+
+test("memory manager validation projection runner sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_memory_manager_validation_projection_command",
+            backend: "rust_policy",
+            schema_version: "ioi.runtime.memory-manager-validation.v1",
+            object: "ioi.runtime_memory_manager_validation",
+            ok: false,
+            status: "blocked",
+            issue_count: 1,
+            warning_count: 0,
+            record_count: 1,
+            issues: [{ code: "memory_records_path_missing" }],
+            warnings: [],
+            policy: { id: "policy.thread" },
+            paths: {},
+            filters: {},
+            records: [{ id: "memory.one" }],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const projection = { policy: { id: "policy.thread" }, records: [{ id: "memory.one" }] };
+  const result = runner.planMemoryManagerValidationProjection({
+    validation_schema_version: "ioi.runtime.memory-manager-validation.v1",
+    projection,
+  });
+
+  assert.equal(captured.operation, "plan_memory_manager_validation_projection");
+  assert.equal(
+    captured.request.schema_version,
+    MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.deepEqual(captured.request.projection, projection);
+  assert.equal(result.source, "rust_memory_manager_validation_projection_command");
+  assert.equal(result.ok, false);
+  assert.equal(result.issue_count, 1);
+  assert.equal(result.issues[0].code, "memory_records_path_missing");
+  assert.equal(Object.hasOwn(result, "issueCount"), false);
+  assert.equal(Object.hasOwn(result, "recordCount"), false);
 });
 
 test("MCP manager catalog projection runner sends Rust daemon-core projection request", () => {

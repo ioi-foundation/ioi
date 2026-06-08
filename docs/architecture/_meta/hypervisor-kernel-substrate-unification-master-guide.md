@@ -764,6 +764,24 @@ SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
 Slice 785 MCP JS validation helper-retirement matrix-compaction pass is
 complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
+Slice 786 moved public memory manager status and validation projection into the
+Rust daemon-core migration transport. `MemoryManagerStatusProjectionCore` and
+`MemoryManagerValidationProjectionCore` now own canonical
+`ioi.runtime_memory_manager_status` / `ioi.runtime_memory_manager_validation`
+envelopes, while `memoryStatusForProjection()` and
+`validateMemoryProjection()` remain only thin JS transport wrappers around
+`contextPolicyRunner.planMemoryManagerStatusProjection()` /
+`planMemoryManagerValidationProjection()`. Public memory status/validate routes
+therefore no longer calculate readiness, issue counts, memory-key counts,
+write-block reasons, routes, validation records, or evidence refs in JS. This
+still does not claim terminal memory migration: direct Rust daemon-core memory
+record truth, Agentgres admission/head/state-root binding, wallet authority,
+StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
+replay, SDK/IDE protocol coverage, and direct Rust API replacement for command
+transport still need ownership. The Slice 786 memory manager projection
+Rust-core matrix-compaction pass is scheduled for the next resume cycle before
+unrelated route-family work continues; do not encode the command bridge or JS
+transport wrappers as terminal architecture.
 
 ## Part II: Target Execution Model
 

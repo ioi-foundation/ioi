@@ -73,6 +73,14 @@ pub const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-catalog-summary-projection-request.v1";
 pub const MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-catalog-summary.v1";
+pub const MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.memory-manager-validation-projection-request.v1";
+pub const MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.memory-manager-validation.v1";
+pub const MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.memory-manager-status-projection-request.v1";
+pub const MEMORY_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.memory-manager-status.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-memory-agent-state-update-request.v1";
 pub const THREAD_MEMORY_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -280,6 +288,22 @@ pub enum McpManagerValidationProjectionError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum McpManagerStatusProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MemoryManagerValidationProjectionError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MemoryManagerStatusProjectionError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1111,6 +1135,70 @@ pub struct McpManagerStatusProjectionRecord {
     pub prompts: Vec<Value>,
     pub validation: Value,
     pub routes: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemoryManagerValidationProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub validation_schema_version: Option<String>,
+    #[serde(default)]
+    pub projection: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemoryManagerValidationProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub ok: bool,
+    pub status: String,
+    pub issue_count: usize,
+    pub warning_count: usize,
+    pub record_count: usize,
+    pub issues: Vec<Value>,
+    pub warnings: Vec<Value>,
+    pub policy: Value,
+    pub paths: Value,
+    pub filters: Value,
+    pub records: Vec<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemoryManagerStatusProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub status_schema_version: Option<String>,
+    #[serde(default)]
+    pub validation_schema_version: Option<String>,
+    #[serde(default)]
+    pub projection: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MemoryManagerStatusProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub disabled: bool,
+    pub injection_enabled: bool,
+    pub read_only: bool,
+    pub write_requires_approval: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub write_blocked_reason: Option<String>,
+    pub record_count: usize,
+    pub scope_count: usize,
+    pub memory_key_count: usize,
+    pub scopes: Vec<String>,
+    pub memory_keys: Vec<String>,
+    pub policy: Value,
+    pub paths: Value,
+    pub filters: Value,
+    pub records: Vec<Value>,
+    pub validation: Value,
+    pub routes: Value,
+    pub evidence_refs: Vec<String>,
     pub generated_at: String,
 }
 
@@ -3149,6 +3237,160 @@ impl McpManagerStatusProjectionCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct MemoryManagerValidationProjectionCore;
+
+impl MemoryManagerValidationProjectionCore {
+    pub fn project(
+        &self,
+        request: &MemoryManagerValidationProjectionRequest,
+    ) -> Result<MemoryManagerValidationProjectionRecord, MemoryManagerValidationProjectionError>
+    {
+        request.validate()?;
+        let records = memory_projection_records(&request.projection);
+        let policy = memory_projection_object(&request.projection, "policy");
+        let paths = memory_projection_object(&request.projection, "paths");
+        let filters = memory_projection_object(&request.projection, "filters");
+        let mut issues = Vec::new();
+        let mut warnings = Vec::new();
+
+        validate_memory_manager_policy(&policy, &mut issues, &mut warnings);
+        validate_memory_manager_paths(&paths, &mut issues, &mut warnings);
+        for record in &records {
+            validate_memory_manager_record(record, &mut issues, &mut warnings);
+        }
+
+        let ok = issues.is_empty();
+        Ok(MemoryManagerValidationProjectionRecord {
+            schema_version: request
+                .validation_schema_version
+                .clone()
+                .unwrap_or_else(|| {
+                    MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION.to_string()
+                }),
+            object: "ioi.runtime_memory_manager_validation".to_string(),
+            ok,
+            status: if ok { "pass" } else { "blocked" }.to_string(),
+            issue_count: issues.len(),
+            warning_count: warnings.len(),
+            record_count: records.len(),
+            issues,
+            warnings,
+            policy,
+            paths,
+            filters,
+            records,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct MemoryManagerStatusProjectionCore;
+
+impl MemoryManagerStatusProjectionCore {
+    pub fn project(
+        &self,
+        request: &MemoryManagerStatusProjectionRequest,
+    ) -> Result<MemoryManagerStatusProjectionRecord, MemoryManagerStatusProjectionError> {
+        request.validate()?;
+        let validation = MemoryManagerValidationProjectionCore
+            .project(&MemoryManagerValidationProjectionRequest {
+                schema_version: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                validation_schema_version: request.validation_schema_version.clone(),
+                projection: request.projection.clone(),
+            })
+            .map_err(|error| match error {
+                MemoryManagerValidationProjectionError::InvalidSchemaVersion {
+                    expected,
+                    actual,
+                } => MemoryManagerStatusProjectionError::InvalidSchemaVersion { expected, actual },
+            })?;
+        let records = memory_projection_records(&request.projection);
+        let policy = memory_projection_object(&request.projection, "policy");
+        let paths = memory_projection_object(&request.projection, "paths");
+        let filters = memory_projection_object(&request.projection, "filters");
+        let disabled = memory_json_bool(&policy, "disabled", "disabled").unwrap_or(false);
+        let injection_enabled =
+            memory_json_bool(&policy, "injection_enabled", "injectionEnabled").unwrap_or(true);
+        let read_only = memory_json_bool(&policy, "read_only", "readOnly").unwrap_or(false);
+        let write_requires_approval =
+            memory_json_bool(&policy, "write_requires_approval", "writeRequiresApproval")
+                .unwrap_or(false);
+        let scopes = memory_unique_strings(
+            records
+                .iter()
+                .filter_map(|record| json_string_value(record, "scope"))
+                .collect(),
+        );
+        let memory_keys = memory_unique_strings(
+            records
+                .iter()
+                .filter_map(|record| {
+                    json_string_value(record, "memory_key")
+                        .or_else(|| json_string_value(record, "memoryKey"))
+                })
+                .collect(),
+        );
+        let write_blocked_reason = if disabled {
+            Some("memory_disabled".to_string())
+        } else if read_only {
+            Some("memory_read_only".to_string())
+        } else if write_requires_approval {
+            Some("memory_write_requires_approval".to_string())
+        } else {
+            None
+        };
+        let status = if validation.ok {
+            if disabled {
+                "disabled"
+            } else {
+                "ready"
+            }
+        } else {
+            "needs_review"
+        };
+        let validation_value =
+            serde_json::to_value(&validation).unwrap_or_else(|_| Value::Object(Default::default()));
+
+        Ok(MemoryManagerStatusProjectionRecord {
+            schema_version: request.status_schema_version.clone().unwrap_or_else(|| {
+                MEMORY_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION.to_string()
+            }),
+            object: "ioi.runtime_memory_manager_status".to_string(),
+            status: status.to_string(),
+            disabled,
+            injection_enabled,
+            read_only,
+            write_requires_approval,
+            write_blocked_reason,
+            record_count: records.len(),
+            scope_count: scopes.len(),
+            memory_key_count: memory_keys.len(),
+            scopes,
+            memory_keys,
+            policy: policy.clone(),
+            paths: paths.clone(),
+            filters,
+            records: records.clone(),
+            validation: validation_value,
+            routes: json!({
+                "records": "/v1/threads/{thread_id}/memory",
+                "status": "/v1/threads/{thread_id}/memory/status",
+                "validate": "/v1/threads/{thread_id}/memory/validate",
+                "policy": "/v1/threads/{thread_id}/memory/policy",
+                "path": "/v1/threads/{thread_id}/memory/path",
+                "remember": "/v1/threads/{thread_id}/memory",
+                "edit": "/v1/threads/{thread_id}/memory/{memory_id}",
+                "delete": "/v1/threads/{thread_id}/memory/{memory_id}",
+            }),
+            evidence_refs: memory_status_evidence_refs(&policy, &paths, &records),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct ThreadMemoryAgentStateUpdateCore;
 
 impl ThreadMemoryAgentStateUpdateCore {
@@ -3789,6 +4031,32 @@ impl McpManagerValidationProjectionRequest {
         if self.schema_version != MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION {
             return Err(McpManagerValidationProjectionError::InvalidSchemaVersion {
                 expected: MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl MemoryManagerValidationProjectionRequest {
+    pub fn validate(&self) -> Result<(), MemoryManagerValidationProjectionError> {
+        if self.schema_version != MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(
+                MemoryManagerValidationProjectionError::InvalidSchemaVersion {
+                    expected: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        Ok(())
+    }
+}
+
+impl MemoryManagerStatusProjectionRequest {
+    pub fn validate(&self) -> Result<(), MemoryManagerStatusProjectionError> {
+        if self.schema_version != MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(MemoryManagerStatusProjectionError::InvalidSchemaVersion {
+                expected: MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
                 actual: self.schema_version.clone(),
             });
         }
@@ -4612,6 +4880,260 @@ fn extend_json_object(base: Value, extension: Value) -> Value {
         object.extend(extension);
     }
     Value::Object(object)
+}
+
+fn memory_projection_object(projection: &Value, key: &str) -> Value {
+    projection
+        .get(key)
+        .and_then(Value::as_object)
+        .cloned()
+        .map(Value::Object)
+        .unwrap_or_else(|| Value::Object(serde_json::Map::new()))
+}
+
+fn memory_projection_records(projection: &Value) -> Vec<Value> {
+    projection
+        .get("records")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn validate_memory_manager_policy(
+    policy: &Value,
+    issues: &mut Vec<Value>,
+    warnings: &mut Vec<Value>,
+) {
+    if !policy.is_object() {
+        issues.push(memory_diagnostic(
+            "memory_policy_missing",
+            "error",
+            "Memory status requires an effective policy.",
+            json!({}),
+        ));
+        return;
+    }
+    if json_string_value(policy, "id").is_none() {
+        issues.push(memory_diagnostic(
+            "memory_policy_id_missing",
+            "error",
+            "Memory policy must have a stable id.",
+            json!({}),
+        ));
+    }
+    if let Some(scope) = json_string_value(policy, "scope") {
+        if !matches!(
+            scope.as_str(),
+            "global" | "workspace" | "thread" | "workflow" | "subagent"
+        ) {
+            issues.push(memory_diagnostic(
+                "memory_policy_scope_invalid",
+                "error",
+                "Memory policy scope is not supported.",
+                json!({ "memory_scope": scope }),
+            ));
+        }
+    }
+    if let Some(redaction) = json_string_value(policy, "redaction") {
+        if !matches!(redaction.as_str(), "none" | "redacted") {
+            issues.push(memory_diagnostic(
+                "memory_policy_redaction_invalid",
+                "error",
+                "Memory policy redaction must be none or redacted.",
+                json!({}),
+            ));
+        }
+    }
+    if let Some(retention) = json_string_value(policy, "retention") {
+        if !matches!(retention.as_str(), "persistent" | "session" | "ephemeral") {
+            warnings.push(memory_diagnostic(
+                "memory_policy_retention_unknown",
+                "warning",
+                "Memory retention is not one of the governed presets.",
+                json!({}),
+            ));
+        }
+    }
+    if let Some(inheritance) = json_string_value(policy, "subagent_inheritance")
+        .or_else(|| json_string_value(policy, "subagentInheritance"))
+    {
+        if !matches!(
+            inheritance.as_str(),
+            "none" | "explicit" | "read_only" | "full"
+        ) {
+            issues.push(memory_diagnostic(
+                "memory_subagent_inheritance_invalid",
+                "error",
+                "Subagent memory inheritance mode is not supported.",
+                json!({}),
+            ));
+        }
+    }
+    let disabled = memory_json_bool(policy, "disabled", "disabled").unwrap_or(false);
+    let injection_enabled =
+        memory_json_bool(policy, "injection_enabled", "injectionEnabled").unwrap_or(true);
+    let read_only = memory_json_bool(policy, "read_only", "readOnly").unwrap_or(false);
+    let write_requires_approval =
+        memory_json_bool(policy, "write_requires_approval", "writeRequiresApproval")
+            .unwrap_or(false);
+    if disabled && injection_enabled {
+        warnings.push(memory_diagnostic(
+            "memory_disabled_with_injection_enabled",
+            "warning",
+            "Disabled memory should also disable prompt injection.",
+            json!({}),
+        ));
+    }
+    if read_only && write_requires_approval {
+        warnings.push(memory_diagnostic(
+            "memory_read_only_with_approval_required",
+            "warning",
+            "Read-only memory makes write approval unreachable.",
+            json!({}),
+        ));
+    }
+}
+
+fn validate_memory_manager_paths(
+    paths: &Value,
+    issues: &mut Vec<Value>,
+    warnings: &mut Vec<Value>,
+) {
+    for (canonical, legacy, label) in [
+        ("records_path", "recordsPath", "records"),
+        ("policies_path", "policiesPath", "policies"),
+    ] {
+        let value =
+            json_string_value(paths, canonical).or_else(|| json_string_value(paths, legacy));
+        if value.is_none() {
+            issues.push(memory_diagnostic(
+                &format!("memory_{label}_path_missing"),
+                "error",
+                &format!("Memory {label} path is missing."),
+                json!({}),
+            ));
+            continue;
+        }
+        warnings.push(memory_diagnostic(
+            &format!("memory_{label}_path_unverified_by_rust_core"),
+            "warning",
+            &format!("Memory {label} path is projected by Rust but disk access remains outside this pure projection core."),
+            json!({ "path": value }),
+        ));
+    }
+}
+
+fn validate_memory_manager_record(
+    record: &Value,
+    issues: &mut Vec<Value>,
+    warnings: &mut Vec<Value>,
+) {
+    if !record.is_object() {
+        issues.push(memory_diagnostic(
+            "memory_record_invalid",
+            "error",
+            "Memory record must be an object.",
+            json!({}),
+        ));
+        return;
+    }
+    let record_id = json_string_value(record, "id");
+    if record_id.is_none() {
+        issues.push(memory_diagnostic(
+            "memory_record_id_missing",
+            "error",
+            "Memory record id is required.",
+            json!({}),
+        ));
+    }
+    if json_string_value(record, "fact").is_none() {
+        issues.push(memory_diagnostic(
+            "memory_record_fact_missing",
+            "error",
+            "Memory record fact text is required.",
+            json!({ "memory_record_id": record_id.clone() }),
+        ));
+    }
+    if let Some(scope) = json_string_value(record, "scope") {
+        if !matches!(
+            scope.as_str(),
+            "global" | "workspace" | "thread" | "workflow" | "subagent"
+        ) {
+            issues.push(memory_diagnostic(
+                "memory_record_scope_invalid",
+                "error",
+                "Memory record scope is not supported.",
+                json!({
+                    "memory_record_id": record_id.clone(),
+                    "memory_scope": scope,
+                }),
+            ));
+        }
+    }
+    let fact_hash =
+        json_string_value(record, "fact_hash").or_else(|| json_string_value(record, "factHash"));
+    if json_string_value(record, "redaction").as_deref() == Some("redacted") && fact_hash.is_none()
+    {
+        warnings.push(memory_diagnostic(
+            "memory_record_redacted_hash_missing",
+            "warning",
+            "Redacted memory records should include a fact hash.",
+            json!({ "memory_record_id": record_id }),
+        ));
+    }
+}
+
+fn memory_diagnostic(code: &str, severity: &str, message: &str, extra: Value) -> Value {
+    extend_json_object(
+        json!({
+            "code": code,
+            "severity": severity,
+            "message": message,
+        }),
+        extra,
+    )
+}
+
+fn memory_json_bool(value: &Value, canonical: &str, legacy: &str) -> Option<bool> {
+    value
+        .get(canonical)
+        .or_else(|| value.get(legacy))
+        .and_then(Value::as_bool)
+}
+
+fn memory_unique_strings(values: Vec<String>) -> Vec<String> {
+    let mut values: Vec<String> = values
+        .into_iter()
+        .filter_map(|value| optional_trimmed(Some(value.as_str())))
+        .collect();
+    values.sort();
+    values.dedup();
+    values
+}
+
+fn memory_status_evidence_refs(policy: &Value, paths: &Value, records: &[Value]) -> Vec<String> {
+    let mut refs = vec![
+        "runtime_memory_manager",
+        "memory.status",
+        "rust_memory_manager_status_projection_command",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect::<Vec<_>>();
+    if let Some(policy_id) = json_string_value(policy, "id") {
+        refs.push(policy_id);
+    }
+    if let Some(effective_policy_id) = json_string_value(paths, "effective_policy_id")
+        .or_else(|| json_string_value(paths, "effectivePolicyId"))
+    {
+        refs.push(effective_policy_id);
+    }
+    for record in records {
+        if let Some(record_id) = json_string_value(record, "id") {
+            refs.push(record_id);
+        }
+    }
+    memory_unique_strings(refs)
 }
 
 fn json_bool_path(value: &Value, path: &[&str]) -> Option<bool> {
@@ -6751,6 +7273,123 @@ mod tests {
         assert_eq!(record.routes["search_tools"], "/v1/mcp/tools/search");
         assert!(record.validation.get("serverCount").is_none());
         assert!(record.routes.get("searchTools").is_none());
+    }
+
+    #[test]
+    fn rust_policy_projects_memory_manager_validation() {
+        let request = MemoryManagerValidationProjectionRequest {
+            schema_version: MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            validation_schema_version: Some(
+                MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+            ),
+            projection: json!({
+                "policy": {
+                    "id": "policy.thread",
+                    "scope": "thread",
+                    "injectionEnabled": true,
+                    "readOnly": false,
+                    "writeRequiresApproval": true
+                },
+                "paths": {
+                    "recordsPath": "/state/memory",
+                    "policiesPath": "/state/policies"
+                },
+                "filters": {
+                    "scope": "thread"
+                },
+                "records": [{
+                    "id": "memory.one",
+                    "fact": "Remember the runtime boundary.",
+                    "scope": "thread",
+                    "memory_key": "project",
+                    "redaction": "redacted"
+                }]
+            }),
+        };
+
+        let record = MemoryManagerValidationProjectionCore
+            .project(&request)
+            .expect("memory manager validation projection");
+
+        assert_eq!(
+            record.schema_version,
+            MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_memory_manager_validation");
+        assert!(record.ok);
+        assert_eq!(record.status, "pass");
+        assert_eq!(record.record_count, 1);
+        assert_eq!(record.warning_count, 3);
+        assert!(record
+            .warnings
+            .iter()
+            .any(|warning| warning["code"] == "memory_record_redacted_hash_missing"));
+        assert!(record.policy.get("readOnly").is_some());
+        assert!(record.policy.get("read_only").is_none());
+    }
+
+    #[test]
+    fn rust_policy_projects_memory_manager_status() {
+        let request = MemoryManagerStatusProjectionRequest {
+            schema_version: MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            status_schema_version: Some(
+                MEMORY_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+            ),
+            validation_schema_version: Some(
+                MEMORY_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION.to_string(),
+            ),
+            projection: json!({
+                "policy": {
+                    "id": "policy.thread",
+                    "scope": "thread",
+                    "injectionEnabled": true,
+                    "readOnly": false,
+                    "writeRequiresApproval": true
+                },
+                "paths": {
+                    "recordsPath": "/state/memory",
+                    "policiesPath": "/state/policies",
+                    "effectivePolicyId": "policy.thread"
+                },
+                "records": [{
+                    "id": "memory.one",
+                    "fact": "Remember the runtime boundary.",
+                    "scope": "thread",
+                    "memoryKey": "retired.project",
+                    "memory_key": "project"
+                }]
+            }),
+        };
+
+        let record = MemoryManagerStatusProjectionCore
+            .project(&request)
+            .expect("memory manager status projection");
+
+        assert_eq!(
+            record.schema_version,
+            MEMORY_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_memory_manager_status");
+        assert_eq!(record.status, "ready");
+        assert_eq!(record.record_count, 1);
+        assert_eq!(record.scope_count, 1);
+        assert_eq!(record.memory_key_count, 1);
+        assert_eq!(record.memory_keys, vec!["project".to_string()]);
+        assert_eq!(record.write_requires_approval, true);
+        assert_eq!(
+            record.write_blocked_reason.as_deref(),
+            Some("memory_write_requires_approval")
+        );
+        assert_eq!(
+            record.validation["object"],
+            "ioi.runtime_memory_manager_validation"
+        );
+        assert_eq!(
+            record.routes["status"],
+            "/v1/threads/{thread_id}/memory/status"
+        );
+        assert!(record.evidence_refs.contains(&"policy.thread".to_string()));
+        assert!(record.evidence_refs.contains(&"memory.one".to_string()));
     }
 
     #[test]

@@ -104,7 +104,11 @@ use policy::{
     McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
     McpManagerValidationProjectionError, McpManagerValidationProjectionRecord,
     McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationError,
-    McpServerValidationRecord, McpServerValidationRequest, OperatorInterruptStateUpdateCore,
+    McpServerValidationRecord, McpServerValidationRequest, MemoryManagerStatusProjectionCore,
+    MemoryManagerStatusProjectionError, MemoryManagerStatusProjectionRecord,
+    MemoryManagerStatusProjectionRequest, MemoryManagerValidationProjectionCore,
+    MemoryManagerValidationProjectionError, MemoryManagerValidationProjectionRecord,
+    MemoryManagerValidationProjectionRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
@@ -303,6 +307,21 @@ impl RuntimeKernelService {
         request: &McpManagerStatusProjectionRequest,
     ) -> Result<McpManagerStatusProjectionRecord, McpManagerStatusProjectionError> {
         McpManagerStatusProjectionCore.project(request)
+    }
+
+    pub fn plan_memory_manager_validation_projection(
+        &self,
+        request: &MemoryManagerValidationProjectionRequest,
+    ) -> Result<MemoryManagerValidationProjectionRecord, MemoryManagerValidationProjectionError>
+    {
+        MemoryManagerValidationProjectionCore.project(request)
+    }
+
+    pub fn plan_memory_manager_status_projection(
+        &self,
+        request: &MemoryManagerStatusProjectionRequest,
+    ) -> Result<MemoryManagerStatusProjectionRecord, MemoryManagerStatusProjectionError> {
+        MemoryManagerStatusProjectionCore.project(request)
     }
 
     pub fn plan_mcp_manager_catalog_projection(

@@ -27,10 +27,36 @@ test("memory manager status and validation expose canonical fields only", () => 
       },
     ],
   };
-  const status = memoryStatusForProjection(projection);
+  const calls = [];
+  const contextPolicyRunner = {
+    planMemoryManagerStatusProjection(request) {
+      calls.push(["status", request]);
+      return {
+        schema_version: request.status_schema_version,
+        object: "ioi.runtime_memory_manager_status",
+        status: "ready",
+        record_count: 1,
+        memory_keys: ["canonical.key"],
+      };
+    },
+    planMemoryManagerValidationProjection(request) {
+      calls.push(["validation", request]);
+      return {
+        schema_version: request.validation_schema_version,
+        object: "ioi.runtime_memory_manager_validation",
+        ok: true,
+        status: "pass",
+        record_count: 1,
+      };
+    },
+  };
+  const status = memoryStatusForProjection(projection, { contextPolicyRunner });
   assert.equal(status.schema_version, "ioi.runtime.memory-manager-status.v1");
   assert.equal(status.record_count, 1);
   assert.deepEqual(status.memory_keys, ["canonical.key"]);
+  assert.equal(calls[0][0], "status");
+  assert.equal(calls[0][1].projection, projection);
+  assert.equal(calls[0][1].validation_schema_version, "ioi.runtime.memory-manager-validation.v1");
   for (const field of [
     "schemaVersion",
     "injectionEnabled",
@@ -46,9 +72,11 @@ test("memory manager status and validation expose canonical fields only", () => 
     assert.equal(Object.hasOwn(status, field), false);
   }
 
-  const validation = validateMemoryProjection(projection);
+  const validation = validateMemoryProjection(projection, { contextPolicyRunner });
   assert.equal(validation.schema_version, "ioi.runtime.memory-manager-validation.v1");
   assert.equal(validation.record_count, 1);
+  assert.equal(calls[1][0], "validation");
+  assert.equal(calls[1][1].projection, projection);
   for (const field of ["schemaVersion", "issueCount", "warningCount", "recordCount"]) {
     assert.equal(Object.hasOwn(validation, field), false);
   }
@@ -86,4 +114,3 @@ test("memory manager rows ignore retired identity and ref aliases", () => {
   assert.deepEqual(recordRow.receipt_refs, ["receipt.canonical"]);
   assert.deepEqual(recordRow.policy_decision_refs, ["policy.canonical"]);
 });
-

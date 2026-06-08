@@ -497,6 +497,10 @@ function runDocs() {
       /Slice 785 retired the remaining helper-level JS MCP validation decision path/.test(guide) &&
       /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(guide) &&
       /The\s+Slice 785 MCP JS validation helper-retirement matrix-compaction pass is\s+complete/.test(guide) &&
+      /Slice 786 moved public memory manager status and validation projection into the\s+Rust daemon-core migration transport/.test(guide) &&
+      /MemoryManagerStatusProjectionCore/.test(guide) &&
+      /planMemoryManagerStatusProjection/.test(guide) &&
+      /Slice 786 memory manager projection\s+Rust-core matrix-compaction pass is scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -548,7 +552,8 @@ function runDocs() {
       /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 785 MCP JS validation helper-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 786 moved public memory manager status\/validation projection into Rust\s+daemon-core migration transport/.test(matrix) &&
+      /Next resume instruction: run the scheduled Slice 786 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -823,7 +828,11 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 785/.test(matrix) &&
       /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 785 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 786/.test(matrix) &&
+      /MemoryManagerStatusProjectionCore/.test(matrix) &&
+      /plan_memory_manager_status_projection/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 786 is now pending/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 786 memory manager\s+status\/validation Rust-core projection evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -838,6 +847,7 @@ function runDocs() {
       /helper-level `mcpCatalogSummaryForServer`\/`mcpCatalogExposureForStatus`\/`mcpToolNamespaces`\s+JS summary code is retired/.test(implementationMatrix) &&
       /helper-level `mcpRegistryWithServers`\/`mcpServerRecordsFromMutationInput`\/`mcpServerRecordFromAddRequest`\/`mcpResourceKey`\/`mcpPromptKey`\s+JS mutation\/registry projection code is retired/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
+      /public memory status\/validation projection now routes through Rust daemon-core\s+`MemoryManagerStatusProjectionCore` \/ `MemoryManagerValidationProjectionCore`/.test(implementationMatrix) &&
       /live catalog discovery remains a read-only\/projection migration helper, and\s+validation-input projection now routes through Rust migration transport/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
@@ -15997,15 +16007,15 @@ function runCompositor() {
   );
   const runtimeMemoryStatusForProjectionBlock =
     runtimeMemoryManager.match(
-      /export function memoryStatusForProjection\(projection = \{\}\) \{[\s\S]*?\n}\n\nexport function validateMemoryProjection/,
+      /export function memoryStatusForProjection\(projection = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function validateMemoryProjection/,
     )?.[0] ?? "";
   const runtimeValidateMemoryProjectionBlock =
     runtimeMemoryManager.match(
-      /export function validateMemoryProjection\(projection = \{\}\) \{[\s\S]*?\n}\n\nexport function memoryRowsForStatus/,
+      /export function validateMemoryProjection\(projection = \{\}, options = \{\}\) \{[\s\S]*?\n}\n\nexport function memoryRowsForStatus/,
     )?.[0] ?? "";
   const runtimeMemoryRowsForStatusBlock =
     runtimeMemoryManager.match(
-      /export function memoryRowsForStatus\(status = \{\}\) \{[\s\S]*?\n}\n\nfunction validateMemoryPolicy/,
+      /export function memoryRowsForStatus\(status = \{\}\) \{[\s\S]*?\n}\n\nfunction normalizeArray/,
     )?.[0] ?? "";
   const runtimeThreadMemoryMutationBlock =
     runtimeThreadMemoryState.match(
@@ -16719,16 +16729,35 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-memory-status-validation-output-aliases-retired",
-    /schema_version:\s*RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION/.test(runtimeMemoryStatusForProjectionBlock) &&
-      /record_count:\s*records\.length/.test(runtimeMemoryStatusForProjectionBlock) &&
-      /memory_key_count:\s*memoryKeys\.length/.test(runtimeMemoryStatusForProjectionBlock) &&
-      /evidence_refs:\s*uniqueStrings/.test(runtimeMemoryStatusForProjectionBlock) &&
-      /schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
+    /planMemoryManagerStatusProjection/.test(runtimeMemoryStatusForProjectionBlock) &&
+      /status_schema_version:\s*RUNTIME_MEMORY_MANAGER_STATUS_SCHEMA_VERSION/.test(
+        runtimeMemoryStatusForProjectionBlock,
+      ) &&
+      /validation_schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
+        runtimeMemoryStatusForProjectionBlock,
+      ) &&
+      /planMemoryManagerValidationProjection/.test(runtimeValidateMemoryProjectionBlock) &&
+      /validation_schema_version:\s*RUNTIME_MEMORY_MANAGER_VALIDATION_SCHEMA_VERSION/.test(
         runtimeValidateMemoryProjectionBlock,
       ) &&
-      /issue_count:\s*issues\.length/.test(runtimeValidateMemoryProjectionBlock) &&
-      /warning_count:\s*warnings\.length/.test(runtimeValidateMemoryProjectionBlock) &&
-      /record_count:\s*records\.length/.test(runtimeValidateMemoryProjectionBlock) &&
+      /plan_memory_manager_status_projection/.test(runtimeContextPolicyRunner) &&
+      /plan_memory_manager_validation_projection/.test(runtimeContextPolicyRunner) &&
+      /normalizeMemoryManagerStatusProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /normalizeMemoryManagerValidationProjectionBridgeResult/.test(runtimeContextPolicyRunner) &&
+      /MemoryManagerStatusProjectionCore/.test(policyCore) &&
+      /MemoryManagerValidationProjectionCore/.test(policyCore) &&
+      /MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /plan_memory_manager_status_projection/.test(bridgeModule) &&
+      /plan_memory_manager_validation_projection/.test(bridgeModule) &&
+      /rust_memory_manager_status_projection_command/.test(bridgeModule) &&
+      /rust_memory_manager_validation_projection_command/.test(bridgeModule) &&
+      /memory manager status projection runner sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /memory manager validation projection runner sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /const threadId = status\.thread_id \?\? null;/.test(runtimeMemoryRowsForStatusBlock) &&
       /const receiptRefs = normalizeArray\(status\.receipt_refs\);/.test(runtimeMemoryRowsForStatusBlock) &&
       /thread_id: record\.thread_id \?\? threadId/.test(runtimeMemoryRowsForStatusBlock) &&
@@ -16750,6 +16779,12 @@ function runCompositor() {
       ) &&
       /state\.memoryStatus\(store, \{ agentId: "agent_a" \}\)/.test(
         runtimeThreadMemoryStateTest,
+      ) &&
+      /memoryStatusForProjection\(projection, \{ contextPolicyRunner: runner \}\)/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      /validateMemoryProjection\(projection, \{ contextPolicyRunner: runner \}\)/.test(
+        runtimeThreadMemoryState,
       ) &&
       /thread_id: projection\.threadId \?\? null/.test(runtimeThreadMemoryState) &&
       /agent_id: projection\.agentId \?\? null/.test(runtimeThreadMemoryState) &&

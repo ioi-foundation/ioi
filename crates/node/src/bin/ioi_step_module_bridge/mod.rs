@@ -44,7 +44,9 @@ use ioi_services::agentic::runtime::kernel::policy::{
     McpManagerCatalogSummaryProjectionRequest, McpManagerStatusProjectionCore,
     McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
     McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationInputCore,
-    McpServerValidationInputRequest, McpServerValidationRequest, OperatorInterruptStateUpdateCore,
+    McpServerValidationInputRequest, McpServerValidationRequest, MemoryManagerStatusProjectionCore,
+    MemoryManagerStatusProjectionRequest, MemoryManagerValidationProjectionCore,
+    MemoryManagerValidationProjectionRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
@@ -519,6 +521,26 @@ struct McpManagerValidationProjectionBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct MemoryManagerStatusProjectionBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: MemoryManagerStatusProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct MemoryManagerValidationProjectionBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: MemoryManagerValidationProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct McpManagerCatalogProjectionBridgeRequest {
     #[serde(rename = "schema_version")]
     schema_version: String,
@@ -987,6 +1009,18 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_mcp_manager_validation_projection(request)
+        }
+        "plan_memory_manager_status_projection" => {
+            let request: MemoryManagerStatusProjectionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_memory_manager_status_projection(request)
+        }
+        "plan_memory_manager_validation_projection" => {
+            let request: MemoryManagerValidationProjectionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_memory_manager_validation_projection(request)
         }
         "plan_mcp_manager_catalog_projection" => {
             let request: McpManagerCatalogProjectionBridgeRequest =
@@ -2851,6 +2885,105 @@ fn plan_mcp_manager_validation_projection(
         "tools": record.tools.clone(),
         "resources": record.resources.clone(),
         "prompts": record.prompts.clone(),
+    }))
+}
+
+fn plan_memory_manager_status_projection(
+    request: MemoryManagerStatusProjectionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_memory_manager_status_projection" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = MemoryManagerStatusProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "memory_manager_status_projection_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_memory_manager_status_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "disabled": record.disabled,
+        "injection_enabled": record.injection_enabled,
+        "read_only": record.read_only,
+        "write_requires_approval": record.write_requires_approval,
+        "write_blocked_reason": record.write_blocked_reason.clone(),
+        "record_count": record.record_count,
+        "scope_count": record.scope_count,
+        "memory_key_count": record.memory_key_count,
+        "scopes": record.scopes.clone(),
+        "memory_keys": record.memory_keys.clone(),
+        "policy": record.policy.clone(),
+        "paths": record.paths.clone(),
+        "filters": record.filters.clone(),
+        "records": record.records.clone(),
+        "validation": record.validation.clone(),
+        "routes": record.routes.clone(),
+        "evidence_refs": record.evidence_refs.clone(),
+    }))
+}
+
+fn plan_memory_manager_validation_projection(
+    request: MemoryManagerValidationProjectionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_memory_manager_validation_projection" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = MemoryManagerValidationProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "memory_manager_validation_projection_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_memory_manager_validation_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "ok": record.ok,
+        "status": record.status.clone(),
+        "issue_count": record.issue_count,
+        "warning_count": record.warning_count,
+        "record_count": record.record_count,
+        "issues": record.issues.clone(),
+        "warnings": record.warnings.clone(),
+        "policy": record.policy.clone(),
+        "paths": record.paths.clone(),
+        "filters": record.filters.clone(),
+        "records": record.records.clone(),
     }))
 }
 
@@ -9614,6 +9747,111 @@ mod tests {
         assert_eq!(response["routes"]["search_tools"], "/v1/mcp/tools/search");
         assert!(response.get("serverCount").is_none());
         assert!(response["routes"].get("searchTools").is_none());
+    }
+
+    #[test]
+    fn bridge_projects_memory_manager_status_through_rust_core() {
+        let request: MemoryManagerStatusProjectionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_memory_manager_status_projection",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.memory-manager-status-projection-request.v1",
+                "status_schema_version": "ioi.runtime.memory-manager-status.v1",
+                "validation_schema_version": "ioi.runtime.memory-manager-validation.v1",
+                "projection": {
+                    "policy": {
+                        "id": "policy.thread",
+                        "scope": "thread",
+                        "injectionEnabled": true,
+                        "readOnly": false,
+                        "writeRequiresApproval": true
+                    },
+                    "paths": {
+                        "recordsPath": "/state/memory",
+                        "policiesPath": "/state/policies"
+                    },
+                    "records": [{
+                        "id": "memory.one",
+                        "fact": "Remember the runtime boundary.",
+                        "scope": "thread",
+                        "memoryKey": "retired.project",
+                        "memory_key": "project"
+                    }]
+                }
+            }
+        }))
+        .expect("memory manager status projection bridge request");
+
+        let response = plan_memory_manager_status_projection(request)
+            .expect("memory manager status projection planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_memory_manager_status_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "ready");
+        assert_eq!(response["record_count"], 1);
+        assert_eq!(response["memory_key_count"], 1);
+        assert_eq!(response["memory_keys"][0], "project");
+        assert_eq!(response["write_requires_approval"], true);
+        assert_eq!(
+            response["write_blocked_reason"],
+            "memory_write_requires_approval"
+        );
+        assert_eq!(
+            response["routes"]["status"],
+            "/v1/threads/{thread_id}/memory/status"
+        );
+        assert!(response.get("memoryKeys").is_none());
+        assert!(response.get("writeRequiresApproval").is_none());
+    }
+
+    #[test]
+    fn bridge_projects_memory_manager_validation_through_rust_core() {
+        let request: MemoryManagerValidationProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_memory_manager_validation_projection",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.memory-manager-validation-projection-request.v1",
+                    "validation_schema_version": "ioi.runtime.memory-manager-validation.v1",
+                    "projection": {
+                        "policy": {
+                            "id": "policy.thread",
+                            "scope": "thread"
+                        },
+                        "paths": {},
+                        "records": [{
+                            "id": "memory.one",
+                            "fact": "Remember the runtime boundary.",
+                            "scope": "thread"
+                        }]
+                    }
+                }
+            }))
+            .expect("memory manager validation projection bridge request");
+
+        let response = plan_memory_manager_validation_projection(request)
+            .expect("memory manager validation projection planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_memory_manager_validation_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["ok"], false);
+        assert_eq!(response["issue_count"], 2);
+        assert_eq!(response["issues"][0]["code"], "memory_records_path_missing");
+        assert_eq!(
+            response["issues"][1]["code"],
+            "memory_policies_path_missing"
+        );
+        assert!(response.get("issueCount").is_none());
+        assert!(response.get("recordCount").is_none());
     }
 
     #[test]
