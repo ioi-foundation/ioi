@@ -379,8 +379,10 @@ can no longer satisfy the public catalog-provider control surface. This does
 not claim terminal catalog-provider control migration: direct Rust daemon-core
 catalog-provider control still needs to own OAuth state/session custody,
 wallet/cTEE vault binding, auth-header refresh, receipts, Agentgres admission,
-record-state, projection, and replay. The Slice 758 matrix-compaction pass is
-pending and must run before unrelated route-family work resumes.
+record-state, projection, and replay. The Slice 758 catalog-provider OAuth
+callback state alias-retirement matrix-compaction pass is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 
