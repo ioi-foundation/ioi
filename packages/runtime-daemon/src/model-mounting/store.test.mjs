@@ -351,6 +351,24 @@ test("receipt lookup returns persisted receipts and fails closed with canonical 
   );
 });
 
+test("store map writes fail closed as a retired direct persistence path", () => {
+  const { stateDir, store } = testStore();
+  const map = new Map([["artifact.direct", { id: "artifact.direct" }]]);
+
+  assert.throws(
+    () => store.writeMap("model-artifacts", map),
+    (error) =>
+      error.code === "model_mount_store_map_write_retired" &&
+      error.details.dir === "model-artifacts" &&
+      error.details.record_count === 1 &&
+      error.details.canonical_persistence === "rust_agentgres_record_state_commit",
+  );
+  assert.equal(
+    fs.existsSync(path.join(stateDir, "model-artifacts", "artifact.direct.json")),
+    false,
+  );
+});
+
 test("canonical projection writes fail closed without Rust projection plan evidence", () => {
   const { appended, stateDir, store } = testStore();
   const projection = {

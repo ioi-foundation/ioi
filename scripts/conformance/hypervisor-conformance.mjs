@@ -526,9 +526,13 @@ function runDocs() {
       /Slice 793 moved canonical model_mount projection persistence behind the Rust\s+daemon-core projection plan/.test(guide) &&
       /`canonicalProjectionWritePlan\(\)`/.test(guide) &&
       /`model_mount_projection_direct_write_forbidden`/.test(guide) &&
-      /Slice 793\s+model_mount projection-persistence Rust-plan matrix-compaction pass is\s+scheduled/.test(guide) &&
+      /Slice 793\s+model_mount projection-persistence Rust-plan matrix-compaction pass is\s+complete/.test(guide) &&
+      /Slice 794 retired the store-level model_mount map writer/.test(guide) &&
+      /`model_mount_store_map_write_retired`/.test(guide) &&
+      /Slice 794\s+model_mount store map-writer retirement\s+matrix-compaction pass is\s+scheduled/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
-      /Implementation Slice Evidence: 793/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
+      /Implementation Slice Evidence: 794/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -13612,6 +13616,20 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
     ],
     "Phase 5/10 is pending: canonical model_mount projection persistence must require a Rust daemon-core projection plan and direct JS projection writes must fail closed",
+  );
+  assertCheck(
+    result,
+    "model-mount-store-map-writer-retired",
+    /writeMap\(dir,\s*map\)\s*\{[\s\S]*model_mount_store_map_write_retired/.test(modelMountStore) &&
+      /rust_agentgres_record_state_commit/.test(modelMountStore) &&
+      !/writeMap\(dir,\s*map\)\s*\{[\s\S]*for \(const record of map\.values\(\)\)/.test(modelMountStore) &&
+      /store map writes fail closed as a retired direct persistence path/.test(modelMountStoreTest) &&
+      /artifact\.direct\.json/.test(modelMountStoreTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/store.mjs",
+      "packages/runtime-daemon/src/model-mounting/store.test.mjs",
+    ],
+    "Phase 5/10 is pending: store-level model_mount map writes must fail closed instead of writing local JSON records outside Rust Agentgres record-state commits",
   );
   assertCheck(
     result,

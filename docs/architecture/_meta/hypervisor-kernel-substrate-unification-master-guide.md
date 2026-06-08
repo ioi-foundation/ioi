@@ -908,9 +908,21 @@ current state input and local projection files through migration transport, and
 direct Rust daemon-core projection APIs over Agentgres-backed state still need
 to replace the command boundary and local projection store. The Slice 793
 model_mount projection-persistence Rust-plan matrix-compaction pass is
-scheduled once this verified slice lands; do not encode the command bridge,
-JS transport wrappers, or local projection materialization as terminal
-architecture.
+complete.
+
+Slice 794 retired the store-level model_mount map writer that remained below
+the state-level retired map persistence facade.
+`AgentgresModelMountingStore.writeMap()` now fails closed with
+`model_mount_store_map_write_retired` instead of writing local JSON records from
+JS, so future callers cannot bypass the retired
+`ModelMountingState.writeMap()`/`writeModelMountingMap()` guard. This still
+does not claim terminal model_mount migration: JS still loads local
+materialized records into in-memory maps as migration input, and direct Rust
+daemon-core Agentgres read/materialization APIs still need to replace local JSON
+map state. The Slice 794 model_mount store map-writer retirement
+matrix-compaction pass is scheduled once this verified slice lands; do not
+encode the command bridge, JS transport wrappers, or local map/projection
+materialization as terminal architecture.
 
 ## Part II: Target Execution Model
 

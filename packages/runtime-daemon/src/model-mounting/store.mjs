@@ -126,9 +126,16 @@ export class AgentgresModelMountingStore {
   }
 
   writeMap(dir, map) {
-    for (const record of map.values()) {
-      writeJson(path.join(this.stateDir, dir, `${safeFileName(record.id)}.json`), record);
-    }
+    throw runtimeError({
+      status: 403,
+      code: "model_mount_store_map_write_retired",
+      message: "Model-mounting store map persistence is retired; use Rust Agentgres record-state commits per record.",
+      details: {
+        dir: dir ?? null,
+        record_count: typeof map?.size === "number" ? map.size : null,
+        canonical_persistence: "rust_agentgres_record_state_commit",
+      },
+    });
   }
 
   writeReceipt(receipt) {

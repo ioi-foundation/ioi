@@ -98,6 +98,8 @@ evidence.
 This pass compacted Slice 791 route-selection receipt Rust-authoring evidence.
 This pass compacted Slice 792 model_mount read-projection Rust-authoring
 evidence.
+This pass compacted Slice 793 model_mount projection-persistence Rust-plan
+evidence.
 Slice 787 retired memory projection input compatibility aliases at the Rust
 boundary; its matrix-compaction pass is complete.
 Slice 788 retired memory projection envelope identity aliases at the
@@ -112,10 +114,11 @@ route-decision admission boundary; its matrix-compaction pass is complete.
 Slice 792 moved model_mount read-projection authoring to Rust daemon-core
 projection planning; its matrix-compaction pass is complete.
 Slice 793 moved canonical model_mount projection persistence behind Rust
-projection-plan evidence; its matrix-compaction pass is scheduled after this
-verified slice.
+projection-plan evidence; its matrix-compaction pass is complete.
+Slice 794 retired the store-level model_mount map writer; its
+matrix-compaction pass is scheduled after this verified slice.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice, then compact Slice 793 evidence once
+facade-retirement implementation slice, then compact Slice 794 evidence once
 the next seam is clear. Preserve the live owner map, terminal blockers, and the
 fact that fail-closed JS facades, canonical input helpers, local projection
 helpers, and migration transport are not terminal substrate.
@@ -15902,7 +15905,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 state materialization as terminal architecture.
 
-## Implementation Slice Evidence: 793
+## Compacted Implementation Slice Evidence: 793
 
 Slice 793 moved canonical model_mount projection persistence behind Rust
 daemon-core projection-plan evidence. The daemon `writeProjection()` method now
@@ -15931,8 +15934,36 @@ materialized projection cache, command transport still needs replacement by a
 direct Rust daemon-core API, and Agentgres-backed projection reads/watermarks
 must still move fully under Rust core ownership.
 
-Scheduled matrix-compaction obligation from Slice 793 is pending after this
+Scheduled matrix-compaction obligation from Slice 793 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 794
+
+Slice 794 retired the store-level model_mount map writer that remained below
+the already retired state-level map persistence facade.
+`AgentgresModelMountingStore.writeMap()` now fails closed with
+`model_mount_store_map_write_retired` and points callers to
+`rust_agentgres_record_state_commit` instead of writing local JSON records from
+JS. This closes the lower-level bypass where future code could have skipped the
+retired `ModelMountingState.writeMap()` / `writeModelMountingMap()` guard and
+written authoritative-looking map records directly through the store.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/store.test.mjs` | passed |
+
+This does not claim terminal model_mount migration: JS still loads local
+materialized records into in-memory maps as migration input, and direct Rust
+daemon-core Agentgres read/materialization APIs still need to replace local JSON
+map state as a substrate.
+
+Scheduled matrix-compaction obligation from Slice 794 is pending after this
 verified slice. The next resume should either compact this evidence once the
 next Rust-core extraction/facade-retirement seam is clear or continue with that
 next seam while preserving the non-terminal status of command transport, JS
-wrapper calls, and local projection materialization.
+wrapper calls, and local map/projection materialization.
