@@ -154,7 +154,6 @@ function createHarness(options = {}) {
           record: {
             id: "memory_new",
             workflow_node_id: "runtime.memory.canonical",
-            workflowNodeId: "runtime.memory.retired",
           },
           receipt: { id: "receipt_memory_new" },
         };
@@ -165,7 +164,6 @@ function createHarness(options = {}) {
           record: {
             id: input.id,
             workflow_node_id: "runtime.memory.edit.canonical",
-            workflowNodeId: "runtime.memory.edit.retired",
           },
           receipt: { id: `receipt_${input.id}` },
         };
@@ -176,9 +174,32 @@ function createHarness(options = {}) {
 }
 
 function assertNoRetiredDetailAliases(details) {
-  for (const key of ["threadId", "controlKind", "operationKind", "expectedOperationKind"]) {
+  for (const key of ["rustCoreBoundary", "operationKind", "threadId", "agentId", "memoryId", "evidenceRefs"]) {
     assert.equal(Object.hasOwn(details, key), false);
   }
+}
+
+function assertThreadMemoryRustCoreRequired(error, expected = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_thread_memory_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.thread_memory_control");
+  assert.equal(error.details.operation, "thread_memory_control");
+  assert.equal(error.details.operation_kind, "thread_memory_control");
+  assert.equal(error.details.requested_operation, expected.operation ?? null);
+  assert.equal(error.details.requested_control_kind, expected.controlKind ?? null);
+  assert.equal(error.details.thread_id, expected.threadId ?? null);
+  assert.equal(error.details.agent_id, expected.agentId ?? null);
+  assert.equal(error.details.memory_id, expected.memoryId ?? null);
+  assert.deepEqual(error.details.evidence_refs, [
+    "runtime_thread_memory_control_js_facade_retired",
+    "runtime_thread_memory_write_js_facade_retired",
+    "runtime_thread_memory_policy_js_facade_retired",
+    "runtime_thread_memory_status_validation_js_facade_retired",
+    "runtime_memory_state_store_js_mutation_retired",
+    "rust_daemon_core_thread_memory_control_required",
+    "agentgres_thread_memory_state_truth_required",
+  ]);
+  assertNoRetiredDetailAliases(error.details);
 }
 
 test("thread memory state projects thread and agent memory", () => {
@@ -256,260 +277,121 @@ test("thread memory state handles policies, paths, status, and validation", () =
   });
 });
 
-test("thread memory state applies policy mutations through canonical store methods", () => {
+test("thread memory mutation and policy facades fail closed before JS store mutation", () => {
   const { calls, state, store } = createHarness();
 
-  const threadPolicyResult = state.setMemoryPolicyForThread(store, "thread_a", { policy: { read_only: true } });
-  assert.equal(threadPolicyResult.operation, "policy_update");
-  assert.equal(threadPolicyResult.policy.id, "policy_thread_a");
-  assert.equal(threadPolicyResult.event.event_kind, "memory.policy_update");
-  assert.deepEqual(state.setMemoryPolicyForAgent(store, "agent_a", { read_only: true }), {
-    policy: { id: "policy_thread_a" },
-  });
-  const policyCalls = calls.filter((call) => call.type === "setPolicy").map((call) => call.input);
-  assert.equal(policyCalls[0].updates.normalized, true);
-  assert.equal(policyCalls[0].updates.read_only, true);
-  assert.equal(policyCalls[1].updates.read_only, true);
-});
+  const cases = [
+    {
+      call: () => state.rememberForThread(store, "thread_a", { text: "Remember deploy" }),
+      expected: { operation: "write", controlKind: "memory_write", threadId: "thread_a" },
+    },
+    {
+      call: () => state.setMemoryPolicyForThread(store, "thread_a", { policy: { read_only: true } }),
+      expected: { operation: "policy_update", controlKind: "memory_policy_update", threadId: "thread_a" },
+    },
+    {
+      call: () => state.updateMemoryForThread(store, "thread_a", "memory_1", { text: "Edited" }),
+      expected: { operation: "edit", controlKind: "memory_edit", threadId: "thread_a", memoryId: "memory_1" },
+    },
+    {
+      call: () => state.deleteMemoryForThread(store, "thread_a", "memory_1", {}),
+      expected: { operation: "delete", controlKind: "memory_delete", threadId: "thread_a", memoryId: "memory_1" },
+    },
+    {
+      call: () => state.rememberForAgentId(store, "agent_a", { text: "Remember", thread_id: "thread_a" }),
+      expected: { operation: "write", controlKind: "memory_write", agentId: "agent_a" },
+    },
+    {
+      call: () => state.setMemoryPolicyForAgent(store, "agent_a", { thread_id: "thread_a" }),
+      expected: { operation: "policy_update", controlKind: "memory_policy_update", agentId: "agent_a" },
+    },
+    {
+      call: () => state.updateMemoryForAgentId(store, "agent_a", "memory_1", { thread_id: "thread_a" }),
+      expected: { operation: "edit", controlKind: "memory_edit", agentId: "agent_a", memoryId: "memory_1" },
+    },
+    {
+      call: () => state.deleteMemoryForAgentId(store, "agent_a", "memory_1", { thread_id: "thread_a" }),
+      expected: { operation: "delete", controlKind: "memory_delete", agentId: "agent_a", memoryId: "memory_1" },
+    },
+    {
+      call: () => state.updateMemoryRecord(store, "memory_1", { text: "Edited" }),
+      expected: { operation: "edit", controlKind: "memory_edit", memoryId: "memory_1" },
+    },
+    {
+      call: () => state.deleteMemoryRecord(store, "memory_1", {}),
+      expected: { operation: "delete", controlKind: "memory_delete", memoryId: "memory_1" },
+    },
+  ];
 
-test("agent memory mutation bodies ignore retired camelCase identity aliases", () => {
-  const { calls, state, store } = createHarness();
-
-  state.rememberForAgentId(store, "agent_a", {
-    text: "Canonical thread",
-    thread_id: "thread_canonical",
-  });
-  state.rememberForAgentId(store, "agent_a", {
-    text: "Retired thread",
-    threadId: "thread_retired",
-  });
-  state.updateMemoryForAgentId(store, "agent_a", "memory_edit", {
-    text: "Edit canonical",
-    thread_id: "thread_canonical_edit",
-  });
-  state.updateMemoryForAgentId(store, "agent_a", "memory_edit_retired", {
-    text: "Edit retired",
-    threadId: "thread_retired_edit",
-  });
-  state.deleteMemoryForAgentId(store, "agent_a", "memory_delete", {
-    thread_id: "thread_canonical_delete",
-  });
-  state.deleteMemoryForAgentId(store, "agent_a", "memory_delete_retired", {
-    threadId: "thread_retired_delete",
-  });
-  state.setMemoryPolicyForAgent(store, "agent_a", {
-    thread_id: "thread_canonical_policy",
-    target_type: "workflow",
-    target_id: "workflow-policy",
-  });
-  state.setMemoryPolicyForAgent(store, "agent_a", {
-    threadId: "thread_retired_policy",
-    targetType: "workflow",
-    targetId: "retired-policy",
-  });
-
-  assert.deepEqual(calls.filter((call) => call.type === "effectivePolicy").map((call) => call.threadId), [
-    "thread_canonical",
-    "thread_a",
-    "thread_canonical_edit",
-    "thread_a",
-    "thread_canonical_delete",
-    "thread_a",
-  ]);
-  assert.deepEqual(calls.filter((call) => call.type === "remember").map((call) => call.input.threadId), [
-    "thread_canonical",
-    "thread_a",
-  ]);
-  const policyCalls = calls.filter((call) => call.type === "setPolicy").map((call) => call.input);
-  assert.equal(policyCalls.at(-2).thread_id, "thread_canonical_policy");
-  assert.equal(policyCalls.at(-2).target_type, "workflow");
-  assert.equal(policyCalls.at(-2).target_id, "workflow-policy");
-  assert.equal(Object.hasOwn(policyCalls.at(-2), "threadId"), false);
-  assert.equal(Object.hasOwn(policyCalls.at(-2), "targetType"), false);
-  assert.equal(Object.hasOwn(policyCalls.at(-2), "targetId"), false);
-  assert.equal(policyCalls.at(-1).thread_id, "thread_a");
-  assert.equal(policyCalls.at(-1).target_type, "thread");
-  assert.equal(policyCalls.at(-1).target_id, "thread_a");
-  assert.equal(Object.hasOwn(policyCalls.at(-1), "threadId"), false);
-  assert.equal(Object.hasOwn(policyCalls.at(-1), "targetType"), false);
-  assert.equal(Object.hasOwn(policyCalls.at(-1), "targetId"), false);
-});
-
-test("thread memory state records write, edit, and delete mutations", () => {
-  const { calls, state, store } = createHarness();
-
-  const write = state.rememberForThread(store, "thread_a", { text: "Remember deploy", source: "test" });
-  assert.equal(write.record.id, "memory_new");
-  assert.equal(write.receipt_refs[0], "receipt_memory_new");
-  assert.equal(write.rows[0].label, "Memory write");
-  assert.equal(write.rows[0].workflow_node_id, "runtime.memory.canonical");
-  for (const field of [
-    "schemaVersion",
-    "memoryOperation",
-    "mutationStatus",
-    "threadId",
-    "agentId",
-    "memoryRecordId",
-    "memoryPolicyId",
-    "receiptRefs",
-    "memoryRows",
-  ]) {
-    assert.equal(Object.hasOwn(write, field), false);
+  for (const { call, expected } of cases) {
+    assert.throws(
+      call,
+      (error) => {
+        assertThreadMemoryRustCoreRequired(error, expected);
+        return true;
+      },
+    );
   }
 
-  const edit = state.updateMemoryForThread(store, "thread_a", "memory_1", { text: "Edited" });
-  assert.equal(edit.operation, "edit");
-  assert.equal(edit.rows[0].workflow_node_id, "runtime.memory.edit.canonical");
-  assert.equal(calls.find((call) => call.type === "updateRecord").input.source, "memory_edit_api");
-
-  const deleted = state.deleteMemoryForAgentId(store, "agent_a", "memory_1", { source: "test_delete" });
-  assert.equal(deleted.record.id, "memory_1");
-  assert.equal(calls.find((call) => call.type === "deleteRecord").input.source, "test_delete");
+  assert.deepEqual(calls, []);
 });
 
-test("thread memory state blocks disallowed writes and emits status events", () => {
-  const { agents, calls, state, store } = createHarness();
-
-  assert.throws(
-    () => state.rememberForAgentId(store, "agent_a", { text: "Nope", blockMemory: true }),
-    /Memory write blocked by policy/,
-  );
-
-  const status = state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1");
-  assert.equal(status.event.event_stream_id, "stream_thread_a");
-  assert.equal(status.event.source, "status_test");
-  assert.equal(status.event.payload_schema_version, "memory.status.v1");
-  assert.equal(status.event.fixture_profile, "fixture.test");
-  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
-  assert.equal(calls.filter((call) => call.type === "writeAgent").at(-1).operationKind, "thread.memory_status");
-  assert.equal(agents.get("agent_a").updatedAt, "2026-06-04T00:00:00.000Z");
-});
-
-test("thread memory state ignores retired request identity aliases", () => {
+test("thread memory status and validation facades fail closed before event append or Rust planning", () => {
   const { calls, state, store } = createHarness();
 
-  const retired = state.recordThreadMemoryStatus(
-    store,
-    "thread_a",
-    {
-      source: "status_alias_test",
-      turnId: "turn_retired",
-      workflowGraphId: "graph_retired",
-      workflowNodeId: "node_retired",
-      idempotencyKey: "memory_idempotency_retired",
-    },
-    "memory.status.v1",
-  );
-
-  assert.equal(retired.event.turn_id, "turn_latest");
-  assert.equal(retired.event.workflow_graph_id, null);
-  assert.equal(retired.event.workflow_node_id, "runtime.memory-manager");
-  assert.match(retired.event.idempotency_key, /^thread:thread_a:memory:memory_status:/);
-
-  const canonical = state.recordThreadMemoryStatus(
-    store,
-    "thread_a",
-    {
-      source: "status_canonical_test",
-      turn_id: "turn_canonical",
-      workflow_graph_id: "graph_canonical",
-      workflow_node_id: "node_canonical",
-      idempotency_key: "memory_idempotency_canonical",
-    },
-    "memory.status.v1",
-  );
-
-  assert.equal(canonical.event.turn_id, "turn_canonical");
-  assert.equal(canonical.event.workflow_graph_id, "graph_canonical");
-  assert.equal(canonical.event.workflow_node_id, "node_canonical");
-  assert.equal(canonical.event.idempotency_key, "memory_idempotency_canonical");
-  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 2);
-});
-
-test("thread memory state fails closed without Rust-planned agent projection", () => {
-  const { calls, state, store } = createHarness({
-    contextPolicyRunner: {
-      planThreadMemoryAgentStateUpdate(request = {}) {
-        calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
-        return {
-          status: "planned",
-          operation_kind: `thread.${request.control_kind}`,
-          agent: null,
-        };
-      },
-    },
-  });
-
   assert.throws(
     () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
     (error) => {
-      assert.equal(error.code, "thread_memory_state_update_planner_invalid");
-      assert.equal(error.details.thread_id, "thread_a");
-      assert.equal(error.details.control_kind, "memory_status");
-      assertNoRetiredDetailAliases(error.details);
+      assertThreadMemoryRustCoreRequired(error, {
+        operation: "status",
+        controlKind: "memory_status",
+        threadId: "thread_a",
+      });
       return true;
     },
   );
-  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
-  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
-});
-
-test("thread memory state fails closed without Rust-planned operation kind", () => {
-  const { agents, calls, state, store } = createHarness({
-    contextPolicyRunner: {
-      planThreadMemoryAgentStateUpdate(request = {}) {
-        calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
-        return {
-          status: "planned",
-          agent: { ...request.agent, updatedAt: request.created_at },
-        };
-      },
-    },
-  });
 
   assert.throws(
-    () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
+    () => state.validateThreadMemory(store, "thread_a", { source: "validate_test" }, "memory.validation.v1"),
     (error) => {
-      assert.equal(error.code, "thread_memory_state_update_operation_kind_missing");
-      assert.equal(error.details.thread_id, "thread_a");
-      assert.equal(error.details.control_kind, "memory_status");
-      assert.equal(error.details.operation_kind, "thread.memory_status");
-      assertNoRetiredDetailAliases(error.details);
+      assertThreadMemoryRustCoreRequired(error, {
+        operation: "validate",
+        controlKind: "memory_validate",
+        threadId: "thread_a",
+      });
       return true;
     },
   );
-  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
-  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
-  assert.equal(agents.get("agent_a").updatedAt, undefined);
+
+  assert.deepEqual(calls, []);
 });
 
-test("thread memory state rejects unexpected Rust-planned operation kind with canonical details", () => {
-  const { agents, calls, state, store } = createHarness({
-    contextPolicyRunner: {
-      planThreadMemoryAgentStateUpdate(request = {}) {
-        calls.push({ type: "planThreadMemoryAgentStateUpdate", input: request });
-        return {
-          status: "planned",
-          operation_kind: "thread.memory_policy",
-          agent: { ...request.agent, updatedAt: request.created_at },
-        };
-      },
-    },
-  });
+test("thread memory direct control event facade fails closed before appendRuntimeEvent", () => {
+  const { calls, state, store } = createHarness();
 
   assert.throws(
-    () => state.recordThreadMemoryStatus(store, "thread_a", { source: "status_test" }, "memory.status.v1"),
+    () => state.appendThreadMemoryControlEvent(store, {
+      threadId: "thread_a",
+      agent: { id: "agent_a", cwd: "/workspace" },
+      request: { source: "test" },
+      controlKind: "memory_status",
+      sourceEventKind: "OperatorControl.Memory",
+      eventKind: "memory.status",
+      componentKind: "memory_policy",
+      workflowNodeId: "runtime.memory-manager",
+      payloadSchemaVersion: "memory.status.v1",
+      status: "completed",
+      payload: {},
+    }),
     (error) => {
-      assert.equal(error.code, "thread_memory_state_update_operation_kind_mismatch");
-      assert.equal(error.details.thread_id, "thread_a");
-      assert.equal(error.details.control_kind, "memory_status");
-      assert.equal(error.details.expected_operation_kind, "thread.memory_status");
-      assert.equal(error.details.operation_kind, "thread.memory_policy");
-      assertNoRetiredDetailAliases(error.details);
+      assertThreadMemoryRustCoreRequired(error, {
+        operation: "memory_status",
+        controlKind: "memory_status",
+        threadId: "thread_a",
+      });
       return true;
     },
   );
-  assert.equal(calls.filter((call) => call.type === "planThreadMemoryAgentStateUpdate").length, 1);
-  assert.equal(calls.some((call) => call.type === "writeAgent"), false);
-  assert.equal(agents.get("agent_a").updatedAt, undefined);
+
+  assert.deepEqual(calls, []);
 });

@@ -313,13 +313,13 @@ function runDocs() {
       /Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
-      /Resume with the next verified Rust-core extraction or\s+facade-retirement slice/.test(
+      /Slice 741 has opened the next verified Rust-core extraction \/\s+facade-retirement seam/.test(
         guide,
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
-      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
+      /The next compaction pass is\s+scheduled after Slice 741/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -328,7 +328,7 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
+      /Next resume instruction: Slice 741 opened the next Rust-core extraction \/\s+facade-retirement seam/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
@@ -338,7 +338,7 @@ function runDocs() {
       /Slices 733-740 compacted the\s+runtime bridge thread\/turn, runtime subagent control facade-retirement and\s+legacy-body deletion/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after the Slice 733-740\s+compaction/.test(
+      /Next scheduled matrix-compaction pass: pending after Slice 741/.test(
         matrix,
       ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(
@@ -5330,7 +5330,7 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "thread-memory-agent-state-update-live-bridge",
+    "thread-memory-control-js-facade-retired",
     /ThreadMemoryAgentStateUpdateCore/.test(policyCore) &&
       /ThreadMemoryAgentStateUpdateRequest/.test(policyCore) &&
       /THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
@@ -5375,19 +5375,44 @@ function runBridge() {
       /Object\.hasOwn\(result\.control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(
+      /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_status_validation_js_facade_retired/.test(
         runtimeThreadMemoryState,
       ) &&
-      /requiredThreadMemoryOperationKind/.test(runtimeThreadMemoryState) &&
+      /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
+      /rust_daemon_core_thread_memory_control_required/.test(runtimeThreadMemoryState) &&
+      /agentgres_thread_memory_state_truth_required/.test(runtimeThreadMemoryState) &&
+      !/contextPolicyRunner\.planThreadMemoryAgentStateUpdate/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/store\.appendRuntimeEvent\(/.test(runtimeThreadMemoryState) &&
+      !/store\.agents\.set\(updatedAgent\.id,\s*updatedAgent\)/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/store\.writeAgent\(updatedAgent,\s*operationKind\)/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/store\.memory\.(?:remember|setPolicy|updateRecord|deleteRecord)\(/.test(
+        runtimeThreadMemoryState,
+      ) &&
+      !/requiredThreadMemoryOperationKind/.test(runtimeThreadMemoryState) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*`thread\.\$\{controlKind\}`/.test(
         runtimeThreadMemoryState,
       ) &&
-      /thread memory state fails closed without Rust-planned agent projection/.test(
+      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /thread memory state fails closed without Rust-planned operation kind/.test(
+      /thread memory status and validation facades fail closed before event append or Rust planning/.test(
         runtimeThreadMemoryStateTest,
       ) &&
+      /thread memory direct control event facade fails closed before appendRuntimeEvent/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
+      /assertThreadMemoryRustCoreRequired/.test(runtimeThreadMemoryStateTest) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeThreadMemoryStateTest) &&
       !/const updatedAgent = \{ \.\.\.agent, updatedAt: event\.created_at \}/.test(
         runtimeThreadMemoryState,
       ) &&
@@ -5401,37 +5426,19 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: thread-memory agent state updates must be planned by Rust policy core through the command bridge",
+    "Phase 10/11 is pending: thread-memory mutation/control must fail closed until Rust daemon-core owns memory admission, persistence, replay, and projection; bridge planners remain migration plumbing only",
   );
   assertCheck(
     result,
     "thread-memory-request-aliases-retired",
-    /optionalString\(request\.turn_id\) \?\?/.test(runtimeThreadMemoryState) &&
-      /const graphId = optionalString\(request\.workflow_graph_id\) \?\? null;/.test(
-        runtimeThreadMemoryState,
-      ) &&
-      /optionalString\(request\.workflow_node_id\) \?\?/.test(runtimeThreadMemoryState) &&
-      /thread memory state ignores retired request identity aliases/.test(
+    /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
+      /thread memory status and validation facades fail closed before event append or Rust planning/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /turnId: "turn_retired"/.test(runtimeThreadMemoryStateTest) &&
-      /workflowGraphId: "graph_retired"/.test(runtimeThreadMemoryStateTest) &&
-      /workflowNodeId: "node_retired"/.test(runtimeThreadMemoryStateTest) &&
-      /idempotencyKey: "memory_idempotency_retired"/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /retired\.event\.turn_id, "turn_latest"/.test(runtimeThreadMemoryStateTest) &&
-      /retired\.event\.workflow_graph_id, null/.test(runtimeThreadMemoryStateTest) &&
-      /retired\.event\.workflow_node_id, "runtime\.memory-manager"/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /assert\.match\(retired\.event\.idempotency_key, \/\^thread:thread_a:memory:memory_status:\//.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /canonical\.event\.workflow_node_id, "node_canonical"/.test(
-        runtimeThreadMemoryStateTest,
-      ) &&
-      /canonical\.event\.idempotency_key, "memory_idempotency_canonical"/.test(
+      !/turnId: "turn_retired"/.test(runtimeThreadMemoryStateTest) &&
+      !/workflowGraphId: "graph_retired"/.test(runtimeThreadMemoryStateTest) &&
+      !/workflowNodeId: "node_retired"/.test(runtimeThreadMemoryStateTest) &&
+      !/idempotencyKey: "memory_idempotency_retired"/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|idempotencyKey)\b/.test(runtimeThreadMemoryState) &&
@@ -5447,19 +5454,22 @@ function runBridge() {
   assertCheck(
     result,
     "thread-memory-error-detail-aliases-retired",
-    /details:\s*\{\s*thread_id:\s*threadId,\s*control_kind:\s*controlKind\s*\}/.test(
+    /rust_core_boundary:\s*"runtime\.thread_memory_control"/.test(
       runtimeThreadMemoryState,
     ) &&
-      /operation_kind:\s*expectedOperationKind/.test(runtimeThreadMemoryState) &&
-      /expected_operation_kind:\s*expectedOperationKind/.test(runtimeThreadMemoryState) &&
-      /thread memory state rejects unexpected Rust-planned operation kind with canonical details/.test(
+      /requested_operation:\s*operation \?\? null/.test(runtimeThreadMemoryState) &&
+      /requested_control_kind:\s*controlKind \?\? null/.test(runtimeThreadMemoryState) &&
+      /thread_id:\s*threadId/.test(runtimeThreadMemoryState) &&
+      /agent_id:\s*agentId/.test(runtimeThreadMemoryState) &&
+      /memory_id:\s*memoryId/.test(runtimeThreadMemoryState) &&
+      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
         runtimeThreadMemoryStateTest,
       ) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadMemoryStateTest) &&
       /error\.details\.thread_id/.test(runtimeThreadMemoryStateTest) &&
-      /error\.details\.control_kind/.test(runtimeThreadMemoryStateTest) &&
-      /error\.details\.expected_operation_kind/.test(runtimeThreadMemoryStateTest) &&
-      !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind)\s*:/.test(
+      /error\.details\.agent_id/.test(runtimeThreadMemoryStateTest) &&
+      /error\.details\.memory_id/.test(runtimeThreadMemoryStateTest) &&
+      !/details:\s*\{[^}\n]*\b(?:threadId|controlKind|operationKind|expectedOperationKind|agentId|memoryId)\s*:/.test(
         runtimeThreadMemoryState,
       ),
     [
@@ -15694,20 +15704,22 @@ function runCompositor() {
   assertCheck(
     result,
     "agent-memory-mutation-request-aliases-retired",
-    /const threadId = body\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
+    /runtime_thread_memory_control_rust_core_required/.test(
       runtimeThreadMemoryState,
     ) &&
-      /target_type:\s*body\.target_type \?\? "thread"/.test(runtimeThreadMemoryState) &&
-      /target_id:\s*body\.target_id \?\? threadId/.test(runtimeThreadMemoryState) &&
-      /state\.rememberForAgentId\(store, "agent_a", \{\n    text: "Retired thread",\n    threadId: "thread_retired"/.test(
+      /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /state\.setMemoryPolicyForAgent\(store, "agent_a", \{\n    threadId: "thread_retired_policy"/.test(
+      /assertThreadMemoryRustCoreRequired/.test(runtimeThreadMemoryStateTest) &&
+      /state\.rememberForAgentId\(store, "agent_a", \{ text: "Remember", thread_id: "thread_a" \}\)/.test(
         runtimeThreadMemoryStateTest,
       ) &&
-      /policyCalls\.at\(-1\)\.thread_id,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
-      /policyCalls\.at\(-1\)\.target_type,\s*"thread"/.test(runtimeThreadMemoryStateTest) &&
-      /policyCalls\.at\(-1\)\.target_id,\s*"thread_a"/.test(runtimeThreadMemoryStateTest) &&
+      /state\.setMemoryPolicyForAgent\(store, "agent_a", \{ thread_id: "thread_a" \}\)/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
       /^\s*memory_key\?: string;/m.test(agentMemorySdkListOptionsBlock) &&
       /^\s*thread_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
       /^\s*workflow_graph_id\?: string;/m.test(agentMemorySdkRememberInputBlock) &&
@@ -15729,6 +15741,9 @@ function runCompositor() {
       /^\s*write_approved\?: boolean;/m.test(agentSdkSendOptionsMemoryBlock) &&
       /search\(query: string, options: Omit<MemoryListOptions, "query"> = \{\}\)/.test(
         agentSdkAgent,
+      ) &&
+      !/body\.(?:thread_id|threadId|target_type|targetType|target_id|targetId)\b/.test(
+        runtimeThreadMemoryState,
       ) &&
       !/body\.(?:threadId|targetType|targetId)\b/.test(runtimeThreadMemoryState) &&
       !/setPolicy\(\{[\s\S]*?(?:targetType|targetId|threadId)\s*:/m.test(runtimeThreadMemoryState) &&
@@ -15811,24 +15826,20 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-memory-mutation-output-aliases-retired",
-    /schema_version:\s*schemaVersion/.test(runtimeThreadMemoryMutationBlock) &&
-      /memory_operation:\s*operation/.test(runtimeThreadMemoryMutationBlock) &&
-      /mutation_status:\s*"completed"/.test(runtimeThreadMemoryMutationBlock) &&
-      /thread_id:\s*threadId/.test(runtimeThreadMemoryMutationBlock) &&
-      /agent_id:\s*agent\.id/.test(runtimeThreadMemoryMutationBlock) &&
-      /memory_record_id:\s*memoryRecordId/.test(runtimeThreadMemoryMutationBlock) &&
-      /memory_policy_id:\s*memoryPolicyId/.test(runtimeThreadMemoryMutationBlock) &&
-      /receipt_refs:\s*receiptRefs/.test(runtimeThreadMemoryMutationBlock) &&
-      /memory_rows:\s*mutationRows/.test(runtimeThreadMemoryMutationBlock) &&
-      /workflow_node_id:\s*record\?\.workflow_node_id \?\? memoryWorkflowNodeId\(operation\)/.test(
-        runtimeThreadMemoryMutationBlock,
-      ) &&
-      /workflow_node_id: "runtime\.memory\.canonical"/.test(runtimeThreadMemoryStateTest) &&
-      /workflowNodeId: "runtime\.memory\.retired"/.test(runtimeThreadMemoryStateTest) &&
-      /Object\.hasOwn\(write,\s*field\),\s*false/.test(runtimeThreadMemoryStateTest) &&
-      /write\.rows\[0\]\.workflow_node_id,\s*"runtime\.memory\.canonical"/.test(
+    /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_memory_state_store_js_mutation_retired/.test(runtimeThreadMemoryState) &&
+      /thread memory mutation and policy facades fail closed before JS store mutation/.test(
         runtimeThreadMemoryStateTest,
       ) &&
+      /requested_operation/.test(runtimeThreadMemoryState) &&
+      /requested_control_kind/.test(runtimeThreadMemoryState) &&
+      !/schema_version:\s*schemaVersion/.test(runtimeThreadMemoryMutationBlock) &&
+      !/memory_operation:\s*operation/.test(runtimeThreadMemoryMutationBlock) &&
+      !/mutation_status:\s*"completed"/.test(runtimeThreadMemoryMutationBlock) &&
+      !/memory_rows:\s*mutationRows/.test(runtimeThreadMemoryMutationBlock) &&
+      !/workflowNodeId: "runtime\.memory\.retired"/.test(runtimeThreadMemoryStateTest) &&
+      !/Object\.hasOwn\(write,\s*field\),\s*false/.test(runtimeThreadMemoryStateTest) &&
       !/^\s*(?:schemaVersion|memoryOperation|mutationStatus|threadId|agentId|memoryRecordId|memoryPolicyId|receiptRefs|memoryRows)\s*[:,]/m.test(
         runtimeThreadMemoryMutationPayloadBlock,
       ) &&

@@ -22,9 +22,9 @@ facade-retirement evidence and Slice 731 into coding-tool artifact mutation
 facade-retirement evidence, then compacted Slice 732 into workspace
 snapshot/restore mutation facade-retirement evidence while preserving the
 terminal Rust daemon-core target and the bridge-scaffolding guardrail.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands.
+Next resume instruction: Slice 741 opened the next Rust-core extraction /
+facade-retirement seam; schedule the next matrix-compaction pass after Slice 741
+lands and before unrelated route-family work resumes.
 
 ## Purpose
 
@@ -119,9 +119,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after the Slice 733-740
-  compaction. Schedule the next pass only after a new concrete Rust-core
-  extraction or JS-facade retirement seam lands.
+- Next scheduled matrix-compaction pass: pending after Slice 741 so the thread
+  memory-control facade-retirement evidence can be compacted without obscuring
+  terminal blockers. Run that pass before unrelated route-family work resumes.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13701,6 +13701,37 @@ The expanded Slice 733-740 ledger was compacted on 2026-06-08 after Slice 740 ve
 - Slice 740 retired agent lifecycle/status-control JS authority: archive, unarchive, resume, close, reload, and generic status controls now fail closed before JS agent lookup, Rust status-planner invocation from the JS facade, `agents` map mutation, or `writeAgent` persistence. The Rust `plan_agent_status_state_update` bridge remains migration plumbing only until direct Rust daemon-core lifecycle/status admission, receipt binding, projection, and replay APIs land.
 - Conformance anchors retained for this compacted range include `runtime-bridge-thread-create-js-facade-retired`, `runtime-subagent-control-js-facade-retired`, `runtime-subagent-control-legacy-js-bodies-retired`, `runtime-task-job-control-js-facade-retired`, `thread-fork-control-js-facade-retired`, `conversation-artifact-control-js-facade-retired`, `thread-agent-delete-js-facade-retired`, and `thread-agent-status-control-js-facade-retired`.
 - Scheduled matrix-compaction obligation from Slice 740 is now satisfied for this route-family range. The next resume should continue with the next concrete Rust-core extraction or JS-facade retirement seam; schedule the next matrix-compaction pass only after that seam lands, and do not encode the command bridge, read-only helper adapters, or fail-closed JS surfaces as terminal architecture.
+
+## Implementation Slice 741
+
+status: verified
+date: 2026-06-08
+route_or_surface: thread memory mutation/status/control
+goal_phase:
+  - Phase 10: Rust daemon core extraction
+  - Phase 11: authoritative JS facade retirement
+target_owner: Rust daemon core `authority`/`agentgres_admission`/`projection`
+current_owner_before_slice: Thread and agent memory write/edit/delete, policy mutation, status-record, validation-record, direct memory record update/delete, and direct memory control-event append paths still used the JS memory store, policy/write checks, runtime-event append, Rust state-planner bridge from the JS facade, `agents` map mutation, and `writeAgent` persistence.
+implementation_notes:
+  - `rememberForAgent`, `rememberForThread`, `rememberForAgentId`, thread/agent memory edit/delete, thread/agent memory policy mutation, direct memory record edit/delete, `recordThreadMemoryMutation`, `recordThreadMemoryStatus`, `validateThreadMemory`, and `appendThreadMemoryControlEvent` now fail closed with `runtime_thread_memory_control_rust_core_required`.
+  - The guard runs before JS memory-store mutation, JS policy evaluation/write checks, runtime-event append, Rust memory state-planner invocation from the JS facade, `agents` map mutation, or `writeAgent` persistence.
+  - Pure read/projection helpers remain adapters over existing admitted memory state: list, path, effective policy, projection, status projection, and validation projection do not create accepted transition truth.
+  - The Rust thread-memory state planner bridge remains migration plumbing only; terminal memory admission, receipt/state-root binding, policy authority, projection, and replay must move into direct Rust daemon-core APIs.
+  - Added `thread-memory-control-js-facade-retired` bridge conformance so memory controls cannot silently regrow JS mutation/event/state-write authority while direct Rust daemon-core memory control is pending.
+verification:
+  - node --check packages/runtime-daemon/src/threads/thread-memory-state.mjs
+  - node --check packages/runtime-daemon/src/threads/thread-memory-state.test.mjs
+  - node --test packages/runtime-daemon/src/threads/thread-memory-state.test.mjs
+  - hypervisor-conformance:bridge
+  - hypervisor-conformance:compositor
+  - hypervisor-conformance:receipts
+  - hypervisor-conformance:docs
+  - hypervisor-conformance
+  - git diff --check
+test_gap:
+  - Terminal direct Rust daemon-core thread memory admission/projection APIs are still pending; this slice removes JS memory mutation/control authority and leaves read/projection helpers as adapters.
+next_compaction:
+  - Schedule the matrix-compaction pass after this slice so future resumes preserve the memory-control facade-retirement evidence without encoding fail-closed JS surfaces or Rust bridge planners as terminal shape.
 
 ## Command State
 
