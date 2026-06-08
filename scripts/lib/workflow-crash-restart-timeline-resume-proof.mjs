@@ -237,75 +237,75 @@ try {
   );
 
   const checks = {
-    childDaemonWasActuallyKilled: crashExit.signal === "SIGKILL",
-    reloadedThreadPreservesLatestTurn: reloadedThread.latest_turn_id === firstTurn.turn_id,
-    eventIdsReplayExactlyAfterRestart:
+    child_daemon_was_actually_killed: crashExit.signal === "SIGKILL",
+    reloaded_thread_preserves_latest_turn: reloadedThread.latest_turn_id === firstTurn.turn_id,
+    event_ids_replay_exactly_after_restart:
       JSON.stringify(afterRestartEvents.map((event) => event.event_id)) === JSON.stringify(beforeCrashIds),
-    replayFromLastSeqIsEmptyAfterRestart: replayFromLastSeq.length === 0,
-    runReplayMatchesOwningTurnAfterRestart:
+    replay_from_last_seq_is_empty_after_restart: replayFromLastSeq.length === 0,
+    run_replay_matches_owning_turn_after_restart:
       JSON.stringify(firstRunReplay.map((event) => event.event_id)) ===
       JSON.stringify(firstTurnEvents.map((event) => event.event_id)),
-    noDuplicateTerminalEventForFirstTurn: terminalEvents(firstTurnEvents).length === 1,
-    postRestartTurnContinuesSequence: secondTurn.seq_start > beforeCrashLastSeq,
-    noDuplicateTerminalEventForSecondTurn: terminalEvents(secondTurnEvents).length === 1,
-    monotonicFinalTimeline:
+    no_duplicate_terminal_event_for_first_turn: terminalEvents(firstTurnEvents).length === 1,
+    post_restart_turn_continues_sequence: secondTurn.seq_start > beforeCrashLastSeq,
+    no_duplicate_terminal_event_for_second_turn: terminalEvents(secondTurnEvents).length === 1,
+    monotonic_final_timeline:
       JSON.stringify(finalEvents.map((event) => event.seq)) ===
       JSON.stringify(Array.from({ length: finalEvents.length }, (_, index) => index + 1)),
   };
 
   const proof = {
-    schemaVersion: "workflow.crash-restart-timeline-resume-proof.v1",
+    schema_version: "workflow.crash-restart-timeline-resume-proof.v1",
     scenario: "daemon_sigkill_restart_timeline_resume",
     passed: Object.values(checks).every(Boolean),
-    startedAt: new Date().toISOString(),
-    workspaceRoot: cwd,
-    stateDir,
-    firstDaemon: {
+    started_at: new Date().toISOString(),
+    workspace_root: cwd,
+    state_dir: stateDir,
+    first_daemon: {
       pid: firstDaemonReady.pid,
       endpoint: firstDaemonReady.endpoint,
-      crashExit,
+      crash_exit: crashExit,
     },
-    secondDaemon: {
+    second_daemon: {
       pid: secondDaemon.ready.pid,
       endpoint: secondDaemon.ready.endpoint,
     },
-    threadId: thread.thread_id,
-    workflowGraphId,
-    runtimeModelRoute: {
-      modelId: runtimeModelRoute.modelId,
-      endpointId: runtimeModelRoute.endpointId,
-      routeId: runtimeModelRoute.routeId,
-      providerId: runtimeModelRoute.providerId,
-      backendId: runtimeModelRoute.backendId,
-      runtimeEngine: runtimeModelRoute.runtimeEngine,
-      fixtureFree: runtimeModelRoute.fixtureFree,
+    thread_id: thread.thread_id,
+    workflow_graph_id: workflowGraphId,
+    runtime_model_route: {
+      model_id: runtimeModelRoute.modelId,
+      endpoint_id: runtimeModelRoute.endpointId,
+      route_id: runtimeModelRoute.routeId,
+      provider_id: runtimeModelRoute.providerId,
+      backend_id: runtimeModelRoute.backendId,
+      runtime_engine: runtimeModelRoute.runtimeEngine,
+      fixture_free: runtimeModelRoute.fixtureFree,
     },
-    firstTurn: {
-      turnId: firstTurn.turn_id,
-      runId: firstTurn.request_id,
+    first_turn: {
+      turn_id: firstTurn.turn_id,
+      run_id: firstTurn.request_id,
       status: firstTurn.status,
-      seqStart: firstTurn.seq_start,
-      seqEnd: firstTurn.seq_end,
-      terminalEvents: terminalEvents(firstTurnEvents).map((event) => event.event_id),
+      seq_start: firstTurn.seq_start,
+      seq_end: firstTurn.seq_end,
+      terminal_events: terminalEvents(firstTurnEvents).map((event) => event.event_id),
     },
-    secondTurn: {
-      turnId: secondTurn.turn_id,
-      runId: secondTurn.request_id,
+    second_turn: {
+      turn_id: secondTurn.turn_id,
+      run_id: secondTurn.request_id,
       status: secondTurn.status,
-      seqStart: secondTurn.seq_start,
-      seqEnd: secondTurn.seq_end,
-      terminalEvents: terminalEvents(secondTurnEvents).map((event) => event.event_id),
+      seq_start: secondTurn.seq_start,
+      seq_end: secondTurn.seq_end,
+      terminal_events: terminalEvents(secondTurnEvents).map((event) => event.event_id),
     },
     replay: {
-      beforeCrashEventCount: beforeCrashEvents.length,
-      afterRestartEventCount: afterRestartEvents.length,
-      finalEventCount: finalEvents.length,
-      beforeCrashLastSeq,
-      replayFromLastSeqCount: replayFromLastSeq.length,
-      firstRunReplayCount: firstRunReplay.length,
+      before_crash_event_count: beforeCrashEvents.length,
+      after_restart_event_count: afterRestartEvents.length,
+      final_event_count: finalEvents.length,
+      before_crash_last_seq: beforeCrashLastSeq,
+      replay_from_last_seq_count: replayFromLastSeq.length,
+      first_run_replay_count: firstRunReplay.length,
     },
     checks,
-    sourceRefs: [
+    source_refs: [
       "scripts/ioi-local-runtime-daemon.mjs",
       "packages/runtime-daemon/src/index.mjs:RuntimeStore",
       "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",

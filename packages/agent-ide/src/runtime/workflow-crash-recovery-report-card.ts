@@ -42,21 +42,21 @@ export function buildWorkflowCrashRecoveryReportCard(
 ): WorkflowCrashRecoveryReportCard {
   const proof = objectValue(input.proof) ?? {};
   const checks = objectField(proof, "checks");
-  const firstDaemon = objectField(proof, "firstDaemon");
-  const secondDaemon = objectField(proof, "secondDaemon");
-  const crashExit = objectField(firstDaemon, "crashExit");
+  const firstDaemon = objectField(proof, "first_daemon");
+  const secondDaemon = objectField(proof, "second_daemon");
+  const crashExit = objectField(firstDaemon, "crash_exit");
   const replay = objectField(proof, "replay");
-  const firstTurn = objectField(proof, "firstTurn");
-  const secondTurn = objectField(proof, "secondTurn");
+  const firstTurn = objectField(proof, "first_turn");
+  const secondTurn = objectField(proof, "second_turn");
   const duplicateTerminalEvents =
-    Math.max(0, arrayField(firstTurn, "terminalEvents").length - 1) +
-    Math.max(0, arrayField(secondTurn, "terminalEvents").length - 1);
-  const beforeCrashLastSeq = numberField(replay, "beforeCrashLastSeq");
-  const continuationSeqStart = numberField(secondTurn, "seqStart");
+    Math.max(0, arrayField(firstTurn, "terminal_events").length - 1) +
+    Math.max(0, arrayField(secondTurn, "terminal_events").length - 1);
+  const beforeCrashLastSeq = numberField(replay, "before_crash_last_seq");
+  const continuationSeqStart = numberField(secondTurn, "seq_start");
   const rows: WorkflowCrashRecoveryReportRow[] = [
     {
       rowKind: "process_exit",
-      status: booleanField(checks, "childDaemonWasActuallyKilled") ? "passed" : "blocked",
+      status: booleanField(checks, "child_daemon_was_actually_killed") ? "passed" : "blocked",
       label: "Daemon process exit captured",
       detail: `pid ${numberField(firstDaemon, "pid") ?? "unknown"} exited with ${stringField(crashExit, "signal") ?? "unknown"}.`,
       refs: uniqueStrings([stringField(crashExit, "signal")]),
@@ -65,51 +65,51 @@ export function buildWorkflowCrashRecoveryReportCard(
       rowKind: "safe_boot",
       status: numberField(secondDaemon, "pid") ? "passed" : "blocked",
       label: "Safe boot parameters",
-      detail: `restart pid ${numberField(secondDaemon, "pid") ?? "unknown"} reused state dir ${stringField(proof, "stateDir") ?? "unknown"}.`,
-      refs: uniqueStrings([stringField(proof, "stateDir"), stringField(secondDaemon, "endpoint")]),
+      detail: `restart pid ${numberField(secondDaemon, "pid") ?? "unknown"} reused state dir ${stringField(proof, "state_dir") ?? "unknown"}.`,
+      refs: uniqueStrings([stringField(proof, "state_dir"), stringField(secondDaemon, "endpoint")]),
     },
     {
       rowKind: "replay_integrity",
       status:
-        booleanField(checks, "eventIdsReplayExactlyAfterRestart") &&
-        booleanField(checks, "replayFromLastSeqIsEmptyAfterRestart") &&
+        booleanField(checks, "event_ids_replay_exactly_after_restart") &&
+        booleanField(checks, "replay_from_last_seq_is_empty_after_restart") &&
         duplicateTerminalEvents === 0
           ? "passed"
           : "blocked",
       label: "Replay integrity",
-      detail: `${numberField(replay, "afterRestartEventCount") ?? 0} events replayed; ${duplicateTerminalEvents} duplicate terminal events detected.`,
-      refs: uniqueStrings([stringField(firstTurn, "turnId"), stringField(firstTurn, "runId")]),
+      detail: `${numberField(replay, "after_restart_event_count") ?? 0} events replayed; ${duplicateTerminalEvents} duplicate terminal events detected.`,
+      refs: uniqueStrings([stringField(firstTurn, "turn_id"), stringField(firstTurn, "run_id")]),
     },
     {
       rowKind: "continuation",
       status:
-        booleanField(checks, "postRestartTurnContinuesSequence") &&
+        booleanField(checks, "post_restart_turn_continues_sequence") &&
         continuationSeqStart === (beforeCrashLastSeq ?? 0) + 1
           ? "passed"
           : "blocked",
       label: "Continuation cursor",
       detail: `next turn started at seq ${continuationSeqStart ?? "unknown"} after replay seq ${beforeCrashLastSeq ?? "unknown"}.`,
-      refs: uniqueStrings([stringField(secondTurn, "turnId"), stringField(secondTurn, "runId")]),
+      refs: uniqueStrings([stringField(secondTurn, "turn_id"), stringField(secondTurn, "run_id")]),
     },
   ];
   return {
     schemaVersion: WORKFLOW_CRASH_RECOVERY_REPORT_CARD_SCHEMA_VERSION,
     status: rows.every((row) => row.status === "passed") ? "ready" : "blocked",
-    threadId: stringField(proof, "threadId"),
-    workflowGraphId: stringField(proof, "workflowGraphId"),
-    stateDir: stringField(proof, "stateDir"),
+    threadId: stringField(proof, "thread_id"),
+    workflowGraphId: stringField(proof, "workflow_graph_id"),
+    stateDir: stringField(proof, "state_dir"),
     firstDaemonPid: numberField(firstDaemon, "pid"),
     secondDaemonPid: numberField(secondDaemon, "pid"),
     crashSignal: stringField(crashExit, "signal"),
-    beforeCrashEventCount: numberField(replay, "beforeCrashEventCount"),
-    afterRestartEventCount: numberField(replay, "afterRestartEventCount"),
-    finalEventCount: numberField(replay, "finalEventCount"),
-    replayFromLastSeqCount: numberField(replay, "replayFromLastSeqCount"),
+    beforeCrashEventCount: numberField(replay, "before_crash_event_count"),
+    afterRestartEventCount: numberField(replay, "after_restart_event_count"),
+    finalEventCount: numberField(replay, "final_event_count"),
+    replayFromLastSeqCount: numberField(replay, "replay_from_last_seq_count"),
     continuationSeqStart,
-    continuationSeqEnd: numberField(secondTurn, "seqEnd"),
+    continuationSeqEnd: numberField(secondTurn, "seq_end"),
     duplicateTerminalEvents,
     safeBoot: {
-      stateDir: stringField(proof, "stateDir"),
+      stateDir: stringField(proof, "state_dir"),
       resumeFromSeq: beforeCrashLastSeq,
       nextTurnStartsAtSeq: continuationSeqStart,
     },

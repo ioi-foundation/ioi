@@ -278,7 +278,7 @@ function loadJson(path) {
 
 function crashRecoveryEvents({ reportCard, crashProof }) {
   const replay = crashProof.replay || {};
-  const beforeCrashLastSeq = Number(replay.beforeCrashLastSeq || 0);
+  const beforeCrashLastSeq = Number(replay.before_crash_last_seq || 0);
   const continuationSeqStart = Number(reportCard.continuationSeqStart || 0);
   const sharedRefs = ["receipt_stage5_crash_restart_replay"];
   const makeEvent = ({ id, kind, status = "passed", summary, payload = {} }) => ({
@@ -339,11 +339,11 @@ function crashRecoveryEvents({ reportCard, crashProof }) {
     makeEvent({
       id: "stage5.replay.integrity",
       kind: "replay.integrity",
-      summary: `${Number(replay.afterRestartEventCount || 0)} events replayed after restart with ${Number(reportCard.duplicateTerminalEvents || 0)} duplicate terminal events.`,
+      summary: `${Number(replay.after_restart_event_count || 0)} events replayed after restart with ${Number(reportCard.duplicateTerminalEvents || 0)} duplicate terminal events.`,
       payload: {
         rowKind: "replay_integrity",
-        afterRestartEventCount: Number(replay.afterRestartEventCount || 0),
-        replayFromLastSeqCount: Number(replay.replayFromLastSeqCount || 0),
+        afterRestartEventCount: Number(replay.after_restart_event_count || 0),
+        replayFromLastSeqCount: Number(replay.replay_from_last_seq_count || 0),
         duplicateTerminalEvents: Number(reportCard.duplicateTerminalEvents || 0),
       },
     }),

@@ -14642,6 +14642,26 @@ function runCompositor() {
   )
     ? read("packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts")
     : "";
+  const agentIdeCrashRecoveryReportCard = exists(
+    "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts")
+    : "";
+  const agentIdeCrashRecoveryReportCardTest = exists(
+    "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts")
+    : "";
+  const workflowCrashRestartTimelineProof = exists(
+    "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
+  )
+    ? read("scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs")
+    : "";
+  const workflowCrashRestartReplayGuiProof = exists(
+    "scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs",
+  )
+    ? read("scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs")
+    : "";
   const agentIdeRuntimeEventProjection = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
   )
@@ -23949,6 +23969,73 @@ function runCompositor() {
       "packages/agent-ide/src/runtime/workflow-auth-stream-failure-panel.test.ts",
     ],
     "Phase 10/11 is pending: IDE auth stream failure panel must ignore retired camelCase stream receipt route/model/detail aliases",
+  );
+  assertCheck(
+    result,
+    "ide-crash-recovery-report-card-aliases-retired",
+    /objectField\(proof,\s*"first_daemon"\)/.test(agentIdeCrashRecoveryReportCard) &&
+      /objectField\(proof,\s*"second_daemon"\)/.test(agentIdeCrashRecoveryReportCard) &&
+      /objectField\(firstDaemon,\s*"crash_exit"\)/.test(agentIdeCrashRecoveryReportCard) &&
+      /objectField\(proof,\s*"first_turn"\)/.test(agentIdeCrashRecoveryReportCard) &&
+      /objectField\(proof,\s*"second_turn"\)/.test(agentIdeCrashRecoveryReportCard) &&
+      /numberField\(replay,\s*"before_crash_last_seq"\)/.test(
+        agentIdeCrashRecoveryReportCard,
+      ) &&
+      /booleanField\(checks,\s*"child_daemon_was_actually_killed"\)/.test(
+        agentIdeCrashRecoveryReportCard,
+      ) &&
+      /booleanField\(checks,\s*"event_ids_replay_exactly_after_restart"\)/.test(
+        agentIdeCrashRecoveryReportCard,
+      ) &&
+      /booleanField\(checks,\s*"replay_from_last_seq_is_empty_after_restart"\)/.test(
+        agentIdeCrashRecoveryReportCard,
+      ) &&
+      /booleanField\(checks,\s*"post_restart_turn_continues_sequence"\)/.test(
+        agentIdeCrashRecoveryReportCard,
+      ) &&
+      !/(?:objectField|stringField|numberField|booleanField|arrayField)\([^)]*"(?:firstDaemon|secondDaemon|crashExit|firstTurn|secondTurn|threadId|workflowGraphId|stateDir|terminalEvents|beforeCrashLastSeq|afterRestartEventCount|replayFromLastSeqCount|childDaemonWasActuallyKilled|eventIdsReplayExactlyAfterRestart|replayFromLastSeqIsEmptyAfterRestart|postRestartTurnContinuesSequence)"[^)]*\)/.test(
+        agentIdeCrashRecoveryReportCard,
+      ) &&
+      /schema_version:\s*"workflow\.crash-restart-timeline-resume-proof\.v1"/.test(
+        workflowCrashRestartTimelineProof,
+      ) &&
+      /first_daemon:\s*\{/.test(workflowCrashRestartTimelineProof) &&
+      /second_daemon:\s*\{/.test(workflowCrashRestartTimelineProof) &&
+      /runtime_model_route:\s*\{/.test(workflowCrashRestartTimelineProof) &&
+      /first_turn:\s*\{/.test(workflowCrashRestartTimelineProof) &&
+      /second_turn:\s*\{/.test(workflowCrashRestartTimelineProof) &&
+      /before_crash_last_seq:\s*beforeCrashLastSeq/.test(workflowCrashRestartTimelineProof) &&
+      /replay\.before_crash_last_seq/.test(workflowCrashRestartReplayGuiProof) &&
+      /replay\.after_restart_event_count/.test(workflowCrashRestartReplayGuiProof) &&
+      /replay\.replay_from_last_seq_count/.test(workflowCrashRestartReplayGuiProof) &&
+      !/const proof = \{(?:(?!fs\.writeFileSync)[\s\S])*?(?:schemaVersion|startedAt|workspaceRoot|stateDir|firstDaemon|secondDaemon|runtimeModelRoute|firstTurn|secondTurn|sourceRefs):/.test(
+        workflowCrashRestartTimelineProof,
+      ) &&
+      !/replay\.(?:beforeCrashLastSeq|afterRestartEventCount|replayFromLastSeqCount)/.test(
+        workflowCrashRestartReplayGuiProof,
+      ) &&
+      /crash recovery report card reads canonical proof fields/.test(
+        agentIdeCrashRecoveryReportCardTest,
+      ) &&
+      /crash recovery report card ignores retired proof aliases/.test(
+        agentIdeCrashRecoveryReportCardTest,
+      ) &&
+      /threadId: "thread-retired"/.test(agentIdeCrashRecoveryReportCardTest) &&
+      /firstDaemon: \{/.test(agentIdeCrashRecoveryReportCardTest) &&
+      /beforeCrashLastSeq: 7/.test(agentIdeCrashRecoveryReportCardTest) &&
+      /assert\.equal\(reportCard\.threadId,\s*null\)/.test(
+        agentIdeCrashRecoveryReportCardTest,
+      ) &&
+      /assert\.equal\(reportCard\.firstDaemonPid,\s*null\)/.test(
+        agentIdeCrashRecoveryReportCardTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts",
+      "packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts",
+      "scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs",
+      "scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs",
+    ],
+    "Phase 10/11 is pending: crash-recovery proof/report-card surfaces must use canonical snake_case proof fields without retired camelCase proof aliases",
   );
   assertCheck(
     result,
