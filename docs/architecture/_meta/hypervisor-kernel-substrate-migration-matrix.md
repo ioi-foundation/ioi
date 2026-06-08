@@ -13418,6 +13418,63 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 682
+
+```yaml
+slice: 682
+title: Runtime bridge derived event timestamp alias retirement
+status: in_review
+date: 2026-06-07
+phase: 10
+objective: retire the remaining runtime bridge derived-event timestamp fallback
+  to projection `updatedAt`/`createdAt` aliases so inserted TTI/computer-use
+  events use canonical `created_at`/`updated_at` inputs only
+owner_boundary:
+  route_or_surface: runtime event envelope computer-use derived event insertion
+  authority_gate: unchanged; this slice changes projection timestamp sourcing
+    only and does not execute work or admit accepted truth
+  execution_backend: unchanged; event insertion remains JS migration facade
+    scaffolding pending terminal Rust projection-core ownership
+  truth_path: derived event `created_at` comes from the source event
+    `created_at`, canonical projection `updated_at`/`created_at`, or a new
+    timestamp, never retired camelCase projection timestamp aliases
+  projection_path: compositor conformance requires the bridge-derived event
+    insertion block to consume canonical projection timestamps and ignore
+    poisoned `updatedAt`/`createdAt`
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  runtime_projection:
+    - packages/runtime-daemon/src/runtime-event-envelopes.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-event-envelopes.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - compositor conformance requires
+    `projection.updated_at ?? projection.created_at` in derived event insertion
+  - compositor conformance rejects `projection.updatedAt` and
+    `projection.createdAt` in the derived event insertion block
+  - focused runtime event envelope tests prove poisoned camelCase projection
+    timestamps do not steer derived computer-use event `created_at`
+verification:
+  commands:
+    - node --test --test-name-pattern "runtime event envelopes" packages/runtime-daemon/src/runtime-event-envelopes.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-event-envelopes.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:compositor
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core projection ownership remains pending beyond
+      this JS event-envelope alias-retirement slice
+    - public runtime run records still use their current facade shape until the
+      broader Rust projection-core extraction lands
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

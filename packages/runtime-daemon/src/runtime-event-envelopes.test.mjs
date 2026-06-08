@@ -78,7 +78,8 @@ test("runtime event envelopes inject missing computer-use derived events after o
     projection: {
       runId: "run-one",
       turnId: "turn-one",
-      createdAt: "2026-06-03T00:00:00.000Z",
+      created_at: "2026-06-03T00:00:00.000Z",
+      updated_at: "2026-06-03T00:00:01.000Z",
       events: [
         { event_kind: "turn.started", id: "start" },
         { event_kind: "computer_use.observation", id: "observe" },
@@ -97,12 +98,44 @@ test("runtime event envelopes inject missing computer-use derived events after o
     "delta",
   ]);
   assert.equal(events[2].event_stream_id, "events_thread-one");
+  assert.equal(events[2].created_at, "2026-06-03T00:00:01.000Z");
   assert.equal(events[2].payload_schema_version, "computer.v1");
   assert.equal(events[2].payload.computer_use_proposal_ref, "proposal-one");
   assert.equal(events[2].status, "running");
   assert.deepEqual(events[2].policy_decision_refs, ["policy-one"]);
   assert.equal(events[3].payload.outcome_contract.outcome_ref, "outcome-one");
   assert.deepEqual(events[3].receipt_refs, ["receipt_run-one_runtime_bridge_computer_use_trace"]);
+});
+
+test("runtime event envelopes ignore retired bridge projection timestamp aliases for derived events", () => {
+  const runtime = helpers();
+
+  const events = runtime.insertRuntimeBridgeComputerUseDerivedEvents({
+    projection: {
+      runId: "run-one",
+      turnId: "turn-one",
+      created_at: "2026-06-03T00:00:00.000Z",
+      updated_at: "2026-06-03T00:00:01.000Z",
+      createdAt: "1999-01-01T00:00:00.000Z",
+      updatedAt: "1999-01-01T00:00:01.000Z",
+      events: [
+        { event_kind: "turn.started", id: "start" },
+        { event_kind: "computer_use.observation", id: "observe" },
+      ],
+    },
+    agent: { cwd: "/workspace" },
+    threadId: "thread-one",
+  });
+
+  const derivedEvents = events.filter((event) =>
+    ["computer_use.action_proposed", "computer_use.commit_gate"].includes(event.event_kind),
+  );
+  assert.equal(derivedEvents.length, 2);
+  for (const event of derivedEvents) {
+    assert.equal(event.created_at, "2026-06-03T00:00:01.000Z");
+    assert.notEqual(event.created_at, "1999-01-01T00:00:01.000Z");
+    assert.equal(Object.hasOwn(event, "createdAt"), false);
+  }
 });
 
 test("runtime event envelopes do not duplicate existing computer-use derived events", () => {

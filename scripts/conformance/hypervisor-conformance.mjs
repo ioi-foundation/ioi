@@ -14363,6 +14363,10 @@ function runCompositor() {
   const runtimeEventEnvelopesTest = exists("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
     : "";
+  const insertRuntimeBridgeComputerUseDerivedEventsBlock =
+    runtimeEventEnvelopes.match(
+      /function insertRuntimeBridgeComputerUseDerivedEvents\(\{ projection, agent, threadId \}\) \{[\s\S]*?\n  \}/,
+    )?.[0] ?? "";
   const ttiEnvelopeForRunEventBlock =
     runtimeEventEnvelopes.match(
       /function ttiEnvelopeForRunEvent\(\{ event, threadId, turnId, workspaceRoot \}\) \{[\s\S]*?\n  \}/,
@@ -21014,6 +21018,30 @@ function runCompositor() {
       "packages/runtime-daemon/src/threads/thread-replay.mjs",
     ],
     "Phase 10/11 is pending: daemon runtime event envelopes must not emit legacy id/event/timestamp aliases, and SSE/cursors must use canonical event_id",
+  );
+  assertCheck(
+    result,
+    "runtime-bridge-derived-event-timestamp-aliases-retired",
+    insertRuntimeBridgeComputerUseDerivedEventsBlock.length > 0 &&
+      /projection\.updated_at\s*\?\?\s*[\r\n\s]*projection\.created_at/.test(
+        insertRuntimeBridgeComputerUseDerivedEventsBlock,
+      ) &&
+      !/projection\.(?:updatedAt|createdAt)\b/.test(
+        insertRuntimeBridgeComputerUseDerivedEventsBlock,
+      ) &&
+      /runtime event envelopes ignore retired bridge projection timestamp aliases for derived events/.test(
+        runtimeEventEnvelopesTest,
+      ) &&
+      /updatedAt:\s*"1999-01-01T00:00:01\.000Z"/.test(runtimeEventEnvelopesTest) &&
+      /assert\.notEqual\(event\.created_at,\s*"1999-01-01T00:00:01\.000Z"\)/.test(
+        runtimeEventEnvelopesTest,
+      ) &&
+      /Object\.hasOwn\(event,\s*"createdAt"\),\s*false/.test(runtimeEventEnvelopesTest),
+    [
+      "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
+      "packages/runtime-daemon/src/runtime-event-envelopes.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime bridge derived event insertion must ignore retired camelCase projection timestamp aliases",
   );
   assertCheck(
     result,

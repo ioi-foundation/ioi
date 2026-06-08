@@ -34,7 +34,11 @@ export function createRuntimeEventEnvelopeHelpers({
       events.findIndex((event) => event?.event_kind === "computer_use.observation"),
     );
     if (insertionIndex < 0) return events;
-    const createdAt = events[insertionIndex]?.created_at ?? projection.updatedAt ?? projection.createdAt;
+    const createdAt =
+      events[insertionIndex]?.created_at ??
+      projection.updated_at ??
+      projection.created_at ??
+      new Date().toISOString();
     const derivedEvents = [
       ...(hasActionProposal
         ? []
