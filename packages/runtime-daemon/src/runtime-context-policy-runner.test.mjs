@@ -30,6 +30,12 @@ import {
   normalizeThreadControlAgentStateUpdateBridgeResult,
 } from "./runtime-context-policy-runner.mjs";
 
+function assertNoRetiredOperationKindDetailAliases(details) {
+  for (const key of ["operationKind", "expectedOperationKind", "expectedOperationKinds", "expectedPrefix"]) {
+    assert.equal(Object.hasOwn(details ?? {}, key), false, `${key} detail alias must be absent`);
+  }
+}
+
 test("context budget policy runner sends generic Rust policy bridge request", () => {
   let captured = null;
   const runner = new RustContextPolicyRunner({
@@ -1260,7 +1266,9 @@ test("context policy state update runner fails closed without Rust-planned opera
       }),
     (error) => {
       assert.equal(error.code, "context_compaction_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "thread.compact");
+      assert.equal(error.details.operation_kind, "thread.compact");
+      assert.deepEqual(error.details.expected_operation_kinds, ["thread.compact"]);
+      assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },
   );
@@ -1273,8 +1281,10 @@ test("context policy state update runner fails closed without Rust-planned opera
       }),
     (error) => {
       assert.equal(error.code, "operator_interrupt_state_update_operation_kind_mismatch");
-      assert.equal(error.details.expectedOperationKind, "turn.interrupt");
-      assert.equal(error.details.operationKind, "turn.steer");
+      assert.equal(error.details.expected_operation_kind, "turn.interrupt");
+      assert.deepEqual(error.details.expected_operation_kinds, ["turn.interrupt"]);
+      assert.equal(error.details.operation_kind, "turn.steer");
+      assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },
   );
@@ -1287,8 +1297,9 @@ test("context policy state update runner fails closed without Rust-planned opera
       }),
     (error) => {
       assert.equal(error.code, "thread_control_agent_state_update_operation_kind_mismatch");
-      assert.equal(error.details.expectedPrefix, "thread.");
-      assert.equal(error.details.operationKind, "agent.status");
+      assert.equal(error.details.expected_prefix, "thread.");
+      assert.equal(error.details.operation_kind, "agent.status");
+      assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },
   );
@@ -1300,7 +1311,9 @@ test("context policy state update runner fails closed without Rust-planned opera
       }),
     (error) => {
       assert.equal(error.code, "subagent_record_state_update_operation_kind_missing");
-      assert.equal(error.details.operationKind, "subagent.");
+      assert.equal(error.details.operation_kind, "subagent.");
+      assert.equal(error.details.expected_prefix, "subagent.");
+      assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },
   );
@@ -1313,8 +1326,10 @@ test("context policy state update runner fails closed without Rust-planned opera
       }),
     (error) => {
       assert.equal(error.code, "agent_create_state_update_operation_kind_mismatch");
-      assert.equal(error.details.expectedOperationKind, "agent.create");
-      assert.equal(error.details.operationKind, "run.create");
+      assert.equal(error.details.expected_operation_kind, "agent.create");
+      assert.deepEqual(error.details.expected_operation_kinds, ["agent.create"]);
+      assert.equal(error.details.operation_kind, "run.create");
+      assertNoRetiredOperationKindDetailAliases(error.details);
       return true;
     },
   );

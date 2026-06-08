@@ -6115,6 +6115,37 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "context-policy-runner-operation-kind-detail-aliases-retired",
+    /operation_kind:\s*expectedOperationKinds\[0\] \?\? expectedPrefix \?\? null/.test(
+      runtimeContextPolicyRunner,
+    ) &&
+      /expected_operation_kinds:\s*expectedOperationKinds/.test(runtimeContextPolicyRunner) &&
+      /expected_prefix:\s*expectedPrefix/.test(runtimeContextPolicyRunner) &&
+      /expected_operation_kind:\s*expectedOperationKinds\[0\]/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /operation_kind:\s*operationKind/.test(runtimeContextPolicyRunner) &&
+      /assertNoRetiredOperationKindDetailAliases\(error\.details\)/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /error\.details\.operation_kind/.test(runtimeContextPolicyRunnerTest) &&
+      /error\.details\.expected_operation_kind/.test(runtimeContextPolicyRunnerTest) &&
+      /error\.details\.expected_operation_kinds/.test(runtimeContextPolicyRunnerTest) &&
+      /error\.details\.expected_prefix/.test(runtimeContextPolicyRunnerTest) &&
+      !/\b(?:operationKind|expectedOperationKind|expectedOperationKinds|expectedPrefix)\s*:/.test(
+        runtimeContextPolicyRunner.match(/function requiredContextPolicyBridgeOperationKind[\s\S]*?\n\}/)?.[0] ?? "",
+      ) &&
+      !/error\.details\.(?:operationKind|expectedOperationKind|expectedOperationKinds|expectedPrefix)\b/.test(
+        runtimeContextPolicyRunnerTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+    ],
+    "Phase 10/11 is pending: context-policy bridge operation-kind failures must expose canonical snake_case details without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
     "workflow-edit-request-aliases-retired",
     /const requestedTurnId = optionalString\(request\.turn_id\);/.test(
       runtimeWorkflowEditSurface,

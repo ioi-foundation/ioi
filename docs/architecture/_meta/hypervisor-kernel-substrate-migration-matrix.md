@@ -13382,6 +13382,54 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 676
+
+```yaml
+slice: 676
+phase: 10-authoritative-js-facade-retirement
+objective: retire context-policy runner operation-kind detail aliases
+owner_boundary:
+  route_or_surface: generic runtime context-policy Rust bridge result
+    operation-kind normalizer
+  authority_gate: unchanged; context-policy, compaction, operator-control,
+    thread-control, subagent, agent-create, and run-create state updates still
+    fail closed unless Rust returns the expected operation kind or prefix
+  execution_backend: Rust policy state-update planner through the command
+    bridge; JS runner remains only the command adapter and result normalizer
+  truth_path: bridge operation-kind failures expose canonical `operation_kind`,
+    `expected_operation_kind`, `expected_operation_kinds`, and
+    `expected_prefix` details only
+  projection_path: unchanged; no state update is accepted when Rust omits or
+    mismatches the operation kind
+touched_files:
+  daemon:
+    - packages/runtime-daemon/src/runtime-context-policy-runner.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - context-policy runner operation-kind failures expose canonical snake_case
+    details without duplicate camelCase aliases
+  - focused tests cover missing, mismatched, and prefix-mismatched Rust-planned
+    operation kinds
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test --test-name-pattern "context policy state update runner fails closed without Rust-planned operation kinds" packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs
+    - npm run hypervisor-conformance:bridge
+  replay_or_shadow_comparison: not_applicable
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader JS facade retirement remains pending until all context-policy
+      state-update callers collapse fully behind stable Rust daemon-core APIs
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

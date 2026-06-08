@@ -320,9 +320,9 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
       "Rust context policy bridge result did not include an operation kind.",
       `${codePrefix}_operation_kind_missing`,
       {
-        operationKind: expectedOperationKinds[0] ?? expectedPrefix ?? null,
-        expectedOperationKinds,
-        expectedPrefix,
+        operation_kind: expectedOperationKinds[0] ?? expectedPrefix ?? null,
+        expected_operation_kinds: expectedOperationKinds,
+        expected_prefix: expectedPrefix,
       },
     );
   }
@@ -330,14 +330,18 @@ function requiredContextPolicyBridgeOperationKind(result, record, options = {}) 
     throw new ContextPolicyRunnerError(
       "Rust context policy bridge result included an unexpected operation kind.",
       `${codePrefix}_operation_kind_mismatch`,
-      { expectedOperationKind: expectedOperationKinds[0], expectedOperationKinds, operationKind },
+      {
+        expected_operation_kind: expectedOperationKinds[0],
+        expected_operation_kinds: expectedOperationKinds,
+        operation_kind: operationKind,
+      },
     );
   }
   if (expectedPrefix && !operationKind.startsWith(expectedPrefix)) {
     throw new ContextPolicyRunnerError(
       "Rust context policy bridge result included an unexpected operation kind.",
       `${codePrefix}_operation_kind_mismatch`,
-      { expectedPrefix, operationKind },
+      { expected_prefix: expectedPrefix, operation_kind: operationKind },
     );
   }
   return operationKind;
