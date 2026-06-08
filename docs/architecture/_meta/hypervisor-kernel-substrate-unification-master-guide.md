@@ -873,8 +873,10 @@ still does not claim terminal model_mount migration: direct Rust daemon-core
 route-control/projection APIs, Agentgres route truth beyond the current commit
 gate, wallet authority binding, StepModuleRouter dispatch, replay, and direct
 Rust API replacement for command transport still need ownership. The Slice 791
-route-selection receipt Rust-authoring matrix-compaction pass is scheduled for
-the next resume cycle before unrelated route-family work continues.
+route-selection receipt Rust-authoring matrix-compaction pass is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands; do not encode the command bridge or JS transport
+wrappers as terminal architecture.
 
 ## Part II: Target Execution Model
 

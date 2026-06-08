@@ -515,6 +515,10 @@ function runDocs() {
       /`modelCapabilities\(\)` and `ModelCapabilityContract` now expose\s+canonical snake_case response fields/.test(guide) &&
       /Retired output\s+fields such as `schemaVersion`, `routeId`, `modelRole`,/.test(guide) &&
       /Slice 790\s+model-capability protocol alias-retirement matrix-compaction pass is complete/.test(guide) &&
+      /Slice 791 moved route-selection receipt authoring out of the JS\s+model_mount facade/.test(guide) &&
+      /`admit_model_mount_route_decision` now returns an\s+`accepted_receipt_record` authored by Rust/.test(guide) &&
+      /`receipt-operations\.mjs` now rejects generic JS model_mount receipt creation\s+with `model_mount_js_receipt_creation_retired`/.test(guide) &&
+      /Slice 791\s+route-selection receipt Rust-authoring matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -571,12 +575,13 @@ function runDocs() {
       /This pass compacted Slice 788 memory projection envelope alias-retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 789 SDK memory output alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 790 model-capability protocol output alias-retirement\s+evidence/.test(matrix) &&
+      /This pass compacted Slice 791 route-selection receipt Rust-authoring evidence/.test(matrix) &&
       /Slice 787 retired memory projection input compatibility aliases at the Rust\s+boundary/.test(matrix) &&
       /Slice 788 retired memory projection envelope identity aliases at the\s+Rust-backed status\/validation wrapper boundary/.test(matrix) &&
       /Slice 789 retired SDK memory output compatibility aliases for projection, path,\s+record, and policy response contracts/.test(matrix) &&
       /Slice 790 retired public model-capability protocol output aliases/.test(matrix) &&
       /Slice 791 moved route-selection receipt authoring to the Rust model_mount\s+route-decision admission boundary/.test(matrix) &&
-      /Next resume instruction: run the scheduled Slice 791 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -863,9 +868,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 789 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 790/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 790 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 791/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 791 is now pending/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 791 route-selection receipt\s+Rust-authoring evidence/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 791/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
