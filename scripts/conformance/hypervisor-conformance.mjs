@@ -8923,6 +8923,7 @@ function runBridge() {
       /rust_l1_settlement_guard_command/.test(bridgeModule) &&
       /l1_settlement_guard/.test(bridgeModule) &&
       /l1_settlement_admission_invalid/.test(bridgeModule) &&
+      /l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_admits_l1_settlement_attempt_through_rust_core/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 8/11 is pending: L1 settlement attempts must be admitted through the Rust trigger guard before any product surface can settle",
@@ -8931,7 +8932,10 @@ function runBridge() {
     result,
     "l1-settlement-daemon-runner",
     /L1_SETTLEMENT_COMMAND_ENV/.test(l1SettlementRunner) &&
-      /IOI_L1_SETTLEMENT_COMMAND/.test(l1SettlementRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(l1SettlementRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(l1SettlementRunner) &&
+      !/IOI_L1_SETTLEMENT_COMMAND/.test(l1SettlementRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(l1SettlementRunner) &&
       /RustL1SettlementRunner/.test(l1SettlementRunner) &&
       /createL1SettlementRunnerFromEnv/.test(l1SettlementRunner) &&
       /createL1SettlementRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -8941,6 +8945,7 @@ function runBridge() {
       /l1_settlement_guard/.test(l1SettlementRunner) &&
       /l1_settlement_bridge_unconfigured/.test(l1SettlementRunner) &&
       /L1 settlement runner sends admission bridge request/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner env uses daemon-core command boundary/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner fails closed without command/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner surfaces Rust settlement rejection/.test(l1SettlementRunnerTest) &&
       /runtime store mounts L1 settlement runner from options/.test(l1SettlementStoreTest),

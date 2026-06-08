@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  L1_SETTLEMENT_COMMAND_ARGS_ENV,
   L1_SETTLEMENT_COMMAND_ENV,
   RustL1SettlementRunner,
   createL1SettlementRunnerFromEnv,
@@ -66,12 +67,18 @@ test("L1 settlement runner sends admission bridge request", () => {
   assert.deepEqual(result.admission_hash, [1, 2, 3]);
 });
 
-test("L1 settlement runner can be configured from env", () => {
+test("L1 settlement runner env uses daemon-core command boundary", () => {
   const runner = createL1SettlementRunnerFromEnv({
-    [L1_SETTLEMENT_COMMAND_ENV]: "mock-l1-settlement-bridge",
+    [L1_SETTLEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [L1_SETTLEMENT_COMMAND_ARGS_ENV]: "--json",
+    IOI_L1_SETTLEMENT_COMMAND: "retired-l1-settlement-bridge",
+    IOI_L1_SETTLEMENT_COMMAND_ARGS: "--retired-l1",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-l1-settlement-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("L1 settlement runner fails closed without command", () => {

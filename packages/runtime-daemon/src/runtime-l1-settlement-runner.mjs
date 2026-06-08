@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const L1_SETTLEMENT_COMMAND_ENV = "IOI_L1_SETTLEMENT_COMMAND";
-export const L1_SETTLEMENT_COMMAND_ARGS_ENV = "IOI_L1_SETTLEMENT_COMMAND_ARGS";
-export const L1_SETTLEMENT_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const L1_SETTLEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const L1_SETTLEMENT_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const L1_SETTLEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_L1_SETTLEMENT_BACKEND = "l1_settlement_guard";
 
 export function createL1SettlementRunnerFromEnv(env = process.env, options = {}) {
@@ -45,7 +45,7 @@ export class RustL1SettlementRunner {
     }
     if (!this.command) {
       throw new L1SettlementRunnerError(
-        "L1 settlement admission requires IOI_L1_SETTLEMENT_COMMAND for Rust trigger admission.",
+        "L1 settlement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core trigger admission.",
         "l1_settlement_bridge_unconfigured",
         {
           env: L1_SETTLEMENT_COMMAND_ENV,

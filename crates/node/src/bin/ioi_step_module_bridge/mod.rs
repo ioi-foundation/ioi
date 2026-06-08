@@ -1013,6 +1013,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "commit_runtime_model_mount_receipt_state"
             | "authorize_external_capability_exit"
             | "execute_private_workspace_ctee_action"
+            | "admit_l1_settlement_attempt"
             | "plan_coding_tool_approval_manifest"
             | "plan_approval_request_state_update"
             | "plan_approval_decision_state_update"
@@ -1914,12 +1915,12 @@ fn admit_worker_service_package_invocation(
 fn admit_l1_settlement_attempt(
     request: L1SettlementAdmissionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7433,7 +7434,7 @@ mod tests {
     #[test]
     fn bridge_admits_l1_settlement_attempt_through_rust_core() {
         let request: L1SettlementAdmissionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "admit_l1_settlement_attempt",
             "backend": "l1_settlement_guard",
             "attempt": {
@@ -7464,6 +7465,33 @@ mod tests {
             "receipt://local-settlement/payment"
         );
         assert_ne!(response["admission_hash"][0], 0);
+    }
+
+    #[test]
+    fn l1_settlement_rejects_step_module_command_schema() {
+        let request: L1SettlementAdmissionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "admit_l1_settlement_attempt",
+            "backend": "l1_settlement_guard",
+            "attempt": {
+                "schema_version": "ioi.l1_settlement_admission.v1",
+                "settlement_ref": "l1://settlement/marketplace-transaction",
+                "domain_ref": "domain://marketplace/services",
+                "state_root_ref": "state-root://agentgres/marketplace/after",
+                "trigger_refs": ["l1-trigger://service-contract/payment"],
+                "receipt_refs": ["receipt://local-settlement/payment"]
+            }
+        }))
+        .expect("L1 settlement bridge request");
+
+        let error = admit_l1_settlement_attempt(request)
+            .expect_err("daemon-core settlement rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
