@@ -3310,13 +3310,11 @@ impl MemoryManagerStatusProjectionCore {
         let policy = memory_projection_object(&request.projection, "policy");
         let paths = memory_projection_object(&request.projection, "paths");
         let filters = memory_projection_object(&request.projection, "filters");
-        let disabled = memory_json_bool(&policy, "disabled", "disabled").unwrap_or(false);
-        let injection_enabled =
-            memory_json_bool(&policy, "injection_enabled", "injectionEnabled").unwrap_or(true);
-        let read_only = memory_json_bool(&policy, "read_only", "readOnly").unwrap_or(false);
+        let disabled = json_bool_value(&policy, "disabled").unwrap_or(false);
+        let injection_enabled = json_bool_value(&policy, "injection_enabled").unwrap_or(true);
+        let read_only = json_bool_value(&policy, "read_only").unwrap_or(false);
         let write_requires_approval =
-            memory_json_bool(&policy, "write_requires_approval", "writeRequiresApproval")
-                .unwrap_or(false);
+            json_bool_value(&policy, "write_requires_approval").unwrap_or(false);
         let scopes = memory_unique_strings(
             records
                 .iter()
@@ -3326,10 +3324,7 @@ impl MemoryManagerStatusProjectionCore {
         let memory_keys = memory_unique_strings(
             records
                 .iter()
-                .filter_map(|record| {
-                    json_string_value(record, "memory_key")
-                        .or_else(|| json_string_value(record, "memoryKey"))
-                })
+                .filter_map(|record| json_string_value(record, "memory_key"))
                 .collect(),
         );
         let write_blocked_reason = if disabled {
@@ -4871,6 +4866,10 @@ fn optional_json_string(value: &Value, key: &str) -> Option<String> {
     json_string_value(value, key)
 }
 
+fn json_bool_value(value: &Value, key: &str) -> Option<bool> {
+    value.get(key).and_then(Value::as_bool)
+}
+
 fn extend_json_object(base: Value, extension: Value) -> Value {
     let mut object = match base {
         Value::Object(map) => map,
@@ -4954,9 +4953,7 @@ fn validate_memory_manager_policy(
             ));
         }
     }
-    if let Some(inheritance) = json_string_value(policy, "subagent_inheritance")
-        .or_else(|| json_string_value(policy, "subagentInheritance"))
-    {
+    if let Some(inheritance) = json_string_value(policy, "subagent_inheritance") {
         if !matches!(
             inheritance.as_str(),
             "none" | "explicit" | "read_only" | "full"
@@ -4969,13 +4966,11 @@ fn validate_memory_manager_policy(
             ));
         }
     }
-    let disabled = memory_json_bool(policy, "disabled", "disabled").unwrap_or(false);
-    let injection_enabled =
-        memory_json_bool(policy, "injection_enabled", "injectionEnabled").unwrap_or(true);
-    let read_only = memory_json_bool(policy, "read_only", "readOnly").unwrap_or(false);
+    let disabled = json_bool_value(policy, "disabled").unwrap_or(false);
+    let injection_enabled = json_bool_value(policy, "injection_enabled").unwrap_or(true);
+    let read_only = json_bool_value(policy, "read_only").unwrap_or(false);
     let write_requires_approval =
-        memory_json_bool(policy, "write_requires_approval", "writeRequiresApproval")
-            .unwrap_or(false);
+        json_bool_value(policy, "write_requires_approval").unwrap_or(false);
     if disabled && injection_enabled {
         warnings.push(memory_diagnostic(
             "memory_disabled_with_injection_enabled",
@@ -4999,12 +4994,8 @@ fn validate_memory_manager_paths(
     issues: &mut Vec<Value>,
     warnings: &mut Vec<Value>,
 ) {
-    for (canonical, legacy, label) in [
-        ("records_path", "recordsPath", "records"),
-        ("policies_path", "policiesPath", "policies"),
-    ] {
-        let value =
-            json_string_value(paths, canonical).or_else(|| json_string_value(paths, legacy));
+    for (canonical, label) in [("records_path", "records"), ("policies_path", "policies")] {
+        let value = json_string_value(paths, canonical);
         if value.is_none() {
             issues.push(memory_diagnostic(
                 &format!("memory_{label}_path_missing"),
@@ -5070,8 +5061,7 @@ fn validate_memory_manager_record(
             ));
         }
     }
-    let fact_hash =
-        json_string_value(record, "fact_hash").or_else(|| json_string_value(record, "factHash"));
+    let fact_hash = json_string_value(record, "fact_hash");
     if json_string_value(record, "redaction").as_deref() == Some("redacted") && fact_hash.is_none()
     {
         warnings.push(memory_diagnostic(
@@ -5092,13 +5082,6 @@ fn memory_diagnostic(code: &str, severity: &str, message: &str, extra: Value) ->
         }),
         extra,
     )
-}
-
-fn memory_json_bool(value: &Value, canonical: &str, legacy: &str) -> Option<bool> {
-    value
-        .get(canonical)
-        .or_else(|| value.get(legacy))
-        .and_then(Value::as_bool)
 }
 
 fn memory_unique_strings(values: Vec<String>) -> Vec<String> {
@@ -5123,9 +5106,7 @@ fn memory_status_evidence_refs(policy: &Value, paths: &Value, records: &[Value])
     if let Some(policy_id) = json_string_value(policy, "id") {
         refs.push(policy_id);
     }
-    if let Some(effective_policy_id) = json_string_value(paths, "effective_policy_id")
-        .or_else(|| json_string_value(paths, "effectivePolicyId"))
-    {
+    if let Some(effective_policy_id) = json_string_value(paths, "effective_policy_id") {
         refs.push(effective_policy_id);
     }
     for record in records {
@@ -7286,13 +7267,15 @@ mod tests {
                 "policy": {
                     "id": "policy.thread",
                     "scope": "thread",
-                    "injectionEnabled": true,
-                    "readOnly": false,
-                    "writeRequiresApproval": true
+                    "injection_enabled": true,
+                    "read_only": false,
+                    "write_requires_approval": true,
+                    "readOnly": true
                 },
                 "paths": {
-                    "recordsPath": "/state/memory",
-                    "policiesPath": "/state/policies"
+                    "records_path": "/state/memory",
+                    "policies_path": "/state/policies",
+                    "recordsPath": "/retired/memory"
                 },
                 "filters": {
                     "scope": "thread"
@@ -7325,7 +7308,8 @@ mod tests {
             .iter()
             .any(|warning| warning["code"] == "memory_record_redacted_hash_missing"));
         assert!(record.policy.get("readOnly").is_some());
-        assert!(record.policy.get("read_only").is_none());
+        assert_eq!(record.policy["read_only"], false);
+        assert_eq!(record.paths["records_path"], "/state/memory");
     }
 
     #[test]
@@ -7342,14 +7326,16 @@ mod tests {
                 "policy": {
                     "id": "policy.thread",
                     "scope": "thread",
-                    "injectionEnabled": true,
-                    "readOnly": false,
-                    "writeRequiresApproval": true
+                    "injection_enabled": true,
+                    "read_only": false,
+                    "write_requires_approval": true,
+                    "writeRequiresApproval": false
                 },
                 "paths": {
-                    "recordsPath": "/state/memory",
-                    "policiesPath": "/state/policies",
-                    "effectivePolicyId": "policy.thread"
+                    "records_path": "/state/memory",
+                    "policies_path": "/state/policies",
+                    "effective_policy_id": "policy.thread",
+                    "effectivePolicyId": "policy.retired"
                 },
                 "records": [{
                     "id": "memory.one",
@@ -7389,6 +7375,7 @@ mod tests {
             "/v1/threads/{thread_id}/memory/status"
         );
         assert!(record.evidence_refs.contains(&"policy.thread".to_string()));
+        assert!(!record.evidence_refs.contains(&"policy.retired".to_string()));
         assert!(record.evidence_refs.contains(&"memory.one".to_string()));
     }
 

@@ -783,6 +783,22 @@ Rust-core matrix-compaction pass is complete. No matrix-compaction pass is
 pending until the next Rust-core extraction or facade-retirement seam lands; do
 not encode the command bridge or JS transport wrappers as terminal
 architecture.
+Slice 787 retired the memory projection input compatibility fallback at the
+Rust boundary. `AgentMemoryStore.pathProjection()` now emits canonical
+`records_path`, `policies_path`, and `effective_policy_id`, redacted memory
+records use `fact_hash`, and `MemoryManagerStatusProjectionCore` /
+`MemoryManagerValidationProjectionCore` read only canonical memory policy,
+path, record, and evidence fields. Retired `injectionEnabled`, `readOnly`,
+`writeRequiresApproval`, `subagentInheritance`, `recordsPath`, `policiesPath`,
+`effectivePolicyId`, `memoryKey`, and `factHash` fields can no longer steer the
+Rust memory status/validation projection. This still does not claim terminal
+memory migration: direct Rust daemon-core memory record truth, Agentgres
+admission/head/state-root binding, wallet authority, StepModuleRouter dispatch
+for admitted memory work, cTEE custody coupling, replay, SDK/IDE protocol
+coverage, and direct Rust API replacement for command transport still need
+ownership. The Slice 787 memory projection input alias-retirement
+matrix-compaction pass is scheduled for the next resume cycle before unrelated
+route-family work continues.
 
 ## Part II: Target Execution Model
 

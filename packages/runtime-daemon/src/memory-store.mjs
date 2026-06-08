@@ -241,14 +241,14 @@ export class AgentMemoryStore {
 
   pathProjection({ agent, threadId, workspace } = {}) {
     return {
-      schemaVersion: AGENT_MEMORY_SCHEMA_VERSION,
+      schema_version: AGENT_MEMORY_SCHEMA_VERSION,
       object: "ioi.agent_memory_path_projection",
-      threadId: threadId ?? null,
-      agentId: agent?.id ?? null,
+      thread_id: threadId ?? null,
+      agent_id: agent?.id ?? null,
       workspace: workspace ?? agent?.cwd ?? null,
-      recordsPath: this.memoryDir,
-      policiesPath: this.policyDir,
-      effectivePolicyId: policyId("thread", threadId ?? agent?.id ?? "runtime"),
+      records_path: this.memoryDir,
+      policies_path: this.policyDir,
+      effective_policy_id: policyId("thread", threadId ?? agent?.id ?? "runtime"),
     };
   }
 
@@ -354,7 +354,7 @@ function redactMemoryRecord(record) {
   return {
     ...record,
     fact: "[REDACTED]",
-    factHash: stableHash(record.fact ?? ""),
+    fact_hash: stableHash(record.fact ?? ""),
     redaction: "redacted",
   };
 }

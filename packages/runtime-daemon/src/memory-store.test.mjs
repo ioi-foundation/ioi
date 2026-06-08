@@ -219,6 +219,9 @@ test("agent memory store projects canonical admitted memory without retired alia
     assert.equal(Object.hasOwn(projection.filters, "memoryKey"), false);
     assert.equal(projection.records[0].id, record.id);
     assert.equal(projection.policy.write_requires_approval, true);
+    assert.equal(projection.paths.records_path, path.join(stateDir, "memory-records"));
+    assert.equal(projection.paths.policies_path, path.join(stateDir, "memory-policies"));
+    assert.equal(projection.paths.effective_policy_id, "memory_policy_thread_thread.memory");
 
     for (const key of [
       "schemaVersion",
@@ -250,6 +253,9 @@ test("agent memory store projects canonical admitted memory without retired alia
       "policyRefs",
     ]) {
       assert.equal(Object.hasOwn(projection.policy, key), false, `retired memory policy alias ${key} must be absent`);
+    }
+    for (const key of ["schemaVersion", "threadId", "agentId", "recordsPath", "policiesPath", "effectivePolicyId"]) {
+      assert.equal(Object.hasOwn(projection.paths, key), false, `retired memory path alias ${key} must be absent`);
     }
   } finally {
     fs.rmSync(stateDir, { recursive: true, force: true });

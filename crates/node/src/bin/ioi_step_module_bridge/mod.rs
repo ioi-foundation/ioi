@@ -9763,13 +9763,14 @@ mod tests {
                     "policy": {
                         "id": "policy.thread",
                         "scope": "thread",
-                        "injectionEnabled": true,
-                        "readOnly": false,
-                        "writeRequiresApproval": true
+                        "injection_enabled": true,
+                        "read_only": false,
+                        "write_requires_approval": true,
+                        "writeRequiresApproval": false
                     },
                     "paths": {
-                        "recordsPath": "/state/memory",
-                        "policiesPath": "/state/policies"
+                        "records_path": "/state/memory",
+                        "policies_path": "/state/policies"
                     },
                     "records": [{
                         "id": "memory.one",
