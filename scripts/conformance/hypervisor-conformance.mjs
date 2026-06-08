@@ -313,13 +313,17 @@ function runDocs() {
       /Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is\s+complete/.test(
         guide,
       ) &&
-      /Slice 741 has opened the next verified Rust-core extraction \/\s+facade-retirement seam/.test(
+      /Slice 741 thread-memory control facade-retirement\s+matrix-compaction pass is complete/.test(
         guide,
       ) &&
+      /Resume with the next verified Rust-core\s+extraction or facade-retirement slice/.test(guide) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
       /Slice 732 workspace snapshot\/restore mutation compaction is complete/.test(guide) &&
       /The Slice\s+733-740 runtime bridge thread\/turn, runtime subagent, runtime task\/job,\s+thread-fork, conversation-artifact, permanent agent-delete, and agent\s+lifecycle\/status-control facade-retirement compaction is complete/.test(guide) &&
-      /The next compaction pass is\s+scheduled after Slice 741/.test(guide) &&
+      /The Slice 741\s+thread-memory control facade-retirement compaction is complete/.test(
+        guide,
+      ) &&
+      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -328,17 +332,18 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Next resume instruction: Slice 741 opened the next Rust-core extraction \/\s+facade-retirement seam/.test(
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(
         matrix,
       ) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
-      /route-family slice ledger through Slice 740/.test(matrix) &&
-      /Slices 733-740 compacted the\s+runtime bridge thread\/turn, runtime subagent control facade-retirement and\s+legacy-body deletion/.test(
+      /Compacted Implementation Slice Evidence: 741/.test(matrix) &&
+      /Slice 741 retired thread and agent memory mutation\/control JS authority/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 741/.test(
+      /thread-memory-control-js-facade-retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after the Slice 741\s+compaction/.test(
         matrix,
       ) &&
 	      /encoding the command bridge as\s+terminal shape/.test(
