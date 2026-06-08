@@ -833,8 +833,10 @@ memory migration: direct Rust daemon-core memory record truth, Agentgres
 admission/head/state-root binding, wallet authority, StepModuleRouter dispatch
 for admitted memory work, cTEE custody coupling, replay, and direct Rust API
 replacement for command transport still need ownership. The Slice 789 SDK
-memory output alias-retirement matrix-compaction pass is scheduled for the next
-resume cycle before unrelated route-family work continues.
+memory output alias-retirement matrix-compaction pass is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands; do not encode the command bridge or JS transport
+wrappers as terminal architecture.
 
 ## Part II: Target Execution Model
 

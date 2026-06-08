@@ -510,7 +510,7 @@ function runDocs() {
       /Slice 789 retired the SDK memory output compatibility surface/.test(guide) &&
       /`AgentMemoryProjection`, `AgentMemoryPathProjection`, `AgentMemoryRecord`, and\s+`AgentMemoryPolicy` now expose canonical snake_case response fields/.test(guide) &&
       /Retired SDK output\s+fields such as `schemaVersion`, `threadId`, `agentId`, `totalMatches`,/.test(guide) &&
-      /Slice 789 SDK\s+memory output alias-retirement matrix-compaction pass is scheduled/.test(guide) &&
+      /Slice 789 SDK\s+memory output alias-retirement matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -565,10 +565,11 @@ function runDocs() {
       /This pass compacted Slice 786 memory manager status\/validation Rust-core\s+projection evidence/.test(matrix) &&
       /This pass compacted Slice 787 memory projection input alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 788 memory projection envelope alias-retirement\s+evidence/.test(matrix) &&
+      /This pass compacted Slice 789 SDK memory output alias-retirement evidence/.test(matrix) &&
       /Slice 787 retired memory projection input compatibility aliases at the Rust\s+boundary/.test(matrix) &&
       /Slice 788 retired memory projection envelope identity aliases at the\s+Rust-backed status\/validation wrapper boundary/.test(matrix) &&
       /Slice 789 retired SDK memory output compatibility aliases for projection, path,\s+record, and policy response contracts/.test(matrix) &&
-      /Next resume instruction: run the scheduled Slice 789 matrix-compaction pass\s+before unrelated route-family work/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -851,9 +852,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 787 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 788/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 788 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 789/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 789 is now pending/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 789 SDK memory output\s+alias-retirement evidence/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 789/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 789 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
