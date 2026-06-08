@@ -603,6 +603,11 @@ Matrix compaction timing:
   into the route-family range while preserving IDE stream receipt projection as
   adapter behavior and terminal Rust daemon-core protocol ownership as the
   remaining target.
+- One-hundred-twenty-second scheduled pass completed on 2026-06-08: the
+  crash-recovery proof/report-card alias-retirement evidence after slice 686 was
+  compacted into the route-family range while preserving IDE proof projection as
+  adapter behavior and terminal Rust daemon-core proof/projection ownership as
+  the remaining target.
 
 ## Implementation Slice 0
 
@@ -13443,67 +13448,6 @@ closeout:
   push: required after verification
 ```
 
-### Implementation Slice 686: Crash-Recovery Proof and Report-Card Alias Retirement
-
-```yaml
-slice: 686
-phase: 11-authoritative-js-facade-retirement
-objective: migrate the crash-restart resume proof contract and IDE
-  crash-recovery report card to canonical snake_case fields so retired camelCase
-  proof envelopes cannot steer replay/restart evidence
-owner_boundary:
-  route_or_surface: crash-restart timeline proof producer, live GUI proof adapter,
-    and Hypervisor IDE crash-recovery report-card projection
-  authority_gate: unchanged; this slice changes proof/projection shape only and
-    does not grant authority or mutate accepted truth
-  execution_backend: unchanged; daemon restart/replay proof still comes from the
-    runtime daemon restart drill and IDE projection remains adapter behavior
-  truth_path: crash-recovery proof evidence must use canonical `schema_version`,
-    `workspace_root`, `state_dir`, `first_daemon`, `second_daemon`, `crash_exit`,
-    `first_turn`, `second_turn`, `terminal_events`, and snake_case replay/check
-    fields
-  projection_path: compositor conformance requires canonical proof readers and
-    rejects retired camelCase proof, replay, turn, daemon, and check fields
-touched_files:
-  docs:
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-  ide_projection:
-    - packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.ts
-  proof_scripts:
-    - scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs
-    - scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs
-  tests:
-    - packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts
-    - scripts/conformance/hypervisor-conformance.mjs
-conformance_checks:
-  - compositor conformance requires the crash-restart proof producer and live GUI
-    proof adapter to use canonical snake_case proof/replay fields
-  - compositor conformance requires the IDE crash-recovery report card to consume
-    canonical proof fields only
-  - focused report-card tests prove canonical proof fields render ready while
-    retired camelCase-only proof fields fail closed
-verification:
-  commands:
-    - node --import tsx --test packages/agent-ide/src/runtime/workflow-crash-recovery-report-card.test.ts
-    - node --check scripts/conformance/hypervisor-conformance.mjs
-    - npm run hypervisor-conformance:compositor
-    - node --check scripts/lib/workflow-crash-restart-timeline-resume-proof.mjs
-    - node --check scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs
-    - npm run build --workspace=@ioi/agent-ide
-    - npm run hypervisor-conformance:docs
-    - npm run hypervisor-conformance
-    - git diff --check
-cleanup:
-  legacy_paths_removed: true
-  compatibility_shims_remaining:
-    - terminal Rust daemon-core proof/projection extraction remains pending beyond
-      this crash-recovery proof/report-card facade cleanup
-closeout:
-  git_diff_check: required
-  commit: required
-  push: required after verification
-```
-
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13519,7 +13463,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 686 and the one-hundred-twenty-first 2026-06-08 matrix compaction pass:
+Current expected behavior after Slice 686 and the one-hundred-twenty-second 2026-06-08 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
