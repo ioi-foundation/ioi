@@ -202,7 +202,7 @@ function workspaceRequirementsForPrompt(prompt = "", context = {}) {
   if (INTERNAL_PROBE_RE.test(String(prompt || ""))) {
     return [];
   }
-  const executionMode = lowerText(context.executionMode || "agent");
+  const executionMode = lowerText(context.execution_mode || "agent");
   if (executionMode !== "agent") {
     return [];
   }
@@ -223,7 +223,7 @@ function retrievalRequirementsForPrompt(prompt = "", context = {}) {
   const text = lowerText(prompt);
   const targetsLocalWorkspace = promptTargetsLocalWorkspace(text);
   const artifactClass = context.artifactClass || artifactClassForPrompt(prompt);
-  const executionMode = lowerText(context.executionMode || "agent");
+  const executionMode = lowerText(context.execution_mode || "agent");
   const asksForExternalFact = /\b(today|right now|latest|recent|news|price|market|market cap|investment|invest|better|akt|akash|filecoin|fil|crypto|stock|exchange rate|weather)\b/.test(text);
   const asksForPublicSource = /\b(cite|citation|sources?|web|internet|online|public)\b/.test(text);
   const asksForCurrentExternalState =
@@ -308,7 +308,7 @@ function effectContractFor({ artifactRequired, artifactClass, retrievalRequired,
 
 export function resolveStudioIntentFrame(input = {}) {
   const prompt = compactText(input.prompt ?? input.input ?? input.query ?? "");
-  const executionMode = lowerText(input.executionMode ?? input.execution_mode ?? "agent") === "ask"
+  const executionMode = lowerText(input.execution_mode ?? "agent") === "ask"
     ? "ask"
     : "agent";
   const promptHash = crypto.createHash("sha256").update(prompt).digest("hex").slice(0, 16);
@@ -316,9 +316,9 @@ export function resolveStudioIntentFrame(input = {}) {
   const runtimeAction = executionMode === "agent" ? localRuntimeActionForPrompt(prompt) : null;
   const artifactClass = runtimeAction ? null : artifactClassForPrompt(prompt);
   const artifactRequired = Boolean(artifactClass && ARTIFACT_CLASSES.has(artifactClass));
-  const retrievalRequirements = runtimeAction ? [] : retrievalRequirementsForPrompt(prompt, { artifactClass, executionMode });
+  const retrievalRequirements = runtimeAction ? [] : retrievalRequirementsForPrompt(prompt, { artifactClass, execution_mode: executionMode });
   const retrievalRequired = retrievalRequirements.length > 0;
-  const workspaceRequirements = runtimeAction ? [] : workspaceRequirementsForPrompt(prompt, { executionMode });
+  const workspaceRequirements = runtimeAction ? [] : workspaceRequirementsForPrompt(prompt, { execution_mode: executionMode });
   const workspaceRequired = workspaceRequirements.length > 0;
   const workspaceTargets = workspaceRequired ? workspaceTargetsForPrompt(prompt) : [];
   const runtimeInspect = !artifactRequired && RUNTIME_INSPECTION_RE.test(prompt);

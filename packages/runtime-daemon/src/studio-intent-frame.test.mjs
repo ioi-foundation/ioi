@@ -6,7 +6,7 @@ import { resolveStudioIntentFrame } from "./studio-intent-frame.mjs";
 test("routes natural website creation prompts to static artifact creation", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Create a website that explains post-quantum computers",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.equal(frame.intentId, "artifact.create");
@@ -56,7 +56,7 @@ test("marks current external questions as retrieval-required", () => {
 test("routes local repository questions to workspace context", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Where are local/native model providers registered in this repo?",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.equal(frame.intentId, "workspace.context");
@@ -78,7 +78,7 @@ test("routes local repository questions to workspace context", () => {
 test("routes explicit local plan paths to workspace context", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "What does progress look like per .internal/plans/example-master-guide.md?",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.equal(frame.intentId, "workspace.context");
@@ -96,7 +96,7 @@ test("routes explicit local plan paths to workspace context", () => {
 test("routes explicit inline command prompts to local runtime action", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Run `node --check scripts/lib/autopilot-agent-studio-chat-scenarios.mjs` and summarize the exit code.",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.equal(frame.intentId, "command.exec");
@@ -126,7 +126,7 @@ test("does not collapse retained shell stdin lifecycle prompts into one-shot com
       "Start a disposable retained Node.js helper that waits for stdin and echoes a status line.",
       "Check the helper status, send the input `compile-once`, terminate the helper, reset retained shell state, and then answer.",
     ].join(" "),
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.notEqual(frame.intentId, "command.exec");
@@ -137,7 +137,7 @@ test("does not collapse retained shell stdin lifecycle prompts into one-shot com
 test("does not treat inline code symbols as local runtime actions", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Explain how `formatOrderTotal` is used in this repo.",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.notEqual(frame.intentId, "command.exec");
@@ -158,7 +158,7 @@ test("keeps browser automation prompts in the governed agent route", () => {
   const frame = resolveStudioIntentFrame({
     prompt:
       "Open the local browser fixture at http://127.0.0.1:45235/. Inspect the page, click the blue canvas target, and report whether the browser session stayed observable.",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.equal(frame.routeDirective, "agent");
@@ -169,7 +169,7 @@ test("keeps browser automation prompts in the governed agent route", () => {
 test("routes explicit browser capture prompts to browser observation artifacts", () => {
   const frame = resolveStudioIntentFrame({
     prompt: "Capture this browser session result as an artifact and let me ask a follow-up question.",
-    executionMode: "agent",
+    execution_mode: "agent",
   });
 
   assert.equal(frame.intentId, "artifact.create");
@@ -185,4 +185,21 @@ test("keeps simple conversational turns cheap and direct", () => {
   assert.equal(frame.routeDirective, "agent");
   assert.equal(frame.retrieval.required, false);
   assert.equal(frame.artifact.required, false);
+});
+
+test("studio intent frame input consumes canonical execution mode only", () => {
+  const canonicalAsk = resolveStudioIntentFrame({
+    prompt: "Can you explain the runtime policy gate?",
+    execution_mode: "ask",
+    executionMode: "agent",
+  });
+  assert.equal(canonicalAsk.execution_mode, "ask");
+  assert.equal(canonicalAsk.route_directive, "ask");
+
+  const retiredOnlyAsk = resolveStudioIntentFrame({
+    prompt: "Can you explain the runtime policy gate?",
+    executionMode: "ask",
+  });
+  assert.equal(retiredOnlyAsk.execution_mode, "agent");
+  assert.equal(retiredOnlyAsk.route_directive, "agent");
 });

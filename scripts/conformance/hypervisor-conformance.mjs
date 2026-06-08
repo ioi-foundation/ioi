@@ -13724,6 +13724,12 @@ function runCompositor() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
+  const studioIntentFrame = exists("packages/runtime-daemon/src/studio-intent-frame.mjs")
+    ? read("packages/runtime-daemon/src/studio-intent-frame.mjs")
+    : "";
+  const studioIntentFrameTest = exists("packages/runtime-daemon/src/studio-intent-frame.test.mjs")
+    ? read("packages/runtime-daemon/src/studio-intent-frame.test.mjs")
+    : "";
   const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     : "";
@@ -19138,6 +19144,22 @@ function runCompositor() {
       "scripts/lib/cursor-sdk-parity-contract.mjs",
     ],
     "Phase 10/11 is pending: SDK testing and evidence paths must not retain the retired mock runtime client helper",
+  );
+  assertCheck(
+    result,
+    "studio-intent-execution-mode-input-alias-retired",
+    /lowerText\(input\.execution_mode \?\? "agent"\)/.test(studioIntentFrame) &&
+      /lowerText\(context\.execution_mode \|\| "agent"\)/.test(studioIntentFrame) &&
+      /execution_mode: "ask"/.test(studioIntentFrameTest) &&
+      /executionMode: "ask"/.test(studioIntentFrameTest) &&
+      /retiredOnlyAsk\.execution_mode,\s*"agent"/.test(studioIntentFrameTest) &&
+      /retiredOnlyAsk\.route_directive,\s*"agent"/.test(studioIntentFrameTest) &&
+      !/\b(?:input|context)\.executionMode\b/.test(studioIntentFrame),
+    [
+      "packages/runtime-daemon/src/studio-intent-frame.mjs",
+      "packages/runtime-daemon/src/studio-intent-frame.test.mjs",
+    ],
+    "Phase 10/11 is pending: Studio intent routing must use canonical execution_mode without retired executionMode input aliases",
   );
   assertCheck(
     result,
