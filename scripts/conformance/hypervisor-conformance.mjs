@@ -489,7 +489,7 @@ function runDocs() {
       /The\s+Slice 782 MCP helper summary-retirement matrix-compaction pass is complete/.test(guide) &&
       /Slice 783 retired the dead helper-level JS MCP mutation\/registry projection\s+path/.test(guide) &&
       /no longer exports\s+`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, or `mcpPromptKey\(\)`/.test(guide) &&
-      /The Slice 783 MCP helper\s+mutation\/registry-retirement matrix-compaction pass is pending/.test(guide) &&
+      /The Slice 783 MCP helper\s+mutation\/registry-retirement matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -538,8 +538,8 @@ function runDocs() {
       /This pass compacted Slice 780 MCP public catalog Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
-      /Slice 783 retired dead helper-level JS MCP mutation\/registry projection code/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 783 MCP\s+helper mutation\/registry-retirement evidence/.test(matrix) &&
+      /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -804,9 +804,10 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 782/.test(matrix) &&
       /`mcpCatalogSummaryForServer\(\)`, `mcpCatalogExposureForStatus\(\)`, and\s+`mcpToolNamespaces\(\)` exports in `runtime-mcp-helpers\.mjs` were only preserved by\s+self-referential helper tests/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 782 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 783/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 783/.test(matrix) &&
       /`mcpRegistryWithServers\(\)`, `mcpServerRecordsFromMutationInput\(\)`,\s+`mcpServerRecordFromAddRequest\(\)`, `mcpResourceKey\(\)`, and `mcpPromptKey\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 783 MCP helper\s+mutation\/registry-retirement evidence/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 783 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&

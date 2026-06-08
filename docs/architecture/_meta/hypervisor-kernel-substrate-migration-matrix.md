@@ -84,10 +84,9 @@ This pass compacted Slice 779 MCP validation projection Rust-core evidence.
 This pass compacted Slice 780 MCP public catalog Rust-core evidence.
 This pass compacted Slice 781 MCP catalog summary Rust-core evidence.
 This pass compacted Slice 782 MCP helper summary-retirement evidence.
-Slice 783 retired dead helper-level JS MCP mutation/registry projection code.
+This pass compacted Slice 783 MCP helper mutation/registry-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice only after compacting the Slice 783 MCP
-helper mutation/registry-retirement evidence. Preserve the live owner map, terminal
+facade-retirement implementation slice. Preserve the live owner map, terminal
 blockers, and the fact that fail-closed JS facades, canonical input helpers,
 local projection helpers, and migration transport are not terminal substrate.
 
@@ -196,8 +195,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending for Slice 783 MCP helper
-  mutation/registry-retirement evidence.
+- Next scheduled matrix-compaction pass: none pending until the next concrete
+  Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15520,7 +15519,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode the command bridge, read-only helper
 adapters, or fail-closed JS surfaces as terminal architecture.
 
-## Implementation Slice Evidence: 783
+## Compacted Implementation Slice Evidence: 783
 
 Slice 783 retired the dead helper-level JS MCP mutation/registry projection
 path. After MCP import/add/remove/enable/disable, status-record, live discovery,
@@ -15537,12 +15536,10 @@ This does not claim terminal MCP migration: direct Rust daemon-core MCP registry
 truth, validation input parsing, live catalog discovery/transport containment,
 wallet authority, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, replay, SDK/IDE protocol coverage, and
-conformance still need to own the whole MCP control/projection path. Schedule
-and run a matrix-compaction pass for Slice 783 before unrelated route-family
-work resumes.
+conformance still need to own the whole MCP control/projection path.
 
-| Command | Expected status now | Reason |
-| --- | --- | --- |
-| `hypervisor-conformance:docs` | pass | Master-guide and matrix state record Slice 783 as helper mutation/registry retirement, not terminal MCP migration. |
-| `hypervisor-conformance:compositor` | pass | MCP helper conformance now requires the retired JS mutation/registry helper exports and tests to stay absent while manager validation/catalog/status projection routes through canonical manager/Rust projection paths. |
-| `hypervisor-conformance` | pass at current tier surface | Current wired tiers pass; terminal migration is still not claimed until live route families are routed through Rust core and JS facade retirement is complete. |
+Scheduled matrix-compaction obligation from Slice 783 is now satisfied. The
+next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode the command bridge, read-only helper
+adapters, or fail-closed JS surfaces as terminal architecture.
