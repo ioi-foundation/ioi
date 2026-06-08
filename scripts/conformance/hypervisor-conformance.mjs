@@ -10976,22 +10976,16 @@ function runReceipts() {
     /RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
       /CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
       /model_catalog_import_url_request_aliases_retired/.test(catalogDownloadOperations) &&
-      /assertCanonicalCatalogImportUrlRequestBody\(body\);[\s\S]*requireString\(body\.source_url \?\? body\.url,\s*"source_url"\)/.test(
+      /assertCanonicalCatalogImportUrlRequestBody\(body\);[\s\S]*requiredString.*\(body\.source_url \?\? body\.url,\s*"source_url"\)/.test(
         catalogImportUrlBlock,
       ) &&
-      /const modelId = body\.model_id \?\? modelIdForSource\(sourceUrl\);/.test(catalogImportUrlBlock) &&
-      /provider_id:\s*body\.provider_id \?\? "provider\.autopilot\.local"/.test(catalogImportUrlBlock) &&
-      /file_name:\s*body\.file_name \?\? `\$\{makeSafeFileName\(modelId\)\}\.\$\{variant\.format\}`/.test(
-        catalogImportUrlBlock,
-      ) &&
-      /fixture_content:\s*body\.fixture_content \?\?/.test(catalogImportUrlBlock) &&
-      /transfer_approved:\s*Boolean\(body\.transfer_approved \?\? isFixture\)/.test(
+      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.catalog\.import_url"/.test(
         catalogImportUrlBlock,
       ) &&
       !/body\.(?:sourceUrl|modelId|providerId|fileName|fixtureContent|transferApproved)\b/.test(
         catalogImportUrlBlock,
       ) &&
-      /catalogImportUrl rejects retired request aliases before receipt or download/.test(
+      /catalogImportUrl rejects retired request aliases before Rust-core boundary/.test(
         catalogDownloadOperationsTest,
       ) &&
       /retired_aliases,\s*\[\s*"sourceUrl",\s*"modelId",\s*"providerId",\s*"fileName",\s*"fixtureContent",\s*"transferApproved",\s*\]/.test(
@@ -11000,8 +10994,7 @@ function runReceipts() {
       /canonical_fields,\s*\[\s*"source_url",\s*"model_id",\s*"provider_id",\s*"file_name",\s*"fixture_content",\s*"transfer_approved",\s*\]/.test(
         catalogDownloadOperationsTest,
       ) &&
-      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.downloadBody,\s*undefined\)/.test(catalogDownloadOperationsTest),
+      /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
@@ -11014,30 +11007,16 @@ function runReceipts() {
     /RETIRED_MODEL_DOWNLOAD_IDENTITY_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
       /CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
       /model_download_identity_request_aliases_retired/.test(catalogDownloadOperations) &&
-      /assertCanonicalModelDownloadIdentityRequestBody\(body\);[\s\S]*const now = state\.nowIso\(\);/.test(
+      /assertCanonicalModelDownloadIdentityRequestBody\(body\);[\s\S]*const modelId = .*requiredString.*\(body\.model_id,\s*"model_id"\);/.test(
         downloadModelBlock,
       ) &&
-      /const modelId = requireString\(body\.model_id,\s*"model_id"\);/.test(downloadModelBlock) &&
-      /const providerId = body\.provider_id \?\? "provider\.autopilot\.local";/.test(
-        downloadModelBlock,
-      ) &&
-      /const source = body\.source_url \?\? body\.source \?\? "deterministic_fixture_download";/.test(
-        downloadModelBlock,
-      ) &&
-      /const sourceLabel = body\.source_label \?\? labelForSource\(source\);/.test(downloadModelBlock) &&
-      /const catalogProviderId = body\.catalog_provider_id \?\? variantMetadata\.catalogProviderId \?\? null;/.test(
-        downloadModelBlock,
-      ) &&
-      /const targetPath = path\.join\(targetDir,\s*body\.file_name \?\? `\$\{makeSafeFileName\(modelId\)\}\.gguf`\);/.test(
-        downloadModelBlock,
-      ) &&
-      /const fixtureContent = String\(body\.fixture_content \?\? `deterministic model bytes for \$\{modelId\}\\n`\);/.test(
+      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.download\.queue"/.test(
         downloadModelBlock,
       ) &&
       !/body\.(?:modelId|providerId|sourceUrl|sourceLabel|catalogProviderId|fileName|fixtureContent)\b/.test(
         downloadModelBlock,
       ) &&
-      /downloadModel rejects retired identity request aliases before timestamp or receipt/.test(
+      /downloadModel rejects retired identity request aliases before Rust-core boundary/.test(
         catalogDownloadOperationsTest,
       ) &&
       /retired_aliases,\s*\[\s*"modelId",\s*"providerId",\s*"sourceUrl",\s*"sourceLabel",\s*"catalogProviderId",\s*"fileName",\s*"fixtureContent",\s*\]/.test(
@@ -11046,9 +11025,7 @@ function runReceipts() {
       /canonical_fields,\s*\[\s*"model_id",\s*"provider_id",\s*"source_url",\s*"source_label",\s*"catalog_provider_id",\s*"file_name",\s*"fixture_content",\s*\]/.test(
         catalogDownloadOperationsTest,
       ) &&
-      /assert\.equal\(nowCount,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.writes\.length,\s*0\)/.test(catalogDownloadOperationsTest),
+      /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
@@ -11061,27 +11038,13 @@ function runReceipts() {
     /RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
       /CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
       /model_download_control_request_aliases_retired/.test(catalogDownloadOperations) &&
-      /assertCanonicalModelDownloadControlRequestBody\(body\);[\s\S]*const now = state\.nowIso\(\);/.test(
-        downloadModelBlock,
-      ) &&
-      /const bytesTotal = Number\(body\.bytes_total \?\? \(isFixture \? Buffer\.byteLength\(fixtureContent\) : 0\)\);/.test(
-        downloadModelBlock,
-      ) &&
-      /const maxBytes = normalizeBytes\(body\.max_bytes \?\? env\.IOI_MODEL_DOWNLOAD_MAX_BYTES\);/.test(
-        downloadModelBlock,
-      ) &&
-      /isTruthy\(body\.fail \?\? body\.simulate_failure\)/.test(downloadModelBlock) &&
-      /failureReason:\s*body\.failure_reason \?\? "deterministic_fixture_failure"/.test(
-        downloadModelBlock,
-      ) &&
-      /isTruthy\(body\.queued_only\)/.test(downloadModelBlock) &&
-      /expectedChecksum:\s*body\.expected_checksum \?\? body\.checksum \?\? null/.test(
+      /assertCanonicalModelDownloadControlRequestBody\(body\);[\s\S]*throwCatalogDownloadRustCoreRequired\(/.test(
         downloadModelBlock,
       ) &&
       !/body\.(?:bytesTotal|maxBytes|simulateFailure|failureReason|queuedOnly|expectedChecksum)\b/.test(
         downloadModelBlock,
       ) &&
-      /downloadModel rejects retired control request aliases before timestamp or receipt/.test(
+      /downloadModel rejects retired control request aliases before Rust-core boundary/.test(
         catalogDownloadOperationsTest,
       ) &&
       /retired_aliases,\s*\[\s*"bytesTotal",\s*"maxBytes",\s*"simulateFailure",\s*"failureReason",\s*"queuedOnly",\s*"expectedChecksum",\s*\]/.test(
@@ -11090,9 +11053,7 @@ function runReceipts() {
       /canonical_fields,\s*\[\s*"bytes_total",\s*"max_bytes",\s*"simulate_failure",\s*"failure_reason",\s*"queued_only",\s*"expected_checksum",\s*\]/.test(
         catalogDownloadOperationsTest,
       ) &&
-      /assert\.equal\(nowCount,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.writes\.length,\s*0\)/.test(catalogDownloadOperationsTest),
+      /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
@@ -11105,16 +11066,11 @@ function runReceipts() {
     /RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
       /CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
       /model_download_metadata_request_aliases_retired/.test(catalogDownloadOperations) &&
-      /assertCanonicalModelDownloadMetadataRequestBody\(body\);[\s\S]*const now = state\.nowIso\(\);/.test(
+      /assertCanonicalModelDownloadMetadataRequestBody\(body\);[\s\S]*throwCatalogDownloadRustCoreRequired\(/.test(
         downloadModelBlock,
       ) &&
-      /displayName:\s*body\.display_name \?\? modelId/.test(downloadModelBlock) &&
-      /contextWindow:\s*body\.context_window \?\? metadata\.contextWindow \?\? null/.test(
-        downloadModelBlock,
-      ) &&
-      /privacyClass:\s*body\.privacy_class \?\? "local_private"/.test(downloadModelBlock) &&
       !/body\.(?:displayName|contextWindow|privacyClass)\b/.test(downloadModelBlock) &&
-      /downloadModel rejects retired metadata request aliases before timestamp or receipt/.test(
+      /downloadModel rejects retired metadata request aliases before Rust-core boundary/.test(
         catalogDownloadOperationsTest,
       ) &&
       /retired_aliases,\s*\[\s*"displayName",\s*"contextWindow",\s*"privacyClass",\s*\]/.test(
@@ -11123,9 +11079,7 @@ function runReceipts() {
       /canonical_fields,\s*\[\s*"display_name",\s*"context_window",\s*"privacy_class",\s*\]/.test(
         catalogDownloadOperationsTest,
       ) &&
-      /assert\.equal\(nowCount,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.receipts\.length,\s*0\)/.test(catalogDownloadOperationsTest) &&
-      /assert\.equal\(state\.writes\.length,\s*0\)/.test(catalogDownloadOperationsTest),
+      /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
@@ -11134,102 +11088,40 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-catalog-download-receipt-detail-aliases-retired",
-    /source_url_hash:\s*sourceHash/.test(catalogDownloadErrorDetailsHelper) &&
-      /evidence_refs:\s*evidenceRefs/.test(catalogDownloadErrorDetailsHelper) &&
-      /auth_vault_ref_hash:\s*evidence\.authVaultRefHash/.test(catalogAuthReceiptDetailsHelper) &&
-      /resolved_material:\s*Boolean/.test(catalogAuthReceiptDetailsHelper) &&
-      /evidence_refs:\s*evidence\.evidenceRefs/.test(catalogAuthReceiptDetailsHelper) &&
-      /max_bytes:\s*policy\.maxBytes/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
-      /bandwidth_limit_bps:\s*policy\.bandwidthLimitBps/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
-      /retry_limit:\s*policy\.retryLimit/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
-      /approval_decision:\s*policy\.approvalDecision/.test(catalogDownloadPolicyReceiptDetailsHelper) &&
-      /attempt_count:\s*transfer\.attemptCount/.test(catalogDownloadTransferReceiptDetailsHelper) &&
-      /resume_metadata_path_hash:\s*transfer\.resumeMetadataPathHash/.test(catalogDownloadTransferReceiptDetailsHelper) &&
-      /next_attempt:\s*details\.nextAttempt/.test(catalogDownloadTransferEventDetailsHelper) &&
-      /retry_count:\s*details\.retryCount/.test(catalogDownloadTransferEventDetailsHelper) &&
-      /model_id:\s*modelId/.test(catalogImportUrlReceiptDetailsObject) &&
-      /provider_id:\s*body\.provider_id/.test(catalogImportUrlReceiptDetailsObject) &&
-      /source_url_hash:\s*hash\(sourceUrl\)/.test(catalogImportUrlReceiptDetailsObject) &&
-      /source_label:\s*variant\.sourceLabel/.test(catalogImportUrlReceiptDetailsObject) &&
-      /parameter_count:\s*variant\.parameterCount/.test(catalogImportUrlReceiptDetailsObject) &&
-      /backend_compatibility:\s*variant\.backendCompatibility/.test(catalogImportUrlReceiptDetailsObject) &&
-      /download_risk:\s*variant\.downloadRisk/.test(catalogImportUrlReceiptDetailsObject) &&
-      /benchmark_readiness:\s*variant\.benchmarkReadiness/.test(catalogImportUrlReceiptDetailsObject) &&
-      /selection_receipt_fields:\s*variant\.selectionReceiptFields/.test(catalogImportUrlReceiptDetailsObject) &&
-      /catalog_provider_id:\s*variant\.catalogProviderId/.test(catalogImportUrlReceiptDetailsObject) &&
-      /catalog_auth:\s*catalogAuthReceiptDetails/.test(catalogImportUrlReceiptDetailsObject) &&
-      /approval_decision:\s*approvalDecision/.test(catalogImportUrlReceiptDetailsObject) &&
-      /live_download_gate:/.test(catalogImportUrlReceiptDetailsObject) &&
-      /job_id:\s*jobBase\.id/.test(catalogDownloadReceiptBlocks) &&
-      /model_id:\s*modelId/.test(catalogDownloadReceiptBlocks) &&
-      /provider_id:\s*providerId/.test(catalogDownloadReceiptBlocks) &&
-      /source_hash:\s*hash\(source\)/.test(catalogDownloadReceiptBlocks) &&
-      /target_path_hash:\s*hash\(targetPath\)/.test(catalogDownloadReceiptBlocks) &&
-      /max_bytes:\s*maxBytes/.test(catalogDownloadReceiptBlocks) &&
-      /download_mode:/.test(catalogDownloadReceiptBlocks) &&
-      /download_policy:\s*downloadPolicyReceiptDetails/.test(catalogDownloadReceiptBlocks) &&
-      /failure_reason:\s*failureReason/.test(catalogDownloadReceiptBlocks) &&
-      /cleanup_state:\s*cleanupState/.test(catalogDownloadReceiptBlocks) &&
-      /error_hash:\s*hash/.test(catalogDownloadReceiptBlocks) &&
-      /artifact_id:\s*artifact\.id/.test(catalogDownloadReceiptBlocks) &&
-      /bytes_completed:\s*completedBytes/.test(catalogDownloadReceiptBlocks) &&
-      /resume_offset:\s*materialized\.resumeOffset/.test(catalogDownloadReceiptBlocks) &&
-      /attempt_count:\s*materialized\.attemptCount/.test(catalogDownloadReceiptBlocks) &&
-      /retry_count:\s*materialized\.retryCount/.test(catalogDownloadReceiptBlocks) &&
-      /resume_metadata_path_hash:\s*materialized\.resumeMetadataPathHash/.test(catalogDownloadReceiptBlocks) &&
-      /transfer:\s*transferReceiptDetails/.test(catalogDownloadReceiptBlocks) &&
-      /\.\.\.transferEventReceiptDetails\(details\)/.test(catalogDownloadTransferReceiptObject) &&
-      /commitModelDownloadRecordState/.test(downloadModelBlock) &&
-      /commitModelArtifactRecordState/.test(downloadModelBlock) &&
-      /model_mount\.download\.queued/.test(downloadModelBlock) &&
-      /model_mount\.download\.failed/.test(downloadModelBlock) &&
-      /model_mount\.download\.completed/.test(downloadModelBlock) &&
-      /model_mount\.artifact\.download/.test(downloadModelBlock) &&
+    "model-mount-catalog-download-js-facade-retired",
+    /throwCatalogDownloadRustCoreRequired/.test(catalogDownloadOperations) &&
+      /model_mount_catalog_download_rust_core_required/.test(catalogDownloadOperations) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_download"/.test(catalogDownloadOperations) &&
+      /public_catalog_download_js_facade_retired/.test(catalogDownloadOperations) &&
+      /rust_daemon_core_catalog_download_required/.test(catalogDownloadOperations) &&
+      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.catalog\.import_url"/.test(catalogImportUrlBlock) &&
+      /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.download\.queue"/.test(downloadModelBlock) &&
+      !/state\.lifecycleReceipt\("model_(?:catalog_import_url|download_(?:queued|failed|running|completed))"/.test(
+        catalogDownloadOperations,
+      ) &&
+      !/commitModelDownloadRecordState/.test(catalogDownloadOperations) &&
+      !/commitModelArtifactRecordState/.test(catalogDownloadOperations) &&
+      !/materialize(?:Fixture|Live)Download/.test(catalogDownloadOperations) &&
+      !/fs\.mkdirSync/.test(catalogDownloadOperations) &&
+      !/state\.downloads\.set/.test(catalogDownloadOperations) &&
+      !/state\.artifacts\.set/.test(catalogDownloadOperations) &&
       !/state\.writeMap\("model-downloads"/.test(downloadModelBlock) &&
       !/state\.writeMap\("model-artifacts"/.test(downloadModelBlock) &&
-      /recordStateCommits/.test(catalogDownloadOperationsTest) &&
-      /downloadModel queued jobs fail closed without Rust Agentgres download record-state commit/.test(
+      !/\S/.test(catalogImportUrlReceiptDetailsObject) &&
+      !/\S/.test(catalogDownloadReceiptBlocks) &&
+      !/\S/.test(catalogDownloadTransferReceiptObject) &&
+      /catalog import and download mutation facades fail closed until Rust core owns them/.test(
         catalogDownloadOperationsTest,
       ) &&
-      /downloadModel completed jobs fail closed without Rust Agentgres artifact record-state commit/.test(
+      /model_mount_catalog_download_rust_core_required/.test(catalogDownloadOperationsTest) &&
+      /model_mount\.catalog\.import_url/.test(catalogDownloadOperationsTest) &&
+      /model_mount\.download\.queue/.test(catalogDownloadOperationsTest) &&
+      /public_catalog_download_js_facade_retired/.test(catalogDownloadOperationsTest) &&
+      /assertNoCatalogDownloadMutation/.test(catalogDownloadOperationsTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(
         catalogDownloadOperationsTest,
       ) &&
-      !/\b(?:modelId|providerId|sourceUrlHash|sourceLabel|parameterCount|backendCompatibility|downloadRisk|benchmarkReadiness|selectionReceiptFields|catalogProviderId|catalogAuth|approvalDecision|liveDownloadGate)\s*:/.test(
-        catalogImportUrlReceiptDetailsObject,
-      ) &&
-      !/\b(?:jobId|modelId|providerId|sourceHash|sourceLabel|targetPathHash|maxBytes|downloadMode|downloadPolicy|failureReason|cleanupState|errorHash|artifactId|bytesCompleted|bytesTotal|resumeOffset|attemptCount|retryCount|resumeMetadataPathHash|backendCompatibility|downloadRisk|benchmarkReadiness|selectionReceiptFields|catalogProviderId|catalogAuth|approvalDecision)\s*:/.test(
-        `${catalogDownloadReceiptBlocks}\n${catalogDownloadTransferReceiptObject}`,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"sourceUrlHash"\),\s*false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"modelId"\),\s*false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details\.catalog_auth,\s*"resolvedMaterial"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\) === false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"jobId"\),\s*false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"downloadPolicy"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details\.download_policy,\s*"maxBytes"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\[2\]\.details,\s*"failureReason"\),\s*false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"artifactId"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"bytesCompleted"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\.at\(-1\)\.details,\s*"resumeOffset"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\[2\]\.details,\s*"retryCount"\),\s*false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[3\]\.details,\s*"attemptCount"\),\s*false/.test(catalogDownloadOperationsTest) &&
-      /Object\.hasOwn\(state\.receipts\[3\]\.details,\s*"resumeMetadataPathHash"\),\s*false/.test(
-        catalogDownloadOperationsTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\[3\]\.details\.transfer,\s*"attemptCount"\),\s*false/.test(
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(
         catalogDownloadOperationsTest,
       ),
     [
@@ -11238,7 +11130,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: catalog import/download receipts and fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: catalog import/download mutation must fail closed until Rust daemon-core owns catalog/download, receipt, record-state, filesystem, artifact, and projection semantics",
   );
   assertCheck(
     result,
