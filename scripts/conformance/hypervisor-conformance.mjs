@@ -374,7 +374,10 @@ function runDocs() {
       /Slice 754 retired model invocation\s+migration-helper compatibility aliases/.test(guide) &&
       /its compaction is complete/.test(guide) &&
       /Slice\s+755 retired the daemon workflow-edit proposal\/approval read-helper facades/.test(guide) &&
-      /next\s+matrix-compaction pass is scheduled for Slice 755/.test(guide) &&
+      /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
+        guide,
+      ) &&
+      /No\s+matrix-compaction pass is pending until the next Rust-core extraction or\s+facade-retirement seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -510,22 +513,27 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 754 is now satisfied/.test(
         matrix,
       ) &&
-      /Implementation Slice 755: Workflow Edit Read Helper Facade Retirement/.test(
+      /Compacted Implementation Slice Evidence: 755/.test(
         matrix,
       ) &&
-      /latestWorkflowEditProposalEvent facade body over JS runtime event streams/.test(
+      /Slice 755 retired the daemon workflow-edit proposal\/approval read-helper\s+facades/.test(
         matrix,
       ) &&
-      /workflowEditApprovalSatisfaction facade body over JS approval\/proposal events/.test(
+      /`latestWorkflowEditProposalEvent` over JS runtime event streams/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 755/.test(
+      /`workflowEditApprovalSatisfaction` over JS approval\/proposal events/.test(
         matrix,
       ) &&
-      /Slice\s+755 retired the daemon workflow-edit proposal\/approval read-helper facades/.test(
+      /Scheduled matrix-compaction obligation from Slice 755 is now satisfied/.test(
+        matrix,
+      ) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 755/.test(
+        matrix,
+      ) &&
+      /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
       ) &&
-      /next\s+matrix-compaction pass is scheduled for Slice 755/.test(guide) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
       /`ModelReceiptGateControl`/.test(implementationMatrix) &&
       /`ModelInvocationControl`/.test(implementationMatrix) &&

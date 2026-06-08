@@ -344,9 +344,10 @@ migration-helper compatibility aliases and its compaction is complete. Slice
 remained after workflow-edit apply authority was fail-closed. Workflow-edit
 execution is still not terminal: approved apply still requires Rust daemon-core
 mutation admission, Agentgres expected-head/state-root binding, receipt/event
-materialization, projection, and replay before it can execute again. The next
-matrix-compaction pass is scheduled for Slice 755 before unrelated route-family
-work resumes. Future
+materialization, projection, and replay before it can execute again. The Slice
+755 workflow-edit read-helper facade-retirement compaction is complete. No
+matrix-compaction pass is pending until the next Rust-core extraction or
+facade-retirement seam lands. Future
 compactions must preserve evidence, distinguish interim bridge scaffolding and
 fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
 command transport or read-only JS helpers as long-term substrate.

@@ -38,8 +38,8 @@ stream-cancel receipt facade-retirement evidence, then compacted Slice 752
 receipt-gate receipt facade-retirement evidence, then compacted Slice 753
 public model invocation dead JS body retirement evidence, then compacted Slice
 754 model invocation migration-helper compatibility alias retirement evidence.
-Slice 755 retired the daemon workflow-edit proposal/approval read-helper
-facades after workflow-edit apply authority was already fail-closed.
+This pass compacted Slice 755 workflow-edit read-helper facade-retirement
+evidence after workflow-edit apply authority was already fail-closed.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule the next
 matrix-compaction pass only after that seam lands. Preserve the live owner map,
@@ -139,8 +139,8 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 755 workflow-edit
-  read-helper facade retirement lands and verifies.
+- Next scheduled matrix-compaction pass: none pending after Slice 755
+  workflow-edit read-helper facade retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14170,50 +14170,33 @@ target ownership.
   JS invocation wrappers, exported request-shape builders, or command transport
   as terminal architecture.
 
-## Implementation Slice 755: Workflow Edit Read Helper Facade Retirement
+## Compacted Implementation Slice Evidence: 755
 
-```yaml
-date: 2026-06-08
-phase: 10/11 rust core extraction and authoritative JS facade retirement
-route_family: RuntimeWorkflowEditControl
-objective: retire daemon workflow-edit proposal/approval read-helper facades
-status: implemented
-files:
-  runtime_daemon:
-    - packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs
-    - packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
-    - packages/runtime-daemon/src/index.mjs
-  conformance:
-    - scripts/conformance/hypervisor-conformance.mjs
-legacy_paths_removed:
-  - latestWorkflowEditProposalEvent facade body over JS runtime event streams
-  - workflowEditApprovalSatisfaction facade body over JS approval/proposal events
-  - RuntimeStore wrapper methods exposing those helper facades
-compatibility_shims_remaining: []
-current_behavior:
-  - workflow-edit proposal, target/context, and apply controls still fail closed
-    before JS accepted-truth mutation.
-  - the daemon workflow-edit surface no longer exposes proposal/approval
-    read-helper facades as a JS-owned projection adapter for the retired apply
-    path.
-target_behavior:
-  - direct Rust daemon-core workflow-edit admission/projection APIs own proposal,
-    approval, mutation, replay, and materialized projection reads.
-conformance:
-  - workflow-edit-envelope-aliases-retired now guards that the helper function
-    bodies and RuntimeStore wrapper methods are absent.
-  - focused workflow-edit surface tests assert the helper properties are absent.
-matrix_compaction:
-  schedule after this slice verifies, before starting unrelated route-family
-  work.
-```
+The expanded Slice 755 ledger was compacted on 2026-06-08 after workflow-edit
+read-helper facade retirement landed. This slice remains active migration
+evidence, not terminal architecture. The `RuntimeWorkflowEditControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
 
-This slice intentionally does not claim terminal workflow-edit migration. The
-approved apply path still requires Rust daemon-core workflow mutation admission,
-Agentgres expected-head/state-root binding, receipt/event materialization,
-projection, and replay before it can execute again. The slice removes the
-remaining JS read-helper adapter that existed only to support the retired JS
-apply/proposal surface.
+- Slice 755 retired the daemon workflow-edit proposal/approval read-helper
+  facades after workflow-edit apply authority was already fail-closed.
+- Removed live helper bodies and RuntimeStore wrapper methods include
+  `latestWorkflowEditProposalEvent` over JS runtime event streams and
+  `workflowEditApprovalSatisfaction` over JS approval/proposal events.
+- The workflow-edit surface no longer exposes those helpers as a JS-owned
+  projection adapter for the retired apply path; focused surface tests assert
+  the helper properties are absent.
+- This slice intentionally does not claim terminal workflow-edit migration.
+  Approved apply still requires direct Rust daemon-core workflow mutation
+  admission, Agentgres expected-head/state-root binding, receipt/event
+  materialization, projection, and replay before it can execute again.
+- Conformance anchor `workflow-edit-envelope-aliases-retired` now guards that
+  the helper function bodies and RuntimeStore wrapper methods remain absent.
+- Scheduled matrix-compaction obligation from Slice 755 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode read-helper adapters, fail-closed
+  workflow-edit facades, or command transport as terminal architecture.
 
 ## Command State
 
@@ -14230,9 +14213,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-754 runtime/model-mount
-facade-retirement matrix-compaction passes and the Slice 755 workflow-edit
-read-helper facade-retirement implementation pass:
+Current expected behavior after the Slice 733-755 runtime/model-mount/
+workflow-edit facade-retirement matrix-compaction and implementation passes:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
