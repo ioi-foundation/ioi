@@ -14662,6 +14662,26 @@ function runCompositor() {
   )
     ? read("scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs")
     : "";
+  const agentIdeAuthorityBoundaryVisualizer = exists(
+    "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts")
+    : "";
+  const agentIdeAuthorityBoundaryVisualizerTest = exists(
+    "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts",
+  )
+    ? read("packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts")
+    : "";
+  const workflowSandboxBoundaryProof = exists(
+    "scripts/lib/workflow-sandbox-boundary-proof.mjs",
+  )
+    ? read("scripts/lib/workflow-sandbox-boundary-proof.mjs")
+    : "";
+  const workflowAuthorityBoundaryVisualizerProof = exists(
+    "scripts/lib/workflow-authority-boundary-visualizer-proof.mjs",
+  )
+    ? read("scripts/lib/workflow-authority-boundary-visualizer-proof.mjs")
+    : "";
   const agentIdeRuntimeEventProjection = exists(
     "packages/agent-ide/src/runtime/workflow-runtime-event-projection.ts",
   )
@@ -24036,6 +24056,90 @@ function runCompositor() {
       "scripts/lib/workflow-crash-restart-replay-live-gui-proof.mjs",
     ],
     "Phase 10/11 is pending: crash-recovery proof/report-card surfaces must use canonical snake_case proof fields without retired camelCase proof aliases",
+  );
+  assertCheck(
+    result,
+    "ide-authority-boundary-visualizer-aliases-retired",
+    /stringField\(proof,\s*"workspace_root"\)/.test(agentIdeAuthorityBoundaryVisualizer) &&
+      /stringField\(proof,\s*"outside_root"\)/.test(agentIdeAuthorityBoundaryVisualizer) &&
+      /booleanField\(checks,\s*"absolute_path_escape_denied"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /booleanField\(checks,\s*"symlink_read_escape_denied"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /booleanField\(checks,\s*"symlink_write_escape_denied"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /booleanField\(checks,\s*"disallowed_shell_network_command_denied"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /booleanField\(checks,\s*"secret_env_filtered_from_subprocess"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /booleanField\(checks,\s*"computer_use_act_requires_approval_before_execution"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /objectField\(results,\s*"absolute_escape"\)/.test(agentIdeAuthorityBoundaryVisualizer) &&
+      /objectField\(results,\s*"symlink_read_escape"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /objectField\(results,\s*"symlink_write_escape"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /objectField\(results,\s*"disallowed_shell"\)/.test(agentIdeAuthorityBoundaryVisualizer) &&
+      /objectField\(results,\s*"computer_use_act_lease"\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      !/(?:objectField|stringField|booleanField)\([^)]*"(?:workspaceRoot|outsideRoot|absolutePathEscapeDenied|symlinkReadEscapeDenied|symlinkWriteEscapeDenied|disallowedShellNetworkCommandDenied|secretEnvFilteredFromSubprocess|computerUseActRequiresApprovalBeforeExecution|absoluteEscape|symlinkReadEscape|symlinkWriteEscape|disallowedShell|computerUseActLease|errorCode|resolvedPath|outsideContentPreserved|authorityScope|requestRef)"[^)]*\)/.test(
+        agentIdeAuthorityBoundaryVisualizer,
+      ) &&
+      /schema_version:\s*"workflow\.sandbox-boundary-proof\.v1"/.test(
+        workflowSandboxBoundaryProof,
+      ) &&
+      /workspace_root:\s*cwd/.test(workflowSandboxBoundaryProof) &&
+      /outside_root:\s*outsideRoot/.test(workflowSandboxBoundaryProof) &&
+      /absolute_path_escape_denied:/.test(workflowSandboxBoundaryProof) &&
+      /computer_use_act_requires_approval_before_execution:/.test(
+        workflowSandboxBoundaryProof,
+      ) &&
+      /computer_use_act_lease:\s*\{/.test(workflowSandboxBoundaryProof) &&
+      /authority_scope:\s*computerUseActLease/.test(workflowSandboxBoundaryProof) &&
+      /schema_version:\s*"ioi\.autopilot\.stage21\.authority-boundary-visualizer-proof\.v1"/.test(
+        workflowAuthorityBoundaryVisualizerProof,
+      ) &&
+      /const sourceProofPath = process\.argv\[3\];/.test(
+        workflowAuthorityBoundaryVisualizerProof,
+      ) &&
+      /source_proof_path:\s*sourceProofPath/.test(workflowAuthorityBoundaryVisualizerProof) &&
+      !/docs\/evidence\/autopilot-agent-studio-gui-chat-ux-compositor-harness-parity-plus\/2026-05-25T06-01-08-320Z-stage11-sandbox-boundary/.test(
+        workflowAuthorityBoundaryVisualizerProof,
+      ) &&
+      !/const proof = \{(?:(?!fs\.writeFileSync)[\s\S])*?(?:schemaVersion|startedAt|workspaceRoot|stateDir|outsideRoot|threadId|workflowGraphId|eventCounts|sourceRefs):/.test(
+        workflowSandboxBoundaryProof,
+      ) &&
+      /authority boundary visualizer reads canonical proof fields/.test(
+        agentIdeAuthorityBoundaryVisualizerTest,
+      ) &&
+      /authority boundary visualizer ignores retired proof aliases/.test(
+        agentIdeAuthorityBoundaryVisualizerTest,
+      ) &&
+      /workspaceRoot: "\/workspace\/retired"/.test(agentIdeAuthorityBoundaryVisualizerTest) &&
+      /absolutePathEscapeDenied: true/.test(agentIdeAuthorityBoundaryVisualizerTest) &&
+      /computerUseActLease: \{/.test(agentIdeAuthorityBoundaryVisualizerTest) &&
+      /assert\.equal\(visualizer\.workspaceRoot,\s*null\)/.test(
+        agentIdeAuthorityBoundaryVisualizerTest,
+      ) &&
+      /assert\.equal\(visualizer\.deniedZoneCount,\s*0\)/.test(
+        agentIdeAuthorityBoundaryVisualizerTest,
+      ),
+    [
+      "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts",
+      "packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.test.ts",
+      "scripts/lib/workflow-sandbox-boundary-proof.mjs",
+      "scripts/lib/workflow-authority-boundary-visualizer-proof.mjs",
+    ],
+    "Phase 10/11 is pending: authority-boundary proof/visualizer surfaces must use canonical snake_case proof fields without retired camelCase authority aliases",
   );
   assertCheck(
     result,

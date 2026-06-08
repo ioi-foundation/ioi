@@ -36,50 +36,50 @@ export function buildWorkflowAuthorityBoundaryVisualizer(
       zoneKind: "workspace",
       status: "allowed",
       label: "Workspace writes stay inside canonical workspace root",
-      path: stringField(proof, "workspaceRoot"),
+      path: stringField(proof, "workspace_root"),
       authorityScope: "scope:workspace.write",
       evidence: ["resolveWorkspacePath", "workspace_canonical_root"],
     },
     {
       zoneKind: "outside_workspace",
-      status: booleanField(checks, "absolutePathEscapeDenied") ? "denied" : "allowed",
+      status: booleanField(checks, "absolute_path_escape_denied") ? "denied" : "allowed",
       label: "Absolute outside path",
-      path: stringField(proof, "outsideRoot"),
+      path: stringField(proof, "outside_root"),
       authorityScope: "scope:workspace.write.denied",
-      evidence: [stringField(objectField(results, "absoluteEscape"), "errorCode")],
+      evidence: [stringField(objectField(results, "absolute_escape"), "error_code")],
     },
     {
       zoneKind: "outside_workspace",
-      status: booleanField(checks, "symlinkReadEscapeDenied") ? "denied" : "allowed",
+      status: booleanField(checks, "symlink_read_escape_denied") ? "denied" : "allowed",
       label: "Symlink read escape",
-      path: stringField(objectField(results, "symlinkReadEscape"), "resolvedPath"),
+      path: stringField(objectField(results, "symlink_read_escape"), "resolved_path"),
       authorityScope: "scope:workspace.read.denied",
-      evidence: [stringField(objectField(results, "symlinkReadEscape"), "errorCode")],
+      evidence: [stringField(objectField(results, "symlink_read_escape"), "error_code")],
     },
     {
       zoneKind: "outside_workspace",
-      status: booleanField(checks, "symlinkWriteEscapeDenied") ? "denied" : "allowed",
+      status: booleanField(checks, "symlink_write_escape_denied") ? "denied" : "allowed",
       label: "Symlink write escape",
-      path: stringField(proof, "outsideRoot"),
+      path: stringField(proof, "outside_root"),
       authorityScope: "scope:workspace.write.denied",
       evidence: [
-        stringField(objectField(results, "symlinkWriteEscape"), "errorCode"),
-        booleanField(objectField(results, "symlinkWriteEscape"), "outsideContentPreserved")
+        stringField(objectField(results, "symlink_write_escape"), "error_code"),
+        booleanField(objectField(results, "symlink_write_escape"), "outside_content_preserved")
           ? "outside_content_preserved"
           : null,
       ],
     },
     {
       zoneKind: "network",
-      status: booleanField(checks, "disallowedShellNetworkCommandDenied") ? "denied" : "allowed",
+      status: booleanField(checks, "disallowed_shell_network_command_denied") ? "denied" : "allowed",
       label: "Default shell network posture",
       path: null,
       authorityScope: "network.default.denied",
-      evidence: [stringField(objectField(results, "disallowedShell"), "errorCode")],
+      evidence: [stringField(objectField(results, "disallowed_shell"), "error_code")],
     },
     {
       zoneKind: "environment",
-      status: booleanField(checks, "secretEnvFilteredFromSubprocess") ? "scrubbed" : "allowed",
+      status: booleanField(checks, "secret_env_filtered_from_subprocess") ? "scrubbed" : "allowed",
       label: "Secret-shaped subprocess environment",
       path: null,
       authorityScope: "env.secret.redacted",
@@ -87,13 +87,13 @@ export function buildWorkflowAuthorityBoundaryVisualizer(
     },
     {
       zoneKind: "computer_use",
-      status: booleanField(checks, "computerUseActRequiresApprovalBeforeExecution")
+      status: booleanField(checks, "computer_use_act_requires_approval_before_execution")
         ? "approval_required"
         : "allowed",
       label: "Computer-use action authority",
       path: null,
-      authorityScope: stringField(objectField(results, "computerUseActLease"), "authorityScope"),
-      evidence: [stringField(objectField(results, "computerUseActLease"), "requestRef")],
+      authorityScope: stringField(objectField(results, "computer_use_act_lease"), "authority_scope"),
+      evidence: [stringField(objectField(results, "computer_use_act_lease"), "request_ref")],
     },
   ] satisfies Array<Omit<WorkflowAuthorityBoundaryZone, "evidence"> & { evidence: unknown[] }>;
   const normalizedZones: WorkflowAuthorityBoundaryZone[] = zones.map((zone) => ({
@@ -109,8 +109,8 @@ export function buildWorkflowAuthorityBoundaryVisualizer(
       deniedZoneCount >= 3 && approvalRequiredCount >= 1 && scrubbedZoneCount >= 1
         ? "ready"
         : "blocked",
-    workspaceRoot: stringField(proof, "workspaceRoot"),
-    outsideRoot: stringField(proof, "outsideRoot"),
+    workspaceRoot: stringField(proof, "workspace_root"),
+    outsideRoot: stringField(proof, "outside_root"),
     deniedZoneCount,
     approvalRequiredCount,
     scrubbedZoneCount,

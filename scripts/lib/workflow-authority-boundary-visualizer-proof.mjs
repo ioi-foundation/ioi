@@ -4,12 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 const outputPath = process.argv[2];
-if (!outputPath) {
-  throw new Error("usage: workflow-authority-boundary-visualizer-proof.mjs <output-path>");
+const sourceProofPath = process.argv[3];
+if (!outputPath || !sourceProofPath) {
+  throw new Error("usage: workflow-authority-boundary-visualizer-proof.mjs <output-path> <source-proof-path>");
 }
-
-const sourceProofPath =
-  "docs/evidence/autopilot-agent-studio-gui-chat-ux-compositor-harness-parity-plus/2026-05-25T06-01-08-320Z-stage11-sandbox-boundary/workflow-sandbox-boundary-proof.json";
 
 const { buildWorkflowAuthorityBoundaryVisualizer } = await import(
   "../../packages/agent-ide/src/runtime/workflow-authority-boundary-visualizer.ts"
@@ -30,17 +28,17 @@ assert.ok(visualizer.zones.some((zone) => zone.authorityScope === "computer_use.
 assert.ok(visualizer.zones.some((zone) => zone.evidence.includes("outside_content_preserved")));
 
 const proof = {
-  schemaVersion: "ioi.autopilot.stage21.authority-boundary-visualizer-proof.v1",
+  schema_version: "ioi.autopilot.stage21.authority-boundary-visualizer-proof.v1",
   passed: true,
-  sourceProofPath,
+  source_proof_path: sourceProofPath,
   checks: {
-    visualizerReady: visualizer.status === "ready",
-    workspaceRootVisible: Boolean(visualizer.workspaceRoot),
-    outsideRootVisible: Boolean(visualizer.outsideRoot),
-    deniedZonesVisible: visualizer.deniedZoneCount >= 4,
-    networkDefaultDeniedVisible: visualizer.zones.some((zone) => zone.zoneKind === "network" && zone.status === "denied"),
-    envSecretScrubVisible: visualizer.scrubbedZoneCount >= 1,
-    computerUseApprovalScopeVisible: visualizer.zones.some((zone) => zone.authorityScope === "computer_use.native_browser.act"),
+    visualizer_ready: visualizer.status === "ready",
+    workspace_root_visible: Boolean(visualizer.workspaceRoot),
+    outside_root_visible: Boolean(visualizer.outsideRoot),
+    denied_zones_visible: visualizer.deniedZoneCount >= 4,
+    network_default_denied_visible: visualizer.zones.some((zone) => zone.zoneKind === "network" && zone.status === "denied"),
+    env_secret_scrub_visible: visualizer.scrubbedZoneCount >= 1,
+    computer_use_approval_scope_visible: visualizer.zones.some((zone) => zone.authorityScope === "computer_use.native_browser.act"),
   },
   visualizer,
 };

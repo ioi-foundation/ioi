@@ -186,71 +186,71 @@ try {
   );
 
   const checks = {
-    lexicalPathEscapeDenied: lexicalEscape.error?.code === "policy",
-    absolutePathEscapeDenied: absoluteEscape.error?.code === "policy",
-    symlinkReadEscapeDenied: symlinkReadEscape.error?.code === "policy",
-    symlinkWriteEscapeDenied: symlinkWriteEscape.error?.code === "policy" && read(outsideSecret) === outsideSecretBefore,
-    disallowedShellNetworkCommandDenied: disallowedShell.error?.code === "test_run_command_not_allowed",
-    symlinkCwdDeniedBeforeShellExecution: symlinkCwd.error?.code === "policy",
-    secretEnvFilteredFromSubprocess:
+    lexical_path_escape_denied: lexicalEscape.error?.code === "policy",
+    absolute_path_escape_denied: absoluteEscape.error?.code === "policy",
+    symlink_read_escape_denied: symlinkReadEscape.error?.code === "policy",
+    symlink_write_escape_denied: symlinkWriteEscape.error?.code === "policy" && read(outsideSecret) === outsideSecretBefore,
+    disallowed_shell_network_command_denied: disallowedShell.error?.code === "test_run_command_not_allowed",
+    symlink_cwd_denied_before_shell_execution: symlinkCwd.error?.code === "policy",
+    secret_env_filtered_from_subprocess:
       envFiltered.status === "completed" &&
       envFiltered.result?.testStatus === "passed" &&
       !JSON.stringify(envFiltered).includes("stage11-secret-do-not-leak"),
-    publicEnvStillAvailableForBuilds:
+    public_env_still_available_for_builds:
       envFiltered.status === "completed" &&
       envFiltered.result?.testStatus === "passed",
-    computerUseActRequiresApprovalBeforeExecution:
+    computer_use_act_requires_approval_before_execution:
       computerUseActLease.result?.approvalRequiredBeforeExecution === true &&
       computerUseActLease.result?.leaseRequest?.authorityScope === "computer_use.native_browser.act",
-    runtimeTimelineCarriesBoundaryFailures:
+    runtime_timeline_carries_boundary_failures:
       failedPolicyEvents.length >= 4 &&
       completedEnvEvent?.event_kind === "tool.completed" &&
       leaseEvent?.event_kind === "tool.completed",
   };
 
   const proof = {
-    schemaVersion: "workflow.sandbox-boundary-proof.v1",
+    schema_version: "workflow.sandbox-boundary-proof.v1",
     scenario: "linux_path_shell_network_env_boundary",
     passed: Object.values(checks).every(Boolean),
-    startedAt: new Date().toISOString(),
-    workspaceRoot: cwd,
-    stateDir,
-    outsideRoot,
-    threadId: thread.thread_id,
-    workflowGraphId,
+    started_at: new Date().toISOString(),
+    workspace_root: cwd,
+    state_dir: stateDir,
+    outside_root: outsideRoot,
+    thread_id: thread.thread_id,
+    workflow_graph_id: workflowGraphId,
     results: {
-      lexicalEscape: { status: lexicalEscape.status, errorCode: lexicalEscape.error?.code ?? null },
-      absoluteEscape: { status: absoluteEscape.status, errorCode: absoluteEscape.error?.code ?? null },
-      symlinkReadEscape: {
+      lexical_escape: { status: lexicalEscape.status, error_code: lexicalEscape.error?.code ?? null },
+      absolute_escape: { status: absoluteEscape.status, error_code: absoluteEscape.error?.code ?? null },
+      symlink_read_escape: {
         status: symlinkReadEscape.status,
-        errorCode: symlinkReadEscape.error?.code ?? null,
-        resolvedPath: symlinkReadEscape.error?.details?.resolvedPath ?? null,
+        error_code: symlinkReadEscape.error?.code ?? null,
+        resolved_path: symlinkReadEscape.error?.details?.resolvedPath ?? null,
       },
-      symlinkWriteEscape: {
+      symlink_write_escape: {
         status: symlinkWriteEscape.status,
-        errorCode: symlinkWriteEscape.error?.code ?? null,
-        outsideContentPreserved: read(outsideSecret) === outsideSecretBefore,
+        error_code: symlinkWriteEscape.error?.code ?? null,
+        outside_content_preserved: read(outsideSecret) === outsideSecretBefore,
       },
-      disallowedShell: { status: disallowedShell.status, errorCode: disallowedShell.error?.code ?? null },
-      symlinkCwd: { status: symlinkCwd.status, errorCode: symlinkCwd.error?.code ?? null },
-      envFiltered: {
+      disallowed_shell: { status: disallowedShell.status, error_code: disallowedShell.error?.code ?? null },
+      symlink_cwd: { status: symlinkCwd.status, error_code: symlinkCwd.error?.code ?? null },
+      env_filtered: {
         status: envFiltered.status,
-        testStatus: envFiltered.result?.testStatus ?? null,
-        secretValuePresentInResult: JSON.stringify(envFiltered).includes("stage11-secret-do-not-leak"),
+        test_status: envFiltered.result?.testStatus ?? null,
+        secret_value_present_in_result: JSON.stringify(envFiltered).includes("stage11-secret-do-not-leak"),
       },
-      computerUseActLease: {
+      computer_use_act_lease: {
         status: computerUseActLease.status,
-        requestRef: computerUseActLease.result?.requestRef ?? null,
-        approvalRequiredBeforeExecution: computerUseActLease.result?.approvalRequiredBeforeExecution ?? null,
-        authorityScope: computerUseActLease.result?.leaseRequest?.authorityScope ?? null,
+        request_ref: computerUseActLease.result?.requestRef ?? null,
+        approval_required_before_execution: computerUseActLease.result?.approvalRequiredBeforeExecution ?? null,
+        authority_scope: computerUseActLease.result?.leaseRequest?.authorityScope ?? null,
       },
     },
-    eventCounts: {
+    event_counts: {
       total: events.length,
-      policyFailures: failedPolicyEvents.length,
+      policy_failures: failedPolicyEvents.length,
     },
     checks,
-    sourceRefs: [
+    source_refs: [
       "packages/runtime-daemon/src/coding-tools.mjs:resolveWorkspacePath",
       "packages/runtime-daemon/src/coding-tools.mjs:execFileCaptured",
       "packages/runtime-daemon/src/coding-tools.mjs:computerUseLeaseRequestTool",
