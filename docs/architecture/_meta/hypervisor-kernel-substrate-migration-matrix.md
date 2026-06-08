@@ -13827,6 +13827,83 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 729
+
+```yaml
+slice: 729
+phase: 10-authoritative-js-facade-retirement
+objective: retire workflow-edit JS proposal, target/context, approval-request,
+  and apply control facades until direct Rust daemon-core workflow-edit
+  admission owns proposal/apply truth
+owner_boundary:
+  route_or_surface: runtime workflow-edit proposal/apply surface
+  authority_gate: workflow-edit control now fails closed at
+    `runtime.workflow_edit` before JS agent/run lookup, workspace path
+    resolution, `workflow.edit_proposed` runtime-event append, approval request
+    persistence, JS proposal/apply result envelope construction, workflow JSON
+    writes, or legacy `workflow.edit_applied` replay as accepted truth
+  execution_backend: none in JS for public workflow-edit proposal, target/context,
+    or apply control; approval/projection read helpers remain adapters only until
+    Rust daemon-core workflow-edit projection APIs replace them
+  truth_path: no JS proposal event minting, no JS `approval.required` creation
+    for workflow edits, no JS workflow mutation, no JS apply envelope accepted as
+    truth, and no retired camelCase detail aliases in the fail-closed boundary;
+    Rust daemon core must own wallet authority, Agentgres admission,
+    expected-head/state-root binding, proposal/apply receipts, replay, workflow
+    mutation custody, event materialization, projection, and persistence before
+    these controls can execute again
+  projection_path: `latestWorkflowEditProposalEvent` and
+    `workflowEditApprovalSatisfaction` remain canonical snake_case read helpers
+    over current runtime events, but they are explicitly non-terminal adapters;
+    schedule their retirement once direct Rust workflow-edit projection APIs are
+    concrete
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance requires workflow-edit proposal, target/context, and apply
+    facades to fail closed before JS lookup, path resolution, event append,
+    approval persistence, result envelope construction, filesystem mutation, or
+    legacy apply replay
+  - focused daemon tests poison agent/run lookup, `appendRuntimeEvent`, and
+    `requestThreadApproval`, then prove canonical snake_case fail-closed details
+    with Rust-core and Agentgres evidence refs
+  - read-helper tests prove the remaining projection adapters emit canonical
+    snake_case approval fields only and are marked non-authoritative
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - workflow-edit product/API routes may still call the workflow-edit adapter,
+      but proposal, target/context, and apply control now fail closed until direct
+      Rust daemon-core workflow-edit admission/projection APIs are verified
+    - proposal and approval-satisfaction read helpers remain temporary adapters;
+      schedule their retirement once the Rust workflow-edit projection seam is
+      concrete
+    - schedule a matrix-compaction pass once the next runtime control,
+      subagent, MCP, thread-memory, event-append, workflow-edit projection, or
+      approval-satisfaction Rust-core extraction/facade-retirement seam is clear
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13842,8 +13919,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 728 and the coding-tool governance JS
-approval-block/budget-block facade retirement pass:
+Current expected behavior after Slice 729 and the workflow-edit JS
+proposal/apply facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the

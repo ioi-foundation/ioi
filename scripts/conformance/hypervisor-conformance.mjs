@@ -6015,77 +6015,35 @@ function runBridge() {
   assertCheck(
     result,
     "workflow-edit-request-aliases-retired",
-    /const requestedTurnId = optionalString\(request\.turn_id\);/.test(
-      runtimeWorkflowEditSurface,
-    ) &&
-      /const workflowGraphId = optionalString\(request\.workflow_graph_id\) \?\? null/.test(
+    /runtime_workflow_edit_rust_core_required/.test(runtimeWorkflowEditSurface) &&
+      /rust_core_boundary:\s*"runtime\.workflow_edit"/.test(runtimeWorkflowEditSurface) &&
+      /throwWorkflowEditRustCoreRequired\("workflow_edit_proposal",\s*"workflow\.edit_proposed"/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      /\.\.\.normalizeArray\(request\.target_workflow_node_ids\)/.test(
+      /throwWorkflowEditRustCoreRequired\("workflow_edit_thread_context",\s*"workflow\.edit\.context"/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      /\.\.\.normalizeArray\(request\.bounded_targets\)/.test(runtimeWorkflowEditSurface) &&
-      /optionalString\(request\.workflow_node_id\) \?\?/.test(runtimeWorkflowEditSurface) &&
-      /\.\.\.normalizeArray\(request\.receipt_refs\)/.test(runtimeWorkflowEditSurface) &&
-      /turn_id: turnId/.test(runtimeWorkflowEditSurface) &&
-      /workflow_graph_id: workflowGraphId/.test(runtimeWorkflowEditSurface) &&
-      /workflow_node_id: workflowNodeId/.test(runtimeWorkflowEditSurface) &&
-      /approval_manifest: approvalManifest/.test(runtimeWorkflowEditSurface) &&
-      /receipt_refs: receiptRefs/.test(runtimeWorkflowEditSurface) &&
-      /workflow-edit surface ignores retired request identity aliases/.test(
+      /throwWorkflowEditRustCoreRequired\("workflow_edit_target_resolution",\s*"workflow\.edit\.target\.resolve"/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      /workflow_edit_proposal_js_facade_retired/.test(runtimeWorkflowEditSurface) &&
+      /rust_daemon_core_workflow_edit_proposal_required/.test(runtimeWorkflowEditSurface) &&
+      /agentgres_workflow_edit_proposal_truth_required/.test(runtimeWorkflowEditSurface) &&
+      /workflow-edit proposal facade fails closed before JS event append or approval persistence/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /turnId: "turn_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /workflowGraphId: "graph_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /workflowNodeId: "node_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /requestedBy: "operator_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /workflowPath: "workflows\/retired\.json"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /workflowPatch: \{ ok: true \}/.test(runtimeWorkflowEditSurfaceTest) &&
-      /codeDiff: "diff_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /editIntentId: "intent_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /proposalId: "proposal_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /approvalId: "approval_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /targetWorkflowNodeIds: \["node_target_retired"\]/.test(
+      /workflow-edit target\/context facades fail closed before JS agent or workspace resolution/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /boundedTargets: \["node_bound_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
-      /idempotencyKey: "workflow_edit_idempotency_retired"/.test(
+      /appendRuntimeEvent must not be called by the retired workflow-edit JS facade/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /idempotencyKey: "workflow_edit_apply_idempotency_retired"/.test(
+      /requestThreadApproval must not be called by the retired workflow-edit JS facade/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /proposalId: "proposal_apply_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /approvalId: "approval_apply_retired"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /workflow-edit surface accepts canonical idempotency keys/.test(
+      /agentForThread must not be called by the retired workflow-edit JS facade/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /idempotency_key: "workflow_edit_idempotency_canonical"/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /idempotency_key: "workflow_edit_apply_idempotency_canonical"/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /receiptRefs: \["receipt_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
-      /policyDecisionRefs: \["policy_retired"\]/.test(runtimeWorkflowEditSurfaceTest) &&
-      /approvalRequest\.receipt_refs\.includes\("receipt_retired"\), false/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /approvalRequest\.policy_decision_refs\.includes\("policy_retired"\), false/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /proposalEvent\.payload_summary\.requested_by,\s*"workflow-author"/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /proposalEvent\.payload_summary\.workflow_relative_path,\s*"workflows\/canonical\.json"/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /proposalEvent\.payload_summary\.code_diff,\s*null/.test(runtimeWorkflowEditSurfaceTest) &&
-      /applied\.requested_by,\s*"workflow-author"/.test(
-        runtimeWorkflowEditSurfaceTest,
-      ) &&
-      /details:\s*\{ thread_id: threadId \}/.test(runtimeWorkflowEditSurface) &&
-      /thread_id: threadId,\s*proposal_id: normalizedProposalId/.test(runtimeWorkflowEditSurface) &&
       /error\.details\.thread_id, "thread_alpha"/.test(runtimeWorkflowEditSurfaceTest) &&
       /Object\.hasOwn\(error\.details,\s*"threadId"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
@@ -6093,6 +6051,9 @@ function runBridge() {
       !/request\.(?:turnId|workflowNodeId|workflowGraphId|requestedBy|workflowPath|workflowPatch|codeDiff|editIntentId|proposalId|approvalId|receiptRefs|policyDecisionRefs|targetWorkflowNodeIds|boundedTargets|idempotencyKey)\b/.test(
         runtimeWorkflowEditSurface,
       ) &&
+      !/store\.appendRuntimeEvent\(/.test(runtimeWorkflowEditSurface) &&
+      !/store\.requestThreadApproval\(/.test(runtimeWorkflowEditSurface) &&
+      !/store\.agentForThread\(/.test(runtimeWorkflowEditSurface) &&
       !/details:\s*\{ threadId/.test(runtimeWorkflowEditSurface) &&
       !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|requested_by|workflow_path|workflow_patch|code_diff|edit_intent_id|proposal_id|approval_id|receipt_refs|policy_decision_refs|target_workflow_node_ids|bounded_targets|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeWorkflowEditSurface,
@@ -6108,31 +6069,28 @@ function runBridge() {
   assertCheck(
     result,
     "workflow-edit-envelope-aliases-retired",
-    /workflow-edit surface proposes workflow edits with canonical approval manifest/.test(
-      runtimeWorkflowEditSurfaceTest,
+    /throwWorkflowEditRustCoreRequired\("workflow_edit_apply",\s*"workflow\.edit\.apply"/.test(
+      runtimeWorkflowEditSurface,
     ) &&
-      /approvalRequest\.approval_manifest\.proposal_id,\s*"proposal_one"/.test(
+      /workflow_edit_apply_js_facade_retired/.test(runtimeWorkflowEditSurface) &&
+      /rust_daemon_core_workflow_edit_apply_required/.test(runtimeWorkflowEditSurface) &&
+      /agentgres_workflow_edit_apply_truth_required/.test(runtimeWorkflowEditSurface) &&
+      /workflow-edit apply facade fails closed before JS proposal lookup or mutation replay/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /approvalRequest\.approval_manifest\.mutation_allowed,\s*false/.test(
+      /workflow-edit apply still validates canonical proposal id before the Rust-core boundary/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /payload alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
-      /manifest alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
-      /result alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
-      /apply result alias must be absent/.test(runtimeWorkflowEditSurfaceTest) &&
-      /workflow-edit surface blocks approved proposals until Rust apply support exists/.test(
+      /workflow-edit read helpers remain canonical and non-authoritative until Rust projection owns them/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /workflow_edit_apply_rust_core_required/.test(runtimeWorkflowEditSurface) &&
-      /fs\.existsSync\(path\.join\(store\.cwd,\s*"workflows\/apply\.json"\)\),\s*false/.test(
+      /assertNoRetiredWorkflowEditDetailAliases\(error\.details\)/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /workflow-edit surface ignores legacy JS applied events until Rust apply support exists/.test(
+      /decision_event_id: "event_decision"/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /event_kind:\s*"workflow\.edit_applied"/.test(runtimeWorkflowEditSurfaceTest) &&
-      /Object\.hasOwn\(surface,\s*"latestWorkflowEditApplyEvent"\),\s*false/.test(
+      /Object\.hasOwn\(approval,\s*field\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       !/latestWorkflowEditApplyEvent/.test(runtimeWorkflowEditSurface) &&
@@ -6142,6 +6100,13 @@ function runBridge() {
       !/from "\.\/runtime-http-utils\.mjs";[\s\S]*writeJson/.test(runtimeWorkflowEditSurface) &&
       !/source_event_kind:\s*"WorkflowEdit\.Applied"/.test(runtimeWorkflowEditSurface) &&
       !/event_kind:\s*"workflow\.edit_applied"/.test(runtimeWorkflowEditSurface) &&
+      !/workflow\.edit_applied/.test(runtimeWorkflowEditSurfaceTest) &&
+      !/schema_version:\s*"ioi\.runtime\.workflow-edit-proposal-result\.v1"/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
+      !/schema_version:\s*"ioi\.runtime\.workflow-edit-apply-result\.v1"/.test(
+        runtimeWorkflowEditSurface,
+      ) &&
       /latestWorkflowEditProposalEvent\(store, threadId, proposalId\)[\s\S]*?payload\.proposal_id === normalizedProposalId[\s\S]*?workflowEditApprovalSatisfaction/.test(
         runtimeWorkflowEditSurface,
       ) &&
@@ -6154,14 +6119,6 @@ function runBridge() {
       /const manifestProposalId = requestedManifest\.proposal_id \?\? null;/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      /optionalString\(proposalPayload\.approval_id\)/.test(runtimeWorkflowEditSurface) &&
-      /const workflowPath = optionalString\(proposalPayload\.workflow_path\);/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /let workflowRelativePath = optionalString\(proposalPayload\.workflow_relative_path\);/.test(
-        runtimeWorkflowEditSurface,
-      ) &&
-      /patch_hash: proposalPayload\.patch_hash \?\? null/.test(runtimeWorkflowEditSurface) &&
       !new RegExp(`^\\s+(?:${workflowEditAliasFields})\\s*[:,]`, "m").test(
         runtimeWorkflowEditSurface,
       ) &&

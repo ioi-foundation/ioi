@@ -1,22 +1,6 @@
-import path from "node:path";
-
-import {
-  eventStreamIdForThread,
-  fixtureProfileForAgent,
-  runIdForTurn,
-  runtimeSessionIdForAgent,
-  turnIdForRun,
-} from "./runtime-identifiers.mjs";
-import { notFound, policyError, runtimeError } from "./runtime-http-utils.mjs";
-import {
-  doctorHash,
-  normalizeArray,
-  operatorControlSource,
-  optionalString,
-  relativePathForWorkspace,
-  safeId,
-  uniqueStrings,
-} from "./runtime-value-helpers.mjs";
+import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
+import { notFound, runtimeError } from "./runtime-http-utils.mjs";
+import { optionalString } from "./runtime-value-helpers.mjs";
 
 function defaultApprovalReasonForDecisionEvent(event) {
   const payload = event?.payload_summary ?? event?.payload ?? {};
@@ -27,229 +11,64 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   const {
     approvalReasonForDecisionEvent = defaultApprovalReasonForDecisionEvent,
     notFound: notFoundDep = notFound,
-    policyError: policyErrorDep = policyError,
     runtimeError: runtimeErrorDep = runtimeError,
   } = deps;
 
+  function throwWorkflowEditRustCoreRequired(operation, operationKind, details = {}) {
+    throw runtimeErrorDep({
+      status: 501,
+      code: "runtime_workflow_edit_rust_core_required",
+      message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.workflow_edit",
+        operation,
+        operation_kind: operationKind,
+        ...details,
+      },
+    });
+  }
+
   function workflowEditThreadContext(store, threadId, request = {}) {
-    const agent = store.agentForThread(threadId);
-    const runs = store.listRuns(agent.id);
-    const requestedTurnId = optionalString(request.turn_id);
-    let turnId = requestedTurnId ?? "";
-    let run = null;
-    if (turnId) {
-      run = store.getRun(runIdForTurn(turnId));
-      if (run.agentId !== agent.id) {
-        throw notFoundDep(`Turn not found: ${turnId}`, { threadId, turnId, runId: run.id });
-      }
-    } else {
-      run = runs.at(-1) ?? null;
-      turnId = run ? turnIdForRun(run.id) : "";
-    }
-    return { agent, run, turnId };
+    throwWorkflowEditRustCoreRequired("workflow_edit_thread_context", "workflow.edit.context", {
+      thread_id: threadId,
+      turn_id: optionalString(request.turn_id) ?? null,
+      evidence_refs: [
+        "workflow_edit_thread_context_js_facade_retired",
+        "rust_daemon_core_workflow_edit_context_required",
+        "agentgres_workflow_edit_context_truth_required",
+      ],
+    });
   }
 
   function resolveWorkflowEditTarget(agent, request = {}) {
-    const rawPath = optionalString(request.workflow_path);
-    if (!rawPath) return { workflow_path: null, workflow_relative_path: null };
-    const workflowPath = path.resolve(agent.cwd, rawPath);
-    const workflowRelativePath = relativePathForWorkspace(workflowPath, agent.cwd);
-    if (!workflowRelativePath) {
-      throw policyErrorDep("Workflow edit proposals can only target files inside the runtime workspace.", {
-        workspaceRoot: agent.cwd,
-        workflow_path: workflowPath,
-      });
-    }
-    return { workflow_path: workflowPath, workflow_relative_path: workflowRelativePath };
+    throwWorkflowEditRustCoreRequired("workflow_edit_target_resolution", "workflow.edit.target.resolve", {
+      agent_id: optionalString(agent?.id) ?? null,
+      workflow_path: optionalString(request.workflow_path) ?? null,
+      evidence_refs: [
+        "workflow_edit_target_resolution_js_facade_retired",
+        "rust_daemon_core_workflow_edit_target_required",
+        "agentgres_workflow_edit_target_truth_required",
+      ],
+    });
   }
 
   function proposeWorkflowEdit(store, threadId, request = {}) {
-    const { agent, run, turnId } = workflowEditThreadContext(store, threadId, request);
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "workflow-author";
-    const workflowGraphId = optionalString(request.workflow_graph_id) ?? null;
-    const targetWorkflowNodeIds = uniqueStrings(
-      [
-        ...normalizeArray(request.target_workflow_node_ids),
-        ...normalizeArray(request.bounded_targets),
-      ]
-        .map((value) => optionalString(value))
-        .filter(Boolean),
-    );
-    const title =
-      optionalString(request.title) ??
-      "Review workflow edit proposal";
-    const summary =
-      optionalString(request.summary) ??
-      "Proposal-only workflow edit staged for daemon-owned approval.";
-    const {
-      workflow_path: workflowPath,
-      workflow_relative_path: workflowRelativePath,
-    } = resolveWorkflowEditTarget(agent, request);
-    const workflowPatch =
-      request.workflow_patch && typeof request.workflow_patch === "object"
-        ? request.workflow_patch
-        : null;
-    const codeDiff = optionalString(request.code_diff) ?? null;
-    const editIntentHash = doctorHash(
-      JSON.stringify({
-        title,
-        summary,
-        workflow_graph_id: workflowGraphId,
-        target_workflow_node_ids: targetWorkflowNodeIds,
-        workflow_relative_path: workflowRelativePath,
-        workflow_patch: workflowPatch,
-        code_diff: codeDiff,
-      }),
-    ).slice(0, 16);
-    const editIntentId =
-      optionalString(request.edit_intent_id) ??
-      `workflow_edit_intent_${editIntentHash}`;
-    const proposalId =
-      optionalString(request.proposal_id) ??
-      `workflow_edit_proposal_${editIntentHash}`;
-    const approvalId =
-      optionalString(request.approval_id) ??
-      `approval_workflow_edit_${safeId(proposalId)}`;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id) ??
-      `runtime.workflow-edit-proposal.${safeId(proposalId)}`;
-    const patchHash = doctorHash(
-      JSON.stringify({
-        workflow_relative_path: workflowRelativePath,
-        workflow_patch: workflowPatch,
-        target_workflow_node_ids: targetWorkflowNodeIds,
-        code_diff: codeDiff,
-      }),
-    );
-    const runOrAgentId = run?.id ?? agent.id;
-    const approvalManifest = {
-      schema_version: "ioi.runtime.workflow-edit-proposal-approval.v1",
-      proposal_id: proposalId,
-      edit_intent_id: editIntentId,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      target_workflow_node_ids: targetWorkflowNodeIds,
-      workflow_path: workflowPath,
-      workflow_relative_path: workflowRelativePath,
-      patch_hash: patchHash,
-      proposal_only: true,
-      mutation_allowed: false,
-      mutation_executed: false,
-      effect_class: "workflow_mutation",
-      risk_domain: "workflow_graph",
-      policy_reason: "workflow_edit_proposal_only_requires_operator_approval",
-      thread_mode: agent.runtimeControls?.mode ?? "agent",
-      approval_mode: "human_required",
-      authority_scope_requirements: ["workflow.edit.apply"],
-    };
-    const receiptRefs = uniqueStrings([
-      ...normalizeArray(request.receipt_refs),
-      `receipt_${runOrAgentId}_workflow_edit_proposed_${safeId(proposalId)}`,
-    ]);
-    const policyDecisionRefs = uniqueStrings([
-      ...normalizeArray(request.policy_decision_refs),
-      `policy_${runOrAgentId}_workflow_edit_proposal_only`,
-    ]);
-    const now = new Date().toISOString();
-    const event = store.appendRuntimeEvent({
-      event_stream_id: eventStreamIdForThread(threadId),
+    throwWorkflowEditRustCoreRequired("workflow_edit_proposal", "workflow.edit_proposed", {
       thread_id: threadId,
-      turn_id: turnId,
-      item_id: `${turnId || threadId}:item:workflow-edit-proposed:${safeId(proposalId)}`,
-      idempotency_key:
-        request.idempotency_key ??
-        `thread:${threadId}:workflow.edit.proposed:${proposalId}`,
-      source,
-      source_event_kind: "WorkflowEdit.Proposed",
-      event_kind: "workflow.edit_proposed",
-      status: "waiting_for_approval",
-      actor: "runtime",
-      created_at: now,
-      workspace_root: agent.cwd,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      component_kind: "workflow_edit_proposal",
-      approval_id: approvalId,
-      payload_schema_version: "ioi.runtime.workflow-edit-proposal.v1",
-      payload: {
-        event_kind: "WorkflowEdit.Proposed",
-        proposal_id: proposalId,
-        edit_intent_id: editIntentId,
-        approval_id: approvalId,
-        approval_required: true,
-        title,
-        summary,
-        requested_by: requestedBy,
-        control_surface: source,
-        workflow_graph_id: workflowGraphId,
-        workflow_node_id: workflowNodeId,
-        target_workflow_node_ids: targetWorkflowNodeIds,
-        bounded_targets: targetWorkflowNodeIds,
-        workflow_path: workflowPath,
-        workflow_relative_path: workflowRelativePath,
-        workflow_patch: workflowPatch,
-        workflow_patch_present: Boolean(workflowPatch),
-        code_diff: codeDiff,
-        patch_hash: patchHash,
-        proposal_only: true,
-        mutation_allowed: false,
-        mutation_executed: false,
-        approval_manifest: approvalManifest,
-        agent_id: agent.id,
-        thread_id: threadId,
-        turn_id: turnId || null,
-        run_id: run?.id ?? null,
-        session_id: runtimeSessionIdForAgent(agent),
-      },
-      receipt_refs: receiptRefs,
-      policy_decision_refs: policyDecisionRefs,
-      artifact_refs: [],
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: fixtureProfileForAgent(agent),
+      turn_id: optionalString(request.turn_id) ?? null,
+      proposal_id: optionalString(request.proposal_id) ?? null,
+      edit_intent_id: optionalString(request.edit_intent_id) ?? null,
+      approval_id: optionalString(request.approval_id) ?? null,
+      workflow_graph_id: optionalString(request.workflow_graph_id) ?? null,
+      workflow_node_id: optionalString(request.workflow_node_id) ?? null,
+      workflow_path: optionalString(request.workflow_path) ?? null,
+      source: optionalString(request.source) ?? null,
+      evidence_refs: [
+        "workflow_edit_proposal_js_facade_retired",
+        "rust_daemon_core_workflow_edit_proposal_required",
+        "agentgres_workflow_edit_proposal_truth_required",
+      ],
     });
-    const approval = store.requestThreadApproval(threadId, {
-      source,
-      turn_id: turnId,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      action: "workflow.edit.apply",
-      actor: "runtime",
-      reason: `Workflow edit proposal ${proposalId} requires approval before apply.`,
-      scope: "workflow_edit_proposal",
-      approval_id: approvalId,
-      tool_id: "workflow.edit.apply",
-      effect_class: "workflow_mutation",
-      risk_domain: "workflow_graph",
-      authority_scope_requirements: ["workflow.edit.apply"],
-      approval_manifest: approvalManifest,
-      receipt_refs: receiptRefs,
-      policy_decision_refs: [`policy_${runOrAgentId}_workflow_edit_approval_required`],
-    });
-    const approvalEvent = store.latestApprovalRequestEvent(threadId, approval.approval_id);
-    return {
-      schema_version: "ioi.runtime.workflow-edit-proposal-result.v1",
-      status: "waiting_for_approval",
-      proposal_id: proposalId,
-      edit_intent_id: editIntentId,
-      approval_id: approval.approval_id,
-      approval_required: true,
-      mutation_allowed: false,
-      mutation_executed: false,
-      workflow_path: workflowPath,
-      workflow_relative_path: workflowRelativePath,
-      patch_hash: patchHash,
-      event_id: event.event_id,
-      approval_event_id: approval.event_id,
-      receipt_refs: uniqueStrings([...event.receipt_refs, ...normalizeArray(approval.receipt_refs)]),
-      policy_decision_refs: uniqueStrings([
-        ...event.policy_decision_refs,
-        ...normalizeArray(approval.policy_decision_refs),
-      ]),
-      proposal_event: event,
-      approval_event: approvalEvent,
-    };
   }
 
   function latestWorkflowEditProposalEvent(store, threadId, proposalId) {
@@ -304,107 +123,28 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   }
 
   function applyWorkflowEditProposal(store, threadId, proposalId, request = {}) {
-    const { agent, run, turnId } = workflowEditThreadContext(store, threadId, request);
-    const normalizedProposalId =
-      optionalString(proposalId ?? request.proposal_id) ??
-      (() => {
-        throw runtimeErrorDep({
-          status: 400,
-          code: "workflow_edit_proposal_id_required",
-          message: "Workflow edit proposal apply requires a proposal id.",
-          details: { thread_id: threadId },
-        });
-      })();
-    const proposalEvent = latestWorkflowEditProposalEvent(store, threadId, normalizedProposalId);
-    if (!proposalEvent) {
-      throw notFoundDep(`Workflow edit proposal not found: ${normalizedProposalId}`, {
-        thread_id: threadId,
-        proposal_id: normalizedProposalId,
+    const normalizedProposalId = optionalString(proposalId ?? request.proposal_id);
+    if (!normalizedProposalId) {
+      throw runtimeErrorDep({
+        status: 400,
+        code: "workflow_edit_proposal_id_required",
+        message: "Workflow edit proposal apply requires a proposal id.",
+        details: { thread_id: threadId },
       });
     }
-    const proposalPayload = proposalEvent.payload_summary ?? proposalEvent.payload ?? {};
-    const approvalId =
-      optionalString(request.approval_id) ??
-      optionalString(proposalPayload.approval_id);
-    const approvalSatisfaction = workflowEditApprovalSatisfaction(store, {
-      threadId,
-      approval_id: approvalId,
-      proposal_event: proposalEvent,
-    });
-    if (!approvalSatisfaction.satisfied) {
-      return {
-        schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-        status: "blocked",
-        proposal_id: normalizedProposalId,
-        approval_id: approvalSatisfaction.approval_id ?? approvalId ?? null,
-        approval_required: true,
-        approval_satisfied: false,
-        mutation_allowed: false,
-        mutation_executed: false,
-        reason: approvalSatisfaction.reason,
-        error: {
-          code: "workflow_edit_approval_required",
-          message: `Workflow edit proposal ${normalizedProposalId} requires approval before apply.`,
-          details: {
-            proposal_id: normalizedProposalId,
-            approval_id: approvalSatisfaction.approval_id ?? approvalId ?? null,
-            reason: approvalSatisfaction.reason,
-          },
-        },
-      };
-    }
-    const source = operatorControlSource(request.source);
-    const requestedBy = optionalString(request.actor ?? request.requested_by) ?? "workflow-author";
-    const workflowGraphId =
-      optionalString(request.workflow_graph_id) ??
-      optionalString(proposalEvent.workflow_graph_id) ??
-      null;
-    const workflowNodeId =
-      optionalString(request.workflow_node_id) ??
-      optionalString(proposalEvent.workflow_node_id) ??
-      `runtime.workflow-edit-proposal.${safeId(normalizedProposalId)}`;
-    const workflowPath = optionalString(proposalPayload.workflow_path);
-    let workflowRelativePath = optionalString(proposalPayload.workflow_relative_path);
-    if (workflowPath) {
-      const resolvedWorkflowPath = path.resolve(agent.cwd, workflowPath);
-      workflowRelativePath = relativePathForWorkspace(resolvedWorkflowPath, agent.cwd);
-      if (!workflowRelativePath) {
-        throw policyErrorDep("Workflow edit apply blocked outside the runtime workspace.", {
-          workspaceRoot: agent.cwd,
-          workflow_path: resolvedWorkflowPath,
-          proposal_id: normalizedProposalId,
-        });
-      }
-    }
-    return {
-      schema_version: "ioi.runtime.workflow-edit-apply-result.v1",
-      status: "blocked",
+    throwWorkflowEditRustCoreRequired("workflow_edit_apply", "workflow.edit.apply", {
+      thread_id: threadId,
       proposal_id: normalizedProposalId,
-      approval_id: approvalSatisfaction.approval_id,
-      approval_satisfied: true,
-      approval_decision_event_id: approvalSatisfaction.decision_event_id,
-      requested_by: requestedBy,
-      control_surface: source,
-      workflow_graph_id: workflowGraphId,
-      workflow_node_id: workflowNodeId,
-      workflow_path: workflowPath,
-      workflow_relative_path: workflowRelativePath,
-      patch_hash: proposalPayload.patch_hash ?? null,
-      mutation_allowed: false,
-      mutation_executed: false,
-      idempotent_replay: false,
-      reason: "workflow_edit_apply_rust_core_required",
-      error: {
-        code: "workflow_edit_apply_rust_core_required",
-        message: "Workflow edit apply requires Rust daemon-core workflow mutation support.",
-        details: {
-          proposal_id: normalizedProposalId,
-          approval_id: approvalSatisfaction.approval_id,
-          approval_decision_event_id: approvalSatisfaction.decision_event_id,
-          workflow_relative_path: workflowRelativePath,
-        },
-      },
-    };
+      approval_id: optionalString(request.approval_id) ?? null,
+      workflow_graph_id: optionalString(request.workflow_graph_id) ?? null,
+      workflow_node_id: optionalString(request.workflow_node_id) ?? null,
+      source: optionalString(request.source) ?? null,
+      evidence_refs: [
+        "workflow_edit_apply_js_facade_retired",
+        "rust_daemon_core_workflow_edit_apply_required",
+        "agentgres_workflow_edit_apply_truth_required",
+      ],
+    });
   }
 
   return {
