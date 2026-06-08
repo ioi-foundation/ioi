@@ -13322,6 +13322,60 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 659
+
+```yaml
+slice: 659
+phase: 10-authoritative-js-facade-retirement
+objective: retire diagnostics operator-override turn lookup not-found detail
+  aliases so ownership mismatch failures expose canonical snake_case fields only
+owner_boundary:
+  route_or_surface: daemon diagnostics operator-override turn lookup fail-closed
+    surface before Rust policy-core planning
+  authority_gate: unchanged; diagnostics operator override still requires the
+    blocked turn to belong to the thread agent before Rust state-update planning
+  execution_backend: unchanged; this slice removes only the retired JS facade
+    not-found detail shape before the Rust planner is called
+  truth_path: no accepted run-state write occurs when the turn/run ownership
+    check fails before policy-core planning
+  projection_path: conformance now rejects `threadId`, `turnId`, and `runId`
+    not-found details and requires canonical `thread_id`, `turn_id`, and
+    `run_id` details for this fail-closed path
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance requires diagnostics operator-override turn lookup
+    not-found details to use canonical snake_case identity fields only
+  - focused daemon tests prove mismatched turn/run ownership fails before Rust
+    planning and exposes no retired camelCase detail aliases
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+  replay_or_shadow_comparison: focused fail-closed tests compare a valid
+    operator override against the mismatched ownership path and prove the latter
+    does not reach Rust planning or JS persistence
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      diagnostics operator-override not-found detail cleanup
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

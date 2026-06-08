@@ -338,7 +338,11 @@ export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
     if (targetRunId && status === "completed") {
       const run = store.getRun(targetRunId);
       if (run.agentId !== agent.id) {
-        throw notFound(`Turn not found: ${targetTurnId}`, { threadId, turnId: targetTurnId, runId: targetRunId });
+        throw notFound(`Turn not found: ${targetTurnId}`, {
+          thread_id: threadId,
+          turn_id: targetTurnId,
+          run_id: targetRunId,
+        });
       }
       previousTurnStatus = run.turnStatus ?? lifecycleStatusForRun(run.status);
       nextTurnStatus = "completed";

@@ -4670,6 +4670,9 @@ function runBridge() {
       ) &&
       /plannedDiagnosticsOperatorOverrideRunRecord/.test(runtimeDiagnosticsRepairSurface) &&
       /plannedDiagnosticsOperatorOverrideOperationKind/.test(runtimeDiagnosticsRepairSurface) &&
+      /notFound\(`Turn not found: \$\{targetTurnId\}`,\s*\{\s*thread_id: threadId,\s*turn_id: targetTurnId,\s*run_id: targetRunId,\s*\}\)/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
       /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId\s*\}/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
@@ -4682,7 +4685,13 @@ function runBridge() {
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
+      !/notFound\(`Turn not found: \$\{targetTurnId\}`,\s*\{[^}\n]*\b(?:threadId|turnId|runId)\s*:/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
       /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurfaceTest) &&
+      /diagnostics repair operator override turn lookup exposes canonical not-found details/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
       /diagnostics repair surface fails closed without Rust-planned override run/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&

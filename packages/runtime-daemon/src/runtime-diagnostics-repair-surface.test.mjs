@@ -553,6 +553,63 @@ test("diagnostics repair surface executes operator override and updates the bloc
   );
 });
 
+test("diagnostics repair operator override turn lookup exposes canonical not-found details", () => {
+  const calls = [];
+  const surface = createSurface({ calls });
+  const idempotency = new Map();
+  const run = {
+    id: "run_blocked",
+    agentId: "agent_beta",
+    status: "blocked",
+    turnStatus: "waiting_for_input",
+    diagnosticsBlockingGate: { status: "blocked" },
+    trace: { stopCondition: { reason: "lsp_diagnostics_blocked" } },
+    operatorControls: [],
+  };
+  const store = {
+    runs: new Map([[run.id, run]]),
+    agentForThread() {
+      return { id: "agent_alpha", cwd: "/tmp/workspace" };
+    },
+    runtimeEventStream() {
+      return { idempotency };
+    },
+    getRun(runId) {
+      return this.runs.get(runId);
+    },
+  };
+
+  assert.throws(
+    () =>
+      surface.executeDiagnosticsOperatorOverride(store, "thread_alpha", {
+        request: { confirm: true, source: "runtime_auto" },
+        gateEvent: {
+          event_id: "event_gate",
+          turn_id: "turn_blocked",
+          workspace_root: "/tmp/workspace",
+          payload_summary: { turn_id: "turn_blocked", gate_id: "gate_alpha" },
+        },
+        decision: { decision_id: "decision_override" },
+        repairPolicy: { policy_id: "policy_alpha" },
+        snapshotId: "snapshot_alpha",
+        workflowGraphId: "graph_alpha",
+      }),
+    (error) => {
+      assert.equal(error.status, 404);
+      assert.deepEqual(error.details, {
+        thread_id: "thread_alpha",
+        turn_id: "turn_blocked",
+        run_id: "run_blocked",
+      });
+      for (const key of ["threadId", "turnId", "runId"]) {
+        assert.equal(Object.hasOwn(error.details, key), false);
+      }
+      return true;
+    },
+  );
+  assert.equal(calls.length, 0);
+});
+
 test("diagnostics repair surface fails closed without Rust-planned override run", () => {
   const calls = [];
   const surface = createSurface({
