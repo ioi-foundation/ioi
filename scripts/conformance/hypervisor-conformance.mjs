@@ -496,7 +496,7 @@ function runDocs() {
       /The Slice 784 MCP\s+validation-input Rust-core matrix-compaction pass is complete/.test(guide) &&
       /Slice 785 retired the remaining helper-level JS MCP validation decision path/.test(guide) &&
       /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(guide) &&
-      /The\s+Slice 785 MCP JS validation helper-retirement matrix-compaction pass is pending/.test(guide) &&
+      /The\s+Slice 785 MCP JS validation helper-retirement matrix-compaction pass is\s+complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -547,7 +547,7 @@ function runDocs() {
       /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
-      /Slice 785 retired the helper-level JS MCP validation decision path/.test(matrix) &&
+      /This pass compacted Slice 785 MCP JS validation helper-retirement evidence/.test(matrix) &&
       /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
@@ -820,10 +820,10 @@ function runDocs() {
       /McpServerValidationInputCore/.test(matrix) &&
       /project_mcp_server_validation_input/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 784 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 785/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 785/.test(matrix) &&
       /`mcp-manager\.mjs` no longer exports `validateMcpServerRecords\(\)`/.test(matrix) &&
-      /Schedule and run a matrix-compaction pass\s+for Slice 785 before unrelated route-family work resumes/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending for Slice 785 MCP JS\s+validation helper-retirement evidence/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 785 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending until the next concrete\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
