@@ -23,6 +23,8 @@ export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-control-agent-state-update-request.v1";
 export const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-server-validation-request.v1";
+export const MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.mcp-manager-validation-projection-request.v1";
 export const MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-manager-status-projection-request.v1";
 export const MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION =
@@ -168,6 +170,14 @@ export class RustContextPolicyRunner {
     return normalizeMcpServerValidationBridgeResult(this.evaluateRawPolicy({
       operation: "validate_mcp_servers",
       schemaVersion: MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
+      request,
+    }));
+  }
+
+  planMcpManagerValidationProjection(request = {}) {
+    return normalizeMcpManagerValidationProjectionBridgeResult(this.evaluateRawPolicy({
+      operation: "plan_mcp_manager_validation_projection",
+      schemaVersion: MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
       request,
     }));
   }
@@ -724,6 +734,43 @@ export function normalizeMcpManagerStatusProjectionBridgeResult(value = {}) {
     prompts: arrayValue(result.prompts ?? record.prompts),
     validation: objectRecord(result.validation ?? record.validation) ?? {},
     routes: objectRecord(result.routes ?? record.routes) ?? {},
+  };
+}
+
+export function normalizeMcpManagerValidationProjectionBridgeResult(value = {}) {
+  const result = objectRecord(value) ?? {};
+  const record = objectRecord(result.record) ?? result;
+  const issues = arrayValue(result.issues ?? record.issues);
+  const warnings = arrayValue(result.warnings ?? record.warnings);
+  const ok = Boolean(result.ok ?? record.ok);
+  return {
+    ...record,
+    source:
+      result.source ??
+      record.source ??
+      "rust_mcp_manager_validation_projection_command",
+    backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
+    schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
+    object:
+      optionalString(result.object ?? record.object) ??
+      "ioi.runtime_mcp_manager_validation",
+    ok,
+    status:
+      optionalString(result.status ?? record.status) ??
+      (ok ? "pass" : "blocked"),
+    server_count: numberValue(result.server_count ?? record.server_count) ?? 0,
+    tool_count: numberValue(result.tool_count ?? record.tool_count) ?? 0,
+    resource_count: numberValue(result.resource_count ?? record.resource_count) ?? 0,
+    prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? 0,
+    issue_count: numberValue(result.issue_count ?? record.issue_count) ?? issues.length,
+    warning_count:
+      numberValue(result.warning_count ?? record.warning_count) ?? warnings.length,
+    issues,
+    warnings,
+    servers: arrayValue(result.servers ?? record.servers),
+    tools: arrayValue(result.tools ?? record.tools),
+    resources: arrayValue(result.resources ?? record.resources),
+    prompts: arrayValue(result.prompts ?? record.prompts),
   };
 }
 

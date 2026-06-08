@@ -53,6 +53,10 @@ pub const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation-request.v1";
 pub const MCP_SERVER_VALIDATION_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-server-validation.v1";
+pub const MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-validation-projection-request.v1";
+pub const MCP_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.mcp-manager-validation.v1";
 pub const MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.mcp-manager-status-projection-request.v1";
 pub const MCP_MANAGER_STATUS_PROJECTION_RESULT_SCHEMA_VERSION: &str =
@@ -244,6 +248,14 @@ pub enum McpControlAgentStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum McpServerValidationError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum McpManagerValidationProjectionError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -977,6 +989,43 @@ pub struct McpServerValidationRecord {
     pub warning_count: usize,
     pub issues: Vec<Value>,
     pub warnings: Vec<Value>,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerValidationProjectionRequest {
+    pub schema_version: String,
+    #[serde(default)]
+    pub validation_schema_version: Option<String>,
+    pub validation: Value,
+    #[serde(default)]
+    pub servers: Vec<Value>,
+    #[serde(default)]
+    pub tools: Vec<Value>,
+    #[serde(default)]
+    pub resources: Vec<Value>,
+    #[serde(default)]
+    pub prompts: Vec<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct McpManagerValidationProjectionRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub ok: bool,
+    pub status: String,
+    pub server_count: usize,
+    pub tool_count: usize,
+    pub resource_count: usize,
+    pub prompt_count: usize,
+    pub issue_count: usize,
+    pub warning_count: usize,
+    pub issues: Vec<Value>,
+    pub warnings: Vec<Value>,
+    pub servers: Vec<Value>,
+    pub tools: Vec<Value>,
+    pub resources: Vec<Value>,
+    pub prompts: Vec<Value>,
     pub generated_at: String,
 }
 
@@ -2694,6 +2743,61 @@ impl McpServerValidationCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct McpManagerValidationProjectionCore;
+
+impl McpManagerValidationProjectionCore {
+    pub fn project(
+        &self,
+        request: &McpManagerValidationProjectionRequest,
+    ) -> Result<McpManagerValidationProjectionRecord, McpManagerValidationProjectionError> {
+        request.validate()?;
+
+        let ok = request
+            .validation
+            .get("ok")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let issues = request
+            .validation
+            .get("issues")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+        let warnings = request
+            .validation
+            .get("warnings")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default();
+
+        Ok(McpManagerValidationProjectionRecord {
+            schema_version: request
+                .validation_schema_version
+                .clone()
+                .unwrap_or_else(|| {
+                    MCP_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION.to_string()
+                }),
+            object: "ioi.runtime_mcp_manager_validation".to_string(),
+            ok,
+            status: if ok { "pass" } else { "blocked" }.to_string(),
+            server_count: request.servers.len(),
+            tool_count: request.tools.len(),
+            resource_count: request.resources.len(),
+            prompt_count: request.prompts.len(),
+            issue_count: issues.len(),
+            warning_count: warnings.len(),
+            issues,
+            warnings,
+            servers: request.servers.clone(),
+            tools: request.tools.clone(),
+            resources: request.resources.clone(),
+            prompts: request.prompts.clone(),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct McpManagerCatalogProjectionCore;
 
 impl McpManagerCatalogProjectionCore {
@@ -3430,6 +3534,18 @@ impl McpManagerStatusProjectionRequest {
         if self.schema_version != MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION {
             return Err(McpManagerStatusProjectionError::InvalidSchemaVersion {
                 expected: MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl McpManagerValidationProjectionRequest {
+    pub fn validate(&self) -> Result<(), McpManagerValidationProjectionError> {
+        if self.schema_version != MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION {
+            return Err(McpManagerValidationProjectionError::InvalidSchemaVersion {
+                expected: MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
                 actual: self.schema_version.clone(),
             });
         }
@@ -6119,6 +6235,56 @@ mod tests {
         assert!(record.tools[0].get("stableToolId").is_none());
         assert!(record.resources[0].get("stableResourceId").is_none());
         assert!(record.prompts[0].get("stablePromptId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_projects_mcp_manager_validation_envelope() {
+        let validation = McpServerValidationCore
+            .validate(&mcp_server_validation_request())
+            .expect("mcp server validation");
+        let catalog = McpManagerCatalogProjectionCore
+            .project(&McpManagerCatalogProjectionRequest {
+                schema_version: MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+                status_schema_version: None,
+                servers: vec![json!({
+                    "id": "mcp.docs",
+                    "label": "Docs",
+                    "enabled": true,
+                    "allowed_tools": [{ "name": "search" }],
+                    "resources": [{ "uri": "docs://index" }],
+                    "prompts": [{ "name": "summarize" }]
+                })],
+            })
+            .expect("mcp catalog projection");
+        let request = McpManagerValidationProjectionRequest {
+            schema_version: MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION.to_string(),
+            validation_schema_version: Some("ioi.runtime.mcp-manager-validation.v1".to_string()),
+            validation: serde_json::to_value(validation).expect("validation value"),
+            servers: catalog.servers.clone(),
+            tools: catalog.tools.clone(),
+            resources: catalog.resources.clone(),
+            prompts: catalog.prompts.clone(),
+        };
+
+        let record = McpManagerValidationProjectionCore
+            .project(&request)
+            .expect("mcp validation projection");
+
+        assert_eq!(
+            record.schema_version,
+            MCP_MANAGER_VALIDATION_PROJECTION_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.runtime_mcp_manager_validation");
+        assert!(record.ok);
+        assert_eq!(record.status, "pass");
+        assert_eq!(record.server_count, 1);
+        assert_eq!(record.tool_count, 1);
+        assert_eq!(record.resource_count, 1);
+        assert_eq!(record.prompt_count, 1);
+        assert_eq!(record.issue_count, 0);
+        assert_eq!(record.warning_count, 0);
+        assert_eq!(record.tools[0]["stable_tool_id"], "mcp.Docs.search");
+        assert!(record.tools[0].get("stableToolId").is_none());
     }
 
     #[test]

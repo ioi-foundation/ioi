@@ -16,6 +16,7 @@ import {
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
+  MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1057,6 +1058,70 @@ test("MCP manager catalog projection runner sends Rust daemon-core projection re
   assert.equal(result.resources[0].stable_resource_id, "mcp.docs.resource.docs_index");
   assert.equal(result.prompts[0].stable_prompt_id, "mcp.docs.prompt.summarize");
   assert.equal(Object.hasOwn(result, "toolCount"), false);
+  assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
+});
+
+test("MCP manager validation projection runner sends Rust daemon-core projection request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_mcp_manager_validation_projection_command",
+            backend: "rust_policy",
+            schema_version: "ioi.runtime.mcp-manager-validation.v1",
+            object: "ioi.runtime_mcp_manager_validation",
+            ok: false,
+            status: "blocked",
+            server_count: 1,
+            tool_count: 1,
+            resource_count: 1,
+            prompt_count: 1,
+            issue_count: 1,
+            warning_count: 0,
+            issues: [{ code: "invalid", server_id: "mcp.docs" }],
+            warnings: [],
+            servers: [{ id: "mcp.docs" }],
+            tools: [{ stable_tool_id: "mcp.docs.search" }],
+            resources: [{ uri: "docs://index" }],
+            prompts: [{ name: "summarize" }],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planMcpManagerValidationProjection({
+    validation_schema_version: "ioi.runtime.mcp-manager-validation.v1",
+    validation: { ok: false, issues: [{ code: "invalid", server_id: "mcp.docs" }], warnings: [] },
+    servers: [{ id: "mcp.docs" }],
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+    resources: [{ uri: "docs://index" }],
+    prompts: [{ name: "summarize" }],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_mcp_manager_validation_projection");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(result.source, "rust_mcp_manager_validation_projection_command");
+  assert.equal(result.status, "blocked");
+  assert.equal(result.ok, false);
+  assert.equal(result.server_count, 1);
+  assert.equal(result.tool_count, 1);
+  assert.equal(result.issue_count, 1);
+  assert.equal(result.issues[0].server_id, "mcp.docs");
+  assert.equal(result.tools[0].stable_tool_id, "mcp.docs.search");
+  assert.equal(Object.hasOwn(result, "serverCount"), false);
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
 });
 

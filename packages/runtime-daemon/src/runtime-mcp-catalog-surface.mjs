@@ -287,27 +287,15 @@ export function createRuntimeMcpCatalogSurface({
       );
       const servers = mcpServerRecordsFromValidationInputDep(input, workspaceRoot);
       const validation = contextPolicyRunner.validateMcpServers({ servers });
-      const tools = mcpToolsForServersDep(servers);
-      const resources = mcpResourcesForServersDep(servers);
-      const prompts = mcpPromptsForServersDep(servers);
-      return {
-        schema_version: validationSchemaVersion,
-        object: "ioi.runtime_mcp_manager_validation",
-        ok: validation.ok,
-        status: validation.ok ? "pass" : "blocked",
-        server_count: servers.length,
-        tool_count: tools.length,
-        resource_count: resources.length,
-        prompt_count: prompts.length,
-        issue_count: validation.issues.length,
-        warning_count: validation.warnings.length,
-        issues: validation.issues,
-        warnings: validation.warnings,
+      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
+      return contextPolicyRunner.planMcpManagerValidationProjection({
+        validation_schema_version: validationSchemaVersion,
+        validation,
         servers,
-        tools,
-        resources,
-        prompts,
-      };
+        tools: catalog.tools,
+        resources: catalog.resources,
+        prompts: catalog.prompts,
+      });
     },
     mcpServersForContext(store, options = {}) {
       const threadId = optionalStringDep(options.thread_id);

@@ -99,7 +99,9 @@ use policy::{
     McpManagerCatalogProjectionError, McpManagerCatalogProjectionRecord,
     McpManagerCatalogProjectionRequest, McpManagerStatusProjectionCore,
     McpManagerStatusProjectionError, McpManagerStatusProjectionRecord,
-    McpManagerStatusProjectionRequest, McpServerValidationCore, McpServerValidationError,
+    McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
+    McpManagerValidationProjectionError, McpManagerValidationProjectionRecord,
+    McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationError,
     McpServerValidationRecord, McpServerValidationRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
@@ -285,6 +287,13 @@ impl RuntimeKernelService {
         request: &McpServerValidationRequest,
     ) -> Result<McpServerValidationRecord, McpServerValidationError> {
         McpServerValidationCore.validate(request)
+    }
+
+    pub fn plan_mcp_manager_validation_projection(
+        &self,
+        request: &McpManagerValidationProjectionRequest,
+    ) -> Result<McpManagerValidationProjectionRecord, McpManagerValidationProjectionError> {
+        McpManagerValidationProjectionCore.project(request)
     }
 
     pub fn plan_mcp_manager_status_projection(

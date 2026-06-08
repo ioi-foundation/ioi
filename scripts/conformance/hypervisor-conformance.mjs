@@ -475,6 +475,9 @@ function runDocs() {
       /Slice 778 moved MCP status catalog-row projection into Rust daemon-core\s+migration transport/.test(guide) &&
       /McpManagerCatalogProjectionCore/.test(guide) &&
       /The Slice 778 MCP status catalog-projection\s+Rust-core matrix-compaction pass is complete/.test(guide) &&
+      /Slice 779 moved public MCP validation envelope projection into Rust daemon-core\s+migration transport/.test(guide) &&
+      /McpManagerValidationProjectionCore/.test(guide) &&
+      /The Slice 779 MCP validation projection Rust-core matrix-compaction\s+pass is pending/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -519,7 +522,8 @@ function runDocs() {
       /This pass compacted Slice 776 MCP status projection Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 777 agent-scoped MCP status Rust-core evidence/.test(matrix) &&
       /This pass compacted Slice 778 MCP status catalog-projection Rust-core evidence/.test(matrix) &&
-      /Next resume instruction: continue the next concrete Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 779 moved public MCP validation envelope projection into Rust daemon-core\s+migration transport/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 779 MCP\s+validation projection Rust-core evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -767,15 +771,21 @@ function runDocs() {
       /plan_mcp_manager_catalog_projection/.test(matrix) &&
       /planMcpManagerCatalogProjection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 778 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 779/.test(matrix) &&
+      /McpManagerValidationProjectionCore/.test(matrix) &&
+      /plan_mcp_manager_validation_projection/.test(matrix) &&
+      /planMcpManagerValidationProjection/.test(matrix) &&
+      /Schedule\s+and run a matrix-compaction pass for Slice 779 before unrelated route-family\s+work resumes/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 779 MCP validation\s+projection Rust-core evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, transport\/containment, and validation secret-ref handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
       /public MCP validation decisions now send normalized canonical server records through Rust\s+daemon-core `McpServerValidationCore`\/`validate_mcp_servers` migration transport/.test(implementationMatrix) &&
+      /public MCP validation envelopes now route through Rust daemon-core\s+`McpManagerValidationProjectionCore`\/`plan_mcp_manager_validation_projection`/.test(implementationMatrix) &&
       /public MCP status plus agent-scoped `mcpStatusForAgent` catalog row inputs now\s+route through Rust daemon-core `McpManagerCatalogProjectionCore`\/`plan_mcp_manager_catalog_projection`/.test(implementationMatrix) &&
       /public\/agent MCP status readiness\/count\/projection now route through Rust daemon-core\s+`McpManagerStatusProjectionCore`\/`plan_mcp_manager_status_projection`/.test(implementationMatrix) &&
-      /list\/search\/live catalog row gathering and lower-level manager validation remain\s+read-only\/projection migration helpers, not terminal validation, status projection, or registry authority/.test(implementationMatrix) &&
+      /list\/search\/live catalog row gathering and validation-input parsing remain\s+read-only\/projection migration helpers, not terminal validation, status projection,\s+public validation projection, or registry authority/.test(implementationMatrix) &&
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
@@ -5728,6 +5738,10 @@ function runBridge() {
       /McpManagerCatalogProjectionRequest/.test(policyCore) &&
       /MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_projects_mcp_manager_catalog_rows/.test(policyCore) &&
+      /McpManagerValidationProjectionCore/.test(policyCore) &&
+      /McpManagerValidationProjectionRequest/.test(policyCore) &&
+      /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_projects_mcp_manager_validation_envelope/.test(policyCore) &&
       /"control_kind": control_kind/.test(mcpControlAgentStateUpdateCoreBlock) &&
       /"event_id": request\.event_id/.test(mcpControlAgentStateUpdateCoreBlock) &&
       /"created_at": request\.created_at/.test(mcpControlAgentStateUpdateCoreBlock) &&
@@ -5750,6 +5764,10 @@ function runBridge() {
       /McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
       /rust_mcp_manager_catalog_projection_command/.test(bridgeModule) &&
       /bridge_projects_mcp_manager_catalog_through_rust_core/.test(bridgeModule) &&
+      /plan_mcp_manager_validation_projection/.test(bridgeModule) &&
+      /McpManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
+      /rust_mcp_manager_validation_projection_command/.test(bridgeModule) &&
+      /bridge_projects_mcp_manager_validation_through_rust_core/.test(bridgeModule) &&
       /"secret_refs":/.test(policyCore) &&
       /"secretRefs":/.test(policyCore) &&
       /server\.get\("secret_refs"\)/.test(mcpServerValidationCoreBlock) &&
@@ -5767,6 +5785,7 @@ function runBridge() {
       /validateMcpServers/.test(runtimeContextPolicyRunner) &&
       /planMcpManagerStatusProjection/.test(runtimeContextPolicyRunner) &&
       /planMcpManagerCatalogProjection/.test(runtimeContextPolicyRunner) &&
+      /planMcpManagerValidationProjection/.test(runtimeContextPolicyRunner) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
@@ -5779,6 +5798,9 @@ function runBridge() {
       /MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
+      /MCP_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
       /mcp control agent state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
@@ -5789,6 +5811,9 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /MCP manager catalog projection runner sends Rust daemon-core projection request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /MCP manager validation projection runner sends Rust daemon-core projection request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       /captured\.operation,\s*"validate_mcp_servers"/.test(
@@ -5809,8 +5834,17 @@ function runBridge() {
       /result\.source,\s*"rust_mcp_manager_catalog_projection_command"/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /captured\.operation,\s*"plan_mcp_manager_validation_projection"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       (runtimeMcpCatalogSurface.match(/contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/g) ?? []).length === 2 &&
       /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
+        runtimeMcpCatalogSurface,
+      ) &&
+      /contextPolicyRunner\.planMcpManagerValidationProjection\(\{/.test(
         runtimeMcpCatalogSurface,
       ) &&
       /contextPolicyRunner\.planMcpManagerStatusProjection\(\{/.test(
@@ -5825,9 +5859,11 @@ function runBridge() {
       ) &&
       /planMcpManagerStatusProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
       /planMcpManagerCatalogProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
+      /planMcpManagerValidationProjection\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
       /validateMcpServers\(request\)/.test(runtimeMcpCatalogSurfaceTest) &&
       /rust_mcp_manager_status_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /rust_mcp_manager_catalog_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
+      /rust_mcp_manager_validation_projection_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /rust_mcp_server_validation_command/.test(runtimeMcpCatalogSurfaceTest) &&
       /result\.control\.control_kind/.test(runtimeContextPolicyRunnerTest) &&
       /result\.control\.event_id/.test(runtimeContextPolicyRunnerTest) &&
@@ -22666,8 +22702,12 @@ function runCompositor() {
       /enabled_tools:\s*catalog\.enabled_tools/.test(runtimeMcpStatusBlock) &&
       /search_tools:\s*"\/v1\/mcp\/tools\/search"/.test(runtimeMcpStatusBlock) &&
       /serve_for_thread:\s*"\/v1\/threads\/\{thread_id\}\/mcp\/serve"/.test(runtimeMcpStatusBlock) &&
-      /schema_version:\s*validationSchemaVersion/.test(runtimeMcpValidateBlock) &&
-      /issue_count:\s*validation\.issues\.length/.test(runtimeMcpValidateBlock) &&
+      /contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(runtimeMcpValidateBlock) &&
+      /contextPolicyRunner\.planMcpManagerValidationProjection\(\{/.test(runtimeMcpValidateBlock) &&
+      /validation_schema_version:\s*validationSchemaVersion/.test(runtimeMcpValidateBlock) &&
+      /tools:\s*catalog\.tools/.test(runtimeMcpValidateBlock) &&
+      /resources:\s*catalog\.resources/.test(runtimeMcpValidateBlock) &&
+      /prompts:\s*catalog\.prompts/.test(runtimeMcpValidateBlock) &&
       /schema_version:\s*toolSearchSchemaVersion/.test(runtimeMcpSearchToolCatalogBlock) &&
       /live_discovery:\s*liveDiscovery/.test(runtimeMcpSearchToolCatalogBlock) &&
       /catalog_summaries:\s*catalogSummaries/.test(runtimeMcpSearchToolCatalogBlock) &&
@@ -22679,6 +22719,8 @@ function runCompositor() {
       /tool_name:\s*tool\.tool_name\s*\?\?\s*null/.test(runtimeMcpGetToolFromCatalogBlock) &&
       /returned_count:\s*1/.test(runtimeMcpGetToolFromCatalogBlock) &&
       /Object\.hasOwn\(status,\s*"schemaVersion"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
+      /validation\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(runtimeMcpCatalogSurfaceTest) &&
+      /planMcpManagerValidationProjection/.test(runtimeMcpCatalogSurfaceTest) &&
       /Object\.hasOwn\(validation,\s*"issueCount"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
       /Object\.hasOwn\(globalSearch,\s*"catalogSummaries"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&
       /Object\.hasOwn\(fetched,\s*"toolId"\),\s*false/.test(runtimeMcpCatalogSurfaceTest) &&

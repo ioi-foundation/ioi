@@ -41,7 +41,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
     McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionCore,
     McpManagerCatalogProjectionRequest, McpManagerStatusProjectionCore,
-    McpManagerStatusProjectionRequest, McpServerValidationCore, McpServerValidationRequest,
+    McpManagerStatusProjectionRequest, McpManagerValidationProjectionCore,
+    McpManagerValidationProjectionRequest, McpServerValidationCore, McpServerValidationRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
@@ -496,6 +497,16 @@ struct McpManagerStatusProjectionBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct McpManagerValidationProjectionBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpManagerValidationProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
 struct McpManagerCatalogProjectionBridgeRequest {
     #[serde(rename = "schema_version")]
     schema_version: String,
@@ -942,6 +953,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_mcp_manager_status_projection(request)
+        }
+        "plan_mcp_manager_validation_projection" => {
+            let request: McpManagerValidationProjectionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_mcp_manager_validation_projection(request)
         }
         "plan_mcp_manager_catalog_projection" => {
             let request: McpManagerCatalogProjectionBridgeRequest =
@@ -2715,6 +2732,55 @@ fn plan_mcp_manager_status_projection(
         "prompts": record.prompts.clone(),
         "validation": record.validation.clone(),
         "routes": record.routes.clone(),
+    }))
+}
+
+fn plan_mcp_manager_validation_projection(
+    request: McpManagerValidationProjectionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_mcp_manager_validation_projection" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = McpManagerValidationProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "mcp_manager_validation_projection_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_manager_validation_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "ok": record.ok,
+        "status": record.status.clone(),
+        "server_count": record.server_count,
+        "tool_count": record.tool_count,
+        "resource_count": record.resource_count,
+        "prompt_count": record.prompt_count,
+        "issue_count": record.issue_count,
+        "warning_count": record.warning_count,
+        "issues": record.issues.clone(),
+        "warnings": record.warnings.clone(),
+        "servers": record.servers.clone(),
+        "tools": record.tools.clone(),
+        "resources": record.resources.clone(),
+        "prompts": record.prompts.clone(),
     }))
 }
 
@@ -9428,6 +9494,53 @@ mod tests {
             "mcp.Docs.prompt.summarize"
         );
         assert!(response.get("stableToolId").is_none());
+        assert!(response["tools"][0].get("stableToolId").is_none());
+    }
+
+    #[test]
+    fn bridge_projects_mcp_manager_validation_through_rust_core() {
+        let request: McpManagerValidationProjectionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_mcp_manager_validation_projection",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.mcp-manager-validation-projection-request.v1",
+                "validation_schema_version": "ioi.runtime.mcp-manager-validation.v1",
+                "validation": {
+                    "ok": false,
+                    "status": "blocked",
+                    "issues": [{ "code": "mcp_server_transport_missing", "server_id": "mcp.docs" }],
+                    "warnings": []
+                },
+                "servers": [{ "id": "mcp.docs" }],
+                "tools": [{ "stable_tool_id": "mcp.docs.search" }],
+                "resources": [{ "uri": "docs://index" }],
+                "prompts": [{ "name": "summarize" }]
+            }
+        }))
+        .expect("mcp manager validation projection bridge request");
+
+        let response = plan_mcp_manager_validation_projection(request)
+            .expect("mcp manager validation projection planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_mcp_manager_validation_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.mcp-manager-validation.v1"
+        );
+        assert_eq!(response["object"], "ioi.runtime_mcp_manager_validation");
+        assert_eq!(response["ok"], false);
+        assert_eq!(response["status"], "blocked");
+        assert_eq!(response["server_count"], 1);
+        assert_eq!(response["tool_count"], 1);
+        assert_eq!(response["issue_count"], 1);
+        assert_eq!(response["issues"][0]["server_id"], "mcp.docs");
+        assert_eq!(response["tools"][0]["stable_tool_id"], "mcp.docs.search");
+        assert!(response.get("serverCount").is_none());
         assert!(response["tools"][0].get("stableToolId").is_none());
     }
 

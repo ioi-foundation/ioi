@@ -103,6 +103,29 @@ function harness() {
           enabled_tools: tools,
         };
       },
+      planMcpManagerValidationProjection(request) {
+        calls.push({ name: "planMcpManagerValidationProjection", request });
+        return {
+          source: "rust_mcp_manager_validation_projection_command",
+          backend: "rust_policy",
+          schema_version: request.validation_schema_version,
+          object: "ioi.runtime_mcp_manager_validation",
+          ok: request.validation.ok,
+          status: request.validation.ok ? "pass" : "blocked",
+          server_count: request.servers.length,
+          tool_count: request.tools.length,
+          resource_count: request.resources.length,
+          prompt_count: request.prompts.length,
+          issue_count: request.validation.issues.length,
+          warning_count: request.validation.warnings.length,
+          issues: request.validation.issues,
+          warnings: request.validation.warnings,
+          servers: request.servers,
+          tools: request.tools,
+          resources: request.resources,
+          prompts: request.prompts,
+        };
+      },
       planMcpManagerStatusProjection(request) {
         calls.push({ name: "planMcpManagerStatusProjection", request });
         const validation = {
@@ -265,6 +288,7 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.equal(validation.issue_count, 1);
   assert.equal(validation.issues[0].server_id, "mcp.invalid");
   assert.equal(validation.tools.length, 2);
+  assert.equal(validation.source, "rust_mcp_manager_validation_projection_command");
   assert.equal(Object.hasOwn(validation, "schemaVersion"), false);
   assert.equal(Object.hasOwn(validation, "serverCount"), false);
   assert.equal(Object.hasOwn(validation, "issueCount"), false);
@@ -272,6 +296,14 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   assert.deepEqual(
     calls.find((call) => call.name === "mcpServerRecordsFromValidationInput")?.workspaceRoot,
     "/resolved/custom",
+  );
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerValidationProjection")?.request.tools.length,
+    2,
+  );
+  assert.equal(
+    calls.find((call) => call.name === "planMcpManagerValidationProjection")?.request.validation.issues[0].server_id,
+    "mcp.invalid",
   );
   assert.deepEqual(
     calls.find((call) => call.name === "validateMcpServers")?.request.servers.map((item) => item.id),
