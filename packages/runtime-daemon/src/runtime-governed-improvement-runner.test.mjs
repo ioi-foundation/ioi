@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV,
   GOVERNED_IMPROVEMENT_COMMAND_ENV,
   GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION,
   GovernedImprovementRunnerError,
@@ -83,12 +84,18 @@ test("governed improvement runner sends proposal admission bridge request", () =
   assert.equal(result.rollback_ref, "rollback://skill/runtime-auditor/current");
 });
 
-test("governed improvement runner can be configured from env", () => {
+test("governed improvement runner env uses daemon-core command boundary", () => {
   const runner = createGovernedImprovementRunnerFromEnv({
-    [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "mock-governed-improvement-bridge",
+    [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
+    [GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV]: "--json",
+    IOI_GOVERNED_IMPROVEMENT_COMMAND: "retired-governed-improvement-bridge",
+    IOI_GOVERNED_IMPROVEMENT_COMMAND_ARGS: "--retired-governed",
+    IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
+    IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
   });
 
-  assert.equal(runner.command, "mock-governed-improvement-bridge");
+  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  assert.deepEqual(runner.args, ["--json"]);
 });
 
 test("governed improvement runner fails closed without command", () => {

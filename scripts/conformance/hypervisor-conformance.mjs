@@ -9177,6 +9177,7 @@ function runBridge() {
       /GovernedEvolutionCore/.test(bridgeModule) &&
       /rust_governed_meta_improvement_command/.test(bridgeModule) &&
       /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule) &&
+      /governed_improvement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /agentgres:\/\/runtime-improvement\/head\/current/.test(bridgeModule),
     ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
     "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",
@@ -9185,7 +9186,10 @@ function runBridge() {
     result,
     "governed-meta-improvement-daemon-runner",
     /GOVERNED_IMPROVEMENT_COMMAND_ENV/.test(governedImprovementRunner) &&
-      /IOI_GOVERNED_IMPROVEMENT_COMMAND/.test(governedImprovementRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(governedImprovementRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(governedImprovementRunner) &&
+      !/IOI_GOVERNED_IMPROVEMENT_COMMAND/.test(governedImprovementRunner) &&
+      !/IOI_STEP_MODULE_COMMAND/.test(governedImprovementRunner) &&
       /RustGovernedImprovementRunner/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(runtimeDaemonIndex) &&
@@ -9195,6 +9199,7 @@ function runBridge() {
       /rust_governed_evolution/.test(governedImprovementRunner) &&
       /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
       /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner env uses daemon-core command boundary/.test(governedImprovementRunnerTest) &&
       /governed improvement runner fails closed without command/.test(governedImprovementRunnerTest) &&
       /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest) &&
       /runtime store mounts governed improvement runner from options/.test(governedImprovementStoreTest),

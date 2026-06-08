@@ -1014,6 +1014,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "authorize_external_capability_exit"
             | "execute_private_workspace_ctee_action"
             | "admit_l1_settlement_attempt"
+            | "admit_governed_runtime_improvement_proposal"
             | "plan_coding_tool_approval_manifest"
             | "plan_approval_request_state_update"
             | "plan_approval_decision_state_update"
@@ -1951,12 +1952,12 @@ fn admit_l1_settlement_attempt(
 fn admit_governed_runtime_improvement_proposal(
     request: GovernedRuntimeImprovementBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
         return Err(BridgeError::new(
             "schema_version_invalid",
             format!(
                 "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
             ),
         ));
     }
@@ -7602,7 +7603,7 @@ mod tests {
     #[test]
     fn bridge_admits_governed_runtime_improvement_proposal_through_rust_core() {
         let request: GovernedRuntimeImprovementBridgeRequest = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "admit_governed_runtime_improvement_proposal",
             "backend": "rust_governed_evolution",
             "proposal": {
@@ -7669,6 +7670,37 @@ mod tests {
             .as_str()
             .expect("admission hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn governed_improvement_rejects_step_module_command_schema() {
+        let request: GovernedRuntimeImprovementBridgeRequest = serde_json::from_value(json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "admit_governed_runtime_improvement_proposal",
+            "backend": "rust_governed_evolution",
+            "proposal": {
+                "schema_version": "ioi.governed_runtime_improvement.v1",
+                "proposal_id": "proposal://runtime-improvement/retired-schema",
+                "target_ref": "skill://runtime-auditor/current",
+                "candidate_ref": "skill-candidate://runtime-auditor/from-trace",
+                "surface": "skill",
+                "source_trace_ref": "trace://runtime-improvement/high-fitness",
+                "eval_receipt_refs": ["receipt://eval/bridge-holdout-pass"],
+                "verifier_receipt_refs": ["receipt://verifier/bridge-regression-pass"],
+                "approval_ref": "approval://wallet/runtime-improvement/bridge",
+                "rollback_ref": "rollback://skill/runtime-auditor/current"
+            }
+        }))
+        .expect("governed runtime improvement bridge request");
+
+        let error = admit_governed_runtime_improvement_proposal(request)
+            .expect_err("daemon-core governed improvement rejects StepModule command schema");
+
+        assert_eq!(error.code, "schema_version_invalid");
+        assert!(error
+            .message
+            .contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

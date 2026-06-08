@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 
-export const GOVERNED_IMPROVEMENT_COMMAND_ENV = "IOI_GOVERNED_IMPROVEMENT_COMMAND";
-export const GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV = "IOI_GOVERNED_IMPROVEMENT_COMMAND_ARGS";
-export const GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
+export const GOVERNED_IMPROVEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
+export const GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
+export const GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_GOVERNED_IMPROVEMENT_BACKEND = "rust_governed_evolution";
 
 export function createGovernedImprovementRunnerFromEnv(env = process.env, options = {}) {
@@ -45,7 +45,7 @@ export class RustGovernedImprovementRunner {
     }
     if (!this.command) {
       throw new GovernedImprovementRunnerError(
-        "Governed improvement admission requires IOI_GOVERNED_IMPROVEMENT_COMMAND for Rust proposal admission.",
+        "Governed improvement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core proposal admission.",
         "governed_improvement_bridge_unconfigured",
         {
           env: GOVERNED_IMPROVEMENT_COMMAND_ENV,
