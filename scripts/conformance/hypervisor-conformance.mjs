@@ -3392,6 +3392,7 @@ function runBridge() {
       /input\.controlled_relaunch_approval_ref \?\?\s*[\r\n\s]*input\.host_browser_launch_approval_ref \?\?\s*[\r\n\s]*input\.browser_launch_approval_ref/.test(computerUseInputs) &&
       /input\.cdp_timeout_ms \?\?\s*[\r\n\s]*input\.timeout_ms/.test(computerUseInputs) &&
       /input\.session_mode \?\?\s*[\r\n\s]*input\.computer_use_session_mode/.test(computerUseInputs) &&
+      /input\.control_action \?\?\s*[\r\n\s]*input\.action \?\?\s*[\r\n\s]*input\.command/.test(computerUseInputs) &&
       /computerUseAuthorityScopesForInput/.test(computerUseInputs) &&
       /normalizeArray\(input\.authority_scopes\)/.test(computerUseInputs) &&
       /computerUseObservationRetentionModeForInput/.test(computerUseInputs) &&
@@ -3419,10 +3420,14 @@ function runBridge() {
         computerUseInputsTest,
       ) &&
       /controlledRelaunchApprovalRef: "approval-retired"/.test(computerUseInputsTest) &&
+      /controlAction: "abort"/.test(computerUseInputsTest) &&
+      /assert\.equal\(computerUseControlActionForInput\(\{ controlAction: "abort" \}\), "pause"\)/.test(
+        computerUseInputsTest,
+      ) &&
       /assert\.equal\(nativeBrowserHasExplicitCdpEndpoint\(\{ cdpWsUrl: "ws:\/\/localhost\/devtools" \}\), false\)/.test(
         computerUseInputsTest,
       ) &&
-      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|authorityScopes|observationRetentionMode|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
+      !/(?:input|request)\.(?:actionKind|computerUseActionKind|approvalRef|computerUseApprovalRef|controlledRelaunchApprovalRef|hostBrowserLaunchApprovalRef|browserLaunchApprovalRef|cdpTimeoutMs|timeoutMs|sessionMode|computerUseSessionMode|controlAction|authorityScopes|observationRetentionMode|controlledRelaunch|cdpEndpointUrl|cdpEndpoint|cdpWebSocketUrl|cdpWsUrl|webSocketDebuggerUrl|websocketDebuggerUrl|targetRef|computerUseTargetRef)\b/.test(
         `${computerUseInputs}\n${computerUseToolIdentityBodies.slice(1, 5).join("\n")}`,
       ) &&
       !/input\.authorityScopes\b/.test(runtimeDaemonIndex) &&

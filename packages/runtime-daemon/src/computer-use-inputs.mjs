@@ -212,8 +212,7 @@ export function nativeBrowserActionShouldUseCdpExecutor(actionKind, approvalRef,
 
 export function computerUseControlActionForInput(input = {}) {
   const explicit = optionalString(
-    input.controlAction ??
-      input.control_action ??
+    input.control_action ??
       input.action ??
       input.command,
   )?.toLowerCase().replace(/[\s-]+/g, "_");

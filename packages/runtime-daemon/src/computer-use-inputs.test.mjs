@@ -137,6 +137,14 @@ test("computer-use inputs classify CDP execution and control actions", () => {
   assert.equal(computerUseControlActionForInput({ command: "clean up" }), "cleanup");
   assert.equal(computerUseControlActionForInput({ command: "stop" }), "abort");
   assert.equal(computerUseControlActionForInput({ command: "continue" }), "resume");
+  assert.equal(
+    computerUseControlActionForInput({
+      control_action: "resume",
+      controlAction: "abort",
+    }),
+    "resume",
+  );
+  assert.equal(computerUseControlActionForInput({ controlAction: "abort" }), "pause");
   assert.equal(computerUseControlActionForInput({}), "pause");
 });
 

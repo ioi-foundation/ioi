@@ -17,7 +17,8 @@ slice 658, plus diagnostics operator-override not-found detail alias evidence
 through slice 659, plus computer-use route authority-scope alias evidence
 through slice 660, plus computer-use route observation-retention alias evidence
 through slice 661, plus coding-tool input-summary alias evidence through slice
-662, plus computer-use route workflow-node alias evidence through slice 663.
+662, plus computer-use route workflow-node alias evidence through slice 663,
+plus computer-use control-action alias evidence through slice 664.
 Next resume instruction: continue the next Rust-core extraction or
 facade-retirement implementation slice first; schedule and run the next
 matrix-compaction pass immediately after that seam is concrete, before unrelated
@@ -13350,6 +13351,63 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 664
+
+```yaml
+slice: 664
+phase: 10-authoritative-js-facade-retirement
+objective: retire the computer-use control-action compatibility alias before
+  control receipt and authority metadata are emitted
+owner_boundary:
+  route_or_surface: `computer_use.control` runtime thread-tool route selector
+  authority_gate: unchanged; the control route still emits
+    `computer_use.control.${action}` authority scope metadata after canonical
+    action selection
+  execution_backend: unchanged; this slice removes a JS facade alias before
+    control receipt metadata reaches the existing route path
+  truth_path: canonical `control_action`, `action`, or `command` can select
+    pause/resume/abort/cleanup; retired `controlAction` no longer steers the
+    control action and falls back to the safe default pause when supplied alone
+  projection_path: bridge conformance requires the canonical control-action
+    selector and focused tests prove retired-only `controlAction` is ignored
+touched_files:
+  docs:
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon_facade:
+    - packages/runtime-daemon/src/computer-use-inputs.mjs
+  tests:
+    - packages/runtime-daemon/src/computer-use-inputs.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance requires `computerUseControlActionForInput` to consume
+    canonical `control_action`, `action`, and `command` without the retired
+    `controlAction` alias
+  - focused daemon tests prove canonical `control_action` wins when paired with
+    retired `controlAction`
+  - focused daemon tests prove retired-only `controlAction` falls closed to the
+    safe default pause action
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/computer-use-inputs.test.mjs
+    - node --check packages/runtime-daemon/src/computer-use-inputs.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      computer-use route facade cleanup
+    - remaining computer-use route family JS facade code is migration transport
+      until Rust daemon-core ownership is extracted for the full route family
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -13365,7 +13423,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 663 and the ninety-ninth 2026-06-07 matrix compaction pass:
+Current expected behavior after Slice 664 and the ninety-ninth 2026-06-07 matrix compaction pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
@@ -13783,7 +13841,7 @@ reconstruct the active seam without carrying every per-slice paragraph.
   accepted-receipt head planning now emits and transition planning consumes
   canonical snake_case `head_ref`, `state_root`, `projection_watermark`,
   `head_hash`, and `evidence_refs` fields instead of retired camelCase head
-  bridge outputs; runtime usage request metadata now emits only canonical snake_case usage/projection request fields, so retired `eventKind`, `componentKind`, `payloadSchemaVersion`, `workflowGraphId`, `workflowNodeId`, `usageMeterScope`, and `simulationMode` aliases cannot re-enter usage telemetry projection metadata; workspace-change control now derives change identity only from canonical `change_id` and sends canonical `session_id`, `thread_id`, `workspace_root`, `request_hash`, `change_id`, and `created_at` fields into runtime bridge control dispatch without retired camelCase bridge request aliases, and workspace-change inspection now sends canonical `session_id`, `thread_id`, `workspace_root`, `projection`, and `requested_at` fields into runtime bridge inspection dispatch while retired `sessionId`, `threadId`, `workspaceRoot`, and `requestedAt` request aliases fail closed before dispatch; managed-session inspection now sends canonical `session_id`, `thread_id`, `workspace_root`, `projection`, `managed_sessions_only`, and `requested_at` fields into runtime bridge inspection dispatch while retired `sessionId`, `threadId`, `workspaceRoot`, `managedSessionsOnly`, and `requestedAt` request aliases fail closed before dispatch; managed-session control now derives identity only from canonical `managed_session_id` and sends canonical `session_id`, `thread_id`, `workspace_root`, `request_hash`, `managed_session_id`, and `created_at` fields into runtime bridge control dispatch while retired `managedSessionId`, `sessionCardId`, `session_card_id`, `createdAt`, and `requestHash` aliases fail closed before dispatch; run-cancel Rust-planning fail-closed details now expose canonical `run_id`, `operation_kind`, and `expected_operation_kind` fields without retired `runId` detail aliases before any JS persistence write, computer-use route authority metadata now ignores retired `authorityScopes` input aliases before native-browser, visual-GUI, sandboxed-hosted, or visual-observation broker StepModule/Rust dispatch, and computer-use route retention metadata now ignores retired `observationRetentionMode` input aliases before native-browser, visual-GUI, or sandboxed-hosted StepModule/Rust dispatch. Computer-use route workflow-node metadata now ignores retired `workflowNodeIds` input aliases before native-browser, visual-GUI, or sandboxed-hosted StepModule/Rust dispatch.
+  bridge outputs; runtime usage request metadata now emits only canonical snake_case usage/projection request fields, so retired `eventKind`, `componentKind`, `payloadSchemaVersion`, `workflowGraphId`, `workflowNodeId`, `usageMeterScope`, and `simulationMode` aliases cannot re-enter usage telemetry projection metadata; workspace-change control now derives change identity only from canonical `change_id` and sends canonical `session_id`, `thread_id`, `workspace_root`, `request_hash`, `change_id`, and `created_at` fields into runtime bridge control dispatch without retired camelCase bridge request aliases, and workspace-change inspection now sends canonical `session_id`, `thread_id`, `workspace_root`, `projection`, and `requested_at` fields into runtime bridge inspection dispatch while retired `sessionId`, `threadId`, `workspaceRoot`, and `requestedAt` request aliases fail closed before dispatch; managed-session inspection now sends canonical `session_id`, `thread_id`, `workspace_root`, `projection`, `managed_sessions_only`, and `requested_at` fields into runtime bridge inspection dispatch while retired `sessionId`, `threadId`, `workspaceRoot`, `managedSessionsOnly`, and `requestedAt` request aliases fail closed before dispatch; managed-session control now derives identity only from canonical `managed_session_id` and sends canonical `session_id`, `thread_id`, `workspace_root`, `request_hash`, `managed_session_id`, and `created_at` fields into runtime bridge control dispatch while retired `managedSessionId`, `sessionCardId`, `session_card_id`, `createdAt`, and `requestHash` aliases fail closed before dispatch; run-cancel Rust-planning fail-closed details now expose canonical `run_id`, `operation_kind`, and `expected_operation_kind` fields without retired `runId` detail aliases before any JS persistence write, computer-use route authority metadata now ignores retired `authorityScopes` input aliases before native-browser, visual-GUI, sandboxed-hosted, or visual-observation broker StepModule/Rust dispatch, and computer-use route retention metadata now ignores retired `observationRetentionMode` input aliases before native-browser, visual-GUI, or sandboxed-hosted StepModule/Rust dispatch. Computer-use route workflow-node metadata now ignores retired `workflowNodeIds` input aliases before native-browser, visual-GUI, or sandboxed-hosted StepModule/Rust dispatch. Computer-use control action selection now ignores retired `controlAction` input aliases before control receipt/authority metadata is emitted.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
