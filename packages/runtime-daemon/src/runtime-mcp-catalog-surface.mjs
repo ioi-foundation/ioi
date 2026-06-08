@@ -9,11 +9,8 @@ import {
   RUNTIME_MCP_MANAGER_VALIDATION_SCHEMA_VERSION,
   discoverMcpHttpCatalog,
   discoverMcpStdioCatalog,
-  mcpPromptsForServers,
   mcpRegistryForWorkspace,
-  mcpResourcesForServers,
   mcpServerRecordsFromValidationInput,
-  mcpToolsForServers,
   normalizeMcpServerRecord,
 } from "./mcp-manager.mjs";
 import {
@@ -48,16 +45,13 @@ export function createRuntimeMcpCatalogSurface({
   mcpCatalogSummaryForServer: mcpCatalogSummaryForServerDep = mcpCatalogSummaryForServer,
   mcpConfigSourceModeForRequest: mcpConfigSourceModeForRequestDep = mcpConfigSourceModeForRequest,
   mcpLiveExecutionModeForServer: mcpLiveExecutionModeForServerDep = mcpLiveExecutionModeForServer,
-  mcpPromptsForServers: mcpPromptsForServersDep = mcpPromptsForServers,
   mcpRegistryForWorkspace: mcpRegistryForWorkspaceDep = mcpRegistryForWorkspace,
-  mcpResourcesForServers: mcpResourcesForServersDep = mcpResourcesForServers,
   mcpServerMatchesConfigSourceMode: mcpServerMatchesConfigSourceModeDep = mcpServerMatchesConfigSourceMode,
   mcpServerRecordsFromValidationInput: mcpServerRecordsFromValidationInputDep = mcpServerRecordsFromValidationInput,
   mcpToolIdentityMatches: mcpToolIdentityMatchesDep = mcpToolIdentityMatches,
   mcpToolKey: mcpToolKeyDep = mcpToolKey,
   mcpToolMatchesQuery: mcpToolMatchesQueryDep = mcpToolMatchesQuery,
   mcpToolSearchLimit: mcpToolSearchLimitDep = mcpToolSearchLimit,
-  mcpToolsForServers: mcpToolsForServersDep = mcpToolsForServers,
   notFound: notFoundDep = notFound,
   normalizeArray: normalizeArrayDep = normalizeArray,
   normalizeMcpServerRecord: normalizeMcpServerRecordDep = normalizeMcpServerRecord,
@@ -73,9 +67,9 @@ export function createRuntimeMcpCatalogSurface({
     listMcpTools(store, options = {}) {
       const servers = this.mcpServersForContext(store, options);
       const serverFilter = optionalStringDep(options.server_id);
-      return mcpToolsForServersDep(
+      return this.mcpCatalogRowsForServers(
         serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
-      );
+      ).tools;
     },
     async searchMcpTools(store, options = {}) {
       const threadId = optionalStringDep(options.thread_id);
@@ -98,16 +92,16 @@ export function createRuntimeMcpCatalogSurface({
     listMcpResources(store, options = {}) {
       const servers = this.mcpServersForContext(store, options);
       const serverFilter = optionalStringDep(options.server_id);
-      return mcpResourcesForServersDep(
+      return this.mcpCatalogRowsForServers(
         serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
-      );
+      ).resources;
     },
     listMcpPrompts(store, options = {}) {
       const servers = this.mcpServersForContext(store, options);
       const serverFilter = optionalStringDep(options.server_id);
-      return mcpPromptsForServersDep(
+      return this.mcpCatalogRowsForServers(
         serverFilter ? servers.filter((server) => server.id === serverFilter) : servers,
-      );
+      ).prompts;
     },
     mcpStatus(store, options = {}) {
       const servers = this.listMcpServers(store, options);
@@ -202,9 +196,10 @@ export function createRuntimeMcpCatalogSurface({
       const failures = [];
       const candidateTools = [];
       for (const server of servers) {
-        let tools = mcpToolsForServersDep([server]);
-        let resources = mcpResourcesForServersDep([server]);
-        let prompts = mcpPromptsForServersDep([server]);
+        const declaredCatalog = this.mcpCatalogRowsForServers([server]);
+        let tools = declaredCatalog.tools;
+        let resources = declaredCatalog.resources;
+        let prompts = declaredCatalog.prompts;
         const liveMode = liveDiscovery ? mcpLiveExecutionModeForServerDep(server, request) : null;
         if (server.enabled !== false && liveMode) {
           try {
@@ -219,9 +214,15 @@ export function createRuntimeMcpCatalogSurface({
                     timeout_ms: request.timeout_ms,
                     vault: store.modelMounting.vault,
                   });
-            tools = normalizeArrayDep(catalog.tools ?? catalog.listed_tools);
-            resources = normalizeArrayDep(catalog.resources ?? catalog.listed_resources);
-            prompts = normalizeArrayDep(catalog.prompts ?? catalog.listed_prompts);
+            const liveCatalog = this.mcpCatalogRowsForServers([{
+              ...server,
+              tools: normalizeArrayDep(catalog.tools ?? catalog.listed_tools),
+              resources: normalizeArrayDep(catalog.resources ?? catalog.listed_resources),
+              prompts: normalizeArrayDep(catalog.prompts ?? catalog.listed_prompts),
+            }]);
+            tools = liveCatalog.tools;
+            resources = liveCatalog.resources;
+            prompts = liveCatalog.prompts;
             catalogSummaries.push(mcpCatalogSummaryForServerDep(server, { tools, resources, prompts }, {
               live_mode: liveMode,
               deferred: tools.length > mcpCatalogPreviewLimitDep(request),
@@ -296,6 +297,16 @@ export function createRuntimeMcpCatalogSurface({
         resources: catalog.resources,
         prompts: catalog.prompts,
       });
+    },
+    mcpCatalogRowsForServers(servers = []) {
+      const catalog = contextPolicyRunner.planMcpManagerCatalogProjection({ servers });
+      return {
+        ...catalog,
+        tools: normalizeArrayDep(catalog.tools),
+        resources: normalizeArrayDep(catalog.resources),
+        prompts: normalizeArrayDep(catalog.prompts),
+        enabled_tools: normalizeArrayDep(catalog.enabled_tools),
+      };
     },
     mcpServersForContext(store, options = {}) {
       const threadId = optionalStringDep(options.thread_id);

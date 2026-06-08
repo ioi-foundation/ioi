@@ -683,6 +683,19 @@ replay, and SDK/IDE protocol coverage still need direct Rust daemon-core
 ownership. The Slice 779 MCP validation projection Rust-core matrix-compaction
 pass is complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
+Slice 780 moved public MCP declared catalog list/search row projection into Rust
+daemon-core migration transport. `listMcpTools()`, `listMcpResources()`,
+`listMcpPrompts()`, and declared-catalog `searchMcpToolCatalog()` now consume
+`McpManagerCatalogProjectionCore` / `plan_mcp_manager_catalog_projection`
+instead of calling JS `mcpToolsForServers`, `mcpResourcesForServers`, or
+`mcpPromptsForServers` row builders; live discovery results are normalized back
+through the same Rust catalog projection before search/fetch response filtering.
+This still does not claim terminal MCP migration: direct Rust daemon-core MCP
+registry truth, live transport discovery and containment, wallet authority,
+StepModuleRouter dispatch, receipt binding, Agentgres admission, replay, and
+SDK/IDE protocol coverage still need direct Rust daemon-core ownership. The
+Slice 780 MCP public catalog Rust-core matrix-compaction pass is pending and
+must run before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 

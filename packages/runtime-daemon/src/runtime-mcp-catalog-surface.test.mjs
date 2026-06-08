@@ -40,15 +40,9 @@ function harness() {
     mcpLiveExecutionModeForServer(server, request = {}) {
       return request.live_discovery === true || server.execution_mode === "live_stdio" ? "live_stdio" : null;
     },
-    mcpPromptsForServers(servers) {
-      return servers.flatMap((item) => item.prompts ?? []);
-    },
     mcpRegistryForWorkspace(cwd, options) {
       calls.push({ name: "mcpRegistryForWorkspace", cwd, options });
       return { servers: [workspaceServer] };
-    },
-    mcpResourcesForServers(servers) {
-      return servers.flatMap((item) => item.resources ?? []);
     },
     mcpServerMatchesConfigSourceMode(item, sourceMode) {
       if (sourceMode === "workspace") return item.sourceScope === "workspace";
@@ -158,15 +152,6 @@ function harness() {
           routes: request.routes,
         };
       },
-    },
-    mcpToolsForServers(servers) {
-      return servers.flatMap((item) =>
-        (item.tools ?? []).map((tool) => ({
-          server_id: item.id,
-          tool_name: tool.name,
-          stable_tool_id: `${item.id}.${tool.name}`,
-        })),
-      );
     },
     normalizeMcpServerRecord(label, input, context) {
       calls.push({ name: "normalizeMcpServerRecord", label, input, context });
