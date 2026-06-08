@@ -6,7 +6,7 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-08.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 746. Slices 733-740 compacted the
+route-family slice ledger through Slice 747. Slices 733-740 compacted the
 runtime bridge thread/turn, runtime subagent control facade-retirement and
 legacy-body deletion, runtime task/job control facade-retirement, runtime
 thread-fork control facade-retirement, conversation-artifact control
@@ -29,11 +29,11 @@ facade-retirement evidence, then compacted Slice 744 workspace-change and
 managed-session control facade-retirement evidence, then compacted Slice 745 MCP
 workflow facade-retirement evidence. This pass compacted Slice 746
 model-mount conversation-state write and stream-completion finalization
+facade-retirement evidence, then compacted Slice 747 model tokenizer/context-fit
 facade-retirement evidence.
-Next resume instruction: complete the scheduled Slice 747 matrix-compaction
-pass before starting unrelated route-family work; preserve the terminal Rust
-daemon-core target and do not encode tokenizer/context-fit fail-closed JS
-facades, read helpers, or command transport as terminal architecture.
+Next resume instruction: continue the next Rust-core extraction or
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -128,10 +128,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: Slice 747 model tokenizer/context-fit
-  facade-retirement evidence, after verification and commit. Preserve the
-  evidence while keeping direct Rust daemon-core tokenizer/context-fit
-  admission/projection as the terminal target.
+- Next scheduled matrix-compaction pass: none pending after the Slice 747
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13913,53 +13912,34 @@ target ownership.
   adapters, native stream-start protocol adapters, or migration transport as
   terminal architecture.
 
-## Implementation Slice 747
+## Compacted Implementation Slice Evidence: 747
 
-```yaml
-slice:
-  id: 747
-  status: verified
-  objective: retire model tokenizer/context-fit JS utility facades as
-    authoritative receipt/route/response surfaces
-  migration_direction: Rust daemon-core model_mount tokenizer/context-fit
-    admission and projection
-  current_transport: JS public facades fail closed with
-    model_mount_tokenizer_rust_core_required before any JS authority, route,
-    receipt, mutation, or response-envelope behavior
-  terminal_shape: direct Rust daemon-core tokenizer/context-fit API owns
-    authorization, route decision consumption, token accounting, receipt/state
-    root binding, Agentgres admission, replay, and projection
-  touched_files:
-    - packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs
-    - packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs
-    - scripts/conformance/hypervisor-conformance.mjs
-    - docs/architecture/_meta/implementation-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
-    - docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md
-  retired_js_authority:
-    - state.authorize from tokenizer/context-fit utilities
-    - state.selectRoute from tokenizer/context-fit utilities
-    - state.routeSelectionReceipt from tokenizer/context-fit utilities
-    - JS model_tokenization receipt synthesis
-    - JS model_context_fit receipt synthesis
-    - public tokenize/count/context-fit response-envelope shaping
-    - context-fit truncation envelope creation
-  evidence_refs:
-    - model_mount_tokenizer_js_facade_retired
-    - model_mount_context_fit_js_facade_retired
-    - rust_daemon_core_model_tokenizer_required
-    - rust_daemon_core_model_context_fit_required
-    - agentgres_model_tokenizer_truth_required
-  conformance:
-    - model-mount-tokenizer-js-facade-retired
-    - model-mount-tokenizer-request-aliases-retired
-  compaction:
-    scheduled: true
-    instruction: compact Slice 747 before unrelated route-family work resumes;
-      preserve direct Rust daemon-core tokenizer/context-fit ownership as the
-      terminal target and do not treat fail-closed JS facades or read helpers as
-      final architecture
-```
+The expanded Slice 747 ledger was compacted on 2026-06-08 after the model
+tokenizer/context-fit facade-retirement seam landed. This slice remains active
+migration evidence, not terminal architecture. The `ModelTokenizerControl`
+implementation-matrix row, conformance command contract, and terminal blockers
+above remain authoritative for current and target ownership.
+
+- Slice 747 retired JS-authoritative model tokenizer/count/context-fit utility
+  behavior in `packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs`.
+  Public utility helpers now fail closed with
+  `model_mount_tokenizer_rust_core_required` before JS authorization, route
+  selection, route receipt creation, JS `model_tokenization` or
+  `model_context_fit` receipt synthesis, route-state mutation, tokenization
+  response-envelope shaping, or context-fit truncation envelope creation.
+- Conformance anchors include `model-mount-tokenizer-js-facade-retired`,
+  `model-mount-tokenizer-request-aliases-retired`,
+  `model_mount_tokenizer_js_facade_retired`,
+  `model_mount_context_fit_js_facade_retired`,
+  `rust_daemon_core_model_tokenizer_required`,
+  `rust_daemon_core_model_context_fit_required`,
+  `agentgres_model_tokenizer_truth_required`, and
+  `model_mount_tokenizer_rust_core_required`.
+- Scheduled matrix-compaction obligation from Slice 747 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS facades, tokenizer
+  projection/read helpers, or migration transport as terminal architecture.
 
 ## Command State
 

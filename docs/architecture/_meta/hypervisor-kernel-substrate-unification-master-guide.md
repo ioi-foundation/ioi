@@ -293,8 +293,9 @@ matrix-compaction pass is complete.
 Slice 747 retired model-mount tokenizer/count/context-fit JS utility facades
 before JS authorization, route selection, route receipt creation,
 `model_tokenization`/`model_context_fit` receipt synthesis, route mutation,
-truncation, or response-envelope shaping. The next matrix-compaction pass is
-scheduled for Slice 747 and must run before unrelated route-family work resumes.
+truncation, or response-envelope shaping.
+The Slice 747 model tokenizer/context-fit facade-retirement matrix-compaction
+pass is complete.
 The Slice 731 coding-tool artifact mutation compaction is complete, and the
 Slice 732 workspace snapshot/restore mutation compaction is complete. The Slice
 733-740 runtime bridge thread/turn, runtime subagent, runtime task/job,
@@ -307,9 +308,10 @@ workspace-change and managed-session control facade-retirement compaction is
 complete. Slice 745 MCP workflow facade-retirement compaction is complete. The
 Slice 746 model conversation/stream completion facade-retirement compaction is
 complete. Slice 747 model tokenizer/context-fit facade-retirement compaction is
-scheduled; future compactions must preserve evidence, distinguish interim bridge
-scaffolding and fail-closed JS facades from terminal Rust daemon-core shape, and
-avoid encoding command transport or read-only JS helpers as long-term substrate.
+complete. No matrix-compaction pass is pending until the next seam lands; future
+compactions must preserve evidence, distinguish interim bridge scaffolding and
+fail-closed JS facades from terminal Rust daemon-core shape, and avoid encoding
+command transport or read-only JS helpers as long-term substrate.
 
 ## Part II: Target Execution Model
 

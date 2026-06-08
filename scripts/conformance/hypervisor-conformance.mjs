@@ -334,7 +334,7 @@ function runDocs() {
       /Slice 746 retired the model-mount conversation-state write and\s+stream-completion finalization JS facades/.test(guide) &&
       /Slice 746 model conversation\/stream completion facade-retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 747 retired model-mount tokenizer\/count\/context-fit JS utility facades/.test(guide) &&
-      /scheduled for Slice 747 and must run before unrelated route-family work resumes/.test(
+      /Slice 747 model tokenizer\/context-fit facade-retirement matrix-compaction\s+pass is complete/.test(
         guide,
       ) &&
       /The Slice 731 coding-tool artifact mutation compaction is complete/.test(guide) &&
@@ -354,7 +354,8 @@ function runDocs() {
       ) &&
       /Slice 745 MCP workflow facade-retirement compaction is complete/.test(guide) &&
       /Slice 746 model conversation\/stream completion facade-retirement compaction is\s+complete/.test(guide) &&
-      /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+scheduled/.test(guide) &&
+      /Slice 747 model tokenizer\/context-fit facade-retirement compaction is\s+complete/.test(guide) &&
+      /No\s+matrix-compaction pass is pending until the next seam lands/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -366,7 +367,10 @@ function runDocs() {
       /This pass compacted Slice 746\s+model-mount conversation-state write and stream-completion finalization\s+facade-retirement evidence/.test(
         matrix,
       ) &&
-      /Next resume instruction: complete the scheduled Slice 747 matrix-compaction\s+pass before starting unrelated route-family work/.test(matrix) &&
+      /then compacted Slice 747 model tokenizer\/context-fit\s+facade-retirement evidence/.test(
+        matrix,
+      ) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -407,11 +411,12 @@ function runDocs() {
       /model_mount_conversation_rust_core_required/.test(matrix) &&
       /model_mount_stream_completion_js_facade_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 746 is now satisfied/.test(matrix) &&
-      /Implementation Slice 747/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 747/.test(matrix) &&
+      /Slice 747 retired JS-authoritative model tokenizer\/count\/context-fit utility\s+behavior/.test(matrix) &&
       /model_mount_tokenizer_rust_core_required/.test(matrix) &&
       /model_mount_tokenizer_js_facade_retired/.test(matrix) &&
       /model_mount_context_fit_js_facade_retired/.test(matrix) &&
-      /compact Slice 747 before unrelated route-family work resumes/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 747 is now satisfied/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
       ),
