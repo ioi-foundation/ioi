@@ -16052,6 +16052,7 @@ function runCompositor() {
       !/run\.taskId\b/.test(runtimeTaskJobSurface) &&
       !/run\.jobId\b/.test(runtimeTaskJobSurface) &&
       !/options\.agentId\b/.test(runtimeTaskJobSurface) &&
+      !/candidate\.(?:runId|run_id)\s*===\s*(?:taskId|jobId)/.test(runtimeTaskJobSurface) &&
       /notFoundDep\(`Task not found: \$\{taskId\}`,\s*\{ task_id: taskId \}\)/.test(
         runtimeTaskJobSurface,
       ) &&
@@ -16070,6 +16071,11 @@ function runCompositor() {
       /runtime task job surface default projections ignore retired task and job id fallbacks/.test(
         runtimeTaskJobSurfaceTest,
       ) &&
+      /runtime task job surface gets and cancels tasks and jobs by public id only/.test(
+        runtimeTaskJobSurfaceTest,
+      ) &&
+      /surface\.getTask\(store,\s*"run-a"\)/.test(runtimeTaskJobSurfaceTest) &&
+      /surface\.getJob\(store,\s*"run-b"\)/.test(runtimeTaskJobSurfaceTest) &&
       /task-retired-nested/.test(runtimeTaskJobSurfaceTest) &&
       /job-retired-nested/.test(runtimeTaskJobSurfaceTest) &&
       /Object\.hasOwn\(missingTask\.details,\s*"taskId"\),\s*false/.test(
@@ -16082,7 +16088,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime task/job reads must ignore retired agentId request aliases, persisted taskId/jobId aliases, and expose canonical snake_case not-found details",
+    "Phase 10/11 is pending: runtime task/job reads must ignore retired agentId request aliases, persisted taskId/jobId/runId aliases, and expose canonical snake_case not-found details",
   );
   assertCheck(
     result,

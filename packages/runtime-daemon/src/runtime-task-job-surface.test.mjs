@@ -179,11 +179,11 @@ test("runtime task job surface creates task with existing or synthesized agent",
   ]);
 });
 
-test("runtime task job surface gets and cancels tasks and jobs by public id or run id", () => {
+test("runtime task job surface gets and cancels tasks and jobs by public id only", () => {
   const { calls, store, surface } = harness();
 
   assert.equal(surface.getTask(store, "task-run-a").runId, "run-a");
-  assert.equal(surface.getJob(store, "run-b").jobId, "job-run-b");
+  assert.equal(surface.getJob(store, "job-run-b").runId, "run-b");
   assert.deepEqual(surface.cancelTask(store, "task-run-a"), {
     taskId: "task-run-a",
     runId: "run-a",
@@ -200,6 +200,12 @@ test("runtime task job surface gets and cancels tasks and jobs by public id or r
     { name: "cancelRun", runId: "run-a" },
     { name: "cancelRun", runId: "run-b" },
   ]);
+  const runIdTask = thrownBy(() => surface.getTask(store, "run-a"));
+  assert.match(runIdTask.message, /Task not found/);
+  assert.equal(runIdTask.details.task_id, "run-a");
+  const runIdJob = thrownBy(() => surface.getJob(store, "run-b"));
+  assert.match(runIdJob.message, /Job not found/);
+  assert.equal(runIdJob.details.job_id, "run-b");
   const missingTask = thrownBy(() => surface.getTask(store, "missing"));
   assert.match(missingTask.message, /Task not found/);
   assert.equal(missingTask.details.task_id, "missing");

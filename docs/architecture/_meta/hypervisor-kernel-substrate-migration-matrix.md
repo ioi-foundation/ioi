@@ -13406,6 +13406,50 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 680
+
+```yaml
+slice: 680
+phase: 10-authoritative-js-facade-retirement
+objective: retire runtime task/job run-id lookup aliases
+owner_boundary:
+  route_or_surface: runtime task/job daemon read and cancel surface
+  authority_gate: unchanged; task/job reads remain projection facade behavior
+    and cannot mint accepted truth
+  execution_backend: JS daemon read facade during migration; canonical public
+    task/job identity only
+  truth_path: task/job lookup requires canonical public `taskId`/`jobId`
+    projection identity and no longer accepts underlying run id as a duplicate
+    lookup key
+  projection_path: runtime task/job projection records remain derived from
+    canonical run state, but public read/cancel APIs use task/job identity only
+touched_files:
+  daemon:
+    - packages/runtime-daemon/src/runtime-task-job-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-task-job-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - runtime task/job reads reject retired run-id lookup aliases
+  - compositor conformance guards canonical-only task/job lookup identity
+verification:
+  commands:
+    - node --check packages/runtime-daemon/src/runtime-task-job-surface.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - node --test --test-name-pattern "runtime task job surface" packages/runtime-daemon/src/runtime-task-job-surface.test.mjs
+    - npm run hypervisor-conformance:compositor
+  replay_or_shadow_comparison: not_applicable
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - broader runtime task/job projection JS facade retirement and terminal
+      Rust projection-core ownership remain pending
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
