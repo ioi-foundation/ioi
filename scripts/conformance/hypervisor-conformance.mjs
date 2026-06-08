@@ -7432,6 +7432,25 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-thread-control-schema-version-output-alias-retired",
+    /schema_version:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
+      !/schemaVersion:\s*RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION/.test(threadRuntimeControls) &&
+      /schema_version:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
+      !/schemaVersion:\s*runtimeThreadControlsSchemaVersion/.test(runtimeThreadControlSurface) &&
+      /Object\.hasOwn\(controls,\s*"schemaVersion"\),\s*false/.test(threadRuntimeControlsTest) &&
+      /Object\.hasOwn\(result\.control,\s*"schemaVersion"\),\s*false/.test(
+        runtimeThreadControlSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs",
+    ],
+    "Phase 10 is pending: thread runtime-control records must emit canonical schema_version without the retired schemaVersion output alias",
+  );
+  assertCheck(
+    result,
     "runtime-thread-control-model-route-payload-aliases-retired",
     /threadRuntimeControlModelForOptions\(model = \{\}\)[\s\S]*route_id: model\.route_id \?\? "route\.local-first"/.test(
       threadRuntimeControls,

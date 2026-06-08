@@ -206,7 +206,6 @@ export function createRuntimeThreadControlSurface({
         workspace_trust_warning: workspaceTrustWarning,
         workspaceTrustWarning,
         control: {
-          schemaVersion: runtimeThreadControlsSchemaVersion,
           schema_version: runtimeThreadControlsSchemaVersion,
           control_kind: controlKind,
           controlKind,

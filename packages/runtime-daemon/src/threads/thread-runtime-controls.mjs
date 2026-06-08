@@ -18,7 +18,6 @@ export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now 
     approvalModeForThreadMode(mode),
   );
   return {
-    schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     mode,
     approvalMode,
@@ -74,7 +73,6 @@ export function normalizedAgentRuntimeControls(agent = {}) {
     model.workflowNodeId ?? model.workflow_node_id ?? agent.modelRouteDecision?.workflow_node_id ?? "runtime.model-router";
   const updatedAt = model.updatedAt ?? model.updated_at ?? source.updatedAt ?? source.updated_at ?? agent.updatedAt ?? null;
   return {
-    schemaVersion: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     schema_version: RUNTIME_THREAD_CONTROLS_SCHEMA_VERSION,
     mode,
     approvalMode,

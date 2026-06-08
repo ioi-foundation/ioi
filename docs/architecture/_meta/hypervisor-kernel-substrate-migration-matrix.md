@@ -13374,6 +13374,68 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 673
+
+```yaml
+slice: 673
+date: 2026-06-07
+phase: 10-authoritative-js-facade-retirement
+route_or_surface: runtime thread-control schema-version output facade
+status: verified
+summary: >
+  Runtime thread-control helper and surface records now emit canonical
+  `schema_version` only, removing the retired duplicate `schemaVersion`
+  output alias from control records before adapter/product consumers can treat
+  the alias as a parallel schema contract.
+rust_core_alignment:
+  authority: thread-control state update remains Rust-planned before agent
+    state persistence.
+  routing: control records keep the canonical Rust-owned schema marker while
+    preserving the existing route-selection model payload seam.
+  truth_path: runtime control updates continue to flow through the existing
+    Rust planner/state-update path before store writes.
+  facade_retirement: helper-normalized and surface-emitted control records no
+    longer expose the retired camelCase schema-version duplicate.
+files:
+  runtime_daemon:
+    - packages/runtime-daemon/src/threads/thread-runtime-controls.mjs
+    - packages/runtime-daemon/src/runtime-thread-control-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs
+    - packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
+  conformance:
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge conformance now requires thread runtime-control helper output and
+    thread-control surface output to expose `schema_version` without
+    `schemaVersion`
+  - focused runtime-daemon tests assert the retired `schemaVersion` output alias
+    is absent from initial, normalized, poisoned, and surface control records
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs
+    - node --test packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs
+    - node --check packages/runtime-daemon/src/threads/thread-runtime-controls.mjs
+    - node --check packages/runtime-daemon/src/runtime-thread-control-surface.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - terminal Rust daemon-core API extraction remains pending beyond this
+      thread-control output facade cleanup
+    - other camelCase thread-control response aliases remain separate
+      facade-retirement seams unless their protocol role is retired by a
+      verified slice
+closeout:
+  git_diff_check: passed
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:

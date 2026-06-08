@@ -166,6 +166,7 @@ test("thread control surface updates mode controls through Rust planner and emit
   });
 
   assert.equal(result.control.schema_version, "ioi.runtime.thread-controls.v1");
+  assert.equal(Object.hasOwn(result.control, "schemaVersion"), false);
   assert.equal(result.control.control_kind, "mode");
   assert.equal(result.control.mode, "review");
   assert.equal(result.control.approval_mode, "human_required");

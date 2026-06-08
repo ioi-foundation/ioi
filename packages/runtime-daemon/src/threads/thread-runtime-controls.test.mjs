@@ -57,6 +57,7 @@ test("initial and normalized runtime controls preserve schema and model route fi
   );
 
   assert.equal(controls.schema_version, "ioi.runtime.thread-controls.v1");
+  assert.equal(Object.hasOwn(controls, "schemaVersion"), false);
   assert.equal(controls.mode, "plan");
   assert.equal(controls.approvalMode, "human_required");
   assert.equal(controls.model.selectedModel, "local-model");
@@ -86,6 +87,7 @@ test("initial and normalized runtime controls preserve schema and model route fi
     {},
     "2026-06-03T00:00:00.000Z",
   );
+  assert.equal(Object.hasOwn(poisoned, "schemaVersion"), false);
   assert.equal(poisoned.mode, "agent");
   assert.equal(poisoned.approvalMode, "suggest");
   assert.equal(poisoned.model.routeId, "route.local-first");
@@ -109,6 +111,7 @@ test("initial and normalized runtime controls preserve schema and model route fi
       workflowNodeId: "legacy-node",
     },
   });
+  assert.equal(Object.hasOwn(normalizedFromCanonicalDecision, "schemaVersion"), false);
   assert.equal(normalizedFromCanonicalDecision.model.reasoningEffort, "medium");
   assert.equal(normalizedFromCanonicalDecision.model.reasoning_effort, "medium");
   assert.equal(normalizedFromCanonicalDecision.model.workflowGraphId, "graph-decision");
