@@ -392,8 +392,9 @@ configuration, OAuth, and auth-header mutation facades remain fail-closed at
 catalog-provider projection migration: direct Rust daemon-core catalog-provider
 control/projection still needs to own runtime-material projection, wallet/cTEE
 custody, receipts, Agentgres admission, record-state, replay, and conformance.
-The Slice 759 matrix-compaction pass is pending and must run before unrelated
-route-family work resumes.
+The Slice 759 catalog-provider runtime-material read-cache retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

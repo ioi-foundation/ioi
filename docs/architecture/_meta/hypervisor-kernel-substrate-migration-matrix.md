@@ -45,12 +45,14 @@ alias-retirement evidence from the Rust model_mount process-plan boundary, then
 compacted Slice 757 server-control local cache read-retirement evidence.
 This pass compacted Slice 758 catalog-provider OAuth callback state
 alias-retirement evidence.
-Slice 759 then retired catalog-provider runtime-material read-cache writes.
+This pass compacted Slice 759 catalog-provider runtime-material read-cache
+retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first by compacting Slice 759 evidence
-before unrelated route-family work. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands. Preserve the live owner map,
+terminal blockers, and the fact that fail-closed JS facades, canonical input
+helpers, local projection helpers, and migration transport are not terminal
+substrate.
 
 ## Purpose
 
@@ -157,17 +159,16 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 759
-  catalog-provider runtime-material read-cache retirement.
+- Next scheduled matrix-compaction pass: none pending after Slice 759
+  catalog-provider runtime-material read-cache retirement compaction.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
   route-family work; do not let context compaction demote this to optional
   evidence pruning.
-- Next resume order is mandatory: compact Slice 759 catalog-provider
-  runtime-material read-cache retirement evidence before starting unrelated
-  route-family work, then continue the next concrete Rust-core extraction or
-  facade-retirement seam.
+- Next resume order is mandatory: clarify a concrete Rust-core
+  extraction/facade-retirement seam with a verified slice, then schedule and run
+  the next matrix-compaction pass before starting unrelated route-family work.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -14312,58 +14313,36 @@ remain authoritative for current and target ownership.
   fail-closed catalog-provider control facades, vault/custody helpers, or
   command transport as terminal architecture.
 
-## Implementation Slice 759: Catalog Provider Runtime-Material Read-Cache Retirement
+## Compacted Implementation Slice Evidence: 759
 
-Date: 2026-06-08.
-Objective: remove local JS writeback from the catalog-provider runtime-material
-read adapter so vault-material projection cannot create duplicate runtime truth
-while catalog-provider control remains Rust-core-required.
+The expanded Slice 759 ledger was compacted on 2026-06-08 after
+catalog-provider runtime-material read-cache retirement landed. This slice
+remains active migration evidence, not terminal architecture. The
+`ModelCatalogProviderControl` implementation-matrix row, model-mounting
+route-family row, conformance command contract, and terminal blockers above
+remain authoritative for current and target ownership.
 
-Files changed:
-
-- `packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs`
-- `packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs`
-- conformance and source-of-truth docs.
-
-Legacy paths removed:
-
-- `catalogProviderRuntimeMaterial()` no longer calls `state.writeVaultRefs()`
-  while resolving read material.
-- `catalogProviderRuntimeMaterial()` no longer writes resolved runtime material
-  into `state.catalogProviderRuntimeMaterials`.
-- `catalogProviderRuntimeMaterial()` no longer writes missing or failed vault
-  resolution states into `state.catalogProviderRuntimeMaterials`.
-
-Current behavior:
-
-- Catalog-provider runtime-material lookup remains a read/projection adapter
-  over existing config and vault material.
-- Resolved, missing, or unavailable vault material is returned to the caller
-  without persisting local JS runtime-material cache truth, vault-ref files,
-  projections, receipts, or Agentgres record-state commits.
-- Public catalog-provider configuration, OAuth, and auth-header refresh mutation
-  facades remain fail-closed at `model_mount.catalog_provider_control`.
-
-Target behavior:
-
-- Direct Rust daemon-core catalog-provider control/projection owns
-  runtime-material projection, wallet/cTEE custody, receipts, Agentgres
-  admission, record-state, replay, and conformance. JS runtime-material lookup
-  remains temporary migration adapter code only and must not become a local truth
-  cache.
-
-Conformance:
-
-- `model-mount-catalog-provider-control-js-facade-retired` now guards that
-  `catalogProviderRuntimeMaterial()` does not call `state.writeVaultRefs()` and
-  does not write `catalogProviderRuntimeMaterials` cache entries.
-
-Compaction:
-
-- Schedule the next matrix-compaction pass after Slice 759. On resume, compact
-  this slice before unrelated route-family work while preserving the terminal
-  Rust daemon-core target and the fact that runtime-material readback is
-  temporary projection adapter behavior, not a long-term JS cache.
+- Slice 759 retired local JS writeback from the catalog-provider
+  runtime-material read adapter.
+- `catalogProviderRuntimeMaterial()` no longer calls `state.writeVaultRefs()`.
+- `catalogProviderRuntimeMaterial()` no longer writes resolved, missing, or
+  failed vault material into `state.catalogProviderRuntimeMaterials`.
+- Runtime-material lookup remains a read/projection adapter over existing config
+  and vault material, returning material state without persisting local cache
+  truth, vault-ref files, projections, receipts, or Agentgres record-state
+  commits.
+- This slice intentionally does not claim terminal catalog-provider projection
+  migration. Direct Rust daemon-core catalog-provider control/projection still
+  needs to own runtime-material projection, wallet/cTEE custody, receipts,
+  Agentgres admission, record-state, replay, and conformance.
+- Conformance anchor `model-mount-catalog-provider-control-js-facade-retired`
+  guards this slice.
+- Scheduled matrix-compaction obligation from Slice 759 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode runtime-material readback, fail-closed
+  catalog-provider control facades, vault/custody helpers, or command transport
+  as terminal architecture.
 
 ## Command State
 
