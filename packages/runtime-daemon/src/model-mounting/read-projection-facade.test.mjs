@@ -90,6 +90,22 @@ function createState() {
     vaultStatus: () => ({ port: "VaultPort" }),
     workflowNodeBindings: () => [],
   };
+  const readProjectionRequests = [];
+  const readProjectionPlanner = {
+    planReadProjection(request) {
+      readProjectionRequests.push(request);
+      return {
+        source: "rust_model_mount_read_projection_command",
+        backend: "rust_model_mount_read_projection",
+        projection_kind: request.projection_kind,
+        projection: rustProjectionFixture(request),
+        evidence_refs: [
+          "rust_daemon_core_model_mount_projection",
+          "model_mount_js_read_projection_authoring_retired",
+        ],
+      };
+    },
+  };
   const facade = createModelMountingReadProjectionFacade({
     buildModelCapabilities: ({ artifacts }) => artifacts.map((artifact) => ({ modelId: artifact.modelId })),
     capabilityForWorkflowNode(node) {
@@ -107,6 +123,7 @@ function createState() {
     publicOAuthState: (oauthState) => ({ id: oauthState.id }),
     publicProvider: (provider, vaultMetadata) => ({ id: provider.id, vaultMetadata }),
     readJson: () => null,
+    readProjectionPlanner,
     notFound: (message, details) => Object.assign(new Error(message), {
       status: 404,
       code: "not_found",
@@ -121,7 +138,124 @@ function createState() {
     receiptId: "receipt-provider-health",
     status: "healthy",
   }];
-  return { facade, state };
+  return { facade, state, readProjectionRequests };
+}
+
+function rustProjectionFixture(request) {
+  const state = request.state;
+  const receipts = state.receipts ?? [];
+  const projection = {
+    schemaVersion: request.schema_version,
+    source: "agentgres_model_mounting_projection",
+    generatedAt: request.generated_at,
+    watermark: receipts.length,
+    artifacts: state.artifacts,
+    endpoints: state.endpoints,
+    instances: state.instances,
+    routes: state.routes,
+    modelCapabilities: state.model_capabilities,
+    backends: state.backends,
+    backendProcesses: state.backend_processes,
+    providers: state.providers,
+    catalog: state.catalog,
+    catalogProviderConfigs: state.catalog_provider_configs,
+    oauthSessions: state.oauth_sessions,
+    oauthStates: state.oauth_states,
+    downloads: state.downloads,
+    providerHealth: state.provider_health,
+    runtimeEngines: state.runtime_engines,
+    runtimeEngineProfiles: state.runtime_engine_profiles,
+    runtimePreference: state.runtime_preference,
+    runtimeSurvey: state.runtime_survey,
+    grants: state.grants,
+    vaultRefs: state.vault_refs,
+    mcpServers: state.mcp_servers,
+    conversationStates: state.conversation_states,
+    workflowBindings: state.workflow_bindings,
+    adapterBoundaries: state.adapter_boundaries,
+    lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
+    routeReceipts: receipts.filter((receipt) => receipt.kind === "model_route_selection"),
+    routeDecisions: routeDecisionsFromReceipts(receipts),
+    providerHealthReceipts: receipts.filter((receipt) => receipt.kind === "provider_health"),
+    runtimeSurveyReceipts: receipts.filter((receipt) => receipt.kind === "runtime_survey"),
+    invocationReceipts: receipts.filter((receipt) => receipt.kind === "model_invocation"),
+    toolReceipts: receipts.filter((receipt) => receipt.kind === "mcp_tool_invocation"),
+    receipts,
+  };
+  if (request.projection_kind === "projection") return projection;
+  if (request.projection_kind === "projection_summary") {
+    return {
+      schemaVersion: projection.schemaVersion,
+      source: projection.source,
+      watermark: projection.watermark,
+      receiptCount: projection.receipts.length,
+      generatedAt: projection.generatedAt,
+    };
+  }
+  if (request.projection_kind === "model_route_decisions") return projection.routeDecisions;
+  if (request.projection_kind === "authority_snapshot") {
+    const authorityReceipts = receipts.filter((receipt) =>
+      [
+        "permission_token",
+        "permission_token_revocation",
+        "vault_ref_binding",
+        "vault_ref_removal",
+        "vault_adapter_health",
+      ].includes(receipt.kind),
+    ).slice(-25);
+    return {
+      schemaVersion: "ioi.wallet-core-lite.authority.v1",
+      source: "agentgres_wallet_authority_projection",
+      generatedAt: request.generated_at,
+      server: state.server,
+      wallet: state.wallet,
+      vault: state.vault,
+      grants: state.grants,
+      vaultRefs: state.vault_refs,
+      approvals: [],
+      approvalQueue: {
+        status: "not_configured",
+        pendingCount: 0,
+        evidenceRefs: ["wallet.network.approval_queue.pending_runtime_adapter"],
+      },
+      receipts: authorityReceipts,
+      summary: {
+        activeGrants: 0,
+        revokedGrants: 0,
+        vaultRefs: state.vault_refs.length,
+        pendingApprovals: 0,
+        receiptCount: authorityReceipts.length,
+        remoteWalletConfigured: false,
+      },
+    };
+  }
+  if (request.projection_kind === "receipt_replay") {
+    const receipt = receipts.find((candidate) => candidate.id === request.receipt_id);
+    return {
+      schemaVersion: request.schema_version,
+      source: "agentgres_model_mounting_projection_replay",
+      receipt,
+      model_route_decision: receipt.details?.model_route_decision ?? null,
+      route: projection.routes.find((route) => route.id === receipt.details?.route_id) ?? null,
+      endpoint: projection.endpoints.find((endpoint) => endpoint.id === receipt.details?.endpoint_id) ?? null,
+      instance: projection.instances.find((instance) => instance.id === receipt.details?.instance_id) ?? null,
+      provider: projection.providers.find((provider) => provider.id === receipt.details?.provider_id) ?? null,
+      toolReceipts: [],
+      projectionWatermark: projection.watermark,
+    };
+  }
+  throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
+}
+
+function routeDecisionsFromReceipts(receipts) {
+  return receipts
+    .filter((receipt) => receipt.kind === "model_route_selection")
+    .map((receipt) => ({
+      ...receipt.details.model_route_decision,
+      receipt_id: receipt.id,
+      receipt_created_at: receipt.createdAt,
+      receipt_kind: receipt.kind,
+    }));
 }
 
 test("read projection facade delegates product-safe lists and capabilities", () => {
@@ -142,7 +276,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
 });
 
 test("read projection facade composes snapshots, projection, and receipt replay", () => {
-  const { facade, state } = createState();
+  const { facade, state, readProjectionRequests } = createState();
 
   const snapshot = facade.snapshot(state, "http://127.0.0.1:3200");
   assert.equal(snapshot.schemaVersion, "model.mount.schema");
@@ -170,6 +304,15 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet.port, "WalletAuthorityPort");
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "projection_summary",
+    "projection",
+    "projection_summary",
+    "receipt_replay",
+    "authority_snapshot",
+  ]);
+  assert.equal(readProjectionRequests.at(-1).state.providers[0].id, "provider.local");
+  assert.equal(Object.hasOwn(readProjectionRequests.at(-1).state.providers[0], "providerId"), false);
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {

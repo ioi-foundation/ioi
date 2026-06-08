@@ -430,6 +430,7 @@ export class ModelMountingState {
       publicOAuthState,
       publicProvider,
       readJson,
+      readProjectionPlanner: this.modelMountAdmissionRunner,
     });
     this.ensureDirs();
     this.load();

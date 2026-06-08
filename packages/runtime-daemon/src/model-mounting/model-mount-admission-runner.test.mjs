@@ -985,6 +985,57 @@ test("Rust model_mount admission runner sends accepted receipt head plan request
   assert.equal(Object.hasOwn(result, "stateRoot"), false);
 });
 
+test("Rust model_mount admission runner sends read projection plan request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_read_projection_command",
+            backend: "rust_model_mount_read_projection",
+            projection_kind: "projection_summary",
+            projection: {
+              schemaVersion: "model.mount.schema",
+              source: "agentgres_model_mounting_projection",
+              watermark: 1,
+              receiptCount: 1,
+              generatedAt: "2026-06-08T00:00:00.000Z",
+            },
+            evidence_refs: [
+              "rust_daemon_core_model_mount_projection",
+              "model_mount_js_read_projection_authoring_retired",
+            ],
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planReadProjection({
+    projection_kind: "projection_summary",
+    schema_version: "model.mount.schema",
+    generated_at: "2026-06-08T00:00:00.000Z",
+    state: { receipts: [{ id: "receipt.one" }] },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_read_projection");
+  assert.equal(calls[0].request.backend, "rust_model_mount_read_projection");
+  assert.equal(calls[0].request.request.projection_kind, "projection_summary");
+  assert.equal(result.projection_kind, "projection_summary");
+  assert.equal(result.projection.receiptCount, 1);
+  assert.equal(Object.hasOwn(result.projection, "receipt_count"), false);
+  assert.equal(result.evidence_refs.includes("model_mount_js_read_projection_authoring_retired"), true);
+});
+
 test("Rust model_mount admission runner env uses daemon-core command boundary", () => {
   const runner = createModelMountAdmissionRunnerFromEnv({
     [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "ioi-runtime-daemon-core",

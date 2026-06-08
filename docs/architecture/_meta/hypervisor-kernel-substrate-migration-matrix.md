@@ -107,10 +107,15 @@ Slice 790 retired public model-capability protocol output aliases from daemon
 and SDK contracts; its matrix-compaction pass is complete.
 Slice 791 moved route-selection receipt authoring to the Rust model_mount
 route-decision admission boundary; its matrix-compaction pass is complete.
-Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice. Preserve the live owner map, terminal
-blockers, and the fact that fail-closed JS facades, canonical input helpers,
-local projection helpers, and migration transport are not terminal substrate.
+Slice 792 moved model_mount read-projection authoring to Rust daemon-core
+projection planning; its matrix-compaction pass is scheduled for the next
+resume cycle before unrelated projection/route-family work.
+Next resume instruction: run the scheduled Slice 792 matrix-compaction pass
+before unrelated projection/route-family work, then continue the next Rust-core
+extraction or facade-retirement implementation slice. Preserve the live owner
+map, terminal blockers, and the fact that fail-closed JS facades, canonical
+input helpers, local projection helpers, and migration transport are not
+terminal substrate.
 
 ## Purpose
 
@@ -217,14 +222,19 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending until the next Rust-core
-  extraction or facade-retirement seam lands.
-- Future-resumption trigger: resume the migration goal by continuing with the
-  next concrete Rust-core extraction or facade-retirement seam; schedule the
-  following compaction pass only after that seam lands. Do not let context
-  compaction demote future scheduled passes to optional evidence pruning.
-- Next resume order is mandatory: clarify the next concrete Rust-core
-  extraction/facade-retirement seam before unrelated route-family work.
+- Next scheduled matrix-compaction pass: Slice 792 model_mount read-projection
+  Rust-authoring evidence, to run before unrelated projection/route-family work
+  continues.
+- Future-resumption trigger: resume the migration goal by running the scheduled
+  Slice 792 matrix-compaction pass before starting unrelated projection or
+  route-family work. After that pass, continue with the next concrete Rust-core
+  extraction or facade-retirement seam and schedule the following compaction
+  pass only after that seam lands. Do not let context compaction demote this to
+  optional evidence pruning.
+- Next resume order is mandatory: compact the verified Slice 792 model_mount
+  read-projection Rust-authoring seam, then clarify the next concrete Rust-core
+  extraction/facade-retirement seam before unrelated projection/route-family
+  work.
 - Resume carry-forward rule: a scheduled pass is part of the next resume cycle
   after a seam is clarified, not a standalone prerequisite and not optional
   cleanup to defer past unrelated route-family work.
@@ -15854,3 +15864,41 @@ next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or
 stale SDK compatibility aliases as terminal architecture.
+
+## Implementation Slice Evidence: 792
+
+Slice 792 moved the model_mount read-projection envelope authoring path out of
+JS helper composition and into Rust daemon-core projection planning.
+`plan_model_mount_read_projection` now authors canonical projection envelopes
+for model_mount projection, projection summary, route-decision projection,
+receipt replay, and wallet authority snapshot reads. The daemon
+`read-projection-facade.mjs` now prepares current state input, calls the Rust
+`planReadProjection()` runner, and fails closed with
+`model_mount_read_projection_rust_core_required` when Rust projection planning
+is not available.
+
+This removes the previous JS `buildModelMountingProjection()` authoring path
+from the public read facade. The remaining JS state materialization and command
+envelope are migration transport only: they are not terminal architecture, and
+direct Rust daemon-core projection APIs over Agentgres-backed state remain open
+blockers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core --bin ioi-step-module-bridge` | passed |
+
+This does not claim terminal model_mount migration: direct Rust daemon-core
+projection APIs, Agentgres projection watermarks, storage-backed projection
+reads, wallet authority binding beyond this read envelope, replay coverage
+beyond the migrated receipt replay projection, SDK/IDE protocol coverage, and
+replacement of command transport with a direct Rust daemon-core API remain open
+terminal blockers.
+
+Scheduled matrix-compaction obligation from Slice 792 is now pending. The next
+resume should compact this evidence before unrelated projection/route-family
+work, preserve the owner map and terminal blockers, and avoid encoding command
+transport, JS wrapper calls, or local state materialization as terminal
+architecture.

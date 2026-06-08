@@ -152,6 +152,16 @@ export class RustModelMountAdmissionRunner {
     return normalizeAcceptedReceiptTransitionBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
+  planReadProjection(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_read_projection",
+      backend: "rust_model_mount_read_projection",
+      request,
+    };
+    return normalizeReadProjectionBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
   bindInvocationReceipt(request = {}) {
     if (Object.hasOwn(request, "expectedHeads")) {
       throw new ModelMountAdmissionRunnerError(
@@ -507,6 +517,17 @@ function parseCommandArgs(value) {
 function normalizeArgs(value) {
   if (!Array.isArray(value)) return [];
   return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
+}
+
+function normalizeReadProjectionBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    source: result.source ?? "rust_model_mount_read_projection_command",
+    backend: result.backend ?? "rust_model_mount_read_projection",
+    projection_kind: result.projection_kind ?? result.projectionKind ?? null,
+    projection: result.projection ?? null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+  };
 }
 
 function optionalString(value) {

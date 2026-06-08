@@ -259,6 +259,28 @@ struct ModelMountInvocationReceiptBindingBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
+struct ModelMountReadProjectionBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountReadProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountReadProjectionRequest {
+    projection_kind: String,
+    #[serde(default)]
+    schema_version: Option<String>,
+    #[serde(default)]
+    generated_at: Option<String>,
+    #[serde(default)]
+    receipt_id: Option<String>,
+    state: Value,
+}
+
+#[derive(Debug, Deserialize)]
 struct CteePrivateWorkspaceBridgeRequest {
     #[serde(rename = "schema_version")]
     schema_version: String,
@@ -844,6 +866,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             bind_model_mount_invocation_receipt(request)
         }
+        "plan_model_mount_read_projection" => {
+            let request: ModelMountReadProjectionBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_read_projection(request)
+        }
         "execute_private_workspace_ctee_action" => {
             let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(raw_request)
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
@@ -1152,6 +1180,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_model_mount_accepted_receipt_head"
             | "plan_model_mount_accepted_receipt_transition"
             | "bind_model_mount_invocation_receipt"
+            | "plan_model_mount_read_projection"
             | "admit_worker_service_package_invocation"
             | "commit_runtime_run_state"
             | "commit_runtime_agent_state"
@@ -2005,6 +2034,328 @@ fn bind_model_mount_invocation_receipt(
             append_hash,
         ],
     }))
+}
+
+fn plan_model_mount_read_projection(
+    request: ModelMountReadProjectionBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_read_projection" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let projection = model_mount_read_projection(&request.request)?;
+    Ok(json!({
+        "source": "rust_model_mount_read_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_read_projection".to_string()),
+        "projection_kind": request.request.projection_kind,
+        "projection": projection,
+        "evidence_refs": [
+            "rust_daemon_core_model_mount_projection",
+            "agentgres_model_mount_read_truth",
+            "model_mount_js_read_projection_authoring_retired",
+        ],
+    }))
+}
+
+fn model_mount_read_projection(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, BridgeError> {
+    match request.projection_kind.as_str() {
+        "projection" => Ok(model_mount_projection(request)),
+        "projection_summary" => Ok(model_mount_projection_summary(request)),
+        "receipt_replay" => model_mount_receipt_replay(request),
+        "model_route_decisions" => Ok(model_mount_route_decisions(request)),
+        "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
+        other => Err(BridgeError::new(
+            "model_mount_read_projection_kind_unsupported",
+            format!("unsupported model_mount read projection kind {other}"),
+        )),
+    }
+}
+
+fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
+    let state = &request.state;
+    let receipts = array_field(state, "receipts");
+    json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "source": "agentgres_model_mounting_projection",
+        "generatedAt": model_mount_projection_generated_at(request),
+        "watermark": receipts.len(),
+        "artifacts": array_field(state, "artifacts"),
+        "endpoints": array_field(state, "endpoints"),
+        "instances": array_field(state, "instances"),
+        "routes": array_field(state, "routes"),
+        "modelCapabilities": array_field(state, "model_capabilities"),
+        "backends": array_field(state, "backends"),
+        "backendProcesses": array_field(state, "backend_processes"),
+        "providers": array_field(state, "providers"),
+        "catalog": object_or_null(state.get("catalog")),
+        "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
+        "oauthSessions": array_field(state, "oauth_sessions"),
+        "oauthStates": array_field(state, "oauth_states"),
+        "downloads": array_field(state, "downloads"),
+        "providerHealth": array_field(state, "provider_health"),
+        "runtimeEngines": array_field(state, "runtime_engines"),
+        "runtimeEngineProfiles": array_field(state, "runtime_engine_profiles"),
+        "runtimePreference": object_or_null(state.get("runtime_preference")),
+        "runtimeSurvey": state.get("runtime_survey").cloned().unwrap_or(Value::Null),
+        "grants": array_field(state, "grants"),
+        "vaultRefs": array_field(state, "vault_refs"),
+        "mcpServers": array_field(state, "mcp_servers"),
+        "conversationStates": array_field(state, "conversation_states"),
+        "workflowBindings": array_field(state, "workflow_bindings"),
+        "adapterBoundaries": object_or_null(state.get("adapter_boundaries")),
+        "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
+        "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
+        "routeDecisions": route_decisions_from_receipts(&receipts),
+        "providerHealthReceipts": receipts_by_kind(&receipts, "provider_health"),
+        "runtimeSurveyReceipts": receipts_by_kind(&receipts, "runtime_survey"),
+        "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),
+        "toolReceipts": receipts_by_kind(&receipts, "mcp_tool_invocation"),
+        "receipts": receipts,
+    })
+}
+
+fn model_mount_projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
+    let projection = model_mount_projection(request);
+    json!({
+        "schemaVersion": projection.get("schemaVersion").cloned().unwrap_or(Value::Null),
+        "source": projection.get("source").cloned().unwrap_or(Value::Null),
+        "watermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
+        "receiptCount": projection.get("receipts").and_then(Value::as_array).map_or(0, Vec::len),
+        "generatedAt": projection.get("generatedAt").cloned().unwrap_or(Value::Null),
+    })
+}
+
+fn model_mount_receipt_replay(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, BridgeError> {
+    let receipt_id = request.receipt_id.as_deref().ok_or_else(|| {
+        BridgeError::new(
+            "model_mount_receipt_id_required",
+            "model_mount receipt replay projection requires receipt_id".to_string(),
+        )
+    })?;
+    let projection = model_mount_projection(request);
+    let receipts = projection
+        .get("receipts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let receipt = receipts
+        .iter()
+        .find(|candidate| json_string_field(candidate, "id").as_deref() == Some(receipt_id))
+        .cloned()
+        .ok_or_else(|| {
+            BridgeError::new(
+                "model_mount_receipt_not_found",
+                format!("model_mount receipt not found: {receipt_id}"),
+            )
+        })?;
+    let details = receipt.get("details").cloned().unwrap_or(Value::Null);
+    Ok(json!({
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "source": "agentgres_model_mounting_projection_replay",
+        "receipt": receipt,
+        "model_route_decision": details.get("model_route_decision").cloned().unwrap_or(Value::Null),
+        "route": projection_lookup(&projection, "routes", details.get("route_id")),
+        "endpoint": projection_lookup(&projection, "endpoints", details.get("endpoint_id")),
+        "instance": projection_lookup(&projection, "instances", details.get("instance_id")),
+        "provider": projection_lookup(&projection, "providers", details.get("provider_id")),
+        "toolReceipts": tool_receipts_from_details(&receipts, &details),
+        "projectionWatermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
+    }))
+}
+
+fn model_mount_route_decisions(request: &ModelMountReadProjectionRequest) -> Value {
+    Value::Array(route_decisions_from_receipts(&array_field(
+        &request.state,
+        "receipts",
+    )))
+}
+
+fn model_mount_authority_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
+    let state = &request.state;
+    let grants = array_field(state, "grants");
+    let vault_refs = array_field(state, "vault_refs");
+    let authority_receipts = array_field(state, "receipts")
+        .into_iter()
+        .filter(|receipt| {
+            matches!(
+                json_string_field(receipt, "kind").as_deref(),
+                Some("permission_token")
+                    | Some("permission_token_revocation")
+                    | Some("vault_ref_binding")
+                    | Some("vault_ref_removal")
+                    | Some("vault_adapter_health")
+            )
+        })
+        .rev()
+        .take(25)
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect::<Vec<_>>();
+    let wallet = object_or_null(state.get("wallet"));
+    let active_grants = grants
+        .iter()
+        .filter(|grant| grant.get("revokedAt").is_none())
+        .count();
+    let revoked_grants = grants.len().saturating_sub(active_grants);
+    let vault_ref_count = vault_refs.len();
+    let authority_receipt_count = authority_receipts.len();
+    let remote_wallet_configured = wallet
+        .get("remoteAdapter")
+        .and_then(|remote| remote.get("configured"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    json!({
+        "schemaVersion": "ioi.wallet-core-lite.authority.v1",
+        "source": "agentgres_wallet_authority_projection",
+        "generatedAt": model_mount_projection_generated_at(request),
+        "server": object_or_null(state.get("server")),
+        "wallet": wallet,
+        "vault": object_or_null(state.get("vault")),
+        "grants": grants,
+        "vaultRefs": vault_refs,
+        "approvals": [],
+        "approvalQueue": {
+            "status": "not_configured",
+            "pendingCount": 0,
+            "evidenceRefs": ["wallet.network.approval_queue.pending_runtime_adapter"],
+        },
+        "receipts": authority_receipts,
+        "summary": {
+            "activeGrants": active_grants,
+            "revokedGrants": revoked_grants,
+            "vaultRefs": vault_ref_count,
+            "pendingApprovals": 0,
+            "receiptCount": authority_receipt_count,
+            "remoteWalletConfigured": remote_wallet_configured,
+        },
+    })
+}
+
+fn model_mount_projection_schema_version(request: &ModelMountReadProjectionRequest) -> String {
+    request
+        .schema_version
+        .clone()
+        .unwrap_or_else(|| MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string())
+}
+
+fn model_mount_projection_generated_at(request: &ModelMountReadProjectionRequest) -> String {
+    request
+        .generated_at
+        .clone()
+        .unwrap_or_else(|| "1970-01-01T00:00:00.000Z".to_string())
+}
+
+fn array_field(value: &Value, key: &str) -> Vec<Value> {
+    value
+        .get(key)
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
+}
+
+fn object_or_null(value: Option<&Value>) -> Value {
+    match value {
+        Some(Value::Object(_)) => value.cloned().unwrap_or(Value::Null),
+        Some(Value::Null) | None => Value::Null,
+        Some(other) => other.clone(),
+    }
+}
+
+fn receipts_by_kind(receipts: &[Value], kind: &str) -> Vec<Value> {
+    receipts
+        .iter()
+        .filter(|receipt| json_string_field(receipt, "kind").as_deref() == Some(kind))
+        .cloned()
+        .collect()
+}
+
+fn route_decisions_from_receipts(receipts: &[Value]) -> Vec<Value> {
+    receipts
+        .iter()
+        .filter(|receipt| {
+            json_string_field(receipt, "kind").as_deref() == Some("model_route_selection")
+        })
+        .filter_map(route_decision_from_receipt)
+        .collect()
+}
+
+fn route_decision_from_receipt(receipt: &Value) -> Option<Value> {
+    let mut decision = receipt
+        .get("details")
+        .and_then(|details| details.get("model_route_decision"))
+        .and_then(Value::as_object)
+        .cloned()?;
+    decision.insert(
+        "receipt_id".to_string(),
+        receipt.get("id").cloned().unwrap_or(Value::Null),
+    );
+    decision.insert(
+        "receipt_created_at".to_string(),
+        receipt.get("createdAt").cloned().unwrap_or(Value::Null),
+    );
+    decision.insert(
+        "receipt_kind".to_string(),
+        receipt.get("kind").cloned().unwrap_or(Value::Null),
+    );
+    Some(Value::Object(decision))
+}
+
+fn projection_lookup(projection: &Value, collection_key: &str, id: Option<&Value>) -> Value {
+    let Some(id) = id.and_then(Value::as_str) else {
+        return Value::Null;
+    };
+    projection
+        .get(collection_key)
+        .and_then(Value::as_array)
+        .and_then(|records| {
+            records
+                .iter()
+                .find(|record| json_string_field(record, "id").as_deref() == Some(id))
+        })
+        .cloned()
+        .unwrap_or(Value::Null)
+}
+
+fn tool_receipts_from_details(receipts: &[Value], details: &Value) -> Vec<Value> {
+    let refs = match details.get("tool_receipt_ids") {
+        Some(Value::Array(values)) => values
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::to_string)
+            .collect::<Vec<_>>(),
+        Some(Value::String(value)) if !value.trim().is_empty() => vec![value.clone()],
+        _ => vec![],
+    };
+    refs.into_iter()
+        .filter_map(|receipt_id| {
+            receipts
+                .iter()
+                .find(|receipt| {
+                    json_string_field(receipt, "id").as_deref() == Some(receipt_id.as_str())
+                })
+                .cloned()
+        })
+        .collect()
+}
+
+fn json_string_field(value: &Value, key: &str) -> Option<String> {
+    value.get(key).and_then(Value::as_str).map(str::to_string)
 }
 
 fn execute_private_workspace_ctee_action(
@@ -7387,6 +7738,95 @@ mod tests {
             .as_str()
             .expect("head hash")
             .starts_with("sha256:"));
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_read_projection_through_rust_core() {
+        let state = json!({
+            "artifacts": [{"id": "artifact.local", "modelId": "model.local"}],
+            "endpoints": [{"id": "endpoint.local", "modelId": "model.local"}],
+            "instances": [],
+            "routes": [{"id": "route.local-first"}],
+            "model_capabilities": [{"modelId": "model.local"}],
+            "backends": [],
+            "backend_processes": [],
+            "providers": [{"id": "provider.local"}],
+            "catalog": {"status": "ready"},
+            "catalog_provider_configs": [],
+            "oauth_sessions": [],
+            "oauth_states": [],
+            "downloads": [],
+            "provider_health": [],
+            "runtime_engines": [],
+            "runtime_engine_profiles": [],
+            "runtime_preference": {"routeId": "route.local-first"},
+            "runtime_survey": null,
+            "grants": [],
+            "vault_refs": [],
+            "mcp_servers": [],
+            "conversation_states": [],
+            "workflow_bindings": [],
+            "adapter_boundaries": {"agentgres": {"port": "AgentgresStorePort"}},
+            "wallet": {"port": "WalletAuthorityPort"},
+            "vault": {"port": "VaultPort"},
+            "server": {"status": "running"},
+            "receipts": [{
+                "id": "receipt-route",
+                "kind": "model_route_selection",
+                "createdAt": "2026-06-08T00:00:00.000Z",
+                "details": {
+                    "model_route_decision": {
+                        "schema_version": "ioi.model-route-decision.v1",
+                        "route_id": "route.local-first",
+                        "selected_model": "model.local"
+                    },
+                    "route_id": "route.local-first",
+                    "endpoint_id": "endpoint.local",
+                    "provider_id": "provider.local"
+                }
+            }]
+        });
+        let request: ModelMountReadProjectionBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_read_projection",
+            "backend": "rust_model_mount_read_projection",
+            "request": {
+                "projection_kind": "projection",
+                "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                "generated_at": "2026-06-08T00:00:00.000Z",
+                "state": state
+            }
+        }))
+        .expect("model_mount read projection bridge request");
+
+        let response =
+            plan_model_mount_read_projection(request).expect("read projection planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_read_projection_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_read_projection");
+        assert_eq!(response["projection_kind"], "projection");
+        assert_eq!(
+            response["projection"]["source"],
+            "agentgres_model_mounting_projection"
+        );
+        assert_eq!(response["projection"]["watermark"], 1);
+        assert_eq!(
+            response["projection"]["routeDecisions"][0]["receipt_id"],
+            "receipt-route"
+        );
+        assert_eq!(
+            response["projection"]["routeDecisions"][0]["selected_model"],
+            "model.local"
+        );
+        assert!(response["projection"].get("route_decisions").is_none());
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
     }
 
     #[test]

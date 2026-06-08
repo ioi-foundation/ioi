@@ -877,6 +877,22 @@ route-selection receipt Rust-authoring matrix-compaction pass is complete. No
 matrix-compaction pass is pending until the next Rust-core extraction or
 facade-retirement seam lands; do not encode the command bridge or JS transport
 wrappers as terminal architecture.
+Slice 792 moved model_mount read-projection authoring out of the JS
+`read-projection-facade.mjs` helper path and into Rust daemon-core projection
+planning. `plan_model_mount_read_projection` now authors the canonical
+model_mount projection, projection summary, route-decision projection, receipt
+replay, and wallet authority snapshot envelopes through the Rust command
+transport; the JS facade prepares current state input, calls
+`planReadProjection()`, and fails closed with
+`model_mount_read_projection_rust_core_required` when Rust projection planning
+is unavailable. This still does not claim terminal model_mount migration:
+current state materialization and command transport remain migration plumbing,
+and direct Rust daemon-core APIs still need to own storage-backed projection
+reads, Agentgres projection watermarks, replay, wallet authority binding,
+SDK/IDE protocol coverage, and replacement of the bridge process boundary. The
+Slice 792 model_mount read-projection Rust-authoring matrix-compaction pass is
+scheduled for the next resume cycle before unrelated projection/route-family
+work continues.
 
 ## Part II: Target Execution Model
 

@@ -519,6 +519,10 @@ function runDocs() {
       /`admit_model_mount_route_decision` now returns an\s+`accepted_receipt_record` authored by Rust/.test(guide) &&
       /`receipt-operations\.mjs` now rejects generic JS model_mount receipt creation\s+with `model_mount_js_receipt_creation_retired`/.test(guide) &&
       /Slice 791\s+route-selection receipt Rust-authoring matrix-compaction pass is complete/.test(guide) &&
+      /Slice 792 moved model_mount read-projection authoring out of the JS\s+`read-projection-facade\.mjs` helper path/.test(guide) &&
+      /`plan_model_mount_read_projection` now authors the canonical\s+model_mount projection/.test(guide) &&
+      /`model_mount_read_projection_rust_core_required`/.test(guide) &&
+      /Slice 792 model_mount read-projection Rust-authoring matrix-compaction pass is\s+scheduled/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -581,7 +585,8 @@ function runDocs() {
       /Slice 789 retired SDK memory output compatibility aliases for projection, path,\s+record, and policy response contracts/.test(matrix) &&
       /Slice 790 retired public model-capability protocol output aliases/.test(matrix) &&
       /Slice 791 moved route-selection receipt authoring to the Rust model_mount\s+route-decision admission boundary/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Slice 792 moved model_mount read-projection authoring to Rust daemon-core\s+projection planning/.test(matrix) &&
+      /Next resume instruction: run the scheduled Slice 792 matrix-compaction pass\s+before unrelated projection\/route-family work/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -870,7 +875,9 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 790 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 791/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending until the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
+      /Implementation Slice Evidence: 792/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 792 is now pending/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: Slice 792 model_mount read-projection\s+Rust-authoring evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7627,9 +7634,14 @@ function runBridge() {
       /details:\s*redact\(error\?\.details \?\? \{\}\)/.test(runtimeHttpUtilsBridge) &&
       /return state\.store\.listReceipts\(\);/.test(modelMountReceiptOperationsBridge) &&
       /return state\.store\.getReceipt\(receiptId\);/.test(modelMountReceiptOperationsBridge) &&
-      /return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
+      /planReadProjection/.test(modelMountAdmissionRunner) &&
+      /plan_model_mount_read_projection/.test(modelMountAdmissionRunner) &&
+      /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionFacade) &&
+      !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
         modelMountingReadProjectionFacade,
-      ),
+      ) &&
+      /fn plan_model_mount_read_projection/.test(bridgeModule) &&
+      /bridge_plans_model_mount_read_projection_through_rust_core/.test(bridgeModule),
     [
       "packages/runtime-daemon/src/model-mounting/io.mjs",
       "packages/runtime-daemon/src/runtime-http-utils.mjs",
@@ -7639,6 +7651,31 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
     ],
     "Phase 10/11 is pending: model-mounting read, receipt, route-decision, and HTTP error surfaces must not expose prototype-based camelCase compatibility wrappers",
+  );
+  assertCheck(
+    result,
+    "model-mount-read-projection-rust-core",
+    /readProjectionPlanner:\s*this\.modelMountAdmissionRunner/.test(modelMountingState) &&
+      /function rustReadProjection/.test(modelMountingReadProjectionFacade) &&
+      /readProjectionPlanner\.planReadProjection/.test(modelMountingReadProjectionFacade) &&
+      /model_mount_js_read_projection_authoring_retired/.test(modelMountingReadProjectionFacade) &&
+      /Rust model_mount admission runner sends read projection plan request/.test(modelMountAdmissionRunnerTest) &&
+      /planReadProjection\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_read_projection"/.test(modelMountAdmissionRunner) &&
+      /normalizeReadProjectionBridgeResult/.test(modelMountAdmissionRunner) &&
+      /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
+      /rust_model_mount_read_projection_command/.test(bridgeModule) &&
+      /rust_daemon_core_model_mount_projection/.test(bridgeModule) &&
+      /agentgres_model_mount_read_truth/.test(bridgeModule),
+    [
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 is pending: model_mount read projection, route-decision replay, and authority snapshot projection must be authored by Rust daemon-core rather than JS projection helpers",
   );
   assertCheck(
     result,

@@ -17,11 +17,6 @@ import {
 } from "./read-model.mjs";
 import {
   buildAdapterBoundaries,
-  buildAuthoritySnapshot,
-  buildModelMountingProjection,
-  buildModelRouteDecisions,
-  buildProjectionSummary,
-  buildReceiptReplay,
 } from "./projections.mjs";
 import { notFound } from "./io.mjs";
 
@@ -39,6 +34,7 @@ export function createModelMountingReadProjectionFacade({
   publicOAuthState,
   publicProvider,
   readJson,
+  readProjectionPlanner = null,
 } = {}) {
   function runtimeModelCatalogList(state) {
     return runtimeModelCatalogListProjection(state);
@@ -115,15 +111,15 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function authoritySnapshot(state, baseUrl) {
-    return buildAuthoritySnapshot(state, baseUrl, { schemaVersion: modelMountSchemaVersion });
+    return rustReadProjection(state, "authority_snapshot", { baseUrl });
   }
 
   function projectionSummary(state) {
-    return buildProjectionSummary(state.projection());
+    return rustReadProjection(state, "projection_summary");
   }
 
   function projection(state) {
-    return buildModelMountingProjection(state, { schemaVersion: modelMountSchemaVersion });
+    return rustReadProjection(state, "projection");
   }
 
   function adapterBoundaries(state) {
@@ -131,11 +127,11 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function receiptReplay(state, receiptId) {
-    return buildReceiptReplay(state, receiptId, { schemaVersion: modelMountSchemaVersion });
+    return rustReadProjection(state, "receipt_replay", { receiptId });
   }
 
   function modelRouteDecisions(state) {
-    return buildModelRouteDecisions(state);
+    return rustReadProjection(state, "model_route_decisions");
   }
 
   function latestProviderHealth(state, providerId) {
@@ -179,6 +175,94 @@ export function createModelMountingReadProjectionFacade({
 
   function workflowNodeBindings() {
     return workflowNodeBindingsProjection({ capabilityForWorkflowNode });
+  }
+
+  function rustReadProjection(state, projectionKind, { baseUrl = null, receiptId = null } = {}) {
+    if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
+      throwReadProjectionRustCoreRequired(projectionKind, {
+        base_url: baseUrl,
+        receipt_id: receiptId,
+      });
+    }
+    const result = readProjectionPlanner.planReadProjection({
+      projection_kind: projectionKind,
+      schema_version: modelMountSchemaVersion,
+      generated_at: state.nowIso(),
+      base_url: baseUrl,
+      receipt_id: receiptId,
+      state: readProjectionInput(state, baseUrl),
+    });
+    if (!result?.projection || typeof result.projection !== "object") {
+      throwReadProjectionRustCoreRequired(projectionKind, {
+        reason: "missing_rust_projection",
+        source: result?.source ?? null,
+        backend: result?.backend ?? null,
+      });
+    }
+    return result.projection;
+  }
+
+  function readProjectionInput(state, baseUrl = null) {
+    return {
+      server: state.serverStatus(baseUrl),
+      catalog: state.catalogStatus(),
+      catalog_provider_configs: state.listCatalogProviderConfigs(),
+      oauth_sessions: oauthSessionList(state, {
+        publicOAuthSession,
+      }),
+      oauth_states: oauthStateList(state, {
+        publicOAuthState,
+      }),
+      artifacts: artifactList(state),
+      backends: state.listBackends(),
+      backend_processes: state.listBackendProcesses(),
+      endpoints: endpointList(state),
+      instances: instanceList(state),
+      providers: providerList(state, {
+        providerHasVaultRef,
+        publicProvider,
+      }),
+      routes: routeList(state),
+      model_capabilities: modelCapabilityList(state, {
+        buildModelCapabilities,
+      }),
+      downloads: downloadList(state),
+      provider_health: providerHealthList(state, {
+        listJson,
+        path,
+        readJson,
+      }),
+      runtime_engines: state.listRuntimeEngines(),
+      runtime_engine_profiles: state.listRuntimeEngineProfiles(),
+      runtime_preference: state.runtimePreference(),
+      runtime_survey: state.latestRuntimeSurvey(),
+      grants: state.listTokens(),
+      vault_refs: state.listVaultRefs(),
+      mcp_servers: state.listMcpServers(),
+      conversation_states: state.listConversations(),
+      workflow_bindings: workflowNodeBindingsProjection({ capabilityForWorkflowNode }),
+      adapter_boundaries: buildAdapterBoundaries(state),
+      receipts: state.listReceipts(),
+      wallet: state.walletAuthority.adapterStatus(),
+      vault: state.vaultStatus(),
+    };
+  }
+
+  function throwReadProjectionRustCoreRequired(projectionKind, details = {}) {
+    const error = new Error("Model-mount read projection requires Rust daemon-core projection ownership.");
+    error.status = 501;
+    error.code = "model_mount_read_projection_rust_core_required";
+    error.details = {
+      rust_core_boundary: "model_mount.projection",
+      projection_kind: projectionKind,
+      ...details,
+      evidence_refs: [
+        "model_mount_js_read_projection_authoring_retired",
+        "rust_daemon_core_model_mount_projection_required",
+        "agentgres_model_mount_read_truth_required",
+      ],
+    };
+    throw error;
   }
 
   return {
