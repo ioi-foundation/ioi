@@ -228,6 +228,69 @@ test("MCP manager server records ignore retired allowedResources and allowedProm
   assert.equal(retiredOnly.prompt_count, 0);
 });
 
+test("MCP manager server records ignore retired transport and containment aliases", () => {
+  const server = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "http",
+      server_url: "https://canonical.example.test/mcp",
+      serverUrl: "https://retired.example.test/mcp",
+      containment_mode: "canonical-sandbox",
+      containmentMode: "retired-sandbox",
+      allow_network_egress: false,
+      allowNetworkEgress: true,
+      allow_child_processes: false,
+      allowChildProcesses: true,
+      containment: {
+        allowNetworkEgress: true,
+        allowChildProcesses: true,
+      },
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+    },
+  );
+
+  assert.equal(server.server_url, "https://canonical.example.test/mcp");
+  assert.notEqual(server.server_url, "https://retired.example.test/mcp");
+  assert.equal(server.containment.mode, "canonical-sandbox");
+  assert.equal(server.containment.allow_network_egress, false);
+  assert.equal(server.containment.allow_child_processes, false);
+  assert.equal(Object.hasOwn(server, "serverUrl"), false);
+  assert.equal(Object.hasOwn(server.containment, "allowNetworkEgress"), false);
+  assert.equal(Object.hasOwn(server.containment, "allowChildProcesses"), false);
+
+  const retiredOnly = normalizeMcpServerRecord(
+    "docs",
+    {
+      transport: "http",
+      serverUrl: "https://retired.example.test/mcp",
+      containmentMode: "retired-sandbox",
+      allowNetworkEgress: true,
+      allowChildProcesses: true,
+      containment: {
+        allowNetworkEgress: true,
+        allowChildProcesses: true,
+      },
+    },
+    {
+      workspace_root: "/workspace",
+      source: "test",
+    },
+  );
+
+  assert.equal(retiredOnly.server_url, null);
+  assert.equal(retiredOnly.containment.mode, "sandboxed");
+  assert.equal(retiredOnly.containment.allow_network_egress, false);
+  assert.equal(retiredOnly.containment.allow_child_processes, false);
+
+  const validation = validateMcpServerRecords([retiredOnly]);
+  assert.equal(validation.ok, false);
+  assert.equal(validation.issues[0].code, "mcp_server_transport_missing");
+  assert.equal(Object.hasOwn(validation.issues[0], "serverUrl"), false);
+});
+
 test("MCP manager server records ignore retired workspaceRoot context alias", () => {
   const server = normalizeMcpServerRecord(
     "docs",

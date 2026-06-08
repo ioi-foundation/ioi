@@ -122,7 +122,7 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     "mcp";
   const id = optionalString(config.id) ?? `mcp.${safeId(name)}`;
   const serverUrl = optionalString(
-    config.serverUrl ?? config.server_url ?? config.url ?? config.endpoint,
+    config.server_url ?? config.url ?? config.endpoint,
   );
   const transport = normalizeMcpTransport(
     optionalString(config.transport) ??
@@ -190,18 +190,16 @@ export function normalizeMcpServerRecord(label, config = {}, context = {}) {
     prompt_count: declaredPrompts.length,
     containment: {
       mode:
-        optionalString(config.containmentMode ?? config.containment_mode ?? config.containment?.mode) ??
+        optionalString(config.containment_mode ?? config.containment?.mode) ??
         "sandboxed",
       allow_network_egress: Boolean(
-        config.allowNetworkEgress ??
-          config.allow_network_egress ??
-          config.containment?.allowNetworkEgress ??
+        config.allow_network_egress ??
+          config.containment?.allow_network_egress ??
           serverUrl,
       ),
       allow_child_processes: Boolean(
-        config.allowChildProcesses ??
-          config.allow_child_processes ??
-          config.containment?.allowChildProcesses ??
+        config.allow_child_processes ??
+          config.containment?.allow_child_processes ??
           config.command,
       ),
       workspace_root: context.workspace_root ?? null,
@@ -262,7 +260,7 @@ export function validateMcpServerRecords(servers = []) {
   const warnings = [];
   for (const server of servers) {
     const transport = normalizeMcpTransport(server.transport);
-    const serverUrl = optionalString(server.server_url ?? server.serverUrl ?? server.endpoint);
+    const serverUrl = optionalString(server.server_url ?? server.endpoint);
     if (!["stdio", "http", "sse"].includes(transport)) {
       issues.push({
         code: "mcp_transport_unsupported",

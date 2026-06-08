@@ -439,6 +439,15 @@ function runDocs() {
       /The Slice 771 MCP\s+manager resource\/prompt alias-retirement matrix-compaction pass is complete/.test(
         guide,
       ) &&
+      /Slice 772 retired MCP manager `serverUrl`, `containmentMode`,\s+`allowNetworkEgress`, and `allowChildProcesses` transport\/containment\s+fallbacks/.test(
+        guide,
+      ) &&
+      /remote MCP URLs from canonical\s+`server_url`, `url`, or `endpoint` only/.test(
+        guide,
+      ) &&
+      /The Slice 772 MCP manager\s+transport\/containment alias-retirement matrix-compaction pass is pending/.test(
+        guide,
+      ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -476,7 +485,8 @@ function runDocs() {
         matrix,
       ) &&
       /This pass compacted Slice 771 MCP manager `allowedResources`\/`allowedPrompts`\s+server config\/catalog alias-retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Slice 772 retired MCP manager `serverUrl`, `containmentMode`,\s+`allowNetworkEgress`, and `allowChildProcesses` transport\/containment\s+fallbacks/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice only after compacting the Slice 772 MCP\s+manager transport\/containment alias-retirement evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -694,12 +704,15 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 771/.test(matrix) &&
       /MCP manager\s+`allowedResources`\/`allowedPrompts` server config\/catalog alias retirement/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 771 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 771 MCP manager\s+`allowedResources`\/`allowedPrompts` server config\/catalog alias-retirement\s+compaction/.test(matrix) &&
+      /Implementation Slice Evidence: 772/.test(matrix) &&
+      /MCP manager transport and containment camelCase fallbacks/.test(matrix) &&
+      /Schedule and run a matrix-compaction pass for\s+Slice 772 before unrelated route-family work resumes/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending for Slice 772 MCP manager\s+`serverUrl`\/`containmentMode`\/`allowNetworkEgress`\/`allowChildProcesses`\s+transport\/containment alias-retirement evidence/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
-      /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, and resource\/prompt catalog handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
-      /`allowedTools`, `allowedResources`, and `allowedPrompts` aliases/.test(
+      /MCP manager\/catalog\/helper source-mode, source metadata, config-compatibility,\s+server tool-exposure, resource\/prompt catalog, and transport\/containment handoffs now use canonical snake_case fields/.test(implementationMatrix) &&
+      /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, and `allowChildProcesses` aliases/.test(
         implementationMatrix,
       ) &&
       /MCP serve `tools\/call` now consumes canonical `params\.arguments` only/.test(implementationMatrix) &&
@@ -22184,6 +22197,9 @@ function runCompositor() {
       /config_compatibility:\s*optionalString\(config\.config_compatibility\)\s*\?\?\s*optionalString\(context\.config_compatibility\)/.test(
         runtimeMcpManagerServerRecordBlock,
       ) &&
+      /const serverUrl = optionalString\(\s*config\.server_url \?\? config\.url \?\? config\.endpoint,\s*\)/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
       /source_path: source\.path/.test(runtimeMcpManagerRegistryBlock) &&
       /source_scope: source\.scope/.test(runtimeMcpManagerRegistryBlock) &&
       /config_compatibility: source\.compatibility/.test(runtimeMcpManagerRegistryBlock) &&
@@ -22202,6 +22218,13 @@ function runCompositor() {
       !/(?:config|server)\.(?:allowedResources|allowedPrompts)\s*\?\?/.test(
         runtimeMcpManager,
       ) &&
+      !/config\.(?:serverUrl|containmentMode|allowNetworkEgress|allowChildProcesses)\b/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      !/config\.containment\?\.(?:allowNetworkEgress|allowChildProcesses)\b/.test(
+        runtimeMcpManagerServerRecordBlock,
+      ) &&
+      !/server\.serverUrl\b/.test(runtimeMcpManagerValidationBlock) &&
       /vault_boundary:\s*\{/.test(runtimeMcpManagerServerRecordBlock) &&
       /header_ref_count:\s*Object\.keys\(headerSecretRefs\)\.length/.test(
         runtimeMcpManagerServerRecordBlock,
@@ -22234,6 +22257,17 @@ function runCompositor() {
       /allowedPrompts:\s*\[\{ name: "ask_retired" \}\]/.test(runtimeMcpManagerTest) &&
       /retiredOnly\.resource_count,\s*0/.test(runtimeMcpManagerTest) &&
       /retiredOnly\.prompt_count,\s*0/.test(runtimeMcpManagerTest) &&
+      /MCP manager server records ignore retired transport and containment aliases/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /serverUrl:\s*"https:\/\/retired\.example\.test\/mcp"/.test(
+        runtimeMcpManagerTest,
+      ) &&
+      /allowNetworkEgress:\s*true/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.server_url,\s*null/.test(runtimeMcpManagerTest) &&
+      /retiredOnly\.containment\.allow_network_egress,\s*false/.test(
+        runtimeMcpManagerTest,
+      ) &&
       /MCP manager server records ignore retired sourcePath and sourceScope aliases/.test(
         runtimeMcpManagerTest,
       ) &&

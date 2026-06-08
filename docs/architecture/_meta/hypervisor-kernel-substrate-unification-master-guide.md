@@ -576,9 +576,21 @@ to own wallet authority, transport containment, StepModuleRouter dispatch,
 receipt binding, Agentgres expected-head/state-root binding, registry truth,
 replay, SDK/IDE protocol coverage, and conformance. Do not encode the remaining
 JS MCP manager/catalog helpers as terminal architecture. The Slice 771 MCP
-manager resource/prompt alias-retirement matrix-compaction pass is complete. No
-matrix-compaction pass is pending until the next Rust-core extraction or
-facade-retirement seam lands.
+manager resource/prompt alias-retirement matrix-compaction pass is complete.
+Slice 772 retired MCP manager `serverUrl`, `containmentMode`,
+`allowNetworkEgress`, and `allowChildProcesses` transport/containment
+fallbacks. `mcp-manager.mjs` now derives remote MCP URLs from canonical
+`server_url`, `url`, or `endpoint` only and derives containment policy from
+canonical snake_case fields only, so retired camelCase aliases can no longer
+satisfy HTTP/SSE URL validation or loosen network/child-process containment
+policy. This does not claim terminal MCP manager migration: direct Rust
+daemon-core MCP control/admission/projection still needs to own wallet
+authority, transport containment, StepModuleRouter dispatch, receipt binding,
+Agentgres expected-head/state-root binding, registry truth, replay, SDK/IDE
+protocol coverage, and conformance. Do not encode the remaining JS MCP
+manager/catalog helpers as terminal architecture. The Slice 772 MCP manager
+transport/containment alias-retirement matrix-compaction pass is pending and
+must run before unrelated route-family work resumes.
 
 ## Part II: Target Execution Model
 

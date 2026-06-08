@@ -71,12 +71,15 @@ This pass compacted Slice 770 MCP manager `allowedTools` server config/catalog
 alias-retirement evidence.
 This pass compacted Slice 771 MCP manager `allowedResources`/`allowedPrompts`
 server config/catalog alias-retirement evidence.
+Slice 772 retired MCP manager `serverUrl`, `containmentMode`,
+`allowNetworkEgress`, and `allowChildProcesses` transport/containment
+fallbacks.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; schedule the next
-matrix-compaction pass only after that seam lands. Preserve the live owner map,
-terminal blockers, and the fact that fail-closed JS facades, canonical input
-helpers, local projection helpers, and migration transport are not terminal
-substrate.
+facade-retirement implementation slice only after compacting the Slice 772 MCP
+manager transport/containment alias-retirement evidence. Preserve the live owner
+map, terminal blockers, and the fact that fail-closed JS facades, canonical
+input helpers, local projection helpers, and migration transport are not
+terminal substrate.
 
 ## Purpose
 
@@ -183,9 +186,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: none pending after Slice 771 MCP manager
-  `allowedResources`/`allowedPrompts` server config/catalog alias-retirement
-  compaction.
+- Next scheduled matrix-compaction pass: pending for Slice 772 MCP manager
+  `serverUrl`/`containmentMode`/`allowNetworkEgress`/`allowChildProcesses`
+  transport/containment alias-retirement evidence.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice, then schedule the next
   matrix-compaction pass only after that seam lands. Do not let context
@@ -15199,6 +15202,32 @@ and alias-only inputs, and conformance forbids the retired
   JS-facade retirement seam; schedule the next matrix-compaction pass only after
   that seam lands, and do not encode the command bridge, read-only helper
   adapters, or fail-closed JS surfaces as terminal architecture.
+
+## Implementation Slice Evidence: 772
+
+Slice 772 retired MCP manager transport and containment camelCase fallbacks.
+`packages/runtime-daemon/src/mcp-manager.mjs` now derives remote MCP URLs from
+canonical `server_url`, `url`, or `endpoint` only, validates normalized records
+without the retired `serverUrl` fallback, and derives containment policy from
+canonical `containment_mode`, `allow_network_egress`,
+`containment.allow_network_egress`, `allow_child_processes`, or
+`containment.allow_child_processes` only. Retired `serverUrl`,
+`containmentMode`, `allowNetworkEgress`, and `allowChildProcesses` can no
+longer select remote transport URLs, satisfy HTTP/SSE URL validation, or loosen
+network/child-process containment policy. The focused `mcp-manager.test.mjs`
+regression poisons those retired aliases beside canonical fields and in
+alias-only config, proving canonical values win and alias-only HTTP config fails
+closed with canonical error details. The conformance harness guards the
+canonical server URL path, forbids retired transport/containment fallback
+readers, and requires the poisoned regression.
+
+This does not claim terminal MCP migration: direct Rust daemon-core MCP
+control/admission/projection still needs to own wallet authority, transport
+containment, StepModuleRouter dispatch, receipt binding, Agentgres
+expected-head/state-root binding, registry truth, replay, SDK/IDE protocol
+coverage, and conformance. Do not encode the remaining JS MCP manager/catalog
+helpers as terminal architecture. Schedule and run a matrix-compaction pass for
+Slice 772 before unrelated route-family work resumes.
 
 | Command | Expected status now | Reason |
 | --- | --- | --- |
