@@ -473,9 +473,9 @@ authority, receipt/event materialization, Agentgres expected-head/state-root
 binding, ArtifactRef/PayloadRef where needed, replay, SDK/IDE protocol coverage,
 and conformance. Do not encode the remaining JS memory read adapter or
 run-memory projection helper as terminal architecture.
-Schedule a matrix-compaction pass after Slice 764 before starting unrelated
-route-family work, once this Rust-core extraction/facade-retirement seam is
-ready to collapse into compacted evidence.
+The Slice 764 direct `AgentMemoryStore` writer and run-memory mutation path
+retirement matrix-compaction pass is complete. No matrix-compaction pass is
+pending until the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

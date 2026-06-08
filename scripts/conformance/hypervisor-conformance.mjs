@@ -408,7 +408,7 @@ function runDocs() {
       /The Slice 763 direct conversation-artifact store writer retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 764 retired the hidden `AgentMemoryStore` JS mutation writers/.test(guide) &&
       /`AgentMemoryStore` no longer receives a\s+`commitRuntimeMemoryState` injection/.test(guide) &&
-      /Schedule a matrix-compaction pass after Slice 764/.test(guide) &&
+      /The Slice 764 direct `AgentMemoryStore` writer and run-memory mutation path\s+retirement matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -436,8 +436,8 @@ function runDocs() {
       /This pass compacted Slice 761 model-mount route-selection policy alias\s+retirement evidence/.test(matrix) &&
       /This pass compacted Slice 762 catalog-provider config-update helper retirement\s+evidence/.test(matrix) &&
       /This pass compacted Slice 763 direct conversation-artifact store writer\s+retirement evidence/.test(matrix) &&
-      /Slice 764 retired direct `AgentMemoryStore` JS mutation writers/.test(matrix) &&
-      /Next resume instruction: compact Slice 764 into the route-family ledger before\s+starting unrelated route-family work/.test(matrix) &&
+      /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -633,9 +633,10 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 761 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 762 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 763 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 764/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 764 is now satisfied/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 764/.test(matrix) &&
       /runtime_run_memory_mutation_rust_core_required/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: pending after Slice 764 direct\s+`AgentMemoryStore` writer and run-memory mutation path retirement/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 764 direct\s+`AgentMemoryStore` writer and run-memory mutation path retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
