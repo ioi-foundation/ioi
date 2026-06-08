@@ -406,9 +406,10 @@ continue to fail closed. This does not claim terminal catalog/download
 migration: direct Rust daemon-core catalog/download/filesystem/admission APIs
 still need to own transfer policy admission, destructive action authority,
 receipt binding, Agentgres admission, record-state, projection, replay, and
-conformance. Schedule the Slice 760 matrix-compaction pass on the next resume
-after this seam lands; do not encode the remaining JS helper as terminal
-architecture.
+conformance. Do not encode the remaining JS helper as terminal architecture.
+The Slice 760 catalog download policy request-synonym retirement
+matrix-compaction pass is complete. No matrix-compaction pass is pending until
+the next Rust-core extraction or facade-retirement seam lands.
 
 ## Part II: Target Execution Model
 

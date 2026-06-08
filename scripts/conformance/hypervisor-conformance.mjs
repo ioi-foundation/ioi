@@ -397,7 +397,7 @@ function runDocs() {
       /The Slice 759 catalog-provider runtime-material read-cache retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /Slice 760 retired catalog download policy request synonyms/.test(guide) &&
       /`bandwidth_limit_bps`,\s+`resume_download`, `retries`, and `destructive_confirmed` can no longer steer\s+catalog transfer policy or destructive confirmation/.test(guide) &&
-      /Schedule the Slice 760 matrix-compaction pass on the next resume/.test(guide) &&
+      /The Slice 760 catalog download policy request-synonym retirement\s+matrix-compaction pass is complete/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -421,9 +421,9 @@ function runDocs() {
       /then\s+compacted Slice 757 server-control local cache read-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 758 catalog-provider OAuth callback state\s+alias-retirement evidence/.test(matrix) &&
       /This pass compacted Slice 759 catalog-provider runtime-material read-cache\s+retirement evidence/.test(matrix) &&
-      /Slice 760 retired catalog download policy request synonyms from the remaining\s+JS helper facade/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: Slice 760 catalog download policy\s+request-synonym retirement/.test(matrix) &&
-      /Implementation Slice 760: Catalog Download Policy Request-Synonym Retirement/.test(matrix) &&
+      /This pass compacted Slice 760 catalog download policy request-synonym\s+retirement evidence/.test(matrix) &&
+      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first; schedule the next\s+matrix-compaction pass only after that seam lands/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 760/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -611,7 +611,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 759 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: Slice 760 catalog download policy\s+request-synonym retirement/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 760 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: none pending after Slice 760 catalog\s+download policy request-synonym retirement compaction/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS status may remain only a non-authoritative gateway\/read adapter/.test(
         implementationMatrix,
