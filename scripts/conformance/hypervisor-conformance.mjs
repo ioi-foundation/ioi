@@ -4840,41 +4840,25 @@ function runBridge() {
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /contextPolicyRunnerDep\.planDiagnosticsOperatorOverrideStateUpdate/.test(
+      /runtime_diagnostics_repair_rust_core_required/.test(runtimeDiagnosticsRepairSurface) &&
+      /rust_core_boundary:\s*"runtime\.diagnostics_repair"/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /plannedDiagnosticsOperatorOverrideRunRecord/.test(runtimeDiagnosticsRepairSurface) &&
-      /plannedDiagnosticsOperatorOverrideOperationKind/.test(runtimeDiagnosticsRepairSurface) &&
-      /notFound\(`Turn not found: \$\{targetTurnId\}`,\s*\{\s*thread_id: threadId,\s*turn_id: targetTurnId,\s*run_id: targetRunId,\s*\}\)/.test(
+      /diagnostics\.operator_override\.execute/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /details:\s*\{\s*thread_id:\s*threadId,\s*run_id:\s*runId\s*\}/.test(
-        runtimeDiagnosticsRepairSurface,
-      ) &&
-      /operation_kind:\s*"diagnostics\.operator_override\.event"/.test(
-        runtimeDiagnosticsRepairSurface,
-      ) &&
-      /expected_operation_kind:\s*"diagnostics\.operator_override\.event"/.test(
-        runtimeDiagnosticsRepairSurface,
-      ) &&
-      !/details:\s*\{[^}\n]*\b(?:threadId|runId|operationKind|expectedOperationKind)\s*:/.test(
-        runtimeDiagnosticsRepairSurface,
-      ) &&
-      !/notFound\(`Turn not found: \$\{targetTurnId\}`,\s*\{[^}\n]*\b(?:threadId|turnId|runId)\s*:/.test(
-        runtimeDiagnosticsRepairSurface,
-      ) &&
-      /planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /diagnostics repair operator override turn lookup exposes canonical not-found details/.test(
+      /diagnostics operator override facade fails closed before Rust planner invocation or JS run writes/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair surface fails closed without Rust-planned override run/.test(
+      /Diagnostics repair facade must not persist run state in JS/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair surface fails closed without Rust-planned override operation kind/.test(
+      /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /Object\.hasOwn\(error\.details,\s*key\),\s*false/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
+      !/planDiagnosticsOperatorOverrideStateUpdate/.test(runtimeDiagnosticsRepairSurface) &&
+      !/store\.runs\.set|store\.writeRun|store\.appendRuntimeEvent|store\.appendDiagnosticsOperatorOverrideEvent/.test(
+        runtimeDiagnosticsRepairSurface,
       ) &&
       !/control:\s*"diagnostics_operator_override"|appendOperatorControl/.test(
         runtimeDiagnosticsRepairSurface,
@@ -20292,293 +20276,56 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "diagnostics-repair-restore-request-aliases-retired",
-    /RETIRED_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_ALIASES/.test(runtimeDiagnosticsRepairSurface) &&
-      /CANONICAL_DIAGNOSTICS_REPAIR_RESTORE_REQUEST_FIELDS/.test(runtimeDiagnosticsRepairSurface) &&
-      /diagnostics_repair_restore_request_aliases_retired/.test(runtimeDiagnosticsRepairSurface) &&
-      /assertCanonicalDiagnosticsRepairRestoreRequestBody\(action, request\);[\s\S]*optionalString\(request\.snapshot_id\)/.test(
+    "diagnostics-repair-control-js-facade-retired",
+    /function throwDiagnosticsRepairRustCoreRequired/.test(runtimeDiagnosticsRepairSurface) &&
+      /runtime_diagnostics_repair_rust_core_required/.test(runtimeDiagnosticsRepairSurface) &&
+      /rust_core_boundary:\s*"runtime\.diagnostics_repair"/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      !/request\.(?:snapshotId|workflowGraphId|workflowNodeId|restorePreviewIdempotencyKey|restoreApplyIdempotencyKey|approvalDecision|policyDecision|confirmRestoreApply|applyConfirmed|approvalGranted|allowConflicts|overrideConflicts|restoreConflictPolicy|conflictPolicy)\b/.test(
+      /diagnostics_repair_decision_execution_js_facade_retired/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics repair surface routes restore apply with canonical request fields/.test(
+      /diagnostics_operator_override_js_facade_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics_repair_retry_js_create_run_facade_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics_repair_decision_resolution_js_projection_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics_repair_decision_event_js_append_retired/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/store\.(?:agentForThread|getRun|createRun|appendRuntimeEvent|writeRun|runs\.set|resolveDiagnosticsRepairDecision|executeDiagnosticsOperatorOverride|createDiagnosticsRepairRetryTurn)\b/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      !/store\.appendDiagnosticsRepairDecisionExecutedEvent|store\.appendDiagnosticsOperatorOverrideEvent|store\.appendDiagnosticsRepairRetryTurnEvent/.test(
+        runtimeDiagnosticsRepairSurface,
+      ) &&
+      /diagnostics repair decision execution facade fails closed before JS lookup, event append, or persistence/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair restore rejects retired request aliases before workspace restore call/.test(
+      /diagnostics operator override facade fails closed before Rust planner invocation or JS run writes/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /workspace restore call must not run for retired diagnostics repair restore request aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ),
-    [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair restore decisions must fail closed on retired restore request aliases before calling workspace restore preview/apply",
-  );
-  const diagnosticsRepairDecisionExecutionBody =
-    runtimeDiagnosticsRepairSurface.match(
-      /  function executeDiagnosticsRepairDecision\(store, threadId, decisionRef, request = \{\}\) \{[\s\S]*?(?=\n  function assertCanonicalDiagnosticsRepairRestoreRequestBody)/,
-    )?.[0] ?? "";
-  const diagnosticsRepairDecisionExecutedEventBody =
-    runtimeDiagnosticsRepairSurface.match(
-      /  function appendDiagnosticsRepairDecisionExecutedEvent\(store, \{[\s\S]*?(?=\n  return \{)/,
-    )?.[0] ?? "";
-  const diagnosticsOperatorOverrideHelperBody =
-    runtimeDiagnosticsRepairSurface.match(
-      /  function executeDiagnosticsOperatorOverride\(store, threadId, \{[\s\S]*?(?=\n  function createDiagnosticsRepairRetryTurn)/,
-    )?.[0] ?? "";
-  const diagnosticsRepairRetryHelperBody =
-    runtimeDiagnosticsRepairSurface.match(
-      /  function createDiagnosticsRepairRetryTurn\(store, threadId, \{[\s\S]*?(?=\n  function resolveDiagnosticsRepairDecision)/,
-    )?.[0] ?? "";
-  const diagnosticsRepairDecisionResolverBody =
-    runtimeDiagnosticsRepairSurface.match(
-      /  function resolveDiagnosticsRepairDecision\(store, threadId, decisionRef, request = \{\}\) \{[\s\S]*?(?=\n  function appendDiagnosticsRepairDecisionExecutedEvent)/,
-    )?.[0] ?? "";
-  assertCheck(
-    result,
-    "diagnostics-repair-decision-result-aliases-retired",
-    /schema_version:\s*DIAGNOSTICS_REPAIR_DECISION_EXECUTION_SCHEMA_VERSION/.test(
-      diagnosticsRepairDecisionExecutionBody,
-    ) &&
-      /thread_id:\s*threadId/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /decision_id:\s*decisionId/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /repair_policy:\s*repairPolicy/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /receipt_refs:\s*event\.receipt_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /artifact_refs:\s*event\.artifact_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /policy_decision_refs:\s*event\.policy_decision_refs/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      /rollback_refs:\s*event\.rollback_refs/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /const target = optionalString\(decisionRef \?\? request\.decision_id \?\? request\.action\);/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      /const decisionId = decision\.decision_id \?\? target;/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      /policy_id:\s*repairPolicy\.policy_id \?\? null/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      /details:\s*\{\s*thread_id:\s*threadId\s*\}/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      /decision_ref:\s*target/.test(diagnosticsRepairDecisionExecutionBody) &&
-      /supported_actions:\s*\["repair_retry", "restore_preview", "restore_apply", "operator_override"\]/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      !/\brequest\.decisionId\b/.test(diagnosticsRepairDecisionExecutionBody) &&
-      !/\bdecision\.(?:decisionId|workspaceSnapshotRefs)\b/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      !/\brepairPolicy\.(?:policyId|workspaceSnapshotRefs)\b/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      !/details:\s*\{[^}\n]*\b(?:threadId|decisionRef|supportedActions)\s*:/.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      !/^\s*(?:schemaVersion|threadId|decisionId|gateEventId|policyId|snapshotId|workflowGraphId|workflowNodeId|repairPolicy|repairRetry|repairTurn|repairRetryEvent|operatorOverride|operatorOverrideEvent|restorePreview|restoreApply|restorePreviewEvent|restoreApplyEvent|receiptRefs|artifactRefs|policyDecisionRefs|rollbackRefs)\s*:/m.test(
-        diagnosticsRepairDecisionExecutionBody,
-      ) &&
-      /Object\.hasOwn\(result,\s*field\),\s*false/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /Object\.hasOwn\(error\.details,\s*key\),\s*false/.test(
+      /diagnostics repair retry facade fails closed before JS createRun or retry event append/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"decisionId"[\s\S]*"receiptRefs"[\s\S]*"rollbackRefs"/.test(
+      /diagnostics repair event append helpers fail closed before JS runtime event append/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair decision execution ignores retired request decision alias/.test(
+      /diagnostics repair decision resolver facade fails closed before JS projection reads/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics repair decision execution ignores retired snapshot ref aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /diagnostics repair decision execution ignores retired decision and policy id aliases/.test(
+      /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ),
     [
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: diagnostics repair decision execution results must expose canonical snake_case fields without duplicate camelCase aliases",
-  );
-  assertCheck(
-    result,
-    "diagnostics-repair-decision-resolver-reader-aliases-retired",
-    /const gateId = optionalString\(request\.gate_id\);/.test(diagnosticsRepairDecisionResolverBody) &&
-      /optionalString\(request\.action \?\? request\.decision_action\)/.test(
-        diagnosticsRepairDecisionResolverBody,
-      ) &&
-      /event\.payload_summary\?\.gate_id === gateId \|\| event\.payload\?\.gate_id === gateId/.test(
-        diagnosticsRepairDecisionResolverBody,
-      ) &&
-      /const repairPolicy = gateEvent\.payload_summary\?\.repair_policy \?\? \{\};/.test(
-        diagnosticsRepairDecisionResolverBody,
-      ) &&
-      /repairPolicy\.decisions \?\? gateEvent\.payload_summary\?\.repair_decisions/.test(
-        diagnosticsRepairDecisionResolverBody,
-      ) &&
-      /const candidateId = optionalString\(candidate\.decision_id\)\?\.toLowerCase\(\);/.test(
-        diagnosticsRepairDecisionResolverBody,
-      ) &&
-      !/\b(?:request|event\.payload_summary|event\.payload|gateEvent\.payload_summary|candidate)\.(?:gateId|decisionAction|repairPolicy|repairDecisions|decisionId)\b/.test(
-        diagnosticsRepairDecisionResolverBody,
-      ) &&
-      /diagnostics repair resolver ignores retired gate and decision aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /gateId:\s*"gate_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /decisionAction:\s*"repair_retry"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /decisionId:\s*"decision_retired"/.test(runtimeDiagnosticsRepairSurfaceTest),
-    [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair decision resolution must consume canonical gate, action, policy, and decision fields without retired camelCase reader fallbacks",
-  );
-  assertCheck(
-    result,
-    "diagnostics-repair-final-event-metadata-aliases-retired",
-    /const decisionId = decision\?\.decision_id \?\? action;/.test(
-      diagnosticsRepairDecisionExecutedEventBody,
-    ) &&
-      /repairPolicy\?\.policy_id,\s*\n\s*\.\.\.normalizeArray\(gateEvent\?\.policy_decision_refs\)/.test(
-        diagnosticsRepairDecisionExecutedEventBody,
-      ) &&
-      /optionalString\(request\.idempotency_key\)/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /policy_id:\s*repairPolicy\?\.policy_id \?\? null/.test(
-        diagnosticsRepairDecisionExecutedEventBody,
-      ) &&
-      !/\b(?:decision|repairPolicy|request)\?\.(?:decisionId|policyId|idempotencyKey)\b/.test(
-        diagnosticsRepairDecisionExecutedEventBody,
-      ) &&
-      !/\brequest\.idempotencyKey\b/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /diagnostics repair final execution events ignore retired decision metadata aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /idempotencyKey:\s*"idempotency_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /decisionId:\s*"decision_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /policyId:\s*"policy_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /event\.payload_summary\.decision_id,\s*"restore_preview"/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /event\.payload_summary\.policy_id,\s*null/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /event\.policy_decision_refs,\s*\["restore_preview"\]/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ),
-    [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair final execution events must read canonical decision metadata and idempotency fields without retired camelCase fallbacks",
-  );
-  assertCheck(
-    result,
-    "diagnostics-repair-event-result-reader-aliases-retired",
-    /executionResult\?\.repair_turn\?\.turn_id/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.repair_turn\?\.request_id/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.override_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.approval_required/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.approval_satisfied/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.continuation_allowed/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.preview_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.apply_status/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.policy_decision_refs/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.artifact_refs/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      /executionResult\?\.rollback_refs/.test(diagnosticsRepairDecisionExecutedEventBody) &&
-      !/executionResult\?\.(?:repairTurn|overrideStatus|approvalRequired|approvalSatisfied|continuationAllowed|previewStatus|applyStatus|policyDecisionRefs|artifactRefs|rollbackRefs)\b/.test(
-        diagnosticsRepairDecisionExecutedEventBody,
-      ) &&
-      /diagnostics repair final execution events ignore retired execution result aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /repairTurn:\s*\{ turn_id:\s*"turn_alias"/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /repair_retry_turn_id,\s*null/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /artifactRefs: \["artifact_alias"\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /policyDecisionRefs: \["policy_alias"\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /rollbackRefs: \["snapshot_alias"\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /event\.artifact_refs,\s*\[\]/.test(runtimeDiagnosticsRepairSurfaceTest) &&
-      /event\.policy_decision_refs,\s*\["decision_retry",\s*"policy_alpha"\]/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /event\.rollback_refs,\s*\["snapshot_alpha"\]/.test(runtimeDiagnosticsRepairSurfaceTest),
-    [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair final events must read canonical execution result fields without camelCase result fallbacks",
-  );
-  assertCheck(
-    result,
-    "diagnostics-repair-helper-reader-aliases-retired",
-    /const decisionId = decision\?\.decision_id \?\? "operator_override";/.test(
-      diagnosticsOperatorOverrideHelperBody,
-    ) &&
-      /optionalString\(request\.operator_override_idempotency_key\)/.test(
-        diagnosticsOperatorOverrideHelperBody,
-      ) &&
-      /const targetTurnId = optionalString\(payload\.target_turn_id\);/.test(
-        diagnosticsOperatorOverrideHelperBody,
-      ) &&
-      /policy_id:\s*repairPolicy\?\.policy_id \?\? null/.test(
-        diagnosticsOperatorOverrideHelperBody,
-      ) &&
-      /const decisionId = decision\?\.decision_id \?\? "repair_retry";/.test(
-        diagnosticsRepairRetryHelperBody,
-      ) &&
-      /optionalString\(request\.repair_retry_idempotency_key\)/.test(
-        diagnosticsRepairRetryHelperBody,
-      ) &&
-      /const retryTurnId = optionalString\(payload\.retry_turn_id\);/.test(
-        diagnosticsRepairRetryHelperBody,
-      ) &&
-      /diagnostic_status:\s*diagnosticsFeedback\?\.diagnostic_status \?\? null/.test(
-        diagnosticsRepairRetryHelperBody,
-      ) &&
-      /diagnostic_count:\s*diagnosticsFeedback\?\.diagnostic_count \?\? null/.test(
-        diagnosticsRepairRetryHelperBody,
-      ) &&
-      !/\b(?:decision|repairPolicy|gateEvent|diagnosticsFeedback)\?\.(?:decisionId|policyId|rollbackRefs)\b/.test(
-        `${diagnosticsOperatorOverrideHelperBody}\n${diagnosticsRepairRetryHelperBody}`,
-      ) &&
-      !/\brequest\.(?:operatorOverrideIdempotencyKey|repairRetryIdempotencyKey)\b/.test(
-        `${diagnosticsOperatorOverrideHelperBody}\n${diagnosticsRepairRetryHelperBody}`,
-      ) &&
-      !/\bpayload\.(?:targetTurnId|retryTurnId)\b/.test(
-        `${diagnosticsOperatorOverrideHelperBody}\n${diagnosticsRepairRetryHelperBody}`,
-      ) &&
-      !/\bdiagnosticsFeedback\?\.(?:diagnosticStatus|diagnosticCount)\b/.test(
-        diagnosticsRepairRetryHelperBody,
-      ) &&
-      /diagnostics repair helper events ignore retired operator override aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /diagnostics repair helper events ignore retired retry aliases/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ),
-    [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair operator-override and repair-retry helpers must read canonical ids, refs, idempotency keys, and diagnostics feedback without retired camelCase fallbacks",
-  );
-  assertCheck(
-    result,
-    "diagnostics-repair-retry-create-run-diagnostics-mode-alias-retired",
-    /diagnostics_mode:\s*"skip"/.test(diagnosticsRepairRetryHelperBody) &&
-      !/diagnosticsMode\s*:/.test(diagnosticsRepairRetryHelperBody) &&
-      /createRunCalls\[0\]\.request\.options\.diagnostics_mode,\s*"skip"/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ) &&
-      /Object\.hasOwn\(createRunCalls\[0\]\.request\.options,\s*"diagnosticsMode"\),\s*false/.test(
-        runtimeDiagnosticsRepairSurfaceTest,
-      ),
-    [
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
-      "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
-    ],
-    "Phase 10/11 is pending: diagnostics repair retry turn creation must send canonical diagnostics_mode without the retired diagnosticsMode option alias",
+    "Phase 10/11 is pending: diagnostics repair control must fail closed before JS lookup, retry-run creation, event append, Rust planner invocation from the JS facade, run mutation, or persistence",
   );
   assertCheck(
     result,

@@ -161,9 +161,10 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending until the next implementation
-  slice names and verifies a concrete Rust-core extraction or JS-facade
-  retirement owner boundary.
+- Next scheduled matrix-compaction pass: scheduled after the diagnostics repair
+  control facade-retirement slice verifies and lands; run it before starting
+  unrelated route-family work so this concrete owner-boundary evidence is
+  compacted without encoding the command bridge as terminal shape.
 - Future-resumption trigger: resume the migration goal by carrying out that next
   Rust-core extraction or facade-retirement slice first. Once the seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -14982,6 +14983,87 @@ closeout:
   push: required after verification
 ```
 
+## Implementation Slice 726
+
+```yaml
+slice: 726
+phase: 10-authoritative-js-facade-retirement
+objective: retire public diagnostics repair JS execution, retry-run,
+  operator-override, resolution, and event-append facades until direct Rust
+  daemon-core diagnostics repair admission/projection owns accepted repair truth
+owner_boundary:
+  route_or_surface: runtime diagnostics repair decision execution,
+    operator-override execution, retry-turn creation, repair decision
+    resolution, and diagnostics repair event append helpers
+  authority_gate: diagnostics repair control now fails closed at
+    `runtime.diagnostics_repair` before JS accepted-truth resolution,
+    agent/run lookup, retry `createRun`, runtime-event append, Rust planner
+    invocation from the JS facade, run-map mutation, or `writeRun` persistence
+  execution_backend: none in JS for diagnostics repair controls; the existing
+    Rust diagnostics/operator-override state planner bridge remains migration
+    plumbing only and must not be used by the JS facade to persist accepted
+    diagnostics repair truth
+  truth_path: no JS `diagnostics.repair_decision.executed`,
+    `diagnostics.operator_override.executed`, or
+    `diagnostics.repair_retry.created` event append, no JS retry run creation,
+    no JS diagnostics repair decision resolution as accepted truth, and no run
+    state mutation from public diagnostics repair facades; Rust daemon core must
+    own repair authority, Agentgres admission, expected heads/state-root
+    binding, receipt/event materialization, retry-run admission, projection, and
+    persistence before these controls can execute again
+  projection_path: diagnostics repair decision resolution is not an accepted JS
+    projection path anymore; direct Rust daemon-core diagnostics repair
+    projection APIs must materialize repair decisions before public surfaces can
+    return accepted repair data
+touched_files:
+  docs:
+    - docs/architecture/_meta/implementation-matrix.md
+    - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
+  daemon:
+    - packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs
+  tests:
+    - packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - scripts/conformance/hypervisor-conformance.mjs
+conformance_checks:
+  - bridge/full conformance keeps the Rust diagnostics operator-override state
+    planner available as migration plumbing but requires the public JS
+    diagnostics repair facade to fail closed before planner invocation or JS
+    run writes
+  - focused daemon tests prove canonical snake_case fail-closed details, no
+    agent/run lookup, no accepted-truth resolution, no retry `createRun`, no JS
+    runtime event append, and no JS run persistence for repair execution,
+    operator override, retry creation, repair event append helpers, and decision
+    resolution
+verification:
+  commands:
+    - node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs
+    - node --check packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs
+    - node --check scripts/conformance/hypervisor-conformance.mjs
+    - npm run hypervisor-conformance:bridge
+    - npm run hypervisor-conformance:docs
+    - npm run hypervisor-conformance
+    - git diff --check
+cleanup:
+  legacy_paths_removed: true
+  compatibility_shims_remaining:
+    - public diagnostics repair product/API routes may still call diagnostics
+      repair adapters, but those adapters now fail closed until direct Rust
+      daemon-core diagnostics repair admission/projection APIs are verified
+    - Rust diagnostics/operator-override state planner bridges remain migration
+      transport for the future direct Rust diagnostics repair API; they must not
+      be mistaken for terminal JS-owned diagnostics repair event or run-state
+      persistence after context compaction
+    - run the scheduled matrix-compaction pass before starting unrelated
+      route-family work, using this diagnostics repair owner boundary as the
+      concrete seam to compact around without hiding remaining Rust-core
+      extraction blockers
+closeout:
+  git_diff_check: required
+  commit: required
+  push: required after verification
+```
+
 ## Command State
 
 The command contract is wired at the repo task-runner layer:
@@ -14997,8 +15079,8 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after Slice 725 and the thread-bound context-policy
-JS event/state persistence facade retirement pass:
+Current expected behavior after Slice 726 and the diagnostics repair JS
+execution/event/state facade retirement pass:
 
 The append-only slice ledger is compacted by route-family range below so future
 resumes preserve the live owner map and terminal blockers without encoding the
