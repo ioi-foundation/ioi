@@ -6,7 +6,7 @@ Supersedes: ad hoc split-brain status notes for this migration when they conflic
 Superseded by: none.
 Last alignment pass: 2026-06-07.
 Last matrix compaction pass: 2026-06-08, after compacting the expanded
-route-family slice ledger through Slice 743. Slices 733-740 compacted the
+route-family slice ledger through Slice 744. Slices 733-740 compacted the
 runtime bridge thread/turn, runtime subagent control facade-retirement and
 legacy-body deletion, runtime task/job control facade-retirement, runtime
 thread-fork control facade-retirement, conversation-artifact control
@@ -25,12 +25,11 @@ terminal Rust daemon-core target and the bridge-scaffolding guardrail. The
 follow-up pass compacted Slice 741 thread-memory control facade-retirement
 evidence, then compacted Slice 742 thread runtime-control facade-retirement
 evidence. This pass compacted Slice 743 workspace-trust control
-facade-retirement evidence.
+facade-retirement evidence, then compacted Slice 744 workspace-change and
+managed-session control facade-retirement evidence.
 Next resume instruction: continue the next Rust-core extraction or
-facade-retirement implementation slice first; Slice 744 opened the next
-Rust-core extraction / facade-retirement seam, so schedule the next
-matrix-compaction pass after Slice 744 lands and before unrelated route-family
-work resumes.
+facade-retirement implementation slice first; schedule the next
+matrix-compaction pass only after that seam lands.
 
 ## Purpose
 
@@ -125,10 +124,9 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: pending after Slice 744 so the
-  workspace-change and managed-session control facade-retirement evidence can be
-  compacted without obscuring terminal blockers. Run that pass before unrelated
-  route-family work resumes.
+- Next scheduled matrix-compaction pass: none pending after the Slice 744
+  compaction. Schedule the next pass only after a new concrete Rust-core
+  extraction or JS-facade retirement seam lands.
 - Future-resumption trigger: resume the migration goal by carrying out the next
   Rust-core extraction or facade-retirement slice first. Once that seam is clear,
   perform the scheduled matrix-compaction pass before starting unrelated
@@ -13805,35 +13803,38 @@ target ownership.
   that seam lands, and do not encode fail-closed JS surfaces as terminal
   architecture.
 
-## Implementation Slice 744
+## Compacted Implementation Slice Evidence: 744
 
-status: verified
-date: 2026-06-08
-route_or_surface: workspace-change control and managed-session control
-goal_phase:
-  - Phase 10: Rust daemon core extraction
-  - Phase 11: authoritative JS facade retirement
-target_owner: Rust daemon core `authority`/`ctee`/`agentgres_admission`/`projection`
-current_owner_before_slice: Workspace-change accept/reject/rollback control and managed-session control still performed JS agent lookup, runtime-bridge control dispatch, request-hash synthesis, result/receipt envelope construction, and projection normalization from the daemon facade.
-implementation_notes:
-  - `controlWorkspaceChangeForThread` now fails closed with `runtime_workspace_change_control_rust_core_required`.
-  - `controlManagedSessionForThread` now fails closed with `runtime_managed_session_control_rust_core_required`.
-  - Both guards run before JS agent lookup, runtime bridge availability checks, `runtimeBridge.controlThread`, request-hash synthesis, receipt/result envelope construction, or inspection projection.
-  - Workspace-change and managed-session inspection remain read/projection adapters; terminal control admission, wallet/cTEE/session authority, receipt/state-root binding, replay, and projection must move into direct Rust daemon-core APIs before these controls can execute again.
-verification:
-  - node --check packages/runtime-daemon/src/threads/workspace-change-state.mjs
-  - node --check packages/runtime-daemon/src/threads/workspace-change-state.test.mjs
-  - node --check packages/runtime-daemon/src/threads/managed-session-state.mjs
-  - node --check packages/runtime-daemon/src/threads/managed-session-state.test.mjs
-  - node --test packages/runtime-daemon/src/threads/workspace-change-state.test.mjs packages/runtime-daemon/src/threads/managed-session-state.test.mjs
-  - hypervisor-conformance:compositor
-  - hypervisor-conformance:docs
-  - hypervisor-conformance
-  - git diff --check
-test_gap:
-  - Terminal direct Rust daemon-core workspace-change and managed-session control APIs are still pending; this slice removes JS bridge-control/result-envelope authority.
-next_compaction:
-  - Schedule the matrix-compaction pass after this slice so future resumes preserve the control facade-retirement evidence without encoding fail-closed JS surfaces as terminal shape.
+The expanded Slice 744 ledger was compacted on 2026-06-08 after the
+workspace-change control and managed-session control facade-retirement seam
+landed. This slice remains active migration evidence, not terminal
+architecture. The `RuntimeWorkspaceChangeControl` and
+`RuntimeManagedSessionControl` implementation-matrix rows, conformance command
+contract, and terminal blockers above remain authoritative for current and
+target ownership.
+
+- Slice 744 retired workspace-change and managed-session JS bridge-control
+  authority: `controlWorkspaceChangeForThread` and
+  `controlManagedSessionForThread` now fail closed before JS agent lookup,
+  runtime bridge availability checks, `runtimeBridge.controlThread`,
+  request-hash synthesis, receipt/result envelope construction, or inspection
+  projection.
+- Workspace-change and managed-session inspection remain read/projection
+  adapters. Terminal control admission, wallet/cTEE/session authority,
+  receipt/state-root binding, replay, and projection must move into direct Rust
+  daemon-core APIs before these controls can execute again.
+- Conformance anchors retained for this compacted slice include
+  `workspace-change-review-aliases-retired`,
+  `managed-session-envelope-aliases-retired`,
+  `runtime_workspace_change_control_rust_core_required`,
+  `runtime_managed_session_control_rust_core_required`,
+  `workspace_change_control_js_facade_retired`, and
+  `managed_session_control_js_facade_retired`.
+- Scheduled matrix-compaction obligation from Slice 744 is now satisfied. The
+  next resume should continue with the next concrete Rust-core extraction or
+  JS-facade retirement seam; schedule the next matrix-compaction pass only after
+  that seam lands, and do not encode fail-closed JS surfaces or read/projection
+  adapters as terminal architecture.
 
 ## Command State
 
@@ -13850,7 +13851,7 @@ hypervisor-conformance:compositor
 hypervisor-conformance:negative
 ```
 
-Current expected behavior after the Slice 733-743 runtime facade-retirement
+Current expected behavior after the Slice 733-744 runtime facade-retirement
 matrix-compaction passes:
 
 The append-only slice ledger is compacted by route-family range below so future
