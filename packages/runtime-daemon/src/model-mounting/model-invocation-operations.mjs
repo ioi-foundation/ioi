@@ -22,6 +22,24 @@ const RETIRED_MODEL_INVOCATION_REQUEST_ALIASES = [
   "nodePlaintextAllowed",
 ];
 
+const RETIRED_MODEL_INVOCATION_HELPER_ALIASES = [
+  "apiFormat",
+  "backendEvidenceRefs",
+  "backendId",
+  "compatTranslation",
+  "custodyRef",
+  "executionBackend",
+  "grantId",
+  "modelId",
+  "nodePlaintextAllowed",
+  "outputText",
+  "privacyClass",
+  "providerAuthEvidenceRefs",
+  "providerId",
+  "providerResponseKind",
+  "tokenCount",
+];
+
 const MODEL_INVOCATION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "model_mount_invocation_js_facade_retired",
   "rust_daemon_core_model_invocation_required",
@@ -62,6 +80,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
   streamStatus = null,
 } = {}) {
   assertCanonicalModelInvocationRequestBody(body);
+  assertCanonicalModelInvocationHelperInputs({ selection });
   const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
   const invocationReceiptRef = receiptRef(requiredStringRef("receiptId", receiptId));
   const routeDecisionRef = requiredStringRef(
@@ -78,7 +97,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     route_ref: requiredStringRef("route.id", selection?.route?.id ?? receiptDetails.route_id),
     provider_ref: requiredStringRef("provider.id", selection?.provider?.id ?? receiptDetails.provider_id),
     endpoint_ref: requiredStringRef("endpoint.id", selection?.endpoint?.id ?? receiptDetails.endpoint_id),
-    model_ref: requiredStringRef("endpoint.modelId", selection?.endpoint?.modelId ?? receiptDetails.selected_model),
+    model_ref: requiredStringRef("endpoint.model_id", selection?.endpoint?.model_id ?? receiptDetails.selected_model),
     capability: requiredStringRef("capability", capability),
     invocation_kind: requiredStringRef("kind", kind),
     policy_hash: policyHashRef(receiptDetails.policy_hash),
@@ -102,9 +121,7 @@ export function modelMountInvocationAdmissionRequestForReceipt({
     tool_receipt_refs: uniqueRefs(receiptDetails.tool_receipt_ids ?? []),
     custody_ref: optionalRef(
       body.custody_ref ??
-        selection?.endpoint?.custodyRef ??
         selection?.endpoint?.custody_ref ??
-        selection?.provider?.custodyRef ??
         selection?.provider?.custody_ref,
     ),
     privacy_profile: optionalRef(
@@ -112,12 +129,12 @@ export function modelMountInvocationAdmissionRequestForReceipt({
         policy.privacy_profile ??
         policy.privacy ??
         selection?.route?.privacy ??
-        selection?.provider?.privacyClass,
+        selection?.provider?.privacy_class,
     ),
     node_plaintext_allowed: Boolean(
       body.node_plaintext_allowed ??
-        selection?.endpoint?.nodePlaintextAllowed ??
-        selection?.provider?.nodePlaintextAllowed ??
+        selection?.endpoint?.node_plaintext_allowed ??
+        selection?.provider?.node_plaintext_allowed ??
         false,
     ),
     workflow_graph_ref: optionalRef(routeReceipt?.details?.workflow_graph_id),
@@ -145,6 +162,7 @@ export function modelMountProviderExecutionRequestForInvocation({
   token = {},
 } = {}) {
   assertCanonicalModelInvocationRequestBody(body);
+  assertCanonicalModelInvocationHelperInputs({ selection, instance, token });
   const routeReceiptRef = receiptRef(requiredStringRef("routeReceipt.id", routeReceipt?.id));
   const routeDecisionRef = requiredStringRef(
     "routeReceipt.details.model_mount_route_decision_ref",
@@ -168,7 +186,7 @@ export function modelMountProviderExecutionRequestForInvocation({
     route_ref: requiredStringRef("route.id", selection?.route?.id),
     provider_ref: requiredStringRef("provider.id", selection?.provider?.id),
     endpoint_ref: requiredStringRef("endpoint.id", selection?.endpoint?.id),
-    model_ref: requiredStringRef("endpoint.modelId", selection?.endpoint?.modelId),
+    model_ref: requiredStringRef("endpoint.model_id", selection?.endpoint?.model_id),
     capability: requiredStringRef("capability", capability),
     invocation_kind: requiredStringRef("kind", kind),
     policy_hash: policyHashRef(hash(policy)),
@@ -180,7 +198,7 @@ export function modelMountProviderExecutionRequestForInvocation({
       ...(Array.isArray(ephemeralMcp.toolReceiptIds) ? ephemeralMcp.toolReceiptIds.map(receiptRef) : []),
     ]),
     authority_grant_refs: uniqueRefs([
-      optionalRef(token.grantId),
+      optionalRef(token.grant_ref),
       ...(Array.isArray(body.authority_grant_refs) ? body.authority_grant_refs : []),
     ]),
     authority_receipt_refs: uniqueRefs([
@@ -188,15 +206,13 @@ export function modelMountProviderExecutionRequestForInvocation({
     ]),
     provider_auth_evidence_refs: [],
     backend_evidence_refs: uniqueRefs([
-      instance.backendId,
-      selection?.endpoint?.backendId,
+      instance.backend_id,
+      selection?.endpoint?.backend_id,
     ]),
     tool_receipt_refs: uniqueRefs(ephemeralMcp.toolReceiptIds ?? []),
     custody_ref: optionalRef(
       body.custody_ref ??
-        selection?.endpoint?.custodyRef ??
         selection?.endpoint?.custody_ref ??
-        selection?.provider?.custodyRef ??
         selection?.provider?.custody_ref,
     ),
     privacy_profile: optionalRef(
@@ -204,12 +220,12 @@ export function modelMountProviderExecutionRequestForInvocation({
         policy.privacy_profile ??
         policy.privacy ??
         selection?.route?.privacy ??
-        selection?.provider?.privacyClass,
+        selection?.provider?.privacy_class,
     ),
     node_plaintext_allowed: Boolean(
       body.node_plaintext_allowed ??
-        selection?.endpoint?.nodePlaintextAllowed ??
-        selection?.provider?.nodePlaintextAllowed ??
+        selection?.endpoint?.node_plaintext_allowed ??
+        selection?.provider?.node_plaintext_allowed ??
         false,
     ),
     workflow_graph_ref: optionalRef(routeReceipt?.details?.workflow_graph_id),
@@ -227,6 +243,7 @@ export function modelMountProviderInvocationRequestForExecution({
   modelMountProviderExecutionAdmission = {},
   selection,
 } = {}) {
+  assertCanonicalModelInvocationHelperInputs({ selection, instance });
   const record = modelMountProviderExecutionAdmission.record ?? {};
   const provider = selection?.provider ?? {};
   const endpoint = selection?.endpoint ?? {};
@@ -252,9 +269,9 @@ export function modelMountProviderInvocationRequestForExecution({
     input: String(input ?? ""),
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
     execution_backend: modelMountProviderInvocationExecutionBackend(selection),
-    api_format: optionalRef(endpoint.apiFormat ?? provider.apiFormat),
+    api_format: optionalRef(endpoint.api_format ?? provider.api_format),
     driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
-    backend_ref: optionalRef(instance.backendId ?? endpoint.backendId),
+    backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
     evidence_refs: uniqueRefs([
@@ -272,6 +289,7 @@ export function modelMountProviderStreamInvocationRequestForExecution({
   modelMountProviderExecutionAdmission = {},
   selection,
 } = {}) {
+  assertCanonicalModelInvocationHelperInputs({ selection, instance });
   const record = modelMountProviderExecutionAdmission.record ?? {};
   const provider = selection?.provider ?? {};
   const endpoint = selection?.endpoint ?? {};
@@ -297,9 +315,9 @@ export function modelMountProviderStreamInvocationRequestForExecution({
     input: String(input ?? ""),
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
     execution_backend: "rust_model_mount_native_local_stream",
-    api_format: optionalRef(endpoint.apiFormat ?? provider.apiFormat),
+    api_format: optionalRef(endpoint.api_format ?? provider.api_format),
     driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
-    backend_ref: optionalRef(instance.backendId ?? endpoint.backendId),
+    backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
     stream_status: optionalRef(record.stream_status) ?? "started",
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
     evidence_refs: uniqueRefs([
@@ -318,11 +336,12 @@ export function modelMountProviderResultAdmissionRequestForExecution({
   providerResult = {},
   selection,
 } = {}) {
+  assertCanonicalModelInvocationHelperInputs({ selection, instance, providerResult });
   const record = modelMountProviderExecutionAdmission.record ?? {};
   const provider = selection?.provider ?? {};
   const endpoint = selection?.endpoint ?? {};
-  const outputText = String(providerResult.outputText ?? "");
-  const tokenCount = providerResult.tokenCount ?? estimateTokens(input, outputText);
+  const output_text = String(providerResult.output_text ?? "");
+  const token_count = providerResult.token_count ?? estimateTokens(input, output_text);
   return {
     schema_version: "ioi.model_mount.provider_result.v1",
     provider_execution_ref: requiredStringRef(
@@ -343,19 +362,19 @@ export function modelMountProviderResultAdmissionRequestForExecution({
     capability: requiredStringRef("providerExecution.capability", record.capability),
     invocation_kind: requiredStringRef("providerExecution.invocation_kind", record.invocation_kind ?? kind),
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
-    output_text: outputText,
-    output_hash: hashRef(stableHash(outputText), "output_hash"),
-    token_count: tokenCount,
-    provider_response_kind: optionalRef(providerResult.providerResponseKind),
+    output_text,
+    output_hash: hashRef(stableHash(output_text), "output_hash"),
+    token_count,
+    provider_response_kind: optionalRef(providerResult.provider_response_kind),
     execution_backend: requiredStringRef(
       "providerResult.execution_backend",
-      providerResult.execution_backend ?? providerResult.executionBackend,
+      providerResult.execution_backend,
     ),
-    backend_ref: optionalRef(providerResult.backendId ?? instance.backendId ?? endpoint.backendId),
+    backend_ref: optionalRef(providerResult.backend_id ?? instance.backend_id ?? endpoint.backend_id),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
-    provider_auth_evidence_refs: uniqueRefs(providerResult.providerAuthEvidenceRefs ?? []),
-    backend_evidence_refs: uniqueRefs(providerResult.backendEvidenceRefs ?? []),
+    provider_auth_evidence_refs: uniqueRefs(providerResult.provider_auth_evidence_refs ?? []),
+    backend_evidence_refs: uniqueRefs(providerResult.backend_evidence_refs ?? []),
     evidence_refs: uniqueRefs([
       modelMountProviderExecutionAdmission.provider_execution_ref ?? record.provider_execution_ref,
       ...(modelMountProviderExecutionAdmission.evidence_refs ?? []),
@@ -518,11 +537,13 @@ export function withModelMountInvocationReceiptBinding(details, binding) {
 }
 
 export function modelMountProviderInvocationRequiresRust(selection = {}, options = {}) {
+  assertCanonicalModelInvocationHelperInputs({ selection });
   const stream = Boolean(options.stream);
   return fixtureProviderInvocationSelected(selection) || (!stream && nativeLocalProviderInvocationSelected(selection));
 }
 
 export function modelMountProviderStreamInvocationRequiresRust(selection = {}) {
+  assertCanonicalModelInvocationHelperInputs({ selection });
   return nativeLocalProviderInvocationSelected(selection);
 }
 
@@ -537,14 +558,14 @@ function fixtureProviderInvocationSelected(selection = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
   const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
-  return provider.kind === "local_folder" || driver === "fixture" || endpoint.apiFormat === "ioi_fixture";
+  return provider.kind === "local_folder" || driver === "fixture" || endpoint.api_format === "ioi_fixture";
 }
 
 function nativeLocalProviderInvocationSelected(selection = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
   const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
-  return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.apiFormat === "ioi_native";
+  return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.api_format === "ioi_native";
 }
 
 function normalizeAgentgresHead(value) {
@@ -606,6 +627,51 @@ function assertCanonicalModelInvocationRequestBody(body = {}) {
     ],
   };
   throw error;
+}
+
+function assertCanonicalModelInvocationHelperInputs(values = {}) {
+  const retiredAliases = [];
+  collectRetiredModelInvocationHelperAliases(values, retiredAliases);
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model invocation migration helper aliases are retired; pass canonical snake_case Rust model_mount fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_invocation_helper_aliases_retired";
+  error.details = {
+    retired_aliases: [...new Set(retiredAliases)],
+    canonical_fields: [
+      "api_format",
+      "backend_evidence_refs",
+      "backend_id",
+      "custody_ref",
+      "execution_backend",
+      "grant_ref",
+      "model_id",
+      "node_plaintext_allowed",
+      "output_text",
+      "privacy_class",
+      "provider_auth_evidence_refs",
+      "provider_id",
+      "provider_response_kind",
+      "token_count",
+    ],
+  };
+  throw error;
+}
+
+function collectRetiredModelInvocationHelperAliases(value, retiredAliases) {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectRetiredModelInvocationHelperAliases(item, retiredAliases);
+    return;
+  }
+  for (const [key, nested] of Object.entries(value)) {
+    if (RETIRED_MODEL_INVOCATION_HELPER_ALIASES.includes(key)) {
+      retiredAliases.push(key);
+    }
+    collectRetiredModelInvocationHelperAliases(nested, retiredAliases);
+  }
 }
 
 export function modelInvocationRustCoreRequiredError(operation_kind, details = {}) {

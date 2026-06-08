@@ -371,7 +371,8 @@ function runDocs() {
       /Slice 751 stream-cancel receipt facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 752 receipt-gate receipt facade\s+retirement compaction is complete/.test(guide) &&
       /Slice 753 public model invocation dead JS\s+body-retirement compaction is complete/.test(guide) &&
-      /No matrix-compaction pass is pending\s+until the next Rust-core extraction or facade-retirement seam lands/.test(guide) &&
+      /Slice 754 retired model invocation\s+migration-helper compatibility aliases/.test(guide) &&
+      /scheduled the next matrix-compaction\s+pass before unrelated route-family work resumes/.test(guide) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -391,7 +392,8 @@ function runDocs() {
       /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
       /then compacted Slice 753\s+public model invocation dead JS body retirement evidence/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice first/.test(matrix) &&
+      /Slice 754 model\s+invocation migration-helper compatibility alias retirement has landed and\s+scheduled the next compaction pass/.test(matrix) &&
+      /Next resume instruction: run the scheduled matrix-compaction pass before\s+starting unrelated route-family work/.test(matrix) &&
       /Do not prune the slice ledger as a prerequisite to ordinary goal resumption/.test(
         matrix,
       ) &&
@@ -499,7 +501,12 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 753 is now satisfied/.test(
         matrix,
       ) &&
-      /Next scheduled matrix-compaction pass: none pending after Slice 753/.test(
+      /Implementation Slice 754: Model Invocation Helper Alias Retirement/.test(
+        matrix,
+      ) &&
+      /model-mount-invocation-helper-aliases-retired/.test(matrix) &&
+      /compatibility alias retirement/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: pending after Slice 754/.test(
         matrix,
       ) &&
       /`RuntimeModelRouteSelection`/.test(implementationMatrix) &&
@@ -7376,18 +7383,18 @@ function runBridge() {
       /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(receiptDetails\.grant_id\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
         modelInvocationOps,
       ) &&
-      /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(token\.grantId\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
+      /authority_grant_refs:\s*uniqueRefs\(\[\s*optionalRef\(token\.grant_ref\),\s*\.\.\.\(Array\.isArray\(body\.authority_grant_refs\)/.test(
         modelInvocationOps,
       ) &&
       /authority_receipt_refs:\s*uniqueRefs\(\[\s*\.\.\.\(Array\.isArray\(body\.authority_receipt_refs\)/.test(
         modelInvocationOps,
       ) &&
-      /body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custodyRef/.test(modelInvocationOps) &&
+      /body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custody_ref/.test(modelInvocationOps) &&
       /body\.privacy_profile \?\?\s*policy\.privacy_profile/.test(modelInvocationOps) &&
-      /body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.nodePlaintextAllowed/.test(
+      /body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.node_plaintext_allowed/.test(
         modelInvocationOps,
       ) &&
-      !/body\.(?:authorityGrantRefs|authorityReceiptRefs|custodyRef|privacyProfile|nodePlaintextAllowed)\b/.test(
+      !/(?:body|selection\?\.endpoint\?|selection\?\.provider\?|token\.)(?:authorityGrantRefs|authorityReceiptRefs|custodyRef|privacyProfile|nodePlaintextAllowed|grantId|privacyClass)\b/.test(
         modelInvocationOps,
       ) &&
       !/policy\.privacyProfile\b/.test(modelInvocationOps) &&
@@ -7406,6 +7413,41 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
     "Phase 10/11 is pending: model invocation admission/provider-execution request bodies must fail closed on retired authority/custody aliases and ignore retired nested privacyProfile policy aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-invocation-helper-aliases-retired",
+    /RETIRED_MODEL_INVOCATION_HELPER_ALIASES/.test(modelInvocationOps) &&
+      /model_mount_invocation_helper_aliases_retired/.test(modelInvocationOps) &&
+      (modelInvocationOps.match(/assertCanonicalModelInvocationHelperInputs\(/g) ?? []).length >= 6 &&
+      /"modelId"/.test(modelInvocationOps) &&
+      /"apiFormat"/.test(modelInvocationOps) &&
+      /"backendId"/.test(modelInvocationOps) &&
+      /"grantId"/.test(modelInvocationOps) &&
+      /"outputText"/.test(modelInvocationOps) &&
+      /"providerResponseKind"/.test(modelInvocationOps) &&
+      /model invocation migration helpers reject retired camelCase helper aliases/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /model_mount_invocation_helper_aliases_retired/.test(modelInvocationOpsTest) &&
+      !/selection\?\.endpoint\?\.(?:modelId|apiFormat|backendId|custodyRef|nodePlaintextAllowed)/.test(
+        modelInvocationOps,
+      ) &&
+      !/selection\?\.provider\?\.(?:apiFormat|custodyRef|privacyClass|nodePlaintextAllowed)/.test(
+        modelInvocationOps,
+      ) &&
+      !/(?:instance|providerResult|token)\.(?:backendId|executionBackend|grantId|outputText|tokenCount|providerResponseKind|providerAuthEvidenceRefs|backendEvidenceRefs)\b/.test(
+        modelInvocationOps,
+      ) &&
+      /selection\?\.endpoint\?\.model_id/.test(modelInvocationOps) &&
+      /token\.grant_ref/.test(modelInvocationOps) &&
+      /providerResult\.output_text/.test(modelInvocationOps) &&
+      /providerResult\.provider_response_kind/.test(modelInvocationOps),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 10/11 is pending: model invocation migration helpers must not translate retired camelCase selection, token, instance, or provider-result aliases",
   );
   assertCheck(
     result,
@@ -8203,7 +8245,8 @@ function runBridge() {
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
-      /providerResult\.execution_backend\s*\?\?\s*providerResult\.executionBackend/.test(modelInvocationOps) &&
+      /providerResult\.execution_backend/.test(modelInvocationOps) &&
+      !/providerResult\.executionBackend/.test(modelInvocationOps) &&
       !/rejectUnmigratedProviderInvocationExecution/.test(modelInvocationOps) &&
       !/model_mount_provider_invocation_backend_unmigrated/.test(modelInvocationOps) &&
       !/model_mount_provider_stream_invocation_backend_unmigrated/.test(modelInvocationOps) &&

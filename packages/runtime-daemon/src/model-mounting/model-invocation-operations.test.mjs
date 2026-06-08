@@ -37,7 +37,7 @@ function fakeState(overrides = {}) {
     appendOperations: [],
     authorize(authorization, requiredScope) {
       this.authorizationCalls.push({ authorization, requiredScope });
-      return { grantId: "grant.test" };
+      return { grant_ref: "grant.test" };
     },
     compileEphemeralMcpIntegrations() {
       return {
@@ -56,7 +56,7 @@ function fakeState(overrides = {}) {
       this.loadedEndpointId = endpoint.id;
       return {
         id: "instance.local",
-        backendId: "backend.local",
+        backend_id: "backend.local",
       };
     },
     invokeModel(args) {
@@ -277,10 +277,10 @@ function fakeState(overrides = {}) {
   state.driver ??= {
     async invoke() {
       return {
-        outputText: "provider answer",
+        output_text: "provider answer",
         providerResponse: { id: "provider.response" },
-        providerResponseKind: "openai.chat",
-        tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+        provider_response_kind: "openai.chat",
+        token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
       };
     },
   };
@@ -292,10 +292,10 @@ function selection(overrides = {}) {
     route: { id: "route.local-first", fallback: ["endpoint.local"] },
     endpoint: {
       id: "endpoint.local",
-      modelId: "model.local",
-      providerId: "provider.local",
-      apiFormat: "openai",
-      backendId: "backend.endpoint",
+      model_id: "model.local",
+      provider_id: "provider.local",
+      api_format: "openai",
+      backend_id: "backend.endpoint",
     },
     provider: {
       id: "provider.local",
@@ -315,7 +315,7 @@ function deps(overrides = {}) {
     inputText: () => "user: hello",
     modelInvocationCoalesceKey: () => null,
     optionalString: (value) => (typeof value === "string" && value ? value : null),
-    providerRequestBodyForRoute: (body, endpoint) => ({ ...body, model: endpoint.modelId }),
+    providerRequestBodyForRoute: (body, endpoint) => ({ ...body, model: endpoint.model_id }),
     stableHash: (value) => `hash:${value}`,
     supportsResponseState: (kind) => kind === "responses",
     ...overrides,
@@ -324,15 +324,15 @@ function deps(overrides = {}) {
 
 function providerInvocationBridgeResult(request, options = {}) {
   const nativeLocal = request.execution_backend === "rust_model_mount_native_local";
-  const outputText =
-    options.outputText ??
+  const output_text =
+    options.output_text ??
     (nativeLocal
       ? `Autopilot native local model response from ${request.model_ref}. input_hash=test`
       : "provider answer");
-  const providerResponseKind = nativeLocal ? "rust_model_mount.native_local" : "rust_model_mount.fixture";
+  const provider_response_kind = nativeLocal ? "rust_model_mount.native_local" : "rust_model_mount.fixture";
   const backend = nativeLocal ? "autopilot.native_local.fixture" : "ioi_fixture";
-  const backendId = nativeLocal ? request.backend_ref ?? "backend.autopilot.native-local.fixture" : "backend.fixture";
-  const executionBackend = request.execution_backend ?? "rust_model_mount_fixture";
+  const backend_id = nativeLocal ? request.backend_ref ?? "backend.autopilot.native-local.fixture" : "backend.fixture";
+  const execution_backend = request.execution_backend ?? "rust_model_mount_fixture";
   const evidenceRefs = [
     "rust_model_mount_provider_invocation",
     request.provider_execution_ref,
@@ -343,33 +343,30 @@ function providerInvocationBridgeResult(request, options = {}) {
   const invocationHash = options.invocationHash ?? "sha256:provider-invocation-test";
   const result = {
     source: "rust_model_mount_provider_invocation_command",
-    backend: executionBackend,
+    backend: execution_backend,
     result: {
       ...request,
-      output_text: outputText,
+      output_text: output_text,
       token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-      provider_response_kind: providerResponseKind,
+      provider_response_kind: provider_response_kind,
       backend,
-      backend_id: backendId,
-      execution_backend: executionBackend,
+      backend_id: backend_id,
+      execution_backend: execution_backend,
       evidence_refs: evidenceRefs,
       invocation_hash: invocationHash,
     },
-    outputText,
-    tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+    output_text,
+    token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
     providerResponse: null,
-    providerResponseKind,
-    executionBackend,
-    backendId,
+    provider_response_kind,
+    execution_backend,
+    backend_id,
     provider_execution_ref: request.provider_execution_ref,
     provider_execution_hash: request.provider_execution_hash,
     invocation_hash: invocationHash,
     evidence_refs: evidenceRefs,
-    backendEvidenceRefs: evidenceRefs,
+    backend_evidence_refs: evidenceRefs,
   };
-  if (options.compatTranslation) {
-    result.compatTranslation = options.compatTranslation;
-  }
   if (options.compat_translation) {
     result.compat_translation = options.compat_translation;
   }
@@ -377,18 +374,18 @@ function providerInvocationBridgeResult(request, options = {}) {
 }
 
 function providerStreamInvocationBridgeResult(request, options = {}) {
-  const outputText = options.outputText ?? "rust stream answer";
-  const tokenCount = options.tokenCount ?? { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 };
-  const executionBackend = request.execution_backend ?? "rust_model_mount_native_local_stream";
-  const backendId = request.backend_ref ?? "backend.autopilot.native-local.fixture";
+  const output_text = options.output_text ?? "rust stream answer";
+  const token_count = options.token_count ?? { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 };
+  const execution_backend = request.execution_backend ?? "rust_model_mount_native_local_stream";
+  const backend_id = request.backend_ref ?? "backend.autopilot.native-local.fixture";
   const streamKind =
     request.invocation_kind === "responses"
       ? "openai_responses_native_local"
       : "openai_chat_completions_native_local";
   const streamChunks =
     options.streamChunks ?? [
-      `{"delta":${JSON.stringify(outputText)},"done":false}\n`,
-      `{"delta":"","done":true,"done_reason":"stop","prompt_eval_count":${tokenCount.prompt_tokens},"eval_count":${tokenCount.completion_tokens}}\n`,
+      `{"delta":${JSON.stringify(output_text)},"done":false}\n`,
+      `{"delta":"","done":true,"done_reason":"stop","prompt_eval_count":${token_count.prompt_tokens},"eval_count":${token_count.completion_tokens}}\n`,
     ];
   const evidenceRefs = [
     "rust_model_mount_provider_stream_invocation",
@@ -398,28 +395,28 @@ function providerStreamInvocationBridgeResult(request, options = {}) {
   const invocationHash = options.invocationHash ?? "sha256:provider-stream-invocation-test";
   const result = {
     source: "rust_model_mount_provider_stream_invocation_command",
-    backend: executionBackend,
+    backend: execution_backend,
     result: {
       ...request,
       schema_version: "ioi.model_mount.provider_stream_invocation.v1",
-      output_text: outputText,
-      token_count: tokenCount,
+      output_text: output_text,
+      token_count: token_count,
       provider_response_kind: "rust_model_mount.native_local.stream",
       backend: "autopilot.native_local.fixture",
-      backend_id: backendId,
-      execution_backend: executionBackend,
+      backend_id: backend_id,
+      execution_backend: execution_backend,
       stream_format: "ioi_jsonl",
       stream_kind: streamKind,
       stream_chunks: streamChunks,
       evidence_refs: evidenceRefs,
       invocation_hash: invocationHash,
     },
-    outputText,
-    tokenCount,
+    output_text,
+    token_count,
     providerResponse: null,
-    providerResponseKind: "rust_model_mount.native_local.stream",
-    executionBackend,
-    backendId,
+    provider_response_kind: "rust_model_mount.native_local.stream",
+    execution_backend,
+    backend_id,
     streamFormat: "ioi_jsonl",
     streamKind,
     streamChunks,
@@ -427,10 +424,10 @@ function providerStreamInvocationBridgeResult(request, options = {}) {
     provider_execution_hash: request.provider_execution_hash,
     invocation_hash: invocationHash,
     evidence_refs: evidenceRefs,
-    backendEvidenceRefs: evidenceRefs,
+    backend_evidence_refs: evidenceRefs,
   };
-  if (options.compatTranslation) {
-    result.compatTranslation = options.compatTranslation;
+  if (options.compat_translation) {
+    result.compat_translation = options.compat_translation;
   }
   return result;
 }
@@ -617,7 +614,7 @@ test("startModelStream public facade fails closed before JS stream routing, prov
       supportsStream: () => true,
       async streamInvoke() {
         streamCalls += 1;
-        return { providerResponseKind: "openai.responses.stream" };
+        return { provider_response_kind: "openai.responses.stream" };
       },
     },
   });
@@ -730,7 +727,7 @@ test("modelMountInvocationAdmissionRequestForReceipt rejects retired route-decis
         kind: "responses",
         receiptDetails: {
           routeId: "route.local-first",
-          providerId: "provider.local",
+          provider_id: "provider.local",
           endpointId: "endpoint.local",
           selectedModel: "model.local",
           policyHash: "policy",
@@ -798,7 +795,7 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
     input: "hello",
     instance: {
       id: "instance.local",
-      backendId: "backend.local",
+      backend_id: "backend.local",
     },
     kind: "responses",
     previousResponseId: "resp.previous",
@@ -815,7 +812,7 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
     selection: selection(),
     streamStatus: null,
     token: {
-      grantId: "grant://wallet/model-chat",
+      grant_ref: "grant://wallet/model-chat",
     },
   });
 
@@ -832,6 +829,61 @@ test("modelMountProviderExecutionRequestForInvocation gates provider driver exec
   assert.equal(request.privacy_profile, "private_workspace_ctee");
   assert.equal(request.response_ref, "resp.1");
   assert.equal(request.previous_response_ref, "resp.previous");
+});
+
+test("model invocation migration helpers reject retired camelCase helper aliases", () => {
+  const routeReceipt = {
+    id: "receipt.route",
+    details: {
+      model_mount_route_decision_ref: "model_mount://route_decision/test",
+    },
+  };
+  assert.throws(
+    () =>
+      modelMountProviderExecutionRequestForInvocation({
+        body: { model: "model.local" },
+        capability: "chat",
+        hash: (value) => `hash:${JSON.stringify(value)}`,
+        input: "hello",
+        instance: { backendId: "backend.local" },
+        kind: "responses",
+        providerBody: { model: "model.local" },
+        routeReceipt,
+        selection: selection({
+          endpoint: {
+            modelId: "model.local",
+            apiFormat: "ioi_fixture",
+            backendId: "backend.endpoint",
+            custodyRef: "ctee://custody/private-workspace",
+            nodePlaintextAllowed: true,
+          },
+          provider: {
+            privacyClass: "private_workspace_ctee",
+          },
+        }),
+        token: { grantId: "grant://model-chat" },
+      }),
+    (error) => {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "model_mount_invocation_helper_aliases_retired");
+      assert.deepEqual(error.details.retired_aliases, [
+        "modelId",
+        "apiFormat",
+        "backendId",
+        "custodyRef",
+        "nodePlaintextAllowed",
+        "privacyClass",
+        "grantId",
+      ]);
+      assert.deepEqual(error.details.canonical_fields.slice(0, 4), [
+        "api_format",
+        "backend_evidence_refs",
+        "backend_id",
+        "custody_ref",
+      ]);
+      return true;
+    },
+  );
 });
 
 test("modelMountProviderExecutionRequestForInvocation rejects retired authority aliases before route receipt validation", () => {
@@ -892,12 +944,12 @@ test("model mount invocation admission builders ignore retired policy privacy pr
     capability: "chat",
     hash: (value) => `hash:${JSON.stringify(value)}`,
     input: "hello",
-    instance: { id: "instance.local", backendId: "backend.local" },
+    instance: { id: "instance.local", backend_id: "backend.local" },
     kind: "responses",
     providerBody: { model: "model.local" },
     routeReceipt,
     selection: selected,
-    token: { grantId: "grant://model-chat" },
+    token: { grant_ref: "grant://model-chat" },
   });
 
   assert.equal(invocationAdmission.privacy_profile, "local_or_enterprise");
@@ -933,11 +985,11 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
 
   const request = modelMountProviderInvocationRequestForExecution({
     input: "user: hello",
-    instance: { backendId: "backend.fixture" },
+    instance: { backend_id: "backend.fixture" },
     kind: "chat.completions",
     modelMountProviderExecutionAdmission: admission,
     selection: selection({
-      endpoint: { apiFormat: "ioi_fixture", driver: "fixture" },
+      endpoint: { api_format: "ioi_fixture", driver: "fixture" },
       provider: { driver: "fixture" },
     }),
   });
@@ -956,7 +1008,7 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
   assert.equal(
     modelMountProviderInvocationRequiresRust({
       provider: { kind: "ioi_native_local", driver: "native_local" },
-      endpoint: { apiFormat: "ioi_native", driver: "native_local" },
+      endpoint: { api_format: "ioi_native", driver: "native_local" },
     }),
     true,
   );
@@ -964,7 +1016,7 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
     modelMountProviderInvocationRequiresRust(
       {
         provider: { kind: "ioi_native_local", driver: "native_local" },
-        endpoint: { apiFormat: "ioi_native", driver: "native_local" },
+        endpoint: { api_format: "ioi_native", driver: "native_local" },
       },
       { stream: true },
     ),
@@ -1001,15 +1053,15 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
 
   const request = modelMountProviderStreamInvocationRequestForExecution({
     input: "user: hello",
-    instance: { backendId: "backend.autopilot.native-local.fixture" },
+    instance: { backend_id: "backend.autopilot.native-local.fixture" },
     kind: "responses",
     modelMountProviderExecutionAdmission: admission,
     selection: selection({
       endpoint: {
-        apiFormat: "ioi_native",
+        api_format: "ioi_native",
         driver: "native_local",
-        modelId: "model://qwen/qwen3.5-9b",
-        providerId: "provider.autopilot.local",
+        model_id: "model://qwen/qwen3.5-9b",
+        provider_id: "provider.autopilot.local",
       },
       provider: {
         id: "provider.autopilot.local",
@@ -1033,7 +1085,7 @@ test("modelMountProviderStreamInvocationRequestForExecution binds native-local s
   assert.equal(
     modelMountProviderStreamInvocationRequiresRust({
       provider: { kind: "ioi_native_local", driver: "native_local" },
-      endpoint: { apiFormat: "ioi_native", driver: "native_local" },
+      endpoint: { api_format: "ioi_native", driver: "native_local" },
     }),
     true,
   );
@@ -1068,22 +1120,22 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
 
   const request = modelMountProviderResultAdmissionRequestForExecution({
     input: "user: hello",
-    instance: { backendId: "backend.instance" },
+    instance: { backend_id: "backend.instance" },
     kind: "chat.completions",
     modelMountProviderExecutionAdmission: admission,
     providerResult: {
-      outputText: "hosted provider answer",
-      providerResponseKind: "rust_model_mount.native_local",
+      output_text: "hosted provider answer",
+      provider_response_kind: "rust_model_mount.native_local",
       execution_backend: "rust_model_mount_native_local_stream",
-      tokenCount: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-      providerAuthEvidenceRefs: ["provider.auth"],
-      backendEvidenceRefs: ["rust_model_mount_native_local_stream_backend"],
+      token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
+      provider_auth_evidence_refs: ["provider.auth"],
+      backend_evidence_refs: ["rust_model_mount_native_local_stream_backend"],
     },
     selection: selection({
       endpoint: {
-        apiFormat: "openai",
-        providerId: "provider.openai",
-        backendId: "backend.openai-compatible",
+        api_format: "openai",
+        provider_id: "provider.openai",
+        backend_id: "backend.openai-compatible",
       },
       provider: {
         id: "provider.openai",
