@@ -178,6 +178,8 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "oauth_sessions") return state.oauth_sessions ?? [];
   if (request.projection_kind === "oauth_states") return state.oauth_states ?? [];
   if (request.projection_kind === "provider_health") return state.provider_health ?? [];
+  if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
+  if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
   if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
   if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
   const projection = {
@@ -641,6 +643,11 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.listOAuthSessions(state), []);
   assert.deepEqual(facade.listOAuthStates(state), []);
   assert.deepEqual(facade.listProviderHealth(state).map((health) => health.receiptId), ["receipt-provider-health"]);
+  const workflowBindings = facade.workflowNodeBindings(state);
+  assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
+  assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
+  assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
+  assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "runtime_model_catalog",
     "open_ai_model_list",
@@ -655,16 +662,16 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "oauth_sessions",
     "oauth_states",
     "provider_health",
+    "workflow_bindings",
+    "adapter_boundaries",
   ]);
-  const workflowBindings = facade.workflowNodeBindings(state);
-  assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
-  assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
-  assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
-  assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
-  assert.equal(readProjectionRequests.filter((request) => request.projection_kind === "projection")
-    .every((request) => request.state.agentgres_store.port === "AgentgresStorePort"), true);
   assert.equal(readProjectionRequests.filter((request) => request.projection_kind !== "projection")
     .every((request) => !Object.hasOwn(request.state, "server")), true);
+  const workflowRequest = readProjectionRequests.find((request) => request.projection_kind === "workflow_bindings");
+  assert.deepEqual(workflowRequest.state, {});
+  const adapterRequest = readProjectionRequests.find((request) => request.projection_kind === "adapter_boundaries");
+  assert.deepEqual(Object.keys(adapterRequest.state).sort(), ["agentgres_store", "vault", "wallet"]);
+  assert.equal(adapterRequest.state.agentgres_store.port, "AgentgresStorePort");
   assert.equal(
     readProjectionRequests.slice(0, 4).every((request) =>
       request.state.product_artifact_policy.include_internal_fixtures === false),
@@ -675,8 +682,8 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "model_capabilities")), false);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "product_artifacts")), false);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind).slice(-2), [
-    "projection",
-    "projection",
+    "workflow_bindings",
+    "adapter_boundaries",
   ]);
 });
 

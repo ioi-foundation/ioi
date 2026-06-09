@@ -1059,6 +1059,19 @@ engine, and other broad read surfaces still need direct Rust daemon-core
 Agentgres projection APIs to replace remaining JS state materialization and
 command transport.
 
+Slice 806 moved public model_mount workflow binding and adapter-boundary reads
+onto dedicated slim Rust read-projection kinds. `workflowNodeBindings()` now
+requests `workflow_bindings` directly from `plan_model_mount_read_projection`
+with no JS state payload, and `adapterBoundaries()` now requests
+`adapter_boundaries` with only primitive `wallet`, `vault`, and
+`agentgres_store` adapter status inputs. The legacy `rustProjectionField()` and
+`rustProjectionObjectField()` helpers are retired from the facade, so these
+public reads no longer unwrap fields from the broad `projection` envelope. This
+still does not claim terminal model_mount projection migration:
+snapshot/projection, runtime engine, receipt replay, health envelope, and other
+broad read surfaces still need direct Rust daemon-core Agentgres projection APIs
+to replace remaining JS state materialization and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

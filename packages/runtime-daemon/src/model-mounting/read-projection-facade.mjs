@@ -97,7 +97,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function adapterBoundaries(state) {
-    return rustProjectionObjectField(state, "adapterBoundaries");
+    return rustReadProjection(state, "adapter_boundaries");
   }
 
   function receiptReplay(state, receiptId) {
@@ -125,24 +125,12 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function workflowNodeBindings(state) {
-    return rustProjectionField(state, "workflowBindings");
+    return rustReadProjection(state, "workflow_bindings");
   }
 
   function rustReadProjection(state, projectionKind, { baseUrl = null, providerId = null, receiptId = null } = {}) {
     const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, providerId, receiptId });
     return result.projection;
-  }
-
-  function rustProjectionField(state, field) {
-    const projection = rustReadProjection(state, "projection");
-    const value = projection?.[field];
-    return Array.isArray(value) ? value : [];
-  }
-
-  function rustProjectionObjectField(state, field) {
-    const projection = rustReadProjection(state, "projection");
-    const value = projection?.[field];
-    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
   }
 
   function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, providerId = null, receiptId = null } = {}) {
@@ -192,6 +180,16 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function readProjectionInput(state, baseUrl = null, projectionKind = "projection") {
+    if (projectionKind === "workflow_bindings") {
+      return {};
+    }
+    if (projectionKind === "adapter_boundaries") {
+      return {
+        agentgres_store: state.store.adapterStatus(),
+        wallet: state.walletAuthority.adapterStatus(),
+        vault: state.vaultStatus(),
+      };
+    }
     const artifacts = artifactList(state);
     const productArtifactPolicy = {
       include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),

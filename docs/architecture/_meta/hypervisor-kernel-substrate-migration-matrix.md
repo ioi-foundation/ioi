@@ -16284,7 +16284,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 805
+## Compacted Implementation Slice Evidence: 805
 
 Slice 805 moved the remaining public model_mount projection-field list reads
 onto dedicated slim Rust read-projection kinds. `listArtifacts()`,
@@ -16309,10 +16309,40 @@ workflow/adapter, health envelope, runtime engine, and other broad read
 surfaces still need direct Rust daemon-core Agentgres projection APIs to replace
 remaining JS state materialization, command transport, and edge wrappers.
 
-Scheduled matrix-compaction obligation from Slice 805 is pending after this
+Scheduled matrix-compaction obligation from Slice 805 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 806
+
+Slice 806 moved public model_mount workflow binding and adapter-boundary reads
+onto dedicated slim Rust read-projection kinds. `workflowNodeBindings()` now
+requests `workflow_bindings` directly from `plan_model_mount_read_projection`
+with no JS state payload, and `adapterBoundaries()` now requests
+`adapter_boundaries` with only primitive `wallet`, `vault`, and
+`agentgres_store` adapter status inputs. The legacy `rustProjectionField()` and
+`rustProjectionObjectField()` helpers are retired from the facade, so these
+public reads no longer unwrap fields from the broad `projection` envelope.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal model_mount migration: snapshot/projection,
+runtime engine, receipt replay, health envelope, and other broad read surfaces
+still need direct Rust daemon-core Agentgres projection APIs to replace
+remaining JS state materialization, command transport, and edge wrappers.
+
+Scheduled matrix-compaction obligation from Slice 806 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 805 after the next
+Next scheduled matrix-compaction pass: compact Slice 806 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

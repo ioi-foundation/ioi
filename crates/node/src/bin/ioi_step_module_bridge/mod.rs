@@ -2093,6 +2093,8 @@ fn model_mount_read_projection(
         "oauth_sessions" => Ok(Value::Array(array_field(&request.state, "oauth_sessions"))),
         "oauth_states" => Ok(Value::Array(array_field(&request.state, "oauth_states"))),
         "provider_health" => Ok(Value::Array(array_field(&request.state, "provider_health"))),
+        "workflow_bindings" => Ok(model_mount_workflow_bindings()),
+        "adapter_boundaries" => Ok(model_mount_adapter_boundaries(&request.state)),
         "runtime_model_catalog" => Ok(model_mount_runtime_model_catalog(&request.state)),
         "open_ai_model_list" => Ok(model_mount_open_ai_model_list(
             &request.state,
@@ -8773,6 +8775,66 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
+
+        let workflow_bindings_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "workflow_bindings",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {}
+                }
+            }))
+            .expect("model_mount workflow bindings request");
+
+        let workflow_bindings_response =
+            plan_model_mount_read_projection(workflow_bindings_request)
+                .expect("workflow bindings projected in Rust");
+        assert_eq!(
+            workflow_bindings_response["projection_kind"],
+            "workflow_bindings"
+        );
+        assert_eq!(
+            workflow_bindings_response["projection"][9]["daemonApi"],
+            "/api/v1/workflows/receipt-gate"
+        );
+
+        let adapter_boundaries_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "adapter_boundaries",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "wallet": {"port": "WalletAuthorityPort"},
+                        "vault": {"port": "VaultPort"},
+                        "agentgres_store": {"port": "AgentgresStorePort"}
+                    }
+                }
+            }))
+            .expect("model_mount adapter boundaries request");
+
+        let adapter_boundaries_response =
+            plan_model_mount_read_projection(adapter_boundaries_request)
+                .expect("adapter boundaries projected in Rust");
+        assert_eq!(
+            adapter_boundaries_response["projection_kind"],
+            "adapter_boundaries"
+        );
+        assert_eq!(
+            adapter_boundaries_response["projection"]["agentgres"]["port"],
+            "AgentgresStorePort"
+        );
+        assert_eq!(
+            adapter_boundaries_response["projection"]["oauth"]["plaintextPersistence"],
+            false
+        );
 
         let snapshot_request: ModelMountReadProjectionBridgeRequest =
             serde_json::from_value(json!({
