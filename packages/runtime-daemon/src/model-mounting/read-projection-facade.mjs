@@ -10,6 +10,13 @@ import {
   routeList,
 } from "./read-model.mjs";
 import { notFound } from "./io.mjs";
+import {
+  listRuntimeEngineProfiles,
+  listRuntimeEngines,
+  runtimeDefaultLoadOptions,
+  runtimePreference,
+  runtimePreferenceForEndpoint,
+} from "./runtime-engines.mjs";
 
 export function createModelMountingReadProjectionFacade({
   internalFixtureModelsEnabled,
@@ -92,6 +99,34 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "projection");
   }
 
+  function runtimeEngineList(state) {
+    return rustReadProjection(state, "runtime_engines");
+  }
+
+  function runtimeEngineProfileList(state) {
+    return rustReadProjection(state, "runtime_engine_profiles");
+  }
+
+  function runtimePreferenceProjection(state) {
+    return rustReadProjection(state, "runtime_preference");
+  }
+
+  function runtimePreferenceForEndpointProjection(state, endpoint = {}) {
+    return rustReadProjection(state, "runtime_preference_for_endpoint", { endpoint });
+  }
+
+  function runtimeDefaultLoadOptionsProjection(state, engineId) {
+    return rustReadProjection(state, "runtime_default_load_options", { engineId });
+  }
+
+  function runtimeEngineProjection(state, engineId) {
+    try {
+      return rustReadProjection(state, "runtime_engine_detail", { engineId });
+    } catch (error) {
+      throw translateRuntimeEngineError(error, engineId);
+    }
+  }
+
   function canonicalProjectionWritePlan(state) {
     return rustReadProjectionPlan(state, "projection");
   }
@@ -128,15 +163,24 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "workflow_bindings");
   }
 
-  function rustReadProjection(state, projectionKind, { baseUrl = null, providerId = null, receiptId = null } = {}) {
-    const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, providerId, receiptId });
+  function rustReadProjection(
+    state,
+    projectionKind,
+    { baseUrl = null, engineId = null, endpoint = null, providerId = null, receiptId = null } = {},
+  ) {
+    const result = rustReadProjectionPlan(state, projectionKind, { baseUrl, engineId, endpoint, providerId, receiptId });
     return result.projection;
   }
 
-  function rustReadProjectionPlan(state, projectionKind, { baseUrl = null, providerId = null, receiptId = null } = {}) {
+  function rustReadProjectionPlan(
+    state,
+    projectionKind,
+    { baseUrl = null, engineId = null, endpoint = null, providerId = null, receiptId = null } = {},
+  ) {
     if (!readProjectionPlanner || typeof readProjectionPlanner.planReadProjection !== "function") {
       throwReadProjectionRustCoreRequired(projectionKind, {
         base_url: baseUrl,
+        engine_id: engineId,
         provider_id: providerId,
         receipt_id: receiptId,
       });
@@ -146,9 +190,10 @@ export function createModelMountingReadProjectionFacade({
       schema_version: modelMountSchemaVersion,
       generated_at: state.nowIso(),
       base_url: baseUrl,
+      engine_id: engineId,
       provider_id: providerId,
       receipt_id: receiptId,
-      state: readProjectionInput(state, baseUrl, projectionKind),
+      state: readProjectionInput(state, baseUrl, projectionKind, { engineId, endpoint }),
     });
     if (!result?.projection || typeof result.projection !== "object") {
       throwReadProjectionRustCoreRequired(projectionKind, {
@@ -179,9 +224,46 @@ export function createModelMountingReadProjectionFacade({
     throw error;
   }
 
-  function readProjectionInput(state, baseUrl = null, projectionKind = "projection") {
+  function translateRuntimeEngineError(error, engineId) {
+    if (error?.code === "model_mount_runtime_engine_not_found") {
+      return notFoundDep(`Runtime engine not found: ${engineId}`, { engine_id: engineId });
+    }
+    throw error;
+  }
+
+  function readProjectionInput(state, baseUrl = null, projectionKind = "projection", { engineId = null, endpoint = null } = {}) {
     if (projectionKind === "workflow_bindings") {
       return {};
+    }
+    if (projectionKind === "runtime_engines") {
+      return {
+        runtime_engines: listRuntimeEngines(runtimeEngineProjectionState(state)),
+      };
+    }
+    if (projectionKind === "runtime_engine_profiles") {
+      return {
+        runtime_engine_profiles: listRuntimeEngineProfiles(runtimeEngineProjectionState(state)),
+      };
+    }
+    if (projectionKind === "runtime_preference") {
+      return {
+        runtime_preference: runtimePreference(runtimeEngineProjectionState(state)),
+      };
+    }
+    if (projectionKind === "runtime_preference_for_endpoint") {
+      return {
+        runtime_preference: runtimePreferenceForEndpoint(runtimeEngineProjectionState(state), endpoint ?? {}),
+      };
+    }
+    if (projectionKind === "runtime_default_load_options") {
+      return {
+        default_load_options: runtimeDefaultLoadOptions(runtimeEngineProjectionState(state), engineId),
+      };
+    }
+    if (projectionKind === "runtime_engine_detail") {
+      return {
+        runtime_engine: runtimeEngineReadInput(state, engineId),
+      };
     }
     if (projectionKind === "adapter_boundaries") {
       return {
@@ -351,6 +433,32 @@ export function createModelMountingReadProjectionFacade({
     throw error;
   }
 
+  function runtimeEngineReadInput(state, engineId) {
+    const runtimeState = runtimeEngineProjectionState(state);
+    const engine = listRuntimeEngines(runtimeState).find((item) => item.id === engineId) ?? null;
+    if (!engine) return null;
+    const preference = runtimePreference(runtimeState);
+    return {
+      ...engine,
+      profile: listRuntimeEngineProfiles(runtimeState).find((profile) => profile.id === engineId) ?? null,
+      preference: preference.selectedEngineId === engineId ? preference : null,
+      loadedInstances: instanceList(state).filter((instance) =>
+        instance.runtimeEngineId === engineId || instance.backendId === engineId),
+      latestReceipts: state.listReceipts()
+        .filter((receipt) =>
+          receipt.details?.runtime_engine_id === engineId ||
+          receipt.details?.engine_id === engineId ||
+          receipt.details?.backend_id === engineId)
+        .slice(-8),
+    };
+  }
+
+  function runtimeEngineProjectionState(state) {
+    const runtimeState = Object.create(state);
+    runtimeState.listInstances = () => instanceList(state);
+    return runtimeState;
+  }
+
   return {
     adapterBoundaries,
     authoritySnapshot,
@@ -373,6 +481,12 @@ export function createModelMountingReadProjectionFacade({
     projection,
     projectionSummary,
     receiptReplay,
+    runtimeDefaultLoadOptionsProjection,
+    runtimeEngineList,
+    runtimeEngineProfileList,
+    runtimeEngineProjection,
+    runtimePreferenceForEndpointProjection,
+    runtimePreferenceProjection,
     runtimeModelCatalogList,
     snapshot,
     workflowNodeBindings,

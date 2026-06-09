@@ -225,14 +225,7 @@ import {
 } from "./model-mounting/loaded-instances.mjs";
 import {
   applyRuntimeEngineProfile as applyRuntimeEngineProfileState,
-  listRuntimeEngineProfiles as listRuntimeEngineProfilesState,
-  listRuntimeEngines as listRuntimeEnginesState,
   removeRuntimeEngineOverride as removeRuntimeEngineOverrideState,
-  runtimeDefaultLoadOptions as runtimeDefaultLoadOptionsState,
-  runtimeEngine as runtimeEngineState,
-  runtimeEngineProfile as runtimeEngineProfileState,
-  runtimePreference as runtimePreferenceState,
-  runtimePreferenceForEndpoint as runtimePreferenceForEndpointState,
   selectRuntimeEngine as selectRuntimeEngineState,
   updateRuntimeEngine as updateRuntimeEngineState,
 } from "./model-mounting/runtime-engines.mjs";
@@ -1372,27 +1365,28 @@ export class ModelMountingState {
   }
 
   runtimePreference() {
-    return runtimePreferenceState(this);
+    return this.readProjectionFacade.runtimePreferenceProjection(this);
   }
 
   runtimePreferenceForEndpoint(endpoint = {}) {
-    return runtimePreferenceForEndpointState(this, endpoint);
+    return this.readProjectionFacade.runtimePreferenceForEndpointProjection(this, endpoint);
   }
 
   runtimeEngineProfile(engineId) {
-    return runtimeEngineProfileState(this, engineId);
+    return this.readProjectionFacade.runtimeEngineProfileList(this)
+      .find((profile) => profile.id === engineId) ?? null;
   }
 
   listRuntimeEngineProfiles() {
-    return listRuntimeEngineProfilesState(this);
+    return this.readProjectionFacade.runtimeEngineProfileList(this);
   }
 
   runtimeDefaultLoadOptions(engineId) {
-    return runtimeDefaultLoadOptionsState(this, engineId);
+    return this.readProjectionFacade.runtimeDefaultLoadOptionsProjection(this, engineId);
   }
 
   runtimeEngine(engineId) {
-    return runtimeEngineState(this, engineId, { notFound });
+    return this.readProjectionFacade.runtimeEngineProjection(this, engineId);
   }
 
   selectRuntimeEngine(body = {}) {
@@ -1423,7 +1417,7 @@ export class ModelMountingState {
   }
 
   listRuntimeEngines() {
-    return listRuntimeEnginesState(this);
+    return this.readProjectionFacade.runtimeEngineList(this);
   }
 
   applyRuntimeEngineProfile(engine) {

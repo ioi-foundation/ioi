@@ -32,6 +32,13 @@ function createState() {
         implementation: "runtime_memory_vault",
       },
     },
+    {
+      id: "receipt-runtime",
+      kind: "runtime_engine_profile",
+      details: {
+        runtime_engine_id: "backend.llama-cpp",
+      },
+    },
   ];
   const state = {
     stateDir: "/state",
@@ -70,6 +77,22 @@ function createState() {
       maxCostUsd: 0,
       maxLatencyMs: 1000,
     }]]),
+    runtimeEngineProfiles: new Map([["backend.llama-cpp", {
+      id: "backend.llama-cpp",
+      label: "llama.cpp",
+      priority: 1,
+      defaultLoadOptions: { gpu: "auto" },
+      updatedAt: "2026-06-03T00:00:00.000Z",
+      receiptId: "receipt-runtime",
+      source: "operator_runtime_engine_profile",
+    }]]),
+    runtimeSelections: new Map([["default", {
+      id: "default",
+      selectedEngineId: "backend.llama-cpp",
+      selectedAt: "2026-06-03T00:00:00.000Z",
+      receiptId: "receipt-runtime",
+      source: "operator_runtime_engine_preference",
+    }]]),
     vault: {
       vaultRefMetadata(secretRef) {
         return { secretRef, configured: true };
@@ -105,11 +128,21 @@ function createState() {
       if (!provider) throw Object.assign(new Error(`Provider not found: ${providerId}`), { status: 404 });
       return provider;
     },
+    backendRegistry: () => [{
+      id: "backend.llama-cpp",
+      kind: "llama_cpp",
+      label: "llama.cpp",
+      status: "configured",
+      supportedFormats: ["gguf"],
+      processStatus: "stopped",
+      evidenceRefs: ["receipt-runtime"],
+    }],
     listRuntimeEngineProfiles: () => [],
     listRuntimeEngines: () => [],
     listTokens: () => [],
     listVaultRefs: () => [],
     latestRuntimeSurvey: () => null,
+    lmStudioRuntimeEngines: () => [],
     runtimePreference: () => ({ routeId: "route.local-first" }),
     vaultStatus: () => ({ port: "VaultPort" }),
     workflowNodeBindings: () => [],
@@ -180,6 +213,19 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "provider_health") return state.provider_health ?? [];
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
+  if (request.projection_kind === "runtime_engines") return state.runtime_engines ?? [];
+  if (request.projection_kind === "runtime_engine_profiles") return state.runtime_engine_profiles ?? [];
+  if (request.projection_kind === "runtime_preference") return state.runtime_preference ?? null;
+  if (request.projection_kind === "runtime_preference_for_endpoint") return state.runtime_preference ?? null;
+  if (request.projection_kind === "runtime_default_load_options") return state.default_load_options ?? {};
+  if (request.projection_kind === "runtime_engine_detail") {
+    if (!state.runtime_engine) {
+      throw Object.assign(new Error("runtime engine not found"), {
+        code: "model_mount_runtime_engine_not_found",
+      });
+    }
+    return state.runtime_engine;
+  }
   if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
   if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
   const projection = {
@@ -687,6 +733,65 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   ]);
 });
 
+test("read projection facade delegates runtime-engine reads through Rust projections", () => {
+  const { facade, state, readProjectionRequests } = createState();
+
+  const engines = facade.runtimeEngineList(state);
+  assert.deepEqual(engines.map((engine) => engine.id), ["backend.llama-cpp"]);
+  assert.equal(engines[0].operatorProfile.defaultLoadOptions.gpu, "auto");
+
+  const profiles = facade.runtimeEngineProfileList(state);
+  assert.deepEqual(profiles.map((profile) => profile.id), ["backend.llama-cpp"]);
+
+  const preference = facade.runtimePreferenceProjection(state);
+  assert.equal(preference.selectedEngineId, "backend.llama-cpp");
+  assert.equal(preference.defaultLoadOptions.gpu, "auto");
+
+  const endpointPreference = facade.runtimePreferenceForEndpointProjection(state, {
+    backendId: "backend.llama-cpp",
+  });
+  assert.equal(endpointPreference.selectedEngineId, "backend.llama-cpp");
+
+  const defaultLoadOptions = facade.runtimeDefaultLoadOptionsProjection(state, "backend.llama-cpp");
+  assert.deepEqual(defaultLoadOptions, { gpu: "auto" });
+
+  const runtimeEngine = facade.runtimeEngineProjection(state, "backend.llama-cpp");
+  assert.equal(runtimeEngine.id, "backend.llama-cpp");
+  assert.equal(runtimeEngine.profile.id, "backend.llama-cpp");
+  assert.equal(runtimeEngine.preference.selectedEngineId, "backend.llama-cpp");
+  assert.deepEqual(runtimeEngine.latestReceipts.map((receipt) => receipt.id), ["receipt-runtime"]);
+
+  assert.throws(
+    () => facade.runtimeEngineProjection(state, "backend.missing"),
+    (error) =>
+      error.status === 404 &&
+      error.code === "not_found" &&
+      error.details.engine_id === "backend.missing",
+  );
+
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "runtime_engines",
+    "runtime_engine_profiles",
+    "runtime_preference",
+    "runtime_preference_for_endpoint",
+    "runtime_default_load_options",
+    "runtime_engine_detail",
+    "runtime_engine_detail",
+  ]);
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["runtime_engines"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["runtime_engine_profiles"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[2].state), ["runtime_preference"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[3].state), ["runtime_preference"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[4].state), ["default_load_options"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[5].state), ["runtime_engine"]);
+  assert.equal(readProjectionRequests[4].engine_id, "backend.llama-cpp");
+  assert.equal(readProjectionRequests[5].engine_id, "backend.llama-cpp");
+  assert.equal(readProjectionRequests[6].engine_id, "backend.missing");
+  assert.equal(readProjectionRequests[6].state.runtime_engine, null);
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "projection")), true);
+});
+
 test("read projection facade composes snapshots, projection, and receipt replay", () => {
   const { facade, state, readProjectionRequests } = createState();
 
@@ -713,7 +818,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const summary = facade.projectionSummary(state);
   assert.equal(summary.schemaVersion, "model.mount.schema");
-  assert.equal(summary.receiptCount, 4);
+  assert.equal(summary.receiptCount, 5);
 
   const replay = facade.receiptReplay(state, "receipt-route");
   assert.equal(replay.schemaVersion, "model.mount.schema");
@@ -780,7 +885,7 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(providerHealth.health.status, "healthy");
   assert.equal(providerHealth.receipt.id, "receipt-provider-health");
   assert.equal(providerHealth.replay.receipt.id, "receipt-provider-health");
-  assert.equal(providerHealth.projectionWatermark, 4);
+  assert.equal(providerHealth.projectionWatermark, 5);
 
   const vaultHealth = facade.latestVaultHealth(state);
   assert.equal(vaultHealth.schemaVersion, "model.mount.schema");
@@ -788,7 +893,7 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(vaultHealth.health.implementation, "runtime_memory_vault");
   assert.equal(vaultHealth.receipt.id, "receipt-vault-health");
   assert.equal(vaultHealth.replay.receipt.id, "receipt-vault-health");
-  assert.equal(vaultHealth.projectionWatermark, 4);
+  assert.equal(vaultHealth.projectionWatermark, 5);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "latest_provider_health",
     "latest_vault_health",

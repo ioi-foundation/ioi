@@ -280,6 +280,8 @@ struct ModelMountReadProjectionRequest {
     #[serde(default)]
     receipt_id: Option<String>,
     #[serde(default)]
+    engine_id: Option<String>,
+    #[serde(default)]
     provider_id: Option<String>,
     state: Value,
 }
@@ -2095,6 +2097,19 @@ fn model_mount_read_projection(
         "provider_health" => Ok(Value::Array(array_field(&request.state, "provider_health"))),
         "workflow_bindings" => Ok(model_mount_workflow_bindings()),
         "adapter_boundaries" => Ok(model_mount_adapter_boundaries(&request.state)),
+        "runtime_engines" => Ok(Value::Array(array_field(&request.state, "runtime_engines"))),
+        "runtime_engine_profiles" => Ok(Value::Array(array_field(
+            &request.state,
+            "runtime_engine_profiles",
+        ))),
+        "runtime_preference" => Ok(object_or_null(request.state.get("runtime_preference"))),
+        "runtime_preference_for_endpoint" => {
+            Ok(object_or_null(request.state.get("runtime_preference")))
+        }
+        "runtime_default_load_options" => {
+            Ok(object_or_null(request.state.get("default_load_options")))
+        }
+        "runtime_engine_detail" => model_mount_runtime_engine_detail(request),
         "runtime_model_catalog" => Ok(model_mount_runtime_model_catalog(&request.state)),
         "open_ai_model_list" => Ok(model_mount_open_ai_model_list(
             &request.state,
@@ -2253,6 +2268,23 @@ fn model_mount_workflow_bindings() -> Value {
         })
         .collect(),
     )
+}
+
+fn model_mount_runtime_engine_detail(
+    request: &ModelMountReadProjectionRequest,
+) -> Result<Value, BridgeError> {
+    let engine_id = request
+        .engine_id
+        .as_deref()
+        .unwrap_or("unknown_runtime_engine");
+    let runtime_engine = object_or_null(request.state.get("runtime_engine"));
+    if runtime_engine.is_null() {
+        return Err(BridgeError::new(
+            "model_mount_runtime_engine_not_found",
+            format!("runtime engine not found: {engine_id}"),
+        ));
+    }
+    Ok(runtime_engine)
 }
 
 fn model_mount_product_artifacts(state: &Value) -> Vec<Value> {
@@ -8883,6 +8915,198 @@ mod tests {
         assert_eq!(
             adapter_boundaries_response["projection"]["oauth"]["plaintextPersistence"],
             false
+        );
+
+        let runtime_engines_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_engines",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "runtime_engines": [{
+                            "id": "backend.llama-cpp",
+                            "kind": "llama_cpp",
+                            "status": "configured"
+                        }]
+                    }
+                }
+            }))
+            .expect("model_mount runtime engines request");
+        let runtime_engines_response = plan_model_mount_read_projection(runtime_engines_request)
+            .expect("runtime engines projected in Rust");
+        assert_eq!(
+            runtime_engines_response["projection_kind"],
+            "runtime_engines"
+        );
+        assert_eq!(
+            runtime_engines_response["projection"][0]["id"],
+            "backend.llama-cpp"
+        );
+
+        let runtime_profiles_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_engine_profiles",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "runtime_engine_profiles": [{
+                            "id": "backend.llama-cpp",
+                            "defaultLoadOptions": {"gpu": "auto"}
+                        }]
+                    }
+                }
+            }))
+            .expect("model_mount runtime engine profiles request");
+        let runtime_profiles_response = plan_model_mount_read_projection(runtime_profiles_request)
+            .expect("runtime engine profiles projected in Rust");
+        assert_eq!(
+            runtime_profiles_response["projection_kind"],
+            "runtime_engine_profiles"
+        );
+        assert_eq!(
+            runtime_profiles_response["projection"][0]["defaultLoadOptions"]["gpu"],
+            "auto"
+        );
+
+        let runtime_preference_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_preference",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "runtime_preference": {
+                            "selectedEngineId": "backend.llama-cpp"
+                        }
+                    }
+                }
+            }))
+            .expect("model_mount runtime preference request");
+        let runtime_preference_response =
+            plan_model_mount_read_projection(runtime_preference_request)
+                .expect("runtime preference projected in Rust");
+        assert_eq!(
+            runtime_preference_response["projection"]["selectedEngineId"],
+            "backend.llama-cpp"
+        );
+
+        let runtime_endpoint_preference_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_preference_for_endpoint",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "runtime_preference": {
+                            "selectedEngineId": "backend.llama-cpp",
+                            "endpointBackendId": "backend.llama-cpp"
+                        }
+                    }
+                }
+            }))
+            .expect("model_mount endpoint runtime preference request");
+        let runtime_endpoint_preference_response =
+            plan_model_mount_read_projection(runtime_endpoint_preference_request)
+                .expect("endpoint runtime preference projected in Rust");
+        assert_eq!(
+            runtime_endpoint_preference_response["projection"]["endpointBackendId"],
+            "backend.llama-cpp"
+        );
+
+        let runtime_default_load_options_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_default_load_options",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "engine_id": "backend.llama-cpp",
+                    "state": {
+                        "default_load_options": {
+                            "gpu": "auto"
+                        }
+                    }
+                }
+            }))
+            .expect("model_mount runtime default load options request");
+        let runtime_default_load_options_response =
+            plan_model_mount_read_projection(runtime_default_load_options_request)
+                .expect("runtime default load options projected in Rust");
+        assert_eq!(
+            runtime_default_load_options_response["projection"]["gpu"],
+            "auto"
+        );
+
+        let runtime_engine_detail_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_engine_detail",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "engine_id": "backend.llama-cpp",
+                    "state": {
+                        "runtime_engine": {
+                            "id": "backend.llama-cpp",
+                            "profile": {"id": "backend.llama-cpp"},
+                            "latestReceipts": [{"id": "receipt-runtime"}]
+                        }
+                    }
+                }
+            }))
+            .expect("model_mount runtime engine detail request");
+        let runtime_engine_detail_response =
+            plan_model_mount_read_projection(runtime_engine_detail_request)
+                .expect("runtime engine detail projected in Rust");
+        assert_eq!(
+            runtime_engine_detail_response["projection"]["id"],
+            "backend.llama-cpp"
+        );
+        assert_eq!(
+            runtime_engine_detail_response["projection"]["latestReceipts"][0]["id"],
+            "receipt-runtime"
+        );
+
+        let missing_runtime_engine_detail_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "runtime_engine_detail",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "engine_id": "backend.missing",
+                    "state": {
+                        "runtime_engine": null
+                    }
+                }
+            }))
+            .expect("missing model_mount runtime engine detail request");
+        let missing_runtime_engine_detail_error =
+            plan_model_mount_read_projection(missing_runtime_engine_detail_request)
+                .expect_err("runtime engine detail fails closed when engine is missing");
+        assert_eq!(
+            missing_runtime_engine_detail_error.code,
+            "model_mount_runtime_engine_not_found"
         );
 
         let snapshot_request: ModelMountReadProjectionBridgeRequest =

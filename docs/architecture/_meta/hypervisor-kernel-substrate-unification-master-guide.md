@@ -1108,6 +1108,22 @@ This still does not claim terminal model_mount projection migration: full
 read surfaces still need direct Rust daemon-core Agentgres projection APIs to
 replace remaining JS state materialization and command transport.
 
+Slice 810 moved public model_mount runtime-engine read surfaces through
+dedicated Rust read-projection kinds. `runtimePreference()`,
+`runtimePreferenceForEndpoint()`, `runtimeEngineProfile()`,
+`listRuntimeEngineProfiles()`, `runtimeDefaultLoadOptions()`,
+`runtimeEngine()`, and `listRuntimeEngines()` now request
+`runtime_preference`, `runtime_preference_for_endpoint`,
+`runtime_engine_profiles`, `runtime_default_load_options`,
+`runtime_engine_detail`, and `runtime_engines` from
+`plan_model_mount_read_projection`. The JS facade still prepares primitive
+backend/profile/preference/receipt input as migration transport, but public
+runtime-engine detail not-found decisions are now authored by Rust through
+`model_mount_runtime_engine_not_found` rather than a JS preflight. This still
+does not claim terminal runtime-engine migration: direct Rust daemon-core
+Agentgres runtime-engine preference/profile/projection APIs still need to
+replace JS current-state materialization and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

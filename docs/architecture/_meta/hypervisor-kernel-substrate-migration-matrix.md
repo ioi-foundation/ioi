@@ -212,9 +212,11 @@ Remaining terminal blockers:
   and conformance.
 - Public runtime-engine select/profile/remove mutations now fail closed instead
   of creating JS-authored `runtime_engine_*` receipts, mutating runtime
-  preference/profile maps, or committing record-state from the JS facade; direct
-  Rust daemon-core runtime-engine preference/profile/projection ownership
-  remains the required terminal path.
+  preference/profile maps, or committing record-state from the JS facade; public
+  runtime-engine list/detail/default-load/preference/profile reads now route
+  through Rust read-projection kinds while JS prepares primitive current-state
+  input as migration transport; direct Rust daemon-core runtime-engine
+  preference/profile/projection ownership remains the required terminal path.
 - Public model import/mount/unmount, download-cancel, artifact-delete, and
   storage-cleanup mutations now fail closed instead of creating JS-authored
   artifact/storage lifecycle receipts, touching local files, mutating
@@ -13669,7 +13671,8 @@ objective: retire the public runtime-engine JS mutation facade until Rust
 owner_boundary:
   route_or_surface: model-mounting runtime-engine select/update/remove facade
   authority_gate: fail closed at `model_mount.runtime_engine` for public
-    runtime-engine mutations; reads remain projection adapters only
+    runtime-engine mutations; current read surfaces route through Rust
+    read-projection kinds with JS primitive input transport
   execution_backend: none in JS for mutation; Rust daemon-core
     `model_mount.runtime_engine` must own the eventual preference/profile
     mutation API
@@ -13677,8 +13680,10 @@ owner_boundary:
     `runtime_engine_update`, or `runtime_engine_profile_remove` receipts; no JS
     runtime preference/profile map mutation; no JS record-state commit from the
     public mutation facade
-  projection_path: existing runtime-engine list/detail/default-load reads remain
-    current-state projections until Rust projection owns the full surface
+  projection_path: current-state note after Slice 810: runtime-engine
+    list/detail/default-load/preference/profile reads route through Rust
+    read-projection kinds with JS primitive current-state input as migration
+    transport until direct Rust daemon-core projection ownership lands
 touched_files:
   docs:
     - docs/architecture/_meta/implementation-matrix.md
@@ -13710,9 +13715,10 @@ verification:
 cleanup:
   legacy_paths_removed: true
   compatibility_shims_remaining:
-    - runtime-engine read/list/default-load projection adapters still read the
-      current JS state maps until direct Rust daemon-core projection ownership
-      lands
+    - Current-state note after Slice 810: runtime-engine
+      list/detail/default-load/preference/profile reads now route through Rust
+      read-projection kinds, but JS still prepares primitive current-state input
+      until direct Rust daemon-core projection ownership lands
     - lower-level persisted runtime-engine projection records still expose
       current view fields such as `selectedEngineId`, `engineId`, and
       `defaultLoadOptions` until the broader projection contract is migrated
@@ -16406,7 +16412,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 809
+## Compacted Implementation Slice Evidence: 809
 
 Slice 809 retired the snapshot helper's internal full-projection rebuild.
 `snapshot()` still requests the Rust `snapshot` read-projection kind, but
@@ -16426,10 +16432,44 @@ input materialization, runtime engine, and other broad read surfaces still need
 direct Rust daemon-core Agentgres projection APIs to replace remaining JS state
 materialization, command transport, and edge wrappers.
 
-Scheduled matrix-compaction obligation from Slice 809 is pending after this
+Scheduled matrix-compaction obligation from Slice 809 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 810
+
+Slice 810 moved public model_mount runtime-engine read surfaces through
+dedicated Rust read-projection kinds. `runtimePreference()`,
+`runtimePreferenceForEndpoint()`, `runtimeEngineProfile()`,
+`listRuntimeEngineProfiles()`, `runtimeDefaultLoadOptions()`,
+`runtimeEngine()`, and `listRuntimeEngines()` now request
+`runtime_preference`, `runtime_preference_for_endpoint`,
+`runtime_engine_profiles`, `runtime_default_load_options`,
+`runtime_engine_detail`, and `runtime_engines` from
+`plan_model_mount_read_projection`. The JS facade still prepares primitive
+current-state input as migration transport, but missing runtime-engine detail is
+now rejected by Rust with `model_mount_runtime_engine_not_found` instead of a JS
+not-found preflight.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal runtime-engine migration: direct Rust daemon-core
+Agentgres runtime-engine preference/profile/projection APIs still need to
+replace JS current-state materialization, command transport, and edge wrappers.
+
+Scheduled matrix-compaction obligation from Slice 810 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 809 after the next
+Next scheduled matrix-compaction pass: compact Slice 810 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

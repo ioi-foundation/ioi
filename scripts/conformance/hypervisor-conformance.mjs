@@ -577,6 +577,10 @@ function runDocs() {
       /Slice 809 retired the snapshot helper's internal full-projection rebuild/.test(guide) &&
       /`model_mount_snapshot\(\)` no longer calls `model_mount_projection\(request\)` just\s+to recover adapter boundaries and projection summary/.test(guide) &&
       /authors the nested\s+summary from receipt truth through `model_mount_projection_summary\(request\)`/.test(guide) &&
+      /Slice 810 moved public model_mount runtime-engine read surfaces through\s+dedicated Rust read-projection kinds/.test(guide) &&
+      /`runtimePreference\(\)`,\s+`runtimePreferenceForEndpoint\(\)`, `runtimeEngineProfile\(\)`,\s+`listRuntimeEngineProfiles\(\)`, `runtimeDefaultLoadOptions\(\)`,\s+`runtimeEngine\(\)`, and `listRuntimeEngines\(\)`/.test(guide) &&
+      /`runtime_preference`,\s+`runtime_preference_for_endpoint`,\s+`runtime_engine_profiles`, `runtime_default_load_options`,\s+`runtime_engine_detail`, and `runtime_engines`/.test(guide) &&
+      /`model_mount_runtime_engine_not_found`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -594,7 +598,10 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 806/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 807/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 808/.test(matrix) &&
-      /Implementation Slice Evidence: 809/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 809/.test(matrix) &&
+      /Implementation Slice Evidence: 810/.test(matrix) &&
+      /Slice 810 moved public model_mount runtime-engine read surfaces through\s+dedicated Rust read-projection kinds/.test(matrix) &&
+      /missing runtime-engine detail is\s+now rejected by Rust with `model_mount_runtime_engine_not_found`/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7782,8 +7789,32 @@ function runBridge() {
       /listOAuthSessions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_sessions"\)/.test(modelMountingReadProjectionFacade) &&
       /listOAuthStates\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_states"\)/.test(modelMountingReadProjectionFacade) &&
       /listProviderHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_health"\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimePreference\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceProjection\(this\)/.test(modelMountingState) &&
+      /runtimePreferenceForEndpoint\(endpoint = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceForEndpointProjection\(this,\s*endpoint\)/.test(modelMountingState) &&
+      /runtimeEngineProfile\(engineId\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineProfileList\(this\)/.test(modelMountingState) &&
+      /listRuntimeEngineProfiles\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineProfileList\(this\)/.test(modelMountingState) &&
+      /runtimeDefaultLoadOptions\(engineId\)\s*\{[\s\S]*?readProjectionFacade\.runtimeDefaultLoadOptionsProjection\(this,\s*engineId\)/.test(modelMountingState) &&
+      /runtimeEngine\(engineId\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineProjection\(this,\s*engineId\)/.test(modelMountingState) &&
+      /listRuntimeEngines\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineList\(this\)/.test(modelMountingState) &&
+      /runtimeEngineList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engines"\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimeEngineProfileList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engine_profiles"\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimePreferenceProjection\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_preference"\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimePreferenceForEndpointProjection\(state,\s*endpoint = \{\}\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_preference_for_endpoint",\s*\{ endpoint \}\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimeDefaultLoadOptionsProjection\(state,\s*engineId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_default_load_options",\s*\{ engineId \}\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimeEngineProjection\(state,\s*engineId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engine_detail",\s*\{ engineId \}\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "runtime_engines"[\s\S]*?runtime_engines:\s*listRuntimeEngines\(runtimeEngineProjectionState\(state\)\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "runtime_engine_profiles"[\s\S]*?runtime_engine_profiles:\s*listRuntimeEngineProfiles\(runtimeEngineProjectionState\(state\)\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "runtime_preference"[\s\S]*?runtime_preference:\s*runtimePreference\(runtimeEngineProjectionState\(state\)\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "runtime_preference_for_endpoint"[\s\S]*?runtime_preference:\s*runtimePreferenceForEndpoint\(runtimeEngineProjectionState\(state\),\s*endpoint \?\? \{\}\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "runtime_default_load_options"[\s\S]*?default_load_options:\s*runtimeDefaultLoadOptions\(runtimeEngineProjectionState\(state\),\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "runtime_engine_detail"[\s\S]*?runtime_engine:\s*runtimeEngineReadInput\(state,\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
+      /function runtimeEngineReadInput\(state,\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
+      /function runtimeEngineProjectionState\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimeState\.listInstances = \(\) => instanceList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /model_mount_runtime_engine_not_found/.test(modelMountingReadProjectionFacade) &&
       /facade\.adapterBoundaries\(state\)\.agentgres\.port/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
+      /read projection facade delegates runtime-engine reads through Rust projections/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7804,6 +7835,9 @@ function runBridge() {
       /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
       /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"oauth_sessions"[\s\S]*"oauth_states"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
       /"workflow_bindings"[\s\S]*"adapter_boundaries"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"runtime_engines"[\s\S]*"runtime_engine_profiles"[\s\S]*"runtime_preference"[\s\S]*"runtime_preference_for_endpoint"[\s\S]*"runtime_default_load_options"[\s\S]*"runtime_engine_detail"/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\[6\]\.state\.runtime_engine,\s*null/.test(modelMountingReadProjectionFacadeTest) &&
+      /error\.details\.engine_id === "backend\.missing"/.test(modelMountingReadProjectionFacadeTest) &&
       /productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7832,6 +7866,13 @@ function runBridge() {
       /"provider_health" => Ok\(Value::Array\(array_field\(&request\.state,\s*"provider_health"\)\)\)/.test(bridgeModule) &&
       /"workflow_bindings" => Ok\(model_mount_workflow_bindings\(\)\)/.test(bridgeModule) &&
       /"adapter_boundaries" => Ok\(model_mount_adapter_boundaries\(&request\.state\)\)/.test(bridgeModule) &&
+      /engine_id:\s*Option<String>/.test(bridgeModule) &&
+      /"runtime_engines" => Ok\(Value::Array\(array_field\(&request\.state,\s*"runtime_engines"\)\)\)/.test(bridgeModule) &&
+      /"runtime_engine_profiles" => Ok\(Value::Array\(array_field\([\s\S]*?"runtime_engine_profiles"/.test(bridgeModule) &&
+      /"runtime_preference" => Ok\(object_or_null\(request\.state\.get\("runtime_preference"\)\)\)/.test(bridgeModule) &&
+      /"runtime_preference_for_endpoint" => \{\s*Ok\(object_or_null\(request\.state\.get\("runtime_preference"\)\)\)\s*\}/.test(bridgeModule) &&
+      /"runtime_default_load_options" => \{\s*Ok\(object_or_null\(request\.state\.get\("default_load_options"\)\)\)\s*\}/.test(bridgeModule) &&
+      /"runtime_engine_detail" => model_mount_runtime_engine_detail\(request\)/.test(bridgeModule) &&
       /"runtime_model_catalog" => Ok\(model_mount_runtime_model_catalog\(&request\.state\)\)/.test(bridgeModule) &&
       /"open_ai_model_list" => Ok\(model_mount_open_ai_model_list/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&
@@ -7845,6 +7886,7 @@ function runBridge() {
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
       /fn model_mount_workflow_bindings/.test(bridgeModule) &&
+      /fn model_mount_runtime_engine_detail/.test(bridgeModule) &&
       /fn model_mount_model_capabilities/.test(bridgeModule) &&
       /fn model_mount_product_artifacts/.test(bridgeModule) &&
       /fn model_mount_runtime_model_catalog/.test(bridgeModule) &&
@@ -7857,6 +7899,7 @@ function runBridge() {
       /model_mount_provider_not_found/.test(bridgeModule) &&
       /model_mount_provider_health_not_found/.test(bridgeModule) &&
       /model_mount_vault_health_not_found/.test(bridgeModule) &&
+      /model_mount_runtime_engine_not_found/.test(bridgeModule) &&
       /"workflowNodes": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"workflowBindings": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"modelCapabilities": model_mount_model_capabilities\(state\)/.test(bridgeModule) &&
@@ -7871,6 +7914,12 @@ function runBridge() {
       /"projection_kind": "adapter_boundaries"/.test(bridgeModule) &&
       /"projection_kind": "receipt_replay"/.test(bridgeModule) &&
       /receipt replay projected from slim Rust context/.test(bridgeModule) &&
+      /"projection_kind": "runtime_engines"/.test(bridgeModule) &&
+      /"projection_kind": "runtime_engine_profiles"/.test(bridgeModule) &&
+      /"projection_kind": "runtime_preference"/.test(bridgeModule) &&
+      /"projection_kind": "runtime_preference_for_endpoint"/.test(bridgeModule) &&
+      /"projection_kind": "runtime_default_load_options"/.test(bridgeModule) &&
+      /"projection_kind": "runtime_engine_detail"/.test(bridgeModule) &&
       /"projection_kind": "latest_provider_health"/.test(bridgeModule) &&
       /"projection_kind": "latest_vault_health"/.test(bridgeModule) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
@@ -7881,6 +7930,13 @@ function runBridge() {
       /response\["projection"\]\["runtimeModelCatalog"\]/.test(bridgeModule) &&
       /response\["projection"\]\["openAiModelList"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["workflowNodes"\]/.test(bridgeModule) &&
+      /runtime engines projected in Rust/.test(bridgeModule) &&
+      /runtime engine profiles projected in Rust/.test(bridgeModule) &&
+      /runtime preference projected in Rust/.test(bridgeModule) &&
+      /endpoint runtime preference projected in Rust/.test(bridgeModule) &&
+      /runtime default load options projected in Rust/.test(bridgeModule) &&
+      /runtime engine detail projected in Rust/.test(bridgeModule) &&
+      /runtime engine detail fails closed when engine is missing/.test(bridgeModule) &&
       /latest provider health projected in Rust/.test(bridgeModule) &&
       /latest provider health fails closed when provider is missing/.test(bridgeModule) &&
       /latest vault health projected in Rust/.test(bridgeModule) &&
