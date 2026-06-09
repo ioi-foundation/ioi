@@ -1,7 +1,3 @@
-import {
-  oauthSessionList,
-  oauthStateList,
-} from "./read-model.mjs";
 import { notFound } from "./io.mjs";
 import {
   serverStatusProjectionInput,
@@ -56,11 +52,19 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listOAuthSessions(state) {
-    return oauthSessionList(state);
+    try {
+      return rustReadProjection(state, "oauth_sessions");
+    } catch (error) {
+      throw translateOAuthReadProjectionError(error, "model_mount.catalog_provider_oauth.sessions");
+    }
   }
 
   function listOAuthStates(state) {
-    return oauthStateList(state);
+    try {
+      return rustReadProjection(state, "oauth_states");
+    } catch (error) {
+      throw translateOAuthReadProjectionError(error, "model_mount.catalog_provider_oauth.states");
+    }
   }
 
   function listProviderHealth(state) {
@@ -223,6 +227,25 @@ export function createModelMountingReadProjectionFacade({
   function translateRuntimeEngineError(error, engineId) {
     if (error?.code === "model_mount_runtime_engine_not_found") {
       return notFoundDep(`Runtime engine not found: ${engineId}`, { engine_id: engineId });
+    }
+    throw error;
+  }
+
+  function translateOAuthReadProjectionError(error, operationKind) {
+    if (error?.code === "model_mount_oauth_read_projection_js_retired") {
+      throw Object.assign(new Error("OAuth session/state read projection is retired in JS; use Rust daemon-core wallet/cTEE projection."), {
+        status: 501,
+        code: "model_mount_oauth_read_projection_js_retired",
+        details: {
+          operation_kind: operationKind,
+          rust_core_boundary: "model_mount.catalog_provider_oauth_projection",
+          evidence_refs: [
+            "model_mount_oauth_read_projection_js_retired",
+            "rust_daemon_core_catalog_provider_oauth_projection_required",
+            "rust_daemon_core_wallet_ctee_custody_required",
+          ],
+        },
+      });
     }
     throw error;
   }

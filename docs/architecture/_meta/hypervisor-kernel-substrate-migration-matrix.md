@@ -17268,13 +17268,13 @@ Scheduled matrix-compaction obligation from Slice 839 is now satisfied.
 ## Compacted Implementation Slice Evidence: 840
 
 Slice 840 retired JS-authored OAuth session/state read projection from
-model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()` now
-fail closed with `model_mount_oauth_read_projection_js_retired` before JS can
-call `publicOAuthSession()`, call `publicOAuthState()`, hash/redact custody
-material, or plan dedicated `oauth_sessions`/`oauth_states` read projections.
-Broad snapshot/projection transport no longer sends `oauth_sessions` or
-`oauth_states`; public OAuth session/state envelopes must be authored by direct
-Rust daemon-core wallet/cTEE projection over admitted truth.
+model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()`
+initially failed closed with `model_mount_oauth_read_projection_js_retired`
+before JS could call `publicOAuthSession()`, call `publicOAuthState()`, or
+hash/redact custody material. Broad snapshot/projection transport no longer
+sends `oauth_sessions` or `oauth_states`; public OAuth session/state envelopes
+must be authored by direct Rust daemon-core wallet/cTEE projection over admitted
+truth.
 
 Focused evidence:
 
@@ -17947,7 +17947,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 864 is now satisfied.
 
-## Implementation Slice Evidence: 865
+## Compacted Implementation Slice Evidence: 865
 
 Slice 865 retired direct runtime-engine projection input from the Rust bridge.
 The direct `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,
@@ -17974,7 +17974,35 @@ truth, preference/profile/default-load ownership, command-transport
 replacement, and local runtime-engine materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 865 after the next direct
+Scheduled matrix-compaction obligation from Slice 865 is now satisfied.
+
+## Implementation Slice Evidence: 866
+
+Slice 866 moved public OAuth session/state readback refusal onto the Rust
+read-projection boundary. Public `listOAuthSessions()` and `listOAuthStates()`
+now call `plan_model_mount_read_projection` kinds `oauth_sessions` and
+`oauth_states` with empty request state, translate only the Rust refusal at the
+JS edge, and no longer import the dead `oauthSessionList()`/`oauthStateList()`
+helpers. The Rust bridge direct arms for `oauth_sessions` and `oauth_states`
+fail closed with `model_mount_oauth_read_projection_js_retired` even when direct
+callers provide OAuth session/state arrays, and broad `snapshot`/`projection`
+OAuth fields remain schema-stable empty arrays instead of honoring caller
+arrays.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/read-model.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal OAuth projection migration: direct Rust
+daemon-core wallet/cTEE OAuth session/state projection APIs, Agentgres-backed
+admitted OAuth truth, command-transport replacement, and edge error translation
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 866 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport

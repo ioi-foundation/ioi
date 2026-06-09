@@ -258,8 +258,11 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "routes") return [];
   if (request.projection_kind === "model_capabilities") return [];
   if (request.projection_kind === "downloads") return [];
-  if (request.projection_kind === "oauth_sessions") return state.oauth_sessions ?? [];
-  if (request.projection_kind === "oauth_states") return state.oauth_states ?? [];
+  if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") {
+    throw Object.assign(new Error("OAuth session/state read projection is retired"), {
+      code: "model_mount_oauth_read_projection_js_retired",
+    });
+  }
   if (request.projection_kind === "provider_health") return [];
   if (request.projection_kind === "server_status") return serverStatusFromRustState(state, request.schema_version);
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
@@ -679,12 +682,16 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "routes",
     "model_capabilities",
     "downloads",
+    "oauth_sessions",
+    "oauth_states",
     "provider_health",
     "workflow_bindings",
     "adapter_boundaries",
   ]);
-  assert.equal(readProjectionRequests.some((request) => request.projection_kind === "oauth_sessions"), false);
-  assert.equal(readProjectionRequests.some((request) => request.projection_kind === "oauth_states"), false);
+  assert.equal(readProjectionRequests.find((request) => request.projection_kind === "oauth_sessions").state
+    && Object.keys(readProjectionRequests.find((request) => request.projection_kind === "oauth_sessions").state).length, 0);
+  assert.equal(readProjectionRequests.find((request) => request.projection_kind === "oauth_states").state
+    && Object.keys(readProjectionRequests.find((request) => request.projection_kind === "oauth_states").state).length, 0);
   assert.equal(readProjectionRequests.filter((request) => request.projection_kind !== "projection")
     .every((request) => !Object.hasOwn(request.state, "server")), true);
   const workflowRequest = readProjectionRequests.find((request) => request.projection_kind === "workflow_bindings");

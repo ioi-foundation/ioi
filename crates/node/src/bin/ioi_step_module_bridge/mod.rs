@@ -2091,8 +2091,16 @@ fn model_mount_read_projection(
         "routes" => Ok(Value::Array(Vec::new())),
         "model_capabilities" => Ok(Value::Array(Vec::new())),
         "downloads" => Ok(Value::Array(Vec::new())),
-        "oauth_sessions" => Ok(Value::Array(array_field(&request.state, "oauth_sessions"))),
-        "oauth_states" => Ok(Value::Array(array_field(&request.state, "oauth_states"))),
+        "oauth_sessions" => Err(BridgeError::new(
+            "model_mount_oauth_read_projection_js_retired",
+            "OAuth session read projection requires Rust daemon-core wallet/cTEE projection"
+                .to_string(),
+        )),
+        "oauth_states" => Err(BridgeError::new(
+            "model_mount_oauth_read_projection_js_retired",
+            "OAuth state read projection requires Rust daemon-core wallet/cTEE projection"
+                .to_string(),
+        )),
         "provider_health" => Ok(Value::Array(Vec::new())),
         "workflow_bindings" => Ok(model_mount_workflow_bindings()),
         "adapter_boundaries" => Ok(model_mount_adapter_boundaries(&request.state)),
@@ -2125,8 +2133,8 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "schemaVersion": model_mount_projection_schema_version(request),
         "server": model_mount_server_status(request),
         "catalog": model_mount_catalog_status(request),
-        "oauthSessions": array_field(state, "oauth_sessions"),
-        "oauthStates": array_field(state, "oauth_states"),
+        "oauthSessions": [],
+        "oauthStates": [],
         "artifacts": [],
         "productArtifacts": [],
         "backends": [],
@@ -2181,8 +2189,8 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "backendProcesses": [],
         "providers": [],
         "catalog": model_mount_catalog_status(request),
-        "oauthSessions": array_field(state, "oauth_sessions"),
-        "oauthStates": array_field(state, "oauth_states"),
+        "oauthSessions": [],
+        "oauthStates": [],
         "downloads": [],
         "providerHealth": [],
         "runtimeEngines": [],
@@ -8244,8 +8252,14 @@ mod tests {
                     "modelId": "model.local"
                 }]
             },
-            "oauth_sessions": [],
-            "oauth_states": [],
+            "oauth_sessions": [{
+                "id": "oauth-session.local",
+                "accessTokenRef": "vault://oauth/session/access-token"
+            }],
+            "oauth_states": [{
+                "id": "oauth-state.local",
+                "verifierRef": "vault://oauth/state/verifier"
+            }],
             "downloads": [],
             "provider_health": [],
             "product_artifact_policy": {"include_internal_fixtures": false},
@@ -8396,6 +8410,20 @@ mod tests {
             response["projection"]["modelCapabilities"]
                 .as_array()
                 .expect("model capabilities")
+                .len(),
+            0
+        );
+        assert_eq!(
+            response["projection"]["oauthSessions"]
+                .as_array()
+                .expect("oauth sessions")
+                .len(),
+            0
+        );
+        assert_eq!(
+            response["projection"]["oauthStates"]
+                .as_array()
+                .expect("oauth states")
                 .len(),
             0
         );
@@ -8606,6 +8634,56 @@ mod tests {
         assert_eq!(
             catalog_status_response["projection"]["lastSearch"]["resultCount"],
             1
+        );
+
+        let oauth_sessions_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "oauth_sessions",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "oauth_sessions": [{
+                            "id": "oauth-session.local",
+                            "accessTokenRef": "vault://oauth/session/access-token"
+                        }]
+                    }
+                }
+            }))
+            .expect("model_mount oauth sessions request");
+        let oauth_sessions_error = plan_model_mount_read_projection(oauth_sessions_request)
+            .expect_err("oauth sessions fail closed until Rust wallet/cTEE projection owns readback");
+        assert_eq!(
+            oauth_sessions_error.code,
+            "model_mount_oauth_read_projection_js_retired"
+        );
+
+        let oauth_states_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "oauth_states",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "oauth_states": [{
+                            "id": "oauth-state.local",
+                            "verifierRef": "vault://oauth/state/verifier"
+                        }]
+                    }
+                }
+            }))
+            .expect("model_mount oauth states request");
+        let oauth_states_error = plan_model_mount_read_projection(oauth_states_request)
+            .expect_err("oauth states fail closed until Rust wallet/cTEE projection owns readback");
+        assert_eq!(
+            oauth_states_error.code,
+            "model_mount_oauth_read_projection_js_retired"
         );
 
         let runtime_engines_request: ModelMountReadProjectionBridgeRequest =
@@ -8917,6 +8995,20 @@ mod tests {
                 .expect("snapshot workflow nodes")
                 .len(),
             10
+        );
+        assert_eq!(
+            snapshot_response["projection"]["oauthSessions"]
+                .as_array()
+                .expect("snapshot oauth sessions")
+                .len(),
+            0
+        );
+        assert_eq!(
+            snapshot_response["projection"]["oauthStates"]
+                .as_array()
+                .expect("snapshot oauth states")
+                .len(),
+            0
         );
         assert!(snapshot_response["projection"]
             .get("workflow_bindings")

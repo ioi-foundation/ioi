@@ -1471,14 +1471,13 @@ JS readback authority; direct Rust daemon-core projection APIs must own that
 shape over Agentgres/wallet/cTEE admitted truth.
 
 Slice 840 retired JS-authored OAuth session/state read projection from
-model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()` now
-fail closed with `model_mount_oauth_read_projection_js_retired` before JS can
-call `publicOAuthSession()`, call `publicOAuthState()`, hash/redact custody
-material, or plan dedicated `oauth_sessions`/`oauth_states` read projections.
-Broad snapshot/projection transport no longer sends `oauth_sessions` or
-`oauth_states`; any public OAuth session/state envelope must be authored by
-direct Rust daemon-core wallet/cTEE projection over admitted truth rather than
-by JS redaction helpers or migration payloads.
+model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()`
+initially failed closed with `model_mount_oauth_read_projection_js_retired`
+before JS could call `publicOAuthSession()`, call `publicOAuthState()`, or
+hash/redact custody material. Broad snapshot/projection transport no longer
+sends `oauth_sessions` or `oauth_states`; any public OAuth session/state
+envelope must be authored by direct Rust daemon-core wallet/cTEE projection over
+admitted truth rather than by JS redaction helpers or migration payloads.
 
 Slice 841 retired stale catalog-provider OAuth compatibility helper injection
 from the mounted model_mount facade. `startCatalogProviderOAuth()`,
@@ -1751,6 +1750,18 @@ for detail until direct Rust daemon-core Agentgres-backed runtime-engine
 projection APIs own that truth. This keeps `ioi-step-module-bridge` as a
 temporary command transport and prevents direct bridge callers from reintroducing
 JS runtime-engine maps as projection truth.
+
+Slice 866 moved public OAuth session/state readback refusal onto the Rust
+read-projection boundary. Public `listOAuthSessions()` and `listOAuthStates()`
+now call `plan_model_mount_read_projection` kinds `oauth_sessions` and
+`oauth_states` with empty request state, translate only the Rust refusal at the
+JS edge, and no longer import the dead `oauthSessionList()`/`oauthStateList()`
+helpers. The Rust bridge direct arms for `oauth_sessions` and `oauth_states`
+fail closed with `model_mount_oauth_read_projection_js_retired` even when direct
+callers provide OAuth session/state arrays, and broad `snapshot`/`projection`
+OAuth fields remain schema-stable empty arrays. Direct Rust daemon-core
+wallet/cTEE OAuth projection APIs still need to replace this refusal before
+OAuth public readback can be live.
 
 ## Part II: Target Execution Model
 
