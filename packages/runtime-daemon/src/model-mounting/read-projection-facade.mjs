@@ -214,6 +214,18 @@ export function createModelMountingReadProjectionFacade({
         receipts: state.listReceipts(),
       };
     }
+    if (projectionKind === "receipt_replay") {
+      return {
+        receipts: state.listReceipts(),
+        routes: routeList(state),
+        endpoints: endpointList(state),
+        instances: instanceList(state),
+        providers: providerList(state, {
+          providerHasVaultRef,
+          publicProvider,
+        }),
+      };
+    }
     const artifacts = artifactList(state);
     const productArtifactPolicy = {
       include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),

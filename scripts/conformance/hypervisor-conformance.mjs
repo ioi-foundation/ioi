@@ -571,6 +571,9 @@ function runDocs() {
       /`projectionSummary\(\)` and `modelRouteDecisions\(\)` now send only admitted\s+receipts into `plan_model_mount_read_projection`/.test(guide) &&
       /`latestProviderHealth\(\)` sends only provider records,\s+provider-health records, and receipts/.test(guide) &&
       /Rust `projection_summary` planner now authors its summary\s+directly from receipt truth instead of rebuilding the full projection object/.test(guide) &&
+      /Slice 808 slimmed public model_mount receipt replay/.test(guide) &&
+      /`receiptReplay\(\)` now sends\s+only admitted receipts plus route, endpoint, instance, and provider records into\s+`plan_model_mount_read_projection`/.test(guide) &&
+      /Rust `receipt_replay`\s+planner now builds a replay lookup context directly from that slim state instead\s+of rebuilding the full `model_mount` projection/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -586,7 +589,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 804/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 805/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 806/.test(matrix) &&
-      /Implementation Slice Evidence: 807/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 807/.test(matrix) &&
+      /Implementation Slice Evidence: 808/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7752,6 +7756,7 @@ function runBridge() {
       /projectionKind === "latest_vault_health"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "authority_snapshot"[\s\S]*?server:\s*state\.serverStatus\(baseUrl\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state/.test(modelMountingReadProjectionFacade) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
       !/latestProviderHealth\(state,\s*providerId\)\s*\{(?:(?!\n  function latestVaultHealth).)*state\.provider\(providerId\)/s.test(modelMountingReadProjectionFacade) &&
@@ -7780,6 +7785,10 @@ function runBridge() {
       /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterRequest\.state\.agentgres_store\.port,\s*"AgentgresStorePort"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(summaryRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(replayRequest\.state\)\.sort\(\),\s*\[[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"providers"[\s\S]*"receipts"[\s\S]*"routes"/.test(modelMountingReadProjectionFacadeTest) &&
+      /replayRequest\.receipt_id,\s*"receipt-route"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(replayRequest\.state,\s*"server"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(replayRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(routeDecisionRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(authorityRequest\.state\)\.sort\(\),\s*\[[\s\S]*"grants"[\s\S]*"receipts"[\s\S]*"server"[\s\S]*"vault"[\s\S]*"vault_refs"[\s\S]*"wallet"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"provider_health"[\s\S]*"providers"[\s\S]*"receipts"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7824,6 +7833,8 @@ function runBridge() {
       /fn model_mount_snapshot/.test(bridgeModule) &&
       /fn model_mount_projection_summary/.test(bridgeModule) &&
       !/fn model_mount_projection_summary(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
+      /fn model_mount_receipt_replay_context/.test(bridgeModule) &&
+      !/fn model_mount_receipt_replay\((?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
       /fn model_mount_latest_provider_health/.test(bridgeModule) &&
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
@@ -7852,6 +7863,8 @@ function runBridge() {
       /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
       /"projection_kind": "workflow_bindings"/.test(bridgeModule) &&
       /"projection_kind": "adapter_boundaries"/.test(bridgeModule) &&
+      /"projection_kind": "receipt_replay"/.test(bridgeModule) &&
+      /receipt replay projected from slim Rust context/.test(bridgeModule) &&
       /"projection_kind": "latest_provider_health"/.test(bridgeModule) &&
       /"projection_kind": "latest_vault_health"/.test(bridgeModule) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&

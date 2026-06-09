@@ -741,6 +741,19 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   ]);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
+  const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");
+  assert.deepEqual(Object.keys(replayRequest.state).sort(), [
+    "endpoints",
+    "instances",
+    "providers",
+    "receipts",
+    "routes",
+  ]);
+  assert.equal(replayRequest.receipt_id, "receipt-route");
+  assert.equal(replayRequest.state.routes[0].id, "route.local-first");
+  assert.equal(replayRequest.state.endpoints[0].id, "endpoint.local");
+  assert.equal(Object.hasOwn(replayRequest.state, "server"), false);
+  assert.equal(Object.hasOwn(replayRequest.state, "artifacts"), false);
   const routeDecisionRequest = readProjectionRequests.find((request) => request.projection_kind === "model_route_decisions");
   assert.deepEqual(Object.keys(routeDecisionRequest.state), ["receipts"]);
   const authorityRequest = readProjectionRequests.at(-1);

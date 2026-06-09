@@ -1086,6 +1086,17 @@ This still does not claim terminal model_mount projection migration: full
 read surfaces still need direct Rust daemon-core Agentgres projection APIs to
 replace remaining JS state materialization and command transport.
 
+Slice 808 slimmed public model_mount receipt replay. `receiptReplay()` now sends
+only admitted receipts plus route, endpoint, instance, and provider records into
+`plan_model_mount_read_projection`; it no longer requires broad
+snapshot/projection state input from the JS facade. The Rust `receipt_replay`
+planner now builds a replay lookup context directly from that slim state instead
+of rebuilding the full `model_mount` projection before locating the requested
+receipt. This still does not claim terminal model_mount projection migration:
+full `projection`, `snapshot`, runtime engine, and other broad read surfaces
+still need direct Rust daemon-core Agentgres projection APIs to replace
+remaining JS state materialization and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

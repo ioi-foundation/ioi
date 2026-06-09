@@ -2890,13 +2890,26 @@ fn model_mount_receipt_replay(
             "model_mount receipt replay projection requires receipt_id".to_string(),
         )
     })?;
-    let projection = model_mount_projection(request);
+    let projection = model_mount_receipt_replay_context(request);
     let receipt = find_receipt(&projection, receipt_id)?;
     Ok(model_mount_receipt_replay_projection(
         request,
         &projection,
         &receipt,
     ))
+}
+
+fn model_mount_receipt_replay_context(request: &ModelMountReadProjectionRequest) -> Value {
+    let state = &request.state;
+    let receipts = array_field(state, "receipts");
+    json!({
+        "watermark": receipts.len(),
+        "receipts": receipts,
+        "routes": array_field(state, "routes"),
+        "endpoints": array_field(state, "endpoints"),
+        "instances": array_field(state, "instances"),
+        "providers": array_field(state, "providers"),
+    })
 }
 
 fn find_receipt(projection: &Value, receipt_id: &str) -> Result<Value, BridgeError> {
@@ -8775,6 +8788,43 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "model_mount_js_read_projection_authoring_retired"));
+
+        let receipt_replay_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "receipt_replay",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "receipt_id": "receipt-route",
+                    "state": {
+                        "receipts": state["receipts"].clone(),
+                        "routes": state["routes"].clone(),
+                        "endpoints": state["endpoints"].clone(),
+                        "instances": state["instances"].clone(),
+                        "providers": state["providers"].clone()
+                    }
+                }
+            }))
+            .expect("model_mount receipt replay request");
+
+        let receipt_replay_response = plan_model_mount_read_projection(receipt_replay_request)
+            .expect("receipt replay projected from slim Rust context");
+        assert_eq!(receipt_replay_response["projection_kind"], "receipt_replay");
+        assert_eq!(
+            receipt_replay_response["projection"]["receipt"]["id"],
+            "receipt-route"
+        );
+        assert_eq!(
+            receipt_replay_response["projection"]["route"]["id"],
+            "route.local-first"
+        );
+        assert_eq!(
+            receipt_replay_response["projection"]["projectionWatermark"],
+            3
+        );
 
         let workflow_bindings_request: ModelMountReadProjectionBridgeRequest =
             serde_json::from_value(json!({
