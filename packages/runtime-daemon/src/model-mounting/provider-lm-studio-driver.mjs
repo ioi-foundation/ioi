@@ -1,15 +1,3 @@
-import path from "node:path";
-
-import { canonicalLoadOptionsInput, lmStudioLoadOptionArgs, normalizeLoadOptions } from "./load-policy.mjs";
-import {
-  lmStudioArtifact,
-  parseLmStudioList,
-  parseLmStudioProcessList,
-  runPublicCommand,
-} from "./local-system-probes.mjs";
-import { providerCommandError } from "./provider-transport.mjs";
-import { truncate } from "./provider-protocol.mjs";
-import { isExecutable, runtimeError, stableHash } from "./io.mjs";
 import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
 import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
 
@@ -20,101 +8,52 @@ export class LmStudioModelProviderDriver {
   }
 
   async health(provider) {
-    const lmsPath = this.lmsPath(provider);
-    if (!lmsPath) {
-      return { status: "absent", evidenceRefs: ["lm_studio_public_cli_absent"] };
-    }
-    const result = runPublicCommand(lmsPath, ["server", "status"]);
-    const statusText = `${result?.stdout ?? ""}\n${result?.stderr ?? ""}`;
-    return {
-      status: statusText.match(/\b(ON|RUNNING|STARTED)\b/i) ? "running" : "stopped",
-      evidenceRefs: ["lm_studio_public_lms_server_status"],
-      publicCli: {
-        path: lmsPath,
-        serverStatus: truncate(statusText),
-        exitCode: result?.status ?? null,
-      },
-    };
+    throw lmStudioDriverRustCoreRequired(provider, "provider_health", {
+      operation_kind: "model_mount.provider.health",
+    });
   }
 
   async listModels({ provider }) {
-    const lmsPath = this.lmsPath(provider);
-    if (!lmsPath) return [];
-    const result = runPublicCommand(lmsPath, ["ls"]);
-    if (!result || result.status !== 0) return [];
-    return parseLmStudioList(result.stdout).map((model) => lmStudioArtifact(provider, model, this.state.nowIso()));
+    throw lmStudioDriverRustCoreRequired(provider, "provider_models_list", {
+      operation_kind: "model_mount.provider.inventory.list_models",
+    });
   }
 
   async listLoaded({ provider }) {
-    const lmsPath = this.lmsPath(provider);
-    if (!lmsPath) return [];
-    const result = runPublicCommand(lmsPath, ["ps"]);
-    if (!result || result.status !== 0) return [];
-    return parseLmStudioProcessList(result.stdout).map((model) => ({
-      providerId: provider.id,
-      modelId: model.modelId,
-      backend: "lm_studio",
-      status: "loaded",
-      capabilities: String(model.modelId).match(/embed/i) ? ["embeddings"] : ["chat", "responses"],
-      privacyClass: "local_private",
-      evidenceRefs: ["lm_studio_public_lms_ps"],
-    }));
+    throw lmStudioDriverRustCoreRequired(provider, "provider_loaded_list", {
+      operation_kind: "model_mount.provider.inventory.list_loaded",
+    });
   }
 
   async start({ provider }) {
-    const lmsPath = this.requireLmsPath(provider);
-    const result = runPublicCommand(lmsPath, ["server", "start"], { timeout: 10000 });
-    if (result.status !== 0) throw providerCommandError(provider, "LM Studio server start failed.", result);
-    return { status: "running", evidenceRefs: ["lm_studio_public_lms_server_start"] };
+    throw lmStudioDriverRustCoreRequired(provider, "provider_start", {
+      operation_kind: "model_mount.provider.start",
+    });
   }
 
   async stop({ provider }) {
-    const lmsPath = this.requireLmsPath(provider);
-    const result = runPublicCommand(lmsPath, ["server", "stop"], { timeout: 10000 });
-    if (result.status !== 0) throw providerCommandError(provider, "LM Studio server stop failed.", result);
-    return { status: "stopped", evidenceRefs: ["lm_studio_public_lms_server_stop"] };
+    throw lmStudioDriverRustCoreRequired(provider, "provider_stop", {
+      operation_kind: "model_mount.provider.stop",
+    });
   }
 
   async load({ provider, endpoint, body = {} }) {
-    const lmsPath = this.requireLmsPath(provider);
-    const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
-    const args = ["load", endpoint.modelId, ...lmStudioLoadOptionArgs(loadOptions)];
-    const result = runPublicCommand(lmsPath, args, { timeout: 20000 });
-    if (result.status !== 0) {
-      const alreadyLoaded = await this.listLoaded({ provider });
-      if (alreadyLoaded.some((model) => model.modelId === endpoint.modelId)) {
-        return {
-          status: "loaded",
-          backend: "lm_studio",
-          backendId: endpoint.backendId ?? "backend.lmstudio",
-          evidenceRefs: ["lm_studio_public_lms_load_already_loaded", "lm_studio_public_lms_ps"],
-          commandExitCode: result.status,
-          commandArgsHash: stableHash(args.join("\0")),
-        };
-      }
-      throw providerCommandError(provider, "LM Studio model load failed.", result);
-    }
-    return {
-      status: "loaded",
-      backend: "lm_studio",
-      backendId: endpoint.backendId ?? "backend.lmstudio",
-      evidenceRefs: ["lm_studio_public_lms_load"],
-      commandExitCode: result.status,
-      commandArgsHash: stableHash(args.join("\0")),
-    };
+    throw lmStudioDriverRustCoreRequired(provider, "model_load", {
+      operation_kind: "model_mount.instance.load",
+      endpoint_id: endpoint?.id ?? null,
+      model_id: endpoint?.modelId ?? null,
+      backend_id: endpoint?.backendId ?? "backend.lmstudio",
+    });
   }
 
   async unload({ provider, instance, endpoint }) {
-    const lmsPath = this.requireLmsPath(provider);
-    const result = runPublicCommand(lmsPath, ["unload", instance?.modelId ?? endpoint?.modelId], { timeout: 10000 });
-    if (result.status !== 0) throw providerCommandError(provider, "LM Studio model unload failed.", result);
-    return {
-      status: "unloaded",
-      backend: "lm_studio",
-      backendId: endpoint?.backendId ?? "backend.lmstudio",
-      evidenceRefs: ["lm_studio_public_lms_unload"],
-      commandExitCode: result.status,
-    };
+    throw lmStudioDriverRustCoreRequired(provider, "model_unload", {
+      operation_kind: "model_mount.instance.unload",
+      instance_id: instance?.id ?? null,
+      endpoint_id: endpoint?.id ?? instance?.endpointId ?? null,
+      model_id: instance?.modelId ?? endpoint?.modelId ?? null,
+      backend_id: endpoint?.backendId ?? instance?.backendId ?? "backend.lmstudio",
+    });
   }
 
   async invoke(args) {
@@ -129,28 +68,24 @@ export class LmStudioModelProviderDriver {
     throw retiredJsProviderInvocationError(args.provider, { label: "lm_studio", stream: true });
   }
 
-  lmsPath(provider) {
-    return (
-      provider.discovery?.publicCli?.path ??
-      process.env.IOI_LMS_PATH ??
-      [
-        path.join(this.state.homeDir, ".lmstudio/bin/lms"),
-        path.join(this.state.homeDir, ".local/bin/lms"),
-      ].find((candidate) => isExecutable(candidate)) ??
-      null
-    );
-  }
+}
 
-  requireLmsPath(provider) {
-    const lmsPath = this.lmsPath(provider);
-    if (!lmsPath) {
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "LM Studio public lms CLI is not available.",
-        details: { provider_id: provider.id, evidence_refs: ["lm_studio_public_cli_absent"] },
-      });
-    }
-    return lmsPath;
-  }
+function lmStudioDriverRustCoreRequired(provider, operation, details = {}) {
+  const error = new Error("LM Studio provider control and inventory require direct Rust daemon-core model_mount support.");
+  error.status = 501;
+  error.code = "model_mount_lm_studio_public_cli_retired";
+  error.details = {
+    rust_core_boundary: "model_mount.provider_lm_studio",
+    operation,
+    ...details,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? "lm_studio",
+    evidence_refs: [
+      "lm_studio_public_cli_driver_retired",
+      "rust_daemon_core_provider_control_required",
+      "rust_daemon_core_provider_inventory_required",
+      "agentgres_provider_projection_required",
+    ],
+  };
+  return error;
 }

@@ -16863,7 +16863,7 @@ surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 825 is now satisfied.
 
-## Implementation Slice Evidence: 826
+## Compacted Implementation Slice Evidence: 826
 
 Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path.
 `runtimeSurvey()` already failed closed at the public capture facade; the helper
@@ -16879,14 +16879,38 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs` | passed |
+| Runtime-survey/runtime-engine/local-probe focused tests plus full `hypervisor-conformance` | passed before Slice 827 LM Studio provider-driver CLI transport retirement |
 
 This still does not claim terminal runtime-survey migration: direct Rust
 daemon-core runtime probing, Agentgres-admitted survey truth, direct Rust
 projection APIs, and command-transport retirement remain required before this
 surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 826 after the next direct
+Scheduled matrix-compaction obligation from Slice 826 is now satisfied.
+
+## Implementation Slice Evidence: 827
+
+Slice 827 retired the LM Studio provider driver's public-CLI command transport.
+`LmStudioModelProviderDriver.health()`, `listModels()`, `listLoaded()`,
+`start()`, `stop()`, `load()`, and `unload()` now fail closed with
+`model_mount_lm_studio_public_cli_retired` before resolving `lmsPath`, executing
+`runPublicCommand`, parsing `lms ls`/`lms ps`, or returning public-CLI
+lifecycle/load evidence. The driver no longer exposes `lmsPath()` or
+`requireLmsPath()`, and the focused test requires those prototype methods to
+remain absent.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-driver-factory.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+
+This still does not claim terminal LM Studio provider migration: direct Rust
+daemon-core provider control, inventory, lifecycle, Agentgres-backed projection
+reads, and command-transport retirement for remaining provider surfaces remain
+required before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 827 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 lifecycle/list probe support, local map/projection materialization, and Rust

@@ -1315,6 +1315,17 @@ This still does not claim terminal runtime-survey migration: direct Rust
 daemon-core runtime probing, Agentgres-admitted survey truth, and direct Rust
 projection APIs remain required before the pure Rust substrate target is met.
 
+Slice 827 retired the LM Studio provider driver's public-CLI command transport.
+`LmStudioModelProviderDriver` no longer resolves `lmsPath`, no longer calls
+`runPublicCommand`, no longer parses `lms ls`/`lms ps`, and no longer returns
+public-CLI lifecycle/load evidence from JS. Its health, inventory, start/stop,
+load, and unload methods now fail closed with
+`model_mount_lm_studio_public_cli_retired` before any public-CLI transport or
+command-result shaping. This still does not claim terminal LM Studio provider
+migration: direct Rust daemon-core provider control, inventory, lifecycle,
+Agentgres-backed projection reads, and command-transport retirement for the
+remaining provider surfaces are still required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

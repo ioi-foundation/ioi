@@ -634,6 +634,9 @@ function runDocs() {
       /Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path/.test(guide) &&
       /no longer runs `lms runtime ls` or `lms runtime survey`/.test(guide) &&
       /runtime engine listing no longer calls `state\.lmStudioRuntimeEngines\(\)`/.test(guide) &&
+      /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(guide) &&
+      /`LmStudioModelProviderDriver` no longer resolves `lmsPath`/.test(guide) &&
+      /fail closed with\s+`model_mount_lm_studio_public_cli_retired`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -725,11 +728,15 @@ function runDocs() {
       /`discoverLmStudioArtifacts\(\)` now returns an empty list before `lms ls`/.test(matrix) &&
       /`lmstudio\.detected` fallback artifact helper is removed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 825 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 826/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 826/.test(matrix) &&
       /Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path/.test(matrix) &&
       /`lmStudioRuntimeEngines\(\)` now returns an empty list before public CLI\s+execution/.test(matrix) &&
       /runtime-specific LM Studio parser helpers and env toggle are removed/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 826/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 826 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 827/.test(matrix) &&
+      /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(matrix) &&
+      /`LmStudioModelProviderDriver\.health\(\)`, `listModels\(\)`, `listLoaded\(\)`,\s+`start\(\)`, `stop\(\)`, `load\(\)`, and `unload\(\)` now fail closed/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 827/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -9339,7 +9346,8 @@ function runBridge() {
         ) &&
         /loadOptions:\s*\{\s*idle_ttl_seconds:\s*999\s*\}/.test(providerOllamaDriverTest) &&
         /assert\.equal\(requests\.find\(.*?keep_alive,\s*"60s"\)/s.test(providerOllamaDriverTest) &&
-        /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLmStudioDriverTest);
+        /load_options:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLmStudioDriverTest) &&
+        /model_mount_lm_studio_public_cli_retired/.test(providerLmStudioDriverTest);
     })(),
     [
       "packages/runtime-daemon/src/model-mounting/load-policy.mjs",
@@ -11330,8 +11338,6 @@ function runReceipts() {
   const stateAccessorNotFoundBlocks = [
     ...stateAccessors.matchAll(/throw notFound\([\s\S]*?\);/g),
   ].map((match) => match[0]).join("\n");
-  const lmStudioRequireLmsPathBlock =
-    lmStudioProviderDriver.match(/requireLmsPath\(provider\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -13217,18 +13223,26 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-lm-studio-provider-error-aliases-retired",
-    /details:\s*\{\s*provider_id:\s*provider\.id,\s*evidence_refs:\s*\["lm_studio_public_cli_absent"\]\s*\}/.test(
-      lmStudioRequireLmsPathBlock,
-    ) &&
-      !/\b(?:providerId|evidenceRefs)\s*:/.test(lmStudioRequireLmsPathBlock) &&
+    /model_mount_lm_studio_public_cli_retired/.test(lmStudioProviderDriver) &&
+      /rust_core_boundary:\s*"model_mount\.provider_lm_studio"/.test(lmStudioProviderDriver) &&
+      /lm_studio_public_cli_driver_retired/.test(lmStudioProviderDriver) &&
+      !/runPublicCommand/.test(lmStudioProviderDriver) &&
+      !/lmsPath|requireLmsPath/.test(lmStudioProviderDriver) &&
+      !/providerCommandError|parseLmStudioList|parseLmStudioProcessList|lmStudioArtifact/.test(lmStudioProviderDriver) &&
+      !/lm_studio_public_lms_(?:server_status|server_start|server_stop|ps|load|unload)/.test(lmStudioProviderDriver) &&
+      !/commandExitCode|commandArgsHash/.test(lmStudioProviderDriver) &&
+      /LM Studio driver control and inventory fail closed before public CLI transport/.test(lmStudioProviderDriverTest) &&
       /assert\.equal\(error\.details\.provider_id,\s*"provider\.lmstudio"\)/.test(lmStudioProviderDriverTest) &&
+      /assert\.equal\(error\.details\.rust_core_boundary,\s*"model_mount\.provider_lm_studio"\)/.test(lmStudioProviderDriverTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(lmStudioProviderDriverTest),
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(lmStudioProviderDriverTest) &&
+      /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"lmsPath"\),\s*false/.test(lmStudioProviderDriverTest) &&
+      /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"requireLmsPath"\),\s*false/.test(lmStudioProviderDriverTest),
     [
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",
     ],
-    "Phase 5/11 is pending: LM Studio provider fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 5/11 is pending: LM Studio provider driver must fail closed before public CLI command transport and use canonical snake_case Rust-boundary metadata",
   );
   assertCheck(
     result,
