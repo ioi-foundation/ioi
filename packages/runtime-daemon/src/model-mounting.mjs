@@ -33,11 +33,6 @@ import {
   normalizeImportMode,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
-  importModel as importModelState,
-  mountEndpoint as mountEndpointState,
-  unmountEndpoint as unmountEndpointState,
-} from "./model-mounting/artifact-endpoint-operations.mjs";
-import {
   loadEstimate as loadEstimateState,
   loadModel as loadModelState,
   unloadModel as unloadModelState,
@@ -303,6 +298,48 @@ const CANONICAL_VAULT_OPERATION_REQUEST_FIELDS = [
   "vault_ref",
   "material",
 ];
+const RETIRED_MODEL_IMPORT_REQUEST_ALIASES = [
+  "modelId",
+  "sourcePath",
+  "localPath",
+  "importMode",
+  "providerId",
+  "displayName",
+  "sizeBytes",
+  "contextWindow",
+  "privacyClass",
+];
+const CANONICAL_MODEL_IMPORT_REQUEST_FIELDS = [
+  "model_id",
+  "source_path",
+  "local_path",
+  "import_mode",
+  "provider_id",
+  "display_name",
+  "size_bytes",
+  "context_window",
+  "privacy_class",
+];
+const RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES = [
+  "modelId",
+  "providerId",
+  "apiFormat",
+  "baseUrl",
+  "privacyClass",
+  "backendId",
+  "loadPolicy",
+];
+const CANONICAL_ENDPOINT_MOUNT_REQUEST_FIELDS = [
+  "model_id",
+  "provider_id",
+  "api_format",
+  "base_url",
+  "privacy_class",
+  "backend_id",
+  "load_policy",
+];
+const RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES = ["endpointId"];
+const CANONICAL_ENDPOINT_UNMOUNT_REQUEST_FIELDS = ["endpoint_id"];
 const RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES = [
   "routeId",
   "modelPolicy",
@@ -764,33 +801,28 @@ export class ModelMountingState {
   }
 
   importModel(body = {}) {
-    return importModelState(this, body, {
-      importTargetPath,
-      inspectLocalArtifact,
-      materializeImportArtifact,
-      normalizeImportMode,
-      normalizeScopes,
-      parseLocalModelMetadata,
-      requiredString,
-      safeId,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
-    });
+    assertCanonicalModelImportRequestBody(body);
+    const modelId = requiredString(body.model_id, "model_id");
+    throwArtifactEndpointRustCoreRequired("model_mount.artifact.import", { model_id: modelId });
   }
 
   mountEndpoint(body = {}) {
-    return mountEndpointState(this, body, {
-      defaultBackendForProvider,
-      driverForProviderKind,
-      normalizeLoadPolicy,
-      normalizeScopes,
-      runtimeError,
-      safeId,
-    });
+    assertCanonicalEndpointMountRequestBody(body);
+    const modelId = body.model_id;
+    if (!modelId) {
+      throw runtimeError({
+        status: 400,
+        code: "model_id_required",
+        message: "Mounting a model endpoint requires an explicit model id.",
+      });
+    }
+    throwArtifactEndpointRustCoreRequired("model_mount.endpoint.mount", { model_id: modelId });
   }
 
   unmountEndpoint(body = {}) {
-    return unmountEndpointState(this, body, { requiredString });
+    assertCanonicalEndpointUnmountRequestBody(body);
+    const endpointId = requiredString(body.endpoint_id ?? body.id, "endpoint_id");
+    throwArtifactEndpointRustCoreRequired("model_mount.endpoint.unmount", { endpoint_id: endpointId });
   }
 
   async loadModel(body = {}) {
@@ -1662,6 +1694,75 @@ function throwVaultRustCoreRequired(operation_kind, details = {}) {
         "public_vault_js_facade_retired",
         "rust_daemon_core_wallet_vault_required",
         "rust_daemon_core_ctee_custody_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function assertCanonicalModelImportRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_IMPORT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model import request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_import_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MODEL_IMPORT_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function assertCanonicalEndpointMountRequestBody(body = {}) {
+  const retiredAliases = RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model endpoint mount request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_endpoint_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_ENDPOINT_MOUNT_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function assertCanonicalEndpointUnmountRequestBody(body = {}) {
+  const retiredAliases = RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model endpoint unmount request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_unmount_endpoint_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_ENDPOINT_UNMOUNT_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function throwArtifactEndpointRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_artifact_endpoint_rust_core_required",
+    message:
+      "Artifact and endpoint mutation facades require Rust daemon-core model_mount artifact/endpoint ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.artifact_endpoint",
+      evidence_refs: [
+        "public_artifact_endpoint_js_facade_retired",
+        "rust_daemon_core_artifact_endpoint_required",
       ],
       ...details,
     },

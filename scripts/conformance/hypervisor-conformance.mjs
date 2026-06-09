@@ -989,7 +989,11 @@ function runDocs() {
       /Implementation Slice Evidence: 875/.test(matrix) &&
       /Slice 875 retired the fail-closed `tokenizer-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer\s+request alias rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 875/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 875 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 876/.test(matrix) &&
+      /Slice 876 retired the fail-closed `artifact-endpoint-operations\.mjs` helper\s+module/.test(matrix) &&
+      /`ModelMountingState` artifact\/endpoint methods now own canonical import,\s+endpoint mount, and endpoint unmount request alias rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 876/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1143,7 +1147,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 875/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 875 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 876/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1152,6 +1157,8 @@ function runDocs() {
       /mounted public `ModelMountingState` vault methods now own canonical vault request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `tokenizer-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer request alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `artifact-endpoint-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` artifact\/endpoint methods now own canonical import, endpoint mount, and endpoint unmount request alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -12030,18 +12037,15 @@ function runReceipts() {
   const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     : "";
-  const artifactEndpointOperations = exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs")
-    : "";
   const artifactEndpointOperationsTest = exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs")
     : "";
   const artifactEndpointImportBlock =
-    artifactEndpointOperations.match(/export function importModel[\s\S]*?export function mountEndpoint/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+importModel\(body = \{\}\) \{[\s\S]*?\n\s+mountEndpoint/)?.[0] ?? "";
   const artifactEndpointMountBlock =
-    artifactEndpointOperations.match(/export function mountEndpoint[\s\S]*?export function unmountEndpoint/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+mountEndpoint\(body = \{\}\) \{[\s\S]*?\n\s+unmountEndpoint/)?.[0] ?? "";
   const artifactEndpointUnmountBlock =
-    artifactEndpointOperations.match(/export function unmountEndpoint[\s\S]*?function assertCanonicalEndpointMountRequestBody/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+unmountEndpoint\(body = \{\}\) \{[\s\S]*?\n\s+async loadModel/)?.[0] ?? "";
   const mcpWorkflowOperations = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
     : "";
@@ -12110,10 +12114,10 @@ function runReceipts() {
     loadedInstances.match(/state\.lifecycleReceipt\("model_supersede",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
   const artifactEndpointReceiptBlocks = [
-    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_import_dry_run",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
-    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_import",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
-    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_mount",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
-    artifactEndpointOperations.match(/state\.lifecycleReceipt\("model_unmount",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    modelMountingState.match(/state\.lifecycleReceipt\("model_import_dry_run",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    modelMountingState.match(/state\.lifecycleReceipt\("model_import",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    modelMountingState.match(/state\.lifecycleReceipt\("model_mount",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
+    modelMountingState.match(/state\.lifecycleReceipt\("model_unmount",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
   const storageLifecycleReceiptBlocks = [
     storageOperations.match(/state\.lifecycleReceipt\("model_download_canceled",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
@@ -12895,32 +12899,37 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-artifact-endpoint-js-facade-retired",
-    /throwArtifactEndpointRustCoreRequired/.test(artifactEndpointOperations) &&
-      /model_mount_artifact_endpoint_rust_core_required/.test(artifactEndpointOperations) &&
-      /rust_core_boundary:\s*"model_mount\.artifact_endpoint"/.test(artifactEndpointOperations) &&
-      /public_artifact_endpoint_js_facade_retired/.test(artifactEndpointOperations) &&
-      /rust_daemon_core_artifact_endpoint_required/.test(artifactEndpointOperations) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import",\s*\{ model_id: modelId \},\s*deps\)/.test(
-        artifactEndpointOperations,
+    !exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs") &&
+      !/importModelState|mountEndpointState|unmountEndpointState/.test(modelMountingState) &&
+      /throwArtifactEndpointRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_artifact_endpoint_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.artifact_endpoint"/.test(modelMountingState) &&
+      /public_artifact_endpoint_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_artifact_endpoint_required/.test(modelMountingState) &&
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import",\s*\{ model_id: modelId \}\)/.test(
+        artifactEndpointImportBlock,
       ) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.mount",\s*\{ model_id: modelId \},\s*deps\)/.test(
-        artifactEndpointOperations,
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.mount",\s*\{ model_id: modelId \}\)/.test(
+        artifactEndpointMountBlock,
       ) &&
-      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.unmount",\s*\{ endpoint_id: endpointId \},\s*deps\)/.test(
-        artifactEndpointOperations,
+      /throwArtifactEndpointRustCoreRequired\("model_mount\.endpoint\.unmount",\s*\{ endpoint_id: endpointId \}\)/.test(
+        artifactEndpointUnmountBlock,
       ) &&
-      !/state\.lifecycleReceipt\("model_(?:import|mount|unmount)/.test(artifactEndpointOperations) &&
-      !/commitModelArtifactRecordState/.test(artifactEndpointOperations) &&
-      !/commitModelEndpointRecordState/.test(artifactEndpointOperations) &&
-      !/state\.writeMap\("model-artifacts"/.test(artifactEndpointOperations) &&
-      !/state\.writeMap\("model-endpoints"/.test(artifactEndpointOperations) &&
-      !/state\.artifacts\.set/.test(artifactEndpointOperations) &&
-      !/state\.endpoints\.set/.test(artifactEndpointOperations) &&
-      !/materializeImportArtifact/.test(artifactEndpointOperations) &&
+      !/state\.lifecycleReceipt\("model_(?:import|mount|unmount)/.test(modelMountingState) &&
+      !/commitModelArtifactRecordState/.test(modelMountingState) &&
+      !/commitModelEndpointRecordState/.test(modelMountingState) &&
+      !/state\.writeMap\("model-artifacts"/.test(modelMountingState) &&
+      !/state\.writeMap\("model-endpoints"/.test(modelMountingState) &&
+      !/state\.artifacts\.set/.test(modelMountingState) &&
+      !/state\.endpoints\.set/.test(modelMountingState) &&
+      !/materializeImportArtifact/.test(artifactEndpointImportBlock) &&
       !/\S/.test(artifactEndpointReceiptBlocks) &&
       /artifact and endpoint mutation facades fail closed until Rust core owns them/.test(
         artifactEndpointOperationsTest,
       ) &&
+      /ModelMountingState\.prototype\.importModel\.call/.test(artifactEndpointOperationsTest) &&
+      /ModelMountingState\.prototype\.mountEndpoint\.call/.test(artifactEndpointOperationsTest) &&
+      /ModelMountingState\.prototype\.unmountEndpoint\.call/.test(artifactEndpointOperationsTest) &&
       /model_mount_artifact_endpoint_rust_core_required/.test(artifactEndpointOperationsTest) &&
       /model_mount\.artifact\.import/.test(artifactEndpointOperationsTest) &&
       /model_mount\.endpoint\.mount/.test(artifactEndpointOperationsTest) &&
@@ -12935,7 +12944,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
     "Phase 9/11 is pending: artifact/endpoint mutation must fail closed until Rust daemon-core owns artifact, endpoint, receipt, record-state, and projection semantics",
@@ -12943,8 +12952,9 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-import-request-aliases-retired",
-    /RETIRED_MODEL_IMPORT_REQUEST_ALIASES/.test(artifactEndpointOperations) &&
-      /model_import_request_aliases_retired/.test(artifactEndpointOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs") &&
+      /RETIRED_MODEL_IMPORT_REQUEST_ALIASES/.test(modelMountingState) &&
+      /model_import_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalModelImportRequestBody\(body\);/.test(artifactEndpointImportBlock) &&
       /requiredString\(body\.model_id,\s*"model_id"\)/.test(artifactEndpointImportBlock) &&
       /throwArtifactEndpointRustCoreRequired\("model_mount\.artifact\.import"/.test(artifactEndpointImportBlock) &&
@@ -12956,7 +12966,7 @@ function runReceipts() {
         artifactEndpointOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
     "Phase 9/11 is pending: model import request bodies must fail closed on retired camelCase model/source/provider/metadata aliases before artifact inspection or writes",
@@ -12964,10 +12974,11 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-endpoint-request-aliases-retired",
-    /RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES/.test(artifactEndpointOperations) &&
-      /RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES/.test(artifactEndpointOperations) &&
-      /model_mount_endpoint_request_aliases_retired/.test(artifactEndpointOperations) &&
-      /model_unmount_endpoint_request_aliases_retired/.test(artifactEndpointOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs") &&
+      /RETIRED_ENDPOINT_MOUNT_REQUEST_ALIASES/.test(modelMountingState) &&
+      /RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES/.test(modelMountingState) &&
+      /model_mount_endpoint_request_aliases_retired/.test(modelMountingState) &&
+      /model_unmount_endpoint_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalEndpointMountRequestBody\(body\);/.test(artifactEndpointMountBlock) &&
       /assertCanonicalEndpointUnmountRequestBody\(body\);/.test(artifactEndpointUnmountBlock) &&
       /const modelId = body\.model_id;/.test(artifactEndpointMountBlock) &&
@@ -12986,7 +12997,7 @@ function runReceipts() {
       ) &&
       /retired_aliases,\s*\[\s*"endpointId"\s*\]/.test(artifactEndpointOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
     "Phase 9/11 is pending: endpoint mount/unmount request bodies must fail closed on retired camelCase endpoint/provider/backend/load aliases before state lookup or writes",

@@ -1898,6 +1898,19 @@ daemon-core tokenizer/context-fit admission and projection, receipt/state-root
 binding, Agentgres truth, replay, command-transport retirement, and stable
 protocol APIs remain required.
 
+Slice 876 retired the fail-closed `artifact-endpoint-operations.mjs` helper
+module after public import/mount/unmount mutations had already been reduced to
+Rust-core-required artifact/endpoint edge refusals. The mounted public
+`ModelMountingState` artifact/endpoint methods now own canonical import,
+endpoint mount, and endpoint unmount request alias rejection plus
+operation-specific `model_mount.artifact_endpoint` Rust-core-required errors
+directly, without importing a helper module or dependency-injecting JS artifact
+inspection, materialization, metadata parsing, provider lookup, or endpoint
+mutation helpers. This does not claim terminal artifact/endpoint migration:
+direct Rust daemon-core artifact and endpoint admission, filesystem custody,
+receipt/state-root binding, Agentgres truth, replay, command-transport
+retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

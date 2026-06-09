@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  importModel,
-  mountEndpoint,
-  unmountEndpoint,
-} from "./artifact-endpoint-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   return {
@@ -48,25 +44,6 @@ function fakeState() {
   };
 }
 
-const deps = {
-  inspectLocalArtifact() {
-    throw new Error("artifact inspection should not run");
-  },
-  materializeImportArtifact() {
-    throw new Error("artifact materialization should not run");
-  },
-  parseLocalModelMetadata() {
-    throw new Error("metadata parsing should not run");
-  },
-  requiredString(value, field) {
-    if (typeof value !== "string" || !value) throw new Error(`${field} is required`);
-    return value;
-  },
-  runtimeError({ status, code, message, details }) {
-    return Object.assign(new Error(message), { status, code, details });
-  },
-};
-
 function assertNoMutation(state) {
   assert.equal(state.artifacts.size, 0);
   assert.equal(state.endpoints.size, 0);
@@ -81,7 +58,7 @@ test("model import rejects retired request aliases before artifact inspection", 
 
   assert.throws(
     () =>
-      importModel(
+      ModelMountingState.prototype.importModel.call(
         state,
         {
           modelId: "llama-test",
@@ -94,7 +71,6 @@ test("model import rejects retired request aliases before artifact inspection", 
           contextWindow: 8192,
           privacyClass: "local_private",
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -121,17 +97,29 @@ test("artifact and endpoint mutation facades fail closed until Rust core owns th
   const state = fakeState();
   const cases = [
     [
-      () => importModel(state, { model_id: "llama-test", source_path: "/tmp/model.gguf" }, deps),
+      () =>
+        ModelMountingState.prototype.importModel.call(
+          state,
+          { model_id: "llama-test", source_path: "/tmp/model.gguf" },
+        ),
       "model_mount.artifact.import",
       { model_id: "llama-test" },
     ],
     [
-      () => mountEndpoint(state, { model_id: "llama-test", provider_id: "provider.fixture" }, deps),
+      () =>
+        ModelMountingState.prototype.mountEndpoint.call(
+          state,
+          { model_id: "llama-test", provider_id: "provider.fixture" },
+        ),
       "model_mount.endpoint.mount",
       { model_id: "llama-test" },
     ],
     [
-      () => unmountEndpoint(state, { endpoint_id: "endpoint.llama" }, deps),
+      () =>
+        ModelMountingState.prototype.unmountEndpoint.call(
+          state,
+          { endpoint_id: "endpoint.llama" },
+        ),
       "model_mount.endpoint.unmount",
       { endpoint_id: "endpoint.llama" },
     ],
@@ -165,7 +153,7 @@ test("mount and unmount still reject retired request aliases before Rust-core bo
 
   assert.throws(
     () =>
-      mountEndpoint(
+      ModelMountingState.prototype.mountEndpoint.call(
         state,
         {
           modelId: "llama-test",
@@ -176,7 +164,6 @@ test("mount and unmount still reject retired request aliases before Rust-core bo
           backendId: "backend.native",
           loadPolicy: "resident",
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -196,7 +183,7 @@ test("mount and unmount still reject retired request aliases before Rust-core bo
   );
 
   assert.throws(
-    () => unmountEndpoint(state, { endpointId: "endpoint.llama" }, deps),
+    () => ModelMountingState.prototype.unmountEndpoint.call(state, { endpointId: "endpoint.llama" }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_unmount_endpoint_request_aliases_retired");

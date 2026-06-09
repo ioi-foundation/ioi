@@ -18237,10 +18237,37 @@ Agentgres truth, replay, command-transport retirement, and stable protocol APIs
 remain required before tokenizer/context-fit control reaches the pure Rust
 substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 875 after the next direct
+Scheduled matrix-compaction obligation from Slice 875 is now satisfied.
+
+## Implementation Slice Evidence: 876
+
+Slice 876 retired the fail-closed `artifact-endpoint-operations.mjs` helper
+module after public import/mount/unmount mutations had already been reduced to
+Rust-core-required artifact/endpoint edge refusals. The mounted public
+`ModelMountingState` artifact/endpoint methods now own canonical import,
+endpoint mount, and endpoint unmount request alias rejection plus
+operation-specific `model_mount.artifact_endpoint` Rust-core-required errors
+directly, without importing a helper module or dependency-injecting JS artifact
+inspection, materialization, metadata parsing, provider lookup, or endpoint
+mutation helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal artifact/endpoint migration: direct Rust
+daemon-core artifact and endpoint admission, filesystem custody,
+receipt/state-root binding, Agentgres truth, replay, command-transport
+retirement, and stable protocol APIs remain required before artifact/endpoint
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 876 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-tokenizer/context-fit projection and receipt materialization, direct Rust
-daemon-core tokenizer/context-fit APIs, and Agentgres-backed replay. The
+artifact/endpoint projection and receipt materialization, direct Rust
+daemon-core artifact/endpoint APIs, and Agentgres-backed replay. The
 `ioi-step-module-bridge` command path is acceptable only as migration transport;
 it is not the terminal architecture.
