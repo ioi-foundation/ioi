@@ -141,10 +141,6 @@ import {
   providerSecretInput,
 } from "./model-mounting/provider-auth.mjs";
 import {
-  oauthBoundaryForSession,
-  publicOAuthSession,
-} from "./model-mounting/oauth-boundary.mjs";
-import {
   completeCatalogProviderOAuth as completeCatalogProviderOAuthState,
   exchangeCatalogProviderOAuth as exchangeCatalogProviderOAuthState,
   refreshCatalogProviderOAuth as refreshCatalogProviderOAuthState,
@@ -272,7 +268,6 @@ import {
   downloadRetryBackoffMs,
   cleanupPartialDownload,
 } from "./model-mounting/download-helpers.mjs";
-import { publicCatalogProviderConfig } from "./model-mounting/catalog-projections.mjs";
 import {
   catalogProviderStatus,
   modelCatalogProviderPorts as buildModelCatalogProviderPorts,
@@ -697,46 +692,33 @@ export class ModelMountingState {
   startCatalogProviderOAuth(providerId, body = {}) {
     return startCatalogProviderOAuthState(this, providerId, body, {
       assertConfigurableCatalogProvider,
-      catalogProviderStatus,
-      publicCatalogProviderConfig,
     });
   }
 
   async completeCatalogProviderOAuth(providerId, body = {}) {
     return completeCatalogProviderOAuthState(this, providerId, body, {
       assertConfigurableCatalogProvider,
-      catalogProviderStatus,
-      publicCatalogProviderConfig,
       requiredString,
-      stableHash,
     });
   }
 
   async exchangeCatalogProviderOAuth(providerId, body = {}) {
     return exchangeCatalogProviderOAuthState(this, providerId, body, {
       assertConfigurableCatalogProvider,
-      catalogProviderStatus,
-      publicCatalogProviderConfig,
     });
   }
 
   async refreshCatalogProviderOAuth(providerId) {
     return refreshCatalogProviderOAuthState(this, providerId, {
       assertConfigurableCatalogProvider,
-      oauthBoundaryForSession,
-      publicOAuthSession,
       runtimeError,
-      stableHash,
     });
   }
 
   revokeCatalogProviderOAuth(providerId) {
     return revokeCatalogProviderOAuthState(this, providerId, {
       assertConfigurableCatalogProvider,
-      oauthBoundaryForSession,
-      publicOAuthSession,
       runtimeError,
-      stableHash,
     });
   }
 

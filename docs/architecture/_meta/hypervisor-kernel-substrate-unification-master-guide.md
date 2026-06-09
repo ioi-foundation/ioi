@@ -1480,6 +1480,21 @@ Broad snapshot/projection transport no longer sends `oauth_sessions` or
 direct Rust daemon-core wallet/cTEE projection over admitted truth rather than
 by JS redaction helpers or migration payloads.
 
+Slice 841 retired stale catalog-provider OAuth compatibility helper injection
+from the mounted model_mount facade. `startCatalogProviderOAuth()`,
+`completeCatalogProviderOAuth()`, `exchangeCatalogProviderOAuth()`,
+`refreshCatalogProviderOAuth()`, and `revokeCatalogProviderOAuth()` now pass only
+the minimal fail-closed boundary dependencies into `catalog-provider-oauth.mjs`:
+provider configurability checks, callback `state` validation where required, and
+runtime error construction. The mounted facade no longer imports or injects
+`publicCatalogProviderConfig()`, `catalogProviderStatus()`,
+`oauthBoundaryForSession()`, `publicOAuthSession()`, or `stableHash()` into
+those OAuth facades, so a future edit cannot accidentally restore JS public
+config/session projection, OAuth boundary redaction, or hash-derived custody
+metadata through unused dependency hooks. Direct Rust daemon-core OAuth
+control/projection APIs still need to replace the fail-closed facade before
+terminal catalog-provider custody migration is complete.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

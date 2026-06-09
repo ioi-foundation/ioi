@@ -92,6 +92,25 @@ const deps = {
   },
 };
 
+const depsWithRetiredProjectionHelpers = {
+  ...deps,
+  catalogProviderStatus() {
+    throw new Error("catalogProviderStatus must not run in JS OAuth facade");
+  },
+  oauthBoundaryForSession() {
+    throw new Error("oauthBoundaryForSession must not run in JS OAuth facade");
+  },
+  publicCatalogProviderConfig() {
+    throw new Error("publicCatalogProviderConfig must not run in JS OAuth facade");
+  },
+  publicOAuthSession() {
+    throw new Error("publicOAuthSession must not run in JS OAuth facade");
+  },
+  stableHash() {
+    throw new Error("stableHash must not run in JS OAuth facade");
+  },
+};
+
 function assertNoCatalogOAuthMutation(state) {
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
@@ -122,14 +141,14 @@ function assertRustCoreRequired(error, operationKind) {
 test("catalog OAuth mutation facades fail closed until Rust core owns catalog provider control", async () => {
   const startState = fakeState();
   assert.throws(
-    () => startCatalogProviderOAuth(startState, "catalog.huggingface", { auth_header_name: "authorization" }, deps),
+    () => startCatalogProviderOAuth(startState, "catalog.huggingface", { auth_header_name: "authorization" }, depsWithRetiredProjectionHelpers),
     (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.start"),
   );
   assertNoCatalogOAuthMutation(startState);
 
   const callbackState = fakeState();
   await assert.rejects(
-    () => completeCatalogProviderOAuth(callbackState, "catalog.huggingface", { state: "callback-state" }, deps),
+    () => completeCatalogProviderOAuth(callbackState, "catalog.huggingface", { state: "callback-state" }, depsWithRetiredProjectionHelpers),
     (error) => {
       assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.callback");
       assert.equal(error.details.state_present, true);
@@ -140,21 +159,21 @@ test("catalog OAuth mutation facades fail closed until Rust core owns catalog pr
 
   const exchangeState = fakeState();
   await assert.rejects(
-    () => exchangeCatalogProviderOAuth(exchangeState, "catalog.huggingface", { code: "code-a" }, deps),
+    () => exchangeCatalogProviderOAuth(exchangeState, "catalog.huggingface", { code: "code-a" }, depsWithRetiredProjectionHelpers),
     (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.exchange"),
   );
   assertNoCatalogOAuthMutation(exchangeState);
 
   const refreshState = fakeState();
   await assert.rejects(
-    () => refreshCatalogProviderOAuth(refreshState, "catalog.huggingface", deps),
+    () => refreshCatalogProviderOAuth(refreshState, "catalog.huggingface", depsWithRetiredProjectionHelpers),
     (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.refresh"),
   );
   assertNoCatalogOAuthMutation(refreshState);
 
   const revokeState = fakeState();
   assert.throws(
-    () => revokeCatalogProviderOAuth(revokeState, "catalog.huggingface", deps),
+    () => revokeCatalogProviderOAuth(revokeState, "catalog.huggingface", depsWithRetiredProjectionHelpers),
     (error) => assertRustCoreRequired(error, "model_mount.catalog_provider_oauth.revoke"),
   );
   assertNoCatalogOAuthMutation(revokeState);

@@ -17264,7 +17264,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 839 is now satisfied.
 
-## Implementation Slice Evidence: 840
+## Compacted Implementation Slice Evidence: 840
 
 Slice 840 retired JS-authored OAuth session/state read projection from
 model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()` now
@@ -17287,7 +17287,37 @@ truth, wallet/cTEE custody redaction, command-transport replacement, and JS
 refresh/revoke facade retirement still remain before this surface reaches the
 pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 840 after the next direct
+Scheduled matrix-compaction obligation from Slice 840 is now satisfied.
+
+## Implementation Slice Evidence: 841
+
+Slice 841 retired stale catalog-provider OAuth compatibility helper injection
+from the mounted model_mount facade. `startCatalogProviderOAuth()`,
+`completeCatalogProviderOAuth()`, `exchangeCatalogProviderOAuth()`,
+`refreshCatalogProviderOAuth()`, and `revokeCatalogProviderOAuth()` now pass only
+the minimal fail-closed boundary dependencies into `catalog-provider-oauth.mjs`:
+provider configurability checks, callback `state` validation where required, and
+runtime error construction. The mounted facade no longer imports or injects
+`publicCatalogProviderConfig()`, `catalogProviderStatus()`,
+`oauthBoundaryForSession()`, `publicOAuthSession()`, or `stableHash()` into those
+OAuth facades. The focused OAuth test passes those retired projection/redaction
+helpers as poisonous dependencies to prove the fail-closed operations ignore
+them before any JS public config/session projection or custody metadata shaping
+can run.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs` | passed |
+
+This still does not claim terminal OAuth/catalog-provider migration: direct Rust
+daemon-core OAuth control/projection APIs, Agentgres-backed admitted OAuth
+truth, wallet/cTEE custody redaction, command-transport replacement, and JS
+refresh/revoke facade retirement still remain before this surface reaches the
+pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 841 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local
