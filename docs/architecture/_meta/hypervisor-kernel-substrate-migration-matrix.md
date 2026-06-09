@@ -18404,10 +18404,38 @@ projection, Agentgres record-state truth, receipt/state-root binding,
 command-transport retirement, replay, and stable protocol APIs remain required
 before provider control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 881 after the next direct
+Scheduled matrix-compaction obligation from Slice 881 is now satisfied.
+
+## Implementation Slice Evidence: 882
+
+Slice 882 retired the fail-closed `mcp-workflow-operations.mjs` helper module
+after MCP import, ephemeral MCP registration, MCP tool invocation, and
+workflow-node execution had already been reduced to Rust-core-required
+MCP/workflow control edge refusals. The mounted public `ModelMountingState` MCP
+methods now own MCP import aliases, ephemeral integration aliases, MCP server
+config aliases, MCP tool invocation aliases, workflow-node request aliases,
+MCP server normalization/list sorting, and `model_mount.mcp_workflow`
+Rust-core-required errors directly, without importing a helper module or
+preserving a standalone JS MCP/workflow mutation surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal MCP/workflow migration: direct Rust
+daemon-core MCP/workflow APIs, wallet authority, StepModuleRouter dispatch,
+receipt binding, Agentgres admission, projection, replay, command-transport
+retirement, and stable protocol APIs remain required before MCP/workflow
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 882 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-provider control/health/inventory materialization, direct Rust daemon-core
-provider APIs, wallet/cTEE vault authority, and Agentgres-backed replay. The
+MCP/workflow materialization, direct Rust daemon-core MCP/workflow APIs, wallet
+authority, StepModuleRouter dispatch, and Agentgres-backed replay. The
 `ioi-step-module-bridge` command path is acceptable only as migration
 transport; it is not the terminal architecture.

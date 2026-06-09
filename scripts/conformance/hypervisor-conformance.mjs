@@ -1013,7 +1013,11 @@ function runDocs() {
       /Implementation Slice Evidence: 881/.test(matrix) &&
       /Slice 881 retired the fail-closed `provider-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` provider methods now own provider\s+upsert alias rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 881/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 881 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 882/.test(matrix) &&
+      /Slice 882 retired the fail-closed `mcp-workflow-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` MCP\s+methods now own MCP import aliases/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 882/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1173,7 +1177,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 878 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 879 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 880 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 881/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 881 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 882/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1192,6 +1197,8 @@ function runDocs() {
       /mounted public `ModelMountingState` conversation methods now own response-id collision checks/.test(implementationMatrix) &&
       /the fail-closed `provider-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` provider methods now own provider upsert alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `mcp-workflow-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` MCP methods now own MCP import aliases/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -12090,9 +12097,7 @@ function runReceipts() {
     modelMountingState.match(/\n\s+mountEndpoint\(body = \{\}\) \{[\s\S]*?\n\s+unmountEndpoint/)?.[0] ?? "";
   const artifactEndpointUnmountBlock =
     modelMountingState.match(/\n\s+unmountEndpoint\(body = \{\}\) \{[\s\S]*?\n\s+async loadModel/)?.[0] ?? "";
-  const mcpWorkflowOperations = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs")
-    : "";
+  const mcpWorkflowOperations = modelMountingState;
   const mcpServerRecordState = exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs")
     : "";
@@ -12100,13 +12105,13 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
   const mcpCompileEphemeralBlock =
-    mcpWorkflowOperations.match(/export function compileEphemeralMcpIntegrations[\s\S]*?function assertCanonicalEphemeralMcpIntegration/)?.[0] ?? "";
+    mcpWorkflowOperations.match(/\n\s+compileEphemeralMcpIntegrations\(\{ authorization, body = \{\}, input \}\) \{[\s\S]*?\n\s+importMcpJson/)?.[0] ?? "";
   const mcpImportJsonBlock =
-    mcpWorkflowOperations.match(/export function importMcpJson[\s\S]*?function assertCanonicalMcpImportRequestBody/)?.[0] ?? "";
+    mcpWorkflowOperations.match(/\n\s+importMcpJson\(body = \{\}\) \{[\s\S]*?\n\s+normalizeMcpServer/)?.[0] ?? "";
   const mcpInvokeToolBlock =
-    mcpWorkflowOperations.match(/export function invokeMcpTool[\s\S]*?function assertCanonicalMcpToolInvocationRequestBody/)?.[0] ?? "";
+    mcpWorkflowOperations.match(/\n\s+invokeMcpTool\(\{ authorization, body = \{\} \}\) \{[\s\S]*?\n\s+async executeWorkflowNode/)?.[0] ?? "";
   const mcpNormalizeServerBlock =
-    mcpWorkflowOperations.match(/export function normalizeMcpServer[\s\S]*?function assertCanonicalMcpServerConfig/)?.[0] ?? "";
+    mcpWorkflowOperations.match(/\n\s+normalizeMcpServer\(label, config = \{\}\) \{[\s\S]*?\n\s+listMcpServers/)?.[0] ?? "";
   const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
     : "";
@@ -13131,7 +13136,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-mcp-receipt-detail-aliases-retired",
-    /model_mount_mcp_workflow_rust_core_required/.test(mcpWorkflowOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      /model_mount_mcp_workflow_rust_core_required/.test(mcpWorkflowOperations) &&
       /rust_core_boundary:\s*"model_mount\.mcp_workflow"/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_import_js_facade_retired/.test(mcpWorkflowOperations) &&
@@ -13184,10 +13190,11 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-mcp-import-request-aliases-retired",
-    /RETIRED_MCP_IMPORT_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      /RETIRED_MCP_IMPORT_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_IMPORT_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpImportRequestBody\(body\);/.test(mcpImportJsonBlock) &&
-      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.import",\s*\{\},\s*deps\)/.test(
+      /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.import"\)/.test(
         mcpImportJsonBlock,
       ) &&
       /model_mount_mcp_import_request_aliases_retired/.test(mcpWorkflowOperations) &&
@@ -13213,7 +13220,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-ephemeral-mcp-integration-aliases-retired",
-    /RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES/.test(mcpWorkflowOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      /RETIRED_EPHEMERAL_MCP_INTEGRATION_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_EPHEMERAL_MCP_INTEGRATION_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalEphemeralMcpIntegration\(integration\);/.test(mcpCompileEphemeralBlock) &&
       /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_server\.ephemeral_register"/.test(
@@ -13241,7 +13249,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-mcp-tool-invocation-request-aliases-retired",
-    /RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      /RETIRED_MCP_TOOL_INVOCATION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_TOOL_INVOCATION_REQUEST_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpToolInvocationRequestBody\(body\);/.test(mcpInvokeToolBlock) &&
       /throwMcpWorkflowRustCoreRequired\("model_mount\.mcp_tool\.invoke"/.test(mcpInvokeToolBlock) &&
@@ -13269,7 +13278,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-mcp-server-config-aliases-retired",
-    /RETIRED_MCP_SERVER_CONFIG_ALIASES/.test(mcpWorkflowOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      /RETIRED_MCP_SERVER_CONFIG_ALIASES/.test(mcpWorkflowOperations) &&
       /CANONICAL_MCP_SERVER_CONFIG_FIELDS/.test(mcpWorkflowOperations) &&
       /assertCanonicalMcpServerConfig\(config\);/.test(mcpNormalizeServerBlock) &&
       /config\.allowed_tools/.test(mcpNormalizeServerBlock) &&
@@ -13294,7 +13304,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-workflow-node-request-aliases-retired",
-    /RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      /RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES/.test(mcpWorkflowOperations) &&
       /model_mount_workflow_node_request_aliases_retired/.test(mcpWorkflowOperations) &&
       /assertCanonicalWorkflowNodeExecutionRequestBody\(body\);/.test(mcpWorkflowOperations) &&
       /throwMcpWorkflowRustCoreRequired\("model_mount\.workflow_node\.execute"/.test(

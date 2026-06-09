@@ -1983,6 +1983,20 @@ control, wallet/cTEE vault authority, provider health/inventory projection,
 Agentgres record-state truth, receipt/state-root binding, command-transport
 retirement, replay, and stable protocol APIs remain required.
 
+Slice 882 retired the fail-closed `mcp-workflow-operations.mjs` helper module
+after MCP import, ephemeral MCP registration, MCP tool invocation, and
+workflow-node execution had already been reduced to Rust-core-required
+MCP/workflow control edge refusals. The mounted public `ModelMountingState` MCP
+methods now own MCP import aliases, ephemeral integration aliases, MCP server
+config aliases, MCP tool invocation aliases, workflow-node request aliases,
+MCP server normalization/list sorting, and `model_mount.mcp_workflow`
+Rust-core-required errors directly, without importing an MCP workflow helper or
+preserving a standalone JS MCP/workflow mutation surface. This does not claim
+terminal MCP/workflow migration: direct Rust daemon-core MCP/workflow APIs,
+wallet authority, StepModuleRouter dispatch, receipt binding, Agentgres
+admission, projection, replay, command-transport retirement, and stable
+protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

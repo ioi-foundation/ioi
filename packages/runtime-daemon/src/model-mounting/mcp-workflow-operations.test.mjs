@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  compileEphemeralMcpIntegrations,
-  executeWorkflowNode,
-  importMcpJson,
-  invokeMcpTool,
-  listMcpServers,
-  normalizeMcpServer,
-} from "./mcp-workflow-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   return {
@@ -30,7 +23,7 @@ function fakeState() {
       return { grantId: `grant.${scope}` };
     },
     invokeMcpTool(args) {
-      return invokeMcpTool(this, args, deps);
+      return invokeMcpTool(this, args);
     },
     async invokeModel({ requiredScope, kind, body }) {
       this.modelInvocations.push({ requiredScope, kind, body });
@@ -43,7 +36,7 @@ function fakeState() {
       };
     },
     normalizeMcpServer(label, config) {
-      return normalizeMcpServer(this, label, config, deps);
+      return normalizeMcpServer(this, label, config);
     },
     nowIso() {
       return "2026-06-04T02:00:00.000Z";
@@ -131,6 +124,30 @@ const deps = {
   },
 };
 
+function compileEphemeralMcpIntegrations(state, args) {
+  return ModelMountingState.prototype.compileEphemeralMcpIntegrations.call(state, args);
+}
+
+function executeWorkflowNode(state, args) {
+  return ModelMountingState.prototype.executeWorkflowNode.call(state, args);
+}
+
+function importMcpJson(state, body = {}) {
+  return ModelMountingState.prototype.importMcpJson.call(state, body);
+}
+
+function invokeMcpTool(state, args) {
+  return ModelMountingState.prototype.invokeMcpTool.call(state, args);
+}
+
+function listMcpServers(state) {
+  return ModelMountingState.prototype.listMcpServers.call(state);
+}
+
+function normalizeMcpServer(state, label, config = {}) {
+  return ModelMountingState.prototype.normalizeMcpServer.call(state, label, config);
+}
+
 test("normalizeMcpServer redacts headers and requires vault refs", () => {
   const state = fakeState();
 
@@ -142,18 +159,17 @@ test("normalizeMcpServer redacts headers and requires vault refs", () => {
       headers: { Authorization: "vault://mcp/docs/token" },
       tools: { search: {}, read: {} },
     },
-    deps,
   );
 
-  assert.equal(server.id, "mcp.Docs_MCP");
+  assert.equal(server.id, "mcp.docs.mcp");
   assert.equal(server.transport, "remote");
   assert.deepEqual(server.allowedTools, ["search", "read"]);
-  assert.deepEqual(server.secretRefs, { Authorization: "vault://mcp.Docs_MCP/Authorization" });
+  assert.deepEqual(server.secretRefs, { Authorization: "vault://mcp.docs.mcp/authorization" });
   assert.deepEqual(server.redactedHeaders, { Authorization: "[REDACTED]" });
   assert.deepEqual(state.walletAuthority.resolved, ["vault://mcp/docs/token"]);
 
   assert.throws(
-    () => normalizeMcpServer(state, "Bad", { headers: { token: "plaintext" } }, deps),
+    () => normalizeMcpServer(state, "Bad", { headers: { token: "plaintext" } }),
     (error) => error.status === 403 && error.code === "policy",
   );
 });
@@ -171,7 +187,6 @@ test("normalizeMcpServer rejects retired config aliases before vault resolution"
           allowedTools: ["search"],
           headers: { Authorization: "vault://mcp/legacy/token" },
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -228,13 +243,13 @@ test("importMcpJson facade fails closed before JS receipts, record-state commits
           Local: { command: "node", args: ["server.mjs"], allowed_tools: ["run"] },
           Remote: { url: "https://example.test/mcp", allowed_tools: ["search"] },
         },
-      }, deps),
+      }),
     (error) => assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_server.import"),
   );
 
   assertNoMcpWorkflowMutation(state);
   state.mcpServers.set("mcp.Projected", { id: "mcp.Projected", label: "Projected", status: "registered" });
-  assert.deepEqual(listMcpServers(state, deps).map((server) => server.id), ["mcp.Projected"]);
+  assert.deepEqual(listMcpServers(state).map((server) => server.id), ["mcp.Projected"]);
 });
 
 test("importMcpJson rejects retired request aliases before state mutation", () => {
@@ -297,7 +312,6 @@ test("invokeMcpTool facade fails closed before authorization, fixture execution,
       invokeMcpTool(
         state,
         { authorization: "auth", body: { server_id: "mcp.Local", tool: "run", input: { prompt: "hello" } } },
-        deps,
       ),
     (error) =>
       assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_tool.invoke", {
@@ -357,7 +371,6 @@ test("compileEphemeralMcpIntegrations returns empty projection for no ephemeral 
       input: "question",
       body: { integrations: [{ type: "other" }] },
     },
-    deps,
   );
 
   assert.deepEqual(result, { toolReceiptIds: [], serverIds: [], evidenceRefs: [] });
@@ -385,7 +398,6 @@ test("compileEphemeralMcpIntegrations facade fails closed before registration, t
             ],
           },
         },
-        deps,
       ),
     (error) => {
       assertMcpWorkflowRustCoreRequired(error, "model_mount.mcp_server.ephemeral_register", {
@@ -419,7 +431,6 @@ test("compileEphemeralMcpIntegrations rejects retired integration aliases before
             ],
           },
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -460,7 +471,6 @@ test("executeWorkflowNode facade fails closed before route, MCP, receipt-gate, o
             workflow_node_type: "Embedding",
           },
         },
-        deps,
       ),
     (error) =>
       assertMcpWorkflowRustCoreRequired(error, "model_mount.workflow_node.execute", {
@@ -499,7 +509,6 @@ test("executeWorkflowNode rejects retired request aliases before authorization",
             input: "legacy workflow node aliases",
           },
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
