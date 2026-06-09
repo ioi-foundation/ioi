@@ -17236,7 +17236,7 @@ Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 838 is now satisfied.
 
-## Implementation Slice Evidence: 839
+## Compacted Implementation Slice Evidence: 839
 
 Slice 839 retired JS-authored provider public/vault metadata projection from
 model_mount read-projection input. `providerList()` now returns sorted raw
@@ -17262,7 +17262,32 @@ wallet/cTEE vault metadata redaction, local map/projection materialization
 replacement, and command-transport replacement still remain before this surface
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 839 after the next direct
+Scheduled matrix-compaction obligation from Slice 839 is now satisfied.
+
+## Implementation Slice Evidence: 840
+
+Slice 840 retired JS-authored OAuth session/state read projection from
+model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()` now
+fail closed with `model_mount_oauth_read_projection_js_retired` before JS can
+call `publicOAuthSession()`, call `publicOAuthState()`, hash/redact custody
+material, or plan dedicated `oauth_sessions`/`oauth_states` read projections.
+Broad snapshot/projection transport no longer sends `oauth_sessions` or
+`oauth_states`; public OAuth session/state envelopes must be authored by direct
+Rust daemon-core wallet/cTEE projection over admitted truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal OAuth/catalog-provider migration: direct Rust
+daemon-core OAuth session/state projection APIs, Agentgres-backed admitted OAuth
+truth, wallet/cTEE custody redaction, command-transport replacement, and JS
+refresh/revoke facade retirement still remain before this surface reaches the
+pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 840 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

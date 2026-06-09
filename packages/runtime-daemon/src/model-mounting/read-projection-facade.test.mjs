@@ -192,8 +192,6 @@ function createState() {
     listJson: () => ["/state/provider-health/provider.local.json"],
     modelMountSchemaVersion: "model.mount.schema",
     path: { join: (...parts) => parts.join("/") },
-    publicOAuthSession: (session) => ({ id: session.id }),
-    publicOAuthState: (oauthState) => ({ id: oauthState.id }),
     readJson: () => ({
       providerId: "provider.local",
       receiptId: "receipt-provider-health",
@@ -216,6 +214,25 @@ function createState() {
     status: "healthy",
   }];
   return { facade, state, readProjectionPlanner, readProjectionRequests };
+}
+
+function assertOAuthReadProjectionRetired(readFn, operationKind) {
+  assert.throws(
+    readFn,
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_oauth_read_projection_js_retired");
+      assert.equal(error.details.operation_kind, operationKind);
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_oauth_projection");
+      assert.equal(error.details.evidence_refs.includes("model_mount_oauth_read_projection_js_retired"), true);
+      assert.equal(error.details.evidence_refs.includes("rust_daemon_core_catalog_provider_oauth_projection_required"), true);
+      assert.equal(error.details.evidence_refs.includes("rust_daemon_core_wallet_ctee_custody_required"), true);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
 }
 
 function rustProjectionFixture(request) {
@@ -800,8 +817,14 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(modelCapability.credential_readiness.status, "ready");
   assert.equal(modelCapability.candidates[0].model_id, "model.local");
   assert.deepEqual(facade.listDownloads(state).map((download) => download.id), ["download.one"]);
-  assert.deepEqual(facade.listOAuthSessions(state), []);
-  assert.deepEqual(facade.listOAuthStates(state), []);
+  assertOAuthReadProjectionRetired(
+    () => facade.listOAuthSessions(state),
+    "model_mount.catalog_provider_oauth.sessions",
+  );
+  assertOAuthReadProjectionRetired(
+    () => facade.listOAuthStates(state),
+    "model_mount.catalog_provider_oauth.states",
+  );
   assert.deepEqual(facade.listProviderHealth(state).map((health) => health.receiptId), ["receipt-provider-health"]);
   const workflowBindings = facade.workflowNodeBindings(state);
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
@@ -819,12 +842,12 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "routes",
     "model_capabilities",
     "downloads",
-    "oauth_sessions",
-    "oauth_states",
     "provider_health",
     "workflow_bindings",
     "adapter_boundaries",
   ]);
+  assert.equal(readProjectionRequests.some((request) => request.projection_kind === "oauth_sessions"), false);
+  assert.equal(readProjectionRequests.some((request) => request.projection_kind === "oauth_states"), false);
   assert.equal(readProjectionRequests.filter((request) => request.projection_kind !== "projection")
     .every((request) => !Object.hasOwn(request.state, "server")), true);
   const workflowRequest = readProjectionRequests.find((request) => request.projection_kind === "workflow_bindings");
@@ -970,10 +993,14 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_status_input"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_provider_configs"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "oauth_sessions"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "oauth_states"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_status_input"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_provider_configs"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "oauth_sessions"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "oauth_states"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");

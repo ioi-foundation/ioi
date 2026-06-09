@@ -588,6 +588,9 @@ function runDocs() {
       /Slice 812 moved public model_mount server-status readback through a dedicated\s+Rust read-projection kind/.test(guide) &&
       /`serverStatus\(\)` now requests `server_status` from\s+`plan_model_mount_read_projection`/.test(guide) &&
       /Server-control start\/stop\/restart\/log\/event mutations\s+still fail closed/.test(guide) &&
+      /Slice 840 retired JS-authored OAuth session\/state read projection/.test(guide) &&
+      /`model_mount_oauth_read_projection_js_retired`/.test(guide) &&
+      /Broad snapshot\/projection transport no longer sends `oauth_sessions` or\s+`oauth_states`/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -677,6 +680,9 @@ function runDocs() {
       /Slice 839 retired JS-authored provider public\/vault metadata projection/.test(guide) &&
       /`providerHasVaultRef`/.test(guide) &&
       /`publicProvider`/.test(guide) &&
+      /Slice 840 retired JS-authored OAuth session\/state read projection from\s+model_mount readback/.test(guide) &&
+      /`model_mount_oauth_read_projection_js_retired`/.test(guide) &&
+      /`oauth_sessions` or\s+`oauth_states`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -833,11 +839,15 @@ function runDocs() {
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 838 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 839/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 839/.test(matrix) &&
       /Slice 839 retired JS-authored provider public\/vault metadata projection/.test(matrix) &&
       /providerHasVaultRef/.test(matrix) &&
       /publicProvider/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 839/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 839 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 840/.test(matrix) &&
+      /Slice 840 retired JS-authored OAuth session\/state read projection/.test(matrix) &&
+      /model_mount_oauth_read_projection_js_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 840/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -8048,8 +8058,18 @@ function runBridge() {
       /listRoutes\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
       /listModelCapabilities\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacade) &&
       /listDownloads\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
-      /listOAuthSessions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_sessions"\)/.test(modelMountingReadProjectionFacade) &&
-      /listOAuthStates\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_states"\)/.test(modelMountingReadProjectionFacade) &&
+      /listOAuthSessions\(state\)\s*\{[\s\S]*?oauthSessionList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /listOAuthStates\(state\)\s*\{[\s\S]*?oauthStateList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "oauth_sessions" \|\| projectionKind === "oauth_states"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/publicOAuthSession/.test(modelMountingReadProjectionFacade) &&
+      !/publicOAuthState/.test(modelMountingReadProjectionFacade) &&
+      !/oauth_sessions:\s*oauthSessions/.test(modelMountingReadProjectionFacade) &&
+      !/oauth_states:\s*oauthStates/.test(modelMountingReadProjectionFacade) &&
+      /export function oauthSessionList\(state,\s*deps = \{\}\)[\s\S]*?model_mount_oauth_read_projection_js_retired/.test(modelMountingReadModel) &&
+      /export function oauthStateList\(state,\s*deps = \{\}\)[\s\S]*?model_mount_oauth_read_projection_js_retired/.test(modelMountingReadModel) &&
+      /model_mount\.catalog_provider_oauth\.sessions/.test(modelMountingReadModel) &&
+      /model_mount\.catalog_provider_oauth\.states/.test(modelMountingReadModel) &&
+      /rust_daemon_core_wallet_ctee_custody_required/.test(modelMountingReadModel) &&
       /listProviderHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_health"\)/.test(modelMountingReadProjectionFacade) &&
       /runtimePreference\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceProjection\(this\)/.test(modelMountingState) &&
       /runtimePreferenceForEndpoint\(endpoint = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceForEndpointProjection\(this,\s*endpoint\)/.test(modelMountingState) &&
@@ -8129,7 +8149,13 @@ function runBridge() {
       /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"product_artifacts"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
-      /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"oauth_sessions"[\s\S]*"oauth_states"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
+      /assertOAuthReadProjectionRetired/.test(modelMountingReadProjectionFacadeTest) &&
+      /model_mount\.catalog_provider_oauth\.sessions/.test(modelMountingReadProjectionFacadeTest) &&
+      /model_mount\.catalog_provider_oauth\.states/.test(modelMountingReadProjectionFacadeTest) &&
+      /readProjectionRequests\.some\(\(request\) => request\.projection_kind === "oauth_sessions"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"oauth_sessions"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"oauth_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /"workflow_bindings"[\s\S]*"adapter_boundaries"/.test(modelMountingReadProjectionFacadeTest) &&
       /"runtime_engines"[\s\S]*"runtime_engine_profiles"[\s\S]*"runtime_preference"[\s\S]*"runtime_preference_for_endpoint"[\s\S]*"runtime_default_load_options"[\s\S]*"runtime_engine_detail"/.test(modelMountingReadProjectionFacadeTest) &&
       /"latest_runtime_survey"/.test(modelMountingReadProjectionFacadeTest) &&

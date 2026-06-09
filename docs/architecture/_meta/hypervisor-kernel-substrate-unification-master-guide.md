@@ -1470,6 +1470,16 @@ provider envelope shaping and vault metadata redaction are therefore no longer
 JS readback authority; direct Rust daemon-core projection APIs must own that
 shape over Agentgres/wallet/cTEE admitted truth.
 
+Slice 840 retired JS-authored OAuth session/state read projection from
+model_mount readback. Public `listOAuthSessions()` and `listOAuthStates()` now
+fail closed with `model_mount_oauth_read_projection_js_retired` before JS can
+call `publicOAuthSession()`, call `publicOAuthState()`, hash/redact custody
+material, or plan dedicated `oauth_sessions`/`oauth_states` read projections.
+Broad snapshot/projection transport no longer sends `oauth_sessions` or
+`oauth_states`; any public OAuth session/state envelope must be authored by
+direct Rust daemon-core wallet/cTEE projection over admitted truth rather than
+by JS redaction helpers or migration payloads.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

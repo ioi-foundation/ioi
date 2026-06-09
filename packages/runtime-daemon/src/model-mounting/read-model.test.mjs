@@ -7,6 +7,8 @@ import {
   endpointList,
   instanceList,
   modelCapabilityList,
+  oauthSessionList,
+  oauthStateList,
   openAiModelList,
   productArtifactList,
   providerList,
@@ -147,4 +149,40 @@ test("model mounting read model leaves provider projection shaping to Rust", () 
       return [{ routes: routes.length, endpoints: endpoints.length, providers: providers.length, artifacts: artifacts.length, instances: instances.length }];
     },
   }), [{ routes: 2, endpoints: 2, providers: 2, artifacts: 2, instances: 2 }]);
+});
+
+test("model mounting read model fails closed for OAuth session and state read projection", () => {
+  const state = fakeState();
+  state.oauthSessions = new Map([["session.local", {
+    id: "session.local",
+    providerId: "provider.local",
+    accessTokenRef: "vault://oauth/session/access-token",
+  }]]);
+  state.oauthStates = new Map([["state.local", {
+    id: "state.local",
+    providerId: "provider.local",
+    verifierRef: "vault://oauth/state/verifier",
+  }]]);
+
+  for (const [label, readFn, operationKind] of [
+    ["sessions", oauthSessionList, "model_mount.catalog_provider_oauth.sessions"],
+    ["states", oauthStateList, "model_mount.catalog_provider_oauth.states"],
+  ]) {
+    assert.throws(
+      () => readFn(state),
+      (error) => {
+        assert.equal(error.status, 501, label);
+        assert.equal(error.code, "model_mount_oauth_read_projection_js_retired", label);
+        assert.equal(error.details.operation_kind, operationKind, label);
+        assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_oauth_projection", label);
+        assert.equal(error.details.evidence_refs.includes("model_mount_oauth_read_projection_js_retired"), true, label);
+        assert.equal(error.details.evidence_refs.includes("rust_daemon_core_catalog_provider_oauth_projection_required"), true, label);
+        assert.equal(error.details.evidence_refs.includes("rust_daemon_core_wallet_ctee_custody_required"), true, label);
+        assert.equal(Object.hasOwn(error.details, "operationKind"), false, label);
+        assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false, label);
+        assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false, label);
+        return true;
+      },
+    );
+  }
 });

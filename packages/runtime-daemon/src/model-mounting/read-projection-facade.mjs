@@ -34,8 +34,6 @@ export function createModelMountingReadProjectionFacade({
   hardwareSnapshot = () => null,
   notFound: notFoundDep = notFound,
   path,
-  publicOAuthSession,
-  publicOAuthState,
   readJson,
   readProjectionPlanner = null,
 } = {}) {
@@ -80,11 +78,11 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listOAuthSessions(state) {
-    return rustReadProjection(state, "oauth_sessions");
+    return oauthSessionList(state);
   }
 
   function listOAuthStates(state) {
-    return rustReadProjection(state, "oauth_states");
+    return oauthStateList(state);
   }
 
   function listProviderHealth(state) {
@@ -378,18 +376,7 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "downloads") {
       return { downloads };
     }
-    const oauthSessions = oauthSessionList(state, {
-      publicOAuthSession,
-    });
-    if (projectionKind === "oauth_sessions") {
-      return { oauth_sessions: oauthSessions };
-    }
-    const oauthStates = oauthStateList(state, {
-      publicOAuthState,
-    });
-    if (projectionKind === "oauth_states") {
-      return { oauth_states: oauthStates };
-    }
+    if (projectionKind === "oauth_sessions" || projectionKind === "oauth_states") return {};
     const providerHealth = providerHealthList(state, {
       listJson,
       path,
@@ -410,8 +397,6 @@ export function createModelMountingReadProjectionFacade({
     }
     return {
       server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
-      oauth_sessions: oauthSessions,
-      oauth_states: oauthStates,
       artifacts,
       backends: state.listBackends(),
       backend_processes: state.listBackendProcesses(),

@@ -143,7 +143,6 @@ import {
 import {
   oauthBoundaryForSession,
   publicOAuthSession,
-  publicOAuthState,
 } from "./model-mounting/oauth-boundary.mjs";
 import {
   completeCatalogProviderOAuth as completeCatalogProviderOAuthState,
@@ -397,8 +396,6 @@ export class ModelMountingState {
       modelMountSchemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       hardwareSnapshot,
       path,
-      publicOAuthSession,
-      publicOAuthState,
       readJson,
       readProjectionPlanner: this.modelMountAdmissionRunner,
     });
