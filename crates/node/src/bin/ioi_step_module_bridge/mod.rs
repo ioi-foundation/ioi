@@ -2111,7 +2111,6 @@ fn model_mount_read_projection(
 
 fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let state = &request.state;
-    let projection = model_mount_projection(request);
     let receipts = array_field(state, "receipts");
     json!({
         "schemaVersion": model_mount_projection_schema_version(request),
@@ -2144,7 +2143,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "workflowNodes": model_mount_workflow_bindings(),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": model_mount_projection_summary(request),
-        "adapterBoundaries": projection.get("adapterBoundaries").cloned().unwrap_or_else(|| model_mount_adapter_boundaries(state)),
+        "adapterBoundaries": model_mount_adapter_boundaries(state),
     })
 }
 
@@ -8907,6 +8906,14 @@ mod tests {
         assert_eq!(
             snapshot_response["projection"]["projection"]["source"],
             "agentgres_model_mounting_projection"
+        );
+        assert_eq!(
+            snapshot_response["projection"]["projection"]["watermark"],
+            3
+        );
+        assert_eq!(
+            snapshot_response["projection"]["projection"]["receiptCount"],
+            3
         );
         assert_eq!(
             snapshot_response["projection"]["adapterBoundaries"]["agentgres"]["port"],

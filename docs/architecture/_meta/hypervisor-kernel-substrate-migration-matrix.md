@@ -16377,7 +16377,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 808
+## Compacted Implementation Slice Evidence: 808
 
 Slice 808 slimmed public model_mount receipt replay. `receiptReplay()` now sends
 only admitted receipts plus route, endpoint, instance, and provider records into
@@ -16399,10 +16399,37 @@ This does not claim terminal model_mount migration: full `projection`,
 daemon-core Agentgres projection APIs to replace remaining JS state
 materialization, command transport, and edge wrappers.
 
-Scheduled matrix-compaction obligation from Slice 808 is pending after this
+Scheduled matrix-compaction obligation from Slice 808 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 809
+
+Slice 809 retired the snapshot helper's internal full-projection rebuild.
+`snapshot()` still requests the Rust `snapshot` read-projection kind, but
+`model_mount_snapshot()` no longer calls `model_mount_projection(request)` just
+to recover adapter boundaries and projection summary. It now authors the nested
+summary from receipt truth through `model_mount_projection_summary(request)` and
+authors adapter boundaries directly through `model_mount_adapter_boundaries()`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal model_mount migration: full `projection`, snapshot
+input materialization, runtime engine, and other broad read surfaces still need
+direct Rust daemon-core Agentgres projection APIs to replace remaining JS state
+materialization, command transport, and edge wrappers.
+
+Scheduled matrix-compaction obligation from Slice 809 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 808 after the next
+Next scheduled matrix-compaction pass: compact Slice 809 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

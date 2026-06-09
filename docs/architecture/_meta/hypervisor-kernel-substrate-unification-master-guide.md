@@ -1097,6 +1097,17 @@ full `projection`, `snapshot`, runtime engine, and other broad read surfaces
 still need direct Rust daemon-core Agentgres projection APIs to replace
 remaining JS state materialization and command transport.
 
+Slice 809 retired the snapshot helper's internal full-projection rebuild.
+`snapshot()` still requests the Rust `snapshot` read-projection kind, but
+`model_mount_snapshot()` no longer calls `model_mount_projection(request)` just
+to recover adapter boundaries and projection summary. It now authors the nested
+summary from receipt truth through `model_mount_projection_summary(request)` and
+authors adapter boundaries directly through `model_mount_adapter_boundaries()`.
+This still does not claim terminal model_mount projection migration: full
+`projection`, snapshot input materialization, runtime engine, and other broad
+read surfaces still need direct Rust daemon-core Agentgres projection APIs to
+replace remaining JS state materialization and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -574,6 +574,9 @@ function runDocs() {
       /Slice 808 slimmed public model_mount receipt replay/.test(guide) &&
       /`receiptReplay\(\)` now sends\s+only admitted receipts plus route, endpoint, instance, and provider records into\s+`plan_model_mount_read_projection`/.test(guide) &&
       /Rust `receipt_replay`\s+planner now builds a replay lookup context directly from that slim state instead\s+of rebuilding the full `model_mount` projection/.test(guide) &&
+      /Slice 809 retired the snapshot helper's internal full-projection rebuild/.test(guide) &&
+      /`model_mount_snapshot\(\)` no longer calls `model_mount_projection\(request\)` just\s+to recover adapter boundaries and projection summary/.test(guide) &&
+      /authors the nested\s+summary from receipt truth through `model_mount_projection_summary\(request\)`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -590,7 +593,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 805/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 806/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 807/.test(matrix) &&
-      /Implementation Slice Evidence: 808/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 808/.test(matrix) &&
+      /Implementation Slice Evidence: 809/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7831,6 +7835,8 @@ function runBridge() {
       /"runtime_model_catalog" => Ok\(model_mount_runtime_model_catalog\(&request\.state\)\)/.test(bridgeModule) &&
       /"open_ai_model_list" => Ok\(model_mount_open_ai_model_list/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&
+      !/fn model_mount_snapshot(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
+      /"adapterBoundaries": model_mount_adapter_boundaries\(state\)/.test(bridgeModule) &&
       /fn model_mount_projection_summary/.test(bridgeModule) &&
       !/fn model_mount_projection_summary(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
       /fn model_mount_receipt_replay_context/.test(bridgeModule) &&
