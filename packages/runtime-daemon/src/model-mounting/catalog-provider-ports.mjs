@@ -7,7 +7,6 @@ import {
   fixtureModelCatalog,
   genericCatalogEntry,
   localManifestCatalogEntries,
-  ollamaArtifactCatalogEntry,
 } from "./catalog-entries.mjs";
 import {
   catalogAuthFailureFields,
@@ -92,25 +91,23 @@ export function ollamaCatalogProviderPort(state) {
       evidenceRefs,
     }),
     search: async ({ query, format, quantization, searchedAt }) => {
+      void query;
+      void quantization;
+      void searchedAt;
       if (format && format !== "ollama") return { ...catalogProviderStatus({ id: "catalog.ollama", label: "Ollama catalog bridge", evidenceRefs }), status: "configured", results: [] };
       if (!provider || provider.status === "blocked") {
         return { status: "gated", baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null, evidenceRefs, results: [] };
       }
-      try {
-        const artifacts = await state.driverForProvider(provider).listModels({ state, provider });
-        const results = artifacts
-          .map((artifact) => ollamaArtifactCatalogEntry(artifact, searchedAt))
-          .filter((entry) => catalogEntryMatches(entry, { query, format, quantization }));
-        return { status: "available", baseUrlHash: stableHash(provider.baseUrl), evidenceRefs, results };
-      } catch (error) {
-        return {
-          status: "degraded",
-          baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null,
-          errorHash: stableHash(error?.message ?? "ollama catalog failed"),
-          evidenceRefs,
-          results: [],
-        };
-      }
+      return {
+        status: "configured",
+        baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null,
+        evidenceRefs: [
+          ...evidenceRefs,
+          "ollama_catalog_js_driver_bridge_retired",
+          "rust_daemon_core_provider_inventory_required",
+        ],
+        results: [],
+      };
     },
   };
 }

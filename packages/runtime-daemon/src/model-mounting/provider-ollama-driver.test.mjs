@@ -1,64 +1,13 @@
 import assert from "node:assert/strict";
-import http from "node:http";
 import test from "node:test";
 
 import { OllamaModelProviderDriver } from "./provider-ollama-driver.mjs";
 
-async function withOllamaServer(handler) {
-  const requests = [];
-  const server = http.createServer(async (request, response) => {
-    const chunks = [];
-    for await (const chunk of request) chunks.push(chunk);
-    const bodyText = Buffer.concat(chunks).toString("utf8");
-    const body = bodyText ? JSON.parse(bodyText) : null;
-    requests.push({ method: request.method, url: request.url, body });
-
-    if (request.url === "/api/tags") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ models: [{ name: "qwen:test" }] }));
-      return;
-    }
-    if (request.url === "/api/ps") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ models: [{ name: "qwen:test", size: 4096, processor: "cpu", expires_at: "2026-06-03T00:00:00.000Z" }] }));
-      return;
-    }
-    if (request.url === "/api/generate") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ done: true }));
-      return;
-    }
-    if (request.url === "/api/embeddings") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ embedding: [0.1, 0.2, 0.3] }));
-      return;
-    }
-    if (request.url === "/api/chat") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ message: { role: "assistant", content: "ollama says hi" } }));
-      return;
-    }
-
-    response.writeHead(404, { "content-type": "application/json" });
-    response.end("{}");
-  });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  try {
-    const address = server.address();
-    return await handler({ baseUrl: `http://127.0.0.1:${address.port}`, requests });
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
-}
-
-function provider(baseUrl) {
+function provider() {
   return {
     id: "provider.ollama",
     kind: "ollama",
-    baseUrl,
+    baseUrl: "http://127.0.0.1:65535",
     status: "configured",
     authScheme: "none",
   };
@@ -73,81 +22,89 @@ function endpoint() {
   };
 }
 
-function fakeState() {
-  const backend = { id: "backend.ollama", binaryPath: null };
+function fakeState({ binaryPath = null } = {}) {
+  const backend = { id: "backend.ollama", kind: "ollama", binaryPath };
   return {
     backend(backendId) {
       assert.equal(backendId, "backend.ollama");
       return backend;
     },
-    backendProcessForBackend() {
-      return null;
-    },
-    backendProcessSnapshot(record) {
-      return record ? { id: record.id } : null;
-    },
-    listInstances() {
-      return [];
-    },
   };
 }
 
-test("Ollama driver lists available and loaded models", async () => {
-  await withOllamaServer(async ({ baseUrl }) => {
-    const state = fakeState();
-    const driver = new OllamaModelProviderDriver();
-    const models = await driver.listModels({ provider: provider(baseUrl), state });
-    const loaded = await driver.listLoaded({ provider: provider(baseUrl), state });
+function assertProviderHttpTransportRetired(error, operationKind) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "model_mount_provider_http_transport_retired");
+  assert.equal(error.details.provider_id, "provider.ollama");
+  assert.equal(error.details.provider_kind, "ollama");
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.rust_core_boundary, "model_mount.provider_transport");
+  assert.deepEqual(error.details.evidence_refs, [
+    "provider_http_transport_js_retired",
+    "rust_daemon_core_provider_transport_required",
+    "agentgres_provider_projection_required",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "providerId"), false);
+  assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+  return true;
+}
 
-    assert.equal(models.length, 1);
-    assert.equal(models[0].id, "ollama.qwen.test");
-    assert.equal(models[0].modelId, "qwen:test");
-    assert.equal(loaded.length, 1);
-    assert.equal(loaded[0].backend, "ollama");
-    assert.equal(loaded[0].backendId, "backend.ollama");
-  });
+test("Ollama driver health and inventory fail before HTTP request shaping", async () => {
+  const state = fakeState();
+  const driver = new OllamaModelProviderDriver();
+  const selectedProvider = provider();
+
+  await assert.rejects(
+    () => driver.health(selectedProvider, { state }),
+    (error) => assertProviderHttpTransportRetired(error, "model_mount.provider_health.ollama"),
+  );
+  await assert.rejects(
+    () => driver.listModels({ provider: selectedProvider, state }),
+    (error) => assertProviderHttpTransportRetired(error, "model_mount.provider_inventory.ollama_models"),
+  );
+  await assert.rejects(
+    () => driver.listLoaded({ provider: selectedProvider, state }),
+    (error) => assertProviderHttpTransportRetired(error, "model_mount.provider_inventory.ollama_loaded"),
+  );
 });
 
-test("Ollama driver keeps lifecycle probes separate from retired JS invocation", async () => {
-  await withOllamaServer(async ({ baseUrl, requests }) => {
-    const state = fakeState();
-    const driver = new OllamaModelProviderDriver();
-    const selectedProvider = provider(baseUrl);
-    const selectedEndpoint = endpoint();
+test("Ollama lifecycle without binary fails before HTTP keep-alive request shaping", async () => {
+  const state = fakeState();
+  const driver = new OllamaModelProviderDriver();
+  const selectedProvider = provider();
+  const selectedEndpoint = endpoint();
 
-    const load = await driver.load({
-      state,
-      provider: selectedProvider,
-      endpoint: selectedEndpoint,
-      body: {
-        ttl_seconds: 60,
-        loadOptions: { idle_ttl_seconds: 999 },
-        ttlSeconds: 888,
-        contextLength: 7777,
-      },
-    });
-    assert.equal(load.status, "loaded");
-    assert.equal(load.providerStatus, "warmed");
+  await assert.rejects(
+    () => driver.load({ state, provider: selectedProvider, endpoint: selectedEndpoint, body: { ttl_seconds: 60 } }),
+    (error) => assertProviderHttpTransportRetired(error, "model_mount.provider_lifecycle.ollama_load"),
+  );
+  await assert.rejects(
+    () => driver.unload({ state, provider: selectedProvider, endpoint: selectedEndpoint }),
+    (error) => assertProviderHttpTransportRetired(error, "model_mount.provider_lifecycle.ollama_unload"),
+  );
+});
 
-    const unload = await driver.unload({ state, provider: selectedProvider, endpoint: selectedEndpoint });
-    assert.equal(unload.status, "unloaded");
-    assert.equal(unload.providerStatus, "evicted");
+test("Ollama lifecycle with binary still fails before JS process staging", async () => {
+  const state = fakeState({ binaryPath: "/usr/bin/ollama" });
+  const driver = new OllamaModelProviderDriver();
 
-    assert.equal(requests.some((request) => request.url === "/api/chat"), false);
-    assert.equal(requests.some((request) => request.url === "/api/embeddings"), false);
-    assert.equal(requests.filter((request) => request.url === "/api/generate").length, 2);
-    assert.equal(requests.find((request) => request.url === "/api/generate").body.keep_alive, "60s");
-  });
+  await assert.rejects(
+    () => driver.load({ state, provider: provider(), endpoint: endpoint(), body: { ttl_seconds: 60 } }),
+    (error) =>
+      error.code === "model_mount_backend_process_supervisor_retired" &&
+      error.details.operation_kind === "model_mount.provider_lifecycle.ollama_load",
+  );
 });
 
 test("Ollama driver fails closed for retired JS invocation before HTTP request shaping", async () => {
-  await withOllamaServer(async ({ baseUrl, requests }) => {
-    const state = fakeState();
-    const driver = new OllamaModelProviderDriver();
-    const selectedProvider = provider(baseUrl);
+  const state = fakeState();
+  const driver = new OllamaModelProviderDriver();
+  const selectedProvider = provider();
 
-    await assert.rejects(
-      () => driver.invoke({
+  await assert.rejects(
+    () =>
+      driver.invoke({
         state,
         provider: selectedProvider,
         endpoint: endpoint(),
@@ -155,34 +112,33 @@ test("Ollama driver fails closed for retired JS invocation before HTTP request s
         body: { messages: [{ role: "user", content: "hello" }] },
         input: "hello",
       }),
-      (error) => {
-        assert.equal(error.status, 501);
-        assert.equal(error.code, "model_mount_provider_js_invocation_retired");
-        assert.equal(error.details.provider_kind, "ollama");
-        assert.equal(error.details.provider_driver, "ollama");
-        assert.equal(error.details.stream, false);
-        return true;
-      },
-    );
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_provider_js_invocation_retired");
+      assert.equal(error.details.provider_kind, "ollama");
+      assert.equal(error.details.provider_driver, "ollama");
+      assert.equal(error.details.stream, false);
+      return true;
+    },
+  );
 
-    await assert.rejects(
-      () => driver.streamInvoke({
+  await assert.rejects(
+    () =>
+      driver.streamInvoke({
         state,
         provider: selectedProvider,
         endpoint: endpoint(),
         kind: "chat.completions",
         body: { messages: [{ role: "user", content: "hello" }] },
       }),
-      (error) => {
-        assert.equal(error.status, 501);
-        assert.equal(error.code, "model_mount_provider_js_invocation_retired");
-        assert.equal(error.details.provider_kind, "ollama");
-        assert.equal(error.details.stream, true);
-        return true;
-      },
-    );
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_provider_js_invocation_retired");
+      assert.equal(error.details.provider_kind, "ollama");
+      assert.equal(error.details.stream, true);
+      return true;
+    },
+  );
 
-    assert.equal(driver.supportsStream("chat.completions"), false);
-    assert.equal(requests.length, 0);
-  });
+  assert.equal(driver.supportsStream("chat.completions"), false);
 });

@@ -74,21 +74,21 @@ test("ollama catalog provider reports gated and configured bridge states", async
   assert.equal(gated.health().status, "gated");
 
   const provider = { id: "provider.ollama", baseUrl: "http://127.0.0.1:11434", status: "configured" };
+  let driverCalled = false;
   const configured = ollamaCatalogProviderPort({
     providers: new Map([["provider.ollama", provider]]),
     driverForProvider() {
-      return {
-        async listModels() {
-          return [{ modelId: "llama3", capabilities: ["chat"], providerId: "provider.ollama" }];
-        },
-      };
+      driverCalled = true;
+      throw new Error("Ollama catalog bridge must not call JS provider driver inventory");
     },
   });
 
   assert.equal(configured.health().status, "configured");
   const result = await configured.search({ query: "llama", format: "ollama", searchedAt: "2026-06-03T12:00:00.000Z" });
-  assert.equal(result.status, "available");
-  assert.equal(result.results[0].modelId, "llama3");
+  assert.equal(result.status, "configured");
+  assert.deepEqual(result.results, []);
+  assert.equal(result.evidenceRefs.includes("ollama_catalog_js_driver_bridge_retired"), true);
+  assert.equal(driverCalled, false);
 });
 
 test("Hugging Face catalog provider projects material-backed health", () => {

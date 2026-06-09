@@ -641,6 +641,10 @@ function runDocs() {
       /`backend-lifecycle\.mjs` no longer imports `node:child_process`/.test(guide) &&
       /fail closed with\s+`model_mount_backend_process_supervisor_retired`/.test(guide) &&
       /native-local provider lifecycle path still calls the Rust `model_mount`\s+planner, but now sends no JS process snapshot or local backend-log evidence/.test(guide) &&
+      /Slice 829 retired the remaining JS provider HTTP transport\/probe authority\s+path/.test(guide) &&
+      /`provider-transport\.mjs` no longer performs `fetch\(\)`/.test(guide) &&
+      /`fetchProviderJson\(\)` and `retryProviderOpen\(\)` now fail closed with\s+`model_mount_provider_http_transport_retired`/.test(guide) &&
+      /Ollama catalog bridge no longer reaches through the JS provider driver for live\s+catalog truth/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -741,12 +745,18 @@ function runDocs() {
       /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(matrix) &&
       /`LmStudioModelProviderDriver\.health\(\)`, `listModels\(\)`, `listLoaded\(\)`,\s+`start\(\)`, `stop\(\)`, `load\(\)`, and `unload\(\)` now fail closed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 827 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 828/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 828/.test(matrix) &&
       /Slice 828 retired the JS backend-process supervisor authority path/.test(matrix) &&
       /`backend-lifecycle\.mjs` no longer imports `node:child_process`/.test(matrix) &&
       /model_mount_backend_process_supervisor_retired/.test(matrix) &&
       /Binary-backed vLLM, llama\.cpp, and Ollama lifecycle paths now fail before JS\s+process staging/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 828/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 828 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 829/.test(matrix) &&
+      /Slice 829 retired the remaining JS provider HTTP transport\/probe authority\s+path/.test(matrix) &&
+      /model_mount_provider_http_transport_retired/.test(matrix) &&
+      /OpenAI-compatible, Ollama, vLLM, and llama\.cpp driver health\/inventory\/lifecycle\s+methods now fail before/.test(matrix) &&
+      /ollama_catalog_js_driver_bridge_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 829/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -9354,8 +9364,10 @@ function runBridge() {
         /fails before JS process supervision/.test(providerOpenAiBackendDriversTest) &&
         /model_mount_backend_process_supervisor_retired/.test(providerOpenAiBackendDriversTest) &&
         /assert\.deepEqual\(state\.processes,\s*\[\]\)/.test(providerOpenAiBackendDriversTest) &&
-        /loadOptions:\s*\{\s*idle_ttl_seconds:\s*999\s*\}/.test(providerOllamaDriverTest) &&
-        /assert\.equal\(requests\.find\(.*?keep_alive,\s*"60s"\)/s.test(providerOllamaDriverTest) &&
+        /Ollama lifecycle without binary fails before HTTP keep-alive request shaping/.test(providerOllamaDriverTest) &&
+        /model_mount_provider_http_transport_retired/.test(providerOllamaDriverTest) &&
+        /model_mount\.provider_lifecycle\.ollama_load/.test(providerOllamaDriverTest) &&
+        /Ollama lifecycle with binary still fails before JS process staging/.test(providerOllamaDriverTest) &&
         /load_options:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLmStudioDriverTest) &&
         /model_mount_lm_studio_public_cli_retired/.test(providerLmStudioDriverTest);
     })(),
@@ -13153,11 +13165,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-open-retry-append-retired",
-    !/appendOperation\?\.\("model\.provider_open_retry"/.test(providerTransport) &&
+    /model_mount_provider_http_transport_retired/.test(providerTransport) &&
+      /provider_http_transport_js_retired/.test(providerTransport) &&
+      /rust_daemon_core_provider_transport_required/.test(providerTransport) &&
+      /agentgres_provider_projection_required/.test(providerTransport) &&
+      /retryProviderOpen\([\s\S]*?throw providerHttpTransportRetiredError/.test(providerTransport) &&
+      !/fetch\(|AbortController|setTimeout|providerRequestTimeoutMs|shouldRetryProviderOpen|providerOpenRetryDelayMs|providerOpenRetryPolicy/.test(providerTransport) &&
+      !/appendOperation\?\.\("model\.provider_open_retry"/.test(providerTransport) &&
       !/model\.provider_open_retry/.test(providerTransport) &&
-      /provider transport retries without appending operation-like records/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs"),
-      ),
+      /provider transport fetch fails closed before live HTTP requests or retries/.test(providerTransportTest),
     [
       "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
@@ -13167,7 +13183,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-transport-auth-error-aliases-retired",
-    /details:\s*\{\s*provider_id:\s*provider\.id,\s*provider_kind:\s*provider\.kind\s*\}/.test(providerTransport) &&
+    /provider_id:\s*provider\?\.id \?\? null/.test(providerTransport) &&
+      /provider_kind:\s*provider\?\.kind \?\? null/.test(providerTransport) &&
       /provider_id:\s*provider\.id/.test(providerTransport) &&
       /provider_kind:\s*provider\.kind/.test(providerTransport) &&
       /http_status:\s*result\.status/.test(providerTransport) &&
@@ -13192,6 +13209,7 @@ function runReceipts() {
       /Object\.hasOwn\(httpError\.details,\s*"providerId"\),\s*false/.test(providerTransportTest) &&
       /Object\.hasOwn\(httpError\.details,\s*"httpStatus"\),\s*false/.test(providerTransportTest) &&
       /Object\.hasOwn\(commandError\.details,\s*"commandExitCode"\),\s*false/.test(providerTransportTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(providerTransportTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerAuthTest) &&
       /Object\.hasOwn\(error\.details,\s*"vaultRefHash"\),\s*false/.test(providerAuthTest) &&
       /Object\.hasOwn\(error\.details,\s*"authHeaderName"\),\s*false/.test(providerAuthTest),

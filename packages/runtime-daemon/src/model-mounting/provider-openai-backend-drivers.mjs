@@ -1,14 +1,12 @@
 import { throwBackendProcessSupervisorRetired } from "./backend-lifecycle.mjs";
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
 import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
-import { stableHash } from "./io.mjs";
+import { providerHttpTransportRetiredError } from "./provider-transport.mjs";
 import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
-import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
 
 export class VllmModelProviderDriver {
   constructor({ state }) {
     this.state = state;
-    this.openAi = new OpenAICompatibleModelProviderDriver({ label: "vllm" });
   }
 
   providerWithBackendBaseUrl(provider) {
@@ -21,31 +19,22 @@ export class VllmModelProviderDriver {
   }
 
   async health(provider, { state } = {}) {
-    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
-    const result = await this.openAi.health(effectiveProvider, { state });
     const backend = state.backend(defaultBackendForProvider(provider));
-    return {
-      ...result,
-      status: result.status === "available" ? "available" : backend.binaryPath ? "degraded" : result.status,
-      evidenceRefs: [
-        "vllm_openai_compatible_models_probe",
-        ...(result.evidenceRefs ?? []),
-        ...(backend.binaryPath ? ["vllm_binary_configured"] : []),
-      ],
-      binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
-    };
+    throw providerHttpTransportRetiredError(this.providerWithBackendBaseUrl(provider), {
+      route: "/models",
+      method: "GET",
+      operation_kind: "model_mount.provider_health.vllm",
+      backend_id: backend.id,
+    });
   }
 
   async listModels({ state, provider }) {
-    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
-    const models = await this.openAi.listModels({ state, provider: effectiveProvider });
-    return models.map((model) => ({
-      ...model,
-      providerId: provider.id,
-      family: "vllm",
-      source: "vllm_openai_compatible_models_endpoint",
-      compatibility: ["vllm", "safetensors", "hf_repository"],
-    }));
+    void state;
+    throw providerHttpTransportRetiredError(this.providerWithBackendBaseUrl(provider), {
+      route: "/models",
+      method: "GET",
+      operation_kind: "model_mount.provider_inventory.vllm",
+    });
   }
 
   async listLoaded({ state, provider }) {
@@ -72,13 +61,11 @@ export class VllmModelProviderDriver {
         endpoint_id: endpoint.id,
       });
     }
-    return {
-      status: "loaded",
-      backend: "vllm",
-      backendId,
-      process: null,
-      evidenceRefs: ["vllm_stateless_http_load"],
-    };
+    throw providerHttpTransportRetiredError(provider, {
+      route: null,
+      method: "LOAD",
+      operation_kind: "model_mount.provider_lifecycle.vllm_load",
+    });
   }
 
   async unload({ state, provider, endpoint }) {
@@ -90,13 +77,11 @@ export class VllmModelProviderDriver {
         endpoint_id: endpoint?.id ?? null,
       });
     }
-    return {
-      status: "unloaded",
-      backend: "vllm",
-      backendId,
-      process: null,
-      evidenceRefs: ["vllm_stateless_http_unload"],
-    };
+    throw providerHttpTransportRetiredError(provider, {
+      route: null,
+      method: "UNLOAD",
+      operation_kind: "model_mount.provider_lifecycle.vllm_unload",
+    });
   }
 
   supportsStream(kind) {
@@ -117,7 +102,6 @@ export class VllmModelProviderDriver {
 export class LlamaCppModelProviderDriver {
   constructor({ state }) {
     this.state = state;
-    this.openAi = new OpenAICompatibleModelProviderDriver({ label: "llama_cpp" });
   }
 
   providerWithBackendBaseUrl(provider) {
@@ -132,35 +116,21 @@ export class LlamaCppModelProviderDriver {
   async health(provider, { state } = {}) {
     const effectiveProvider = this.providerWithBackendBaseUrl(provider);
     const backend = state.backend(defaultBackendForProvider(provider));
-    if (!effectiveProvider.baseUrl) {
-      return {
-        status: backend.binaryPath ? "configured" : "blocked",
-        evidenceRefs: ["llama_cpp_binary_configured_without_server_probe"],
-      };
-    }
-    const result = await this.openAi.health(effectiveProvider, { state });
-    return {
-      ...result,
-      status: result.status === "available" ? "available" : backend.binaryPath ? "degraded" : result.status,
-      evidenceRefs: [
-        "llama_cpp_openai_compatible_models_probe",
-        ...(result.evidenceRefs ?? []),
-        ...(backend.binaryPath ? ["llama_cpp_binary_configured"] : []),
-      ],
-      binaryPathHash: backend.binaryPath ? stableHash(backend.binaryPath) : null,
-    };
+    throw providerHttpTransportRetiredError(effectiveProvider, {
+      route: effectiveProvider.baseUrl ? "/models" : null,
+      method: "GET",
+      operation_kind: "model_mount.provider_health.llama_cpp",
+      backend_id: backend.id,
+    });
   }
 
   async listModels({ state, provider }) {
-    const effectiveProvider = this.providerWithBackendBaseUrl(provider);
-    const models = await this.openAi.listModels({ state, provider: effectiveProvider });
-    return models.map((model) => ({
-      ...model,
-      providerId: provider.id,
-      family: "llama_cpp",
-      source: "llama_cpp_openai_compatible_models_endpoint",
-      compatibility: ["llama_cpp", "gguf"],
-    }));
+    void state;
+    throw providerHttpTransportRetiredError(this.providerWithBackendBaseUrl(provider), {
+      route: "/models",
+      method: "GET",
+      operation_kind: "model_mount.provider_inventory.llama_cpp",
+    });
   }
 
   async listLoaded({ state, provider }) {

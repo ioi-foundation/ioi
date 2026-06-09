@@ -16912,7 +16912,7 @@ required before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 827 is now satisfied.
 
-## Implementation Slice Evidence: 828
+## Compacted Implementation Slice Evidence: 828
 
 Slice 828 retired the JS backend-process supervisor authority path.
 `backend-lifecycle.mjs` no longer imports `node:child_process`, spawns backend
@@ -16938,9 +16938,44 @@ state, replacement of planner command transport with direct Rust daemon-core
 APIs, and retirement of remaining provider lifecycle/read adapters remain
 required before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 828 after the next direct
+Scheduled matrix-compaction obligation from Slice 828 is now satisfied.
+
+## Implementation Slice Evidence: 829
+
+Slice 829 retired the remaining JS provider HTTP transport/probe authority
+path. `provider-transport.mjs` no longer performs live `fetch()` calls, resolves
+provider auth headers for runtime provider requests, applies provider HTTP
+timeouts, retries provider-open probes, or returns tolerated provider HTTP
+responses from JS. `fetchProviderJson()` and `retryProviderOpen()` now fail
+closed with `model_mount_provider_http_transport_retired` before live HTTP
+request shaping. The dead HTTP timeout/retry/fallback policy helpers were
+removed, leaving only the provider-health failure classifier used by the
+fail-closed public facade.
+
+OpenAI-compatible, Ollama, vLLM, and llama.cpp driver health/inventory/lifecycle
+methods now fail before `/models`, `/api/tags`, `/api/ps`, or `/api/generate`
+request shaping. The Ollama catalog bridge no longer calls
+`state.driverForProvider(provider).listModels()` to mint catalog results from
+the JS driver; it reports a configured-but-empty bridge with
+`ollama_catalog_js_driver_bridge_retired` evidence until Rust daemon-core
+provider inventory/projection APIs own that path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs packages/runtime-daemon/src/model-mounting/provider-transport-policy.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transport, provider inventory/control projection, wallet/cTEE vault
+material resolution, Agentgres-backed read APIs, replacement of planner command
+transport with direct Rust daemon-core APIs, and retirement of remaining
+provider lifecycle/read adapters remain required before this surface reaches
+the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 829 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-backend lifecycle planner transport, provider lifecycle facades, local
+provider transport facades, provider lifecycle/read adapters, local
 map/projection materialization, and Rust daemon-core provider read/execution
 APIs.

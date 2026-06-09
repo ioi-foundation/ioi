@@ -1,81 +1,45 @@
-import { assertProviderVaultBoundary, providerAuthHeaders } from "./provider-auth.mjs";
-import { parseJsonMaybe, truncate } from "./provider-protocol.mjs";
-import {
-  providerOpenRetryDelayMs,
-  providerRequestTimeoutMs,
-  shouldRetryProviderOpen,
-} from "./provider-transport-policy.mjs";
+import { truncate } from "./provider-protocol.mjs";
 import { runtimeError, stableHash } from "./io.mjs";
 
 export async function fetchProviderJson(provider, route, { method = "GET", body, tolerateHttpError = false, state } = {}) {
-  assertProviderVaultBoundary(provider);
-  if (!provider.baseUrl || String(provider.baseUrl).startsWith("local://")) {
-    throw runtimeError({
-      status: 424,
-      code: "external_blocker",
-      message: "Provider does not expose an HTTP model endpoint.",
-      details: { provider_id: provider.id, provider_kind: provider.kind },
-    });
-  }
-  const timeoutMs = providerRequestTimeoutMs(provider);
-  const url = `${String(provider.baseUrl).replace(/\/+$/, "")}/${route.replace(/^\/+/, "")}`;
-  const auth = providerAuthHeaders(provider, state);
-  const startedAt = Date.now();
-  for (let attempt = 0; ; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(url, {
-        method,
-        signal: controller.signal,
-        headers: {
-          accept: "application/json",
-          ...auth.headers,
-          ...(body === undefined ? {} : { "content-type": "application/json" }),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-      clearTimeout(timeout);
-      const text = await response.text();
-      const parsed = text.trim() ? parseJsonMaybe(text) : null;
-      const result = { ok: response.ok, status: response.status, body: parsed, authEvidence: auth.evidence };
-      if (
-        !response.ok &&
-        !tolerateHttpError &&
-        shouldRetryProviderOpen(provider, response.status, attempt, Date.now() - startedAt)
-      ) {
-        await retryProviderOpen(provider, route, { attempt });
-        continue;
-      }
-      if (!response.ok && !tolerateHttpError) {
-        throw providerHttpError(provider, "OpenAI-compatible provider request failed.", result);
-      }
-      return result;
-    } catch (error) {
-      clearTimeout(timeout);
-      if (error?.status || error?.code === "external_blocker") throw error;
-      if (shouldRetryProviderOpen(provider, "network", attempt, Date.now() - startedAt)) {
-        await retryProviderOpen(provider, route, { attempt });
-        continue;
-      }
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "OpenAI-compatible provider request failed.",
-        details: {
-          provider_id: provider.id,
-          provider_kind: provider.kind,
-          error: String(error?.name ?? error?.message ?? error),
-          timeout_ms: timeoutMs,
-        },
-      });
-    }
-  }
+  void body;
+  void tolerateHttpError;
+  void state;
+  throw providerHttpTransportRetiredError(provider, {
+    route,
+    method,
+  });
 }
 
 export async function retryProviderOpen(_provider, _route, { attempt = 0 } = {}) {
-  const delayMs = providerOpenRetryDelayMs(attempt);
-  await new Promise((resolve) => setTimeout(resolve, delayMs));
+  void _provider;
+  void _route;
+  void attempt;
+  throw providerHttpTransportRetiredError(_provider, {
+    route: _route,
+    method: "RETRY",
+  });
+}
+
+export function providerHttpTransportRetiredError(provider = {}, { route = null, method = null, operation_kind = "model_mount.provider.http_transport" } = {}) {
+  return runtimeError({
+    status: 501,
+    code: "model_mount_provider_http_transport_retired",
+    message: "Provider HTTP transport requires Rust daemon-core model_mount provider ownership.",
+    details: {
+      provider_id: provider?.id ?? null,
+      provider_kind: provider?.kind ?? null,
+      route,
+      method,
+      operation_kind,
+      rust_core_boundary: "model_mount.provider_transport",
+      evidence_refs: [
+        "provider_http_transport_js_retired",
+        "rust_daemon_core_provider_transport_required",
+        "agentgres_provider_projection_required",
+      ],
+    },
+  });
 }
 
 export function providerHttpError(provider, message, result) {

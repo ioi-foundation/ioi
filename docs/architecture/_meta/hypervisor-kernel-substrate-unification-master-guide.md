@@ -1342,6 +1342,20 @@ daemon-core backend lifecycle/control/projection APIs over Agentgres-backed
 state must replace the remaining planner command transport, read adapters, and
 provider lifecycle facades before the pure Rust substrate target is met.
 
+Slice 829 retired the remaining JS provider HTTP transport/probe authority
+path. `provider-transport.mjs` no longer performs `fetch()`, applies JS HTTP
+timeouts, retries provider-open probes, resolves provider auth headers for
+provider runtime requests, or tolerates live provider HTTP responses from JS;
+`fetchProviderJson()` and `retryProviderOpen()` now fail closed with
+`model_mount_provider_http_transport_retired`. OpenAI-compatible, Ollama,
+vLLM, and llama.cpp driver health/inventory/lifecycle methods now fail before
+`/models`, `/api/tags`, `/api/ps`, or `/api/generate` request shaping, and the
+Ollama catalog bridge no longer reaches through the JS provider driver for live
+catalog truth. This still does not claim terminal provider migration: direct
+Rust daemon-core provider transport, provider inventory/control projection,
+wallet/cTEE vault material resolution, Agentgres-backed read APIs, and
+replacement of command transport with direct Rust APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -1,129 +1,50 @@
 import assert from "node:assert/strict";
-import http from "node:http";
 import test from "node:test";
 
 import {
   fetchProviderJson,
   providerCommandError,
   providerHttpError,
+  retryProviderOpen,
 } from "./provider-transport.mjs";
 
-async function withJsonServer(handler) {
-  let retryCount = 0;
-  const server = http.createServer((request, response) => {
-    if (request.url === "/models") {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ data: [{ id: "model-a" }] }));
-      return;
-    }
-    if (request.url === "/retry") {
-      retryCount += 1;
-      if (retryCount === 1) {
-        response.writeHead(503, { "content-type": "application/json" });
-        response.end(JSON.stringify({ error: { code: "warming" } }));
-        return;
-      }
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end(JSON.stringify({ ok: true, attempts: retryCount }));
-      return;
-    }
-    if (request.url === "/fail") {
-      response.writeHead(500, { "content-type": "application/json" });
-      response.end(JSON.stringify({
-        error: {
-          code: "provider_down",
-          type: "server_error",
-          message: "Provider unavailable",
-        },
-      }));
-      return;
-    }
-    response.writeHead(404, { "content-type": "application/json" });
-    response.end("{}");
-  });
-  await new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  try {
-    const address = server.address();
-    return await handler(`http://127.0.0.1:${address.port}`);
-  } finally {
-    await new Promise((resolve) => server.close(resolve));
-  }
+function provider() {
+  return {
+    id: "provider.test",
+    kind: "openai_compatible",
+    baseUrl: "http://127.0.0.1:65535",
+    status: "configured",
+    authScheme: "none",
+  };
 }
 
-test("provider transport fetches JSON with auth boundary evidence", async () => {
-  await withJsonServer(async (baseUrl) => {
-    const result = await fetchProviderJson({
-      id: "provider.test",
-      kind: "ollama",
-      baseUrl,
-      status: "configured",
-      authScheme: "none",
-    }, "/models");
+function assertProviderTransportRetired(error, method) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "model_mount_provider_http_transport_retired");
+  assert.equal(error.details.provider_id, "provider.test");
+  assert.equal(error.details.provider_kind, "openai_compatible");
+  assert.equal(error.details.method, method);
+  assert.equal(error.details.rust_core_boundary, "model_mount.provider_transport");
+  assert.deepEqual(error.details.evidence_refs, [
+    "provider_http_transport_js_retired",
+    "rust_daemon_core_provider_transport_required",
+    "agentgres_provider_projection_required",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "providerId"), false);
+  assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+  return true;
+}
 
-    assert.equal(result.ok, true);
-    assert.equal(result.status, 200);
-    assert.deepEqual(result.body, { data: [{ id: "model-a" }] });
-    assert.equal(result.authEvidence, null);
-  });
-});
-
-test("provider transport retries without appending operation-like records", async () => {
-  await withJsonServer(async (baseUrl) => {
-    const appendOperations = [];
-    const result = await fetchProviderJson({
-      id: "provider.ollama",
-      kind: "ollama",
-      baseUrl,
-      status: "configured",
-      authScheme: "none",
-    }, "/retry", {
-      state: {
-        appendOperation: (kind, payload) => appendOperations.push({ kind, payload }),
-      },
-    });
-
-    assert.equal(result.ok, true);
-    assert.deepEqual(result.body, { ok: true, attempts: 2 });
-    assert.deepEqual(appendOperations, []);
-  });
-});
-
-test("provider transport tolerates provider HTTP errors when requested", async () => {
-  await withJsonServer(async (baseUrl) => {
-    const result = await fetchProviderJson({
-      id: "provider.test",
-      kind: "ollama",
-      baseUrl,
-      status: "configured",
-      authScheme: "none",
-    }, "/fail", { tolerateHttpError: true });
-
-    assert.equal(result.ok, false);
-    assert.equal(result.status, 500);
-    assert.equal(result.body.error.code, "provider_down");
-  });
-});
-
-test("provider transport rejects local-only providers without HTTP endpoints", async () => {
+test("provider transport fetch fails closed before live HTTP requests or retries", async () => {
   await assert.rejects(
-    () => fetchProviderJson({
-      id: "provider.local",
-      kind: "llama_cpp",
-      baseUrl: "local://llama",
-      status: "configured",
-    }, "/models"),
-    (error) => {
-      assert.equal(error.status, 424);
-      assert.equal(error.code, "external_blocker");
-      assert.equal(error.details.provider_id, "provider.local");
-      assert.equal(error.details.provider_kind, "llama_cpp");
-      assert.equal(Object.hasOwn(error.details, "providerId"), false);
-      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
-      return true;
-    },
+    () => fetchProviderJson(provider(), "/models", { method: "GET" }),
+    (error) => assertProviderTransportRetired(error, "GET"),
+  );
+
+  await assert.rejects(
+    () => retryProviderOpen(provider(), "/models", { attempt: 1 }),
+    (error) => assertProviderTransportRetired(error, "RETRY"),
   );
 });
 
