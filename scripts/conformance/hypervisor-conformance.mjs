@@ -554,6 +554,9 @@ function runDocs() {
       /Slice 802 retired the JS workflow-node binding materializer from the model_mount\s+read-projection facade/.test(guide) &&
       /no longer imports or calls\s+`workflowNodeBindingsProjection\(\)` and no longer passes a `workflow_bindings`\s+list into the Rust planner/.test(guide) &&
       /authors the\s+public `workflowBindings` and snapshot `workflowNodes` lists inside Rust/.test(guide) &&
+      /Slice 803 retired the JS model-capability projection materializer from the\s+model_mount read-projection facade/.test(guide) &&
+      /no longer receives\s+or calls `buildModelCapabilities\(\)` and no longer passes a `model_capabilities`\s+list into the Rust planner/.test(guide) &&
+      /derives the\s+public `modelCapabilities` contract inside Rust from primitive route, endpoint,\s+provider, artifact, and loaded-instance projection inputs/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -564,7 +567,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 799/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 800/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 801/.test(matrix) &&
-      /Implementation Slice Evidence: 802/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 802/.test(matrix) &&
+      /Implementation Slice Evidence: 803/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -920,7 +924,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 802 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 802 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 803 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7708,6 +7713,8 @@ function runBridge() {
       !/adapter_boundaries/.test(modelMountingReadProjectionFacade) &&
       !/workflowNodeBindingsProjection/.test(modelMountingReadProjectionFacade) &&
       !/workflow_bindings/.test(modelMountingReadProjectionFacade) &&
+      !/buildModelCapabilities/.test(modelMountingReadProjectionFacade) &&
+      !/model_capabilities/.test(modelMountingReadProjectionFacade) &&
       /agentgres_store:\s*state\.store\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
@@ -7741,8 +7748,10 @@ function runBridge() {
       /request\.state\.agentgres_store\.port === "AgentgresStorePort"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
+      /modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7759,8 +7768,10 @@ function runBridge() {
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
       /fn model_mount_workflow_bindings/.test(bridgeModule) &&
+      /fn model_mount_model_capabilities/.test(bridgeModule) &&
       !/"adapter_boundaries":/.test(bridgeModule) &&
       !/"workflow_bindings":/.test(bridgeModule) &&
+      !/"model_capabilities":/.test(bridgeModule) &&
       /"agentgres": object_or_null\(state\.get\("agentgres_store"\)\)/.test(bridgeModule) &&
       /"plaintextPersistence": false/.test(bridgeModule) &&
       /model_mount_provider_not_found/.test(bridgeModule) &&
@@ -7768,6 +7779,7 @@ function runBridge() {
       /model_mount_vault_health_not_found/.test(bridgeModule) &&
       /"workflowNodes": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"workflowBindings": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
+      /"modelCapabilities": model_mount_model_capabilities\(state\)/.test(bridgeModule) &&
       /rust_model_mount_read_projection_command/.test(bridgeModule) &&
       /rust_daemon_core_model_mount_projection/.test(bridgeModule) &&
       /agentgres_model_mount_read_truth/.test(bridgeModule) &&
@@ -7777,6 +7789,7 @@ function runBridge() {
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /response\["projection"\]\["workflowBindings"\]\[4\]\["capability"\]/.test(bridgeModule) &&
+      /response\["projection"\]\["modelCapabilities"\]\[0\]\["credential_readiness"\]\["status"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["workflowNodes"\]/.test(bridgeModule) &&
       /latest provider health projected in Rust/.test(bridgeModule) &&
       /latest provider health fails closed when provider is missing/.test(bridgeModule) &&

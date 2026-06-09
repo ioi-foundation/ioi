@@ -1019,6 +1019,18 @@ migration: JS still prepares broad current-state input and command transport
 remains migration transport until direct Rust daemon-core Agentgres projection
 APIs replace it.
 
+Slice 803 retired the JS model-capability projection materializer from the
+model_mount read-projection facade. `readProjectionInput()` no longer receives
+or calls `buildModelCapabilities()` and no longer passes a `model_capabilities`
+list into the Rust planner. `plan_model_mount_read_projection` now derives the
+public `modelCapabilities` contract inside Rust from primitive route, endpoint,
+provider, artifact, and loaded-instance projection inputs, including candidate
+readiness, credential/vault posture, fallback evidence, policy target, and
+workflow/agent availability. This still does not claim terminal model_mount
+projection migration: JS still prepares broad current-state input and command
+transport remains migration transport until direct Rust daemon-core Agentgres
+projection APIs replace it.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

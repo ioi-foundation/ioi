@@ -15,7 +15,6 @@ import {
 import { notFound } from "./io.mjs";
 
 export function createModelMountingReadProjectionFacade({
-  buildModelCapabilities,
   internalFixtureModelsEnabled,
   isFixtureModelRecord,
   listJson,
@@ -220,13 +219,6 @@ export function createModelMountingReadProjectionFacade({
       path,
       readJson,
     });
-    const modelCapabilities = buildModelCapabilities({
-      routes,
-      endpoints,
-      providers,
-      artifacts,
-      instances,
-    });
     return {
       server: state.serverStatus(baseUrl),
       catalog: state.catalogStatus(),
@@ -240,7 +232,6 @@ export function createModelMountingReadProjectionFacade({
       instances,
       providers,
       routes,
-      model_capabilities: modelCapabilities,
       downloads,
       provider_health: providerHealth,
       runtime_engines: state.listRuntimeEngines(),
