@@ -16988,8 +16988,9 @@ provider searches now return `model_catalog_live_http_search_retired` with
 auth headers, shape `/api/models` or `/catalog/search` URLs, apply catalog HTTP
 timeouts, or call `fetchWithTimeout()`.
 
-Fixture catalog and local-manifest catalog reads remain local read adapters
-only. External catalog search, provider transport, wallet/cTEE custody
+Fixture catalog reads remain a local read adapter, while local-manifest catalog
+search is retired in a later slice. External catalog search, provider
+transport, wallet/cTEE custody
 resolution, and Agentgres-backed catalog projection must move into direct Rust
 daemon-core APIs before catalog search can become authoritative again.
 
@@ -17038,7 +17039,7 @@ required before OAuth-backed catalog/provider auth can execute again.
 
 Scheduled matrix-compaction obligation from Slice 831 is now satisfied.
 
-## Implementation Slice Evidence: 832
+## Compacted Implementation Slice Evidence: 832
 
 Slice 832 retired the remaining JS catalog-provider runtime-material and
 non-OAuth auth-header vault-resolution helpers. `catalogProviderRuntimeMaterial()`
@@ -17067,9 +17068,38 @@ catalog materialization retirement, and remaining catalog-provider list/get and
 status/search orchestration cleanup remain required before this surface reaches
 the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 832 after the next direct
+Scheduled matrix-compaction obligation from Slice 832 is now satisfied.
+
+## Implementation Slice Evidence: 833
+
+Slice 833 retired local-manifest catalog search materialization from the JS
+catalog-provider port. `catalog-provider-ports.mjs` no longer imports
+`node:fs` or `node:path`, no longer calls `fs.existsSync()`, no longer imports
+or calls `localManifestCatalogEntries()`, and no longer returns manifest entry
+truth from JS. `localManifestCatalogHealth()` still projects configuration
+metadata and manifest path hashes, but the search path now returns
+`model_catalog_local_manifest_search_retired` with
+`local_manifest_catalog_search_js_retired`,
+`rust_daemon_core_catalog_search_required`, and
+`agentgres_catalog_projection_required` evidence before local manifest
+filesystem/materialization can run in JS.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog search, Agentgres-backed projection, direct Rust API replacement for
+command transport, remaining catalog-provider list/get and status/search
+orchestration cleanup, and fixture catalog strategy remain required before this
+surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 833 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, catalog-provider list/get/status/search
 helpers, provider lifecycle/read adapters, local map/projection materialization,
-and Rust daemon-core catalog/provider/OAuth custody APIs.
+fixture catalog strategy, and Rust daemon-core catalog/provider/OAuth custody
+APIs.

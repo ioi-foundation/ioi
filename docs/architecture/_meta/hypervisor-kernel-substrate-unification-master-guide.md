@@ -1363,8 +1363,9 @@ and the Hugging Face-compatible plus custom HTTP catalog ports now return
 `model_catalog_live_http_search_retired` with
 `catalog_live_http_search_js_retired` evidence before catalog auth material,
 `/api/models`, `/catalog/search`, timeout, or `fetchWithTimeout()` request
-shaping can run in JS. Fixture and local-manifest catalog reads remain local
-read adapters only. This still does not claim terminal catalog migration:
+shaping can run in JS. Fixture catalog reads remain a local read adapter, while
+local-manifest catalog search is retired in a later slice. This still does not
+claim terminal catalog migration:
 direct Rust daemon-core catalog search/provider transport, wallet/cTEE custody
 resolution, Agentgres-backed catalog projection, and direct Rust APIs must
 replace the remaining JS catalog status/search orchestration and local
@@ -1397,6 +1398,18 @@ catalog-provider migration: direct Rust daemon-core catalog provider custody,
 auth-header resolution, Agentgres-backed provider projection, local catalog
 materialization retirement, and direct Rust APIs remain required before catalog
 provider reads and auth can execute again.
+
+Slice 833 retired local-manifest catalog search materialization from the JS
+catalog-provider port. `localManifestCatalogProviderPort()` no longer imports
+filesystem/path APIs, calls `fs.existsSync()`, reads manifest JSON through
+`localManifestCatalogEntries()`, or returns manifest entries from JS. The port
+now exposes configuration metadata only and returns
+`model_catalog_local_manifest_search_retired` with
+`local_manifest_catalog_search_js_retired` evidence before local manifest search
+can run. This still does not claim terminal catalog migration: direct Rust
+daemon-core catalog search, Agentgres-backed projection, local catalog
+materialization, and direct Rust APIs remain required before local-manifest
+catalog search can execute again.
 
 ## Part II: Target Execution Model
 

@@ -1,8 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
 import {
   customHttpCatalogProviderPort,
@@ -29,21 +26,8 @@ test("fixture catalog provider exposes filtered fixture results", async () => {
   assert.equal(result.results[0].modelId, "autopilot/native-fixture-3b");
 });
 
-test("local manifest catalog health and search use configured runtime material", async () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-catalog-"));
-  const manifestPath = path.join(tempDir, "catalog.json");
-  fs.writeFileSync(
-    manifestPath,
-    JSON.stringify({
-      models: [
-        {
-          model_id: "demo/model-7b",
-          source_url: "https://catalog.example.test/demo/model-Q4_K_M.gguf",
-          tags: ["chat"],
-        },
-      ],
-    }),
-  );
+test("local manifest catalog projects metadata and retires JS manifest search", async () => {
+  const manifestPath = "/models/catalog.json";
   const state = {
     catalogProviderConfig: () => ({ id: "catalog.local_manifest", enabled: true }),
     catalogProviderRuntimeMaterial: () => ({
@@ -66,8 +50,13 @@ test("local manifest catalog health and search use configured runtime material",
     searchedAt: "2026-06-03T12:00:00.000Z",
   });
 
-  assert.equal(result.status, "available");
-  assert.equal(result.results[0].modelId, "demo/model-7b");
+  assert.equal(result.status, "configured");
+  assert.equal(result.code, "model_catalog_local_manifest_search_retired");
+  assert.equal(result.providerId, "catalog.local_manifest");
+  assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
+  assert.equal(result.evidenceRefs.includes("local_manifest_catalog_search_js_retired"), true);
+  assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
+  assert.deepEqual(result.results, []);
 });
 
 test("ollama catalog provider reports gated and configured bridge states", async () => {

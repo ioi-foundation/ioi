@@ -657,6 +657,9 @@ function runDocs() {
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
+      /Slice 833 retired local-manifest catalog search materialization from the JS\s+catalog-provider port/.test(guide) &&
+      /`model_catalog_local_manifest_search_retired`/.test(guide) &&
+      /`local_manifest_catalog_search_js_retired`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -781,17 +784,25 @@ function runDocs() {
       /model_mount_oauth_token_transport_retired/.test(matrix) &&
       /`RustDaemonCore\.catalogProviderOAuth`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 831 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 832/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 832/.test(matrix) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(matrix) &&
       /model_mount\.catalog_provider_runtime_material\.resolve/.test(matrix) &&
       /model_mount\.catalog_provider_auth_header\.resolve/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 832/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 832 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 833/.test(matrix) &&
+      /Slice 833 retired local-manifest catalog search materialization from the JS\s+catalog-provider port/.test(matrix) &&
+      /model_catalog_local_manifest_search_retired/.test(matrix) &&
+      /local_manifest_catalog_search_js_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 833/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
       /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
       /configured catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
+      /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
+        implementationMatrix,
+      ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -13471,6 +13482,32 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 7/11 is pending: external model catalog search must fail closed before JS auth, URL shaping, or HTTP transport",
+  );
+  assertCheck(
+    result,
+    "model-mount-local-manifest-catalog-search-js-retired",
+    /retiredLocalManifestCatalogSearchResult/.test(catalogProviderPorts) &&
+      /model_catalog_local_manifest_search_retired/.test(catalogProviderPorts) &&
+      /local_manifest_catalog_search_js_retired/.test(catalogProviderPorts) &&
+      /rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
+      /agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
+      /model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
+      /localManifestCatalogProviderPort\(state\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+      !/from "node:fs"/.test(catalogProviderPorts) &&
+      !/from "node:path"/.test(catalogProviderPorts) &&
+      !/localManifestCatalogEntries/.test(catalogProviderPorts) &&
+      !/fs\.existsSync/.test(catalogProviderPorts) &&
+      !/path\.resolve/.test(catalogProviderPorts) &&
+      /local manifest catalog projects metadata and retires JS manifest search/.test(
+        catalogProviderPortsTest,
+      ) &&
+      /model_catalog_local_manifest_search_retired/.test(catalogProviderPortsTest) &&
+      /local_manifest_catalog_search_js_retired/.test(catalogProviderPortsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
+    ],
+    "Phase 7/11 is pending: local manifest catalog search must fail closed before JS filesystem checks, manifest parsing, or entry materialization",
   );
   assertCheck(
     result,

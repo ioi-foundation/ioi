@@ -1,10 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-
 import {
   catalogEntryMatches,
   fixtureModelCatalog,
-  localManifestCatalogEntries,
 } from "./catalog-entries.mjs";
 import {
   catalogProviderConfigHealthFields,
@@ -44,23 +40,9 @@ export function localManifestCatalogProviderPort(state) {
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
     health: () => localManifestCatalogHealth(state, evidenceRefs),
-    search: async ({ query, format, quantization, searchedAt }) => {
+    search: async () => {
       const health = localManifestCatalogHealth(state, evidenceRefs);
-      if (health.status !== "configured" && health.status !== "available") {
-        return { ...health, results: [] };
-      }
-      try {
-        const manifestPath = localManifestCatalogPath(state);
-        const results = localManifestCatalogEntries(manifestPath, searchedAt).filter((entry) => catalogEntryMatches(entry, { query, format, quantization }));
-        return { ...health, status: "available", results };
-      } catch (error) {
-        return {
-          ...health,
-          status: "degraded",
-          errorHash: stableHash(error?.message ?? "manifest catalog failed"),
-          results: [],
-        };
-      }
+      return retiredLocalManifestCatalogSearchResult(health, evidenceRefs);
     },
   };
 }
@@ -171,6 +153,27 @@ export function retiredLiveCatalogSearchResult(providerId, health = {}, evidence
   };
 }
 
+export function retiredLocalManifestCatalogSearchResult(health = {}, evidenceRefs = []) {
+  const status = health.status === "disabled" || health.status === "unconfigured"
+    ? health.status
+    : "configured";
+  return {
+    ...health,
+    status,
+    code: "model_catalog_local_manifest_search_retired",
+    operationKind: "model_catalog.local_manifest_search",
+    providerId: "catalog.local_manifest",
+    rustCoreBoundary: "model_mount.catalog_provider_search",
+    evidenceRefs: [
+      ...evidenceRefs,
+      "local_manifest_catalog_search_js_retired",
+      "rust_daemon_core_catalog_search_required",
+      "agentgres_catalog_projection_required",
+    ],
+    results: [],
+  };
+}
+
 export function huggingFaceCatalogBaseUrl(state) {
   const fallback = process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
   return state?.catalogProviderConfig?.("catalog.huggingface")?.enabled === false
@@ -206,12 +209,11 @@ export function localManifestCatalogHealth(state, evidenceRefs) {
       evidenceRefs,
     };
   }
-  const resolved = path.resolve(manifestPath);
   return {
     ...configFields,
-    status: fs.existsSync(resolved) ? "configured" : "degraded",
+    status: "configured",
     gate: material?.manifestPath ? "vault-backed catalog provider setup" : "IOI_MODEL_CATALOG_MANIFEST_PATH",
-    manifestPathHash: stableHash(resolved),
+    manifestPathHash: stableHash(manifestPath),
     materialConfigured: true,
     runtimeMaterialStatus: material?.manifestPath ? material.runtimeMaterialStatus ?? "bound_runtime_session" : "env_gate",
     materialVaultRefHash: material?.materialVaultRefHash ?? configFields.materialVaultRefHash,
