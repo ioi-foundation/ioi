@@ -17471,7 +17471,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 846 is now satisfied.
 
-## Implementation Slice Evidence: 847
+## Compacted Implementation Slice Evidence: 847
 
 Slice 847 retired JS provider-status summaries from server-status projection
 input. `serverStatusProjectionInput()` no longer reads
@@ -17493,7 +17493,32 @@ truth, backend-state projection, command-transport replacement, and local
 map/projection materialization retirement still remain before this surface
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 847 after the next direct
+Scheduled matrix-compaction obligation from Slice 847 is now satisfied.
+
+## Implementation Slice Evidence: 848
+
+Slice 848 retired LM Studio provider-map seeding from default model-mounting
+initialization. `seedModelMountingDefaults()` no longer calls
+`state.discoverLmStudioProvider(checkedAt)` and no longer writes or merges
+`provider.lmstudio` into `state.providers`, so absent/configured
+LM Studio metadata cannot become default provider inventory truth from JS.
+Default seeding still records the retired LM Studio public projection boundary,
+but the focused tests make the discovery helper poisonous and assert no
+`provider.lmstudio` record is inserted during default seeding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs` | passed |
+
+This still does not claim terminal provider inventory/projection migration:
+direct Rust daemon-core provider inventory/projection APIs, Agentgres-backed
+provider truth, lifecycle/control ownership, command-transport replacement,
+and local provider-map projection materialization retirement still remain
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 848 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

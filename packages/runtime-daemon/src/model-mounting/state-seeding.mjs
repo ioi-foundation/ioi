@@ -22,18 +22,10 @@ export function seedModelMountingDefaults(state, deps = {}) {
   const nativeLocalProvider = nativeLocalProviderRecord(checkedAt);
   state.upsertDefault(state.providers, nativeLocalProvider);
 
-  const lmStudioProvider = state.discoverLmStudioProvider(checkedAt);
-  if (lmStudioProvider.discovery?.disabledByDefault) {
-    state.pruneLmStudioPublicProjectionRecords();
-  }
+  state.pruneLmStudioPublicProjectionRecords();
   if (!internalFixtureModelsEnabled()) {
     state.pruneInternalFixtureProjectionRecords();
   }
-  state.providers.set(lmStudioProvider.id, {
-    ...state.providers.get(lmStudioProvider.id),
-    ...lmStudioProvider,
-    discovery: lmStudioProvider.discovery,
-  });
 
   const llamaBinary =
     env.IOI_LLAMA_CPP_SERVER_PATH ??

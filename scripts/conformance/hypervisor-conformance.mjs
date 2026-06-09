@@ -910,11 +910,16 @@ function runDocs() {
       /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(matrix) &&
       /Focused tests install\s+poisonous provider maps at both the default-record and derivation boundaries/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 846 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 847/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 847/.test(matrix) &&
       /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(matrix) &&
       /`serverStatusProjectionInput\(\)` no longer reads\s+`state\.providers\.values\(\)`/.test(matrix) &&
       /`provider_statuses` field is absent from the primitive server-status input/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 847/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 847 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 848/.test(matrix) &&
+      /Slice 848 retired LM Studio provider-map seeding/.test(matrix) &&
+      /`seedModelMountingDefaults\(\)` no longer calls\s+`state\.discoverLmStudioProvider\(checkedAt\)`/.test(matrix) &&
+      /no longer writes or merges\s+`provider\.lmstudio` into `state\.providers`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 848/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -927,6 +932,7 @@ function runDocs() {
       /catalog-provider port health helpers no longer call `state\.catalogProviderConfig\(\)` or `state\.catalogProviderRuntimeMaterial\(\)`/.test(implementationMatrix) &&
       /the Ollama catalog-provider port no longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(implementationMatrix) &&
       /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
+      /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -13658,10 +13664,14 @@ function runReceipts() {
       !/lmStudioDetectedArtifactRecord/.test(defaultRecords) &&
       !/lmStudioDetectedArtifactRecord/.test(defaultRecordsTest) &&
       !/lmStudioDetectedArtifactRecord/.test(stateSeeding) &&
+      !/discoverLmStudioProvider\(checkedAt\)/.test(stateSeeding) &&
       !/discoverLmStudioArtifacts\(lmStudioProvider/.test(stateSeeding) &&
+      !/state\.providers\.set\(lmStudioProvider\.id/.test(stateSeeding) &&
+      !/state\.providers\.get\(lmStudioProvider\.id\)/.test(stateSeeding) &&
       /LM Studio provider discovery is inert until Rust provider inventory owns probing/.test(defaultDiscoveryTest) &&
       /LM Studio artifact discovery is retired before public CLI list execution/.test(defaultDiscoveryTest) &&
       /LM Studio public projection pruning is retired before JS map mutation/.test(defaultDiscoveryTest) &&
+      /JS LM Studio provider discovery must stay retired during default seeding/.test(stateSeedingTest) &&
       /state seeding prunes disabled fixtures without JS LM Studio artifact fallback/.test(stateSeedingTest) &&
       /state seeding ignores JS-discovered LM Studio artifacts/.test(stateSeedingTest),
     [

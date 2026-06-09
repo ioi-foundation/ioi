@@ -1563,6 +1563,15 @@ authors the public server-status envelope. Direct Rust daemon-core
 server-control/provider projection must own provider-state counts over admitted
 Agentgres provider truth before terminal server-control projection is complete.
 
+Slice 848 retired LM Studio provider-map seeding from default model-mounting
+initialization. `seedModelMountingDefaults()` no longer calls
+`state.discoverLmStudioProvider(checkedAt)` and no longer merges
+`provider.lmstudio` into `state.providers`, even as absent/configured inert
+metadata. Default seeding still records the retired LM Studio public projection
+boundary, but provider inventory truth must now come from direct Rust
+daemon-core provider inventory/projection APIs backed by admitted Agentgres
+state rather than JS-discovered provider records.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
