@@ -167,7 +167,17 @@ function createState() {
 function rustProjectionFixture(request) {
   const state = request.state;
   const receipts = state.receipts ?? [];
+  if (request.projection_kind === "artifacts") return state.artifacts ?? [];
   if (request.projection_kind === "product_artifacts") return productArtifactsFromRustState(state);
+  if (request.projection_kind === "providers") return state.providers ?? [];
+  if (request.projection_kind === "endpoints") return state.endpoints ?? [];
+  if (request.projection_kind === "instances") return state.instances ?? [];
+  if (request.projection_kind === "routes") return state.routes ?? [];
+  if (request.projection_kind === "model_capabilities") return modelCapabilitiesFromRustState(state);
+  if (request.projection_kind === "downloads") return state.downloads ?? [];
+  if (request.projection_kind === "oauth_sessions") return state.oauth_sessions ?? [];
+  if (request.projection_kind === "oauth_states") return state.oauth_states ?? [];
+  if (request.projection_kind === "provider_health") return state.provider_health ?? [];
   if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
   if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
   const projection = {
@@ -635,16 +645,16 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "runtime_model_catalog",
     "open_ai_model_list",
     "product_artifacts",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
-    "projection",
+    "artifacts",
+    "providers",
+    "endpoints",
+    "instances",
+    "routes",
+    "model_capabilities",
+    "downloads",
+    "oauth_sessions",
+    "oauth_states",
+    "provider_health",
   ]);
   const workflowBindings = facade.workflowNodeBindings(state);
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
@@ -653,9 +663,10 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
   assert.equal(readProjectionRequests.filter((request) => request.projection_kind === "projection")
     .every((request) => request.state.agentgres_store.port === "AgentgresStorePort"), true);
-  assert.equal(readProjectionRequests.slice(0, 3).every((request) => !Object.hasOwn(request.state, "server")), true);
+  assert.equal(readProjectionRequests.filter((request) => request.projection_kind !== "projection")
+    .every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(
-    readProjectionRequests.every((request) =>
+    readProjectionRequests.slice(0, 4).every((request) =>
       request.state.product_artifact_policy.include_internal_fixtures === false),
     true,
   );

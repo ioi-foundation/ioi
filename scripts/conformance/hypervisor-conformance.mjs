@@ -560,6 +560,9 @@ function runDocs() {
       /Slice 804 retired the JS product-safe model-list materializers from the\s+model_mount read-projection facade/.test(guide) &&
       /`runtimeModelCatalogList\(\)`,\s+`openAiModelList\(\)`, and `listProductArtifacts\(\)` now request dedicated Rust\s+read-projection kinds/.test(guide) &&
       /`runtime_model_catalog`, `open_ai_model_list`, and\s+`product_artifacts`/.test(guide) &&
+      /Slice 805 moved the remaining public model_mount projection-field list reads\s+onto dedicated slim Rust read-projection kinds/.test(guide) &&
+      /`listArtifacts\(\)`,\s+`listProviders\(\)`, `listEndpoints\(\)`, `listInstances\(\)`, `listRoutes\(\)`,\s+`listModelCapabilities\(\)`, `listDownloads\(\)`, `listOAuthSessions\(\)`,\s+`listOAuthStates\(\)`, and `listProviderHealth\(\)`/.test(guide) &&
+      /`artifacts`, `providers`, `endpoints`,\s+`instances`, `routes`, `model_capabilities`, `downloads`, `oauth_sessions`,\s+`oauth_states`, and `provider_health`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -572,7 +575,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 801/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 802/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 803/.test(matrix) &&
-      /Implementation Slice Evidence: 804/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 804/.test(matrix) &&
+      /Implementation Slice Evidence: 805/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -928,8 +932,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 803 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 804 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 805 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7718,7 +7722,7 @@ function runBridge() {
       !/workflowNodeBindingsProjection/.test(modelMountingReadProjectionFacade) &&
       !/workflow_bindings/.test(modelMountingReadProjectionFacade) &&
       !/buildModelCapabilities/.test(modelMountingReadProjectionFacade) &&
-      !/model_capabilities/.test(modelMountingReadProjectionFacade) &&
+      !/model_capabilities\s*:/.test(modelMountingReadProjectionFacade) &&
       !/productArtifactList/.test(modelMountingReadProjectionFacade) &&
       !/runtimeModelCatalogListProjection/.test(modelMountingReadProjectionFacade) &&
       !/openAiModelListProjection/.test(modelMountingReadProjectionFacade) &&
@@ -7743,16 +7747,16 @@ function runBridge() {
       /translateLatestVaultHealthError/.test(modelMountingReadProjectionFacade) &&
       /model_mount_vault_health_not_found/.test(modelMountingReadProjectionFacade) &&
       /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
-      /listArtifacts\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
-      /listProviders\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
-      /listEndpoints\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
-      /listInstances\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"instances"\)/.test(modelMountingReadProjectionFacade) &&
-      /listRoutes\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
-      /listModelCapabilities\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"modelCapabilities"\)/.test(modelMountingReadProjectionFacade) &&
-      /listDownloads\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
-      /listOAuthSessions\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"oauthSessions"\)/.test(modelMountingReadProjectionFacade) &&
-      /listOAuthStates\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"oauthStates"\)/.test(modelMountingReadProjectionFacade) &&
-      /listProviderHealth\(state\)\s*\{[\s\S]*?rustProjectionField\(state,\s*"providerHealth"\)/.test(modelMountingReadProjectionFacade) &&
+      /listArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
+      /listProviders\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
+      /listEndpoints\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"endpoints"\)/.test(modelMountingReadProjectionFacade) &&
+      /listInstances\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"instances"\)/.test(modelMountingReadProjectionFacade) &&
+      /listRoutes\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
+      /listModelCapabilities\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacade) &&
+      /listDownloads\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
+      /listOAuthSessions\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_sessions"\)/.test(modelMountingReadProjectionFacade) &&
+      /listOAuthStates\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"oauth_states"\)/.test(modelMountingReadProjectionFacade) &&
+      /listProviderHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_health"\)/.test(modelMountingReadProjectionFacade) &&
       /facade\.adapterBoundaries\(state\)\.agentgres\.port/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7763,6 +7767,7 @@ function runBridge() {
       /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"product_artifacts"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"artifacts"[\s\S]*"providers"[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"routes"[\s\S]*"model_capabilities"[\s\S]*"downloads"[\s\S]*"oauth_sessions"[\s\S]*"oauth_states"[\s\S]*"provider_health"/.test(modelMountingReadProjectionFacadeTest) &&
       /productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7779,6 +7784,16 @@ function runBridge() {
       /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(bridgeModule) &&
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
       /"product_artifacts" => Ok\(Value::Array\(model_mount_product_artifacts\(&request\.state\)\)\)/.test(bridgeModule) &&
+      /"artifacts" => Ok\(Value::Array\(array_field\(&request\.state,\s*"artifacts"\)\)\)/.test(bridgeModule) &&
+      /"providers" => Ok\(Value::Array\(array_field\(&request\.state,\s*"providers"\)\)\)/.test(bridgeModule) &&
+      /"endpoints" => Ok\(Value::Array\(array_field\(&request\.state,\s*"endpoints"\)\)\)/.test(bridgeModule) &&
+      /"instances" => Ok\(Value::Array\(array_field\(&request\.state,\s*"instances"\)\)\)/.test(bridgeModule) &&
+      /"routes" => Ok\(Value::Array\(array_field\(&request\.state,\s*"routes"\)\)\)/.test(bridgeModule) &&
+      /"model_capabilities" => Ok\(model_mount_model_capabilities\(&request\.state\)\)/.test(bridgeModule) &&
+      /"downloads" => Ok\(Value::Array\(array_field\(&request\.state,\s*"downloads"\)\)\)/.test(bridgeModule) &&
+      /"oauth_sessions" => Ok\(Value::Array\(array_field\(&request\.state,\s*"oauth_sessions"\)\)\)/.test(bridgeModule) &&
+      /"oauth_states" => Ok\(Value::Array\(array_field\(&request\.state,\s*"oauth_states"\)\)\)/.test(bridgeModule) &&
+      /"provider_health" => Ok\(Value::Array\(array_field\(&request\.state,\s*"provider_health"\)\)\)/.test(bridgeModule) &&
       /"runtime_model_catalog" => Ok\(model_mount_runtime_model_catalog\(&request\.state\)\)/.test(bridgeModule) &&
       /"open_ai_model_list" => Ok\(model_mount_open_ai_model_list/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&

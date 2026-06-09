@@ -33,7 +33,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listArtifacts(state) {
-    return rustProjectionField(state, "artifacts");
+    return rustReadProjection(state, "artifacts");
   }
 
   function listProductArtifacts(state) {
@@ -41,39 +41,39 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listProviders(state) {
-    return rustProjectionField(state, "providers");
+    return rustReadProjection(state, "providers");
   }
 
   function listEndpoints(state) {
-    return rustProjectionField(state, "endpoints");
+    return rustReadProjection(state, "endpoints");
   }
 
   function listInstances(state) {
-    return rustProjectionField(state, "instances");
+    return rustReadProjection(state, "instances");
   }
 
   function listRoutes(state) {
-    return rustProjectionField(state, "routes");
+    return rustReadProjection(state, "routes");
   }
 
   function listModelCapabilities(state) {
-    return rustProjectionField(state, "modelCapabilities");
+    return rustReadProjection(state, "model_capabilities");
   }
 
   function listDownloads(state) {
-    return rustProjectionField(state, "downloads");
+    return rustReadProjection(state, "downloads");
   }
 
   function listOAuthSessions(state) {
-    return rustProjectionField(state, "oauthSessions");
+    return rustReadProjection(state, "oauth_sessions");
   }
 
   function listOAuthStates(state) {
-    return rustProjectionField(state, "oauthStates");
+    return rustReadProjection(state, "oauth_states");
   }
 
   function listProviderHealth(state) {
-    return rustProjectionField(state, "providerHealth");
+    return rustReadProjection(state, "provider_health");
   }
 
   function snapshot(state, baseUrl) {
@@ -197,6 +197,7 @@ export function createModelMountingReadProjectionFacade({
       include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),
     };
     if (
+      projectionKind === "artifacts" ||
       projectionKind === "product_artifacts" ||
       projectionKind === "runtime_model_catalog" ||
       projectionKind === "open_ai_model_list"
@@ -207,24 +208,57 @@ export function createModelMountingReadProjectionFacade({
       };
     }
     const endpoints = endpointList(state);
+    if (projectionKind === "endpoints") {
+      return { endpoints };
+    }
     const instances = instanceList(state);
+    if (projectionKind === "instances") {
+      return { instances };
+    }
     const providers = providerList(state, {
       providerHasVaultRef,
       publicProvider,
     });
+    if (projectionKind === "providers") {
+      return { providers };
+    }
     const routes = routeList(state);
+    if (projectionKind === "routes") {
+      return { routes };
+    }
+    if (projectionKind === "model_capabilities") {
+      return {
+        artifacts,
+        endpoints,
+        instances,
+        providers,
+        routes,
+      };
+    }
     const downloads = downloadList(state);
+    if (projectionKind === "downloads") {
+      return { downloads };
+    }
     const oauthSessions = oauthSessionList(state, {
       publicOAuthSession,
     });
+    if (projectionKind === "oauth_sessions") {
+      return { oauth_sessions: oauthSessions };
+    }
     const oauthStates = oauthStateList(state, {
       publicOAuthState,
     });
+    if (projectionKind === "oauth_states") {
+      return { oauth_states: oauthStates };
+    }
     const providerHealth = providerHealthList(state, {
       listJson,
       path,
       readJson,
     });
+    if (projectionKind === "provider_health") {
+      return { provider_health: providerHealth };
+    }
     return {
       server: state.serverStatus(baseUrl),
       catalog: state.catalogStatus(),

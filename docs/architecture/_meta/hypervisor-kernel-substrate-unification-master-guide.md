@@ -1044,6 +1044,21 @@ materializes many broad projection inputs for other read surfaces and command
 transport remains migration transport until direct Rust daemon-core Agentgres
 projection APIs replace it.
 
+Slice 805 moved the remaining public model_mount projection-field list reads
+onto dedicated slim Rust read-projection kinds. `listArtifacts()`,
+`listProviders()`, `listEndpoints()`, `listInstances()`, `listRoutes()`,
+`listModelCapabilities()`, `listDownloads()`, `listOAuthSessions()`,
+`listOAuthStates()`, and `listProviderHealth()` no longer request the broad
+`projection` envelope through `rustProjectionField()`. They now call dedicated
+Rust read-projection kinds (`artifacts`, `providers`, `endpoints`,
+`instances`, `routes`, `model_capabilities`, `downloads`, `oauth_sessions`,
+`oauth_states`, and `provider_health`) with only the primitive input required
+for each list. This still does not claim terminal model_mount projection
+migration: snapshot/projection, workflow/adapter, health envelope, runtime
+engine, and other broad read surfaces still need direct Rust daemon-core
+Agentgres projection APIs to replace remaining JS state materialization and
+command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
