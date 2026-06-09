@@ -16658,12 +16658,11 @@ Focused evidence:
 This still does not claim terminal model_mount projection migration: direct Rust
 daemon-core Agentgres projection APIs still need to replace JS state
 materialization, local map/projection-file materialization, command transport,
-edge error-envelope translation, and the remaining live route-decision helper in
-`route-decision.mjs`.
+edge error-envelope translation, and route-decision readback transport.
 
 Scheduled matrix-compaction obligation from Slice 817 is now satisfied.
 
-## Implementation Slice Evidence: 818
+## Compacted Implementation Slice Evidence: 818
 
 Slice 818 retired JS model-route decision authoring from the route-selection
 path. `createModelRouteDecision()` and its local policy/rationale/hash helper
@@ -16679,18 +16678,41 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/model-mounting/route-decision.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
-| `node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
-| `npm run hypervisor-conformance:bridge` | passed |
+| targeted route-selection/model_mount JS tests plus `hypervisor-conformance:bridge` | passed before the Slice 819 cleanup |
 
 This still does not claim terminal model_route migration: direct Rust
 daemon-core route-control, route-selection, provider request shaping,
 projection, Agentgres-backed read APIs, and command-transport retirement remain
 required before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 818 after the next direct
+Scheduled matrix-compaction obligation from Slice 818 is now satisfied.
+
+## Implementation Slice Evidence: 819
+
+Slice 819 deleted the remaining `route-decision.mjs` compatibility module and
+its self-test. `isAutoModelSelector()` moved into `routes.mjs`, the runtime
+state no longer imports or passes a `routeDecision` dependency, and
+`modelRouteBindingFromReceipt()` now owns its narrow canonical receipt projection
+inside `thread-runtime-controls.mjs` while emitting `receipt_id` without the
+retired `receiptId` alias. The unused provider request-shaping helper/test path
+is absent rather than preserved as a compatibility shim.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/threads/thread-runtime-controls.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+
+This still does not claim terminal model_route migration: direct Rust
+daemon-core route-control, route-selection, provider execution/request shaping,
+projection, Agentgres-backed read APIs, and command-transport retirement remain
+required before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 819 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper
-calls, provider request shaping, local map/projection materialization, and the
-remaining route-decision projection helper.
+calls, local map/projection materialization, and Rust daemon-core route read
+APIs.

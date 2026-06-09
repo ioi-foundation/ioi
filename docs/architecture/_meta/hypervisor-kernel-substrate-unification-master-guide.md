@@ -1194,9 +1194,9 @@ read-projection facade, which calls Rust `plan_model_mount_read_projection`
 kind `model_route_decisions` with admitted receipts as migration input.
 `packages/runtime-daemon/src/model-mounting/projections.mjs` and its self-test
 were deleted, and conformance now requires those files to remain absent. This
-keeps the route-decision receipt projection helper in `route-decision.mjs` only
-for live route/thread binding code until direct Rust daemon-core route-decision
-projection APIs replace that remaining JS helper.
+kept only a temporary route-decision receipt projection helper for live
+route/thread binding until the next facade-retirement cut removed that helper
+module entirely.
 
 Slice 818 retired JS model-route decision authoring from route selection.
 `createModelRouteDecision()` and its local policy/rationale/hash construction
@@ -1209,6 +1209,16 @@ still does not claim terminal model_route migration: direct Rust daemon-core
 route-control, route-selection, provider request shaping, projection, and
 Agentgres-backed read APIs still need to replace JS helper transport and the
 temporary bridge command path.
+
+Slice 819 deleted the remaining `route-decision.mjs` compatibility module and
+its self-test. The tiny `model=auto` selector now lives with route selection in
+`routes.mjs`; the thread model-route binding reads canonical
+`details.model_route_decision` locally and emits canonical `receipt_id` without
+a `receiptId` alias; and the unused provider request-shaping helper/test path
+is gone instead of being preserved as compatibility scaffolding. This still
+does not claim terminal model_route migration: direct Rust daemon-core
+route-control, route-selection, provider execution/request shaping, projection,
+Agentgres-backed read APIs, and command-transport retirement remain required.
 
 ## Part II: Target Execution Model
 

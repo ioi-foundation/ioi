@@ -467,5 +467,6 @@ test("model policy, workflow context, reasoning effort, and route receipt bindin
   assert.equal(binding.routeId, "route.local-first");
   assert.equal(binding.endpointId, "endpoint-1");
   assert.equal(binding.providerId, "provider-1");
-  assert.equal(binding.receiptId, "receipt-1");
+  assert.equal(binding.receipt_id, "receipt-1");
+  assert.equal(Object.hasOwn(binding, "receiptId"), false);
 });

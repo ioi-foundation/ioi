@@ -45,6 +45,10 @@ const CANONICAL_ROUTE_UPSERT_REQUEST_FIELDS = [
   "last_receipt_id",
 ];
 
+export function isAutoModelSelector(modelId) {
+  return typeof modelId === "string" && modelId.trim().toLowerCase() === "auto";
+}
+
 export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
   assertCanonicalRouteUpsertRequestBody(body);
   const id = body.id ?? `route.${safeId(body.role ?? "custom")}`;
@@ -108,7 +112,7 @@ export function endpointIdsForExplicitModelForState(state, route, modelId, deps 
 export function selectRoute({
   endpoint,
   endpointIdsForExplicitModel: endpointIdsForExplicitModelFn,
-  isAutoModelSelector,
+  isAutoModelSelector: isAutoModelSelectorFn = isAutoModelSelector,
   isFixtureEndpointCandidate,
   model_id,
   policy,
@@ -121,7 +125,7 @@ export function selectRoute({
   capability = "chat",
 } = {}) {
   const route = routes.get(route_id ?? "route.local-first") ?? getRoute("route.local-first");
-  const explicitModelId = isAutoModelSelector(model_id) ? null : model_id;
+  const explicitModelId = isAutoModelSelectorFn(model_id) ? null : model_id;
   const fallback = explicitModelId
     ? endpointIdsForExplicitModelFn(route, explicitModelId)
     : route.fallback.length > 0
@@ -203,7 +207,6 @@ export function selectRouteForState(state, { model_id, route_id, capability, pol
     endpoint: (endpointId) => state.endpoint(endpointId),
     endpointIdsForExplicitModel: (route, explicitModelId) =>
       state.endpointIdsForExplicitModel(route, explicitModelId),
-    isAutoModelSelector,
     isFixtureEndpointCandidate,
     model_id,
     policy,

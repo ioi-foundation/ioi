@@ -7,7 +7,6 @@ import {
 import {
   runtimeError,
 } from "../runtime-http-utils.mjs";
-import * as routeDecision from "../model-mounting/route-decision.mjs";
 
 export function initialThreadRuntimeControls(options = {}, modelRoute = {}, now = new Date().toISOString()) {
   const mode = normalizeThreadInteractionMode(
@@ -277,15 +276,26 @@ export function modelWorkflowContext({ model = {}, options = {}, context = {} } 
 }
 
 export function modelRouteBindingFromReceipt(receipt, requestedModelId) {
-  const decision = routeDecision.routeDecisionProjectionFromReceipt(receipt);
+  const decision = routeDecisionProjectionFromReceipt(receipt);
   return {
     requestedModelId: decision?.requested_model ?? requestedModelId ?? "auto",
     selectedModel: decision?.selected_model ?? requestedModelId ?? null,
     routeId: decision?.route_id ?? null,
     endpointId: decision?.endpoint_id ?? null,
     providerId: decision?.provider_id ?? null,
-    receiptId: receipt.id,
+    receipt_id: receipt.id,
     decision,
+  };
+}
+
+function routeDecisionProjectionFromReceipt(receipt) {
+  const decision = receipt?.details?.model_route_decision;
+  if (!decision || typeof decision !== "object") return null;
+  return {
+    ...decision,
+    receipt_id: receipt.id,
+    receipt_created_at: receipt.createdAt,
+    receipt_kind: receipt.kind,
   };
 }
 

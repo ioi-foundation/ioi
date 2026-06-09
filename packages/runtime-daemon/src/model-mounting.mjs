@@ -2,7 +2,6 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-import * as routeDecision from "./model-mounting/route-decision.mjs";
 import {
   createModelMountAdmissionRunnerFromEnv,
 } from "./model-mounting/model-mount-admission-runner.mjs";
@@ -999,7 +998,6 @@ export class ModelMountingState {
       previousResponseId,
       responseId,
     }, {
-      routeDecision,
       stableHash,
     });
   }
@@ -1296,7 +1294,6 @@ export class ModelMountingState {
 
   selectRoute({ modelId, routeId, capability, policy }) {
     return selectRouteForState(this, { model_id: modelId, route_id: routeId, capability, policy }, {
-      isAutoModelSelector: routeDecision.isAutoModelSelector,
       isFixtureEndpointCandidate,
       runtimeError,
       truthy,
