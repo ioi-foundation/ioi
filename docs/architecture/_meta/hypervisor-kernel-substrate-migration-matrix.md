@@ -16316,7 +16316,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 806
+## Compacted Implementation Slice Evidence: 806
 
 Slice 806 moved public model_mount workflow binding and adapter-boundary reads
 onto dedicated slim Rust read-projection kinds. `workflowNodeBindings()` now
@@ -16339,10 +16339,41 @@ runtime engine, receipt replay, health envelope, and other broad read surfaces
 still need direct Rust daemon-core Agentgres projection APIs to replace
 remaining JS state materialization, command transport, and edge wrappers.
 
-Scheduled matrix-compaction obligation from Slice 806 is pending after this
+Scheduled matrix-compaction obligation from Slice 806 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 807
+
+Slice 807 slimmed additional Rust-authored model_mount read projections so they
+no longer require broad snapshot/projection state materialization.
+`projectionSummary()` and `modelRouteDecisions()` now send only admitted
+receipts into `plan_model_mount_read_projection`; `authoritySnapshot()` sends
+only server authority status, grants, vault refs, receipts, wallet status, and
+vault status; `latestProviderHealth()` sends only provider records,
+provider-health records, and receipts; and `latestVaultHealth()` sends only
+receipts. The Rust `projection_summary` planner now authors its summary
+directly from receipt truth instead of rebuilding the full projection object.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal model_mount migration: full `projection`,
+`snapshot`, `receipt_replay`, runtime engine, and other broad read surfaces
+still need direct Rust daemon-core Agentgres projection APIs to replace
+remaining JS state materialization, command transport, and edge wrappers.
+
+Scheduled matrix-compaction obligation from Slice 807 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 806 after the next
+Next scheduled matrix-compaction pass: compact Slice 807 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

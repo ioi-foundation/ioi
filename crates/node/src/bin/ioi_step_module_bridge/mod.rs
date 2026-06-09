@@ -2871,13 +2871,13 @@ fn compact_evidence(values: Vec<Value>) -> Value {
 }
 
 fn model_mount_projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
-    let projection = model_mount_projection(request);
+    let receipts = array_field(&request.state, "receipts");
     json!({
-        "schemaVersion": projection.get("schemaVersion").cloned().unwrap_or(Value::Null),
-        "source": projection.get("source").cloned().unwrap_or(Value::Null),
-        "watermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
-        "receiptCount": projection.get("receipts").and_then(Value::as_array).map_or(0, Vec::len),
-        "generatedAt": projection.get("generatedAt").cloned().unwrap_or(Value::Null),
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "source": "agentgres_model_mounting_projection",
+        "watermark": receipts.len(),
+        "receiptCount": receipts.len(),
+        "generatedAt": model_mount_projection_generated_at(request),
     })
 }
 

@@ -723,6 +723,10 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(replay.model_route_decision.selected_model, "model.local");
   assert.equal(Object.hasOwn(replay, "modelRouteDecision"), false);
 
+  const routeDecisions = facade.modelRouteDecisions(state);
+  assert.equal(routeDecisions[0].receipt_id, "receipt-route");
+  assert.equal(routeDecisions[0].selected_model, "model.local");
+
   const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
   assert.equal(authority.wallet.port, "WalletAuthorityPort");
@@ -732,10 +736,25 @@ test("read projection facade composes snapshots, projection, and receipt replay"
     "projection",
     "projection_summary",
     "receipt_replay",
+    "model_route_decisions",
     "authority_snapshot",
   ]);
-  assert.equal(readProjectionRequests.at(-1).state.providers[0].id, "provider.local");
-  assert.equal(Object.hasOwn(readProjectionRequests.at(-1).state.providers[0], "providerId"), false);
+  const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
+  assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
+  const routeDecisionRequest = readProjectionRequests.find((request) => request.projection_kind === "model_route_decisions");
+  assert.deepEqual(Object.keys(routeDecisionRequest.state), ["receipts"]);
+  const authorityRequest = readProjectionRequests.at(-1);
+  assert.deepEqual(Object.keys(authorityRequest.state).sort(), [
+    "grants",
+    "receipts",
+    "server",
+    "vault",
+    "vault_refs",
+    "wallet",
+  ]);
+  assert.equal(authorityRequest.state.wallet.port, "WalletAuthorityPort");
+  assert.equal(Object.hasOwn(authorityRequest.state, "providers"), false);
+  assert.equal(Object.hasOwn(authorityRequest.state, "artifacts"), false);
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {
@@ -762,6 +781,16 @@ test("read projection facade projects latest provider and vault health envelopes
     "latest_vault_health",
   ]);
   assert.equal(readProjectionRequests[0].provider_id, "provider.local");
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
+    "provider_health",
+    "providers",
+    "receipts",
+  ]);
+  assert.equal(readProjectionRequests[0].state.providers[0].id, "provider.local");
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state.providers[0], "providerId"), false);
+  assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "artifacts")), true);
 });
 
 test("read projection facade preserves latest health not-found errors", () => {
@@ -807,4 +836,10 @@ test("read projection facade preserves latest health not-found errors", () => {
     "latest_vault_health",
   ]);
   assert.equal(readProjectionRequests[0].provider_id, "provider.local");
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
+    "provider_health",
+    "providers",
+    "receipts",
+  ]);
+  assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
 });

@@ -190,6 +190,30 @@ export function createModelMountingReadProjectionFacade({
         vault: state.vaultStatus(),
       };
     }
+    if (projectionKind === "model_route_decisions" || projectionKind === "projection_summary") {
+      return {
+        receipts: state.listReceipts(),
+      };
+    }
+    if (projectionKind === "latest_vault_health") {
+      return {
+        receipts: state.listReceipts(),
+      };
+    }
+    if (projectionKind === "latest_provider_health") {
+      return {
+        providers: providerList(state, {
+          providerHasVaultRef,
+          publicProvider,
+        }),
+        provider_health: providerHealthList(state, {
+          listJson,
+          path,
+          readJson,
+        }),
+        receipts: state.listReceipts(),
+      };
+    }
     const artifacts = artifactList(state);
     const productArtifactPolicy = {
       include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),
@@ -256,6 +280,16 @@ export function createModelMountingReadProjectionFacade({
     });
     if (projectionKind === "provider_health") {
       return { provider_health: providerHealth };
+    }
+    if (projectionKind === "authority_snapshot") {
+      return {
+        server: state.serverStatus(baseUrl),
+        grants: state.listTokens(),
+        vault_refs: state.listVaultRefs(),
+        receipts: state.listReceipts(),
+        wallet: state.walletAuthority.adapterStatus(),
+        vault: state.vaultStatus(),
+      };
     }
     return {
       server: state.serverStatus(baseUrl),

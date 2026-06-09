@@ -567,6 +567,10 @@ function runDocs() {
       /`workflowNodeBindings\(\)` now\s+requests `workflow_bindings` directly from `plan_model_mount_read_projection`/.test(guide) &&
       /`adapterBoundaries\(\)` now requests\s+`adapter_boundaries` with only primitive `wallet`, `vault`, and\s+`agentgres_store` adapter status inputs/.test(guide) &&
       /legacy `rustProjectionField\(\)` and\s+`rustProjectionObjectField\(\)` helpers are retired from the facade/.test(guide) &&
+      /Slice 807 slimmed additional Rust-authored model_mount read projections so they\s+no longer require broad snapshot\/projection state materialization/.test(guide) &&
+      /`projectionSummary\(\)` and `modelRouteDecisions\(\)` now send only admitted\s+receipts into `plan_model_mount_read_projection`/.test(guide) &&
+      /`latestProviderHealth\(\)` sends only provider records,\s+provider-health records, and receipts/.test(guide) &&
+      /Rust `projection_summary` planner now authors its summary\s+directly from receipt truth instead of rebuilding the full projection object/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -581,7 +585,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 803/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 804/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 805/.test(matrix) &&
-      /Implementation Slice Evidence: 806/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 806/.test(matrix) &&
+      /Implementation Slice Evidence: 807/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7743,6 +7748,10 @@ function runBridge() {
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "workflow_bindings"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "adapter_boundaries"[\s\S]*?agentgres_store:\s*state\.store\.adapterStatus\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_vault_health"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "authority_snapshot"[\s\S]*?server:\s*state\.serverStatus\(baseUrl\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
       !/latestProviderHealth\(state,\s*providerId\)\s*\{(?:(?!\n  function latestVaultHealth).)*state\.provider\(providerId\)/s.test(modelMountingReadProjectionFacade) &&
@@ -7770,6 +7779,11 @@ function runBridge() {
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterRequest\.state\.agentgres_store\.port,\s*"AgentgresStorePort"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(summaryRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(routeDecisionRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(authorityRequest\.state\)\.sort\(\),\s*\[[\s\S]*"grants"[\s\S]*"receipts"[\s\S]*"server"[\s\S]*"vault"[\s\S]*"vault_refs"[\s\S]*"wallet"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"provider_health"[\s\S]*"providers"[\s\S]*"receipts"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(readProjectionRequests\[1\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7808,6 +7822,8 @@ function runBridge() {
       /"runtime_model_catalog" => Ok\(model_mount_runtime_model_catalog\(&request\.state\)\)/.test(bridgeModule) &&
       /"open_ai_model_list" => Ok\(model_mount_open_ai_model_list/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&
+      /fn model_mount_projection_summary/.test(bridgeModule) &&
+      !/fn model_mount_projection_summary(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
       /fn model_mount_latest_provider_health/.test(bridgeModule) &&
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&

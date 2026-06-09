@@ -1072,6 +1072,20 @@ snapshot/projection, runtime engine, receipt replay, health envelope, and other
 broad read surfaces still need direct Rust daemon-core Agentgres projection APIs
 to replace remaining JS state materialization and command transport.
 
+Slice 807 slimmed additional Rust-authored model_mount read projections so they
+no longer require broad snapshot/projection state materialization.
+`projectionSummary()` and `modelRouteDecisions()` now send only admitted
+receipts into `plan_model_mount_read_projection`; `authoritySnapshot()` sends
+only server authority status, grants, vault refs, receipts, wallet status, and
+vault status; `latestProviderHealth()` sends only provider records,
+provider-health records, and receipts; and `latestVaultHealth()` sends only
+receipts. The Rust `projection_summary` planner now authors its summary
+directly from receipt truth instead of rebuilding the full projection object.
+This still does not claim terminal model_mount projection migration: full
+`projection`, `snapshot`, `receipt_replay`, runtime engine, and other broad
+read surfaces still need direct Rust daemon-core Agentgres projection APIs to
+replace remaining JS state materialization and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
