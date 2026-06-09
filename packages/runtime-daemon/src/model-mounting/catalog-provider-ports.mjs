@@ -81,8 +81,8 @@ export function ollamaCatalogProviderPort(state) {
 export function huggingFaceCatalogProviderPort(state) {
   const baseUrl = huggingFaceCatalogBaseUrl(state);
   const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in", "model_catalog_provider_port"];
-  const config = state?.catalogProviderConfig?.("catalog.huggingface") ?? null;
-  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", config, null);
+  void state;
+  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", null, null);
   return {
     id: "catalog.huggingface",
     label: "Hugging Face-compatible catalog",
@@ -92,7 +92,7 @@ export function huggingFaceCatalogProviderPort(state) {
     evidenceRefs,
     health: () => ({
       ...configFields,
-      status: config?.enabled === false ? "disabled" : liveModelCatalogEnabled() ? "configured" : "gated",
+      status: liveModelCatalogEnabled() ? "configured" : "gated",
       baseUrlHash: stableHash(baseUrl),
       gate: "IOI_MODEL_CATALOG_HF_BASE_URL",
       materialConfigured: Boolean(configFields.materialConfigured),
@@ -185,36 +185,30 @@ export function retiredFixtureCatalogSearchResult(evidenceRefs = []) {
 }
 
 export function huggingFaceCatalogBaseUrl(state) {
+  void state;
   const fallback = process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
-  return state?.catalogProviderConfig?.("catalog.huggingface")?.enabled === false
-    ? fallback
-    : fallback;
+  return fallback;
 }
 
 export function localManifestCatalogPath(state) {
-  const config = state?.catalogProviderConfig?.("catalog.local_manifest") ?? null;
-  if (config && config.enabled === false) return "";
+  void state;
   return process.env.IOI_MODEL_CATALOG_MANIFEST_PATH ?? "";
 }
 
 export function customHttpCatalogBaseUrl(state) {
-  const config = state?.catalogProviderConfig?.("catalog.custom_http") ?? null;
-  if (config && config.enabled === false) return "";
+  void state;
   return process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
 }
 
 export function localManifestCatalogHealth(state, evidenceRefs) {
-  const config = state?.catalogProviderConfig?.("catalog.local_manifest") ?? null;
+  void state;
   const manifestPath = localManifestCatalogPath(state);
-  const configFields = catalogProviderConfigHealthFields("catalog.local_manifest", config, null);
-  if (config?.enabled === false) {
-    return { ...configFields, status: "disabled", gate: "catalog provider setup", evidenceRefs };
-  }
+  const configFields = catalogProviderConfigHealthFields("catalog.local_manifest", null, null);
   if (!manifestPath) {
     return {
       ...configFields,
-      status: config?.materialConfigured ? "metadata_only" : "unconfigured",
-      gate: "IOI_MODEL_CATALOG_MANIFEST_PATH or catalog provider setup",
+      status: "unconfigured",
+      gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
       evidenceRefs,
     };
   }
@@ -232,17 +226,14 @@ export function localManifestCatalogHealth(state, evidenceRefs) {
 }
 
 export function customHttpCatalogHealth(state, evidenceRefs) {
-  const config = state?.catalogProviderConfig?.("catalog.custom_http") ?? null;
+  void state;
   const baseUrl = customHttpCatalogBaseUrl(state);
-  const configFields = catalogProviderConfigHealthFields("catalog.custom_http", config, null);
-  if (config?.enabled === false) {
-    return { ...configFields, status: "disabled", gate: "catalog provider setup", evidenceRefs };
-  }
+  const configFields = catalogProviderConfigHealthFields("catalog.custom_http", null, null);
   if (!baseUrl) {
     return {
       ...configFields,
-      status: config?.materialConfigured ? "metadata_only" : "unconfigured",
-      gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL or catalog provider setup",
+      status: "unconfigured",
+      gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
       evidenceRefs,
     };
   }

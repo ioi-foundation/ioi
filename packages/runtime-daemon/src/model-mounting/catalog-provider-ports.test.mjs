@@ -35,7 +35,9 @@ test("local manifest catalog projects metadata and retires JS manifest search", 
   const previousManifestPath = process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
   process.env.IOI_MODEL_CATALOG_MANIFEST_PATH = "/models/catalog.json";
   const state = {
-    catalogProviderConfig: () => ({ id: "catalog.local_manifest", enabled: true }),
+    catalogProviderConfig: () => {
+      throw new Error("catalogProviderConfig must not feed local manifest port health");
+    },
     catalogProviderRuntimeMaterial: () => {
       throw new Error("catalogProviderRuntimeMaterial must not feed local manifest port health");
     },
@@ -97,7 +99,9 @@ test("Hugging Face catalog provider projects material-backed health and retires 
   const previousBaseUrl = process.env.IOI_MODEL_CATALOG_HF_BASE_URL;
   process.env.IOI_MODEL_CATALOG_HF_BASE_URL = "https://hf.example.test";
   const state = {
-    catalogProviderConfig: () => ({ id: "catalog.huggingface", enabled: true }),
+    catalogProviderConfig: () => {
+      throw new Error("catalogProviderConfig must not feed Hugging Face port health");
+    },
     catalogProviderRuntimeMaterial: () => {
       throw new Error("catalogProviderRuntimeMaterial must not feed Hugging Face port health");
     },
@@ -140,7 +144,7 @@ test("custom HTTP catalog provider retires live JS auth and HTTP search", async 
   const state = {
     catalogProviderConfig(providerId) {
       assert.equal(providerId, "catalog.custom_http");
-      return { id: providerId, enabled: true };
+      throw new Error("catalogProviderConfig must not feed custom HTTP port health");
     },
     catalogProviderRuntimeMaterial(providerId) {
       assert.equal(providerId, "catalog.custom_http");

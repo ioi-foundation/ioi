@@ -17345,7 +17345,7 @@ pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 842 is now satisfied.
 
-## Implementation Slice Evidence: 843
+## Compacted Implementation Slice Evidence: 843
 
 Slice 843 retired cached catalog-provider runtime-material readback from the JS
 catalog-provider control surface. `catalogProviderRuntimeMaterial()` now fails
@@ -17373,7 +17373,43 @@ Agentgres-backed provider material truth, command-transport replacement, and
 local map/projection materialization retirement still remain before this
 surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 843 after the next direct
+Scheduled matrix-compaction obligation from Slice 843 is now satisfied.
+
+## Implementation Slice Evidence: 844
+
+Slice 844 retired private catalog-provider configuration readback and
+config-derived auth-header projection from JS. `catalogProviderConfig()` now
+fails closed with `model_mount_catalog_provider_control_rust_core_required` at
+`model_mount.catalog_provider_configuration.read_private` before local
+`state.catalogProviderConfigs` map entries can become provider configuration
+truth. `catalogProviderRuntimeMaterial()` no longer reads
+`state.catalogProviderConfigs` for material-configured hints or vault-ref
+hashes. `catalogProviderAuthHeaders()` now fails closed at
+`model_mount.catalog_provider_auth_header.resolve` before calling
+`state.catalogProviderConfig()`, deriving auth vault hashes, auth schemes,
+header-name hashes, OAuth session hashes, or plaintext header shape from JS.
+Catalog-provider port health helpers for local-manifest, Hugging
+Face-compatible, and custom HTTP providers also no longer call
+`state.catalogProviderConfig()`; focused tests install poisonous config
+accessors to prove port health and auth-header resolution remain env metadata
+or Rust-required errors until direct Rust daemon-core projection owns admitted
+configuration and custody.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal catalog-provider migration: direct Rust
+daemon-core catalog-provider projection/control APIs, wallet/cTEE custody,
+Agentgres-backed provider configuration/material truth, command-transport
+replacement, and local map/projection materialization retirement still remain
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 844 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

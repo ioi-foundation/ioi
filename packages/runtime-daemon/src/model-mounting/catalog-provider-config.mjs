@@ -192,28 +192,12 @@ export function catalogProviderMaterialVaultRef(providerId) { return `vault://io
 export function catalogProviderMaterialPurpose(providerId) { return `catalog.source:${providerId}`; }
 
 export async function catalogProviderAuthHeaders(providerId, state) {
-  const config = state?.catalogProviderConfig?.(providerId) ?? null;
-  if (!config?.authVaultRef && !config?.authVaultRefHash && !config?.oauthSessionId) return { headers: {}, evidence: null };
-  const headerName = normalizeProviderAuthHeaderName(config.catalogAuthHeaderName ?? "authorization");
-  const authScheme = normalizeCatalogAuthScheme(config.catalogAuthScheme ?? "bearer");
-  if (authScheme === "oauth2" && config.oauthSessionId) {
-    throwCatalogProviderControlRustCoreRequired(
-      "model_mount.catalog_provider_auth_header.refresh",
-      {
-        provider_id: providerId,
-        oauth_session_hash: config.oauthSessionHash ?? stableHash(config.oauthSessionId),
-        catalog_auth_scheme: authScheme,
-        catalog_auth_header_name_hash: stableHash(headerName),
-      },
-    );
-  }
+  void state;
   throwCatalogProviderControlRustCoreRequired(
     "model_mount.catalog_provider_auth_header.resolve",
     {
       provider_id: providerId,
-      auth_vault_ref_hash: config.authVaultRefHash ?? (config.authVaultRef ? stableHash(config.authVaultRef) : null),
-      catalog_auth_scheme: authScheme,
-      catalog_auth_header_name_hash: stableHash(headerName),
+      auth_configuration_status: "rust_core_projection_required",
       resolved_material: false,
     },
   );

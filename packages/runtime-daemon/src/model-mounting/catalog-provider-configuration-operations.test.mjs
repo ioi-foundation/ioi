@@ -208,8 +208,8 @@ test("catalog provider runtime material fails closed before JS vault resolution"
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
       assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
       assert.equal(error.details.provider_id, providerId);
-      assert.equal(error.details.material_vault_ref_hash, "known-material-hash");
-      assert.equal(error.details.material_configured, true);
+      assert.equal(error.details.material_vault_ref_hash, null);
+      assert.equal(error.details.material_configured, false);
       assert.equal(error.details.runtime_material_status, "rust_core_projection_required");
       assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
       assert.deepEqual(error.details.evidence_refs, [
@@ -249,7 +249,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
       assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
       assert.equal(error.details.provider_id, providerId);
-      assert.equal(error.details.material_vault_ref_hash, "known-material-hash");
+      assert.equal(error.details.material_vault_ref_hash, "hash-materialized");
       assert.equal(error.details.material_configured, true);
       assert.equal(error.details.runtime_material_status, "bound_runtime_session");
       return true;
@@ -269,4 +269,37 @@ test("catalog provider runtime material fails closed before JS vault resolution"
     },
   );
   assert.equal(resolveCount, 0);
+});
+
+test("private catalog provider config readback fails closed before JS map projection", () => {
+  const state = createState();
+  const providerId = "catalog.custom_http";
+  state.catalogProviderConfigs.set(providerId, {
+    id: providerId,
+    enabled: true,
+    materialConfigured: true,
+    authVaultRefHash: "hash:vault://catalog/auth",
+  });
+
+  assert.throws(
+    () => catalogProviderConfig(state, providerId),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.read_private");
+      assert.equal(error.details.provider_id, providerId);
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      return true;
+    },
+  );
+  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });

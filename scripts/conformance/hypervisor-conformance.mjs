@@ -598,6 +598,9 @@ function runDocs() {
       /Slice 843 retired cached catalog-provider runtime-material readback/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)` now fails\s+closed with `model_mount_catalog_provider_control_rust_core_required` even when/.test(guide) &&
       /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
+      /Slice 844 retired private catalog-provider configuration readback/.test(guide) &&
+      /`catalogProviderConfig\(\)` helper now fails closed at\s+`model_mount\.catalog_provider_configuration\.read_private`/.test(guide) &&
+      /Catalog-provider\s+auth-header resolution now fails closed before calling\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -696,6 +699,8 @@ function runDocs() {
       /`catalogSearch\(\)` already fails closed with\s+`model_catalog_search_js_orchestrator_retired`/.test(guide) &&
       /Slice 843 retired cached catalog-provider runtime-material readback from the JS\s+catalog-provider control surface/.test(guide) &&
       /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
+      /Slice 844 retired private catalog-provider configuration readback and\s+config-derived auth-header projection from JS/.test(guide) &&
+      /Catalog-provider port health helpers also no longer call\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -869,19 +874,26 @@ function runDocs() {
       /Slice 842 retired stale public catalog-search orchestration helper injection/.test(matrix) &&
       /catalogProviderStatus\(\)/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 842 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 843/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 843/.test(matrix) &&
       /Slice 843 retired cached catalog-provider runtime-material readback/.test(matrix) &&
       /Catalog-provider port health helpers for\s+local-manifest, Hugging Face-compatible, and custom HTTP providers also no\s+longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 843/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 843 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 844/.test(matrix) &&
+      /Slice 844 retired private catalog-provider configuration readback/.test(matrix) &&
+      /`catalogProviderAuthHeaders\(\)` now fails closed at\s+`model_mount\.catalog_provider_auth_header\.resolve` before calling\s+`state\.catalogProviderConfig\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 844/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
       /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
       /mounted OAuth start\/callback\/exchange\/refresh\/revoke facades no longer inject `publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`, `oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(implementationMatrix) &&
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /catalog-provider config-map reads/.test(implementationMatrix) &&
+      /private catalog-provider config readback now fails closed at `model_mount\.catalog_provider_configuration\.read_private`/.test(implementationMatrix) &&
       /cached bound\/missing\/failed runtime-material readback/.test(implementationMatrix) &&
-      /catalog-provider port health helpers no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(implementationMatrix) &&
+      /catalog-provider port health helpers no longer call `state\.catalogProviderConfig\(\)` or `state\.catalogProviderRuntimeMaterial\(\)`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
+      /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
         implementationMatrix,
       ) &&
@@ -8558,11 +8570,20 @@ function runBridge() {
       /runtime_material_status:\s*existing\?\.runtimeMaterialStatus \?\? "rust_core_projection_required"/.test(
         catalogProviderConfigurationOperations,
       ) &&
+      /model_mount\.catalog_provider_configuration\.read_private/.test(catalogProviderConfigurationOperations) &&
+      !/state\.catalogProviderConfigs\.get/.test(catalogProviderConfigurationOperations) &&
       !/if\s*\(\s*catalogProviderHasSourceMaterialDep\(existing\)\s*\)\s*return existing/.test(
         catalogProviderConfigurationOperations,
       ) &&
       !/return existing;/.test(catalogProviderConfigurationOperations) &&
+      !/state\?\.catalogProviderConfig/.test(catalogProviderPorts) &&
       !/state\?\.catalogProviderRuntimeMaterial/.test(catalogProviderPorts) &&
+      /private catalog provider config readback fails closed before JS map projection/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /catalogProviderConfig must not feed local manifest port health/.test(catalogProviderPortsTest) &&
+      /catalogProviderConfig must not feed Hugging Face port health/.test(catalogProviderPortsTest) &&
+      /catalogProviderConfig must not feed custom HTTP port health/.test(catalogProviderPortsTest) &&
       /catalogProviderHasSourceMaterial must not preserve JS runtime material/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
@@ -8630,7 +8651,6 @@ function runBridge() {
       !/exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async refreshCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/refreshCatalogProviderOAuth\(providerId\)\s*\{(?:(?!\n  revokeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/revokeCatalogProviderOAuth\(providerId\)\s*\{(?:(?!\n  catalogProviderConfig).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
-      /model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
       /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
       !/model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
@@ -8667,13 +8687,15 @@ function runBridge() {
       /public_catalog_provider_control_js_facade_retired/.test(catalogProviderOAuthOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
-      /catalog provider OAuth auth-header refresh facade fails closed until Rust core owns catalog provider control/.test(
+      /catalog provider OAuth auth-header refresh facade fails closed before JS config or credential reads/.test(
         catalogProviderConfigTest,
       ) &&
       /catalog provider auth headers fail closed before JS vault resolution/.test(
         catalogProviderConfigTest,
       ) &&
       /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfigTest) &&
+      !/model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
+      /assert\.equal\(configReadCount,\s*0\)/.test(catalogProviderConfigTest) &&
       /recordStateCommits/.test(catalogProviderConfigTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderConfigTest) &&
       /assert\.equal\(resolveAccessHeaderCount,\s*0\)/.test(catalogProviderConfigTest) &&
@@ -13854,10 +13876,12 @@ function runReceipts() {
       /details:\s*\{\s*auth_scheme:\s*scheme\s*\}/.test(catalogProviderConfig) &&
       /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig) &&
       /provider_id:\s*providerId/.test(catalogProviderConfig) &&
-      /auth_vault_ref_hash:\s*config\.authVaultRefHash/.test(catalogProviderConfig) &&
+      /auth_configuration_status:\s*"rust_core_projection_required"/.test(catalogProviderConfig) &&
       /resolved_material:\s*false/.test(catalogProviderConfig) &&
-      /catalog_auth_scheme:\s*authScheme/.test(catalogProviderConfig) &&
-      /catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(catalogProviderConfig) &&
+      !/auth_vault_ref_hash:\s*config\.authVaultRefHash/.test(catalogProviderConfig) &&
+      !/catalog_auth_scheme:\s*authScheme/.test(catalogProviderConfig) &&
+      !/catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(catalogProviderConfig) &&
+      !/state\?\.catalogProviderConfig/.test(catalogProviderConfig) &&
       !/details:\s*\{[^}]*\b(?:providerId|authScheme|catalogProviderId|authVaultRefHash|resolvedMaterial|catalogAuthScheme|catalogAuthHeaderNameHash|evidenceRefs)\s*:/.test(
         catalogProviderConfig,
       ) &&
@@ -13865,9 +13889,12 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"authScheme"\),\s*false/.test(catalogProviderConfigTest) &&
       /Object\.hasOwn\(error\.details,\s*"catalogProviderId"\),\s*false/.test(catalogProviderConfigTest) &&
       /Object\.hasOwn\(error\.details,\s*"authVaultRefHash"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"auth_vault_ref_hash"\),\s*false/.test(catalogProviderConfigTest) &&
       /Object\.hasOwn\(error\.details,\s*"resolvedMaterial"\),\s*false/.test(catalogProviderConfigTest) &&
       /Object\.hasOwn\(error\.details,\s*"catalogAuthScheme"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalog_auth_scheme"\),\s*false/.test(catalogProviderConfigTest) &&
       /Object\.hasOwn\(error\.details,\s*"catalogAuthHeaderNameHash"\),\s*false/.test(catalogProviderConfigTest) &&
+      /Object\.hasOwn\(error\.details,\s*"catalog_auth_header_name_hash"\),\s*false/.test(catalogProviderConfigTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(catalogProviderConfigTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",

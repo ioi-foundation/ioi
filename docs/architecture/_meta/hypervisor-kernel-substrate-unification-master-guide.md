@@ -1519,6 +1519,20 @@ provider projection owns admitted provider material. This keeps the current
 bridge/facade path explicitly non-terminal and prevents context compaction from
 encoding cached JS material as the long-term substrate shape.
 
+Slice 844 retired private catalog-provider configuration readback and
+config-derived auth-header projection from JS. The mounted
+`catalogProviderConfig()` helper now fails closed at
+`model_mount.catalog_provider_configuration.read_private`, and
+`catalogProviderRuntimeMaterial()` no longer peeks into
+`state.catalogProviderConfigs` for source-material hints. Catalog-provider
+auth-header resolution now fails closed before calling
+`state.catalogProviderConfig()` or deriving auth vault hashes, schemes,
+header-name hashes, OAuth session hashes, or plaintext header shape from JS
+config. Catalog-provider port health helpers also no longer call
+`state.catalogProviderConfig()`; they may report only env-gated metadata until
+direct Rust daemon-core catalog-provider projection owns admitted provider
+configuration, custody, and auth-header readiness.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
