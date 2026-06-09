@@ -168,7 +168,6 @@ import {
   deterministicTokenizeText,
   estimateTokens,
   inputText,
-  normalizeLimit,
   normalizeUsage,
   parseJsonMaybe,
   truncate,
@@ -269,7 +268,6 @@ import {
   cleanupPartialDownload,
 } from "./model-mounting/download-helpers.mjs";
 import {
-  catalogProviderStatus,
   modelCatalogProviderPorts as buildModelCatalogProviderPorts,
 } from "./model-mounting/catalog-registry.mjs";
 import {
@@ -741,8 +739,7 @@ export class ModelMountingState {
 
   async catalogSearch(query = {}) {
     return catalogSearchState(this, query, {
-      catalogProviderStatus,
-      normalizeLimit,
+      runtimeError,
       schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
     });
   }

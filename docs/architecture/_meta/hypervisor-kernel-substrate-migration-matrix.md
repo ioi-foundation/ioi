@@ -17289,7 +17289,7 @@ pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 840 is now satisfied.
 
-## Implementation Slice Evidence: 841
+## Compacted Implementation Slice Evidence: 841
 
 Slice 841 retired stale catalog-provider OAuth compatibility helper injection
 from the mounted model_mount facade. `startCatalogProviderOAuth()`,
@@ -17317,7 +17317,33 @@ truth, wallet/cTEE custody redaction, command-transport replacement, and JS
 refresh/revoke facade retirement still remain before this surface reaches the
 pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 841 after the next direct
+Scheduled matrix-compaction obligation from Slice 841 is now satisfied.
+
+## Implementation Slice Evidence: 842
+
+Slice 842 retired stale public catalog-search orchestration helper injection
+from the mounted model_mount facade. `catalogSearch()` already fails closed with
+`model_catalog_search_js_orchestrator_retired`; it now passes only
+`runtimeError` and schema metadata into `catalog-operations.mjs` instead of
+injecting `catalogProviderStatus()` or `normalizeLimit()`. The focused catalog
+operation test passes those retired search helpers as poisonous dependencies to
+prove the fail-closed operation ignores them before any JS provider-status
+shaping, filter normalization, provider iteration, entry enrichment, result
+aggregation, or `lastCatalogSearch` write can run.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs` | passed |
+
+This still does not claim terminal catalog search migration: direct Rust
+daemon-core catalog search/projection APIs, Agentgres-backed admitted catalog
+truth, command-transport replacement, catalog-provider transport facades, and
+provider lifecycle/read adapters still remain before this surface reaches the
+pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 842 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

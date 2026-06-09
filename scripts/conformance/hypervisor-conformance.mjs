@@ -593,6 +593,8 @@ function runDocs() {
       /Broad snapshot\/projection transport no longer sends `oauth_sessions` or\s+`oauth_states`/.test(guide) &&
       /Slice 841 retired stale catalog-provider OAuth compatibility helper injection/.test(guide) &&
       /`publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`,\s+`oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(guide) &&
+      /Slice 842 retired stale public catalog-search orchestration helper injection/.test(guide) &&
+      /injecting `catalogProviderStatus\(\)` or `normalizeLimit\(\)`/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -687,6 +689,8 @@ function runDocs() {
       /`oauth_sessions` or\s+`oauth_states`/.test(guide) &&
       /Slice 841 retired stale catalog-provider OAuth compatibility helper injection\s+from the mounted model_mount facade/.test(guide) &&
       /`startCatalogProviderOAuth\(\)`,\s+`completeCatalogProviderOAuth\(\)`, `exchangeCatalogProviderOAuth\(\)`,\s+`refreshCatalogProviderOAuth\(\)`, and `revokeCatalogProviderOAuth\(\)` now pass only/.test(guide) &&
+      /Slice 842 retired stale public catalog-search orchestration helper injection\s+from the mounted model_mount facade/.test(guide) &&
+      /`catalogSearch\(\)` already fails closed with\s+`model_catalog_search_js_orchestrator_retired`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -852,10 +856,14 @@ function runDocs() {
       /Slice 840 retired JS-authored OAuth session\/state read projection/.test(matrix) &&
       /model_mount_oauth_read_projection_js_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 840 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 841/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 841/.test(matrix) &&
       /Slice 841 retired stale catalog-provider OAuth compatibility helper injection/.test(matrix) &&
       /publicCatalogProviderConfig\(\)/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 841/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 841 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 842/.test(matrix) &&
+      /Slice 842 retired stale public catalog-search orchestration helper injection/.test(matrix) &&
+      /catalogProviderStatus\(\)/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 842/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -870,6 +878,9 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
+        implementationMatrix,
+      ) &&
+      /mounted `catalogSearch\(\)` no longer injects `catalogProviderStatus\(\)` or `normalizeLimit\(\)` compatibility helpers/.test(
         implementationMatrix,
       ) &&
       /public catalog-provider configuration list\/get now fail closed at `model_mount\.catalog_provider_configuration\.list`\/`get`/.test(
@@ -13725,7 +13736,14 @@ function runReceipts() {
       !/state\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
       !/providerResults/.test(catalogOperations) &&
       !/state\.enrichCatalogEntry/.test(catalogOperations) &&
+      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?catalogSearchState\(this,\s*query,\s*\{\s*runtimeError,\s*schemaVersion:\s*MODEL_MOUNT_SCHEMA_VERSION,\s*\}\)/.test(modelMountingState) &&
+      !/catalogSearch\(query = \{\}\)\s*\{(?:(?!\n  enrichCatalogEntry).)*(?:catalogProviderStatus|normalizeLimit)/s.test(modelMountingState) &&
+      !/import\s*\{[\s\S]*?normalizeLimit[\s\S]*?\}\s*from "\.\/model-mounting\/provider-protocol\.mjs"/.test(modelMountingState) &&
+      !/catalogProviderStatus,\s*modelCatalogProviderPorts/.test(modelMountingState) &&
       /catalog search fails closed before JS provider orchestration/.test(catalogOperationsTest) &&
+      /depsWithRetiredSearchHelpers/.test(catalogOperationsTest) &&
+      /catalogProviderStatus must not run in JS catalog search facade/.test(catalogOperationsTest) &&
+      /normalizeLimit must not run in JS catalog search facade/.test(catalogOperationsTest) &&
       /model_catalog_search_js_orchestrator_retired/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&

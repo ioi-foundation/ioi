@@ -87,6 +87,16 @@ const deps = {
   schemaVersion: "schema.catalog-ops.test",
 };
 
+const depsWithRetiredSearchHelpers = {
+  ...deps,
+  catalogProviderStatus() {
+    throw new Error("catalogProviderStatus must not run in JS catalog search facade");
+  },
+  normalizeLimit() {
+    throw new Error("normalizeLimit must not run in JS catalog search facade");
+  },
+};
+
 test("storage summary counts bytes, quota, and orphan model files", () => {
   const state = fakeState();
 
@@ -158,7 +168,7 @@ test("catalog search fails closed before JS provider orchestration", async () =>
   const state = fakeState();
 
   await assert.rejects(
-    () => catalogSearch(state, { query: "  LLAMA  ", format: "GGUF", quantization: "Q4", limit: 1 }, deps),
+    () => catalogSearch(state, { query: "  LLAMA  ", format: "GGUF", quantization: "Q4", limit: 1 }, depsWithRetiredSearchHelpers),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_catalog_search_js_orchestrator_retired");

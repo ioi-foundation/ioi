@@ -1495,6 +1495,17 @@ metadata through unused dependency hooks. Direct Rust daemon-core OAuth
 control/projection APIs still need to replace the fail-closed facade before
 terminal catalog-provider custody migration is complete.
 
+Slice 842 retired stale public catalog-search orchestration helper injection
+from the mounted model_mount facade. `catalogSearch()` already fails closed with
+`model_catalog_search_js_orchestrator_retired`; it now passes only
+`runtimeError` and schema metadata into `catalog-operations.mjs` instead of
+injecting `catalogProviderStatus()` or `normalizeLimit()`. The public facade can
+therefore no longer accidentally restore JS provider-status shaping, filter
+normalization, provider iteration, entry enrichment, result aggregation, or
+`lastCatalogSearch` writes through unused dependency hooks. Direct Rust
+daemon-core catalog search/projection APIs still need to own the request before
+catalog search reaches terminal substrate unification.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
