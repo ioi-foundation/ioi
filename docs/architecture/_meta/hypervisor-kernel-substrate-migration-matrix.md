@@ -18184,10 +18184,36 @@ Agentgres-admitted receipt and record-state truth, projection persistence,
 command-transport retirement, and stable protocol APIs remain required before
 capability-token control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 873 after the next direct
+Scheduled matrix-compaction obligation from Slice 873 is now satisfied.
+
+## Implementation Slice Evidence: 874
+
+Slice 874 retired the fail-closed `vault-operations.mjs` helper module after
+public vault bind/remove and vault-health receipt facades had already been
+reduced to Rust-core-required wallet/cTEE custody edge refusals. The mounted
+public `ModelMountingState` vault methods now own canonical vault request alias
+rejection, required `vault_ref`/`material` preflight, vault list/status/metadata
+read adapters, and `model_mount.vault` Rust-core-required errors directly,
+without importing a helper module or dependency-injecting wallet/cTEE custody
+helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal vault custody migration: direct Rust
+daemon-core wallet.network/cTEE vault binding, removal, health receipts,
+Agentgres-admitted record-state truth, projection persistence, command-transport
+retirement, and stable protocol APIs remain required before vault control
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 874 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-wallet authority grant/authorization projection materialization, local
-map-backed token readback, and direct Rust daemon-core wallet.network
-capability-token APIs. The `ioi-step-module-bridge` command path is acceptable
-only as migration transport; it is not the terminal architecture.
+wallet/cTEE vault custody projection materialization, local vault-port readback,
+and direct Rust daemon-core wallet.network/cTEE vault APIs. The
+`ioi-step-module-bridge` command path is acceptable only as migration transport;
+it is not the terminal architecture.

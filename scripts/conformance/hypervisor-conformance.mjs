@@ -981,7 +981,11 @@ function runDocs() {
       /Implementation Slice Evidence: 873/.test(matrix) &&
       /Slice 873 retired the fail-closed `capability-token-operations\.mjs` helper\s+module/.test(matrix) &&
       /`ModelMountingState` capability-token methods now own token\s+redaction\/list sorting/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 873/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 874/.test(matrix) &&
+      /Slice 874 retired the fail-closed `vault-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` vault methods now own canonical vault request alias\s+rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 874/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1133,11 +1137,14 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 871 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 873/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 874/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` capability-token methods now own token redaction\/list sorting/.test(implementationMatrix) &&
+      /the fail-closed `vault-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` vault methods now own canonical vault request alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -11975,7 +11982,7 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs")
     : "";
   const vaultOperationsRequestBlocks =
-    vaultOperations.match(/export function bindVaultRef[\s\S]*?function assertCanonicalVaultOperationRequestBody/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+bindVaultRef\(body = \{\}\) \{[\s\S]*?\n\s+createToken\(body = \{\}\) \{/)?.[0] ?? "";
   const modelMountStore = exists("packages/runtime-daemon/src/model-mounting/store.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.mjs")
     : "";
@@ -15019,25 +15026,27 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-vault-js-facade-retired",
-    /RETIRED_VAULT_OPERATION_REQUEST_ALIASES/.test(vaultOperations) &&
-      /CANONICAL_VAULT_OPERATION_REQUEST_FIELDS/.test(vaultOperations) &&
-      /vault_operation_request_aliases_retired/.test(vaultOperations) &&
-      /throwVaultRustCoreRequired/.test(vaultOperations) &&
-      /model_mount_vault_rust_core_required/.test(vaultOperations) &&
-      /rust_core_boundary:\s*"model_mount\.vault"/.test(vaultOperations) &&
-      /public_vault_js_facade_retired/.test(vaultOperations) &&
-      /rust_daemon_core_wallet_vault_required/.test(vaultOperations) &&
-      /rust_daemon_core_ctee_custody_required/.test(vaultOperations) &&
-      /model_mount\.vault_ref\.bind/.test(vaultOperations) &&
-      /model_mount\.vault\.health/.test(vaultOperations) &&
-      /model_mount\.vault_ref\.remove/.test(vaultOperations) &&
-      /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredStringDep\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredStringDep\(body\.material,\s*"material"\);/.test(
+    !exists("packages/runtime-daemon/src/model-mounting/vault-operations.mjs") &&
+      !/bindVaultRefState|listVaultRefsState|removeVaultRefState|vaultHealthState|vaultRefMetadataState|vaultStatusState/.test(modelMountingState) &&
+      /RETIRED_VAULT_OPERATION_REQUEST_ALIASES/.test(modelMountingState) &&
+      /CANONICAL_VAULT_OPERATION_REQUEST_FIELDS/.test(modelMountingState) &&
+      /vault_operation_request_aliases_retired/.test(modelMountingState) &&
+      /throwVaultRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_vault_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.vault"/.test(modelMountingState) &&
+      /public_vault_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_wallet_vault_required/.test(modelMountingState) &&
+      /rust_daemon_core_ctee_custody_required/.test(modelMountingState) &&
+      /model_mount\.vault_ref\.bind/.test(modelMountingState) &&
+      /model_mount\.vault\.health/.test(modelMountingState) &&
+      /model_mount\.vault_ref\.remove/.test(modelMountingState) &&
+      /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredString\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredString\(body\.material,\s*"material"\);/.test(
         vaultOperationsRequestBlocks,
       ) &&
-      /export function vaultRefMetadata[\s\S]*?assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*requiredStringDep\(body\.vault_ref,\s*"vault_ref"\)/.test(
+      /vaultRefMetadata\(body = \{\}\)[\s\S]*?assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*requiredString\(body\.vault_ref,\s*"vault_ref"\)/.test(
         vaultOperationsRequestBlocks,
       ) &&
-      /export function removeVaultRef[\s\S]*?assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*requiredStringDep\(body\.vault_ref,\s*"vault_ref"\)/.test(
+      /removeVaultRef\(body = \{\}\)[\s\S]*?assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*requiredString\(body\.vault_ref,\s*"vault_ref"\)/.test(
         vaultOperationsRequestBlocks,
       ) &&
       !/body\.(?:vaultRef|secret|value)\b/.test(vaultOperationsRequestBlocks) &&
@@ -15046,13 +15055,19 @@ function runReceipts() {
       !/state\.receipt\("vault_ref_removal"/.test(vaultOperations) &&
       !/state\.writeVaultRefs\(\)/.test(vaultOperations) &&
       !/state\.writeProjection\(\)/.test(vaultOperations) &&
-      !/state\.vault\.bindVaultRef/.test(vaultOperations) &&
-      !/state\.vault\.removeVaultRef/.test(vaultOperations) &&
-      !/state\.vault\.health/.test(vaultOperations) &&
+      !/this\.vault\.bindVaultRef/.test(modelMountingState) &&
+      !/this\.vault\.removeVaultRef/.test(modelMountingState) &&
+      !/this\.vault\.health/.test(modelMountingState) &&
       /vault mutation and health receipt facades fail closed until Rust wallet\/cTEE custody owns them/.test(
         vaultOperationsTest,
       ) &&
       /vault list, metadata, and status remain read-only projection adapters/.test(vaultOperationsTest) &&
+      /ModelMountingState\.prototype\.bindVaultRef\.call/.test(vaultOperationsTest) &&
+      /ModelMountingState\.prototype\.vaultHealth\.call/.test(vaultOperationsTest) &&
+      /ModelMountingState\.prototype\.removeVaultRef\.call/.test(vaultOperationsTest) &&
+      /ModelMountingState\.prototype\.listVaultRefs\.call/.test(vaultOperationsTest) &&
+      /ModelMountingState\.prototype\.vaultRefMetadata\.call/.test(vaultOperationsTest) &&
+      /ModelMountingState\.prototype\.vaultStatus\.call/.test(vaultOperationsTest) &&
       /assertNoVaultMutation/.test(vaultOperationsTest) &&
       /model_mount_vault_rust_core_required/.test(vaultOperationsTest) &&
       /public_vault_js_facade_retired/.test(vaultOperationsTest) &&
@@ -15076,7 +15091,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/vault-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",

@@ -43,14 +43,6 @@ import {
   unloadModel as unloadModelState,
 } from "./model-mounting/model-loading-operations.mjs";
 import {
-  bindVaultRef as bindVaultRefState,
-  listVaultRefs as listVaultRefsState,
-  removeVaultRef as removeVaultRefState,
-  vaultHealth as vaultHealthState,
-  vaultRefMetadata as vaultRefMetadataState,
-  vaultStatus as vaultStatusState,
-} from "./model-mounting/vault-operations.mjs";
-import {
   contextWindowForEndpoint as contextWindowForEndpointState,
   countModelTokens as countModelTokensState,
   fitModelContext as fitModelContextState,
@@ -308,6 +300,15 @@ const CANONICAL_MODEL_STORAGE_REQUEST_FIELDS = [
   "cleanup_partial",
   "dry_run",
   "remove_orphans",
+];
+const RETIRED_VAULT_OPERATION_REQUEST_ALIASES = [
+  "vaultRef",
+  "secret",
+  "value",
+];
+const CANONICAL_VAULT_OPERATION_REQUEST_FIELDS = [
+  "vault_ref",
+  "material",
 ];
 const {
   hostedProvider,
@@ -833,27 +834,51 @@ export class ModelMountingState {
   }
 
   bindVaultRef(body = {}) {
-    return bindVaultRefState(this, body, { requiredString });
+    assertCanonicalVaultOperationRequestBody(body);
+    const vaultRef = requiredString(body.vault_ref, "vault_ref");
+    const material = requiredString(body.material, "material");
+    throwVaultRustCoreRequired(
+      "model_mount.vault_ref.bind",
+      {
+        vault_ref_hash_required: true,
+        purpose: body.purpose ?? "operator_provider_auth_binding",
+        label: body.label ?? null,
+        request_fields: ["vault_ref", "material"],
+        vault_ref_present: Boolean(vaultRef),
+        material: material ? "[redacted]" : null,
+      },
+    );
   }
 
   listVaultRefs() {
-    return listVaultRefsState(this);
+    return this.vault.listVaultRefs();
   }
 
   vaultRefMetadata(body = {}) {
-    return vaultRefMetadataState(this, body, { requiredString });
+    assertCanonicalVaultOperationRequestBody(body);
+    const vaultRef = requiredString(body.vault_ref, "vault_ref");
+    return this.vault.vaultRefMetadata(vaultRef);
   }
 
   vaultStatus() {
-    return vaultStatusState(this);
+    return this.vault.adapterStatus();
   }
 
   vaultHealth() {
-    return vaultHealthState(this);
+    throwVaultRustCoreRequired("model_mount.vault.health");
   }
 
   removeVaultRef(body = {}) {
-    return removeVaultRefState(this, body, { requiredString });
+    assertCanonicalVaultOperationRequestBody(body);
+    const vaultRef = requiredString(body.vault_ref, "vault_ref");
+    throwVaultRustCoreRequired(
+      "model_mount.vault_ref.remove",
+      {
+        vault_ref_hash_required: true,
+        purpose: body.purpose ?? "operator_provider_auth_remove",
+        vault_ref_present: Boolean(vaultRef),
+      },
+    );
   }
 
   createToken(body = {}) {
@@ -1577,6 +1602,40 @@ function throwCapabilityTokenRustCoreRequired(operation_kind, details = {}) {
       evidence_refs: [
         "public_capability_token_js_facade_retired",
         "rust_daemon_core_wallet_authority_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function assertCanonicalVaultOperationRequestBody(body = {}) {
+  const retiredAliases = RETIRED_VAULT_OPERATION_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error("Vault operation request aliases are retired; use canonical snake_case request fields.");
+  error.status = 400;
+  error.code = "vault_operation_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_VAULT_OPERATION_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function throwVaultRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_vault_rust_core_required",
+    message:
+      "Vault mutation and health receipt facades require Rust daemon-core wallet/cTEE custody ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.vault",
+      evidence_refs: [
+        "public_vault_js_facade_retired",
+        "rust_daemon_core_wallet_vault_required",
+        "rust_daemon_core_ctee_custody_required",
       ],
       ...details,
     },

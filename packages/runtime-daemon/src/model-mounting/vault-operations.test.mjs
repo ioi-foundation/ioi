@@ -1,14 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  bindVaultRef,
-  listVaultRefs,
-  removeVaultRef,
-  vaultHealth,
-  vaultRefMetadata,
-  vaultStatus,
-} from "./vault-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function createState() {
   const calls = [];
@@ -107,15 +100,6 @@ function createState() {
   return state;
 }
 
-function deps(overrides = {}) {
-  return {
-    runtimeError({ status, code, message, details }) {
-      return Object.assign(new Error(message), { status, code, details });
-    },
-    ...overrides,
-  };
-}
-
 function assertNoVaultMutation(state) {
   assert.deepEqual(state.calls, []);
   assert.deepEqual(state.receipts, []);
@@ -127,7 +111,7 @@ test("vault mutation and health receipt facades fail closed until Rust wallet/cT
 
   assert.throws(
     () =>
-      bindVaultRef(
+      ModelMountingState.prototype.bindVaultRef.call(
         state,
         {
           vault_ref: "vault://provider/custom/api-key",
@@ -135,7 +119,6 @@ test("vault mutation and health receipt facades fail closed until Rust wallet/cT
           purpose: "provider.auth:custom",
           label: "Custom auth",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -158,7 +141,7 @@ test("vault mutation and health receipt facades fail closed until Rust wallet/cT
   assertNoVaultMutation(state);
 
   assert.throws(
-    () => vaultHealth(state, deps()),
+    () => ModelMountingState.prototype.vaultHealth.call(state),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_vault_rust_core_required");
@@ -170,13 +153,12 @@ test("vault mutation and health receipt facades fail closed until Rust wallet/cT
 
   assert.throws(
     () =>
-      removeVaultRef(
+      ModelMountingState.prototype.removeVaultRef.call(
         state,
         {
           vault_ref: "vault://provider/custom/api-key",
           purpose: "operator_provider_auth_remove:test",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -201,7 +183,7 @@ test("vault list, metadata, and status remain read-only projection adapters", ()
   });
   state.calls.length = 0;
 
-  assert.deepEqual(listVaultRefs(state), [{
+  assert.deepEqual(ModelMountingState.prototype.listVaultRefs.call(state), [{
     id: "vault_ref.hash:vault://provider/custom/api-key",
     vaultRefHash: "hash:vault://provider/custom/api-key",
     configured: true,
@@ -209,10 +191,13 @@ test("vault list, metadata, and status remain read-only projection adapters", ()
     purpose: "provider.auth:custom",
   }]);
   assert.equal(
-    vaultRefMetadata(state, { vault_ref: "vault://provider/custom/api-key" }).label,
+    ModelMountingState.prototype.vaultRefMetadata.call(
+      state,
+      { vault_ref: "vault://provider/custom/api-key" },
+    ).label,
     "Custom auth",
   );
-  const status = vaultStatus(state);
+  const status = ModelMountingState.prototype.vaultStatus.call(state);
   assert.equal(status.implementation, "runtime_memory_vault");
   assert.equal(status.configured, true);
   assert.deepEqual(state.receipts, []);
@@ -224,7 +209,7 @@ test("vault operations reject retired request aliases before vault access", () =
 
   assert.throws(
     () =>
-      bindVaultRef(state, {
+      ModelMountingState.prototype.bindVaultRef.call(state, {
         vaultRef: "vault://provider/custom/api-key",
         secret: "custom-secret",
         value: "custom-secret-alt",
@@ -240,7 +225,10 @@ test("vault operations reject retired request aliases before vault access", () =
   assert.deepEqual(state.calls, []);
 
   assert.throws(
-    () => vaultRefMetadata(state, { vaultRef: "vault://provider/custom/api-key" }),
+    () => ModelMountingState.prototype.vaultRefMetadata.call(
+      state,
+      { vaultRef: "vault://provider/custom/api-key" },
+    ),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "vault_operation_request_aliases_retired");
@@ -251,7 +239,10 @@ test("vault operations reject retired request aliases before vault access", () =
   assert.deepEqual(state.calls, []);
 
   assert.throws(
-    () => removeVaultRef(state, { vaultRef: "vault://provider/custom/api-key" }),
+    () => ModelMountingState.prototype.removeVaultRef.call(
+      state,
+      { vaultRef: "vault://provider/custom/api-key" },
+    ),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "vault_operation_request_aliases_retired");
@@ -266,15 +257,18 @@ test("vault operations preserve required field errors", () => {
   const state = createState();
 
   assert.throws(
-    () => bindVaultRef(state, { vault_ref: "vault://provider/custom/api-key" }),
+    () => ModelMountingState.prototype.bindVaultRef.call(
+      state,
+      { vault_ref: "vault://provider/custom/api-key" },
+    ),
     (error) => error.status === 400 && error.details.field === "material",
   );
   assert.throws(
-    () => vaultRefMetadata(state, {}),
+    () => ModelMountingState.prototype.vaultRefMetadata.call(state, {}),
     (error) => error.status === 400 && error.details.field === "vault_ref",
   );
   assert.throws(
-    () => removeVaultRef(state, {}),
+    () => ModelMountingState.prototype.removeVaultRef.call(state, {}),
     (error) => error.status === 400 && error.details.field === "vault_ref",
   );
 });

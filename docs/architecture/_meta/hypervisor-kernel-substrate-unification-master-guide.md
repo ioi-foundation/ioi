@@ -1874,6 +1874,18 @@ daemon-core wallet.network grant creation, revocation, authorization,
 Agentgres-admitted receipt and record-state truth, projection persistence,
 command-transport retirement, and stable protocol APIs remain required.
 
+Slice 874 retired the fail-closed `vault-operations.mjs` helper module after
+public vault bind/remove and vault-health receipt facades had already been
+reduced to Rust-core-required wallet/cTEE custody edge refusals. The mounted
+public `ModelMountingState` vault methods now own canonical vault request alias
+rejection, required `vault_ref`/`material` preflight, vault list/status/metadata
+read adapters, and `model_mount.vault` Rust-core-required errors directly,
+without importing a helper module or dependency-injecting wallet/cTEE custody
+helpers. This does not claim terminal vault custody migration: direct Rust
+daemon-core wallet.network/cTEE vault binding, removal, health receipts,
+Agentgres-admitted record-state truth, projection persistence, command-transport
+retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
