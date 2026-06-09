@@ -1035,7 +1035,11 @@ function runDocs() {
       /Implementation Slice Evidence: 886/.test(matrix) &&
       /Slice 886 retired the direct JS model-route selector and explicit endpoint\s+resolver from `routes\.mjs`/.test(matrix) &&
       /before route-map reads, endpoint\/provider reads, endpoint mounting, JS policy\s+evaluation, or JS candidate scoring/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 886/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 886 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 887/.test(matrix) &&
+      /Slice 887 retired the mounted JS provider-driver factory/.test(matrix) &&
+      /`provider-driver-factory\.mjs` module and concrete-driver routing test are\s+deleted/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 887/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1200,7 +1204,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 883 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 884 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 885 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 886/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 886 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 887/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -10440,6 +10445,14 @@ function runBridge() {
       /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-driver-factory.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-driver-factory.test.mjs") &&
+      !/driverForProviderState/.test(modelMountingState) &&
+      !/provider-driver-factory/.test(modelMountingState) &&
+      /driverForProvider\(provider\)\s*\{[\s\S]*?throwProviderDriverFactoryRetired\(provider\);[\s\S]*?\n\s+\}/.test(modelMountingState) &&
+      /model_mount_provider_driver_factory_retired/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.provider_execution"/.test(modelMountingState) &&
+      /js_provider_driver_factory_retired/.test(modelMountingState) &&
       /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
       /rust_core_boundary:\s*"model_mount\.provider_invocation"/.test(providerInvocationRetirement) &&
       /retiredJsProviderInvocationError/.test(retiredProviderInvocationDrivers) &&
@@ -10471,6 +10484,12 @@ function runBridge() {
       ) &&
       /fails closed for retired JS invocation before CLI transport/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs"),
+      ) &&
+      /mounted provider driver factory fails closed before JS driver allocation/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
       /providerResult\.execution_backend/.test(modelInvocationOps) &&
       !/providerResult\.executionBackend/.test(modelInvocationOps) &&
@@ -10507,6 +10526,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
     ],
     "Phase 9/10 is pending: non-migrated provider execution must fail closed until a Rust model_mount backend owns the provider invocation",
   );

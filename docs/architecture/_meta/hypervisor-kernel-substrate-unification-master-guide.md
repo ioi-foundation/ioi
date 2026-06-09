@@ -2047,6 +2047,19 @@ Agentgres-backed state, stable protocol APIs, replay, and command-transport
 retirement remain required before model route control reaches the pure Rust
 substrate target.
 
+Slice 887 retired the mounted JS provider-driver factory. The
+`provider-driver-factory.mjs` module and its concrete-driver routing test were
+deleted, and `ModelMountingState.driverForProvider()` now fails closed with
+`model_mount_provider_driver_factory_retired` before allocating fixture,
+native-local, OpenAI-compatible, Ollama, LM Studio, vLLM, or llama.cpp JS driver
+objects. Lower-level driver modules remain only as explicitly retired
+edge-adapter tests or fail-closed transport stubs until direct Rust daemon-core
+provider execution/control APIs replace them. This does not claim terminal
+provider migration: direct Rust daemon-core provider transports, lifecycle,
+inventory, projection, Agentgres-backed replay, stable protocol APIs, and
+command-transport retirement remain required before provider execution reaches
+the pure Rust substrate target.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

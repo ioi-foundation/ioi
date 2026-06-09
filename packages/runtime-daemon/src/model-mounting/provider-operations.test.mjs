@@ -195,6 +195,32 @@ function stopProvider(state, providerId) {
   return ModelMountingState.prototype.stopProvider.call(state, providerId);
 }
 
+test("mounted provider driver factory fails closed before JS driver allocation", () => {
+  const state = fakeState();
+  state.providers.set("provider.openai", {
+    id: "provider.openai",
+    kind: "openai",
+    driver: "openai_compatible",
+    status: "configured",
+  });
+
+  assert.throws(
+    () => ModelMountingState.prototype.driverForProvider.call(state, state.providers.get("provider.openai")),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_provider_driver_factory_retired");
+      assert.equal(error.details.rust_core_boundary, "model_mount.provider_execution");
+      assert.equal(error.details.operation_kind, "model_mount.provider.driver_factory");
+      assert.equal(error.details.provider_id, "provider.openai");
+      assert.equal(error.details.provider_kind, "openai");
+      assert.equal(error.details.evidence_refs.includes("js_provider_driver_factory_retired"), true);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "providerKind"), false);
+      return true;
+    },
+  );
+});
+
 test("provider upsert fails closed before vault resolution, record-state commit, or provider mutation", () => {
   const state = fakeState();
 

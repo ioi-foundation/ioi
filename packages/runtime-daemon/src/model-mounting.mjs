@@ -109,9 +109,6 @@ import {
   driverForProviderKind,
   driverNameForProvider,
 } from "./model-mounting/provider-driver-helpers.mjs";
-import {
-  driverForProvider as driverForProviderState,
-} from "./model-mounting/provider-driver-factory.mjs";
 import * as serverControl from "./model-mounting/server-control.mjs";
 import {
   expiresAt,
@@ -1911,7 +1908,7 @@ export class ModelMountingState {
   }
 
   driverForProvider(provider) {
-    return driverForProviderState(this, provider);
+    throwProviderDriverFactoryRetired(provider);
   }
 }
 
@@ -1970,6 +1967,25 @@ function backendProcessSupervisorRetiredError(operation_kind, backend = {}, deta
 
 function throwBackendProcessSupervisorRetired(operation_kind, backend, details = {}) {
   throw backendProcessSupervisorRetiredError(operation_kind, backend, details);
+}
+
+function throwProviderDriverFactoryRetired(provider = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_provider_driver_factory_retired",
+    message: "JS provider driver factory is retired; provider execution and control require Rust daemon-core model_mount APIs.",
+    details: {
+      provider_id: provider?.id ?? null,
+      provider_kind: provider?.kind ?? null,
+      operation_kind: "model_mount.provider.driver_factory",
+      rust_core_boundary: "model_mount.provider_execution",
+      evidence_refs: [
+        "js_provider_driver_factory_retired",
+        "rust_daemon_core_provider_execution_required",
+        "agentgres_provider_execution_truth_required",
+      ],
+    },
+  });
 }
 
 function assertCanonicalModelStorageRequestBody(body = {}) {

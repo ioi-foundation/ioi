@@ -16906,7 +16906,7 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-driver-factory.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-driver-factory.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed before Slice 887 deleted the provider-driver factory test |
 
 This still does not claim terminal LM Studio provider migration: direct Rust
 daemon-core provider control, inventory, lifecycle, Agentgres-backed projection
@@ -18541,9 +18541,38 @@ protocol APIs, replay, command-transport retirement, and removal of the
 remaining JS route-control migration wrappers remain required before model
 route control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 886 after the next direct
+Scheduled matrix-compaction obligation from Slice 886 is now satisfied.
+
+## Implementation Slice Evidence: 887
+
+Slice 887 retired the mounted JS provider-driver factory. The
+`provider-driver-factory.mjs` module and concrete-driver routing test are
+deleted, and `ModelMountingState.driverForProvider()` now fails closed with
+`model_mount_provider_driver_factory_retired` before allocating fixture,
+native-local, OpenAI-compatible, Ollama, LM Studio, vLLM, or llama.cpp JS driver
+objects. Lower-level driver modules remain only as explicitly retired
+edge-adapter tests or fail-closed transport stubs until direct Rust daemon-core
+provider execution/control APIs replace them.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
+stable protocol APIs, command-transport retirement, and removal of the remaining
+JS provider edge adapters remain required before provider execution reaches the
+pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 887 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-preserve the non-terminal status of command transport, JS wrapper calls, direct
-Rust daemon-core route-control/projection APIs, Agentgres-backed replay, and
-stable protocol APIs. The `ioi-step-module-bridge` command path is acceptable
-only as migration transport; it is not the terminal architecture.
+preserve the non-terminal status of command transport, lower-level fail-closed
+JS driver modules, direct Rust daemon-core provider execution/control APIs,
+Agentgres-backed replay, and stable protocol APIs. The `ioi-step-module-bridge`
+command path is acceptable only as migration transport; it is not the terminal
+architecture.
