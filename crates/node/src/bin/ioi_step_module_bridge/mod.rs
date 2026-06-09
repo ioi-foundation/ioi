@@ -2118,7 +2118,10 @@ fn model_mount_read_projection(
         "latest_provider_health" => model_mount_latest_provider_health(request),
         "latest_vault_health" => model_mount_latest_vault_health(request),
         "latest_runtime_survey" => Ok(model_mount_latest_runtime_survey(request)),
-        "catalog_status" => Ok(model_mount_catalog_status(request)),
+        "catalog_status" => Err(BridgeError::new(
+            "model_catalog_status_js_readback_retired",
+            "Model catalog status readback requires Rust daemon-core catalog projection".to_string(),
+        )),
         other => Err(BridgeError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),
@@ -2356,36 +2359,19 @@ fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value
 }
 
 fn model_mount_catalog_status(request: &ModelMountReadProjectionRequest) -> Value {
-    let input = object_or_null(request.state.get("catalog_status_input"));
-    let last_search = input
-        .get("last_search")
-        .filter(|value| value.is_object())
-        .map(|last_search| {
-            json!({
-                "searchedAt": last_search.get("searched_at").cloned().unwrap_or(Value::Null),
-                "query": last_search.get("query").cloned().unwrap_or(Value::Null),
-                "filters": last_search.get("filters").cloned().unwrap_or(Value::Null),
-                "resultCount": last_search
-                    .get("result_count")
-                    .and_then(Value::as_u64)
-                    .unwrap_or(0),
-            })
-        })
-        .unwrap_or(Value::Null);
     json!({
-        "schemaVersion": json_string_field(&input, "schema_version")
-            .unwrap_or_else(|| model_mount_projection_schema_version(request)),
-        "checkedAt": input.get("checked_at").cloned().unwrap_or(Value::Null),
-        "providers": array_field(&input, "providers"),
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "checkedAt": Value::Null,
+        "providers": [],
         "adapterBoundary": model_mount_catalog_adapter_boundary(),
         "filters": {
             "formats": ["gguf", "mlx", "safetensors"],
             "quantization": ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
             "compatibility": ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
         },
-        "storage": object_or_null(input.get("storage")),
-        "lastSearch": last_search,
-        "results": array_field(&input, "results"),
+        "storage": Value::Null,
+        "lastSearch": Value::Null,
+        "results": [],
     })
 }
 
@@ -8439,13 +8425,21 @@ mod tests {
             "ModelCatalogProviderPort"
         );
         assert_eq!(
-            response["projection"]["catalog"]["lastSearch"]["resultCount"],
-            1
+            response["projection"]["catalog"]["providers"]
+                .as_array()
+                .expect("catalog providers")
+                .len(),
+            0
         );
         assert_eq!(
-            response["projection"]["catalog"]["storage"]["totalBytes"],
-            42
+            response["projection"]["catalog"]["results"]
+                .as_array()
+                .expect("catalog results")
+                .len(),
+            0
         );
+        assert_eq!(response["projection"]["catalog"]["lastSearch"], Value::Null);
+        assert_eq!(response["projection"]["catalog"]["storage"], Value::Null);
         assert!(response["projection"].get("route_decisions").is_none());
         assert!(response["evidence_refs"]
             .as_array()
@@ -8617,23 +8611,10 @@ mod tests {
             }))
             .expect("model_mount catalog status request");
         let catalog_status_response = plan_model_mount_read_projection(catalog_status_request)
-            .expect("catalog status projected in Rust");
-        assert_eq!(catalog_status_response["projection_kind"], "catalog_status");
+            .expect_err("catalog status fails closed until Rust catalog projection owns readback");
         assert_eq!(
-            catalog_status_response["projection"]["adapterBoundary"]["port"],
-            "ModelCatalogProviderPort"
-        );
-        assert_eq!(
-            catalog_status_response["projection"]["providers"][0]["id"],
-            "catalog.fixture"
-        );
-        assert_eq!(
-            catalog_status_response["projection"]["filters"]["formats"][0],
-            "gguf"
-        );
-        assert_eq!(
-            catalog_status_response["projection"]["lastSearch"]["resultCount"],
-            1
+            catalog_status_response.code,
+            "model_catalog_status_js_readback_retired"
         );
 
         let oauth_sessions_request: ModelMountReadProjectionBridgeRequest =
@@ -8988,6 +8969,28 @@ mod tests {
         assert_eq!(
             snapshot_response["projection"]["catalog"]["adapterBoundary"]["port"],
             "ModelCatalogProviderPort"
+        );
+        assert_eq!(
+            snapshot_response["projection"]["catalog"]["providers"]
+                .as_array()
+                .expect("snapshot catalog providers")
+                .len(),
+            0
+        );
+        assert_eq!(
+            snapshot_response["projection"]["catalog"]["results"]
+                .as_array()
+                .expect("snapshot catalog results")
+                .len(),
+            0
+        );
+        assert_eq!(
+            snapshot_response["projection"]["catalog"]["lastSearch"],
+            Value::Null
+        );
+        assert_eq!(
+            snapshot_response["projection"]["catalog"]["storage"],
+            Value::Null
         );
         assert_eq!(
             snapshot_response["projection"]["workflowNodes"]

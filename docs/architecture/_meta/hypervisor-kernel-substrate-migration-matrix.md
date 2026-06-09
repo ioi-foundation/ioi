@@ -16592,10 +16592,12 @@ map/projection materialization as terminal architecture.
 
 Slice 815 retired the JS-authored catalog-status public envelope from the
 model_mount read-projection path. The public `catalogStatus()` now requests
-`catalog_status` from `plan_model_mount_read_projection`; the runtime-daemon
-now sends only primitive `catalog_status_input` migration data, and Rust authors
-the public catalog-status projection plus nested snapshot/projection `catalog`
-objects through the shared read-projection planner.
+`catalog_status` from `plan_model_mount_read_projection`; in that slice the
+runtime-daemon still sent primitive `catalog_status_input` migration data, and
+the bridge authored the public catalog-status projection plus nested
+snapshot/projection `catalog` objects through the shared read-projection
+planner. Later facade-retirement work moved this surface past the intermediary
+input transport.
 
 Focused evidence:
 
@@ -17185,7 +17187,7 @@ Scheduled matrix-compaction obligation from Slice 836 is now satisfied.
 ## Compacted Implementation Slice Evidence: 837
 
 Slice 837 retired public catalog-status readback input composition from JS.
-`catalogStatus()` and `catalogStatusProjectionInput()` now fail closed with
+`catalogStatus()` and `catalogStatusProjectionInput()` initially failed closed with
 `model_catalog_status_js_readback_retired` at `model_catalog.status` before JS
 can iterate `state.catalogProviderPorts()`, attach `catalogProviderStatus()`,
 summarize storage, read `state.lastCatalogSearch`, or materialize catalog status
@@ -17976,7 +17978,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 865 is now satisfied.
 
-## Implementation Slice Evidence: 866
+## Compacted Implementation Slice Evidence: 866
 
 Slice 866 moved public OAuth session/state readback refusal onto the Rust
 read-projection boundary. Public `listOAuthSessions()` and `listOAuthStates()`
@@ -18002,7 +18004,35 @@ admitted OAuth truth, command-transport replacement, and edge error translation
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 866 after the next direct
+Scheduled matrix-compaction obligation from Slice 866 is now satisfied.
+
+## Implementation Slice Evidence: 867
+
+Slice 867 moved public catalog-status readback refusal onto the Rust
+read-projection boundary. Public `catalogStatus()` now calls
+`plan_model_mount_read_projection` kind `catalog_status` with empty request
+state, translates only the Rust `model_catalog_status_js_readback_retired`
+refusal at the JS edge, and no longer imports the dead `catalogStatus()` or
+`catalogStatusProjectionInput()` helpers from `catalog-operations.mjs`. The Rust
+bridge direct `catalog_status` arm fails closed even when a direct caller
+provides `catalog_status_input`; broad `snapshot` and `projection` nested
+`catalog` envelopes remain schema-stable empty/default objects instead of
+honoring caller-supplied catalog-status input.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog status/projection APIs, Agentgres-backed catalog truth, command-transport
+replacement, edge error translation retirement, and local catalog materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 867 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport

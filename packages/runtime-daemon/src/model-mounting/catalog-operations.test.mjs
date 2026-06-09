@@ -3,8 +3,6 @@ import test from "node:test";
 
 import {
   catalogSearch,
-  catalogStatus,
-  catalogStatusProjectionInput,
   enrichCatalogEntryForState,
   storageSummary,
 } from "./catalog-operations.mjs";
@@ -109,59 +107,6 @@ test("storage summary counts bytes, quota, and orphan model files", () => {
   assert.equal(summary.fileCount, 2);
   assert.equal(summary.orphanCount, 1);
   assert.deepEqual(summary.evidenceRefs, ["model_storage_quota_boundary", "artifact_delete_unload_guard"]);
-});
-
-test("catalog status fails closed before JS status readback", () => {
-  const state = fakeState();
-  state.lastCatalogSearch = {
-    searchedAt: "2026-06-03T22:59:00.000Z",
-    query: "llama",
-    filters: { limit: 2 },
-    results: [{ id: "entry.1" }, { id: "entry.2" }],
-  };
-
-  assert.throws(
-    () => catalogStatus(state, deps),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_catalog_status_js_readback_retired");
-      assert.equal(error.details.operation_kind, "model_catalog.status");
-      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_status_projection");
-      assert.deepEqual(error.details.evidence_refs, [
-        "model_catalog_status_js_readback_retired",
-        "rust_daemon_core_catalog_status_projection_required",
-        "agentgres_catalog_projection_required",
-      ]);
-      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
-      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
-      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
-      return true;
-    },
-  );
-  assert.equal(state.catalogProviderPortCalls, 0);
-  assert.equal(state.storageSummaryCalls, 0);
-});
-
-test("catalog status projection input fails closed before JS provider and storage materialization", () => {
-  const state = fakeState();
-  state.lastCatalogSearch = {
-    searchedAt: "2026-06-03T22:59:00.000Z",
-    query: "llama",
-    filters: { limit: 2 },
-    results: [{ id: "entry.1" }, { id: "entry.2" }],
-  };
-
-  assert.throws(
-    () => catalogStatusProjectionInput(state, deps),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "model_catalog_status_js_readback_retired");
-      assert.equal(error.details.operation_kind, "model_catalog.status");
-      return true;
-    },
-  );
-  assert.equal(state.catalogProviderPortCalls, 0);
-  assert.equal(state.storageSummaryCalls, 0);
 });
 
 test("catalog search fails closed before JS provider orchestration", async () => {

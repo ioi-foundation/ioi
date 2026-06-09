@@ -278,7 +278,11 @@ function rustProjectionFixture(request) {
     });
   }
   if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
-  if (request.projection_kind === "catalog_status") return catalogStatusFromRustState(state, request.schema_version);
+  if (request.projection_kind === "catalog_status") {
+    throw Object.assign(new Error("catalog status readback is retired"), {
+      code: "model_catalog_status_js_readback_retired",
+    });
+  }
   if (request.projection_kind === "runtime_model_catalog") return [];
   if (request.projection_kind === "open_ai_model_list") return { object: "list", data: [] };
   const projection = {
@@ -527,19 +531,11 @@ function serverStatusFromRustState(state, schemaVersion) {
 }
 
 function catalogStatusFromRustState(state, schemaVersion) {
-  const input = state.catalog_status_input ?? {};
-  const lastSearch = input.last_search
-    ? {
-        searchedAt: input.last_search.searched_at ?? null,
-        query: input.last_search.query ?? null,
-        filters: input.last_search.filters ?? null,
-        resultCount: input.last_search.result_count ?? 0,
-      }
-    : null;
+  void state;
   return {
-    schemaVersion: input.schema_version ?? schemaVersion,
-    checkedAt: input.checked_at ?? null,
-    providers: input.providers ?? [],
+    schemaVersion,
+    checkedAt: null,
+    providers: [],
     adapterBoundary: {
       port: "ModelCatalogProviderPort",
       operations: ["search", "resolveVariant", "importUrl", "download", "health"],
@@ -550,9 +546,9 @@ function catalogStatusFromRustState(state, schemaVersion) {
       quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
       compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
     },
-    storage: input.storage ?? {},
-    lastSearch,
-    results: input.results ?? [],
+    storage: null,
+    lastSearch: null,
+    results: [],
   };
 }
 
@@ -777,6 +773,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.server.status, "stopped");
   assert.equal(snapshot.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(snapshot.catalog.lastSearch, null);
+  assert.equal(snapshot.catalog.storage, null);
   assert.deepEqual(snapshot.catalog.providers, []);
   assert.deepEqual(snapshot.catalog.results, []);
   assert.equal(Object.hasOwn(snapshot, "catalogProviderConfigs"), false);
@@ -801,6 +798,9 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.lifecycleEvents.length, 1);
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(projection.catalog.lastSearch, null);
+  assert.equal(projection.catalog.storage, null);
+  assert.deepEqual(projection.catalog.providers, []);
+  assert.deepEqual(projection.catalog.results, []);
   assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
   assert.equal(projection.adapterBoundaries.agentgres.port, "AgentgresStorePort");
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
@@ -958,7 +958,9 @@ test("read projection facade catalog status fails closed before JS catalog-statu
       return true;
     },
   );
-  assert.deepEqual(readProjectionRequests, []);
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["catalog_status"]);
+  assert.deepEqual(readProjectionRequests[0].state, {});
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "catalog_status_input"), false);
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {

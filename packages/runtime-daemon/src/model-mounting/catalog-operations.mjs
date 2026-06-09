@@ -22,16 +22,6 @@ export function storageSummary(state, deps = {}) {
   };
 }
 
-export function catalogStatus(state, deps = {}) {
-  void state;
-  throwCatalogStatusReadbackRetired(deps);
-}
-
-export function catalogStatusProjectionInput(state, deps = {}) {
-  void state;
-  throwCatalogStatusReadbackRetired(deps);
-}
-
 export async function catalogSearch(state, query = {}, deps = {}) {
   const {
     runtimeError = defaultRuntimeError,
@@ -63,24 +53,6 @@ export function enrichCatalogEntryForState(state, entry, options = {}, deps = {}
 
 function defaultRuntimeError({ code, message, details, status }) {
   return Object.assign(new Error(message), { code, details, status });
-}
-
-function throwCatalogStatusReadbackRetired(deps = {}) {
-  const { runtimeError = defaultRuntimeError } = deps;
-  throw runtimeError({
-    status: 501,
-    code: "model_catalog_status_js_readback_retired",
-    message: "Model catalog status readback is retired in JS; use Rust daemon-core catalog status/projection.",
-    details: {
-      operation_kind: "model_catalog.status",
-      rust_core_boundary: "model_mount.catalog_provider_status_projection",
-      evidence_refs: [
-        "model_catalog_status_js_readback_retired",
-        "rust_daemon_core_catalog_status_projection_required",
-        "agentgres_catalog_projection_required",
-      ],
-    },
-  });
 }
 
 function throwCatalogVariantEnrichmentRetired(deps = {}) {

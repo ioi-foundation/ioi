@@ -345,7 +345,9 @@ remained after workflow-edit apply authority was fail-closed. Workflow-edit
 execution is still not terminal: approved apply still requires Rust daemon-core
 mutation admission, Agentgres expected-head/state-root binding, receipt/event
 materialization, projection, and replay before it can execute again. The Slice
-755 workflow-edit read-helper facade-retirement compaction is complete.
+755 workflow-edit read-helper facade-retirement compaction is complete. The
+Slice 755 workflow-edit read-helper facade-retirement matrix-compaction is
+complete.
 Slice 756 retired backend-process plan/load-option compatibility aliases from
 the Rust model_mount process-plan boundary and local provider load paths:
 `contextLength`, `maxModelLen`, `tensorParallelSize`,
@@ -1165,14 +1167,15 @@ probing, Agentgres admission, record-state, and command transport.
 
 Slice 815 retired the JS-authored catalog-status public envelope from
 the model_mount read-projection path. The public `catalogStatus()` now requests
-`catalog_status` from `plan_model_mount_read_projection`; the runtime-daemon
-now sends only primitive `catalog_status_input` migration data, and Rust authors
-the public catalog-status projection plus nested snapshot/projection `catalog`
-objects through the shared read-projection planner. This still does not claim
-terminal catalog migration: direct Rust daemon-core catalog/provider/search,
-download, Agentgres admission, projection persistence, and command-transport
-retirement remain required before catalog control and readback reach terminal
-unification.
+`catalog_status` from `plan_model_mount_read_projection`; in that slice the
+runtime-daemon still sent primitive `catalog_status_input` migration data, and
+the bridge authored the public catalog-status projection plus nested
+snapshot/projection `catalog` objects through the shared read-projection
+planner. Later facade-retirement work moved this surface past the intermediary
+input transport. This still does not claim terminal catalog migration: direct
+Rust daemon-core catalog/provider/search, download, Agentgres admission,
+projection persistence, and command-transport retirement remain required before
+catalog control and readback reach terminal unification.
 
 Slice 816 retired the remaining dead JS model_mount broad projection helper
 exports after their public callers had moved to Rust read-projection kinds.
@@ -1444,13 +1447,28 @@ readback is therefore blocked until direct Rust daemon-core catalog-provider
 control/projection APIs own the request.
 
 Slice 837 retired public catalog-status readback input composition from JS.
-`catalogStatus()` and `catalogStatusProjectionInput()` now fail closed with
+`catalogStatus()` and `catalogStatusProjectionInput()` initially failed closed with
 `model_catalog_status_js_readback_retired` before JS can iterate catalog provider
 ports, summarize storage, read `lastCatalogSearch`, or send `catalog_status_input`
 to Rust. Broad model-mount snapshot/projection transport also stops sending
 `catalog_status_input`; the remaining broad `catalog` envelope is a
 non-authoritative empty/default Rust projection until direct Rust daemon-core
 catalog status/projection APIs own the request.
+
+Slice 867 moved public catalog-status readback refusal onto the Rust
+read-projection boundary. Public `catalogStatus()` now calls
+`plan_model_mount_read_projection` kind `catalog_status` with empty request
+state, translates only the Rust `model_catalog_status_js_readback_retired`
+refusal at the JS edge, and no longer imports the dead `catalogStatus()` or
+`catalogStatusProjectionInput()` helpers from `catalog-operations.mjs`. The Rust
+bridge direct `catalog_status` arm fails closed even when a direct caller
+provides `catalog_status_input`; broad `snapshot` and `projection` nested
+`catalog` envelopes remain schema-stable empty/default objects instead of
+honoring caller-supplied catalog-status input. This is still current-lane
+bridge work, not the long-term resting architecture: direct Rust daemon-core
+Agentgres-backed catalog status/projection APIs must replace command transport
+and the remaining JS facade/error-translation edge before the catalog surface
+reaches terminal unification.
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
 JS. `enrichCatalogEntryForState()` now fails closed with

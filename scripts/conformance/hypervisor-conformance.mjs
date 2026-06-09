@@ -679,8 +679,8 @@ function runDocs() {
       /Rust authors the not-checked\s+fallback plus checked receipt projection/.test(guide) &&
       /Slice 815 retired the JS-authored catalog-status public envelope from\s+the model_mount read-projection path/.test(guide) &&
       /The public `catalogStatus\(\)` now requests\s+`catalog_status` from `plan_model_mount_read_projection`/.test(guide) &&
-      /the runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(guide) &&
-      /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(guide) &&
+      /in that slice the\s+runtime-daemon still sent primitive `catalog_status_input` migration data/.test(guide) &&
+      /Later facade-retirement work moved this surface past the intermediary\s+input transport/.test(guide) &&
       /Slice 816 retired the remaining dead JS model_mount broad projection helper\s+exports/.test(guide) &&
       /`modelMountingSnapshot\(\)` was removed from `read-model\.mjs`/.test(guide) &&
       /`buildModelMountingProjection\(\)`,\s+`buildAuthoritySnapshot\(\)`, `buildProjectionSummary\(\)`,\s+`buildAdapterBoundaries\(\)`, and `buildReceiptReplay\(\)` were removed from\s+`projections\.mjs`/.test(guide) &&
@@ -754,6 +754,9 @@ function runDocs() {
       /Slice 837 retired public catalog-status readback input composition from JS/.test(guide) &&
       /`model_catalog_status_js_readback_retired`/.test(guide) &&
       /`catalog_status_input`/.test(guide) &&
+      /Slice 867 moved public catalog-status readback refusal onto the Rust\s+read-projection boundary/.test(guide) &&
+      /Public `catalogStatus\(\)` now calls\s+`plan_model_mount_read_projection` kind `catalog_status` with empty request\s+state/.test(guide) &&
+      /The Rust\s+bridge direct `catalog_status` arm fails closed even when a direct caller\s+provides `catalog_status_input`/.test(guide) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(guide) &&
       /`model_catalog_variant_enrichment_js_retired`/.test(guide) &&
       /`catalogVariantForSource\(\)`/.test(guide) &&
@@ -831,8 +834,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 815/.test(matrix) &&
       /Slice 815 retired the JS-authored catalog-status public envelope from the\s+model_mount read-projection path/.test(matrix) &&
       /public `catalogStatus\(\)` now requests\s+`catalog_status`/.test(matrix) &&
-      /runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(matrix) &&
-      /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(matrix) &&
+      /runtime-daemon still sent primitive `catalog_status_input` migration data/.test(matrix) &&
+      /Later facade-retirement work moved this surface past the intermediary\s+input transport/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 816/.test(matrix) &&
       /Slice 816 retired the remaining dead JS model_mount broad projection helper\s+exports/.test(matrix) &&
       /`workflowNodeBindings\(\)` was removed from that same legacy read helper module/.test(matrix) &&
@@ -947,6 +950,11 @@ function runDocs() {
       /Slice 837 retired public catalog-status readback input composition from JS/.test(matrix) &&
       /model_catalog_status_js_readback_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 837 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 867/.test(matrix) &&
+      /Slice 867 moved public catalog-status readback refusal onto the Rust\s+read-projection boundary/.test(matrix) &&
+      /Public `catalogStatus\(\)` now calls\s+`plan_model_mount_read_projection` kind `catalog_status` with empty request\s+state/.test(matrix) &&
+      /direct `catalog_status` arm fails closed even when a direct caller\s+provides `catalog_status_input`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 867/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1086,12 +1094,13 @@ function runDocs() {
       /direct `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read-projection arms now ignore caller-supplied\s+runtime-engine arrays, profiles, preferences, default-load options, and detail\s+objects/.test(matrix) &&
       /focused Rust bridge test passes\s+adversarial runtime-engine state/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 865 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 866/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 866/.test(matrix) &&
       /Slice 866 moved public OAuth session\/state readback refusal onto the Rust\s+read-projection boundary/.test(matrix) &&
       /`listOAuthSessions\(\)` and `listOAuthStates\(\)`\s+now call `plan_model_mount_read_projection` kinds `oauth_sessions` and\s+`oauth_states`/.test(matrix) &&
       /no longer import the dead `oauthSessionList\(\)`\/`oauthStateList\(\)`\s+helpers/.test(matrix) &&
       /direct arms for `oauth_sessions` and `oauth_states`\s+fail closed/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 866/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 866 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 867/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1157,10 +1166,13 @@ function runDocs() {
       /broad snapshot\/projection transport no longer sends `catalog_provider_configs` or emits `catalogProviderConfigs` compatibility fields/.test(
         implementationMatrix,
       ) &&
-      /public catalog-status readback now fails closed with `model_catalog_status_js_readback_retired`/.test(
+      /public catalog-status readback now routes to the Rust `catalog_status` read-projection boundary/.test(
         implementationMatrix,
       ) &&
-      /broad snapshot\/projection requests no longer send `catalog_status_input`/.test(
+      /no longer preserves JS `catalogStatus\(\)` or `catalogStatusProjectionInput\(\)` helpers/.test(
+        implementationMatrix,
+      ) &&
+      /direct Rust `catalog_status` fails closed and broad catalog envelopes ignore `catalog_status_input`/.test(
         implementationMatrix,
       ) &&
       /non-search catalog variant enrichment now fails closed with `model_catalog_variant_enrichment_js_retired`/.test(
@@ -8310,8 +8322,9 @@ function runBridge() {
       /serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
-      /retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
-      /catalogStatus\(state\)\s*\{[\s\S]*?retiredCatalogStatusReadback\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(modelMountingReadProjectionFacade) &&
+      /translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
+      !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "catalog_status"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/catalogProviderStatus/.test(modelMountingReadProjectionFacade) &&
@@ -8587,7 +8600,7 @@ function runBridge() {
       /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(bridgeModule) &&
       /"server_status" => Ok\(model_mount_server_status\(request\)\)/.test(bridgeModule) &&
-      /"catalog_status" => Ok\(model_mount_catalog_status\(request\)\)/.test(bridgeModule) &&
+      /"catalog_status" => Err\(BridgeError::new\(\s*"model_catalog_status_js_readback_retired"/.test(bridgeModule) &&
       /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(bridgeModule) &&
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
       /"latest_runtime_survey" => Ok\(model_mount_latest_runtime_survey\(request\)\)/.test(bridgeModule) &&
@@ -8675,6 +8688,7 @@ function runBridge() {
       /"server_status_input"/.test(bridgeModule) &&
       /"projection_kind": "catalog_status"/.test(bridgeModule) &&
       /"catalog_status_input"/.test(bridgeModule) &&
+      !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(bridgeModule) &&
       /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
       /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
       /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8719,7 +8733,7 @@ function runBridge() {
       /response\["projection"\]\["openAiModelList"\]\["data"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["workflowNodes"\]/.test(bridgeModule) &&
       /server status projected in Rust/.test(bridgeModule) &&
-      /catalog status projected in Rust/.test(bridgeModule) &&
+      /catalog status fails closed until Rust catalog projection owns readback/.test(bridgeModule) &&
       /runtime engines projected in Rust/.test(bridgeModule) &&
       /runtime engine profiles projected in Rust/.test(bridgeModule) &&
       /runtime preference projected in Rust/.test(bridgeModule) &&
@@ -11817,6 +11831,14 @@ function runReceipts() {
   const catalogOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     : "";
+  const modelMountingReadProjectionFacade = exists("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs")
+    : "";
+  const modelMountingReadProjectionFacadeTest = exists(
+    "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs")
+    : "";
   const catalogEntries = exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs")
     : "";
@@ -14227,21 +14249,34 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-status-js-readback-retired",
-    /model_catalog_status_js_readback_retired/.test(catalogOperations) &&
-      /model_catalog\.status/.test(catalogOperations) &&
-      /rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(catalogOperations) &&
-      /rust_daemon_core_catalog_status_projection_required/.test(catalogOperations) &&
-      /agentgres_catalog_projection_required/.test(catalogOperations) &&
-      /throwCatalogStatusReadbackRetired/.test(catalogOperations) &&
+    /model_catalog_status_js_readback_retired/.test(modelMountingReadProjectionFacade) &&
+      /model_catalog\.status/.test(modelMountingReadProjectionFacade) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(modelMountingReadProjectionFacade) &&
+      /rust_daemon_core_catalog_status_projection_required/.test(modelMountingReadProjectionFacade) &&
+      /agentgres_catalog_projection_required/.test(modelMountingReadProjectionFacade) &&
+      /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
+      !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
+      !/catalogStatusProjectionInput/.test(catalogOperations) &&
+      !/throwCatalogStatusReadbackRetired/.test(catalogOperations) &&
       !/const providers = state\.catalogProviderPorts\(\)/.test(catalogOperations) &&
       !/const lastSearch = state\.lastCatalogSearch/.test(catalogOperations) &&
       !/storage:\s*state\.storageSummary\(\)/.test(catalogOperations) &&
-      /catalog status fails closed before JS status readback/.test(catalogOperationsTest) &&
-      /catalog status projection input fails closed before JS provider and storage materialization/.test(
+      !/catalog status fails closed before JS status readback/.test(catalogOperationsTest) &&
+      !/catalog status projection input fails closed before JS provider and storage materialization/.test(
         catalogOperationsTest,
       ) &&
-      /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
-      /assert\.equal\(state\.storageSummaryCalls,\s*0\)/.test(catalogOperationsTest),
+      /catalog status readback is retired/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(readProjectionRequests\.map\(\(request\) => request\.projection_kind\), \["catalog_status"\]\)/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"catalog_status_input"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /"catalog_status" => Err\(BridgeError::new\(\s*"model_catalog_status_js_readback_retired"/.test(bridgeModule) &&
+      !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(bridgeModule),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
