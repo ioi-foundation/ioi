@@ -606,6 +606,10 @@ function runDocs() {
       /remaining public\s+model_route_decision reads continue through `modelRouteDecisions\(\)` on the\s+read-projection facade/.test(guide) &&
       /`packages\/runtime-daemon\/src\/model-mounting\/projections\.mjs` and its self-test\s+were deleted/.test(guide) &&
       /conformance now requires those files to remain absent/.test(guide) &&
+      /Slice 818 retired JS model-route decision authoring from route selection/.test(guide) &&
+      /`createModelRouteDecision\(\)` and its local policy\/rationale\/hash construction\s+helpers were removed from `route-decision\.mjs`/.test(guide) &&
+      /route selection now builds only\s+the Rust `admit_model_mount_route_decision` request and uses a receipt-bound\s+`model_route_decision:\$\{receipt_id\}` idempotency key/.test(guide) &&
+      /direct Rust daemon-core\s+route-control, route-selection, provider request shaping, projection, and\s+Agentgres-backed read APIs still need to replace JS helper transport/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -649,11 +653,18 @@ function runDocs() {
       /`workflowNodeBindings\(\)` was removed from that same legacy read helper module/.test(matrix) &&
       /`buildModelMountingProjection\(\)`, `buildAuthoritySnapshot\(\)`,\s+`buildProjectionSummary\(\)`, `buildAdapterBoundaries\(\)`, and\s+`buildReceiptReplay\(\)` were removed from `projections\.mjs`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 816 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 817/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 817/.test(matrix) &&
       /Slice 817 retired the final dead `projections\.mjs` compatibility surface/.test(matrix) &&
       /`packages\/runtime-daemon\/src\/model-mounting\/projections\.mjs` and\s+`packages\/runtime-daemon\/src\/model-mounting\/projections\.test\.mjs` were deleted/.test(matrix) &&
       /conformance now requires both files to remain absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 817/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 817 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 818/.test(matrix) &&
+      /Slice 818 retired JS model-route decision authoring from the route-selection\s+path/.test(matrix) &&
+      /`createModelRouteDecision\(\)` and its local policy\/rationale\/hash helper\s+tree were removed from `route-decision\.mjs`/.test(matrix) &&
+      /`routeSelectionReceipt\(\)` no\s+longer constructs a public JS decision object before Rust admission/.test(matrix) &&
+      /`modelMountRouteDecisionRequestForSelection\(\)` now uses a receipt-bound\s+`model_route_decision:\$\{receipt_id\}` idempotency key/.test(matrix) &&
+      /accepted route-decision receipt details remain authored by Rust\s+`admit_model_mount_route_decision`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 818/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7293,13 +7304,13 @@ function runBridge() {
       /policy\?\.max_cost_usd/.test(modelRoutes) &&
       !/policy\?\.maxCostUsd/.test(modelRoutes) &&
       /allow_hosted_fallback/.test(
-        modelRouteDecisionModule,
+        modelRoutes,
       ) &&
-      !/allowHostedFallback/.test(modelRouteDecisionModule) &&
-      /request\.fallback_triggered/.test(modelRouteDecisionModule) &&
-      /request\.fallback_reason/.test(modelRouteDecisionModule) &&
-      !/request\.fallbackTriggered/.test(modelRouteDecisionModule) &&
-      !/request\.fallbackReason/.test(modelRouteDecisionModule) &&
+      !/allowHostedFallback/.test(modelRoutes) &&
+      !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      !/createModelRouteDecision/.test(modelRoutes) &&
+      /idempotency_key:\s*`model_route_decision:\$\{requiredRef\("receipt_id", receiptId\)\}`/.test(modelRoutes) &&
+      /assert\.equal\(request\.idempotency_key,\s*"model_route_decision:receipt-route"\)/.test(modelRoutesTest) &&
       !/request\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/request\.thinkingEffort/.test(modelRouteDecisionModule) &&
       !/policy\.reasoningEffort/.test(modelRouteDecisionModule) &&
@@ -7310,15 +7321,6 @@ function runBridge() {
       ) &&
       /ignore retired cost and fixture-deny policy aliases/.test(
         read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
-      ) &&
-      /canonical hosted fallback policy constraint/.test(
-        modelRouteDecisionTest,
-      ) &&
-      /ignore retired camelCase fallback request aliases/.test(
-        modelRouteDecisionTest,
-      ) &&
-      /ignore retired camelCase reasoning effort aliases/.test(
-        modelRouteDecisionTest,
       ) &&
       /provider request body ignores retired reasoning effort aliases/.test(
         modelRouteDecisionTest,
@@ -7357,21 +7359,16 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-fallback-aliases-retired",
-    /fallback_allowed:\s*Boolean\(fallback\.endpointId\)/.test(modelRouteDecisionObject) &&
-      /fallback_triggered:\s*fallbackTriggered/.test(modelRouteDecisionObject) &&
-      /fallback_reason:\s*fallbackReason/.test(modelRouteDecisionObject) &&
-      !/fallbackAllowed\s*:/.test(modelRouteDecisionObject) &&
-      !/^ {4}fallbackTriggered,\s*$/m.test(modelRouteDecisionObject) &&
-      !/^ {4}fallbackReason,\s*$/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      !/fallbackAllowed\s*:/.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
+      !/^ {4}fallbackTriggered,\s*$/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
+      !/^ {4}fallbackReason,\s*$/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
       /fallback_allowed:\s*boolean/.test(agentSdkModelRouteDecisionType) &&
       /fallback_triggered\?:\s*boolean/.test(agentSdkModelRouteDecisionType) &&
       /fallback_reason\?:\s*string \| null/.test(agentSdkModelRouteDecisionType) &&
       !/fallbackAllowed/.test(agentSdkModelRouteDecisionType) &&
       !/fallbackTriggered/.test(agentSdkModelRouteDecisionType) &&
-      !/fallbackReason/.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(decision,\s*"fallbackAllowed"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"fallbackTriggered"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"fallbackReason"\),\s*false/.test(modelRouteDecisionTest),
+      !/fallbackReason/.test(agentSdkModelRouteDecisionType),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
@@ -7382,10 +7379,9 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-lineage-aliases-retired",
-    /response_id:\s*responseId/.test(modelRouteDecisionObject) &&
-      /previous_response_id:\s*previousResponseId/.test(modelRouteDecisionObject) &&
-      !/^ {4}responseId,\s*$/m.test(modelRouteDecisionObject) &&
-      !/^ {4}previousResponseId,\s*$/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      !/^ {4}responseId,\s*$/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
+      !/^ {4}previousResponseId,\s*$/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
       /(?:response_id:\s*responseId|"response_id": null)/.test(modelRouteSelectionDetailsObject) &&
       /(?:previous_response_id:\s*previousResponseId|"previous_response_id": null)/.test(modelRouteSelectionDetailsObject) &&
       !/^ {6}responseId,\s*$/m.test(modelRouteSelectionDetailsObject) &&
@@ -7394,8 +7390,6 @@ function runBridge() {
       /previous_response_id:\s*string \| null/.test(agentSdkModelRouteDecisionType) &&
       !/responseId/.test(agentSdkModelRouteDecisionType) &&
       !/previousResponseId/.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(decision,\s*"responseId"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"previousResponseId"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"responseId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"previousResponseId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
     [
@@ -7479,13 +7473,14 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-identity-aliases-retired",
-    /schema_version:\s*MODEL_ROUTE_DECISION_SCHEMA_VERSION/.test(modelRouteDecisionObject) &&
-      /event_kind:\s*MODEL_ROUTE_DECISION_EVENT_KIND/.test(modelRouteDecisionObject) &&
-      /decision_id:\s*stableHash/.test(modelRouteDecisionObject) &&
-      !/schemaVersion\s*:/.test(modelRouteDecisionObject) &&
-      !/eventKind\s*:/.test(modelRouteDecisionObject) &&
-      !/decisionId\s*:/.test(modelRouteDecisionObject) &&
-      /requiredRef\("decision_id",\s*modelRouteDecision\.decision_id\)/.test(modelRoutes) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      /"model_route_decision_schema_version": record\.schema_version/.test(bridgeModule) &&
+      /"model_route_decision_event_kind": "model_route_decision"/.test(bridgeModule) &&
+      /"model_route_decision_id": record\.idempotency_key/.test(bridgeModule) &&
+      !/schemaVersion\s*:/.test(modelRouteDecisionModule + modelRoutes) &&
+      !/eventKind\s*:/.test(modelRouteDecisionModule + modelRoutes) &&
+      !/decisionId\s*:/.test(modelRouteDecisionModule + modelRoutes) &&
+      !/requiredRef\("decision_id",\s*modelRouteDecision\.decision_id\)/.test(modelRoutes) &&
       !/modelRouteDecision\.decisionId/.test(modelRoutes) &&
       /schema_version:\s*"ioi\.model-route-decision\.v1"/.test(agentSdkModelRouteDecisionType) &&
       /event_kind:\s*"ModelRouteDecision"/.test(agentSdkModelRouteDecisionType) &&
@@ -7493,16 +7488,14 @@ function runBridge() {
       !/schemaVersion/.test(agentSdkModelRouteDecisionType) &&
       !/eventKind/.test(agentSdkModelRouteDecisionType) &&
       !/decisionId/.test(agentSdkModelRouteDecisionType) &&
-      /(?:model_route_decision_id:\s*modelRouteDecision\.decision_id|"model_route_decision_id": record\.idempotency_key)/.test(modelRoutes + bridgeModule) &&
+      /"model_route_decision_id": record\.idempotency_key/.test(bridgeModule) &&
+      /idempotency_key:\s*`model_route_decision:\$\{requiredRef\("receipt_id", receiptId\)\}`/.test(modelRoutes) &&
       /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
       /modelRouteDecision\?\.decision_id/.test(threadTurnProjection) &&
       !/formatModelRouteDecision/.test(threadTurnProjection) &&
       !/^\s*(?:schemaVersion|eventKind|decisionId)\s*:/m.test(threadTurnProjection) &&
       /json_path_string\(value,\s*"\/decision_id"\)/.test(agentTuiCli) &&
       /json_string\(value,\s*"decision_id"\)/.test(agentgresAdmissionCoreForBridge) &&
-      /Object\.hasOwn\(decision,\s*"schemaVersion"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"eventKind"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"decisionId"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(created\[0\]\.details\.model_route_decision,\s*"decisionId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
@@ -7520,20 +7513,12 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-route-model-aliases-retired",
-      /^ {4}route_id:\s*route\?\.id/m.test(modelRouteDecisionObject) &&
-      /^ {4}requested_model:\s*requestedModel/m.test(modelRouteDecisionObject) &&
-      /^ {4}requested_model_mode:/m.test(modelRouteDecisionObject) &&
-      /^ {4}auto_resolved:\s*autoResolved/m.test(modelRouteDecisionObject) &&
-      /^ {4}selected_model:\s*selectedModel/m.test(modelRouteDecisionObject) &&
-      /^ {4}upstream_model:\s*selectedModel/m.test(modelRouteDecisionObject) &&
-      /^ {4}never_send_auto_upstream:/m.test(modelRouteDecisionObject) &&
-      /^ {4}endpoint_id:\s*endpoint\?\.id/m.test(modelRouteDecisionObject) &&
-      /^ {4}provider_id:\s*provider\?\.id/m.test(modelRouteDecisionObject) &&
-      /^ {4}provider_kind:\s*provider\?\.kind/m.test(modelRouteDecisionObject) &&
-      /^ {4}provider_label:\s*provider\?\.label/m.test(modelRouteDecisionObject) &&
-      /endpoint_id:\s*candidate\.endpointId/.test(modelRouteDecisionObject) &&
-      /provider_id:\s*candidate\.providerId/.test(modelRouteDecisionObject) &&
-      !/^ {4}(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:,]/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      /"route_id": record\.route_ref/.test(bridgeModule) &&
+      /"selected_model": record\.model_ref/.test(bridgeModule) &&
+      /"selected_endpoint_id": record\.endpoint_ref/.test(bridgeModule) &&
+      /"provider_id": record\.provider_ref/.test(bridgeModule) &&
+      !/^ {4}(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
       /^\s*route_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*requested_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*requested_model_mode:\s*"auto" \| "explicit" \| "route_default" \| string;/m.test(agentSdkModelRouteDecisionType) &&
@@ -7545,12 +7530,10 @@ function runBridge() {
       /^\s*provider_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*provider_kind:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*provider_label:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
-      /^\s*endpoint_id:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
-      /^\s*provider_id:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
+      /rejected_candidates:\s*Array<\{\s*endpoint_id:\s*string;\s*provider_id:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
       !/^\s*(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(decision,\s*"routeId"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"selectedModel"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"providerKind"\),\s*false/.test(modelRouteDecisionTest),
+      /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /Object\.hasOwn\(created\[0\]\.details,\s*"selectedModel"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
@@ -7561,14 +7544,8 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-descriptor-aliases-retired",
-    /^ {4}reasoning_effort:\s*reasoningEffort/m.test(modelRouteDecisionObject) &&
-      /^ {4}local_remote_placement:\s*placement/m.test(modelRouteDecisionObject) &&
-      /^ {4}privacy_posture:\s*privacyPosture/m.test(modelRouteDecisionObject) &&
-      /^ {4}cost_estimate_usd:\s*costEstimate\.value/m.test(modelRouteDecisionObject) &&
-      /^ {4}cost_estimate_source:\s*costEstimate\.source/m.test(modelRouteDecisionObject) &&
-      /^ {4}fallback_model:\s*fallback\.model/m.test(modelRouteDecisionObject) &&
-      /^ {4}fallback_endpoint_id:\s*fallback\.endpointId/m.test(modelRouteDecisionObject) &&
-      !/^ {4}(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:,]/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      !/^ {4}(?:reasoningEffort|localRemotePlacement|privacyPosture|costEstimateUsd|costEstimateSource|fallbackModel|fallbackEndpointId)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
       /^\s*reasoning_effort:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*local_remote_placement:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*privacy_posture:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
@@ -7589,11 +7566,7 @@ function runBridge() {
         agentTuiCli,
       ) &&
       /tui_mode_status_reads_canonical_model_route_decision_reasoning/.test(agentTuiCli) &&
-      /Object\.hasOwn\(decision,\s*"reasoningEffort"\),\s*false/.test(modelRouteDecisionTest) &&
-      /ignore retired camelCase reasoning effort aliases/.test(modelRouteDecisionTest) &&
       /provider request body ignores retired reasoning effort aliases/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"costEstimateUsd"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"fallbackModel"\),\s*false/.test(modelRouteDecisionTest) &&
       /modelRouteDecision:\s*\{\s*reasoning_effort:\s*"medium"\s*\}/.test(read("packages/runtime-daemon/src/threads/thread-turn-projection.test.mjs")),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
@@ -7608,17 +7581,8 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-policy-evaluation-aliases-retired",
-    /^ {4}policy_constraints:\s*policyConstraints/m.test(modelRouteDecisionObject) &&
-      /^ {4}evaluated_candidate_count:\s*evaluatedCandidates\.length/m.test(modelRouteDecisionObject) &&
-      /^ {4}rejected_candidates:\s*evaluatedCandidates/m.test(modelRouteDecisionObject) &&
-      /^\s*route_privacy:\s*route\.privacy/m.test(modelRouteDecisionModule) &&
-      /^\s*requested_privacy:\s*policy\.privacy/m.test(modelRouteDecisionModule) &&
-      /^\s*provider_eligibility:\s*Array\.isArray\(route\.providerEligibility\)/m.test(modelRouteDecisionModule) &&
-      /^\s*denied_providers:\s*Array\.isArray\(route\.deniedProviders\)/m.test(modelRouteDecisionModule) &&
-      /^\s*max_cost_usd:\s*Number\(/m.test(modelRouteDecisionModule) &&
-      /^\s*max_latency_ms:\s*Number\(/m.test(modelRouteDecisionModule) &&
-      /^\s*local_only:\s*policy\.privacy/m.test(modelRouteDecisionModule) &&
-      !/^ {4}(?:policyConstraints|evaluatedCandidateCount|rejectedCandidates)\s*[:,]/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      !/^ {4}(?:policyConstraints|evaluatedCandidateCount|rejectedCandidates)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
       !/^\s*(?:routePrivacy|requestedPrivacy|providerEligibility|deniedProviders|maxCostUsd|maxLatencyMs|localOnly)\s*:/m.test(
         modelRouteDecisionModule,
       ) &&
@@ -7634,11 +7598,7 @@ function runBridge() {
       /^\s*rejected_candidates:\s*Array<\{/m.test(agentSdkModelRouteDecisionType) &&
       !/^\s*(?:policyConstraints|evaluatedCandidateCount|rejectedCandidates|routePrivacy|requestedPrivacy|providerEligibility|deniedProviders|maxCostUsd|maxLatencyMs|localOnly)\s*[:?]/m.test(
         agentSdkModelRouteDecisionType,
-      ) &&
-      /Object\.hasOwn\(decision,\s*"policyConstraints"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision\.policy_constraints,\s*"maxCostUsd"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"evaluatedCandidateCount"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"rejectedCandidates"\),\s*false/.test(modelRouteDecisionTest),
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
@@ -7661,17 +7621,17 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-workflow-aliases-retired",
-    /^ {4}workflow_graph_id:\s*workflow\.workflowGraphId/m.test(modelRouteDecisionObject) &&
-      /^ {4}workflow_node_id:\s*workflow\.workflowNodeId/m.test(modelRouteDecisionObject) &&
-      /^ {4}workflow_node_type:\s*workflow\.workflowNodeType/m.test(modelRouteDecisionObject) &&
-      !/^ {4}(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      /"workflow_graph_id": record\.workflow_graph_ref/.test(bridgeModule) &&
+      /"workflow_node_id": record\.workflow_node_ref/.test(bridgeModule) &&
+      !/^ {4}(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
+      /workflow_graph_id:\s*optionalString\(body\.workflow_graph_id\)/.test(modelRouteDecisionModule) &&
+      /workflow_node_id:\s*optionalString\(body\.workflow_node_id\)/.test(modelRouteDecisionModule) &&
+      /workflow_node_type:\s*optionalString\(body\.workflow_node_type\)/.test(modelRouteDecisionModule) &&
       /^\s*workflow_graph_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*workflow_node_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*workflow_node_type:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
-      !/^\s*(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(decision,\s*"workflowGraphId"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"workflowNodeId"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"workflowNodeType"\),\s*false/.test(modelRouteDecisionTest),
+      !/^\s*(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:?]/m.test(agentSdkModelRouteDecisionType),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
@@ -7682,11 +7642,11 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-workflow-request-aliases-retired",
-    /workflowGraphId:\s*optionalString\(body\.workflow_graph_id\)/.test(modelRouteDecisionModule) &&
-      /workflowNodeId:\s*optionalString\(body\.workflow_node_id\)/.test(modelRouteDecisionModule) &&
-      /workflowNodeType:\s*optionalString\(body\.workflow_node_type\)/.test(modelRouteDecisionModule) &&
+    /workflow_graph_id:\s*optionalString\(body\.workflow_graph_id\)/.test(modelRoutes) &&
+      /workflow_node_id:\s*optionalString\(body\.workflow_node_id\)/.test(modelRoutes) &&
+      /workflow_node_type:\s*optionalString\(body\.workflow_node_type\)/.test(modelRoutes) &&
       !/body\.(?:workflowGraphId|workflowNodeId|node_id|nodeId|workflowNodeType|node)\b/.test(
-        modelRouteDecisionModule,
+        modelRoutes,
       ) &&
       /route decision workflow context ignores retired request aliases/.test(modelRouteDecisionTest),
     [
@@ -7698,15 +7658,13 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-ref-aliases-retired",
-    /^ {6}policy_hash:\s*policyHash/m.test(modelRouteDecisionObject) &&
-      /^ {4}policy_hash:\s*policyHash/m.test(modelRouteDecisionObject) &&
-      /^ {4}evidence_refs:\s*\[/m.test(modelRouteDecisionObject) &&
-      !/^ {4}(?:policyHash|evidenceRefs)\s*[:,]/m.test(modelRouteDecisionObject) &&
+    !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
+      /"policy_hash": record\.policy_hash/.test(bridgeModule) &&
+      /"model_mount_route_decision_receipt_refs": record\.receipt_refs/.test(bridgeModule) &&
+      !/^ {4}(?:policyHash|evidenceRefs)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + bridgeModule) &&
       /^\s*policy_hash\?:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*evidence_refs:\s*string\[\];/m.test(agentSdkModelRouteDecisionType) &&
       !/^\s*(?:policyHash|evidenceRefs)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(decision,\s*"policyHash"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decision,\s*"evidenceRefs"\),\s*false/.test(modelRouteDecisionTest) &&
       /modelRouteDecision\?\.evidence_refs/.test(runtimeDaemonIndex) &&
       /modelRouteDecision\.evidence_refs/.test(runtimeDaemonIndex) &&
       !/modelRouteDecision\??\.evidenceRefs/.test(runtimeDaemonIndex),

@@ -1198,6 +1198,18 @@ keeps the route-decision receipt projection helper in `route-decision.mjs` only
 for live route/thread binding code until direct Rust daemon-core route-decision
 projection APIs replace that remaining JS helper.
 
+Slice 818 retired JS model-route decision authoring from route selection.
+`createModelRouteDecision()` and its local policy/rationale/hash construction
+helpers were removed from `route-decision.mjs`; route selection now builds only
+the Rust `admit_model_mount_route_decision` request and uses a receipt-bound
+`model_route_decision:${receipt_id}` idempotency key. The remaining route
+selection and route-decision workflow request helpers now use canonical
+snake_case transport fields instead of camelCase compatibility shapes. This
+still does not claim terminal model_route migration: direct Rust daemon-core
+route-control, route-selection, provider request shaping, projection, and
+Agentgres-backed read APIs still need to replace JS helper transport and the
+temporary bridge command path.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

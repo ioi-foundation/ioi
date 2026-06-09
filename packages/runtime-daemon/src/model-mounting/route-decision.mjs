@@ -1,110 +1,8 @@
-import crypto from "node:crypto";
-
 export const MODEL_ROUTE_DECISION_SCHEMA_VERSION = "ioi.model-route-decision.v1";
 export const MODEL_ROUTE_DECISION_EVENT_KIND = "ModelRouteDecision";
 
 export function isAutoModelSelector(modelId) {
   return typeof modelId === "string" && modelId.trim().toLowerCase() === "auto";
-}
-
-export function createModelRouteDecision({
-  route,
-  endpoint,
-  provider,
-  capability = "chat",
-  policy = {},
-  requestedModel = null,
-  request = {},
-  policyHash,
-  workflow = {},
-  responseId = null,
-  previousResponseId = null,
-  evaluatedCandidates = [],
-} = {}) {
-  const autoResolved = isAutoModelSelector(requestedModel);
-  const costEstimate = estimatedCostUsd(endpoint, provider);
-  const fallback = fallbackFor(route, endpoint);
-  const policyConstraints = routePolicyConstraints(route, policy);
-  const placement = localRemotePlacement(provider);
-  const privacyPosture = privacyPostureFor(route, provider, policy);
-  const reasoningEffort = reasoningEffortFor(policy, request);
-  const selectedModel = endpoint?.modelId ?? null;
-  const fallbackTriggered = truthy(request.fallback_triggered);
-  const fallbackReason = optionalString(request.fallback_reason);
-  const decision = {
-    schema_version: MODEL_ROUTE_DECISION_SCHEMA_VERSION,
-    object: "ioi.model_route_decision",
-    event_kind: MODEL_ROUTE_DECISION_EVENT_KIND,
-    decision_id: stableHash({
-      route_id: route?.id ?? null,
-      endpoint_id: endpoint?.id ?? null,
-      provider_id: provider?.id ?? null,
-      capability,
-      requested_model: requestedModel,
-      policy_hash: policyHash,
-      workflow,
-      response_id: responseId,
-      previous_response_id: previousResponseId,
-    }),
-    route_id: route?.id ?? null,
-    capability,
-    requested_model: requestedModel,
-    requested_model_mode: autoResolved ? "auto" : requestedModel ? "explicit" : "route_default",
-    auto_resolved: autoResolved,
-    selected_model: selectedModel,
-    upstream_model: selectedModel,
-    never_send_auto_upstream: !autoResolved || selectedModel !== "auto",
-    endpoint_id: endpoint?.id ?? null,
-    provider_id: provider?.id ?? null,
-    provider_kind: provider?.kind ?? null,
-    provider_label: provider?.label ?? null,
-    reasoning_effort: reasoningEffort,
-    local_remote_placement: placement,
-    privacy_posture: privacyPosture,
-    cost_estimate_usd: costEstimate.value,
-    cost_estimate_source: costEstimate.source,
-    fallback_model: fallback.model,
-    fallback_endpoint_id: fallback.endpointId,
-    fallback_allowed: Boolean(fallback.endpointId),
-    fallback_triggered: fallbackTriggered,
-    fallback_reason: fallbackReason,
-    rationale: routeRationale({
-      route,
-      endpoint,
-      provider,
-      policy,
-      requestedModel,
-      autoResolved,
-      placement,
-      costEstimate,
-      fallbackTriggered,
-      fallbackReason,
-    }),
-    policy_constraints: policyConstraints,
-    evaluated_candidate_count: evaluatedCandidates.length,
-    rejected_candidates: evaluatedCandidates
-      .filter((candidate) => candidate.status === "rejected")
-      .map((candidate) => ({
-        endpoint_id: candidate.endpointId,
-        provider_id: candidate.providerId,
-        reason: candidate.reason,
-      })),
-    workflow_graph_id: workflow.workflowGraphId ?? null,
-    workflow_node_id: workflow.workflowNodeId ?? null,
-    workflow_node_type: workflow.workflowNodeType ?? null,
-    response_id: responseId,
-    previous_response_id: previousResponseId,
-    policy_hash: policyHash,
-    evidence_refs: [
-      "model_router",
-      route?.id,
-      endpoint?.id,
-      provider?.id,
-      autoResolved ? "model_auto_resolved_before_provider_invocation" : null,
-      fallbackTriggered ? "model_route_fallback_selected" : null,
-    ].filter(Boolean),
-  };
-  return decision;
 }
 
 export function routeDecisionProjectionFromReceipt(receipt) {
@@ -131,20 +29,10 @@ export function providerRequestBodyForRoute(body = {}, endpoint = {}) {
 
 export function workflowContextFromRouteRequest(body = {}) {
   return {
-    workflowGraphId: optionalString(body.workflow_graph_id),
-    workflowNodeId: optionalString(body.workflow_node_id),
-    workflowNodeType: optionalString(body.workflow_node_type),
+    workflow_graph_id: optionalString(body.workflow_graph_id),
+    workflow_node_id: optionalString(body.workflow_node_id),
+    workflow_node_type: optionalString(body.workflow_node_type),
   };
-}
-
-function reasoningEffortFor(policy = {}, request = {}) {
-  const value =
-    policy.reasoning_effort ??
-    request.reasoning_effort ??
-    request.thinking ??
-    request.thinking_effort;
-  if (typeof value === "string" && value.trim()) return value.trim();
-  return "provider_default";
 }
 
 function stripAutopilotOnlyProviderFields(body = {}) {
@@ -247,109 +135,8 @@ function normalizeReasoningEffortValue(value) {
   return normalized;
 }
 
-function localRemotePlacement(provider = {}) {
-  switch (provider.privacyClass) {
-    case "local_private":
-      return "local";
-    case "workspace":
-      return "workspace";
-    case "remote_confidential":
-      return "remote_confidential";
-    case "hosted":
-      return "remote";
-    default:
-      return "unknown";
-  }
-}
-
-function privacyPostureFor(route = {}, provider = {}, policy = {}) {
-  if (policy.privacy) return String(policy.privacy);
-  if (route.privacy) return String(route.privacy);
-  if (provider.privacyClass) return String(provider.privacyClass);
-  return "unspecified";
-}
-
-function estimatedCostUsd(endpoint = {}, provider = {}) {
-  const endpointCost = Number(endpoint.estimatedCostUsd);
-  if (Number.isFinite(endpointCost)) return { value: endpointCost, source: "endpoint" };
-  const providerCost = Number(provider.estimatedCostUsd);
-  if (Number.isFinite(providerCost)) return { value: providerCost, source: "provider" };
-  return {
-    value: provider.privacyClass === "hosted" ? 0.01 : 0,
-    source: provider.privacyClass === "hosted" ? "hosted_default" : "local_default",
-  };
-}
-
-function fallbackFor(route = {}, selectedEndpoint = {}) {
-  const fallbackEndpointId = Array.isArray(route.fallback)
-    ? route.fallback.find((endpointId) => endpointId !== selectedEndpoint.id) ?? null
-    : null;
-  return {
-    endpointId: fallbackEndpointId,
-    model: fallbackEndpointId ? null : null,
-  };
-}
-
-function routePolicyConstraints(route = {}, policy = {}) {
-  return {
-    route_privacy: route.privacy ?? null,
-    requested_privacy: policy.privacy ?? null,
-    provider_eligibility: Array.isArray(route.providerEligibility) ? [...route.providerEligibility] : [],
-    denied_providers: Array.isArray(route.deniedProviders) ? [...route.deniedProviders] : [],
-    max_cost_usd: Number(policy.max_cost_usd ?? policy.maxCostUsd ?? route.maxCostUsd ?? 0),
-    max_latency_ms: Number(policy.max_latency_ms ?? policy.maxLatencyMs ?? route.maxLatencyMs ?? 0),
-    allow_hosted_fallback: truthy(policy.allow_hosted_fallback),
-    local_only: policy.privacy === "local_only" || route.privacy === "local_only",
-  };
-}
-
-function routeRationale({
-  route = {},
-  endpoint = {},
-  provider = {},
-  policy = {},
-  requestedModel,
-  autoResolved,
-  placement,
-  costEstimate,
-  fallbackTriggered,
-  fallbackReason,
-}) {
-  if (fallbackTriggered) {
-    return `Fallback route ${route.id} selected ${endpoint.modelId} after ${fallbackReason ?? "primary route rejection"}.`;
-  }
-  if (autoResolved) {
-    return `model=auto resolved to ${endpoint.modelId} through ${route.id} before provider invocation.`;
-  }
-  if (requestedModel) {
-    return `Explicit model ${requestedModel} resolved to ${endpoint.modelId} on ${provider.kind}.`;
-  }
-  if (policy.privacy === "local_only" || route.privacy === "local_only") {
-    return `Local-only policy selected ${endpoint.modelId} on ${provider.kind}.`;
-  }
-  return `${route.id} selected ${endpoint.modelId} on ${provider.kind} with ${placement} placement and estimated cost ${costEstimate.value}.`;
-}
-
-function truthy(value) {
-  return value === true || value === "true" || value === 1 || value === "1";
-}
-
 function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
-}
-
-function stableHash(value) {
-  return crypto.createHash("sha256").update(stableStringify(value)).digest("hex");
-}
-
-function stableStringify(value) {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  return `{${Object.keys(value)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
-    .join(",")}}`;
 }

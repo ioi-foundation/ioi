@@ -1295,7 +1295,7 @@ export class ModelMountingState {
   }
 
   selectRoute({ modelId, routeId, capability, policy }) {
-    return selectRouteForState(this, { modelId, routeId, capability, policy }, {
+    return selectRouteForState(this, { model_id: modelId, route_id: routeId, capability, policy }, {
       isAutoModelSelector: routeDecision.isAutoModelSelector,
       isFixtureEndpointCandidate,
       runtimeError,

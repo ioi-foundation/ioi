@@ -255,7 +255,7 @@ test("model mounting route helpers select policy-allowed endpoints after rejecte
     endpointIdsForExplicitModel: () => [],
     isAutoModelSelector: () => true,
     isFixtureEndpointCandidate: () => false,
-    modelId: "auto",
+    model_id: "auto",
     policy: {},
     provider: (id) => providers.get(id),
     route: (id) => routes.get(id),
@@ -303,7 +303,7 @@ test("model mounting route helpers ignore retired hosted fallback policy alias",
     endpointIdsForExplicitModel: () => [],
     isAutoModelSelector: () => true,
     isFixtureEndpointCandidate: () => false,
-    modelId: "auto",
+    model_id: "auto",
     provider: (id) => providers.get(id),
     route: (id) => routes.get(id),
     routes,
@@ -349,7 +349,7 @@ test("model mounting route helpers ignore retired cost and fixture-deny policy a
     endpointIdsForExplicitModel: () => [],
     isAutoModelSelector: () => true,
     isFixtureEndpointCandidate: (endpoint) => endpoint.id === "endpoint.fixture",
-    modelId: "auto",
+    model_id: "auto",
     provider: (id) => providers.get(id),
     route: (id) => routes.get(id),
     routes,
@@ -393,7 +393,7 @@ test("model mounting route helpers report blocker details when no endpoint satis
     endpointIdsForExplicitModel: () => [],
     isAutoModelSelector: () => true,
     isFixtureEndpointCandidate: () => false,
-    modelId: "auto",
+    model_id: "auto",
     policy: {},
     provider: (id) => providers.get(id),
     route: (id) => routes.get(id),
@@ -427,15 +427,6 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
       return record;
     },
     responseId: "resp-1",
-    routeDecision: {
-      MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
-      MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
-      workflowContextFromRouteRequest: () => ({ workflowNodeId: "node-1" }),
-      createModelRouteDecision: ({ evaluatedCandidates }) => ({
-        decision_id: "decision-1",
-        evaluatedCandidates,
-      }),
-    },
     selection: {
       route: { id: "route.local-first" },
       endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
@@ -450,8 +441,8 @@ test("model mounting route helpers preserve route-selection receipt metadata", (
   assert.equal(created[0].details.rust_daemon_core_receipt_author, "ModelMountCore.admit_route_decision");
   assert.equal(created[0].details.model_route_decision_schema_version, "ioi.model_mount.route_decision.v1");
   assert.equal(created[0].details.model_route_decision_event_kind, "model_route_decision");
-  assert.equal(created[0].details.model_route_decision_id, "model_route_decision:decision-1");
-  assert.equal(created[0].details.model_route_decision.decision_id, "model_route_decision:decision-1");
+  assert.equal(created[0].details.model_route_decision_id, "model_route_decision:receipt-route");
+  assert.equal(created[0].details.model_route_decision.decision_id, "model_route_decision:receipt-route");
   assert.equal(Object.hasOwn(created[0].details.model_route_decision, "decisionId"), false);
   assert.equal(created[0].details.route_id, "route.local-first");
   assert.equal(created[0].details.selected_model, "model.local");
@@ -577,12 +568,6 @@ test("model mounting route receipt fails closed without Rust admission", () => {
       capability: "chat",
       nextReceiptId: () => "receipt-route",
       receipt: () => ({ id: "receipt-route" }),
-      routeDecision: {
-        MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
-        MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
-        workflowContextFromRouteRequest: () => ({}),
-        createModelRouteDecision: () => ({ decision_id: "decision-1" }),
-      },
       selection: {
         route: { id: "route.local-first" },
         endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
@@ -609,12 +594,6 @@ test("model mounting route receipt rejects Rust admission results without Rust-a
       persistRustAuthoredReceipt: () => {
         throw new Error("must not persist");
       },
-      routeDecision: {
-        MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
-        MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
-        workflowContextFromRouteRequest: () => ({}),
-        createModelRouteDecision: () => ({ decision_id: "decision-1" }),
-      },
       selection: {
         route: { id: "route.local-first" },
         endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
@@ -636,12 +615,6 @@ test("model mounting route receipt requires a precomputed receipt id", () => {
       capability: "chat",
       admitModelMountRouteDecision,
       receipt: () => ({ id: "receipt-route" }),
-      routeDecision: {
-        MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
-        MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
-        workflowContextFromRouteRequest: () => ({}),
-        createModelRouteDecision: () => ({ decision_id: "decision-1" }),
-      },
       selection: {
         route: { id: "route.local-first" },
         endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
@@ -663,7 +636,6 @@ test("model mounting route request resolves auto before Rust admission", () => {
       privacy_profile: "private_workspace_ctee",
     },
     capability: "chat",
-    modelRouteDecision: { decision_id: "decision-1" },
     policy: { privacy: "private_workspace_ctee" },
     policyHash: "policy-hash",
     receiptId: "receipt-route",
@@ -672,10 +644,11 @@ test("model mounting route request resolves auto before Rust admission", () => {
       endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
       provider: { id: "provider.local", privacyClass: "local_private" },
     },
-    workflow: { workflowGraphId: "graph-1", workflowNodeId: "node-1" },
+    workflow: { workflow_graph_id: "graph-1", workflow_node_id: "node-1" },
   });
 
   assert.equal(request.schema_version, "ioi.model_mount.route_decision.v1");
+  assert.equal(request.idempotency_key, "model_route_decision:receipt-route");
   assert.equal(request.model_ref, "model.local");
   assert.equal(request.policy_hash, "sha256:policy-hash");
   assert.deepEqual(request.receipt_refs, ["receipt://receipt-route"]);
@@ -715,7 +688,6 @@ test("model mounting route request ignores retired policy privacy profile alias"
   const request = modelMountRouteDecisionRequestForSelection({
     body: { model: "auto" },
     capability: "chat",
-    modelRouteDecision: { decision_id: "decision-1" },
     policy: { privacyProfile: "private_workspace_ctee" },
     policyHash: "policy-hash",
     receiptId: "receipt-route",
@@ -788,8 +760,8 @@ test("model mounting route selection operations preserve delegate wiring without
   assert.deepEqual(endpointIdsForExplicitModelForState(state, route, "missing-model", { normalizeScopes }), ["endpoint.missing-model"]);
 
   const selection = selectRouteForState(state, {
-    modelId: "auto",
-    routeId: route.id,
+    model_id: "auto",
+    route_id: route.id,
     capability: "chat",
     policy: {},
   }, {
@@ -805,16 +777,10 @@ test("model mounting route selection operations preserve delegate wiring without
     body: { model: "auto" },
     capability: "chat",
   }, {
-    routeDecision: {
-      MODEL_ROUTE_DECISION_SCHEMA_VERSION: "v1",
-      MODEL_ROUTE_DECISION_EVENT_KIND: "model_route_decision",
-      workflowContextFromRouteRequest: () => ({}),
-      createModelRouteDecision: () => ({ decision_id: "decision-1" }),
-    },
     stableHash: () => "policy-hash",
   });
   assert.equal(receipt.kind, "model_route_selection");
-  assert.equal(receipts.at(-1).details.model_route_decision_id, "model_route_decision:decision-1");
+  assert.equal(receipts.at(-1).details.model_route_decision_id, "model_route_decision:receipt-route");
   assert.equal(Object.hasOwn(receipts.at(-1).details, "modelRouteDecisionId"), false);
   assert.equal(receipts.at(-1).details.model_mount_route_decision_ref, "model_mount://route_decision/test");
 });

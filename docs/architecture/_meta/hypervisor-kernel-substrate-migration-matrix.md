@@ -16638,7 +16638,7 @@ and edge error-envelope translation.
 
 Scheduled matrix-compaction obligation from Slice 816 is now satisfied.
 
-## Implementation Slice Evidence: 817
+## Compacted Implementation Slice Evidence: 817
 
 Slice 817 retired the final dead `projections.mjs` compatibility surface rather
 than preserving a one-helper JS projection module. Public model_route_decision
@@ -16653,11 +16653,7 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs` | passed |
-| `npm run hypervisor-conformance:bridge` | passed |
-| `npm run hypervisor-conformance:docs` | passed |
-| `npm run hypervisor-conformance` | passed |
-| `git diff --check` | passed |
+| targeted JS projection/read tests, `hypervisor-conformance:bridge`, `hypervisor-conformance:docs`, full `hypervisor-conformance`, and `git diff --check` | passed before commit |
 
 This still does not claim terminal model_mount projection migration: direct Rust
 daemon-core Agentgres projection APIs still need to replace JS state
@@ -16665,9 +16661,36 @@ materialization, local map/projection-file materialization, command transport,
 edge error-envelope translation, and the remaining live route-decision helper in
 `route-decision.mjs`.
 
-Next scheduled matrix-compaction pass: compact Slice 817 after the next direct
+Scheduled matrix-compaction obligation from Slice 817 is now satisfied.
+
+## Implementation Slice Evidence: 818
+
+Slice 818 retired JS model-route decision authoring from the route-selection
+path. `createModelRouteDecision()` and its local policy/rationale/hash helper
+tree were removed from `route-decision.mjs`; `routeSelectionReceipt()` no
+longer constructs a public JS decision object before Rust admission; and
+`modelMountRouteDecisionRequestForSelection()` now uses a receipt-bound
+`model_route_decision:${receipt_id}` idempotency key. Route-selection and
+route-decision workflow request helpers now use canonical snake_case transport
+fields, while accepted route-decision receipt details remain authored by Rust
+`admit_model_mount_route_decision`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/model-mounting/route-decision.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+
+This still does not claim terminal model_route migration: direct Rust
+daemon-core route-control, route-selection, provider request shaping,
+projection, Agentgres-backed read APIs, and command-transport retirement remain
+required before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 818 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper
-calls, local map/projection materialization, and the remaining route-decision JS
-helper.
+calls, provider request shaping, local map/projection materialization, and the
+remaining route-decision projection helper.

@@ -110,18 +110,18 @@ export function selectRoute({
   endpointIdsForExplicitModel: endpointIdsForExplicitModelFn,
   isAutoModelSelector,
   isFixtureEndpointCandidate,
-  modelId,
+  model_id,
   policy,
   provider,
   route: getRoute,
-  routeId,
+  route_id,
   routes,
   runtimeError,
   truthy,
   capability = "chat",
 } = {}) {
-  const route = routes.get(routeId ?? "route.local-first") ?? getRoute("route.local-first");
-  const explicitModelId = isAutoModelSelector(modelId) ? null : modelId;
+  const route = routes.get(route_id ?? "route.local-first") ?? getRoute("route.local-first");
+  const explicitModelId = isAutoModelSelector(model_id) ? null : model_id;
   const fallback = explicitModelId
     ? endpointIdsForExplicitModelFn(route, explicitModelId)
     : route.fallback.length > 0
@@ -191,7 +191,7 @@ export function selectRoute({
   });
 }
 
-export function selectRouteForState(state, { modelId, routeId, capability, policy }, deps = {}) {
+export function selectRouteForState(state, { model_id, route_id, capability, policy }, deps = {}) {
   const {
     isAutoModelSelector,
     isFixtureEndpointCandidate,
@@ -205,11 +205,11 @@ export function selectRouteForState(state, { modelId, routeId, capability, polic
       state.endpointIdsForExplicitModel(route, explicitModelId),
     isAutoModelSelector,
     isFixtureEndpointCandidate,
-    modelId,
+    model_id,
     policy,
     provider: (providerId) => state.provider(providerId),
     route: (id) => state.route(id),
-    routeId,
+    route_id,
     routes: state.routes,
     runtimeError,
     truthy,
@@ -225,33 +225,18 @@ export function routeSelectionReceipt({
   persistRustAuthoredReceipt,
   previousResponseId = null,
   responseId = null,
-  routeDecision,
   selection,
   stableHash,
 } = {}) {
   assertCanonicalRouteSelectionRequestBody(body);
   const policy = body.model_policy ?? {};
   const requestedModel = body.model ?? body.model_id ?? null;
-  const workflow = routeDecision.workflowContextFromRouteRequest(body);
+  const workflow = workflowContextFromRouteSelectionRequest(body);
   const policyHash = stableHash(policy);
   if (typeof nextReceiptId !== "function") {
     throw routeDecisionReceiptIdRequiredError();
   }
   const receiptId = nextReceiptId("model_route_selection");
-  const modelRouteDecision = routeDecision.createModelRouteDecision({
-    route: selection.route,
-    endpoint: selection.endpoint,
-    provider: selection.provider,
-    capability,
-    policy,
-    requestedModel,
-    request: body,
-    policyHash,
-    workflow,
-    responseId,
-    previousResponseId,
-    evaluatedCandidates: selection.evaluatedCandidates ?? [],
-  });
   if (typeof admitModelMountRouteDecision !== "function") {
     throw routeDecisionRustAdmissionRequiredError();
   }
@@ -259,7 +244,6 @@ export function routeSelectionReceipt({
     modelMountRouteDecisionRequestForSelection({
       body,
       capability,
-      modelRouteDecision,
       policy,
       policyHash,
       previousResponseId,
@@ -270,7 +254,7 @@ export function routeSelectionReceipt({
     }),
   );
   void evidenceRefs;
-  void modelRouteDecision;
+  void requestedModel;
   void responseId;
   void previousResponseId;
   if (typeof persistRustAuthoredReceipt !== "function") {
@@ -284,7 +268,6 @@ export function routeSelectionReceipt({
 
 export function routeSelectionReceiptForState(state, selection, options = {}, deps = {}) {
   const {
-    routeDecision,
     stableHash,
   } = deps;
   return routeSelectionReceipt({
@@ -292,7 +275,6 @@ export function routeSelectionReceiptForState(state, selection, options = {}, de
     ...options,
     nextReceiptId: (kind) => state.nextReceiptId(kind),
     persistRustAuthoredReceipt: (record) => state.persistRustAuthoredReceipt(record),
-    routeDecision,
     selection,
     stableHash,
   });
@@ -322,7 +304,6 @@ export function persistModelRouteSelectionState(
 export function modelMountRouteDecisionRequestForSelection({
   body = {},
   capability = "chat",
-  modelRouteDecision = {},
   policy = {},
   policyHash,
   previousResponseId = null,
@@ -340,7 +321,7 @@ export function modelMountRouteDecisionRequestForSelection({
     model_ref: requiredRef("model_ref", selection?.endpoint?.modelId),
     capability: requiredRef("capability", capability),
     policy_hash: policyHashRef(policyHash),
-    idempotency_key: `model_route_decision:${requiredRef("decision_id", modelRouteDecision.decision_id)}`,
+    idempotency_key: `model_route_decision:${requiredRef("receipt_id", receiptId)}`,
     receipt_refs: [`receipt://${requiredRef("receiptId", receiptId)}`],
     authority_grant_refs: normalizeRefs(body.authority_grant_refs),
     authority_receipt_refs: normalizeRefs(body.authority_receipt_refs),
@@ -364,8 +345,16 @@ export function modelMountRouteDecisionRequestForSelection({
         selection?.provider?.nodePlaintextAllowed ??
         false,
     ),
-    workflow_graph_ref: optionalRef(workflow.workflowGraphId),
-    workflow_node_ref: optionalRef(workflow.workflowNodeId),
+    workflow_graph_ref: optionalRef(workflow.workflow_graph_id),
+    workflow_node_ref: optionalRef(workflow.workflow_node_id),
+  };
+}
+
+export function workflowContextFromRouteSelectionRequest(body = {}) {
+  return {
+    workflow_graph_id: optionalString(body.workflow_graph_id),
+    workflow_node_id: optionalString(body.workflow_node_id),
+    workflow_node_type: optionalString(body.workflow_node_type),
   };
 }
 
@@ -461,6 +450,12 @@ function requiredRef(field, value) {
 }
 
 function optionalRef(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
