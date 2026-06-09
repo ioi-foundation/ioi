@@ -406,12 +406,7 @@ export function createModelMountingReadProjectionFacade({
       provider_health: providerHealth,
       product_artifact_policy: productArtifactPolicy,
       runtime_survey_input: latestRuntimeSurveyProjectionInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
-      grants: state.listTokens(),
-      vault_refs: state.listVaultRefs(),
-      agentgres_store: state.store.adapterStatus(),
       receipts: state.listReceipts(),
-      wallet: state.walletAuthority.adapterStatus(),
-      vault: state.vaultStatus(),
     };
   }
 

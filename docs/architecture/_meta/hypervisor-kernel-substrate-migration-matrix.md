@@ -17595,7 +17595,7 @@ surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 851 is now satisfied.
 
-## Implementation Slice Evidence: 852
+## Compacted Implementation Slice Evidence: 852
 
 Slice 852 retired broad snapshot/projection MCP and conversation input from JS.
 The default model_mount read-projection input no longer sends
@@ -17617,9 +17617,36 @@ truth, command-transport replacement, wallet/cTEE custody binding, and local
 map/projection materialization retirement still remain before this surface
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 852 after the next direct
+Scheduled matrix-compaction obligation from Slice 852 is now satisfied.
+
+## Implementation Slice Evidence: 853
+
+Slice 853 retired broad snapshot/projection authority and adapter-status input
+from JS. The default model_mount read-projection input no longer sends
+`grants: state.listTokens()`, `vault_refs: state.listVaultRefs()`,
+`agentgres_store: state.store.adapterStatus()`,
+`wallet: state.walletAuthority.adapterStatus()`, or
+`vault: state.vaultStatus()` for broad `snapshot` and `projection` requests.
+Dedicated `authority_snapshot` and `adapter_boundaries` read projections still
+use narrow Rust-planned inputs. The focused test asserts those fields are
+absent from broad snapshot/projection request state while the narrow
+authority/adapter requests still receive their explicit inputs.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal authority or adapter-boundary projection
+migration: direct Rust daemon-core wallet/vault/Agentgres projection APIs,
+Agentgres-backed authority truth, wallet/cTEE custody binding, command-transport
+replacement, and local adapter-state materialization retirement still remain
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 853 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider/MCP/conversation transport facades, provider lifecycle/read
-adapters, local map/projection materialization, and Rust daemon-core
-catalog/provider/OAuth/MCP/conversation custody APIs.
+catalog/provider/MCP/conversation/authority transport facades, provider
+lifecycle/read adapters, local map/projection materialization, and Rust
+daemon-core catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.

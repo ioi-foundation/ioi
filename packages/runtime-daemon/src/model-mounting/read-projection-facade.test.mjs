@@ -308,8 +308,8 @@ function rustProjectionFixture(request) {
     runtimeEngineProfiles: state.runtime_engine_profiles,
     runtimePreference: state.runtime_preference,
     runtimeSurvey: latestRuntimeSurveyFromRustState(state),
-    grants: state.grants,
-    vaultRefs: state.vault_refs,
+    grants: state.grants ?? [],
+    vaultRefs: state.vault_refs ?? [],
     mcpServers: state.mcp_servers ?? [],
     conversationStates: state.conversation_states ?? [],
     workflowBindings: workflowBindingsFromRust(),
@@ -347,8 +347,8 @@ function rustProjectionFixture(request) {
       runtimeEngineProfiles: state.runtime_engine_profiles,
       runtimePreference: state.runtime_preference,
       runtimeSurvey: latestRuntimeSurveyFromRustState(state),
-      tokens: state.grants,
-      vaultRefs: state.vault_refs,
+      tokens: state.grants ?? [],
+      vaultRefs: state.vault_refs ?? [],
       mcpServers: state.mcp_servers ?? [],
       conversationStates: state.conversation_states ?? [],
       workflowNodes: workflowBindingsFromRust(),
@@ -391,8 +391,8 @@ function rustProjectionFixture(request) {
       server: serverStatusFromRustState(state, request.schema_version),
       wallet: state.wallet,
       vault: state.vault,
-      grants: state.grants,
-      vaultRefs: state.vault_refs,
+      grants: state.grants ?? [],
+      vaultRefs: state.vault_refs ?? [],
       approvals: [],
       approvalQueue: {
         status: "not_configured",
@@ -403,7 +403,7 @@ function rustProjectionFixture(request) {
       summary: {
         activeGrants: 0,
         revokedGrants: 0,
-        vaultRefs: state.vault_refs.length,
+        vaultRefs: (state.vault_refs ?? []).length,
         pendingApprovals: 0,
         receiptCount: authorityReceipts.length,
         remoteWalletConfigured: false,
@@ -741,8 +741,8 @@ function modelCapabilitiesFromRustState(state) {
 
 function adapterBoundariesFromState(state) {
   return {
-    wallet: state.wallet,
-    vault: state.vault,
+    wallet: state.wallet ?? null,
+    vault: state.vault ?? null,
     oauth: {
       port: "OAuthCredentialProvider",
       implementation: "agentgres_vault_oauth_session",
@@ -762,7 +762,7 @@ function adapterBoundariesFromState(state) {
         "oauth_tokens_not_persisted",
       ],
     },
-    agentgres: state.agentgres_store,
+    agentgres: state.agentgres_store ?? null,
   };
 }
 
@@ -958,7 +958,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.modelCapabilities.length, 1);
   assert.equal(snapshot.modelCapabilities[0].credential_readiness.status, "ready");
   assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
-  assert.equal(snapshot.adapterBoundaries.agentgres.port, "AgentgresStorePort");
+  assert.equal(snapshot.adapterBoundaries.agentgres, null);
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
@@ -967,6 +967,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(projection.catalog.lastSearch, null);
   assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
+  assert.equal(projection.adapterBoundaries.agentgres, null);
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
@@ -1016,6 +1017,11 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_preference"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "mcp_servers"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "conversation_states"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "grants"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "vault_refs"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "agentgres_store"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "wallet"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "vault"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "backends"), false);
@@ -1029,6 +1035,11 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "runtime_preference"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "mcp_servers"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "conversation_states"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "grants"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "vault_refs"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "agentgres_store"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "wallet"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "vault"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");

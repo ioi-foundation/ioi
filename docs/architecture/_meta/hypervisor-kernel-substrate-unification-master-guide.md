@@ -1608,6 +1608,17 @@ projection truth through the broad Rust projection envelope. Direct Rust
 daemon-core projection APIs over Agentgres-admitted MCP and conversation truth
 must own those arrays before terminal MCP/conversation projection is complete.
 
+Slice 853 retired broad snapshot/projection authority and adapter-status input
+from JS. The default model_mount read-projection input no longer sends
+`grants: state.listTokens()`, `vault_refs: state.listVaultRefs()`,
+`agentgres_store: state.store.adapterStatus()`,
+`wallet: state.walletAuthority.adapterStatus()`, or
+`vault: state.vaultStatus()` for broad `snapshot` and `projection` requests.
+Dedicated `authority_snapshot` and `adapter_boundaries` read projections still
+use narrow Rust-planned inputs, but local JS wallet/vault/Agentgres adapter
+state can no longer become public authority or adapter-boundary truth through
+the broad Rust projection envelope.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

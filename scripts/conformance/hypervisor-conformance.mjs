@@ -623,6 +623,9 @@ function runDocs() {
       /Slice 852 retired broad snapshot\/projection MCP and conversation input from JS/.test(guide) &&
       /no longer sends\s+`mcp_servers: state\.listMcpServers\(\)` or\s+`conversation_states: state\.listConversations\(\)`/.test(guide) &&
       /local JS MCP\/conversation maps cannot become public\s+projection truth/.test(guide) &&
+      /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(guide) &&
+      /no longer sends\s+`grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`,\s+`agentgres_store: state\.store\.adapterStatus\(\)`,\s+`wallet: state\.walletAuthority\.adapterStatus\(\)`, or\s+`vault: state\.vaultStatus\(\)`/.test(guide) &&
+      /Dedicated `authority_snapshot` and `adapter_boundaries` read projections still\s+use narrow Rust-planned inputs/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -743,6 +746,8 @@ function runDocs() {
       /local JS runtime-engine maps\/preferences can no\s+longer become public projection truth/.test(guide) &&
       /Slice 852 retired broad snapshot\/projection MCP and conversation input from JS/.test(guide) &&
       /local JS MCP\/conversation maps cannot become public\s+projection truth/.test(guide) &&
+      /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(guide) &&
+      /local JS wallet\/vault\/Agentgres adapter\s+state can no longer become public authority or adapter-boundary truth/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -959,11 +964,16 @@ function runDocs() {
       /`runtime_preference: state\.runtimePreference\(\)`/.test(matrix) &&
       /`runtime_engines`, `runtime_engine_profiles`, and\s+`runtime_preference` are absent from broad snapshot\/projection request state/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 851 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 852/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 852/.test(matrix) &&
       /Slice 852 retired broad snapshot\/projection MCP and conversation input from JS/.test(matrix) &&
       /`mcp_servers: state\.listMcpServers\(\)` or\s+`conversation_states: state\.listConversations\(\)`/.test(matrix) &&
       /`mcp_servers` and `conversation_states` are absent from\s+broad snapshot\/projection request state/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 852/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 852 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 853/.test(matrix) &&
+      /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(matrix) &&
+      /`grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`,\s+`agentgres_store: state\.store\.adapterStatus\(\)`,\s+`wallet: state\.walletAuthority\.adapterStatus\(\)`, or\s+`vault: state\.vaultStatus\(\)`/.test(matrix) &&
+      /Dedicated `authority_snapshot` and `adapter_boundaries` read projections still\s+use narrow Rust-planned inputs/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 853/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -981,6 +991,7 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `backends: state\.listBackends\(\)` or `backend_processes: state\.listBackendProcesses\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `runtime_engines: state\.listRuntimeEngines\(\)`, `runtime_engine_profiles: state\.listRuntimeEngineProfiles\(\)`, or `runtime_preference: state\.runtimePreference\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `mcp_servers: state\.listMcpServers\(\)` or `conversation_states: state\.listConversations\(\)`/.test(implementationMatrix) &&
+      /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -8275,6 +8286,11 @@ function runBridge() {
       /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_preference"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"mcp_servers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"conversation_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"agentgres_store"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
@@ -8291,6 +8307,11 @@ function runBridge() {
       /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_preference"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"mcp_servers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"conversation_states"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"grants"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"agentgres_store"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
