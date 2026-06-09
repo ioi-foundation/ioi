@@ -18349,10 +18349,38 @@ checks, projection persistence, command-transport retirement, and stable
 protocol APIs remain required before lifecycle receipt control reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 879 after the next direct
+Scheduled matrix-compaction obligation from Slice 879 is now satisfied.
+
+## Implementation Slice Evidence: 880
+
+Slice 880 retired the fail-closed `conversation-operations.mjs` helper module
+after model conversation-state writes and stream-completion finalization had
+already been reduced to Rust-core-required conversation admission/projection edge
+refusals. The mounted public `ModelMountingState` conversation methods now own
+response-id collision checks, previous-response read adapters, conversation
+list sorting, `model_mount.conversation` Rust-core-required errors, stream
+completion refusal details, and conversation-state write refusal details
+directly, without importing a helper module or preserving a standalone JS
+conversation mutation surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal conversation migration: direct Rust
+daemon-core conversation admission/projection, receipt/state-root binding,
+Agentgres truth, replay, command-transport retirement, and stable protocol APIs
+remain required before conversation control reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 880 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-receipt authoring/binding/projection materialization, direct Rust daemon-core
-receipt APIs, and Agentgres-backed replay. The `ioi-step-module-bridge` command
-path is acceptable only as migration transport; it is not the terminal
+conversation admission/projection materialization, direct Rust daemon-core
+conversation APIs, and Agentgres-backed replay. The `ioi-step-module-bridge`
+command path is acceptable only as migration transport; it is not the terminal
 architecture.

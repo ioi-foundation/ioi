@@ -1005,7 +1005,11 @@ function runDocs() {
       /Implementation Slice Evidence: 879/.test(matrix) &&
       /Slice 879 retired the fail-closed `receipt-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` receipt methods now own\s+receipt list\/get store adapters/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 879/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 879 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 880/.test(matrix) &&
+      /Slice 880 retired the fail-closed `conversation-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` conversation methods now own\s+response-id collision checks/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 880/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1163,7 +1167,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 876 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 877 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 878 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 879/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 879 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 880/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1178,6 +1183,8 @@ function runDocs() {
       /mounted public `ModelMountingState` catalog\/download methods now own canonical catalog import URL, download identity, download control, and download metadata request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `receipt-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` receipt methods now own receipt list\/get store adapters/.test(implementationMatrix) &&
+      /the fail-closed `conversation-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` conversation methods now own response-id collision checks/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -2039,9 +2046,7 @@ function runBridge() {
           modelReceiptGateEnd >= 0 ? modelReceiptGateEnd : undefined,
         )
       : "";
-  const modelConversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
-    : "";
+  const modelConversationOps = modelMountingState;
   const modelConversationRecordState = exists("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs")
     : "";
@@ -9359,6 +9364,7 @@ function runBridge() {
       !/receiptDetails\.(?:routeId|providerId|endpointId|selectedModel|policyHash|inputHash|outputHash|toolReceiptIds|grantId|providerAuthEvidenceRefs|backendEvidenceRefs|responseId|streamStatus)/.test(
         modelInvocationOps,
       ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs") &&
       /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps) &&
       !/const receiptDetails = \{[\s\S]*?model_invocation_stream_completed/.test(modelConversationOps) &&
       !/state\.receipt\("model_invocation_stream_completed"/.test(modelConversationOps) &&
@@ -9383,7 +9389,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
@@ -9903,7 +9909,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
-      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/schema-relations.mjs",
       "packages/agent-sdk/src/model-mounts.ts",
     ],
@@ -9912,7 +9918,8 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-conversation-state-js-facade-retired",
-    /model_mount_conversation_state_js_facade_retired/.test(modelConversationOps) &&
+    !exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs") &&
+      /model_mount_conversation_state_js_facade_retired/.test(modelConversationOps) &&
       /rust_daemon_core_model_conversation_required/.test(modelConversationOps) &&
       /agentgres_model_conversation_truth_required/.test(modelConversationOps) &&
       /model_mount_conversation_rust_core_required/.test(modelConversationOps) &&
@@ -9942,7 +9949,7 @@ function runBridge() {
       /recordDir:\s*"model-conversations"/.test(modelConversationRecordState) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(modelConversationOpsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
@@ -11850,9 +11857,7 @@ function runReceipts() {
   const modelMountInvocationReceiptRunnerBlock =
     modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n\n  invokeBridge)/)?.[0] ??
     "";
-  const conversationOps = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs")
-    : "";
+  const conversationOps = modelMountingState;
   const conversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     : "";
@@ -15325,7 +15330,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 5/11 is pending: provider stream-shape evidence must be bound into the stream-completion receipt instead of appended as duplicate JS operation-like truth",
   );
@@ -16203,7 +16208,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-stream-completion-js-facade-retired",
-    /recordModelStreamCompleted/.test(conversationOps) &&
+    !exists("packages/runtime-daemon/src/model-mounting/conversation-operations.mjs") &&
+      /recordModelStreamCompleted/.test(conversationOps) &&
       /model_mount_stream_completion_js_facade_retired/.test(conversationOps) &&
       /rust_daemon_core_model_stream_completion_required/.test(conversationOps) &&
       /model_stream_completion/.test(conversationOps) &&
@@ -16214,7 +16220,7 @@ function runReceipts() {
       !/withModelMountInvocationReceiptBinding/.test(conversationOps) &&
       !/state\.receipt\("model_invocation_stream_completed"/.test(conversationOps),
     [
-      "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
     ],
     "Phase 10/11 is pending: model stream completion finalization must fail closed until direct Rust daemon-core receipt/admission/projection owns it",

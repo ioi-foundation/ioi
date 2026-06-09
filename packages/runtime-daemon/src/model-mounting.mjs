@@ -46,13 +46,6 @@ import {
   normalizeMcpServer as normalizeMcpServerState,
 } from "./model-mounting/mcp-workflow-operations.mjs";
 import {
-  conversationState as conversationStateRecord,
-  listConversations as listConversationsState,
-  nextResponseId as nextResponseIdState,
-  recordConversationState as recordConversationStateRecord,
-  recordModelStreamCompleted as recordModelStreamCompletedState,
-} from "./model-mounting/conversation-operations.mjs";
-import {
   invokeModel as invokeModelState,
   startModelStream as startModelStreamState,
 } from "./model-mounting/model-invocation-operations.mjs";
@@ -266,6 +259,13 @@ const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "model_mount_lifecycle_receipt_js_facade_retired",
   "rust_daemon_core_model_lifecycle_receipt_required",
   "agentgres_model_lifecycle_receipt_truth_required",
+];
+const MODEL_CONVERSATION_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "model_mount_conversation_state_js_facade_retired",
+  "model_mount_stream_completion_js_facade_retired",
+  "rust_daemon_core_model_conversation_required",
+  "rust_daemon_core_model_stream_completion_required",
+  "agentgres_model_conversation_truth_required",
 ];
 const RETIRED_MODEL_STORAGE_REQUEST_ALIASES = [
   "cleanupPartial",
@@ -1246,15 +1246,29 @@ export class ModelMountingState {
   }
 
   nextResponseId(requested) {
-    return nextResponseIdState(this, requested, {
-      optionalString,
-      randomUUID: () => crypto.randomUUID(),
-      runtimeError,
-    });
+    const responseId = optionalString(requested) ?? `resp_${crypto.randomUUID()}`;
+    if (this.conversations.has(responseId)) {
+      throw runtimeError({
+        status: 409,
+        code: "continuation",
+        message: "response_id already exists.",
+        details: { response_id: responseId },
+      });
+    }
+    return responseId;
   }
 
   conversationState(responseId) {
-    return conversationStateRecord(this, responseId, { runtimeError });
+    const record = this.conversations.get(responseId);
+    if (!record) {
+      throw runtimeError({
+        status: 404,
+        code: "continuation",
+        message: "previous_response_id was not found.",
+        details: { previous_response_id: responseId },
+      });
+    }
+    return record;
   }
 
   validateContinuationSafety({ previousState, selection, body = {} }) {
@@ -1282,21 +1296,22 @@ export class ModelMountingState {
     status = "completed",
     continuationSafety = null,
   }) {
-    return recordConversationStateRecord(this, {
-      responseId,
-      previousState,
+    void input;
+    void outputText;
+    void selection;
+    void instance;
+    void tokenCount;
+    void continuationSafety;
+    throw modelConversationRustCoreRequiredError({
+      operation: "model_conversation_state_write",
+      response_id: responseId ?? null,
+      previous_response_id: previousState?.id ?? null,
+      receipt_id: receipt?.id ?? null,
+      route_receipt_id: routeReceipt?.id ?? null,
+      stream_receipt_id: streamReceiptId,
       kind,
-      input,
-      outputText,
-      selection,
-      instance,
-      receipt,
-      routeReceipt,
-      tokenCount,
-      streamReceiptId,
       status,
-      continuationSafety,
-    }, { stableHash });
+    });
   }
 
   async startModelStream({ authorization, requiredScope, kind, body = {} }) {
@@ -1313,19 +1328,18 @@ export class ModelMountingState {
     providerResult = {},
     providerStreamShapeSummary = null,
   }) {
-    return recordModelStreamCompletedState(this, {
-      invocation,
-      streamKind,
-      outputText,
-      providerUsage,
-      chunksForwarded,
-      finishReason,
-      providerResult,
-      providerStreamShapeSummary,
-    }, {
-      estimateTokens,
-      normalizeUsage,
-      stableHash,
+    void outputText;
+    void providerUsage;
+    throw modelConversationRustCoreRequiredError({
+      operation: "model_stream_completion",
+      stream_kind: streamKind,
+      invocation_receipt_id: invocation?.receipt?.id ?? null,
+      response_id: invocation?.responseId ?? null,
+      previous_response_id: invocation?.previousResponseId ?? null,
+      chunks_forwarded: chunksForwarded,
+      finish_reason: finishReason,
+      provider_response_kind: providerResult?.providerResponseKind ?? invocation?.providerResponseKind ?? null,
+      has_provider_stream_shape_summary: Boolean(providerStreamShapeSummary),
     });
   }
 
@@ -1355,7 +1369,9 @@ export class ModelMountingState {
   }
 
   listConversations() {
-    return listConversationsState(this);
+    return [...this.conversations.values()].sort((left, right) =>
+      String(left.created_at ?? "").localeCompare(String(right.created_at ?? "")),
+    );
   }
 
   invokeMcpTool({ authorization, body = {} }) {
@@ -2040,6 +2056,20 @@ function modelLifecycleReceiptRustCoreRequiredError(details = {}) {
     rust_core_boundary: "model_mount.lifecycle_receipt",
     ...details,
     evidence_refs: MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+  };
+  return error;
+}
+
+function modelConversationRustCoreRequiredError(details = {}) {
+  const error = new Error(
+    "Model conversation state and stream completion finalization require direct Rust daemon-core admission and projection.",
+  );
+  error.status = 501;
+  error.code = "model_mount_conversation_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.conversation",
+    ...details,
+    evidence_refs: MODEL_CONVERSATION_RUST_CORE_REQUIRED_EVIDENCE_REFS,
   };
   return error;
 }

@@ -1957,6 +1957,19 @@ direct Rust daemon-core receipt authoring, binding, Agentgres admission,
 state-root/expected-head checks, projection persistence, command-transport
 retirement, and stable protocol APIs remain required.
 
+Slice 880 retired the fail-closed `conversation-operations.mjs` helper module
+after model conversation-state writes and stream-completion finalization had
+already been reduced to Rust-core-required conversation admission/projection edge
+refusals. The mounted public `ModelMountingState` conversation methods now own
+response-id collision checks, previous-response read adapters, conversation
+list sorting, `model_mount.conversation` Rust-core-required errors, stream
+completion refusal details, and conversation-state write refusal details
+directly, without importing a helper module or preserving a standalone JS
+conversation mutation surface. This does not claim terminal conversation
+migration: direct Rust daemon-core conversation admission/projection,
+receipt/state-root binding, Agentgres truth, replay, command-transport
+retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

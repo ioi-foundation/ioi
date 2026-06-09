@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  conversationState,
-  listConversations,
-  nextResponseId,
-  recordConversationState,
-  recordModelStreamCompleted,
-} from "./conversation-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   return {
@@ -147,7 +141,7 @@ function fakeState() {
       return receipt;
     },
     recordConversationState(args) {
-      return recordConversationState(this, args, deps);
+      return ModelMountingState.prototype.recordConversationState.call(this, args);
     },
     writeMap(name, map) {
       this.writes.push([name, [...map.values()].map((record) => ({ ...record }))]);
@@ -200,10 +194,10 @@ test("nextResponseId uses requested ids, generates fallbacks, and rejects collis
   const state = fakeState();
   state.conversations.set("resp_existing", { id: "resp_existing" });
 
-  assert.equal(nextResponseId(state, "resp_requested", deps), "resp_requested");
-  assert.equal(nextResponseId(state, null, deps), "resp_uuid-1");
+  assert.equal(ModelMountingState.prototype.nextResponseId.call(state, "resp_requested"), "resp_requested");
+  assert.match(ModelMountingState.prototype.nextResponseId.call(state, null), /^resp_[0-9a-f-]{36}$/);
   assert.throws(
-    () => nextResponseId(state, "resp_existing", deps),
+    () => ModelMountingState.prototype.nextResponseId.call(state, "resp_existing"),
     (error) => error.status === 409 && error.code === "continuation",
   );
 });
@@ -212,9 +206,9 @@ test("conversationState returns records and fails closed for missing previous re
   const state = fakeState();
   state.conversations.set("resp_1", { id: "resp_1" });
 
-  assert.equal(conversationState(state, "resp_1", deps).id, "resp_1");
+  assert.equal(ModelMountingState.prototype.conversationState.call(state, "resp_1").id, "resp_1");
   assert.throws(
-    () => conversationState(state, "missing", deps),
+    () => ModelMountingState.prototype.conversationState.call(state, "missing"),
     (error) => error.status === 404 && error.details.previous_response_id === "missing",
   );
 });
@@ -229,7 +223,7 @@ test("recordConversationState fails closed before JS conversation projection mut
 
   assert.throws(
     () =>
-      recordConversationState(
+      ModelMountingState.prototype.recordConversationState.call(
         state,
         {
           responseId: "resp_current",
@@ -244,7 +238,6 @@ test("recordConversationState fails closed before JS conversation projection mut
           tokenCount: { total_tokens: 4 },
           streamReceiptId: "receipt.stream",
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -298,7 +291,7 @@ test("recordModelStreamCompleted fails closed before JS stream receipt or conver
 
   assert.throws(
     () =>
-      recordModelStreamCompleted(
+      ModelMountingState.prototype.recordModelStreamCompleted.call(
         state,
         {
           invocation,
@@ -313,7 +306,6 @@ test("recordModelStreamCompleted fails closed before JS stream receipt or conver
             evidenceRefs: ["model_provider_stream_shape_summary"],
           },
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -341,5 +333,5 @@ test("listConversations sorts by created_at", () => {
   state.conversations.set("late", { id: "late", created_at: "2026-06-04T03:00:02.000Z" });
   state.conversations.set("early", { id: "early", created_at: "2026-06-04T03:00:01.000Z" });
 
-  assert.deepEqual(listConversations(state).map((record) => record.id), ["early", "late"]);
+  assert.deepEqual(ModelMountingState.prototype.listConversations.call(state).map((record) => record.id), ["early", "late"]);
 });
