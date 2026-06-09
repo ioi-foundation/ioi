@@ -2210,9 +2210,27 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
 }
 
 fn model_mount_adapter_boundaries(state: &Value) -> Value {
+    let _ = state;
     json!({
-        "wallet": object_or_null(state.get("wallet")),
-        "vault": object_or_null(state.get("vault")),
+        "wallet": {
+            "port": "WalletAuthorityPort",
+            "implementation": "wallet_network_authority",
+            "methods": ["authorizeCapabilityExit", "listTokens", "revokeToken", "adapterStatus"],
+            "evidenceRefs": [
+                "wallet.network.authority_boundary",
+                "rust_daemon_core_wallet_authority_projection_required"
+            ],
+        },
+        "vault": {
+            "port": "VaultPort",
+            "implementation": "ctee_private_workspace_vault",
+            "methods": ["bindVaultRef", "resolveVaultRef", "listVaultRefs", "removeVaultRef", "adapterStatus"],
+            "plaintextPersistence": false,
+            "evidenceRefs": [
+                "ctee_no_plaintext_custody_boundary",
+                "rust_daemon_core_vault_projection_required"
+            ],
+        },
         "oauth": {
             "port": "OAuthCredentialProvider",
             "implementation": "agentgres_vault_oauth_session",
@@ -2232,7 +2250,15 @@ fn model_mount_adapter_boundaries(state: &Value) -> Value {
                 "oauth_tokens_not_persisted",
             ],
         },
-        "agentgres": object_or_null(state.get("agentgres_store")),
+        "agentgres": {
+            "port": "AgentgresStorePort",
+            "implementation": "agentgres_admitted_model_mounting_store",
+            "methods": ["appendAcceptedReceipt", "recordState", "expectedHeads", "adapterStatus"],
+            "evidenceRefs": [
+                "agentgres_model_mount_read_truth_required",
+                "rust_daemon_core_agentgres_projection_required"
+            ],
+        },
     })
 }
 
@@ -9121,11 +9147,7 @@ mod tests {
                     "projection_kind": "adapter_boundaries",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {
-                        "wallet": {"port": "WalletAuthorityPort"},
-                        "vault": {"port": "VaultPort"},
-                        "agentgres_store": {"port": "AgentgresStorePort"}
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount adapter boundaries request");

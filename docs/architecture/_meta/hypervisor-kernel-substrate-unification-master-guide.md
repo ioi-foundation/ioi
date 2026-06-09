@@ -1646,6 +1646,16 @@ authority snapshot still use their explicit narrow server-status input, but JS
 volatile server-control state can no longer become public server truth through
 the broad Rust projection envelope.
 
+Slice 857 retired dedicated authority and adapter-boundary JS read-projection
+input. The `adapter_boundaries` read projection now sends an empty state object
+and Rust authors wallet, vault, OAuth, and Agentgres boundary metadata directly
+instead of echoing JS `adapterStatus()` objects. The `authority_snapshot` read
+projection now sends only admitted receipts instead of JS
+`server_status_input`, grants, vault refs, wallet status, or vault status.
+Direct Rust daemon-core wallet/vault/Agentgres authority projection still needs
+to replace the remaining receipt-only/default authority envelope before
+terminal authority projection is complete.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

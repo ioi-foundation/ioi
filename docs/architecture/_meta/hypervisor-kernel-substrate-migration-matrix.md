@@ -17699,7 +17699,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 855 is now satisfied.
 
-## Implementation Slice Evidence: 856
+## Compacted Implementation Slice Evidence: 856
 
 Slice 856 retired broad snapshot/projection server-status input from JS. The
 default model_mount read-projection input no longer sends
@@ -17721,7 +17721,35 @@ command-transport replacement, authority-snapshot server ownership, and local
 volatile state materialization retirement still remain before this surface
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 856 after the next direct
+Scheduled matrix-compaction obligation from Slice 856 is now satisfied.
+
+## Implementation Slice Evidence: 857
+
+Slice 857 retired dedicated authority and adapter-boundary JS read-projection
+input. The `adapter_boundaries` read projection now sends `{}` and the Rust
+bridge authors wallet, vault, OAuth, and Agentgres boundary metadata directly
+instead of echoing JS `adapterStatus()` objects. The `authority_snapshot` read
+projection now sends only admitted receipts instead of JS
+`server_status_input`, grants, vault refs, wallet status, or vault status. The
+focused JS test asserts adapter-boundary request state is empty and authority
+request state is receipt-only; the focused Rust bridge test sends empty
+adapter-boundary state and still receives the Rust-authored Agentgres boundary.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal wallet/vault/Agentgres authority projection
+migration: direct Rust daemon-core authority projection APIs,
+Agentgres-backed grants/vault-ref truth, wallet.network remote authority,
+cTEE custody status, command-transport replacement, and local authority
+materialization retirement still remain before this surface reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 857 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry transport facades,

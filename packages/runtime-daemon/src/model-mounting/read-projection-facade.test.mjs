@@ -389,8 +389,8 @@ function rustProjectionFixture(request) {
       source: "agentgres_wallet_authority_projection",
       generatedAt: request.generated_at,
       server: serverStatusFromRustState(state, request.schema_version),
-      wallet: state.wallet,
-      vault: state.vault,
+      wallet: state.wallet ?? null,
+      vault: state.vault ?? null,
       grants: state.grants ?? [],
       vaultRefs: state.vault_refs ?? [],
       approvals: [],
@@ -740,9 +740,27 @@ function modelCapabilitiesFromRustState(state) {
 }
 
 function adapterBoundariesFromState(state) {
+  void state;
   return {
-    wallet: state.wallet ?? null,
-    vault: state.vault ?? null,
+    wallet: {
+      port: "WalletAuthorityPort",
+      implementation: "wallet_network_authority",
+      methods: ["authorizeCapabilityExit", "listTokens", "revokeToken", "adapterStatus"],
+      evidenceRefs: [
+        "wallet.network.authority_boundary",
+        "rust_daemon_core_wallet_authority_projection_required",
+      ],
+    },
+    vault: {
+      port: "VaultPort",
+      implementation: "ctee_private_workspace_vault",
+      methods: ["bindVaultRef", "resolveVaultRef", "listVaultRefs", "removeVaultRef", "adapterStatus"],
+      plaintextPersistence: false,
+      evidenceRefs: [
+        "ctee_no_plaintext_custody_boundary",
+        "rust_daemon_core_vault_projection_required",
+      ],
+    },
     oauth: {
       port: "OAuthCredentialProvider",
       implementation: "agentgres_vault_oauth_session",
@@ -762,7 +780,15 @@ function adapterBoundariesFromState(state) {
         "oauth_tokens_not_persisted",
       ],
     },
-    agentgres: state.agentgres_store ?? null,
+    agentgres: {
+      port: "AgentgresStorePort",
+      implementation: "agentgres_admitted_model_mounting_store",
+      methods: ["appendAcceptedReceipt", "recordState", "expectedHeads", "adapterStatus"],
+      evidenceRefs: [
+        "agentgres_model_mount_read_truth_required",
+        "rust_daemon_core_agentgres_projection_required",
+      ],
+    },
   };
 }
 
@@ -867,8 +893,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   const workflowRequest = readProjectionRequests.find((request) => request.projection_kind === "workflow_bindings");
   assert.deepEqual(workflowRequest.state, {});
   const adapterRequest = readProjectionRequests.find((request) => request.projection_kind === "adapter_boundaries");
-  assert.deepEqual(Object.keys(adapterRequest.state).sort(), ["agentgres_store", "vault", "wallet"]);
-  assert.equal(adapterRequest.state.agentgres_store.port, "AgentgresStorePort");
+  assert.deepEqual(adapterRequest.state, {});
   assert.equal(
     readProjectionRequests.slice(0, 4).every((request) =>
       request.state.product_artifact_policy.include_internal_fixtures === false),
@@ -961,7 +986,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.downloads.length, 0);
   assert.equal(snapshot.modelCapabilities.length, 0);
   assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
-  assert.equal(snapshot.adapterBoundaries.agentgres, null);
+  assert.equal(snapshot.adapterBoundaries.agentgres.port, "AgentgresStorePort");
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
@@ -976,7 +1001,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(projection.catalog.lastSearch, null);
   assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
-  assert.equal(projection.adapterBoundaries.agentgres, null);
+  assert.equal(projection.adapterBoundaries.agentgres.port, "AgentgresStorePort");
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
@@ -1003,7 +1028,9 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const authority = facade.authoritySnapshot(state, "http://127.0.0.1:3200");
   assert.equal(authority.schemaVersion, "ioi.wallet-core-lite.authority.v1");
-  assert.equal(authority.wallet.port, "WalletAuthorityPort");
+  assert.equal(authority.wallet, null);
+  assert.deepEqual(authority.grants, []);
+  assert.deepEqual(authority.vaultRefs, []);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
     "snapshot",
     "projection",
@@ -1087,17 +1114,14 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const routeDecisionRequest = readProjectionRequests.find((request) => request.projection_kind === "model_route_decisions");
   assert.deepEqual(Object.keys(routeDecisionRequest.state), ["receipts"]);
   const authorityRequest = readProjectionRequests.at(-1);
-  assert.deepEqual(Object.keys(authorityRequest.state).sort(), [
-    "grants",
-    "receipts",
-    "server_status_input",
-    "vault",
-    "vault_refs",
-    "wallet",
-  ]);
-  assert.equal(authorityRequest.state.wallet.port, "WalletAuthorityPort");
+  assert.deepEqual(Object.keys(authorityRequest.state), ["receipts"]);
   assert.equal(Object.hasOwn(authorityRequest.state, "providers"), false);
   assert.equal(Object.hasOwn(authorityRequest.state, "artifacts"), false);
+  assert.equal(Object.hasOwn(authorityRequest.state, "server_status_input"), false);
+  assert.equal(Object.hasOwn(authorityRequest.state, "grants"), false);
+  assert.equal(Object.hasOwn(authorityRequest.state, "vault_refs"), false);
+  assert.equal(Object.hasOwn(authorityRequest.state, "wallet"), false);
+  assert.equal(Object.hasOwn(authorityRequest.state, "vault"), false);
 });
 
 test("read projection facade delegates server status through Rust projection", () => {

@@ -284,11 +284,7 @@ export function createModelMountingReadProjectionFacade({
       };
     }
     if (projectionKind === "adapter_boundaries") {
-      return {
-        agentgres_store: state.store.adapterStatus(),
-        wallet: state.walletAuthority.adapterStatus(),
-        vault: state.vaultStatus(),
-      };
+      return {};
     }
     if (projectionKind === "model_route_decisions" || projectionKind === "projection_summary") {
       return {
@@ -387,12 +383,7 @@ export function createModelMountingReadProjectionFacade({
     }
     if (projectionKind === "authority_snapshot") {
       return {
-        server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
-        grants: state.listTokens(),
-        vault_refs: state.listVaultRefs(),
         receipts: state.listReceipts(),
-        wallet: state.walletAuthority.adapterStatus(),
-        vault: state.vaultStatus(),
       };
     }
     return {
