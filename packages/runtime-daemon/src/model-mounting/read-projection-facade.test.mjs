@@ -138,8 +138,12 @@ function createState() {
       destructiveActionsRequireUnload: true,
       evidenceRefs: ["model_storage_quota_boundary", "artifact_delete_unload_guard"],
     }),
-    listBackends: () => [],
-    listBackendProcesses: () => [],
+    listBackends: () => {
+      throw new Error("broad read-projection input must not read JS backend registry");
+    },
+    listBackendProcesses: () => {
+      throw new Error("broad read-projection input must not read JS backend process maps");
+    },
     listCatalogProviderConfigs: () => [],
     listConversations: () => [],
     listMcpServers: () => [],
@@ -282,8 +286,8 @@ function rustProjectionFixture(request) {
     modelCapabilities: modelCapabilitiesFromRustState(state),
     runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
     openAiModelList: openAiModelListFromRustState(state, request.generated_at),
-    backends: state.backends,
-    backendProcesses: state.backend_processes,
+    backends: state.backends ?? [],
+    backendProcesses: state.backend_processes ?? [],
     providers: state.providers,
     catalog: catalogStatusFromRustState(state, request.schema_version),
     oauthSessions: state.oauth_sessions,
@@ -318,8 +322,8 @@ function rustProjectionFixture(request) {
       oauthStates: state.oauth_states,
       artifacts: state.artifacts,
       productArtifacts: productArtifactsFromRustState(state),
-      backends: state.backends,
-      backendProcesses: state.backend_processes,
+      backends: state.backends ?? [],
+      backendProcesses: state.backend_processes ?? [],
       endpoints: state.endpoints,
       instances: state.instances,
       providers: state.providers,
@@ -991,12 +995,16 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   ]);
   const snapshotRequest = readProjectionRequests[0];
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "backends"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "backend_processes"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_status_input"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_provider_configs"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "oauth_sessions"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "oauth_states"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "backends"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "backend_processes"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_status_input"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_provider_configs"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "oauth_sessions"), false);

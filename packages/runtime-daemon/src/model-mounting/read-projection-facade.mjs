@@ -398,8 +398,6 @@ export function createModelMountingReadProjectionFacade({
     return {
       server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
       artifacts,
-      backends: state.listBackends(),
-      backend_processes: state.listBackendProcesses(),
       endpoints,
       instances,
       providers,

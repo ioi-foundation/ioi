@@ -1580,6 +1580,15 @@ authors the public server-status envelope. Direct Rust daemon-core
 server-control/backend projection must own backend-state counts over admitted
 Agentgres backend truth before terminal server-control projection is complete.
 
+Slice 850 retired broad snapshot/projection backend registry and backend
+process input from JS. The default model_mount read-projection input no longer
+sends `backends: state.listBackends()` or
+`backend_processes: state.listBackendProcesses()` for broad `snapshot` and
+`projection` requests, so local JS backend registry/process maps cannot become
+public projection truth through the broad Rust projection envelope. Direct Rust
+daemon-core backend lifecycle/projection APIs over Agentgres-admitted backend
+truth must own those arrays before terminal backend projection is complete.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

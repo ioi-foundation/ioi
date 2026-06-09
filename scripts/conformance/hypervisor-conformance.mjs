@@ -614,6 +614,9 @@ function runDocs() {
       /`serverStatusProjectionInput\(\)` no longer calls `state\.listBackends\(\)`/.test(guide) &&
       /or sends `backend_statuses` into `server_status_input`/.test(guide) &&
       /server-control\/backend projection must own backend-state counts/.test(guide) &&
+      /Slice 850 retired broad snapshot\/projection backend registry and backend\s+process input from JS/.test(guide) &&
+      /no longer\s+sends `backends: state\.listBackends\(\)` or\s+`backend_processes: state\.listBackendProcesses\(\)`/.test(guide) &&
+      /local JS backend registry\/process maps cannot become\s+public projection truth/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -728,6 +731,8 @@ function runDocs() {
       /Slice 849 retired JS backend-status summaries from server-status projection\s+input/.test(guide) &&
       /or sends `backend_statuses` into `server_status_input`/.test(guide) &&
       /Agentgres backend truth before terminal server-control projection is complete/.test(guide) &&
+      /Slice 850 retired broad snapshot\/projection backend registry and backend\s+process input from JS/.test(guide) &&
+      /Direct Rust\s+daemon-core backend lifecycle\/projection APIs over Agentgres-admitted backend\s+truth must own those arrays/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -929,11 +934,16 @@ function runDocs() {
       /`seedModelMountingDefaults\(\)` no longer calls\s+`state\.discoverLmStudioProvider\(checkedAt\)`/.test(matrix) &&
       /no longer writes or merges\s+`provider\.lmstudio` into `state\.providers`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 848 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 849/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 849/.test(matrix) &&
       /Slice 849 retired JS backend-status summaries from server-status projection\s+input/.test(matrix) &&
       /`serverStatusProjectionInput\(\)` no longer calls `state\.listBackends\(\)`/.test(matrix) &&
       /`backend_statuses` field\s+is absent from the primitive server-status input/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 849/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 849 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 850/.test(matrix) &&
+      /Slice 850 retired broad snapshot\/projection backend registry and backend\s+process input from JS/.test(matrix) &&
+      /`backend_processes: state\.listBackendProcesses\(\)`/.test(matrix) &&
+      /`backends` and\s+`backend_processes` are absent from broad snapshot\/projection request state/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 850/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -948,6 +958,7 @@ function runDocs() {
       /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
       /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
+      /broad snapshot\/projection requests also no longer send `backends: state\.listBackends\(\)` or `backend_processes: state\.listBackendProcesses\(\)`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -8134,6 +8145,8 @@ function runBridge() {
       /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state\)[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      !/backends:\s*state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
+      !/backend_processes:\s*state\.listBackendProcesses\(\)/.test(modelMountingReadProjectionFacade) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
       /latestRuntimeSurvey\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_runtime_survey"\)/.test(modelMountingReadProjectionFacade) &&
@@ -8228,6 +8241,8 @@ function runBridge() {
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"backend_statuses"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"backends"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"backend_processes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
@@ -8237,6 +8252,8 @@ function runBridge() {
       /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"backends"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"backend_processes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
