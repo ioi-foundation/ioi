@@ -616,6 +616,9 @@ function runDocs() {
       /Slice 820 retired the provider-invocation helper-level false predicate for\s+hosted\/non-migrated providers/.test(guide) &&
       /`modelMountProviderInvocationRequiresRust\(\)` and\s+`modelMountProviderStreamInvocationRequiresRust\(\)` now report that every\s+provider invocation path requires Rust `model_mount` ownership/.test(guide) &&
       /request builders fail closed with\s+`model_mount_provider_invocation_rust_backend_required`/.test(guide) &&
+      /Slice 821 retired hosted\/non-migrated provider-result observation admission\s+from the JS helper path/.test(guide) &&
+      /`modelMountProviderResultAdmissionRequestForExecution\(\)`\s+now derives the expected Rust provider invocation backend/.test(guide) &&
+      /`model_mount_provider_result_rust_backend_required`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -677,11 +680,16 @@ function runDocs() {
       /`modelRouteBindingFromReceipt\(\)` now owns its narrow canonical receipt projection\s+inside `thread-runtime-controls\.mjs` while emitting `receipt_id` without the\s+retired `receiptId` alias/.test(matrix) &&
       /unused provider request-shaping helper\/test path\s+is absent rather than preserved as a compatibility shim/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 819 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 820/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 820/.test(matrix) &&
       /Slice 820 retired the provider-invocation helper-level false predicate/.test(matrix) &&
       /`modelMountProviderInvocationRequiresRust\(\)`\s+and `modelMountProviderStreamInvocationRequiresRust\(\)` now return that every\s+provider invocation path requires Rust `model_mount` ownership/.test(matrix) &&
       /`model_mount_provider_invocation_rust_backend_required`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 820/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 820 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 821/.test(matrix) &&
+      /Slice 821 retired hosted\/non-migrated provider-result observation admission/.test(matrix) &&
+      /`modelMountProviderResultAdmissionRequestForExecution\(\)` now\s+derives the expected Rust provider invocation backend/.test(matrix) &&
+      /`model_mount_provider_result_rust_backend_required`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 821/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -9460,6 +9468,8 @@ function runBridge() {
       /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
       /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
+      /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
+      /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
       /providerResult\.execution_backend/.test(modelInvocationOps) &&
       !/providerResult\.executionBackend/.test(modelInvocationOps) &&
       !/rejectUnmigratedProviderInvocationExecution/.test(modelInvocationOps) &&
@@ -9481,6 +9491,12 @@ function runBridge() {
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /error\.details\.stream === true/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       !/modelMountProviderResultAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs|EvidenceRefs)?\s*:/.test(modelInvocationOps),
@@ -12918,13 +12934,21 @@ function runReceipts() {
         modelMountAdmissionRunnerTest,
       ) &&
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
+      /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
+      /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
+      /error\.code === "model_mount_provider_result_rust_backend_required"/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      !/assert\.equal\(request\.provider_kind,\s*"openai"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
       /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
-    "Phase 9/10 is pending: non-migrated provider results must be Rust-admitted observations bound to provider execution",
+    "Phase 9/10 is pending: provider results must be Rust-backed observations bound to provider execution",
   );
   assertCheck(
     result,

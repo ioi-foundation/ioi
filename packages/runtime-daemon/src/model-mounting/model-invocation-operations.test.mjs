@@ -1155,10 +1155,10 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
       provider_execution_hash: "sha256:provider-execution-test",
       route_decision_ref: "model_mount://route_decision/test",
       route_receipt_ref: "receipt://route",
-      route_ref: "route.hosted",
-      provider_ref: "provider.openai",
-      endpoint_ref: "endpoint.openai",
-      model_ref: "model.openai",
+      route_ref: "route.local-first",
+      provider_ref: "provider.fixture",
+      endpoint_ref: "endpoint.fixture",
+      model_ref: "fixture:model",
       capability: "chat",
       invocation_kind: "chat.completions",
       request_hash: "sha256:request",
@@ -1176,23 +1176,24 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
     kind: "chat.completions",
     modelMountProviderExecutionAdmission: admission,
     providerResult: {
-      output_text: "hosted provider answer",
-      provider_response_kind: "rust_model_mount.native_local",
-      execution_backend: "rust_model_mount_native_local_stream",
+      output_text: "fixture provider answer",
+      provider_response_kind: "rust_model_mount.fixture",
+      execution_backend: "rust_model_mount_fixture",
       token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 },
-      provider_auth_evidence_refs: ["provider.auth"],
-      backend_evidence_refs: ["rust_model_mount_native_local_stream_backend"],
+      provider_auth_evidence_refs: [],
+      backend_evidence_refs: ["rust_model_mount_fixture_backend"],
     },
     selection: selection({
       endpoint: {
-        api_format: "openai",
-        provider_id: "provider.openai",
-        backend_id: "backend.openai-compatible",
+        api_format: "ioi_fixture",
+        driver: "fixture",
+        provider_id: "provider.fixture",
+        backend_id: "backend.fixture",
       },
       provider: {
-        id: "provider.openai",
-        kind: "openai",
-        driver: "openai_compatible",
+        id: "provider.fixture",
+        kind: "local_folder",
+        driver: "fixture",
       },
     }),
   });
@@ -1200,15 +1201,46 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.equal(request.schema_version, "ioi.model_mount.provider_result.v1");
   assert.equal(request.provider_execution_ref, "model_mount://provider_execution/test");
   assert.equal(request.provider_execution_hash, "sha256:provider-execution-test");
-  assert.equal(request.provider_kind, "openai");
-  assert.equal(request.execution_backend, "rust_model_mount_native_local_stream");
-  assert.equal(request.provider_response_kind, "rust_model_mount.native_local");
-  assert.equal(request.output_text, "hosted provider answer");
+  assert.equal(request.provider_kind, "local_folder");
+  assert.equal(request.execution_backend, "rust_model_mount_fixture");
+  assert.equal(request.provider_response_kind, "rust_model_mount.fixture");
+  assert.equal(request.output_text, "fixture provider answer");
   assert.equal(request.output_hash.startsWith("sha256:"), true);
   assert.deepEqual(request.token_count, { prompt_tokens: 1, completion_tokens: 2, total_tokens: 3 });
-  assert.deepEqual(request.provider_auth_evidence_refs, ["provider.auth"]);
-  assert.deepEqual(request.backend_evidence_refs, ["rust_model_mount_native_local_stream_backend"]);
+  assert.deepEqual(request.provider_auth_evidence_refs, []);
+  assert.deepEqual(request.backend_evidence_refs, ["rust_model_mount_fixture_backend"]);
   assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
+  assert.throws(
+    () =>
+      modelMountProviderResultAdmissionRequestForExecution({
+        input: "user: hosted",
+        instance: { backend_id: "backend.openai-compatible" },
+        kind: "chat.completions",
+        modelMountProviderExecutionAdmission: {
+          record: {
+            ...admission.record,
+            provider_ref: "provider.openai",
+            endpoint_ref: "endpoint.openai",
+            model_ref: "model.openai",
+          },
+          provider_execution_ref: admission.provider_execution_ref,
+          provider_execution_hash: admission.provider_execution_hash,
+        },
+        providerResult: {
+          output_text: "hosted provider answer",
+          provider_response_kind: "openai.chat",
+          execution_backend: "rust_model_mount_native_local_stream",
+        },
+        selection: selection({
+          endpoint: { api_format: "openai", driver: "openai_compatible" },
+          provider: { id: "provider.openai", kind: "openai", driver: "openai_compatible" },
+        }),
+      }),
+    (error) =>
+      error.code === "model_mount_provider_result_rust_backend_required" &&
+      error.details.provider_kind === "openai" &&
+      error.details.stream === false,
+  );
 });
 
 test("modelMountInvocationReceiptBindingRequestForReceipt builds model_mount StepModule binding", () => {

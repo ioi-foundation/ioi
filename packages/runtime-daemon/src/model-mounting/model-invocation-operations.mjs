@@ -337,6 +337,19 @@ export function modelMountProviderResultAdmissionRequestForExecution({
   selection,
 } = {}) {
   assertCanonicalModelInvocationHelperInputs({ selection, instance, providerResult });
+  const stream = Boolean(optionalRef(modelMountProviderExecutionAdmission.record?.stream_status));
+  const expectedExecutionBackend = expectedProviderResultExecutionBackend(selection, { stream });
+  const executionBackend = requiredStringRef(
+    "providerResult.execution_backend",
+    providerResult.execution_backend,
+  );
+  if (executionBackend !== expectedExecutionBackend) {
+    throw providerResultRustBackendMismatch(selection, {
+      actual: executionBackend,
+      expected: expectedExecutionBackend,
+      stream,
+    });
+  }
   const record = modelMountProviderExecutionAdmission.record ?? {};
   const provider = selection?.provider ?? {};
   const endpoint = selection?.endpoint ?? {};
@@ -366,10 +379,7 @@ export function modelMountProviderResultAdmissionRequestForExecution({
     output_hash: hashRef(stableHash(output_text), "output_hash"),
     token_count,
     provider_response_kind: optionalRef(providerResult.provider_response_kind),
-    execution_backend: requiredStringRef(
-      "providerResult.execution_backend",
-      providerResult.execution_backend,
-    ),
+    execution_backend: executionBackend,
     backend_ref: optionalRef(providerResult.backend_id ?? instance.backend_id ?? endpoint.backend_id),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
@@ -598,6 +608,45 @@ function unsupportedProviderInvocationRustBackend(selection = {}, { stream = fal
     ],
   };
   return error;
+}
+
+function providerResultRustBackendMismatch(selection = {}, { actual, expected, stream = false } = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const error = new Error("Provider result admission requires a Rust-owned provider invocation backend.");
+  error.status = 501;
+  error.code = "model_mount_provider_result_rust_backend_required";
+  error.details = {
+    provider_kind: provider.kind ?? null,
+    provider_driver: driver ?? null,
+    api_format: endpoint.api_format ?? provider.api_format ?? null,
+    execution_backend: actual ?? null,
+    expected_execution_backend: expected ?? null,
+    stream,
+    rust_core_boundary: "model_mount.provider_result",
+    evidence_refs: [
+      "model_mount_provider_result_js_observation_retired",
+      "rust_daemon_core_provider_result_required",
+      "agentgres_provider_result_truth_required",
+    ],
+  };
+  return error;
+}
+
+function expectedProviderResultExecutionBackend(selection = {}, { stream = false } = {}) {
+  try {
+    return stream
+      ? modelMountProviderStreamInvocationExecutionBackend(selection)
+      : modelMountProviderInvocationExecutionBackend(selection);
+  } catch (error) {
+    if (error?.code !== "model_mount_provider_invocation_rust_backend_required") throw error;
+    throw providerResultRustBackendMismatch(selection, {
+      actual: null,
+      expected: null,
+      stream,
+    });
+  }
 }
 
 function normalizeAgentgresHead(value) {

@@ -1233,6 +1233,19 @@ fail-closed. This still does not claim terminal provider migration: direct Rust
 daemon-core hosted/provider transports, provider request shaping, projection,
 Agentgres-backed reads, and command-transport retirement remain required.
 
+Slice 821 retired hosted/non-migrated provider-result observation admission
+from the JS helper path. `modelMountProviderResultAdmissionRequestForExecution()`
+now derives the expected Rust provider invocation backend from the selected
+provider and stream status, rejects unsupported selections with
+`model_mount_provider_result_rust_backend_required`, and rejects mismatched
+`providerResult.execution_backend` before an `ioi.model_mount.provider_result.v1`
+request can be assembled. Fixture/local-folder and native-local Rust-backed
+outputs remain admissible; hosted/OpenAI output text can no longer be wrapped
+as a Rust provider result by JS. This still does not claim terminal provider
+migration: direct Rust daemon-core hosted/provider transports, provider request
+shaping, projection, Agentgres-backed reads, and command-transport retirement
+remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
