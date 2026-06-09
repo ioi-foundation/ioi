@@ -1431,6 +1431,18 @@ paths were already retired in prior slices; this slice removes the remaining
 JS search coordinator and leaves catalog search blocked until direct Rust
 daemon-core catalog search/projection APIs own the request.
 
+Slice 836 retired public catalog-provider configuration list/get projection
+from JS. `listCatalogProviderConfigs()` and `getCatalogProviderConfig()` now
+fail closed at `model_mount.catalog_provider_configuration.list` and
+`model_mount.catalog_provider_configuration.get` before JS can read local
+configuration maps, resolve runtime material, iterate provider ports, call
+`publicCatalogProviderConfig()`, or attach JS provider status. Broad
+model-mount snapshot/projection transport also stops sending
+`catalog_provider_configs`, and the Rust bridge no longer emits the
+compatibility `catalogProviderConfigs` field. Catalog-provider configuration
+readback is therefore blocked until direct Rust daemon-core catalog-provider
+control/projection APIs own the request.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

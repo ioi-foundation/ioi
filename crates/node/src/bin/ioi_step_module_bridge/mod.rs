@@ -2134,7 +2134,6 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "schemaVersion": model_mount_projection_schema_version(request),
         "server": model_mount_server_status(request),
         "catalog": model_mount_catalog_status(request),
-        "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
         "artifacts": array_field(state, "artifacts"),
@@ -2185,7 +2184,6 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "backendProcesses": array_field(state, "backend_processes"),
         "providers": array_field(state, "providers"),
         "catalog": model_mount_catalog_status(request),
-        "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
         "downloads": array_field(state, "downloads"),
@@ -8877,7 +8875,6 @@ mod tests {
                     "modelId": "model.local"
                 }]
             },
-            "catalog_provider_configs": [],
             "oauth_sessions": [],
             "oauth_states": [],
             "downloads": [],

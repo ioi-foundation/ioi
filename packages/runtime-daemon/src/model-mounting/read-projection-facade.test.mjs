@@ -280,7 +280,6 @@ function rustProjectionFixture(request) {
     backendProcesses: state.backend_processes,
     providers: state.providers,
     catalog: catalogStatusFromRustState(state, request.schema_version),
-    catalogProviderConfigs: state.catalog_provider_configs,
     oauthSessions: state.oauth_sessions,
     oauthStates: state.oauth_states,
     downloads: state.downloads,
@@ -309,7 +308,6 @@ function rustProjectionFixture(request) {
       schemaVersion: request.schema_version,
       server: serverStatusFromRustState(state, request.schema_version),
       catalog: catalogStatusFromRustState(state, request.schema_version),
-      catalogProviderConfigs: state.catalog_provider_configs,
       oauthSessions: state.oauth_sessions,
       oauthStates: state.oauth_states,
       artifacts: state.artifacts,
@@ -925,6 +923,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.server.status, "stopped");
   assert.equal(snapshot.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(snapshot.catalog.lastSearch.resultCount, 1);
+  assert.equal(Object.hasOwn(snapshot, "catalogProviderConfigs"), false);
   assert.equal(snapshot.artifacts.length, 2);
   assert.equal(snapshot.modelCapabilities.length, 1);
   assert.equal(snapshot.modelCapabilities[0].credential_readiness.status, "ready");
@@ -936,6 +935,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
+  assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
@@ -975,12 +975,14 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const snapshotRequest = readProjectionRequests[0];
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_status_input"), true);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_provider_configs"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "adapterBoundary"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "filters"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "schemaVersion"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_status_input"), true);
+  assert.equal(Object.hasOwn(projectionRequest.state, "catalog_provider_configs"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");

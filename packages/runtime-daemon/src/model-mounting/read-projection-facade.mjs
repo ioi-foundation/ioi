@@ -433,7 +433,6 @@ export function createModelMountingReadProjectionFacade({
         catalogProviderStatus,
         schemaVersion: modelMountSchemaVersion,
       }),
-      catalog_provider_configs: state.listCatalogProviderConfigs(),
       oauth_sessions: oauthSessions,
       oauth_states: oauthStates,
       artifacts,

@@ -5,42 +5,30 @@ import {
   catalogProviderMaterialVaultRef,
   throwCatalogProviderControlRustCoreRequired,
 } from "./catalog-provider-config.mjs";
-import { publicCatalogProviderConfig } from "./catalog-projections.mjs";
-import { catalogProviderStatus } from "./catalog-registry.mjs";
 import {
   stableHash,
 } from "./io.mjs";
 
 export function listCatalogProviderConfigs(state, deps = {}) {
-  const {
-    configurableProviderIds = MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
-    publicCatalogProviderConfig: publicCatalogProviderConfigDep = publicCatalogProviderConfig,
-  } = deps;
-  return configurableProviderIds.map((providerId) =>
-    publicCatalogProviderConfigDep(
-      providerId,
-      state.catalogProviderConfigs.get(providerId),
-      state.catalogProviderRuntimeMaterial(providerId),
-    ),
+  void state;
+  throwCatalogProviderControlRustCoreRequired(
+    "model_mount.catalog_provider_configuration.list",
+    { configurable_provider_count: MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.length },
+    deps,
   );
 }
 
 export function getCatalogProviderConfig(state, providerId, deps = {}) {
   const {
     assertConfigurableCatalogProvider: assertConfigurableCatalogProviderDep = assertConfigurableCatalogProvider,
-    catalogProviderStatus: catalogProviderStatusDep = catalogProviderStatus,
-    publicCatalogProviderConfig: publicCatalogProviderConfigDep = publicCatalogProviderConfig,
   } = deps;
+  void state;
   assertConfigurableCatalogProviderDep(providerId);
-  const port = state.catalogProviderPorts().find((candidate) => candidate.id === providerId) ?? null;
-  return {
-    ...publicCatalogProviderConfigDep(
-      providerId,
-      state.catalogProviderConfigs.get(providerId),
-      state.catalogProviderRuntimeMaterial(providerId),
-    ),
-    provider: port ? catalogProviderStatusDep(port) : null,
-  };
+  throwCatalogProviderControlRustCoreRequired(
+    "model_mount.catalog_provider_configuration.get",
+    { provider_id: providerId },
+    deps,
+  );
 }
 
 export function configureCatalogProvider(state, providerId, body = {}, deps = {}) {

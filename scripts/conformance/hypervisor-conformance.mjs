@@ -665,6 +665,9 @@ function runDocs() {
       /`fixture_catalog_search_js_retired`/.test(guide) &&
       /Slice 835 retired public model catalog search orchestration from JS/.test(guide) &&
       /`model_catalog_search_js_orchestrator_retired`/.test(guide) &&
+      /Slice 836 retired public catalog-provider configuration list\/get projection\s+from JS/.test(guide) &&
+      /`model_mount\.catalog_provider_configuration\.list`/.test(guide) &&
+      /`catalogProviderConfigs` field/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -804,10 +807,15 @@ function runDocs() {
       /model_catalog_fixture_search_retired/.test(matrix) &&
       /fixture_catalog_search_js_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 834 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 835/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 835/.test(matrix) &&
       /Slice 835 retired public model catalog search orchestration from JS/.test(matrix) &&
       /model_catalog_search_js_orchestrator_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 835/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 835 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 836/.test(matrix) &&
+      /Slice 836 retired public catalog-provider configuration list\/get projection from\s+JS/.test(matrix) &&
+      /model_mount\.catalog_provider_configuration\.list/.test(matrix) &&
+      /catalogProviderConfigs/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 836/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -821,6 +829,12 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
+        implementationMatrix,
+      ) &&
+      /public catalog-provider configuration list\/get now fail closed at `model_mount\.catalog_provider_configuration\.list`\/`get`/.test(
+        implementationMatrix,
+      ) &&
+      /broad snapshot\/projection transport no longer sends `catalog_provider_configs` or emits `catalogProviderConfigs` compatibility fields/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -1536,6 +1550,12 @@ function runBridge() {
   )
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs")
     : "";
+  const catalogProviderListBlock =
+    catalogProviderConfigurationOperations.match(/export function listCatalogProviderConfigs[\s\S]*?(?=\n\nexport function getCatalogProviderConfig)/)?.[0] ??
+    "";
+  const catalogProviderGetBlock =
+    catalogProviderConfigurationOperations.match(/export function getCatalogProviderConfig[\s\S]*?(?=\n\nexport function configureCatalogProvider)/)?.[0] ??
+    "";
   const catalogProviderConfigureBlock =
     catalogProviderConfigurationOperations.match(/export function configureCatalogProvider[\s\S]*?export function catalogProviderConfig/)?.[0] ??
     "";
@@ -7975,6 +7995,7 @@ function runBridge() {
       /server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
       /catalog_status_input:\s*catalogStatusProjectionInput\(state,\s*\{[\s\S]*?catalogProviderStatus[\s\S]*?schemaVersion:\s*modelMountSchemaVersion/.test(modelMountingReadProjectionFacade) &&
       !/catalog:\s*state\.catalogStatus\(\)/.test(modelMountingReadProjectionFacade) &&
+      !/catalog_provider_configs:\s*state\.listCatalogProviderConfigs\(\)/.test(modelMountingReadProjectionFacade) &&
       /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
       /listArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
       /listProviders\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
@@ -8040,7 +8061,17 @@ function runBridge() {
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["catalog_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_status_input,\s*"adapterBoundary"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_status_input"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
+      /Object\.hasOwn\(snapshot,\s*"catalogProviderConfigs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projection,\s*"catalogProviderConfigs"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"receipts"[\s\S]*"runtime_survey_input"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.runtime_survey_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"runtime_survey"\),\s*true/.test(modelMountingReadProjectionFacadeTest) === false &&
@@ -8102,6 +8133,8 @@ function runBridge() {
       !/fn model_mount_snapshot(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
       /"adapterBoundaries": model_mount_adapter_boundaries\(state\)/.test(bridgeModule) &&
       /fn model_mount_projection_summary/.test(bridgeModule) &&
+      !/"catalogProviderConfigs"/.test(bridgeModule) &&
+      !/"catalog_provider_configs"/.test(bridgeModule) &&
       !/fn model_mount_projection_summary(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
       /fn model_mount_receipt_replay_context/.test(bridgeModule) &&
       !/fn model_mount_receipt_replay\((?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
@@ -8370,6 +8403,14 @@ function runBridge() {
       /public_catalog_provider_control_js_facade_retired/.test(catalogProviderConfig) &&
       /rust_daemon_core_catalog_provider_control_required/.test(catalogProviderConfig) &&
       /rust_daemon_core_wallet_ctee_custody_required/.test(catalogProviderConfig) &&
+      /model_mount\.catalog_provider_configuration\.list/.test(catalogProviderListBlock) &&
+      /model_mount\.catalog_provider_configuration\.get/.test(catalogProviderGetBlock) &&
+      !/publicCatalogProviderConfig/.test(catalogProviderConfigurationOperations) &&
+      !/catalogProviderStatus/.test(catalogProviderConfigurationOperations) &&
+      !/state\.catalogProviderPorts/.test(catalogProviderListBlock) &&
+      !/state\.catalogProviderPorts/.test(catalogProviderGetBlock) &&
+      !/state\.catalogProviderRuntimeMaterial/.test(catalogProviderListBlock) &&
+      !/state\.catalogProviderRuntimeMaterial/.test(catalogProviderGetBlock) &&
       /model_mount\.catalog_provider_configuration\.write/.test(catalogProviderConfigureBlock) &&
       !/state\.receipt\("model_catalog_provider_configuration"/.test(catalogProviderConfigureBlock) &&
       !/commitModelMountRecordState/.test(catalogProviderConfigurationOperations) &&
@@ -8382,6 +8423,17 @@ function runBridge() {
         catalogProviderConfigureBlock,
       ) &&
       !/state\.writeProjection\(\)/.test(catalogProviderConfigureBlock) &&
+      /catalog provider configuration list\/get fail closed before JS public projection/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /model_mount\.catalog_provider_configuration\.list/.test(catalogProviderConfigurationOperationsTest) &&
+      /model_mount\.catalog_provider_configuration\.get/.test(catalogProviderConfigurationOperationsTest) &&
+      /assert\.equal\(state\.catalogProviderRuntimeMaterialCalls,\s*0\)/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "catalogProviderPorts"\), false\)/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
       /catalog provider configuration mutation facade fails closed until Rust core owns catalog provider control/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&

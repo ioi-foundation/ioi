@@ -17127,7 +17127,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 834 is now satisfied.
 
-## Implementation Slice Evidence: 835
+## Compacted Implementation Slice Evidence: 835
 
 Slice 835 retired public model catalog search orchestration from JS.
 `catalogSearch()` now fails closed with
@@ -17147,14 +17147,43 @@ Focused evidence:
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog search/projection APIs, Agentgres-backed projection, command-transport
-replacement, remaining catalog-provider list/get helpers, catalog-status
-readback cleanup, and non-search catalog variant enrichment still remain before
-this surface reaches the pure Rust substrate target.
+replacement, catalog-status readback cleanup, and non-search catalog variant
+enrichment still remain before this surface reaches the pure Rust substrate
+target.
 
-Next scheduled matrix-compaction pass: compact Slice 835 after the next direct
+Scheduled matrix-compaction obligation from Slice 835 is now satisfied.
+
+## Implementation Slice Evidence: 836
+
+Slice 836 retired public catalog-provider configuration list/get projection from
+JS. `listCatalogProviderConfigs()` now fails closed with
+`model_mount_catalog_provider_control_rust_core_required` at
+`model_mount.catalog_provider_configuration.list`, and
+`getCatalogProviderConfig()` fails closed at
+`model_mount.catalog_provider_configuration.get` after the canonical configurable
+provider check. Both paths stop before JS can read `catalogProviderConfigs`,
+resolve runtime material, call `publicCatalogProviderConfig()`, iterate
+`state.catalogProviderPorts()`, or attach `catalogProviderStatus()` output.
+Broad model-mount snapshot/projection requests no longer send
+`catalog_provider_configs`, and the Rust bridge no longer emits the compatibility
+`catalogProviderConfigs` field on broad snapshot/projection envelopes.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog provider configuration read/projection APIs, catalog search/projection
+APIs, Agentgres-backed projection, command-transport replacement,
+catalog-status readback cleanup, and non-search catalog variant enrichment still
+remain before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 836 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider transport facades, catalog-provider list/get helpers,
-catalog-status readback, provider lifecycle/read adapters, local map/projection
-materialization, non-search catalog variant enrichment, and Rust daemon-core
-catalog/provider/OAuth custody APIs.
+catalog/provider transport facades, catalog-status readback, provider
+lifecycle/read adapters, local map/projection materialization, non-search catalog
+variant enrichment, and Rust daemon-core catalog/provider/OAuth custody APIs.

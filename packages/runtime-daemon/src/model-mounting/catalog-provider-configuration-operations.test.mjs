@@ -19,6 +19,7 @@ function createState() {
     recordStateCommits,
     catalogProviderConfigs: new Map(),
     catalogProviderRuntimeMaterials: new Map(),
+    catalogProviderRuntimeMaterialCalls: 0,
     catalogProviderPorts() {
       calls.push({ name: "catalogProviderPorts" });
       return [
@@ -91,11 +92,14 @@ function createState() {
       calls.push({ name: "writeVaultRefs" });
     },
   };
-  state.catalogProviderRuntimeMaterial = (providerId) => catalogProviderRuntimeMaterial(state, providerId);
+  state.catalogProviderRuntimeMaterial = (providerId) => {
+    state.catalogProviderRuntimeMaterialCalls += 1;
+    return catalogProviderRuntimeMaterial(state, providerId);
+  };
   return state;
 }
 
-test("catalog provider configuration operations list and get public records", () => {
+test("catalog provider configuration list/get fail closed before JS public projection", () => {
   const state = createState();
 
   state.catalogProviderConfigs.set("catalog.custom_http", {
@@ -109,12 +113,44 @@ test("catalog provider configuration operations list and get public records", ()
     runtimeMaterialStatus: "bound_runtime_session",
   });
 
-  const listed = listCatalogProviderConfigs(state).find((record) => record.id === "catalog.custom_http");
-  assert.equal(listed.runtimeMaterialStatus, "bound_runtime_session");
+  assert.throws(
+    () => listCatalogProviderConfigs(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.list");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
+      assert.equal(error.details.configurable_provider_count, 3);
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "configurableProviderCount"), false);
+      return true;
+    },
+  );
 
-  const fetched = getCatalogProviderConfig(state, "catalog.custom_http");
-  assert.equal(fetched.provider.adapterPort, "ModelCatalogProviderPort");
+  assert.throws(
+    () => getCatalogProviderConfig(state, "catalog.custom_http"),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_configuration.get");
+      assert.equal(error.details.provider_id, "catalog.custom_http");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      return true;
+    },
+  );
+
   assert.throws(() => getCatalogProviderConfig(state, "catalog.fixture"), /not configurable/);
+  assert.equal(state.catalogProviderRuntimeMaterialCalls, 0);
+  assert.equal(state.calls.some((call) => call.name === "catalogProviderPorts"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 });
 
 test("catalog provider configuration mutation facade fails closed until Rust core owns catalog provider control", () => {
