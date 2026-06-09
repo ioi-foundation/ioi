@@ -55,30 +55,10 @@ export async function catalogSearch(state, query = {}, deps = {}) {
 }
 
 export function enrichCatalogEntryForState(state, entry, options = {}, deps = {}) {
-  const { enrichCatalogEntry } = deps;
-  const storage = state.storageSummary();
-  const artifacts = [...state.artifacts.values()];
-  return enrichCatalogEntry(entry, {
-    storage,
-    artifacts,
-    maxBytes: options.maxBytes ?? null,
-  });
-}
-
-function catalogAdapterBoundary() {
-  return {
-    port: "ModelCatalogProviderPort",
-    operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-    evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
-  };
-}
-
-function catalogFilters() {
-  return {
-    formats: ["gguf", "mlx", "safetensors"],
-    quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
-    compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
-  };
+  void state;
+  void entry;
+  void options;
+  throwCatalogVariantEnrichmentRetired(deps);
 }
 
 function defaultRuntimeError({ code, message, details, status }) {
@@ -97,6 +77,24 @@ function throwCatalogStatusReadbackRetired(deps = {}) {
       evidence_refs: [
         "model_catalog_status_js_readback_retired",
         "rust_daemon_core_catalog_status_projection_required",
+        "agentgres_catalog_projection_required",
+      ],
+    },
+  });
+}
+
+function throwCatalogVariantEnrichmentRetired(deps = {}) {
+  const { runtimeError = defaultRuntimeError } = deps;
+  throw runtimeError({
+    status: 501,
+    code: "model_catalog_variant_enrichment_js_retired",
+    message: "Model catalog variant enrichment is retired in JS; use Rust daemon-core catalog projection/search.",
+    details: {
+      operation_kind: "model_catalog.variant_enrich",
+      rust_core_boundary: "model_mount.catalog_variant_projection",
+      evidence_refs: [
+        "model_catalog_variant_enrichment_js_retired",
+        "rust_daemon_core_catalog_variant_projection_required",
         "agentgres_catalog_projection_required",
       ],
     },

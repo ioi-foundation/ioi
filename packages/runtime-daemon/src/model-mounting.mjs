@@ -107,7 +107,6 @@ import {
   seedBackends as seedBackendsState,
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
-import { enrichCatalogEntry } from "./model-mounting/catalog-entries.mjs";
 import {
   catalogSearch as catalogSearchState,
   enrichCatalogEntryForState,
@@ -772,9 +771,7 @@ export class ModelMountingState {
   }
 
   enrichCatalogEntry(entry, options = {}) {
-    return enrichCatalogEntryForState(this, entry, options, {
-      enrichCatalogEntry,
-    });
+    return enrichCatalogEntryForState(this, entry, options);
   }
 
   async catalogImportUrl(body = {}) {

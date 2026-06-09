@@ -17109,9 +17109,8 @@ its search path now returns `model_catalog_fixture_search_retired` with
 `fixture_catalog_search_js_retired`,
 `rust_daemon_core_catalog_search_required`, and
 `agentgres_catalog_projection_required` evidence before fixture catalog
-materialization can run in JS. `fixtureModelCatalog()` remains only in
-`catalog-entries.mjs` for non-search catalog variant enrichment until Rust
-catalog projection/search APIs own that path.
+materialization can run in JS. Later slices retired the remaining non-search
+catalog variant enrichment path as a JS authority surface.
 
 Focused evidence:
 
@@ -17122,8 +17121,8 @@ Focused evidence:
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog search, Agentgres-backed projection, direct Rust API replacement for
 command transport, remaining catalog-provider list/get and status/search
-orchestration cleanup, and non-search catalog variant enrichment still remain
-before this surface reaches the pure Rust substrate target.
+orchestration cleanup still remain before this surface reaches the pure Rust
+substrate target.
 
 Scheduled matrix-compaction obligation from Slice 834 is now satisfied.
 
@@ -17147,9 +17146,8 @@ Focused evidence:
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog search/projection APIs, Agentgres-backed projection, command-transport
-replacement, catalog-status readback cleanup, and non-search catalog variant
-enrichment still remain before this surface reaches the pure Rust substrate
-target.
+replacement, and catalog-status readback cleanup still remain before this
+surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 835 is now satisfied.
 
@@ -17178,12 +17176,12 @@ Focused evidence:
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog provider configuration read/projection APIs, catalog search/projection
 APIs, Agentgres-backed projection, command-transport replacement, direct catalog
-status/projection APIs, and non-search catalog variant enrichment still remain
-before this surface reaches the pure Rust substrate target.
+status/projection APIs still remain before this surface reaches the pure Rust
+substrate target.
 
 Scheduled matrix-compaction obligation from Slice 836 is now satisfied.
 
-## Implementation Slice Evidence: 837
+## Compacted Implementation Slice Evidence: 837
 
 Slice 837 retired public catalog-status readback input composition from JS.
 `catalogStatus()` and `catalogStatusProjectionInput()` now fail closed with
@@ -17205,13 +17203,40 @@ Focused evidence:
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog status/projection APIs, catalog provider configuration read/projection
-APIs, catalog search/projection APIs, Agentgres-backed projection,
-command-transport replacement, and non-search catalog variant enrichment still
-remain before this surface reaches the pure Rust substrate target.
+APIs, catalog search/projection APIs, Agentgres-backed projection, and
+command-transport replacement still remain before this surface reaches the pure
+Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 837 after the next direct
+Scheduled matrix-compaction obligation from Slice 837 is now satisfied.
+
+## Implementation Slice Evidence: 838
+
+Slice 838 retired the remaining non-search catalog variant enrichment path from
+JS. `enrichCatalogEntryForState()` now fails closed with
+`model_catalog_variant_enrichment_js_retired` at
+`model_catalog.variant_enrich` before JS can read storage summaries, materialize
+artifact maps, apply max-byte policy, call the local enrichment helper, or
+synthesize backend compatibility, download risk, benchmark readiness,
+recommendation, or selection receipt-field metadata. `catalogVariantForSource()`
+now fails closed at the same Rust catalog-variant projection boundary before
+fixture lookup, legacy camelCase variant aliases, catalog auth projection, or
+selection receipt-field synthesis can become JS truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog status/projection APIs, catalog provider configuration read/projection
+APIs, catalog search/projection APIs, Agentgres-backed projection, and
+command-transport replacement still remain before this surface reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 838 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local
-map/projection materialization, non-search catalog variant enrichment, and Rust
-daemon-core catalog/provider/OAuth custody APIs.
+map/projection materialization, and Rust daemon-core catalog/provider/OAuth
+custody APIs.

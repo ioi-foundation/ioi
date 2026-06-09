@@ -1419,8 +1419,8 @@ catalog health for product-safe status, but search now returns
 `model_catalog_fixture_search_retired` with
 `fixture_catalog_search_js_retired` evidence before fixture catalog
 materialization can run in JS. Fixture metadata remains available only for
-non-search catalog variant enrichment until Rust catalog projection/search APIs
-own the full path.
+historical fixture tests; later slices retired the remaining non-search catalog
+variant enrichment path as a JS authority surface.
 
 Slice 835 retired public model catalog search orchestration from JS. The
 `catalogSearch()` facade now fails closed with
@@ -1451,6 +1451,15 @@ to Rust. Broad model-mount snapshot/projection transport also stops sending
 `catalog_status_input`; the remaining broad `catalog` envelope is a
 non-authoritative empty/default Rust projection until direct Rust daemon-core
 catalog status/projection APIs own the request.
+
+Slice 838 retired the remaining non-search catalog variant enrichment path from
+JS. `enrichCatalogEntryForState()` now fails closed with
+`model_catalog_variant_enrichment_js_retired` before reading storage summaries,
+artifact maps, max-byte policy, or local helper-generated backend/download/
+recommendation fields. `catalogVariantForSource()` now fails closed at the same
+Rust catalog-variant projection boundary before fixture lookup, legacy
+camelCase variant aliases, catalog auth projection, or selection receipt-field
+synthesis can become JS truth.
 
 ## Part II: Target Execution Model
 

@@ -181,28 +181,27 @@ test("catalog search fails closed before JS provider orchestration", async () =>
   assert.equal(state.lastCatalogSearch, null);
 });
 
-test("catalog entry enrichment passes storage, artifacts, and max bytes to entry helper", () => {
+test("catalog entry enrichment fails closed before JS storage and artifact materialization", () => {
   const state = fakeState();
-  const calls = [];
 
-  const result = enrichCatalogEntryForState(
-    state,
-    { id: "entry.1", sizeBytes: 10 },
-    { maxBytes: 20 },
-    {
-      enrichCatalogEntry(entry, options) {
-        calls.push({ entry, options });
-        return { ...entry, storageTotalBytes: options.storage.totalBytes, artifactCount: options.artifacts.length, maxBytes: options.maxBytes };
-      },
+  assert.throws(
+    () => enrichCatalogEntryForState(state, { id: "entry.1", sizeBytes: 10 }, { maxBytes: 20 }, deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_catalog_variant_enrichment_js_retired");
+      assert.equal(error.details.operation_kind, "model_catalog.variant_enrich");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_variant_projection");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_catalog_variant_enrichment_js_retired",
+        "rust_daemon_core_catalog_variant_projection_required",
+        "agentgres_catalog_projection_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
     },
   );
-
-  assert.deepEqual(result, {
-    id: "entry.1",
-    sizeBytes: 10,
-    storageTotalBytes: 15,
-    artifactCount: 1,
-    maxBytes: 20,
-  });
-  assert.equal(calls[0].options.artifacts[0].id, "artifact.known");
+  assert.equal(state.storageSummaryCalls, 0);
+  assert.equal(state.enrichCatalogEntryCalls, 0);
 });

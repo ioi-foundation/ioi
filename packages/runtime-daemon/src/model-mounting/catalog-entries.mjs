@@ -1,27 +1,19 @@
 import path from "node:path";
 
 import {
-  catalogBackendCompatibility,
-  catalogBenchmarkReadiness,
   catalogCompatibilityForFormat,
-  catalogDownloadRisk,
-  catalogRecommendation,
   huggingFaceResolveUrl,
   inferModelArchitecture,
   inferParameterCount,
   modelCatalogFileFormat,
-  modelIdFromSourceUrl,
   parseModelQuantization,
-  sourceLabelForUrl,
 } from "./catalog-helpers.mjs";
-import { publicCatalogAuthEvidence } from "./catalog-projections.mjs";
 import {
   normalizeScopes,
   readJson,
   safeId,
   stableHash,
 } from "./io.mjs";
-import { publicDownloadSource } from "./download-helpers.mjs";
 
 export function fixtureModelCatalog(searchedAt) {
   return [
@@ -207,57 +199,26 @@ export function catalogEntryMatches(entry, { query, format, quantization }) {
 }
 
 export function catalogVariantForSource(source, body = {}) {
-  const catalogEntry = fixtureModelCatalog(new Date(0).toISOString()).find((entry) => entry.sourceUrl === source);
-  const publicSource = publicDownloadSource(source);
-  const variant = {
-    id: body.variant_id ?? body.variantId ?? catalogEntry?.id ?? `variant.${safeId(publicSource)}`,
-    catalogProviderId: body.catalog_provider_id ?? body.catalogProviderId ?? catalogEntry?.catalogProviderId ?? null,
-    family: body.family ?? catalogEntry?.family ?? modelIdFromSourceUrl(publicSource),
-    architecture: body.architecture ?? catalogEntry?.architecture ?? inferModelArchitecture(publicSource),
-    parameterCount: body.parameter_count ?? body.parameterCount ?? catalogEntry?.parameterCount ?? inferParameterCount(publicSource),
-    format: body.format ?? catalogEntry?.format ?? modelCatalogFileFormat(publicSource) ?? "gguf",
-    quantization: body.quantization ?? catalogEntry?.quantization ?? parseModelQuantization(publicSource) ?? "Q4_K_M",
-    sizeBytes: Number(body.size_bytes ?? body.sizeBytes ?? catalogEntry?.sizeBytes ?? 0),
-    contextWindow: Number(body.context_window ?? body.contextWindow ?? catalogEntry?.contextWindow ?? 4096),
-    sourceLabel: body.source_label ?? body.sourceLabel ?? catalogEntry?.sourceLabel ?? sourceLabelForUrl(source),
-    sourceUrl: publicSource,
-    sourceUrlHash: stableHash(source),
-    license: body.license ?? catalogEntry?.license ?? null,
-    compatibility: normalizeScopes(body.compatibility, catalogEntry?.compatibility ?? ["native_local_fixture"]),
-    catalogAuth: publicCatalogAuthEvidence(body.catalogAuth ?? catalogEntry?.catalogAuth ?? null),
-  };
-  return enrichCatalogEntry(variant, { maxBytes: body.max_bytes ?? body.maxBytes ?? null });
+  void source;
+  void body;
+  throwCatalogVariantEnrichmentRetired();
 }
 
-export function enrichCatalogEntry(entry, { storage = {}, artifacts = [], maxBytes = null } = {}) {
-  const architecture = entry.architecture ?? inferModelArchitecture([entry.modelId, entry.family, entry.variantPath, ...(entry.tags ?? [])].join(" "));
-  const parameterCount = entry.parameterCount ?? inferParameterCount([entry.modelId, entry.variantPath, entry.sourceLabel].join(" "));
-  const compatibility = normalizeScopes(entry.compatibility, catalogCompatibilityForFormat(entry.format));
-  const backendCompatibility = catalogBackendCompatibility({ ...entry, architecture, parameterCount, compatibility });
-  const benchmarkReadiness = catalogBenchmarkReadiness({ ...entry, compatibility });
-  const downloadRisk = catalogDownloadRisk(entry, { storage, artifacts, maxBytes });
-  const recommendation = catalogRecommendation({ backendCompatibility, benchmarkReadiness, downloadRisk });
-  return {
-    ...entry,
-    architecture,
-    parameterCount,
-    compatibility,
-    backendCompatibility,
-    downloadRisk,
-    benchmarkReadiness,
-    recommendation,
-    selectionReceiptFields: [
-      "variant_id",
-      "source_url_hash",
-      "source_label",
-      "format",
-      "quantization",
-      "architecture",
-      "parameter_count",
-      "backend_compatibility",
-      "download_risk",
-      "benchmark_readiness",
-      "approval_decision",
-    ],
-  };
+function throwCatalogVariantEnrichmentRetired() {
+  throw Object.assign(
+    new Error("Model catalog variant enrichment is retired in JS; use Rust daemon-core catalog projection/search."),
+    {
+      status: 501,
+      code: "model_catalog_variant_enrichment_js_retired",
+      details: {
+        operation_kind: "model_catalog.variant_enrich",
+        rust_core_boundary: "model_mount.catalog_variant_projection",
+        evidence_refs: [
+          "model_catalog_variant_enrichment_js_retired",
+          "rust_daemon_core_catalog_variant_projection_required",
+          "agentgres_catalog_projection_required",
+        ],
+      },
+    },
+  );
 }

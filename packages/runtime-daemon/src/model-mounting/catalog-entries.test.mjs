@@ -52,13 +52,25 @@ test("generic and Hugging Face catalog entries normalize public metadata", () =>
   assert.deepEqual(huggingFace.gatedBy, ["IOI_LIVE_MODEL_CATALOG", "IOI_LIVE_MODEL_DOWNLOAD"]);
 });
 
-test("fixture catalog variants are enriched with selection receipt fields", () => {
+test("fixture catalog variant enrichment fails closed before JS selection metadata", () => {
   const fixture = fixtureModelCatalog("2026-06-03T00:00:00.000Z")[0];
-  const variant = catalogVariantForSource(fixture.sourceUrl);
 
-  assert.equal(variant.id, fixture.id);
-  assert.equal(variant.format, "gguf");
-  assert.equal(variant.recommendation.primaryBackend, "native_local_fixture");
-  assert.equal(variant.downloadRisk.status, "low");
-  assert.ok(variant.selectionReceiptFields.includes("backend_compatibility"));
+  assert.throws(
+    () => catalogVariantForSource(fixture.sourceUrl, { maxBytes: 1024, variantId: "legacy.variant" }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_catalog_variant_enrichment_js_retired");
+      assert.equal(error.details.operation_kind, "model_catalog.variant_enrich");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_variant_projection");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_catalog_variant_enrichment_js_retired",
+        "rust_daemon_core_catalog_variant_projection_required",
+        "agentgres_catalog_projection_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
 });

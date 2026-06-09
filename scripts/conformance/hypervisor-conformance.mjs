@@ -671,6 +671,9 @@ function runDocs() {
       /Slice 837 retired public catalog-status readback input composition from JS/.test(guide) &&
       /`model_catalog_status_js_readback_retired`/.test(guide) &&
       /`catalog_status_input`/.test(guide) &&
+      /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(guide) &&
+      /`model_catalog_variant_enrichment_js_retired`/.test(guide) &&
+      /`catalogVariantForSource\(\)`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -819,10 +822,14 @@ function runDocs() {
       /model_mount\.catalog_provider_configuration\.list/.test(matrix) &&
       /catalogProviderConfigs/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 836 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 837/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 837/.test(matrix) &&
       /Slice 837 retired public catalog-status readback input composition from JS/.test(matrix) &&
       /model_catalog_status_js_readback_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 837/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 837 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 838/.test(matrix) &&
+      /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
+      /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 838/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -848,6 +855,9 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /broad snapshot\/projection requests no longer send `catalog_status_input`/.test(
+        implementationMatrix,
+      ) &&
+      /non-search catalog variant enrichment now fails closed with `model_catalog_variant_enrichment_js_retired`/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -11272,6 +11282,12 @@ function runReceipts() {
   const catalogOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     : "";
+  const catalogEntries = exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs")
+    : "";
+  const catalogEntriesTest = exists("packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs")
+    : "";
   const catalogProviderRuntimeMaterialFromBodyBlock =
     catalogProviderConfig.match(/export function catalogProviderRuntimeMaterialFromBody[\s\S]*?export function catalogProviderAuthConfig/)?.[0] ?? "";
   const catalogProviderAuthConfigBlock =
@@ -13679,6 +13695,45 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
     ],
     "Phase 7/11 is pending: public catalog status readback must fail closed before JS provider iteration, storage summary, last-search reads, or catalog-status input transport",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-variant-enrichment-js-retired",
+    /model_catalog_variant_enrichment_js_retired/.test(catalogOperations) &&
+      /model_catalog\.variant_enrich/.test(catalogOperations) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_variant_projection"/.test(catalogOperations) &&
+      /rust_daemon_core_catalog_variant_projection_required/.test(catalogOperations) &&
+      /agentgres_catalog_projection_required/.test(catalogOperations) &&
+      /throwCatalogVariantEnrichmentRetired/.test(catalogOperations) &&
+      /model_catalog_variant_enrichment_js_retired/.test(catalogEntries) &&
+      /catalogVariantForSource\(source,\s*body = \{\}\)[\s\S]*?throwCatalogVariantEnrichmentRetired\(\)/.test(catalogEntries) &&
+      !/export function enrichCatalogEntryForState[\s\S]*?state\.storageSummary\(\)[\s\S]*?function defaultRuntimeError/.test(
+        catalogOperations,
+      ) &&
+      !/export function enrichCatalogEntryForState[\s\S]*?\[\.\.\.state\.artifacts\.values\(\)\][\s\S]*?function defaultRuntimeError/.test(
+        catalogOperations,
+      ) &&
+      !/export function enrichCatalogEntryForState[\s\S]*?maxBytes:\s*options\.maxBytes[\s\S]*?function defaultRuntimeError/.test(
+        catalogOperations,
+      ) &&
+      !/export function enrichCatalogEntryForState[\s\S]*?enrichCatalogEntry\(entry,\s*\{[\s\S]*?function defaultRuntimeError/.test(
+        catalogOperations,
+      ) &&
+      !/catalogEntry\s*=\s*fixtureModelCatalog/.test(catalogEntries) &&
+      !/selectionReceiptFields:/.test(catalogEntries) &&
+      /catalog entry enrichment fails closed before JS storage and artifact materialization/.test(catalogOperationsTest) &&
+      /fixture catalog variant enrichment fails closed before JS selection metadata/.test(catalogEntriesTest) &&
+      /assert\.equal\(state\.storageSummaryCalls,\s*0\)/.test(catalogOperationsTest) &&
+      /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
+      !/enrichCatalogEntryForState\(this,\s*entry,\s*options,\s*\{/.test(modelMountingRoot),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-entries.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 7/11 is pending: catalog variant enrichment must fail closed before JS storage/artifact reads, helper enrichment, fixture lookup, or selection receipt-field synthesis",
   );
   assertCheck(
     result,
