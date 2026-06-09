@@ -17647,7 +17647,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 853 is now satisfied.
 
-## Implementation Slice Evidence: 854
+## Compacted Implementation Slice Evidence: 854
 
 Slice 854 retired broad snapshot/projection provider-health and runtime-survey
 telemetry input from JS. The default model_mount read-projection input no
@@ -17670,7 +17670,34 @@ APIs, Agentgres-backed telemetry truth, hardware/provider probing ownership,
 command-transport replacement, and local telemetry materialization retirement
 still remain before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 854 after the next direct
+Scheduled matrix-compaction obligation from Slice 854 is now satisfied.
+
+## Implementation Slice Evidence: 855
+
+Slice 855 retired broad snapshot/projection model-topology input from JS. The
+default model_mount read-projection input no longer sends `artifacts`,
+`endpoints`, `instances`, `providers`, `routes`, `downloads`, or
+`product_artifact_policy` for broad `snapshot` and `projection` requests.
+Dedicated topology read projections still use narrow Rust-planned inputs, and
+receipt replay still receives the topology slices it explicitly needs. The
+focused test asserts those topology fields are absent from broad
+snapshot/projection request state while broad snapshot/projection topology
+outputs default empty.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal model-topology projection migration: direct
+Rust daemon-core topology projection APIs, Agentgres-backed artifact/endpoint/
+instance/provider/route/download truth, command-transport replacement,
+receipt-replay topology ownership, and local map/projection materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 855 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry transport facades,

@@ -288,21 +288,21 @@ function rustProjectionFixture(request) {
     source: "agentgres_model_mounting_projection",
     generatedAt: request.generated_at,
     watermark: receipts.length,
-    artifacts: state.artifacts,
+    artifacts: state.artifacts ?? [],
     productArtifacts: productArtifactsFromRustState(state),
-    endpoints: state.endpoints,
-    instances: state.instances,
-    routes: state.routes,
+    endpoints: state.endpoints ?? [],
+    instances: state.instances ?? [],
+    routes: state.routes ?? [],
     modelCapabilities: modelCapabilitiesFromRustState(state),
     runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
     openAiModelList: openAiModelListFromRustState(state, request.generated_at),
     backends: state.backends ?? [],
     backendProcesses: state.backend_processes ?? [],
-    providers: state.providers,
+    providers: state.providers ?? [],
     catalog: catalogStatusFromRustState(state, request.schema_version),
     oauthSessions: state.oauth_sessions,
     oauthStates: state.oauth_states,
-    downloads: state.downloads,
+    downloads: state.downloads ?? [],
     providerHealth: state.provider_health ?? [],
     runtimeEngines: state.runtime_engines,
     runtimeEngineProfiles: state.runtime_engine_profiles,
@@ -330,18 +330,18 @@ function rustProjectionFixture(request) {
       catalog: catalogStatusFromRustState(state, request.schema_version),
       oauthSessions: state.oauth_sessions,
       oauthStates: state.oauth_states,
-      artifacts: state.artifacts,
+      artifacts: state.artifacts ?? [],
       productArtifacts: productArtifactsFromRustState(state),
       backends: state.backends ?? [],
       backendProcesses: state.backend_processes ?? [],
-      endpoints: state.endpoints,
-      instances: state.instances,
-      providers: state.providers,
-      routes: state.routes,
+      endpoints: state.endpoints ?? [],
+      instances: state.instances ?? [],
+      providers: state.providers ?? [],
+      routes: state.routes ?? [],
       modelCapabilities: modelCapabilitiesFromRustState(state),
       runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
       openAiModelList: openAiModelListFromRustState(state, request.generated_at),
-      downloads: state.downloads,
+      downloads: state.downloads ?? [],
       providerHealth: state.provider_health ?? [],
       runtimeEngines: state.runtime_engines,
       runtimeEngineProfiles: state.runtime_engine_profiles,
@@ -954,14 +954,23 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.deepEqual(snapshot.catalog.providers, []);
   assert.deepEqual(snapshot.catalog.results, []);
   assert.equal(Object.hasOwn(snapshot, "catalogProviderConfigs"), false);
-  assert.equal(snapshot.artifacts.length, 2);
-  assert.equal(snapshot.modelCapabilities.length, 1);
-  assert.equal(snapshot.modelCapabilities[0].credential_readiness.status, "ready");
+  assert.equal(snapshot.artifacts.length, 0);
+  assert.equal(snapshot.endpoints.length, 0);
+  assert.equal(snapshot.providers.length, 0);
+  assert.equal(snapshot.routes.length, 0);
+  assert.equal(snapshot.downloads.length, 0);
+  assert.equal(snapshot.modelCapabilities.length, 0);
   assert.equal(snapshot.projection.source, "agentgres_model_mounting_projection");
   assert.equal(snapshot.adapterBoundaries.agentgres, null);
 
   const projection = facade.projection(state);
   assert.equal(projection.schemaVersion, "model.mount.schema");
+  assert.equal(projection.artifacts.length, 0);
+  assert.equal(projection.endpoints.length, 0);
+  assert.equal(projection.providers.length, 0);
+  assert.equal(projection.routes.length, 0);
+  assert.equal(projection.downloads.length, 0);
+  assert.equal(projection.modelCapabilities.length, 0);
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
@@ -1024,6 +1033,13 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "vault"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "provider_health"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_survey_input"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "artifacts"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "endpoints"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "instances"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "providers"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "routes"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "downloads"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "product_artifact_policy"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "backends"), false);
@@ -1044,6 +1060,13 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "vault"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "provider_health"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "runtime_survey_input"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "artifacts"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "endpoints"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "instances"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "providers"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "routes"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "downloads"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "product_artifact_policy"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");

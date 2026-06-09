@@ -1629,6 +1629,15 @@ use narrow Rust-planned inputs, but local JS provider-health files and
 runtime-survey probe summaries can no longer become public telemetry truth
 through the broad Rust projection envelope.
 
+Slice 855 retired broad snapshot/projection model-topology input from JS. The
+default model_mount read-projection input no longer sends `artifacts`,
+`endpoints`, `instances`, `providers`, `routes`, `downloads`, or
+`product_artifact_policy` for broad `snapshot` and `projection` requests.
+Dedicated topology read projections still use narrow Rust-planned inputs, and
+receipt replay still receives the topology slices it explicitly needs, but
+local JS model topology maps can no longer become public projection truth
+through the broad Rust projection envelope.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
