@@ -141,14 +141,8 @@ import {
   providerSecretInput,
 } from "./model-mounting/provider-auth.mjs";
 import {
-  completeCatalogProviderOAuth as completeCatalogProviderOAuthState,
-  exchangeCatalogProviderOAuth as exchangeCatalogProviderOAuthState,
-  refreshCatalogProviderOAuth as refreshCatalogProviderOAuthState,
-  revokeCatalogProviderOAuth as revokeCatalogProviderOAuthState,
-  startCatalogProviderOAuth as startCatalogProviderOAuthState,
-} from "./model-mounting/catalog-provider-oauth.mjs";
-import {
   assertConfigurableCatalogProvider,
+  throwCatalogProviderControlRustCoreRequired,
 } from "./model-mounting/catalog-provider-config.mjs";
 import {
   catalogProviderConfig as catalogProviderConfigState,
@@ -685,36 +679,44 @@ export class ModelMountingState {
   }
 
   startCatalogProviderOAuth(providerId, body = {}) {
-    return startCatalogProviderOAuthState(this, providerId, body, {
-      assertConfigurableCatalogProvider,
-    });
+    assertConfigurableCatalogProvider(providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_oauth.start",
+      { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+    );
   }
 
   async completeCatalogProviderOAuth(providerId, body = {}) {
-    return completeCatalogProviderOAuthState(this, providerId, body, {
-      assertConfigurableCatalogProvider,
-      requiredString,
-    });
+    assertConfigurableCatalogProvider(providerId);
+    requiredString(body.state, "state");
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_oauth.callback",
+      { provider_id: providerId, state_present: true },
+    );
   }
 
   async exchangeCatalogProviderOAuth(providerId, body = {}) {
-    return exchangeCatalogProviderOAuthState(this, providerId, body, {
-      assertConfigurableCatalogProvider,
-    });
+    assertConfigurableCatalogProvider(providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_oauth.exchange",
+      { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+    );
   }
 
   async refreshCatalogProviderOAuth(providerId) {
-    return refreshCatalogProviderOAuthState(this, providerId, {
-      assertConfigurableCatalogProvider,
-      runtimeError,
-    });
+    assertConfigurableCatalogProvider(providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_oauth.refresh",
+      { provider_id: providerId },
+    );
   }
 
   revokeCatalogProviderOAuth(providerId) {
-    return revokeCatalogProviderOAuthState(this, providerId, {
-      assertConfigurableCatalogProvider,
-      runtimeError,
-    });
+    assertConfigurableCatalogProvider(providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_oauth.revoke",
+      { provider_id: providerId },
+    );
   }
 
   catalogProviderConfig(providerId) {

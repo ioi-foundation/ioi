@@ -969,7 +969,11 @@ function runDocs() {
       /Implementation Slice Evidence: 870/.test(matrix) &&
       /Slice 870 retired the one-function JS `runtime-survey\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState\.runtimeSurvey\(\)` method now owns the edge refusal directly/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 870/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 871/.test(matrix) &&
+      /Slice 871 retired the fail-closed `catalog-provider-oauth\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` OAuth methods now own provider configurability preflight/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 871/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1118,12 +1122,15 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 867 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 868 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 869 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 870/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 871/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
       /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
       /mounted OAuth start\/callback\/exchange\/refresh\/revoke facades no longer inject `publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`, `oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(implementationMatrix) &&
+      /the fail-closed `catalog-provider-oauth\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` OAuth methods now own provider configurability preflight/.test(implementationMatrix) &&
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /catalog-provider config-map reads/.test(implementationMatrix) &&
       /private catalog-provider config readback now fails closed at `model_mount\.catalog_provider_configuration\.read_private`/.test(implementationMatrix) &&
@@ -9064,18 +9071,19 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-catalog-provider-oauth-js-facade-retired",
-    /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderOAuthOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
+      /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
       /recordDir:\s*"oauth-states"/.test(oauthRecordState) &&
       /recordDir:\s*"oauth-sessions"/.test(oauthRecordState) &&
       /model_mount_oauth_state_commit_unconfigured/.test(oauthRecordState) &&
       /model_mount_oauth_session_commit_unconfigured/.test(oauthRecordState) &&
-      /model_mount\.catalog_provider_oauth\.start/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.catalog_provider_oauth\.callback/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.catalog_provider_oauth\.exchange/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.catalog_provider_oauth\.refresh/.test(catalogProviderOAuthOperations) &&
-      /model_mount\.catalog_provider_oauth\.revoke/.test(catalogProviderOAuthOperations) &&
-      /requiredString\(body\.state,\s*"state"\)/.test(catalogProviderOAuthOperations) &&
+      /model_mount\.catalog_provider_oauth\.start/.test(modelMountingState) &&
+      /model_mount\.catalog_provider_oauth\.callback/.test(modelMountingState) &&
+      /model_mount\.catalog_provider_oauth\.exchange/.test(modelMountingState) &&
+      /model_mount\.catalog_provider_oauth\.refresh/.test(modelMountingState) &&
+      /model_mount\.catalog_provider_oauth\.revoke/.test(modelMountingState) &&
+      /requiredString\(body\.state,\s*"state"\)/.test(modelMountingState) &&
       !/body\.(?:oauth_state|oauthState)\b/.test(catalogProviderOAuthOperations) &&
       !/state\.receipt\("catalog_oauth_/.test(catalogProviderOAuthOperations) &&
       !/commitModelMountRecordState/.test(catalogProviderOAuthOperations) &&
@@ -9090,11 +9098,12 @@ function runBridge() {
       !/state\.catalogProviderRuntimeMaterials\.set/.test(catalogProviderOAuthOperations) &&
       !/state\.writeVaultRefs\(\)/.test(catalogProviderOAuthOperations) &&
       !/state\.writeProjection\(\)/.test(catalogProviderOAuthOperations) &&
-      /startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?startCatalogProviderOAuthState\(this,\s*providerId,\s*body,\s*\{\s*assertConfigurableCatalogProvider,\s*\}\)/.test(modelMountingState) &&
-      /completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?completeCatalogProviderOAuthState\(this,\s*providerId,\s*body,\s*\{\s*assertConfigurableCatalogProvider,\s*requiredString,\s*\}\)/.test(modelMountingState) &&
-      /exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?exchangeCatalogProviderOAuthState\(this,\s*providerId,\s*body,\s*\{\s*assertConfigurableCatalogProvider,\s*\}\)/.test(modelMountingState) &&
-      /refreshCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?refreshCatalogProviderOAuthState\(this,\s*providerId,\s*\{\s*assertConfigurableCatalogProvider,\s*runtimeError,\s*\}\)/.test(modelMountingState) &&
-      /revokeCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?revokeCatalogProviderOAuthState\(this,\s*providerId,\s*\{\s*assertConfigurableCatalogProvider,\s*runtimeError,\s*\}\)/.test(modelMountingState) &&
+      !/startCatalogProviderOAuthState|completeCatalogProviderOAuthState|exchangeCatalogProviderOAuthState|refreshCatalogProviderOAuthState|revokeCatalogProviderOAuthState/.test(modelMountingState) &&
+      /startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.start"/.test(modelMountingState) &&
+      /completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?requiredString\(body\.state,\s*"state"\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.callback"/.test(modelMountingState) &&
+      /exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.exchange"/.test(modelMountingState) &&
+      /refreshCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.refresh"/.test(modelMountingState) &&
+      /revokeCatalogProviderOAuth\(providerId\)\s*\{[\s\S]*?assertConfigurableCatalogProvider\(providerId\)[\s\S]*?throwCatalogProviderControlRustCoreRequired\(\s*"model_mount\.catalog_provider_oauth\.revoke"/.test(modelMountingState) &&
       !/startCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async completeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/completeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async exchangeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async refreshCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
@@ -9128,9 +9137,11 @@ function runBridge() {
       /catalog OAuth callback rejects retired OAuth state compatibility aliases/.test(
         catalogProviderOAuthOperationsTest,
       ) &&
-      /depsWithRetiredProjectionHelpers/.test(catalogProviderOAuthOperationsTest) &&
-      /publicOAuthSession must not run in JS OAuth facade/.test(catalogProviderOAuthOperationsTest) &&
-      /publicCatalogProviderConfig must not run in JS OAuth facade/.test(catalogProviderOAuthOperationsTest) &&
+      /ModelMountingState\.prototype\.startCatalogProviderOAuth\.call/.test(catalogProviderOAuthOperationsTest) &&
+      /ModelMountingState\.prototype\.completeCatalogProviderOAuth\.call/.test(catalogProviderOAuthOperationsTest) &&
+      !/depsWithRetiredProjectionHelpers/.test(catalogProviderOAuthOperationsTest) &&
+      !/publicOAuthSession must not run in JS OAuth facade/.test(catalogProviderOAuthOperationsTest) &&
+      !/publicCatalogProviderConfig must not run in JS OAuth facade/.test(catalogProviderOAuthOperationsTest) &&
       /assertNoCatalogOAuthMutation/.test(catalogProviderOAuthOperationsTest) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderOAuthOperationsTest) &&
       /public_catalog_provider_control_js_facade_retired/.test(catalogProviderOAuthOperationsTest) &&
@@ -9154,7 +9165,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
@@ -14582,12 +14593,13 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-oauth-receipt-detail-aliases-retired",
-      /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderOAuth) &&
-      /provider_id:\s*providerId/.test(catalogProviderOAuth) &&
-      /state_present:\s*true/.test(catalogProviderOAuth) &&
-      /requiredString\(body\.state,\s*"state"\)/.test(catalogProviderOAuth) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
+      /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
+      /provider_id:\s*providerId/.test(modelMountingState) &&
+      /state_present:\s*true/.test(modelMountingState) &&
+      /requiredString\(body\.state,\s*"state"\)/.test(modelMountingState) &&
       !/body\.(?:oauth_state|oauthState)\b/.test(catalogProviderOAuth) &&
-      /model_mount\.catalog_provider_oauth\.(?:start|callback|exchange|refresh|revoke)/.test(catalogProviderOAuth) &&
+      /model_mount\.catalog_provider_oauth\.(?:start|callback|exchange|refresh|revoke)/.test(modelMountingState) &&
       !/state\.receipt\("catalog_oauth_/.test(catalogProviderOAuth) &&
       !/oauth_state:\s*started\.evidence/.test(catalogProviderOAuth) &&
       !/authorization_url_hash:\s*started\.authorizationUrlHash/.test(catalogProviderOAuth) &&
@@ -14603,7 +14615,7 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(catalogProviderOAuthTest) &&
       /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(catalogProviderOAuthTest),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
     ],
     "Phase 7/11 is pending: catalog OAuth JS accepted receipts must stay retired and Rust-core-required fail-closed details must use canonical snake_case metadata",

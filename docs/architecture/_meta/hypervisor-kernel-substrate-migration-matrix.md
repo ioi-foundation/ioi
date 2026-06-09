@@ -18107,10 +18107,35 @@ daemon-core runtime probing, Agentgres-admitted survey truth, projection
 persistence, command-transport retirement, and stable protocol APIs remain
 required before runtime survey reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 870 after the next direct
+Scheduled matrix-compaction obligation from Slice 870 is now satisfied.
+
+## Implementation Slice Evidence: 871
+
+Slice 871 retired the fail-closed `catalog-provider-oauth.mjs` helper module
+after public catalog-provider OAuth start/callback/exchange/refresh/revoke had
+already been reduced to Rust-core-required edge refusals. The mounted public
+`ModelMountingState` OAuth methods now own provider configurability preflight,
+callback `state` validation, and `model_mount.catalog_provider_oauth.*`
+Rust-core-required errors directly, without importing a helper module or
+injecting JS projection/custody helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+
+This still does not claim terminal OAuth custody migration: direct Rust
+daemon-core wallet/cTEE OAuth state/session projection APIs, Agentgres-admitted
+OAuth truth, command-transport retirement, and edge error-envelope translation
+retirement still remain before catalog-provider OAuth reaches the pure Rust
+substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 871 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-preserve the non-terminal status of command transport, JS wrapper calls, local
-runtime-survey readback transport, telemetry/runtime-engine transport facades,
-local map/projection materialization, and direct Rust daemon-core runtime-survey
-Agentgres projection APIs. The `ioi-step-module-bridge` command path is
-acceptable only as migration transport; it is not the terminal architecture.
+preserve the non-terminal status of command transport, JS wrapper calls,
+catalog-provider OAuth readback/error translation, local map/projection
+materialization, and direct Rust daemon-core wallet/cTEE OAuth custody
+projection APIs. The `ioi-step-module-bridge` command path is acceptable only
+as migration transport; it is not the terminal architecture.

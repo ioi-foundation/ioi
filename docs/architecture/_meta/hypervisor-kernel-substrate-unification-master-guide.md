@@ -1837,6 +1837,17 @@ does not claim terminal runtime-survey migration: direct Rust daemon-core
 runtime probing, Agentgres-admitted survey truth, projection persistence,
 command-transport retirement, and stable protocol APIs remain required.
 
+Slice 871 retired the fail-closed `catalog-provider-oauth.mjs` helper module
+after public catalog-provider OAuth start/callback/exchange/refresh/revoke had
+already been reduced to Rust-core-required edge refusals. The mounted public
+`ModelMountingState` OAuth methods now own provider configurability preflight,
+callback `state` validation, and `model_mount.catalog_provider_oauth.*`
+Rust-core-required errors directly, without importing a helper module or
+injecting JS projection/custody helpers. This does not claim terminal OAuth
+custody migration: direct Rust daemon-core wallet/cTEE OAuth state/session
+projection APIs, Agentgres-admitted OAuth truth, command-transport retirement,
+and edge error-envelope translation retirement still remain.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
