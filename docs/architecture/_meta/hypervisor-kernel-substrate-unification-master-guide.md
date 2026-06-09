@@ -1740,6 +1740,18 @@ owns those joins. The JS topology list imports and the Rust `projection_lookup`
 compatibility helper were removed, so replay can no longer promote local JS
 route/provider/endpoint maps into replay truth.
 
+Slice 865 retired direct runtime-engine projection input from the Rust bridge.
+The direct `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,
+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and
+`runtime_engine_detail` read-projection arms now ignore caller-supplied
+runtime-engine arrays, profiles, preferences, default-load options, and detail
+objects. Rust returns empty list/profile projections, null preference/default
+load projections, and fails closed with `model_mount_runtime_engine_not_found`
+for detail until direct Rust daemon-core Agentgres-backed runtime-engine
+projection APIs own that truth. This keeps `ioi-step-module-bridge` as a
+temporary command transport and prevents direct bridge callers from reintroducing
+JS runtime-engine maps as projection truth.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

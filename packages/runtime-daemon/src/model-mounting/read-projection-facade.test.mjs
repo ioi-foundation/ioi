@@ -264,18 +264,15 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "server_status") return serverStatusFromRustState(state, request.schema_version);
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
-  if (request.projection_kind === "runtime_engines") return state.runtime_engines ?? [];
-  if (request.projection_kind === "runtime_engine_profiles") return state.runtime_engine_profiles ?? [];
-  if (request.projection_kind === "runtime_preference") return state.runtime_preference ?? null;
-  if (request.projection_kind === "runtime_preference_for_endpoint") return state.runtime_preference ?? null;
-  if (request.projection_kind === "runtime_default_load_options") return state.default_load_options ?? null;
+  if (request.projection_kind === "runtime_engines") return [];
+  if (request.projection_kind === "runtime_engine_profiles") return [];
+  if (request.projection_kind === "runtime_preference") return null;
+  if (request.projection_kind === "runtime_preference_for_endpoint") return null;
+  if (request.projection_kind === "runtime_default_load_options") return null;
   if (request.projection_kind === "runtime_engine_detail") {
-    if (!state.runtime_engine) {
-      throw Object.assign(new Error("runtime engine not found"), {
-        code: "model_mount_runtime_engine_not_found",
-      });
-    }
-    return state.runtime_engine;
+    throw Object.assign(new Error("runtime engine not found"), {
+      code: "model_mount_runtime_engine_not_found",
+    });
   }
   if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
   if (request.projection_kind === "catalog_status") return catalogStatusFromRustState(state, request.schema_version);

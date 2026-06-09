@@ -2096,18 +2096,11 @@ fn model_mount_read_projection(
         "provider_health" => Ok(Value::Array(Vec::new())),
         "workflow_bindings" => Ok(model_mount_workflow_bindings()),
         "adapter_boundaries" => Ok(model_mount_adapter_boundaries(&request.state)),
-        "runtime_engines" => Ok(Value::Array(array_field(&request.state, "runtime_engines"))),
-        "runtime_engine_profiles" => Ok(Value::Array(array_field(
-            &request.state,
-            "runtime_engine_profiles",
-        ))),
-        "runtime_preference" => Ok(object_or_null(request.state.get("runtime_preference"))),
-        "runtime_preference_for_endpoint" => {
-            Ok(object_or_null(request.state.get("runtime_preference")))
-        }
-        "runtime_default_load_options" => {
-            Ok(object_or_null(request.state.get("default_load_options")))
-        }
+        "runtime_engines" => Ok(Value::Array(Vec::new())),
+        "runtime_engine_profiles" => Ok(Value::Array(Vec::new())),
+        "runtime_preference" => Ok(Value::Null),
+        "runtime_preference_for_endpoint" => Ok(Value::Null),
+        "runtime_default_load_options" => Ok(Value::Null),
         "runtime_engine_detail" => model_mount_runtime_engine_detail(request),
         "runtime_model_catalog" => Ok(Value::Array(Vec::new())),
         "open_ai_model_list" => Ok(json!({
@@ -2417,14 +2410,10 @@ fn model_mount_runtime_engine_detail(
         .engine_id
         .as_deref()
         .unwrap_or("unknown_runtime_engine");
-    let runtime_engine = object_or_null(request.state.get("runtime_engine"));
-    if runtime_engine.is_null() {
-        return Err(BridgeError::new(
-            "model_mount_runtime_engine_not_found",
-            format!("runtime engine not found: {engine_id}"),
-        ));
-    }
-    Ok(runtime_engine)
+    Err(BridgeError::new(
+        "model_mount_runtime_engine_not_found",
+        format!("runtime engine not found: {engine_id}"),
+    ))
 }
 
 fn model_mount_projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
@@ -8628,7 +8617,12 @@ mod tests {
                     "projection_kind": "runtime_engines",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {}
+                    "state": {
+                        "runtime_engines": [{
+                            "id": "backend.llama-cpp",
+                            "status": "available"
+                        }]
+                    }
                 }
             }))
             .expect("model_mount runtime engines request");
@@ -8655,7 +8649,12 @@ mod tests {
                     "projection_kind": "runtime_engine_profiles",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {}
+                    "state": {
+                        "runtime_engine_profiles": [{
+                            "engineId": "backend.llama-cpp",
+                            "profile": "local"
+                        }]
+                    }
                 }
             }))
             .expect("model_mount runtime engine profiles request");
@@ -8682,7 +8681,9 @@ mod tests {
                     "projection_kind": "runtime_preference",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {}
+                    "state": {
+                        "runtime_preference": {"routeId": "route.local-first"}
+                    }
                 }
             }))
             .expect("model_mount runtime preference request");
@@ -8703,7 +8704,9 @@ mod tests {
                     "projection_kind": "runtime_preference_for_endpoint",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {}
+                    "state": {
+                        "runtime_preference": {"routeId": "route.local-first"}
+                    }
                 }
             }))
             .expect("model_mount endpoint runtime preference request");
@@ -8725,7 +8728,9 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "engine_id": "backend.llama-cpp",
-                    "state": {}
+                    "state": {
+                        "default_load_options": {"gpuLayers": 42}
+                    }
                 }
             }))
             .expect("model_mount runtime default load options request");
@@ -8747,7 +8752,12 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "engine_id": "backend.llama-cpp",
-                    "state": {}
+                    "state": {
+                        "runtime_engine": {
+                            "id": "backend.llama-cpp",
+                            "status": "available"
+                        }
+                    }
                 }
             }))
             .expect("model_mount runtime engine detail request");

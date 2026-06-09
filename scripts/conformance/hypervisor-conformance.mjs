@@ -663,6 +663,9 @@ function runDocs() {
       /Slice 864 retired receipt-replay topology input from the runtime-daemon facade\s+and Rust bridge/.test(guide) &&
       /`receipt_replay` read projection now sends only admitted\s+receipts plus `receipt_id`/.test(guide) &&
       /Rust preserves the receipt and embedded\s+`model_route_decision` evidence but returns null route, endpoint, instance, and\s+provider enrichments/.test(guide) &&
+      /Slice 865 retired direct runtime-engine projection input from the Rust bridge/.test(guide) &&
+      /direct `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read-projection arms now ignore caller-supplied\s+runtime-engine arrays, profiles, preferences, default-load options, and detail\s+objects/.test(guide) &&
+      /temporary command transport/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -1072,7 +1075,12 @@ function runDocs() {
       /`receipt_replay` read projection now sends only admitted\s+receipts plus `receipt_id`/.test(matrix) &&
       /returns null route, endpoint, instance, and\s+provider enrichments until direct Rust daemon-core Agentgres topology lookup/.test(matrix) &&
       /Rust `projection_lookup`\s+compatibility helper were removed/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 864/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 864 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 865/.test(matrix) &&
+      /Slice 865 retired direct runtime-engine projection input from the Rust bridge/.test(matrix) &&
+      /direct `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,\s+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and\s+`runtime_engine_detail` read-projection arms now ignore caller-supplied\s+runtime-engine arrays, profiles, preferences, default-load options, and detail\s+objects/.test(matrix) &&
+      /focused Rust bridge test passes\s+adversarial runtime-engine state/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 865/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1089,6 +1097,7 @@ function runDocs() {
       /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `backends: state\.listBackends\(\)` or `backend_processes: state\.listBackendProcesses\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `runtime_engines: state\.listRuntimeEngines\(\)`, `runtime_engine_profiles: state\.listRuntimeEngineProfiles\(\)`, or `runtime_preference: state\.runtimePreference\(\)`/.test(implementationMatrix) &&
+      /Rust bridge direct arms ignore caller-supplied runtime-engine arrays, profiles, preferences, default-load options, and detail objects/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `mcp_servers: state\.listMcpServers\(\)` or `conversation_states: state\.listConversations\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
@@ -8583,11 +8592,11 @@ function runBridge() {
       /"workflow_bindings" => Ok\(model_mount_workflow_bindings\(\)\)/.test(bridgeModule) &&
       /"adapter_boundaries" => Ok\(model_mount_adapter_boundaries\(&request\.state\)\)/.test(bridgeModule) &&
       /engine_id:\s*Option<String>/.test(bridgeModule) &&
-      /"runtime_engines" => Ok\(Value::Array\(array_field\(&request\.state,\s*"runtime_engines"\)\)\)/.test(bridgeModule) &&
-      /"runtime_engine_profiles" => Ok\(Value::Array\(array_field\([\s\S]*?"runtime_engine_profiles"/.test(bridgeModule) &&
-      /"runtime_preference" => Ok\(object_or_null\(request\.state\.get\("runtime_preference"\)\)\)/.test(bridgeModule) &&
-      /"runtime_preference_for_endpoint" => \{\s*Ok\(object_or_null\(request\.state\.get\("runtime_preference"\)\)\)\s*\}/.test(bridgeModule) &&
-      /"runtime_default_load_options" => \{\s*Ok\(object_or_null\(request\.state\.get\("default_load_options"\)\)\)\s*\}/.test(bridgeModule) &&
+      /"runtime_engines" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"runtime_engine_profiles" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"runtime_preference" => Ok\(Value::Null\)/.test(bridgeModule) &&
+      /"runtime_preference_for_endpoint" => Ok\(Value::Null\)/.test(bridgeModule) &&
+      /"runtime_default_load_options" => Ok\(Value::Null\)/.test(bridgeModule) &&
       /"runtime_engine_detail" => model_mount_runtime_engine_detail\(request\)/.test(bridgeModule) &&
       /"runtime_model_catalog" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
       /"open_ai_model_list" => Ok\(json!\(\{\s*"object": "list",\s*"data": \[\],\s*\}\)\)/.test(bridgeModule) &&
@@ -8669,12 +8678,12 @@ function runBridge() {
       /"projection_kind": "runtime_preference_for_endpoint"/.test(bridgeModule) &&
       /"projection_kind": "runtime_default_load_options"/.test(bridgeModule) &&
       /"projection_kind": "runtime_engine_detail"/.test(bridgeModule) &&
-      /"projection_kind": "runtime_engines"[\s\S]*?"state": \{\}[\s\S]*?runtime_engines_response\["projection"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
-      /"projection_kind": "runtime_engine_profiles"[\s\S]*?"state": \{\}[\s\S]*?runtime_profiles_response\["projection"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
-      /"projection_kind": "runtime_preference"[\s\S]*?"state": \{\}[\s\S]*?runtime_preference_response\["projection"\],\s*Value::Null/.test(bridgeModule) &&
-      /"projection_kind": "runtime_preference_for_endpoint"[\s\S]*?"state": \{\}[\s\S]*?runtime_endpoint_preference_response\["projection"\],\s*Value::Null/.test(bridgeModule) &&
-      /"projection_kind": "runtime_default_load_options"[\s\S]*?"state": \{\}[\s\S]*?runtime_default_load_options_response\["projection"\],\s*Value::Null/.test(bridgeModule) &&
-      /"projection_kind": "runtime_engine_detail"[\s\S]*?"engine_id": "backend\.llama-cpp"[\s\S]*?"state": \{\}[\s\S]*?expect_err\("runtime engine detail fails closed without Rust-owned engine state"\)/.test(bridgeModule) &&
+      /"projection_kind": "runtime_engines"[\s\S]*?"runtime_engines": \[\{[\s\S]*?runtime_engines_response\["projection"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
+      /"projection_kind": "runtime_engine_profiles"[\s\S]*?"runtime_engine_profiles": \[\{[\s\S]*?runtime_profiles_response\["projection"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
+      /"projection_kind": "runtime_preference"[\s\S]*?"runtime_preference": \{"routeId": "route\.local-first"\}[\s\S]*?runtime_preference_response\["projection"\],\s*Value::Null/.test(bridgeModule) &&
+      /"projection_kind": "runtime_preference_for_endpoint"[\s\S]*?"runtime_preference": \{"routeId": "route\.local-first"\}[\s\S]*?runtime_endpoint_preference_response\["projection"\],\s*Value::Null/.test(bridgeModule) &&
+      /"projection_kind": "runtime_default_load_options"[\s\S]*?"default_load_options": \{"gpuLayers": 42\}[\s\S]*?runtime_default_load_options_response\["projection"\],\s*Value::Null/.test(bridgeModule) &&
+      /"projection_kind": "runtime_engine_detail"[\s\S]*?"engine_id": "backend\.llama-cpp"[\s\S]*?"runtime_engine": \{[\s\S]*?expect_err\("runtime engine detail fails closed without Rust-owned engine state"\)/.test(bridgeModule) &&
       /"projection_kind": "runtime_engine_detail"[\s\S]*?"engine_id": "backend\.missing"[\s\S]*?"state": \{\}[\s\S]*?expect_err\("runtime engine detail fails closed when engine is missing"\)/.test(bridgeModule) &&
       /"projection_kind": "latest_runtime_survey"/.test(bridgeModule) &&
       /"projection_kind": "latest_runtime_survey"[\s\S]*?"state": \{\s*"receipts": \[\]\s*\}[\s\S]*?latest_runtime_survey_response\["projection"\]\["engineCount"\],\s*0/.test(bridgeModule) &&
