@@ -167,16 +167,22 @@ function createState() {
 function rustProjectionFixture(request) {
   const state = request.state;
   const receipts = state.receipts ?? [];
+  if (request.projection_kind === "product_artifacts") return productArtifactsFromRustState(state);
+  if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
+  if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
   const projection = {
     schemaVersion: request.schema_version,
     source: "agentgres_model_mounting_projection",
     generatedAt: request.generated_at,
     watermark: receipts.length,
     artifacts: state.artifacts,
+    productArtifacts: productArtifactsFromRustState(state),
     endpoints: state.endpoints,
     instances: state.instances,
     routes: state.routes,
     modelCapabilities: modelCapabilitiesFromRustState(state),
+    runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
+    openAiModelList: openAiModelListFromRustState(state, request.generated_at),
     backends: state.backends,
     backendProcesses: state.backend_processes,
     providers: state.providers,
@@ -214,6 +220,7 @@ function rustProjectionFixture(request) {
       oauthSessions: state.oauth_sessions,
       oauthStates: state.oauth_states,
       artifacts: state.artifacts,
+      productArtifacts: productArtifactsFromRustState(state),
       backends: state.backends,
       backendProcesses: state.backend_processes,
       endpoints: state.endpoints,
@@ -221,6 +228,8 @@ function rustProjectionFixture(request) {
       providers: state.providers,
       routes: state.routes,
       modelCapabilities: modelCapabilitiesFromRustState(state),
+      runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
+      openAiModelList: openAiModelListFromRustState(state, request.generated_at),
       downloads: state.downloads,
       providerHealth: state.provider_health,
       runtimeEngines: state.runtime_engines,
@@ -340,6 +349,64 @@ function rustProjectionFixture(request) {
     };
   }
   throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
+}
+
+function productArtifactsFromRustState(state) {
+  const includeInternalFixtures = Boolean(state.product_artifact_policy?.include_internal_fixtures);
+  return (state.artifacts ?? []).filter((artifact) => includeInternalFixtures || !artifactIsInternalFixture(artifact));
+}
+
+function runtimeModelCatalogFromRustState(state) {
+  return [...productArtifactsFromRustState(state)]
+    .sort((left, right) => String(left.modelId ?? "").localeCompare(String(right.modelId ?? "")))
+    .map((artifact) => ({
+      id: artifact.modelId ?? null,
+      provider: (artifact.providerId === "provider.local.folder" || artifact.providerId === "provider.autopilot.local")
+        ? "ioi-daemon-local"
+        : artifact.providerId ?? null,
+      cost: artifact.privacyClass === "local_private" ? "local" : "metered",
+      quality: artifact.family === "fixture" ? "adaptive" : "provider",
+      capabilities: artifact.capabilities ?? [],
+      privacyClass: artifact.privacyClass ?? null,
+      route: "route.local-first",
+    }));
+}
+
+function openAiModelListFromRustState(state, generatedAt) {
+  return {
+    object: "list",
+    data: productArtifactsFromRustState(state).map((artifact) => ({
+      id: artifact.modelId ?? null,
+      object: "model",
+      created: Math.floor(Date.parse(artifact.discoveredAt ?? generatedAt) / 1000),
+      owned_by: artifact.providerId ?? null,
+      permission: [],
+      root: artifact.modelId ?? null,
+      parent: null,
+    })),
+  };
+}
+
+function artifactIsInternalFixture(artifact) {
+  const haystack = [
+    artifact.id,
+    artifact.modelId,
+    artifact.model_id,
+    artifact.displayName,
+    artifact.name,
+    artifact.family,
+    artifact.quantization,
+    artifact.source,
+    artifact.driver,
+    artifact.providerId,
+    artifact.provider_id,
+    artifact.artifactPath,
+    artifact.artifact_path,
+  ].map((value) => String(value ?? "").toLowerCase()).join(" ");
+  return haystack.includes("fixture")
+    || haystack.includes("local:auto")
+    || haystack.includes("autopilot:native-fixture")
+    || haystack.includes("stories260k");
 }
 
 function modelCapabilitiesFromRustState(state) {
@@ -565,6 +632,9 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.listOAuthStates(state), []);
   assert.deepEqual(facade.listProviderHealth(state).map((health) => health.receiptId), ["receipt-provider-health"]);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "runtime_model_catalog",
+    "open_ai_model_list",
+    "product_artifacts",
     "projection",
     "projection",
     "projection",
@@ -581,10 +651,18 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
   assert.equal(workflowBindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
   assert.equal(facade.adapterBoundaries(state).agentgres.port, "AgentgresStorePort");
-  assert.equal(readProjectionRequests.every((request) => request.state.agentgres_store.port === "AgentgresStorePort"), true);
+  assert.equal(readProjectionRequests.filter((request) => request.projection_kind === "projection")
+    .every((request) => request.state.agentgres_store.port === "AgentgresStorePort"), true);
+  assert.equal(readProjectionRequests.slice(0, 3).every((request) => !Object.hasOwn(request.state, "server")), true);
+  assert.equal(
+    readProjectionRequests.every((request) =>
+      request.state.product_artifact_policy.include_internal_fixtures === false),
+    true,
+  );
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "adapter_boundaries")), false);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "workflow_bindings")), false);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "model_capabilities")), false);
+  assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "product_artifacts")), false);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind).slice(-2), [
     "projection",
     "projection",

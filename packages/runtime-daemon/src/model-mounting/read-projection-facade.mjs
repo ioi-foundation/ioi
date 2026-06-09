@@ -5,18 +5,14 @@ import {
   instanceList,
   oauthSessionList,
   oauthStateList,
-  openAiModelList as openAiModelListProjection,
-  productArtifactList,
   providerHealthList,
   providerList,
   routeList,
-  runtimeModelCatalogList as runtimeModelCatalogListProjection,
 } from "./read-model.mjs";
 import { notFound } from "./io.mjs";
 
 export function createModelMountingReadProjectionFacade({
   internalFixtureModelsEnabled,
-  isFixtureModelRecord,
   listJson,
   modelMountSchemaVersion,
   notFound: notFoundDep = notFound,
@@ -29,11 +25,11 @@ export function createModelMountingReadProjectionFacade({
   readProjectionPlanner = null,
 } = {}) {
   function runtimeModelCatalogList(state) {
-    return runtimeModelCatalogListProjection(state);
+    return rustReadProjection(state, "runtime_model_catalog");
   }
 
   function openAiModelList(state) {
-    return openAiModelListProjection(state);
+    return rustReadProjection(state, "open_ai_model_list");
   }
 
   function listArtifacts(state) {
@@ -41,10 +37,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function listProductArtifacts(state) {
-    return productArtifactList(state, {
-      internalFixtureModelsEnabled,
-      isFixtureModelRecord,
-    });
+    return rustReadProjection(state, "product_artifacts");
   }
 
   function listProviders(state) {
@@ -167,7 +160,7 @@ export function createModelMountingReadProjectionFacade({
       base_url: baseUrl,
       provider_id: providerId,
       receipt_id: receiptId,
-      state: readProjectionInput(state, baseUrl),
+      state: readProjectionInput(state, baseUrl, projectionKind),
     });
     if (!result?.projection || typeof result.projection !== "object") {
       throwReadProjectionRustCoreRequired(projectionKind, {
@@ -198,8 +191,21 @@ export function createModelMountingReadProjectionFacade({
     throw error;
   }
 
-  function readProjectionInput(state, baseUrl = null) {
+  function readProjectionInput(state, baseUrl = null, projectionKind = "projection") {
     const artifacts = artifactList(state);
+    const productArtifactPolicy = {
+      include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),
+    };
+    if (
+      projectionKind === "product_artifacts" ||
+      projectionKind === "runtime_model_catalog" ||
+      projectionKind === "open_ai_model_list"
+    ) {
+      return {
+        artifacts,
+        product_artifact_policy: productArtifactPolicy,
+      };
+    }
     const endpoints = endpointList(state);
     const instances = instanceList(state);
     const providers = providerList(state, {
@@ -234,6 +240,7 @@ export function createModelMountingReadProjectionFacade({
       routes,
       downloads,
       provider_health: providerHealth,
+      product_artifact_policy: productArtifactPolicy,
       runtime_engines: state.listRuntimeEngines(),
       runtime_engine_profiles: state.listRuntimeEngineProfiles(),
       runtime_preference: state.runtimePreference(),

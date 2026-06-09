@@ -6,7 +6,6 @@ import * as routeDecision from "./model-mounting/route-decision.mjs";
 import {
   createModelMountAdmissionRunnerFromEnv,
 } from "./model-mounting/model-mount-admission-runner.mjs";
-import { modelCapabilities as buildModelCapabilities } from "./model-mounting/model-capability.mjs";
 import { AgentgresModelMountingStore } from "./model-mounting/store.mjs";
 import { modelMountingRelationSchemas } from "./model-mounting/schema-relations.mjs";
 import {
@@ -418,10 +417,7 @@ export class ModelMountingState {
     this.conversations = new Map();
     this.inflightModelInvocations = new Map();
     this.readProjectionFacade = createModelMountingReadProjectionFacade({
-      buildModelCapabilities,
-      capabilityForWorkflowNode,
       internalFixtureModelsEnabled,
-      isFixtureModelRecord,
       listJson,
       modelMountSchemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       path,

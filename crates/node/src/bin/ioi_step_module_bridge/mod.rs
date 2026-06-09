@@ -2082,6 +2082,12 @@ fn model_mount_read_projection(
         "receipt_replay" => model_mount_receipt_replay(request),
         "model_route_decisions" => Ok(model_mount_route_decisions(request)),
         "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
+        "product_artifacts" => Ok(Value::Array(model_mount_product_artifacts(&request.state))),
+        "runtime_model_catalog" => Ok(model_mount_runtime_model_catalog(&request.state)),
+        "open_ai_model_list" => Ok(model_mount_open_ai_model_list(
+            &request.state,
+            model_mount_projection_generated_at(request),
+        )),
         "latest_provider_health" => model_mount_latest_provider_health(request),
         "latest_vault_health" => model_mount_latest_vault_health(request),
         other => Err(BridgeError::new(
@@ -2103,6 +2109,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
         "artifacts": array_field(state, "artifacts"),
+        "productArtifacts": model_mount_product_artifacts(state),
         "backends": array_field(state, "backends"),
         "backendProcesses": array_field(state, "backend_processes"),
         "endpoints": array_field(state, "endpoints"),
@@ -2110,6 +2117,8 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "providers": array_field(state, "providers"),
         "routes": array_field(state, "routes"),
         "modelCapabilities": model_mount_model_capabilities(state),
+        "runtimeModelCatalog": model_mount_runtime_model_catalog(state),
+        "openAiModelList": model_mount_open_ai_model_list(state, model_mount_projection_generated_at(request)),
         "downloads": array_field(state, "downloads"),
         "providerHealth": array_field(state, "provider_health"),
         "runtimeEngines": array_field(state, "runtime_engines"),
@@ -2136,10 +2145,13 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "generatedAt": model_mount_projection_generated_at(request),
         "watermark": receipts.len(),
         "artifacts": array_field(state, "artifacts"),
+        "productArtifacts": model_mount_product_artifacts(state),
         "endpoints": array_field(state, "endpoints"),
         "instances": array_field(state, "instances"),
         "routes": array_field(state, "routes"),
         "modelCapabilities": model_mount_model_capabilities(state),
+        "runtimeModelCatalog": model_mount_runtime_model_catalog(state),
+        "openAiModelList": model_mount_open_ai_model_list(state, model_mount_projection_generated_at(request)),
         "backends": array_field(state, "backends"),
         "backendProcesses": array_field(state, "backend_processes"),
         "providers": array_field(state, "providers"),
@@ -2230,6 +2242,171 @@ fn model_mount_workflow_bindings() -> Value {
         })
         .collect(),
     )
+}
+
+fn model_mount_product_artifacts(state: &Value) -> Vec<Value> {
+    let include_internal_fixtures = state
+        .get("product_artifact_policy")
+        .and_then(|policy| policy.get("include_internal_fixtures"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    array_field(state, "artifacts")
+        .into_iter()
+        .filter(|artifact| {
+            include_internal_fixtures || !model_mount_artifact_is_internal_fixture(artifact)
+        })
+        .collect()
+}
+
+fn model_mount_runtime_model_catalog(state: &Value) -> Value {
+    let mut artifacts = model_mount_product_artifacts(state);
+    artifacts.sort_by(|left, right| {
+        json_string_field(left, "modelId")
+            .unwrap_or_default()
+            .cmp(&json_string_field(right, "modelId").unwrap_or_default())
+    });
+    Value::Array(
+        artifacts
+            .iter()
+            .map(|artifact| {
+                let provider_id = json_string_field(artifact, "providerId");
+                json!({
+                    "id": artifact.get("modelId").cloned().unwrap_or(Value::Null),
+                    "provider": if matches!(
+                        provider_id.as_deref(),
+                        Some("provider.local.folder" | "provider.autopilot.local")
+                    ) {
+                        Value::String("ioi-daemon-local".to_string())
+                    } else {
+                        artifact.get("providerId").cloned().unwrap_or(Value::Null)
+                    },
+                    "cost": if json_string_field(artifact, "privacyClass").as_deref() == Some("local_private") {
+                        "local"
+                    } else {
+                        "metered"
+                    },
+                    "quality": if json_string_field(artifact, "family").as_deref() == Some("fixture") {
+                        "adaptive"
+                    } else {
+                        "provider"
+                    },
+                    "capabilities": artifact.get("capabilities").cloned().unwrap_or_else(|| Value::Array(vec![])),
+                    "privacyClass": artifact.get("privacyClass").cloned().unwrap_or(Value::Null),
+                    "route": "route.local-first",
+                })
+            })
+            .collect(),
+    )
+}
+
+fn model_mount_open_ai_model_list(state: &Value, generated_at: String) -> Value {
+    json!({
+        "object": "list",
+        "data": model_mount_product_artifacts(state)
+            .iter()
+            .map(|artifact| {
+                json!({
+                    "id": artifact.get("modelId").cloned().unwrap_or(Value::Null),
+                    "object": "model",
+                    "created": artifact
+                        .get("discoveredAt")
+                        .and_then(Value::as_str)
+                        .and_then(parse_iso_epoch_seconds)
+                        .unwrap_or_else(|| parse_iso_epoch_seconds(&generated_at).unwrap_or(0)),
+                    "owned_by": artifact.get("providerId").cloned().unwrap_or(Value::Null),
+                    "permission": [],
+                    "root": artifact.get("modelId").cloned().unwrap_or(Value::Null),
+                    "parent": Value::Null,
+                })
+            })
+            .collect::<Vec<_>>(),
+    })
+}
+
+fn model_mount_artifact_is_internal_fixture(artifact: &Value) -> bool {
+    [
+        "id",
+        "modelId",
+        "model_id",
+        "displayName",
+        "name",
+        "family",
+        "quantization",
+        "source",
+        "driver",
+        "providerId",
+        "provider_id",
+        "artifactPath",
+        "artifact_path",
+    ]
+    .iter()
+    .filter_map(|key| artifact.get(*key))
+    .filter_map(Value::as_str)
+    .map(str::to_lowercase)
+    .any(|value| {
+        value.contains("fixture")
+            || value.contains("local:auto")
+            || value.contains("autopilot:native-fixture")
+            || value.contains("stories260k")
+    })
+}
+
+fn parse_iso_epoch_seconds(value: &str) -> Option<i64> {
+    let date_time = value.split_once('T')?;
+    let mut date = date_time.0.split('-').map(|part| part.parse::<i64>().ok());
+    let year = date.next()??;
+    let month = date.next()??;
+    let day = date.next()??;
+    let time_part = date_time
+        .1
+        .trim_end_matches('Z')
+        .split_once('.')
+        .map(|(time, _)| time)
+        .unwrap_or_else(|| date_time.1.trim_end_matches('Z'));
+    let mut time = time_part.split(':').map(|part| part.parse::<i64>().ok());
+    let hour = time.next()??;
+    let minute = time.next()??;
+    let second = time.next()??;
+    if !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=60).contains(&second)
+    {
+        return None;
+    }
+    let days_before_year = (1970..year).map(days_in_year).sum::<i64>();
+    let days_before_month = (1..month)
+        .map(|candidate| days_in_month(year, candidate))
+        .sum::<i64>();
+    Some(
+        (days_before_year + days_before_month + day - 1) * 86_400
+            + hour * 3_600
+            + minute * 60
+            + second,
+    )
+}
+
+fn days_in_year(year: i64) -> i64 {
+    if is_leap_year(year) {
+        366
+    } else {
+        365
+    }
+}
+
+fn days_in_month(year: i64, month: i64) -> i64 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 if is_leap_year(year) => 29,
+        2 => 28,
+        _ => 0,
+    }
+}
+
+fn is_leap_year(year: i64) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 fn model_mount_model_capabilities(state: &Value) -> Value {
@@ -8396,8 +8573,18 @@ mod tests {
             "artifacts": [{
                 "id": "artifact.local",
                 "modelId": "model.local",
+                "providerId": "provider.local.folder",
+                "privacyClass": "local_private",
+                "family": "local",
                 "capabilities": ["chat"],
                 "lastReceiptId": "receipt-artifact"
+            }, {
+                "id": "artifact.fixture",
+                "modelId": "local:auto",
+                "providerId": "provider.fixture",
+                "privacyClass": "local_private",
+                "family": "fixture",
+                "capabilities": ["chat"]
             }],
             "endpoints": [{
                 "id": "endpoint.local",
@@ -8434,6 +8621,7 @@ mod tests {
             "oauth_states": [],
             "downloads": [],
             "provider_health": [],
+            "product_artifact_policy": {"include_internal_fixtures": false},
             "runtime_engines": [],
             "runtime_engine_profiles": [],
             "runtime_preference": {"routeId": "route.local-first"},
@@ -8544,6 +8732,21 @@ mod tests {
         );
         assert_eq!(
             response["projection"]["routeDecisions"][0]["selected_model"],
+            "model.local"
+        );
+        assert_eq!(
+            response["projection"]["productArtifacts"]
+                .as_array()
+                .expect("product artifacts")
+                .len(),
+            1
+        );
+        assert_eq!(
+            response["projection"]["runtimeModelCatalog"][0]["provider"],
+            "ioi-daemon-local"
+        );
+        assert_eq!(
+            response["projection"]["openAiModelList"]["data"][0]["id"],
             "model.local"
         );
         assert_eq!(

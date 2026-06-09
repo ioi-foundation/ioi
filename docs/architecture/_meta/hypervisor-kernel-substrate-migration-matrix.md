@@ -248,7 +248,7 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: compact Slice 803 after the next
+- Next scheduled matrix-compaction pass: compact Slice 804 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -16222,7 +16222,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 803
+## Compacted Implementation Slice Evidence: 803
 
 Slice 803 retired the JS model-capability projection materializer from the
 model_mount read-projection facade. `readProjectionInput()` no longer receives
@@ -16246,10 +16246,41 @@ transport, and direct Rust daemon-core Agentgres projection APIs still need to
 replace local map/projection materialization, JS transport wrappers, and edge
 error-envelope translation.
 
-Scheduled matrix-compaction obligation from Slice 803 is pending after this
+Scheduled matrix-compaction obligation from Slice 803 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 804
+
+Slice 804 retired the JS product-safe model-list materializers from the
+model_mount read-projection facade. `runtimeModelCatalogList()`,
+`openAiModelList()`, and `listProductArtifacts()` now request dedicated Rust
+read-projection kinds (`runtime_model_catalog`, `open_ai_model_list`, and
+`product_artifacts`) instead of calling JS `runtimeModelCatalogList`,
+`openAiModelList`, or `productArtifactList` helpers. The dedicated product-list
+projection kinds use slim primitive artifact plus product policy input so they
+do not require broad snapshot/projection state materialization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal model_mount migration: JS still materializes broad
+state input for many other projection surfaces, the command bridge remains
+migration transport, and direct Rust daemon-core Agentgres projection APIs still
+need to replace local map/projection materialization, JS transport wrappers, and
+edge error-envelope translation.
+
+Scheduled matrix-compaction obligation from Slice 804 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 803 after the next
+Next scheduled matrix-compaction pass: compact Slice 804 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

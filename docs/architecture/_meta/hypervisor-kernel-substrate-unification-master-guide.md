@@ -1031,6 +1031,19 @@ projection migration: JS still prepares broad current-state input and command
 transport remains migration transport until direct Rust daemon-core Agentgres
 projection APIs replace it.
 
+Slice 804 retired the JS product-safe model-list materializers from the
+model_mount read-projection facade. `runtimeModelCatalogList()`,
+`openAiModelList()`, and `listProductArtifacts()` now request dedicated Rust
+read-projection kinds (`runtime_model_catalog`, `open_ai_model_list`, and
+`product_artifacts`) instead of calling JS `runtimeModelCatalogList`,
+`openAiModelList`, or `productArtifactList` helpers. Those dedicated projection
+kinds use slim primitive artifact plus product policy input so product model
+listing does not require broad snapshot/projection state materialization. This
+still does not claim terminal model_mount projection migration: JS still
+materializes many broad projection inputs for other read surfaces and command
+transport remains migration transport until direct Rust daemon-core Agentgres
+projection APIs replace it.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

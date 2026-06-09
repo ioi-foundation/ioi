@@ -557,6 +557,9 @@ function runDocs() {
       /Slice 803 retired the JS model-capability projection materializer from the\s+model_mount read-projection facade/.test(guide) &&
       /no longer receives\s+or calls `buildModelCapabilities\(\)` and no longer passes a `model_capabilities`\s+list into the Rust planner/.test(guide) &&
       /derives the\s+public `modelCapabilities` contract inside Rust from primitive route, endpoint,\s+provider, artifact, and loaded-instance projection inputs/.test(guide) &&
+      /Slice 804 retired the JS product-safe model-list materializers from the\s+model_mount read-projection facade/.test(guide) &&
+      /`runtimeModelCatalogList\(\)`,\s+`openAiModelList\(\)`, and `listProductArtifacts\(\)` now request dedicated Rust\s+read-projection kinds/.test(guide) &&
+      /`runtime_model_catalog`, `open_ai_model_list`, and\s+`product_artifacts`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -568,7 +571,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 800/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 801/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 802/.test(matrix) &&
-      /Implementation Slice Evidence: 803/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 803/.test(matrix) &&
+      /Implementation Slice Evidence: 804/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -924,8 +928,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 791 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 802 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 803 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 803 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 804 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -7715,7 +7719,15 @@ function runBridge() {
       !/workflow_bindings/.test(modelMountingReadProjectionFacade) &&
       !/buildModelCapabilities/.test(modelMountingReadProjectionFacade) &&
       !/model_capabilities/.test(modelMountingReadProjectionFacade) &&
+      !/productArtifactList/.test(modelMountingReadProjectionFacade) &&
+      !/runtimeModelCatalogListProjection/.test(modelMountingReadProjectionFacade) &&
+      !/openAiModelListProjection/.test(modelMountingReadProjectionFacade) &&
       /agentgres_store:\s*state\.store\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
+      /runtimeModelCatalogList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_model_catalog"\)/.test(modelMountingReadProjectionFacade) &&
+      /openAiModelList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"open_ai_model_list"\)/.test(modelMountingReadProjectionFacade) &&
+      /listProductArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"product_artifacts"\)/.test(modelMountingReadProjectionFacade) &&
+      /const productArtifactPolicy = \{[\s\S]*include_internal_fixtures/.test(modelMountingReadProjectionFacade) &&
+      /product_artifact_policy:\s*productArtifactPolicy/.test(modelMountingReadProjectionFacade) &&
       /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustProjectionObjectField\(state,\s*"adapterBoundaries"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7749,6 +7761,9 @@ function runBridge() {
       /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(request\.state,\s*"product_artifacts"\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /"runtime_model_catalog"[\s\S]*"open_ai_model_list"[\s\S]*"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
+      /productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
       /modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7763,12 +7778,18 @@ function runBridge() {
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(bridgeModule) &&
       /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(bridgeModule) &&
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
+      /"product_artifacts" => Ok\(Value::Array\(model_mount_product_artifacts\(&request\.state\)\)\)/.test(bridgeModule) &&
+      /"runtime_model_catalog" => Ok\(model_mount_runtime_model_catalog\(&request\.state\)\)/.test(bridgeModule) &&
+      /"open_ai_model_list" => Ok\(model_mount_open_ai_model_list/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&
       /fn model_mount_latest_provider_health/.test(bridgeModule) &&
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
       /fn model_mount_workflow_bindings/.test(bridgeModule) &&
       /fn model_mount_model_capabilities/.test(bridgeModule) &&
+      /fn model_mount_product_artifacts/.test(bridgeModule) &&
+      /fn model_mount_runtime_model_catalog/.test(bridgeModule) &&
+      /fn model_mount_open_ai_model_list/.test(bridgeModule) &&
       !/"adapter_boundaries":/.test(bridgeModule) &&
       !/"workflow_bindings":/.test(bridgeModule) &&
       !/"model_capabilities":/.test(bridgeModule) &&
@@ -7784,12 +7805,18 @@ function runBridge() {
       /rust_daemon_core_model_mount_projection/.test(bridgeModule) &&
       /agentgres_model_mount_read_truth/.test(bridgeModule) &&
       /"projection_kind": "snapshot"/.test(bridgeModule) &&
+      /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
+      /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
       /"projection_kind": "latest_provider_health"/.test(bridgeModule) &&
       /"projection_kind": "latest_vault_health"/.test(bridgeModule) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /response\["projection"\]\["workflowBindings"\]\[4\]\["capability"\]/.test(bridgeModule) &&
       /response\["projection"\]\["modelCapabilities"\]\[0\]\["credential_readiness"\]\["status"\]/.test(bridgeModule) &&
+      /response\["projection"\]\["productArtifacts"\]/.test(bridgeModule) &&
+      /response\["projection"\]\["runtimeModelCatalog"\]/.test(bridgeModule) &&
+      /response\["projection"\]\["openAiModelList"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["workflowNodes"\]/.test(bridgeModule) &&
       /latest provider health projected in Rust/.test(bridgeModule) &&
       /latest provider health fails closed when provider is missing/.test(bridgeModule) &&
