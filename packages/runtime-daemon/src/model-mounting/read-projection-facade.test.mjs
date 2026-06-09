@@ -20,7 +20,7 @@ function createState() {
       id: "receipt-provider-health",
       kind: "provider_health",
       details: {
-        providerId: "provider.local",
+        provider_id: "provider.local",
         status: "healthy",
       },
     },
@@ -262,7 +262,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "downloads") return state.downloads ?? [];
   if (request.projection_kind === "oauth_sessions") return state.oauth_sessions ?? [];
   if (request.projection_kind === "oauth_states") return state.oauth_states ?? [];
-  if (request.projection_kind === "provider_health") return state.provider_health ?? [];
+  if (request.projection_kind === "provider_health") return [];
   if (request.projection_kind === "server_status") return serverStatusFromRustState(state, request.schema_version);
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
@@ -411,13 +411,20 @@ function rustProjectionFixture(request) {
     };
   }
   if (request.projection_kind === "latest_provider_health") {
-    const health = state.provider_health.find((record) => record.providerId === request.provider_id);
-    const receipt = receipts.find((candidate) => candidate.id === health?.receiptId);
+    const receipt = [...receipts].reverse()
+      .find((candidate) =>
+        candidate.kind === "provider_health" &&
+        candidate.details?.provider_id === request.provider_id);
+    if (!receipt) {
+      throw Object.assign(new Error("provider health has not been checked"), {
+        code: "model_mount_provider_health_not_found",
+      });
+    }
     return {
       schemaVersion: request.schema_version,
       source: "agentgres_provider_health_latest",
       providerId: request.provider_id,
-      health,
+      health: receipt.details,
       receipt,
       replay: {
         schemaVersion: request.schema_version,
@@ -864,7 +871,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     () => facade.listOAuthStates(state),
     "model_mount.catalog_provider_oauth.states",
   );
-  assert.deepEqual(facade.listProviderHealth(state).map((health) => health.receiptId), ["receipt-provider-health"]);
+  assert.deepEqual(facade.listProviderHealth(state), []);
   const workflowBindings = facade.workflowNodeBindings(state);
   assert.equal(workflowBindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
   assert.equal(workflowBindings.find((binding) => binding.node === "Reranker").capability, "rerank");
@@ -893,6 +900,8 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(workflowRequest.state, {});
   const adapterRequest = readProjectionRequests.find((request) => request.projection_kind === "adapter_boundaries");
   assert.deepEqual(adapterRequest.state, {});
+  const providerHealthRequest = readProjectionRequests.find((request) => request.projection_kind === "provider_health");
+  assert.deepEqual(providerHealthRequest.state, {});
   assert.equal(
     readProjectionRequests.slice(0, 4).every((request) =>
       request.state.product_artifact_policy.include_internal_fixtures === false),
@@ -1165,6 +1174,7 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.equal(providerHealth.source, "agentgres_provider_health_latest");
   assert.equal(providerHealth.providerId, "provider.local");
   assert.equal(providerHealth.health.status, "healthy");
+  assert.equal(providerHealth.health.provider_id, "provider.local");
   assert.equal(providerHealth.receipt.id, "receipt-provider-health");
   assert.equal(providerHealth.replay.receipt.id, "receipt-provider-health");
   assert.equal(providerHealth.projectionWatermark, 5);
@@ -1181,13 +1191,9 @@ test("read projection facade projects latest provider and vault health envelopes
     "latest_vault_health",
   ]);
   assert.equal(readProjectionRequests[0].provider_id, "provider.local");
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
-    "provider_health",
-    "providers",
-    "receipts",
-  ]);
-  assert.equal(readProjectionRequests[0].state.providers[0].id, "provider.local");
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.providers[0], "providerId"), false);
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["receipts"]);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "provider_health"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "providers"), false);
   assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "artifacts")), true);
@@ -1280,9 +1286,9 @@ test("read projection facade preserves latest health not-found errors", () => {
   ]);
   assert.equal(readProjectionRequests[0].provider_id, "provider.local");
   assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
-    "provider_health",
-    "providers",
     "receipts",
   ]);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "provider_health"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "providers"), false);
   assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
 });

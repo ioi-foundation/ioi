@@ -5,7 +5,6 @@ import {
   instanceList,
   oauthSessionList,
   oauthStateList,
-  providerHealthList,
   providerList,
   routeList,
 } from "./read-model.mjs";
@@ -19,11 +18,8 @@ import {
 
 export function createModelMountingReadProjectionFacade({
   internalFixtureModelsEnabled,
-  listJson,
   modelMountSchemaVersion,
   notFound: notFoundDep = notFound,
-  path,
-  readJson,
   readProjectionPlanner = null,
 } = {}) {
   function runtimeModelCatalogList(state) {
@@ -280,12 +276,6 @@ export function createModelMountingReadProjectionFacade({
     }
     if (projectionKind === "latest_provider_health") {
       return {
-        providers: providerList(state),
-        provider_health: providerHealthList(state, {
-          listJson,
-          path,
-          readJson,
-        }),
         receipts: state.listReceipts(),
       };
     }
@@ -350,12 +340,7 @@ export function createModelMountingReadProjectionFacade({
     }
     if (projectionKind === "oauth_sessions" || projectionKind === "oauth_states") return {};
     if (projectionKind === "provider_health") {
-      const providerHealth = providerHealthList(state, {
-        listJson,
-        path,
-        readJson,
-      });
-      return { provider_health: providerHealth };
+      return {};
     }
     if (projectionKind === "authority_snapshot") {
       return {

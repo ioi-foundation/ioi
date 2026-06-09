@@ -17653,10 +17653,11 @@ Slice 854 retired broad snapshot/projection provider-health and runtime-survey
 telemetry input from JS. The default model_mount read-projection input no
 longer sends `provider_health: providerHealthList(...)` or
 `runtime_survey_input: latestRuntimeSurveyProjectionInput(...)` for broad
-`snapshot` and `projection` requests. Dedicated `provider_health`,
-`latest_provider_health`, and `latest_runtime_survey` read projections still
-use narrow Rust-planned inputs. The focused test asserts `provider_health` and
-`runtime_survey_input` are absent from broad snapshot/projection request state.
+`snapshot` and `projection` requests. Later dedicated-telemetry slices retired
+the remaining `provider_health`, `latest_provider_health`, and
+`latest_runtime_survey` JS input paths as well. The focused test asserts
+`provider_health` and `runtime_survey_input` are absent from broad
+snapshot/projection request state.
 
 Focused evidence:
 
@@ -17781,7 +17782,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 858 is now satisfied.
 
-## Implementation Slice Evidence: 859
+## Compacted Implementation Slice Evidence: 859
 
 Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection
 input. The `latest_runtime_survey` read projection now sends only admitted
@@ -17807,7 +17808,39 @@ daemon-core runtime probing, Agentgres-admitted survey capture,
 command-transport replacement, and local survey materialization retirement
 still remain before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 859 after the next direct
+Scheduled matrix-compaction obligation from Slice 859 is now satisfied.
+
+## Implementation Slice Evidence: 860
+
+Slice 860 retired dedicated provider-health JS read-projection input. The
+`provider_health` read projection now sends `{}` and returns the Rust default
+empty list; the Rust bridge `provider_health` arm also ignores caller-supplied
+provider-health records so direct bridge callers cannot promote local JS
+telemetry into projection truth. The `latest_provider_health` read projection
+now sends only admitted receipts and no longer reads JS provider records or
+local provider-health files. Rust derives the latest provider-health envelope
+only from admitted `provider_health` receipt details with canonical
+`provider_id`, and missing receipt truth fails closed with
+`model_mount_provider_health_not_found`. The focused JS test asserts
+provider-health request state is empty and latest-provider-health request state
+is receipt-only; the focused Rust bridge test verifies the receipt-derived
+projection and missing-receipt fail-closed behavior without provider maps or
+local provider-health records.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal provider-health migration: direct Rust
+daemon-core provider health capture, Agentgres-admitted health writes,
+provider-control APIs, command-transport replacement, and local
+provider-health materialization retirement still remain before this surface
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 860 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport

@@ -2095,7 +2095,7 @@ fn model_mount_read_projection(
         "downloads" => Ok(Value::Array(array_field(&request.state, "downloads"))),
         "oauth_sessions" => Ok(Value::Array(array_field(&request.state, "oauth_sessions"))),
         "oauth_states" => Ok(Value::Array(array_field(&request.state, "oauth_states"))),
-        "provider_health" => Ok(Value::Array(array_field(&request.state, "provider_health"))),
+        "provider_health" => Ok(Value::Array(Vec::new())),
         "workflow_bindings" => Ok(model_mount_workflow_bindings()),
         "adapter_boundaries" => Ok(model_mount_adapter_boundaries(&request.state)),
         "runtime_engines" => Ok(Value::Array(array_field(&request.state, "runtime_engines"))),
@@ -3198,18 +3198,21 @@ fn model_mount_latest_provider_health(
             "latest provider health projection requires provider_id".to_string(),
         )
     })?;
-    let provider_exists = array_field(&request.state, "providers")
+    let projection = model_mount_projection(request);
+    let receipt = projection
+        .get("receipts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default()
         .into_iter()
-        .any(|record| json_string_field(&record, "id").as_deref() == Some(provider_id));
-    if !provider_exists {
-        return Err(BridgeError::new(
-            "model_mount_provider_not_found",
-            format!("model_mount provider not found: {provider_id}"),
-        ));
-    }
-    let health = array_field(&request.state, "provider_health")
-        .into_iter()
-        .filter(|record| json_string_field(record, "providerId").as_deref() == Some(provider_id))
+        .filter(|candidate| {
+            json_string_field(candidate, "kind").as_deref() == Some("provider_health")
+                && candidate
+                    .get("details")
+                    .and_then(|details| json_string_field(details, "provider_id"))
+                    .as_deref()
+                    == Some(provider_id)
+        })
         .last()
         .ok_or_else(|| {
             BridgeError::new(
@@ -3217,14 +3220,7 @@ fn model_mount_latest_provider_health(
                 format!("provider health has not been checked: {provider_id}"),
             )
         })?;
-    let receipt_id = json_string_field(&health, "receiptId").ok_or_else(|| {
-        BridgeError::new(
-            "model_mount_provider_health_receipt_missing",
-            format!("provider health missing receipt id: {provider_id}"),
-        )
-    })?;
-    let projection = model_mount_projection(request);
-    let receipt = find_receipt(&projection, &receipt_id)?;
+    let health = receipt.get("details").cloned().unwrap_or(Value::Null);
     Ok(json!({
         "schemaVersion": model_mount_projection_schema_version(request),
         "source": "agentgres_provider_health_latest",
@@ -8942,7 +8938,7 @@ mod tests {
                     "kind": "provider_health",
                     "createdAt": "2026-06-08T00:01:00.000Z",
                     "details": {
-                        "providerId": "provider.local",
+                        "provider_id": "provider.local",
                         "status": "healthy"
                     }
                 },
@@ -8957,12 +8953,7 @@ mod tests {
                 }
             ]
         });
-        let mut state_with_health = state.clone();
-        state_with_health["provider_health"] = json!([{
-            "providerId": "provider.local",
-            "receiptId": "receipt-provider-health",
-            "status": "healthy"
-        }]);
+        let state_with_health = state.clone();
         let request: ModelMountReadProjectionBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "plan_model_mount_read_projection",
@@ -9545,7 +9536,9 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "provider_id": "provider.local",
-                    "state": state_with_health.clone()
+                    "state": {
+                        "receipts": state_with_health["receipts"].clone()
+                    }
                 }
             }))
             .expect("model_mount latest provider health request");
@@ -9565,9 +9558,11 @@ mod tests {
             provider_health_response["projection"]["replay"]["receipt"]["id"],
             "receipt-provider-health"
         );
+        assert_eq!(
+            provider_health_response["projection"]["health"]["provider_id"],
+            "provider.local"
+        );
 
-        let mut missing_provider_state = state_with_health.clone();
-        missing_provider_state["providers"] = json!([]);
         let missing_provider_request: ModelMountReadProjectionBridgeRequest =
             serde_json::from_value(json!({
                 "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
@@ -9578,15 +9573,17 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "provider_id": "provider.local",
-                    "state": missing_provider_state
+                    "state": {
+                        "receipts": []
+                    }
                 }
             }))
             .expect("missing provider latest health request");
         let missing_provider_error = plan_model_mount_read_projection(missing_provider_request)
-            .expect_err("latest provider health fails closed when provider is missing");
+            .expect_err("latest provider health fails closed when provider health receipt is missing");
         assert_eq!(
             missing_provider_error.code,
-            "model_mount_provider_not_found"
+            "model_mount_provider_health_not_found"
         );
 
         let vault_health_request: ModelMountReadProjectionBridgeRequest =

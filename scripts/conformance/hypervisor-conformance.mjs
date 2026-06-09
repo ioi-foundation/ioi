@@ -307,7 +307,8 @@ function runDocs() {
     /stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
       guide,
     ) &&
-      /`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
+      (/`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) ||
+        /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide)) &&
       /must\s+not be treated as the terminal substrate/.test(guide) &&
       /collapse into the Rust daemon core API/.test(guide) &&
       /Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is\s+complete/.test(
@@ -628,7 +629,7 @@ function runDocs() {
       /Dedicated `authority_snapshot` and `adapter_boundaries` read projections still\s+use narrow Rust-planned inputs/.test(guide) &&
       /Slice 854 retired broad snapshot\/projection provider-health and runtime-survey\s+telemetry input from JS/.test(guide) &&
       /no\s+longer sends `provider_health: providerHealthList\(\.\.\.\)` or\s+`runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(guide) &&
-      /Dedicated `provider_health`,\s+`latest_provider_health`, and `latest_runtime_survey` read projections still\s+use narrow Rust-planned inputs/.test(guide) &&
+      /Later dedicated-telemetry slices retired\s+the remaining `provider_health`, `latest_provider_health`, and\s+`latest_runtime_survey` JS input paths/.test(guide) &&
       /Slice 855 retired broad snapshot\/projection model-topology input from JS/.test(guide) &&
       /no longer sends `artifacts`,\s+`endpoints`, `instances`, `providers`, `routes`, `downloads`, or\s+`product_artifact_policy`/.test(guide) &&
       /Dedicated topology read projections still use narrow Rust-planned inputs/.test(guide) &&
@@ -645,6 +646,11 @@ function runDocs() {
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(guide) &&
       /`latest_runtime_survey` read projection now sends only admitted\s+receipts/.test(guide) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(guide) &&
+      /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(guide) &&
+      /`provider_health` read projection now sends an empty state object/.test(guide) &&
+      /Rust bridge `provider_health` arm also ignores\s+caller-supplied provider-health records/.test(guide) &&
+      /`latest_provider_health` read\s+projection now\s+sends only admitted receipts/.test(guide) &&
+      /canonical\s+`provider_id`/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -768,7 +774,7 @@ function runDocs() {
       /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(guide) &&
       /local JS wallet\/vault\/Agentgres adapter\s+state can no longer become public authority or adapter-boundary truth/.test(guide) &&
       /Slice 854 retired broad snapshot\/projection provider-health and runtime-survey\s+telemetry input from JS/.test(guide) &&
-      /local JS provider-health files and\s+runtime-survey probe summaries can no longer become public telemetry truth/.test(guide) &&
+      /local JS provider-health\s+files and runtime-survey probe summaries cannot become public telemetry truth/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -998,7 +1004,8 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 854/.test(matrix) &&
       /Slice 854 retired broad snapshot\/projection provider-health and runtime-survey\s+telemetry input from JS/.test(matrix) &&
       /`provider_health: providerHealthList\(\.\.\.\)` or\s+`runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(matrix) &&
-      /`provider_health` and\s+`runtime_survey_input` are absent from broad snapshot\/projection request state/.test(matrix) &&
+      /Later dedicated-telemetry slices retired\s+the remaining `provider_health`, `latest_provider_health`, and\s+`latest_runtime_survey` JS input paths/.test(matrix) &&
+      /`provider_health` and\s+`runtime_survey_input` are absent from broad\s+snapshot\/projection request state/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 854 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 855/.test(matrix) &&
       /Slice 855 retired broad snapshot\/projection model-topology input from JS/.test(matrix) &&
@@ -1021,11 +1028,18 @@ function runDocs() {
       /empty\/null\s+defaults plus fail-closed detail/.test(matrix) &&
       /cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 858 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 859/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 859/.test(matrix) &&
       /Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection\s+input/.test(matrix) &&
       /`latest_runtime_survey` read projection now sends only admitted\s+receipts/.test(matrix) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 859/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 859 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 860/.test(matrix) &&
+      /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(matrix) &&
+      /`provider_health` read projection now sends `\{\}`/.test(matrix) &&
+      /Rust bridge `provider_health` arm also ignores caller-supplied\s+provider-health records/.test(matrix) &&
+      /`latest_provider_health` read\s+projection\s+now sends only\s+admitted receipts/.test(matrix) &&
+      /canonical `provider_id`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 860/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1045,8 +1059,12 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `mcp_servers: state\.listMcpServers\(\)` or `conversation_states: state\.listConversations\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
-      /dedicated `latestRuntimeSurvey\(\)` now also sends only admitted receipts/.test(implementationMatrix) &&
-      /Rust ignores `runtime_survey_input` so JS hardware\/probe\/preference fallback cannot become public runtime-survey truth/.test(implementationMatrix) &&
+      /dedicated `provider_health` now sends empty request state/.test(implementationMatrix) &&
+      /Rust bridge `provider_health` arm ignores caller-supplied provider-health records/.test(implementationMatrix) &&
+      /dedicated `latestProviderHealth\(\)` sends only admitted receipts/.test(implementationMatrix) &&
+      /Rust ignores local provider-health records/.test(implementationMatrix) &&
+      /dedicated `latestRuntimeSurvey\(\)` also sends only admitted receipts/.test(implementationMatrix) &&
+      /Rust ignores local provider-health records plus `runtime_survey_input` so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with receipt-only request state/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
@@ -8240,7 +8258,10 @@ function runBridge() {
       !/publicProvider/.test(modelMountingReadProjectionFacade) &&
       !/providerHasVaultRef,\s*publicOAuthSession/.test(modelMountingState) &&
       !/publicProvider,\s*readJson/.test(modelMountingState) &&
-      /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state\)[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      !/providerHealthList/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_provider_health"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "latest_provider_health"(?:(?!\n\s+if \(projectionKind).)*providers:\s*providerList\(state\)/s.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "latest_provider_health"(?:(?!\n\s+if \(projectionKind).)*provider_health:\s*providerHealthList/s.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "authority_snapshot"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?grants:\s*state\.listTokens\(\)/.test(modelMountingReadProjectionFacade) &&
@@ -8316,6 +8337,7 @@ function runBridge() {
       /projectionKind === "runtime_preference_for_endpoint"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "runtime_default_load_options"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "runtime_engine_detail"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "provider_health"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/function runtimeEngineReadInput\(state,\s*engineId\)/.test(modelMountingReadProjectionFacade) &&
       !/runtime_engine:\s*runtimeEngineReadInput/.test(modelMountingReadProjectionFacade) &&
       !/listRuntimeEngineProfiles\(runtimeEngineProjectionState/.test(modelMountingReadProjectionFacade) &&
@@ -8351,7 +8373,13 @@ function runBridge() {
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault_refs"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"provider_health"[\s\S]*"providers"[\s\S]*"receipts"/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listProviderHealth\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealthRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /providerHealth\.health\.provider_id,\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
+      /provider_id:\s*"provider\.local"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[1\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8480,7 +8508,7 @@ function runBridge() {
       /"downloads" => Ok\(Value::Array\(array_field\(&request\.state,\s*"downloads"\)\)\)/.test(bridgeModule) &&
       /"oauth_sessions" => Ok\(Value::Array\(array_field\(&request\.state,\s*"oauth_sessions"\)\)\)/.test(bridgeModule) &&
       /"oauth_states" => Ok\(Value::Array\(array_field\(&request\.state,\s*"oauth_states"\)\)\)/.test(bridgeModule) &&
-      /"provider_health" => Ok\(Value::Array\(array_field\(&request\.state,\s*"provider_health"\)\)\)/.test(bridgeModule) &&
+      /"provider_health" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
       /"workflow_bindings" => Ok\(model_mount_workflow_bindings\(\)\)/.test(bridgeModule) &&
       /"adapter_boundaries" => Ok\(model_mount_adapter_boundaries\(&request\.state\)\)/.test(bridgeModule) &&
       /engine_id:\s*Option<String>/.test(bridgeModule) &&
@@ -8524,7 +8552,6 @@ function runBridge() {
       /"vault": \{[\s\S]*"port": "VaultPort"[\s\S]*"plaintextPersistence": false/.test(bridgeModule) &&
       /"state": \{\}[\s\S]*?expect\("model_mount adapter boundaries request"\)/.test(bridgeModule) &&
       /"plaintextPersistence": false/.test(bridgeModule) &&
-      /model_mount_provider_not_found/.test(bridgeModule) &&
       /model_mount_provider_health_not_found/.test(bridgeModule) &&
       /model_mount_vault_health_not_found/.test(bridgeModule) &&
       /model_mount_runtime_engine_not_found/.test(bridgeModule) &&
@@ -8569,6 +8596,11 @@ function runBridge() {
       /latest_runtime_survey_response\["projection"\]\["hardware"\],\s*Value::Null/.test(bridgeModule) &&
       /checked_runtime_survey_request[\s\S]*?"projection_kind": "latest_runtime_survey"[\s\S]*?"state": \{\s*"receipts": \[\{[\s\S]*?"id": "receipt-runtime-survey"/.test(bridgeModule) &&
       /"projection_kind": "latest_provider_health"/.test(bridgeModule) &&
+      /"projection_kind": "latest_provider_health"[\s\S]*?"state": \{\s*"receipts": state_with_health\["receipts"\]\.clone\(\)\s*\}/.test(bridgeModule) &&
+      /"provider_id": "provider\.local"[\s\S]*?"kind": "provider_health"/.test(bridgeModule) &&
+      /provider_health_response\["projection"\]\["health"\]\["provider_id"\],\s*"provider\.local"/.test(bridgeModule) &&
+      /latest provider health fails closed when provider health receipt is missing/.test(bridgeModule) &&
+      /missing_provider_error\.code,\s*[\r\n]+\s*"model_mount_provider_health_not_found"/.test(bridgeModule) &&
       /"projection_kind": "latest_vault_health"/.test(bridgeModule) &&
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
@@ -8590,7 +8622,7 @@ function runBridge() {
       /latest runtime survey default projected in Rust/.test(bridgeModule) &&
       /latest runtime survey receipt projected in Rust/.test(bridgeModule) &&
       /latest provider health projected in Rust/.test(bridgeModule) &&
-      /latest provider health fails closed when provider is missing/.test(bridgeModule) &&
+      /latest provider health fails closed when provider health receipt is missing/.test(bridgeModule) &&
       /latest vault health projected in Rust/.test(bridgeModule) &&
       /latest vault health fails closed when health receipt is missing/.test(bridgeModule) &&
       /snapshot projection planned in Rust/.test(bridgeModule),

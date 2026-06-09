@@ -1623,11 +1623,12 @@ Slice 854 retired broad snapshot/projection provider-health and runtime-survey
 telemetry input from JS. The default model_mount read-projection input no
 longer sends `provider_health: providerHealthList(...)` or
 `runtime_survey_input: latestRuntimeSurveyProjectionInput(...)` for broad
-`snapshot` and `projection` requests. Dedicated `provider_health`,
-`latest_provider_health`, and `latest_runtime_survey` read projections still
-use narrow Rust-planned inputs, but local JS provider-health files and
-runtime-survey probe summaries can no longer become public telemetry truth
-through the broad Rust projection envelope.
+`snapshot` and `projection` requests. Later dedicated-telemetry slices retired
+the remaining `provider_health`, `latest_provider_health`, and
+`latest_runtime_survey` JS input paths as well, so local JS provider-health
+files and runtime-survey probe summaries cannot become public telemetry truth
+through either the broad Rust projection envelope or the dedicated telemetry
+readback path.
 
 Slice 855 retired broad snapshot/projection model-topology input from JS. The
 default model_mount read-projection input no longer sends `artifacts`,
@@ -1678,6 +1679,21 @@ this projection: not-checked survey readback returns zero/null/default values,
 and checked survey readback is derived only from admitted `runtime_survey`
 receipt details. Direct Rust daemon-core runtime probing, Agentgres-admitted
 survey capture, command-transport replacement, and local survey materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Slice 860 retired dedicated provider-health JS read-projection input. The
+`provider_health` read projection now sends an empty state object and returns
+the Rust default empty list; the Rust bridge `provider_health` arm also ignores
+caller-supplied provider-health records so direct bridge callers cannot promote
+local JS telemetry into projection truth. The `latest_provider_health` read
+projection now sends only admitted receipts and no longer reads JS provider
+records or local provider-health files. Rust derives the latest provider-health
+envelope only from admitted `provider_health` receipt details with canonical
+`provider_id`, and missing receipt truth fails closed with
+`model_mount_provider_health_not_found`. Direct Rust daemon-core provider
+health capture, Agentgres-admitted health writes, provider-control APIs,
+command-transport replacement, and local provider-health materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
