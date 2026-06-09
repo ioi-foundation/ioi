@@ -408,8 +408,6 @@ export function createModelMountingReadProjectionFacade({
       runtime_survey_input: latestRuntimeSurveyProjectionInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       grants: state.listTokens(),
       vault_refs: state.listVaultRefs(),
-      mcp_servers: state.listMcpServers(),
-      conversation_states: state.listConversations(),
       agentgres_store: state.store.adapterStatus(),
       receipts: state.listReceipts(),
       wallet: state.walletAuthority.adapterStatus(),

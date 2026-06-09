@@ -1599,6 +1599,15 @@ narrow Rust-planned inputs, but local JS runtime-engine maps/preferences can no
 longer become public projection truth through the broad Rust projection
 envelope.
 
+Slice 852 retired broad snapshot/projection MCP and conversation input from JS.
+The default model_mount read-projection input no longer sends
+`mcp_servers: state.listMcpServers()` or
+`conversation_states: state.listConversations()` for broad `snapshot` and
+`projection` requests, so local JS MCP/conversation maps cannot become public
+projection truth through the broad Rust projection envelope. Direct Rust
+daemon-core projection APIs over Agentgres-admitted MCP and conversation truth
+must own those arrays before terminal MCP/conversation projection is complete.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

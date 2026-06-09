@@ -17569,7 +17569,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 850 is now satisfied.
 
-## Implementation Slice Evidence: 851
+## Compacted Implementation Slice Evidence: 851
 
 Slice 851 retired broad snapshot/projection runtime-engine input from JS. The
 default model_mount read-projection input no longer sends
@@ -17593,9 +17593,33 @@ engine truth, command-transport replacement, runtime preference ownership, and
 local map/projection materialization retirement still remain before this
 surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 851 after the next direct
+Scheduled matrix-compaction obligation from Slice 851 is now satisfied.
+
+## Implementation Slice Evidence: 852
+
+Slice 852 retired broad snapshot/projection MCP and conversation input from JS.
+The default model_mount read-projection input no longer sends
+`mcp_servers: state.listMcpServers()` or
+`conversation_states: state.listConversations()` for broad `snapshot` and
+`projection` requests. The focused test poisons the broad JS MCP/conversation
+accessors and asserts `mcp_servers` and `conversation_states` are absent from
+broad snapshot/projection request state.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal MCP/conversation projection migration:
+direct Rust daemon-core MCP/conversation projection APIs, Agentgres-backed
+truth, command-transport replacement, wallet/cTEE custody binding, and local
+map/projection materialization retirement still remain before this surface
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 852 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider transport facades, provider lifecycle/read adapters, local
-map/projection materialization, and Rust daemon-core catalog/provider/OAuth
-custody APIs.
+catalog/provider/MCP/conversation transport facades, provider lifecycle/read
+adapters, local map/projection materialization, and Rust daemon-core
+catalog/provider/OAuth/MCP/conversation custody APIs.

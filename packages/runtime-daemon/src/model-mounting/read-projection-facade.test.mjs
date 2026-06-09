@@ -145,8 +145,12 @@ function createState() {
       throw new Error("broad read-projection input must not read JS backend process maps");
     },
     listCatalogProviderConfigs: () => [],
-    listConversations: () => [],
-    listMcpServers: () => [],
+    listConversations: () => {
+      throw new Error("broad read-projection input must not read JS conversation state maps");
+    },
+    listMcpServers: () => {
+      throw new Error("broad read-projection input must not read JS MCP server maps");
+    },
     listReceipts: () => receipts,
     getReceipt: (receiptId) => receipts.find((receipt) => receipt.id === receiptId),
     provider(providerId) {
@@ -306,8 +310,8 @@ function rustProjectionFixture(request) {
     runtimeSurvey: latestRuntimeSurveyFromRustState(state),
     grants: state.grants,
     vaultRefs: state.vault_refs,
-    mcpServers: state.mcp_servers,
-    conversationStates: state.conversation_states,
+    mcpServers: state.mcp_servers ?? [],
+    conversationStates: state.conversation_states ?? [],
     workflowBindings: workflowBindingsFromRust(),
     adapterBoundaries: adapterBoundariesFromState(state),
     lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
@@ -345,8 +349,8 @@ function rustProjectionFixture(request) {
       runtimeSurvey: latestRuntimeSurveyFromRustState(state),
       tokens: state.grants,
       vaultRefs: state.vault_refs,
-      mcpServers: state.mcp_servers,
-      conversationStates: state.conversation_states,
+      mcpServers: state.mcp_servers ?? [],
+      conversationStates: state.conversation_states ?? [],
       workflowNodes: workflowBindingsFromRust(),
       receipts: receipts.slice(-25),
       projection: {
@@ -1010,6 +1014,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_engines"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_engine_profiles"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_preference"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "mcp_servers"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "conversation_states"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "backends"), false);
@@ -1021,6 +1027,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "runtime_engines"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "runtime_engine_profiles"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "runtime_preference"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "mcp_servers"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "conversation_states"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");
