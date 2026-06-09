@@ -16836,7 +16836,7 @@ required before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 824 is now satisfied.
 
-## Implementation Slice Evidence: 825
+## Compacted Implementation Slice Evidence: 825
 
 Slice 825 retired the default LM Studio public-discovery projection fallback.
 `discoverLmStudioProvider()` no longer runs the public `lms` CLI to infer
@@ -16854,14 +16854,39 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/default-records.test.mjs` | passed |
+| Default LM Studio discovery/seeding focused tests plus full `hypervisor-conformance` | passed before Slice 826 LM Studio runtime-survey helper retirement |
 
 This still does not claim terminal provider inventory/projection migration:
 direct Rust daemon-core provider inventory, lifecycle, Agentgres-backed
 projection reads, and command-transport retirement remain required before this
 surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 825 after the next direct
+Scheduled matrix-compaction obligation from Slice 825 is now satisfied.
+
+## Implementation Slice Evidence: 826
+
+Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path.
+`runtimeSurvey()` already failed closed at the public capture facade; the helper
+surface now also no longer runs `lms runtime ls` or `lms runtime survey`.
+`lmStudioRuntimeEngines()` now returns an empty list before public CLI
+execution, `lmStudioRuntimeSurvey()` returns `not_checked` Rust-boundary
+evidence with `lm_studio_public_runtime_survey_retired`, `listRuntimeEngines()`
+no longer calls `state.lmStudioRuntimeEngines()`, the aggregate
+model-mounting state no longer exposes LM Studio runtime helper wrappers, and
+the runtime-specific LM Studio parser helpers and env toggle are removed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs` | passed |
+
+This still does not claim terminal runtime-survey migration: direct Rust
+daemon-core runtime probing, Agentgres-admitted survey truth, direct Rust
+projection APIs, and command-transport retirement remain required before this
+surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 826 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 lifecycle/list probe support, local map/projection materialization, and Rust

@@ -52,20 +52,7 @@ function fakeState() {
 
 const deps = {
   hardwareSnapshot: () => ({ cpuCount: 8 }),
-  isExecutable: (filePath) => filePath === "/bin/lms",
-  lmStudioRuntimeDiscoveryEnabled: () => true,
-  parseLmStudioRuntimeEngines: () => [{ id: "lmstudio.runtime.llama.cpp", selected: true }],
-  parseLmStudioRuntimeSurvey: () => ({
-    selectedRuntime: "llama.cpp",
-    accelerators: [{ label: "GPU", vram: "24 GB" }],
-    cpu: "Ryzen",
-    ram: "64 GB",
-  }),
-  runPublicCommand: (_command, args) => args.includes("ls")
-    ? { status: 0, stdout: "runtime ls", stderr: "", error: null }
-    : { status: 0, stdout: "runtime survey", stderr: "", error: null },
   schemaVersion: "schema.v1",
-  stableHash: (value) => `hash:${value}`,
 };
 
 test("runtimeSurvey facade fails closed before JS probes, engine reads, or receipt creation", () => {
@@ -152,56 +139,35 @@ test("latestRuntimeSurveyProjectionInput builds primitive runtime-survey input",
   assert.equal(Object.hasOwn(state.receipts[0].details, "lmStudio"), false);
 });
 
-test("lmStudioRuntimeEngines returns hashed public runtime list records", () => {
+test("LM Studio runtime engine discovery is retired before public CLI execution", () => {
   const state = fakeState();
+  const commands = [];
 
-  const engines = lmStudioRuntimeEngines(state, "2026-06-03T12:00:00.000Z", deps);
+  const engines = lmStudioRuntimeEngines(state, "2026-06-03T12:00:00.000Z", {
+    ...deps,
+    runPublicCommand: (...args) => commands.push(args),
+  });
 
-  assert.deepEqual(engines, [{
-    id: "lmstudio.runtime.llama.cpp",
-    selected: true,
-    checkedAt: "2026-06-03T12:00:00.000Z",
-    lmsPathHash: "hash:/bin/lms",
-    outputHash: "hash:runtime ls",
-    evidenceRefs: ["lm_studio_public_lms_runtime_ls"],
-  }]);
+  assert.deepEqual(engines, []);
+  assert.deepEqual(commands, []);
 });
 
-test("LM Studio runtime probes are absent when disabled or executable is missing", () => {
+test("LM Studio runtime survey is not checked until Rust core owns probing", () => {
   const state = fakeState();
+  const commands = [];
 
-  assert.deepEqual(lmStudioRuntimeEngines(state, "now", {
-    ...deps,
-    lmStudioRuntimeDiscoveryEnabled: () => false,
-  }), []);
   assert.deepEqual(lmStudioRuntimeSurvey(state, "now", {
     ...deps,
-    lmStudioRuntimeDiscoveryEnabled: () => false,
+    runPublicCommand: (...args) => commands.push(args),
   }), {
-    status: "absent",
+    status: "not_checked",
     checkedAt: "now",
-    evidenceRefs: ["lm_studio_public_runtime_discovery_disabled"],
+    rustCoreBoundary: "model_mount.runtime_survey",
+    evidenceRefs: [
+      "lm_studio_public_runtime_survey_retired",
+      "rust_daemon_core_runtime_survey_required",
+      "agentgres_runtime_survey_projection_required",
+    ],
   });
-  assert.deepEqual(lmStudioRuntimeSurvey(state, "now", {
-    ...deps,
-    isExecutable: () => false,
-  }), {
-    status: "absent",
-    checkedAt: "now",
-    evidenceRefs: ["lm_studio_public_lms_absent"],
-  });
-});
-
-test("LM Studio runtime survey records blocked command failures without raw stderr", () => {
-  const state = fakeState();
-
-  const survey = lmStudioRuntimeSurvey(state, "2026-06-03T12:00:00.000Z", {
-    ...deps,
-    runPublicCommand: () => ({ status: 7, stdout: "", stderr: "secret failure", error: null }),
-  });
-
-  assert.equal(survey.status, "blocked");
-  assert.equal(survey.exitCode, 7);
-  assert.equal(survey.errorHash, "hash:secret failure");
-  assert.equal("stderr" in survey, false);
+  assert.deepEqual(commands, []);
 });

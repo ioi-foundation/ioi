@@ -1,5 +1,3 @@
-import path from "node:path";
-
 export function runtimeSurvey(state, deps = {}) {
   throwRuntimeSurveyRustCoreRequired({
     operation: "runtime_survey",
@@ -17,72 +15,20 @@ export function latestRuntimeSurveyProjectionInput(state, deps = {}) {
 }
 
 export function lmStudioRuntimeEngines(state, checkedAt, deps = {}) {
-  const {
-    env = process.env,
-    isExecutable,
-    lmStudioRuntimeDiscoveryEnabled,
-    parseLmStudioRuntimeEngines,
-    runPublicCommand,
-    stableHash,
-  } = deps;
-  if (!lmStudioRuntimeDiscoveryEnabled()) return [];
-  const lmsPath = lmStudioRuntimeLmsPath(state, env);
-  if (!lmsPath || !isExecutable(lmsPath)) return [];
-  const result = runPublicCommand(lmsPath, ["runtime", "ls"], { timeout: 2500 });
-  if (result.status !== 0) return [];
-  return parseLmStudioRuntimeEngines(result.stdout).map((engine) => ({
-    ...engine,
-    checkedAt,
-    lmsPathHash: stableHash(lmsPath).slice(0, 16),
-    outputHash: stableHash(result.stdout),
-    evidenceRefs: ["lm_studio_public_lms_runtime_ls"],
-  }));
+  return [];
 }
 
 export function lmStudioRuntimeSurvey(state, checkedAt, deps = {}) {
-  const {
-    env = process.env,
-    isExecutable,
-    lmStudioRuntimeDiscoveryEnabled,
-    parseLmStudioRuntimeSurvey,
-    runPublicCommand,
-    stableHash,
-  } = deps;
-  if (!lmStudioRuntimeDiscoveryEnabled()) {
-    return {
-      status: "absent",
-      checkedAt,
-      evidenceRefs: ["lm_studio_public_runtime_discovery_disabled"],
-    };
-  }
-  const lmsPath = lmStudioRuntimeLmsPath(state, env);
-  if (!lmsPath || !isExecutable(lmsPath)) {
-    return { status: "absent", checkedAt, evidenceRefs: ["lm_studio_public_lms_absent"] };
-  }
-  const result = runPublicCommand(lmsPath, ["runtime", "survey"], { timeout: 3000 });
-  const parsed = parseLmStudioRuntimeSurvey(result.stdout);
   return {
-    status: result.status === 0 ? "available" : "blocked",
+    status: "not_checked",
     checkedAt,
-    selectedRuntime: parsed.selectedRuntime,
-    accelerators: parsed.accelerators,
-    cpu: parsed.cpu,
-    ram: parsed.ram,
-    outputHash: stableHash(`${result.stdout}\n${result.stderr}`),
-    exitCode: result.status,
-    lmsPathHash: stableHash(lmsPath).slice(0, 16),
-    evidenceRefs: ["lm_studio_public_lms_runtime_survey"],
-    errorHash: result.status === 0 ? null : stableHash(result.stderr || result.error || "runtime survey failed"),
+    rustCoreBoundary: "model_mount.runtime_survey",
+    evidenceRefs: [
+      "lm_studio_public_runtime_survey_retired",
+      "rust_daemon_core_runtime_survey_required",
+      "agentgres_runtime_survey_projection_required",
+    ],
   };
-}
-
-function lmStudioRuntimeLmsPath(state, env) {
-  const provider = state.providers.get("provider.lmstudio");
-  return (
-    provider?.discovery?.publicCli?.path ??
-    env.IOI_LMS_PATH ??
-    path.join(state.homeDir, ".lmstudio/bin/lms")
-  );
 }
 
 function throwRuntimeSurveyRustCoreRequired(details = {}) {

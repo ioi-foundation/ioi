@@ -1302,6 +1302,19 @@ provider inventory/projection migration: direct Rust daemon-core provider
 inventory, lifecycle, Agentgres-backed projection reads, and command-transport
 retirement remain required.
 
+Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path.
+Runtime survey capture already failed closed at the public facade; the helper
+surface now also no longer runs `lms runtime ls` or `lms runtime survey`,
+runtime engine listing no longer calls `state.lmStudioRuntimeEngines()`, the
+aggregate model-mounting state no longer exposes LM Studio runtime helper
+wrappers, and the runtime-specific LM Studio parser helpers plus public runtime
+discovery env toggle are removed. `lmStudioRuntimeEngines()` returns an empty
+list before public-CLI execution, and `lmStudioRuntimeSurvey()` records only
+`not_checked` Rust-boundary evidence with `lm_studio_public_runtime_survey_retired`.
+This still does not claim terminal runtime-survey migration: direct Rust
+daemon-core runtime probing, Agentgres-admitted survey truth, and direct Rust
+projection APIs remain required before the pure Rust substrate target is met.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

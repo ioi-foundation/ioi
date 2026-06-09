@@ -128,11 +128,7 @@ export function listRuntimeEngines(state) {
     checkedAt,
     evidenceRefs: backend.evidenceRefs ?? [],
   })).map((engine) => applyRuntimeEngineProfile(state, engine));
-  const lmStudioEngines = state.lmStudioRuntimeEngines(checkedAt).map((engine) => ({
-    ...engine,
-    selected: preference.selectedEngineId === engine.id || (!hasExplicitPreference && engine.selected),
-  })).map((engine) => applyRuntimeEngineProfile(state, engine));
-  return [...backendEngines, ...lmStudioEngines].sort((left, right) => {
+  return backendEngines.sort((left, right) => {
     const leftPriority = left.operatorProfile?.priority ?? 1000;
     const rightPriority = right.operatorProfile?.priority ?? 1000;
     if (leftPriority !== rightPriority) return leftPriority - rightPriority;

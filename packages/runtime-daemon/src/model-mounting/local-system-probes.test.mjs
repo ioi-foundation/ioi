@@ -14,8 +14,6 @@ import {
   lmStudioArtifact,
   parseLmStudioList,
   parseLmStudioProcessList,
-  parseLmStudioRuntimeEngines,
-  parseLmStudioRuntimeSurvey,
   parseLocalModelMetadata,
   readLines,
   runPublicCommand,
@@ -52,51 +50,12 @@ nomic-embed-text           137M   nomic     274 MB
   ]);
 });
 
-test("LM Studio process and runtime parsers normalize public CLI output", () => {
+test("LM Studio process parser normalizes public CLI output", () => {
   assert.deepEqual(parseLmStudioProcessList(`
 MODEL               PID      PORT
 llama-3.2           1234     49231
 No loaded models
 `), [{ modelId: "llama-3.2", raw: "llama-3.2           1234     49231" }]);
-
-  assert.deepEqual(parseLmStudioRuntimeEngines(`
-LLM ENGINE
-llama.cpp           selected    gguf
-mlx                 no          mlx
-`), [
-    {
-      id: "lmstudio.runtime.llama.cpp",
-      kind: "lm_studio_runtime",
-      label: "llama.cpp",
-      status: "installed",
-      selected: true,
-      modelFormat: "gguf",
-      source: "lm_studio_public_lms_runtime_ls",
-      processStatus: "selected",
-    },
-    {
-      id: "lmstudio.runtime.mlx",
-      kind: "lm_studio_runtime",
-      label: "mlx",
-      status: "installed",
-      selected: false,
-      modelFormat: "mlx",
-      source: "lm_studio_public_lms_runtime_ls",
-      processStatus: "installed",
-    },
-  ]);
-
-  assert.deepEqual(parseLmStudioRuntimeSurvey(`
-Survey by llama.cpp
-CPU: Ryzen
-RAM: 64 GB
-NVIDIA RTX 4090              24 GB
-`), {
-    selectedRuntime: "llama.cpp",
-    cpu: "Ryzen",
-    ram: "64 GB",
-    accelerators: [{ label: "NVIDIA RTX 4090", vram: "24 GB" }],
-  });
 });
 
 test("LM Studio artifact projection remains product-scoped", () => {

@@ -193,8 +193,6 @@ import {
   lmStudioArtifact,
   parseLmStudioList,
   parseLmStudioProcessList,
-  parseLmStudioRuntimeEngines,
-  parseLmStudioRuntimeSurvey,
   parseLocalModelMetadata,
   readLines,
   runPublicCommand,
@@ -228,8 +226,6 @@ import {
   updateRuntimeEngine as updateRuntimeEngineState,
 } from "./model-mounting/runtime-engines.mjs";
 import {
-  lmStudioRuntimeEngines as lmStudioRuntimeEnginesState,
-  lmStudioRuntimeSurvey as lmStudioRuntimeSurveyState,
   runtimeSurvey as runtimeSurveyState,
 } from "./model-mounting/runtime-survey.mjs";
 import {
@@ -290,7 +286,6 @@ import {
 import {
   internalFixtureModelsEnabled,
   lmStudioPublicCliEnabled,
-  lmStudioRuntimeDiscoveryEnabled,
 } from "./model-mounting/environment.mjs";
 import {
   backendRegistryRecords,
@@ -1425,28 +1420,6 @@ export class ModelMountingState {
 
   latestRuntimeSurvey() {
     return this.readProjectionFacade.latestRuntimeSurvey(this);
-  }
-
-  lmStudioRuntimeEngines(checkedAt) {
-    return lmStudioRuntimeEnginesState(this, checkedAt, {
-      env: process.env,
-      isExecutable,
-      lmStudioRuntimeDiscoveryEnabled,
-      parseLmStudioRuntimeEngines,
-      runPublicCommand,
-      stableHash,
-    });
-  }
-
-  lmStudioRuntimeSurvey(checkedAt) {
-    return lmStudioRuntimeSurveyState(this, checkedAt, {
-      env: process.env,
-      isExecutable,
-      lmStudioRuntimeDiscoveryEnabled,
-      parseLmStudioRuntimeSurvey,
-      runPublicCommand,
-      stableHash,
-    });
   }
 
   backend(backendId) {

@@ -180,49 +180,6 @@ export function hardwareSnapshot() {
   };
 }
 
-export function parseLmStudioRuntimeEngines(text) {
-  return String(text ?? "")
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("LLM ENGINE"))
-    .map((line) => {
-      const columns = line.split(/\s{2,}/).filter(Boolean);
-      const name = columns[0] ?? "";
-      if (!name) return null;
-      const selected = columns.some((column) => column === "yes" || column === "selected" || column.includes("\u2713"));
-      const modelFormat = columns.at(-1) ?? "unknown";
-      return {
-        id: `lmstudio.runtime.${safeId(name)}`,
-        kind: "lm_studio_runtime",
-        label: name,
-        status: "installed",
-        selected,
-        modelFormat,
-        source: "lm_studio_public_lms_runtime_ls",
-        processStatus: selected ? "selected" : "installed",
-      };
-    })
-    .filter(Boolean);
-}
-
-export function parseLmStudioRuntimeSurvey(text) {
-  const lines = String(text ?? "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  const selectedRuntime = lines.find((line) => line.startsWith("Survey by "))?.replace(/^Survey by\s+/, "") ?? null;
-  const cpu = lines.find((line) => line.startsWith("CPU:"))?.replace(/^CPU:\s*/, "") ?? null;
-  const ram = lines.find((line) => line.startsWith("RAM:"))?.replace(/^RAM:\s*/, "") ?? null;
-  const accelerators = lines
-    .filter((line) => !line.startsWith("Survey by ") && !line.startsWith("GPU/") && !line.startsWith("CPU:") && !line.startsWith("RAM:"))
-    .map((line) => {
-      const match = line.match(/^(.+?)\s{2,}([0-9.]+\s+[A-Za-z]+)$/);
-      if (!match) return null;
-      return {
-        label: match[1].trim(),
-        vram: match[2].trim(),
-      };
-    })
-    .filter(Boolean);
-  return { selectedRuntime, cpu, ram, accelerators };
-}
 
 export function commandProbe(command, args) {
   const executable = findExecutable(command);

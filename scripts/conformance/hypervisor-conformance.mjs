@@ -631,6 +631,9 @@ function runDocs() {
       /Slice 825 retired the default LM Studio public-discovery projection fallback/.test(guide) &&
       /no longer runs `lms ls` to mint artifact records/.test(guide) &&
       /no longer prunes\s+LM Studio artifact\/endpoint\/instance projection maps from JS/.test(guide) &&
+      /Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path/.test(guide) &&
+      /no longer runs `lms runtime ls` or `lms runtime survey`/.test(guide) &&
+      /runtime engine listing no longer calls `state\.lmStudioRuntimeEngines\(\)`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -717,11 +720,16 @@ function runDocs() {
       /`provider-invocation-retirement\.mjs`/.test(matrix) &&
       /`fetchProviderStream\(\)`\/stream-timeout helper are\s+removed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 824 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 825/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 825/.test(matrix) &&
       /Slice 825 retired the default LM Studio public-discovery projection fallback/.test(matrix) &&
       /`discoverLmStudioArtifacts\(\)` now returns an empty list before `lms ls`/.test(matrix) &&
       /`lmstudio\.detected` fallback artifact helper is removed/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 825/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 825 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 826/.test(matrix) &&
+      /Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path/.test(matrix) &&
+      /`lmStudioRuntimeEngines\(\)` now returns an empty list before public CLI\s+execution/.test(matrix) &&
+      /runtime-specific LM Studio parser helpers and env toggle are removed/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 826/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -11039,6 +11047,12 @@ function runReceipts() {
   const localSystemProbesTest = exists("packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs")
     : "";
+  const modelMountingRoot = exists("packages/runtime-daemon/src/model-mounting.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting.mjs")
+    : "";
+  const modelMountingEnvironment = exists("packages/runtime-daemon/src/model-mounting/environment.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/environment.mjs")
+    : "";
   const providerOperations = exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
     : "";
@@ -12727,12 +12741,23 @@ function runReceipts() {
       /model_mount_runtime_survey_js_facade_retired/.test(runtimeSurveyModule) &&
       /rust_daemon_core_runtime_survey_required/.test(runtimeSurveyModule) &&
       /agentgres_runtime_survey_projection_required/.test(runtimeSurveyModule) &&
+      /lm_studio_public_runtime_survey_retired/.test(runtimeSurveyModule) &&
       /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(runtimeSurveyModule) &&
       !/state\.receipt\("runtime_survey"/.test(runtimeSurveyModule) &&
+      !/runPublicCommand/.test(runtimeSurveyModule) &&
+      !/lmStudioRuntimeLmsPath/.test(runtimeSurveyModule) &&
+      !/parseLmStudioRuntime/.test(runtimeSurveyModule) &&
+      !/lmsPathHash|outputHash|errorHash|exitCode/.test(runtimeSurveyModule) &&
       !/const checkedAt = state\.nowIso\(\);/.test(runtimeSurveyModule) &&
       !/const hardware = hardwareSnapshot\(\);/.test(runtimeSurveyModule) &&
       !/const engines = state\.listRuntimeEngines\(\);/.test(runtimeSurveyModule) &&
       !/const lmStudio = state\.lmStudioRuntimeSurvey\(checkedAt\);/.test(runtimeSurveyModule) &&
+      !/state\.lmStudioRuntimeEngines\(checkedAt\)/.test(runtimeEngines) &&
+      !/lmStudioRuntimeEnginesState|lmStudioRuntimeSurveyState/.test(modelMountingRoot) &&
+      !/lmStudioRuntimeDiscoveryEnabled/.test(modelMountingRoot) &&
+      !/export function lmStudioRuntimeDiscoveryEnabled/.test(modelMountingEnvironment) &&
+      !/parseLmStudioRuntimeEngines|parseLmStudioRuntimeSurvey/.test(localSystemProbes) &&
+      !/parseLmStudioRuntimeEngines|parseLmStudioRuntimeSurvey/.test(localSystemProbesTest) &&
       runtimeSurveyReceiptDetailsObject === "" &&
       /latestRuntimeSurveyProjectionInput/.test(runtimeSurveyModule) &&
       /engine_count:\s*state\.listRuntimeEngines\(\)\.length/.test(runtimeSurveyModule) &&
@@ -12761,12 +12786,19 @@ function runReceipts() {
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"runtimePreference"\),\s*false/.test(
         runtimeSurveyTest,
       ) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"lmStudio"\),\s*false/.test(runtimeSurveyTest),
+      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"lmStudio"\),\s*false/.test(runtimeSurveyTest) &&
+      /LM Studio runtime engine discovery is retired before public CLI execution/.test(runtimeSurveyTest) &&
+      /LM Studio runtime survey is not checked until Rust core owns probing/.test(runtimeSurveyTest),
     [
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/environment.mjs",
+      "packages/runtime-daemon/src/model-mounting/local-system-probes.mjs",
+      "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
     ],
-    "Phase 9/11 is pending: runtime survey capture must fail closed until Rust daemon-core owns survey receipts/projection, while readback uses canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 9/11 is pending: runtime survey capture and helper-level LM Studio runtime probes must fail closed until Rust daemon-core owns survey receipts/projection, while readback uses canonical snake_case metadata without duplicate camelCase aliases",
   );
   assertCheck(
     result,
