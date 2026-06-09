@@ -604,6 +604,9 @@ function runDocs() {
       /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback/.test(guide) &&
       /`ollamaCatalogProviderPort\(\)` no longer\s+reads `state\.providers\.get\("provider\.ollama"\)`/.test(guide) &&
       /`ollama_catalog_provider_map_readback_retired` evidence/.test(guide) &&
+      /Slice 846 retired backend-registry provider-map readback/.test(guide) &&
+      /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(guide) &&
+      /provider-map records can no longer\s+become backend lifecycle\/projection truth/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -707,6 +710,9 @@ function runDocs() {
       /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback from the catalog-provider port/.test(guide) &&
       /Its health and search surfaces now expose only gated\s+Rust-core-required projection\/search metadata/.test(guide) &&
       /the long-term shape is direct Rust daemon-core model_mount\/catalog-provider\s+projection/.test(guide) &&
+      /Slice 846 retired backend-registry provider-map readback from derived backend\s+records/.test(guide) &&
+      /the default backend registry no longer reads\s+LM Studio, OpenAI-compatible, Ollama, or vLLM provider records/.test(guide) &&
+      /direct Rust daemon-core backend and\s+provider projection APIs must own admitted backend\/provider truth/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -888,11 +894,16 @@ function runDocs() {
       /Slice 844 retired private catalog-provider configuration readback/.test(matrix) &&
       /`catalogProviderAuthHeaders\(\)` now fails closed at\s+`model_mount\.catalog_provider_auth_header\.resolve` before calling\s+`state\.catalogProviderConfig\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 844 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 845/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 845/.test(matrix) &&
       /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback/.test(matrix) &&
       /`ollamaCatalogProviderPort\(\)` no\s+longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(matrix) &&
       /`ollama_catalog_provider_map_readback_retired` evidence/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 845/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 845 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 846/.test(matrix) &&
+      /Slice 846 retired backend-registry provider-map readback/.test(matrix) &&
+      /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(matrix) &&
+      /Focused tests install\s+poisonous provider maps at both the default-record and derivation boundaries/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 846/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1296,6 +1307,7 @@ function runDocs() {
       /Next scheduled matrix-compaction pass: compact Slice 805 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
+      /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -14195,6 +14207,17 @@ function runReceipts() {
       /model_mount_backend_log_js_writer_retired/.test(backendRegistryState) &&
       /persistenceStatus:\s*"not_persisted"/.test(backendRegistryState) &&
       !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
+      !/providers:\s*state\.providers/.test(backendRegistryState) &&
+      !/providers\.get\("provider\.(?:lmstudio|openai-compatible|ollama|vllm)"\)/.test(defaultRecords) &&
+      /backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
+      /rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
+      /default backend registry records ignore JS provider-map projection/.test(defaultRecordsTest) &&
+      /backend registry records must not read JS provider inventory/.test(defaultRecordsTest) &&
+      /deriveBackendRegistry uses environment override, discovery, executables, and hardware without provider inventory/.test(
+        backendRegistryStateTest,
+      ) &&
+      /deriveBackendRegistry must not read JS provider inventory/.test(backendRegistryStateTest) &&
+      /Object\.hasOwn\(request,\s*"providers"\),\s*false/.test(backendRegistryStateTest) &&
       /writeBackendLog returns redacted telemetry without local backend log files/.test(backendRegistryStateTest) &&
       /existsSync\(endpointLog\),\s*false/.test(backendRegistryStateTest) &&
       /existsSync\(backendLog\),\s*false/.test(backendRegistryStateTest) &&

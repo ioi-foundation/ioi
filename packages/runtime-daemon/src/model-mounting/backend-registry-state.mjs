@@ -63,7 +63,6 @@ export function deriveBackendRegistry(state, checkedAt, deps = {}) {
     hardware,
     llamaBinary,
     ollamaBinary,
-    providers: state.providers,
     vllmBinary,
   });
 }

@@ -17411,7 +17411,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 844 is now satisfied.
 
-## Implementation Slice Evidence: 845
+## Compacted Implementation Slice Evidence: 845
 
 Slice 845 retired the remaining Ollama catalog-provider JS provider-map
 readback from the catalog-provider port. `ollamaCatalogProviderPort()` no
@@ -17441,7 +17441,35 @@ truth, command-transport replacement, and local map/projection materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 845 after the next direct
+Scheduled matrix-compaction obligation from Slice 845 is now satisfied.
+
+## Implementation Slice Evidence: 846
+
+Slice 846 retired backend-registry provider-map readback from derived backend
+records. `deriveBackendRegistry()` no longer passes `state.providers` into
+`backendRegistryRecords()`, and `backendRegistryRecords()` no longer reads LM
+Studio, OpenAI-compatible, Ollama, or vLLM provider records to derive backend
+status, base URLs, or public-CLI binary paths. The default backend records may
+still expose env/binary-gated migration metadata, but JS provider-map records
+can no longer become backend lifecycle/projection truth. Focused tests install
+poisonous provider maps at both the default-record and derivation boundaries to
+prove backend registry projection does not read JS provider inventory while
+direct Rust daemon-core backend/provider projection remains the required
+terminal path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/default-records.test.mjs packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs` | passed |
+
+This still does not claim terminal backend lifecycle migration: direct Rust
+daemon-core backend lifecycle/control/projection, process control, provider
+inventory/projection, Agentgres-backed backend/provider truth, command-transport
+replacement, and local map/projection materialization retirement still remain
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 846 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

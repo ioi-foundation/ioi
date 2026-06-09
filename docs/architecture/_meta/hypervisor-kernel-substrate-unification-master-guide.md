@@ -1545,6 +1545,16 @@ Ollama provider truth. This keeps the Ollama bridge explicitly non-terminal:
 the long-term shape is direct Rust daemon-core model_mount/catalog-provider
 projection, not JS provider-map status readback or bridge-owned authority.
 
+Slice 846 retired backend-registry provider-map readback from derived backend
+records. `deriveBackendRegistry()` no longer passes `state.providers` into
+`backendRegistryRecords()`, and the default backend registry no longer reads
+LM Studio, OpenAI-compatible, Ollama, or vLLM provider records to project backend
+status, base URLs, or public-CLI binary paths. Backend records may still expose
+env/binary-gated migration metadata, but provider-map records can no longer
+become backend lifecycle/projection truth; direct Rust daemon-core backend and
+provider projection APIs must own admitted backend/provider truth before the
+terminal pure Rust substrate target is met.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

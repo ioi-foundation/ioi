@@ -20,7 +20,12 @@ function fakeState() {
     backends: new Map(),
     bootId: "boot.current",
     homeDir: "/home/test",
-    providers: new Map([["provider.local", { id: "provider.local" }]]),
+    providers: {
+      get() {
+        throw new Error("deriveBackendRegistry must not read JS provider inventory");
+      },
+      size: 1,
+    },
     stateDir: fs.mkdtempSync(path.join(os.tmpdir(), "ioi-backend-registry-")),
     nowIso() {
       return "2026-06-04T05:00:00.000Z";
@@ -41,14 +46,15 @@ function fakeState() {
 }
 
 const deps = {
-  backendRegistryRecords({ checkedAt, hardware, llamaBinary, ollamaBinary, providers, vllmBinary }) {
+  backendRegistryRecords(request) {
+    assert.equal(Object.hasOwn(request, "providers"), false);
+    const { checkedAt, hardware, llamaBinary, ollamaBinary, vllmBinary } = request;
     return [
       {
         id: "backend.llama_cpp",
         checkedAt,
         hardware,
         binary: llamaBinary,
-        providerCount: providers.size,
         evidenceRefs: ["derived"],
       },
       {
@@ -87,7 +93,7 @@ const deps = {
   },
 };
 
-test("deriveBackendRegistry uses environment override, discovery, executables, hardware, and providers", () => {
+test("deriveBackendRegistry uses environment override, discovery, executables, and hardware without provider inventory", () => {
   const state = fakeState();
 
   const derived = deriveBackendRegistry(state, "2026-06-04T05:00:00.000Z", {
@@ -97,7 +103,6 @@ test("deriveBackendRegistry uses environment override, discovery, executables, h
 
   assert.equal(derived[0].binary, "/custom/llama-server");
   assert.deepEqual(derived[0].hardware, { gpu: "fixture" });
-  assert.equal(derived[0].providerCount, 1);
   assert.equal(derived[1].binary, "/usr/bin/ollama");
   assert.equal(derived[2].binary, "/usr/bin/vllm");
 });
