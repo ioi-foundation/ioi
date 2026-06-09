@@ -628,6 +628,9 @@ function runDocs() {
       /Slice 824 retired the remaining Ollama JS provider invocation and daemon-local\s+HTTP stream transport body/.test(guide) &&
       /before Ollama `\/api\/chat` or\s+`\/api\/embeddings` request shaping/.test(guide) &&
       /`fetchProviderStream\(\)`\/stream-timeout helper were removed/.test(guide) &&
+      /Slice 825 retired the default LM Studio public-discovery projection fallback/.test(guide) &&
+      /no longer runs `lms ls` to mint artifact records/.test(guide) &&
+      /no longer prunes\s+LM Studio artifact\/endpoint\/instance projection maps from JS/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -709,11 +712,16 @@ function runDocs() {
       /`model_mount_provider_js_invocation_retired`/.test(matrix) &&
       /before backend-process staging or public-CLI transport/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 823 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 824/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 824/.test(matrix) &&
       /Slice 824 retired the remaining Ollama JS provider invocation/.test(matrix) &&
       /`provider-invocation-retirement\.mjs`/.test(matrix) &&
       /`fetchProviderStream\(\)`\/stream-timeout helper are\s+removed/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 824/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 824 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 825/.test(matrix) &&
+      /Slice 825 retired the default LM Studio public-discovery projection fallback/.test(matrix) &&
+      /`discoverLmStudioArtifacts\(\)` now returns an empty list before `lms ls`/.test(matrix) &&
+      /`lmstudio\.detected` fallback artifact helper is removed/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 825/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -11007,6 +11015,24 @@ function runReceipts() {
   const lmStudioProviderDriverTest = exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs")
     : "";
+  const defaultDiscovery = exists("packages/runtime-daemon/src/model-mounting/default-discovery.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/default-discovery.mjs")
+    : "";
+  const defaultDiscoveryTest = exists("packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs")
+    : "";
+  const stateSeeding = exists("packages/runtime-daemon/src/model-mounting/state-seeding.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/state-seeding.mjs")
+    : "";
+  const stateSeedingTest = exists("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs")
+    : "";
+  const defaultRecords = exists("packages/runtime-daemon/src/model-mounting/default-records.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/default-records.mjs")
+    : "";
+  const defaultRecordsTest = exists("packages/runtime-daemon/src/model-mounting/default-records.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/default-records.test.mjs")
+    : "";
   const localSystemProbes = exists("packages/runtime-daemon/src/model-mounting/local-system-probes.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-system-probes.mjs")
     : "";
@@ -13171,6 +13197,38 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",
     ],
     "Phase 5/11 is pending: LM Studio provider fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+  );
+  assertCheck(
+    result,
+    "model-mount-lm-studio-default-discovery-retired",
+    /lm_studio_public_discovery_retired/.test(defaultDiscovery) &&
+      /rustCoreBoundary:\s*"model_mount\.provider_inventory"/.test(defaultDiscovery) &&
+      /rust_core_boundary:\s*"model_mount\.provider_inventory_projection"/.test(defaultDiscovery) &&
+      /discoverLmStudioArtifacts\([^)]*\)\s*\{[\s\S]*?return \[\];[\s\S]*?\n\}/.test(defaultDiscovery) &&
+      !/runPublicCommand\(lmsPath/.test(defaultDiscovery) &&
+      !/parseLmStudioList\(result\.stdout\)/.test(defaultDiscovery) &&
+      !/executableCandidates|foundExecutables|serverStatus/.test(defaultDiscovery) &&
+      !/state\.(?:artifacts|endpoints|instances)\.delete/.test(
+        defaultDiscovery.match(/export function pruneLmStudioPublicProjectionRecords[\s\S]*?(?=\n\nexport function pruneInternalFixtureProjectionRecords)/)?.[0] ?? "",
+      ) &&
+      !/lmStudioDetectedArtifactRecord/.test(defaultRecords) &&
+      !/lmStudioDetectedArtifactRecord/.test(defaultRecordsTest) &&
+      !/lmStudioDetectedArtifactRecord/.test(stateSeeding) &&
+      !/discoverLmStudioArtifacts\(lmStudioProvider/.test(stateSeeding) &&
+      /LM Studio provider discovery is inert until Rust provider inventory owns probing/.test(defaultDiscoveryTest) &&
+      /LM Studio artifact discovery is retired before public CLI list execution/.test(defaultDiscoveryTest) &&
+      /LM Studio public projection pruning is retired before JS map mutation/.test(defaultDiscoveryTest) &&
+      /state seeding prunes disabled fixtures without JS LM Studio artifact fallback/.test(stateSeedingTest) &&
+      /state seeding ignores JS-discovered LM Studio artifacts/.test(stateSeedingTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-seeding.mjs",
+      "packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-records.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-records.test.mjs",
+    ],
+    "Phase 9/11 is pending: default LM Studio discovery must not execute public CLI probes, mint detected artifact truth, or prune projection maps from JS",
   );
   assertCheck(
     result,

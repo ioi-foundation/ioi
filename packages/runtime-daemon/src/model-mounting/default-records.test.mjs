@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   backendRegistryRecords,
   defaultRouteRecords,
-  lmStudioDetectedArtifactRecord,
   localFixtureArtifactRecords,
   localFixtureEndpointRecord,
   localFolderProviderRecord,
@@ -73,17 +72,6 @@ test("default artifact, endpoint, and route records preserve compatibility ids",
   assert.equal(routes[0].id, "route.local-first");
   assert.equal(routes[1].id, "route.native-local");
   assert.deepEqual(routes[1].deniedProviders, ["openai", "anthropic", "gemini", "lm_studio"]);
-});
-
-test("default LM Studio detected artifact preserves provider-derived state", () => {
-  const artifact = lmStudioDetectedArtifactRecord({
-    id: "provider.lmstudio",
-    status: "running",
-  }, checkedAt);
-
-  assert.equal(artifact.id, "lmstudio.detected");
-  assert.equal(artifact.providerId, "provider.lmstudio");
-  assert.equal(artifact.state, "available");
 });
 
 test("default backend registry records preserve process and provider-derived status", () => {

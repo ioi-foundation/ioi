@@ -16810,7 +16810,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 823 is now satisfied.
 
-## Implementation Slice Evidence: 824
+## Compacted Implementation Slice Evidence: 824
 
 Slice 824 retired the remaining Ollama JS provider invocation and generic JS
 provider stream transport. `OllamaModelProviderDriver.invoke()` and
@@ -16827,14 +16827,41 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-protocol.test.mjs packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs packages/runtime-daemon/src/model-mounting/provider-transport-policy.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs` | passed |
+| Provider invocation/transport focused tests plus full `hypervisor-conformance` | passed before Slice 825 LM Studio default-discovery retirement |
 
 This still does not claim terminal provider migration: direct Rust daemon-core
 provider transports, provider request shaping, projection, Agentgres-backed
 read APIs, lifecycle ownership, and command-transport retirement remain
 required before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 824 after the next direct
+Scheduled matrix-compaction obligation from Slice 824 is now satisfied.
+
+## Implementation Slice Evidence: 825
+
+Slice 825 retired the default LM Studio public-discovery projection fallback.
+`discoverLmStudioProvider()` no longer runs the public `lms` CLI to infer
+runtime status; it records inert absent/configured provider metadata with
+`lm_studio_public_discovery_retired` evidence until Rust provider inventory owns
+probing. `discoverLmStudioArtifacts()` now returns an empty list before `lms ls`
+or `parseLmStudioList()` can mint artifact records. The legacy
+`lmstudio.detected` fallback artifact helper is removed, and
+`seedModelMountingDefaults()` no longer discovers or inserts LM Studio
+artifact truth from JS. `pruneLmStudioPublicProjectionRecords()` now returns a
+Rust-required retired projection result instead of deleting artifact, endpoint,
+or instance map entries.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/default-records.test.mjs` | passed |
+
+This still does not claim terminal provider inventory/projection migration:
+direct Rust daemon-core provider inventory, lifecycle, Agentgres-backed
+projection reads, and command-transport retirement remain required before this
+surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 825 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 lifecycle/list probe support, local map/projection materialization, and Rust

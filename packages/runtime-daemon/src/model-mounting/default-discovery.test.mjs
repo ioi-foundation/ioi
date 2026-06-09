@@ -68,50 +68,48 @@ test("native local fixture artifact materializes deterministic metadata", () => 
   assert.equal(fs.existsSync(artifact.artifactPath), true);
 });
 
-test("LM Studio provider discovery preserves disabled, running, and configured states", () => {
+test("LM Studio provider discovery is inert until Rust provider inventory owns probing", () => {
   const state = fakeState();
+  const commands = [];
 
   const disabled = discoverLmStudioProvider(state, "checked", {
     ...deps,
-    lmStudioPublicCliEnabled: () => false,
     env: {},
+    runPublicCommand: (...args) => commands.push(args),
   });
   assert.equal(disabled.status, "absent");
   assert.equal(disabled.discovery.disabledByDefault, true);
-
-  const running = discoverLmStudioProvider(state, "checked", deps);
-  assert.equal(running.status, "running");
-  assert.equal(running.discovery.publicCli.path, "/home/ioi/.lmstudio/bin/lms");
-  assert.equal(running.discovery.publicCli.serverStatus, "Server is ON");
+  assert.equal(disabled.discovery.publicCli, null);
+  assert.equal(disabled.discovery.rustCoreBoundary, "model_mount.provider_inventory");
+  assert.deepEqual(disabled.discovery.evidenceRefs, ["lm_studio_public_discovery_retired"]);
 
   const configured = discoverLmStudioProvider(state, "checked", {
     ...deps,
     env: { LM_STUDIO_BASE_URL: "http://127.0.0.1:9999/v1" },
-    isExecutable: () => false,
+    runPublicCommand: (...args) => commands.push(args),
   });
   assert.equal(configured.status, "configured");
   assert.equal(configured.baseUrl, "http://127.0.0.1:9999/v1");
+  assert.equal(configured.discovery.publicCli, null);
+  assert.deepEqual(configured.discovery.evidenceRefs, [
+    "lm_studio_base_url_configured",
+    "lm_studio_public_discovery_retired",
+  ]);
+  assert.deepEqual(commands, []);
 });
 
-test("LM Studio artifact discovery requires enabled public CLI and successful list", () => {
+test("LM Studio artifact discovery is retired before public CLI list execution", () => {
   const provider = { id: "provider.lmstudio", discovery: { publicCli: { path: "/bin/lms" } } };
+  const commands = [];
 
-  assert.deepEqual(discoverLmStudioArtifacts(fakeState(), provider, "checked", deps), [{
-    id: "artifact.llama-3.2",
-    providerId: "provider.lmstudio",
-    checkedAt: "checked",
-  }]);
   assert.deepEqual(discoverLmStudioArtifacts(fakeState(), provider, "checked", {
     ...deps,
-    lmStudioPublicCliEnabled: () => false,
+    runPublicCommand: (...args) => commands.push(args),
   }), []);
-  assert.deepEqual(discoverLmStudioArtifacts(fakeState(), provider, "checked", {
-    ...deps,
-    runPublicCommand: () => ({ status: 1, stdout: "", stderr: "blocked" }),
-  }), []);
+  assert.deepEqual(commands, []);
 });
 
-test("LM Studio public projection pruning removes artifacts, endpoints, and instances", () => {
+test("LM Studio public projection pruning is retired before JS map mutation", () => {
   const state = fakeState();
   state.artifacts.set("lmstudio.model", { id: "lmstudio.model", providerId: "provider.lmstudio" });
   state.artifacts.set("other", { id: "other", providerId: "provider.local" });
@@ -120,11 +118,13 @@ test("LM Studio public projection pruning removes artifacts, endpoints, and inst
   state.instances.set("instance.lmstudio", { id: "instance.lmstudio", endpointId: "endpoint.provider.lmstudio.model" });
   state.instances.set("instance.other", { id: "instance.other", endpointId: "endpoint.other" });
 
-  pruneLmStudioPublicProjectionRecords(state);
+  const result = pruneLmStudioPublicProjectionRecords(state);
 
-  assert.deepEqual([...state.artifacts.keys()], ["other"]);
-  assert.deepEqual([...state.endpoints.keys()], ["endpoint.other"]);
-  assert.deepEqual([...state.instances.keys()], ["instance.other"]);
+  assert.equal(result.status, "retired");
+  assert.equal(result.rust_core_boundary, "model_mount.provider_inventory_projection");
+  assert.deepEqual([...state.artifacts.keys()], ["lmstudio.model", "other"]);
+  assert.deepEqual([...state.endpoints.keys()], ["endpoint.provider.lmstudio.model", "endpoint.other"]);
+  assert.deepEqual([...state.instances.keys()], ["instance.lmstudio", "instance.other"]);
 });
 
 test("internal fixture pruning removes fixture artifacts, endpoints, and dependent instances", () => {

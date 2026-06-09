@@ -59,11 +59,6 @@ function deps({ fixturesEnabled = true } = {}) {
     findExecutable: (name) => `/bin/${name}`,
     hostedProvider: (id) => ({ id }),
     internalFixtureModelsEnabled: () => fixturesEnabled,
-    lmStudioDetectedArtifactRecord: (provider, checkedAt) => ({
-      id: "artifact.lmstudio.detected",
-      providerId: provider.id,
-      checkedAt,
-    }),
     localFixtureArtifactRecords: () => [{ id: "artifact.fixture" }],
     localFixtureEndpointRecord: () => ({ id: "endpoint.fixture" }),
     localFolderProviderRecord: () => ({ id: "provider.local.folder" }),
@@ -77,7 +72,6 @@ function deps({ fixturesEnabled = true } = {}) {
       { id: "provider.llama-cpp", llamaBinary },
       { id: "provider.vllm", vllmBinary },
     ],
-    stableHash: (value) => `hash:${value}`,
   };
 }
 
@@ -104,11 +98,10 @@ test("state seeding preserves default providers, routes, and native fixture reco
     ["pruneLmStudioPublicProjectionRecords"],
     ["seedBackends", "2026-06-03T12:00:00.000Z"],
     ["ensureNativeLocalFixtureArtifact", "2026-06-03T12:00:00.000Z"],
-    ["discoverLmStudioArtifacts", "provider.lmstudio", "2026-06-03T12:00:00.000Z"],
   ]);
 });
 
-test("state seeding prunes disabled fixtures and falls back to detected LM Studio artifact", () => {
+test("state seeding prunes disabled fixtures without JS LM Studio artifact fallback", () => {
   const state = fakeState({
     lmStudioProvider: {
       id: "provider.lmstudio",
@@ -119,19 +112,17 @@ test("state seeding prunes disabled fixtures and falls back to detected LM Studi
 
   seedModelMountingDefaults(state, deps({ fixturesEnabled: false }));
 
-  assert.deepEqual([...state.artifacts.keys()], ["artifact.lmstudio.detected"]);
+  assert.deepEqual([...state.artifacts.keys()], []);
   assert.deepEqual([...state.endpoints.keys()], []);
   assert.equal(state.providers.get("provider.lmstudio").status, "running");
-  assert.equal(state.artifacts.get("artifact.lmstudio.detected").providerId, "provider.lmstudio");
   assert.deepEqual(state.calls, [
     ["discoverLmStudioProvider", "2026-06-03T12:00:00.000Z"],
     ["pruneInternalFixtureProjectionRecords"],
     ["seedBackends", "2026-06-03T12:00:00.000Z"],
-    ["discoverLmStudioArtifacts", "provider.lmstudio", "2026-06-03T12:00:00.000Z"],
   ]);
 });
 
-test("state seeding prefers discovered LM Studio artifacts over detected fallback", () => {
+test("state seeding ignores JS-discovered LM Studio artifacts", () => {
   const state = fakeState({
     lmStudioProvider: {
       id: "provider.lmstudio",
@@ -143,6 +134,6 @@ test("state seeding prefers discovered LM Studio artifacts over detected fallbac
 
   seedModelMountingDefaults(state, deps());
 
-  assert.equal(state.artifacts.has("artifact.lmstudio.live"), true);
-  assert.equal(state.artifacts.has("artifact.lmstudio.detected"), false);
+  assert.equal(state.artifacts.has("artifact.lmstudio.live"), false);
+  assert.equal(state.calls.some((call) => call[0] === "discoverLmStudioArtifacts"), false);
 });

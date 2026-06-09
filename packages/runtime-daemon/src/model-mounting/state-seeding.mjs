@@ -6,7 +6,6 @@ export function seedModelMountingDefaults(state, deps = {}) {
     findExecutable,
     hostedProvider,
     internalFixtureModelsEnabled,
-    lmStudioDetectedArtifactRecord,
     localFixtureArtifactRecords,
     localFixtureEndpointRecord,
     localFolderProviderRecord,
@@ -60,14 +59,6 @@ export function seedModelMountingDefaults(state, deps = {}) {
     }
     nativeFixtureArtifact = state.ensureNativeLocalFixtureArtifact(checkedAt);
     state.upsertDefault(state.artifacts, nativeFixtureArtifact);
-  }
-  const lmStudioArtifacts = state.discoverLmStudioArtifacts(lmStudioProvider, checkedAt);
-  if (lmStudioArtifacts.length > 0) {
-    for (const artifact of lmStudioArtifacts) {
-      state.upsertDefault(state.artifacts, artifact);
-    }
-  } else if (lmStudioProvider.status !== "absent") {
-    state.upsertDefault(state.artifacts, lmStudioDetectedArtifactRecord(lmStudioProvider, checkedAt));
   }
   if (internalFixtureModelsEnabled()) {
     state.upsertDefault(state.endpoints, localFixtureEndpointRecord(checkedAt));

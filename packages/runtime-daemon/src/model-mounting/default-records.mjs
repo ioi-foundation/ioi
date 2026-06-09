@@ -168,24 +168,6 @@ export function localFixtureArtifactRecords(checkedAt) {
   ];
 }
 
-export function lmStudioDetectedArtifactRecord(provider, checkedAt) {
-  return {
-    id: "lmstudio.detected",
-    providerId: provider.id,
-    modelId: "lmstudio:detected",
-    displayName: "LM Studio detected model slot",
-    family: "lm-studio",
-    quantization: "unknown",
-    sizeBytes: null,
-    contextWindow: null,
-    capabilities: ["chat", "responses", "embeddings"],
-    privacyClass: "local_private",
-    source: "lm_studio_public_discovery",
-    state: provider.status === "running" ? "available" : "provider_stopped",
-    discoveredAt: checkedAt,
-  };
-}
-
 export function localFixtureEndpointRecord(checkedAt) {
   return {
     id: "endpoint.local.auto",
@@ -327,7 +309,7 @@ export function backendRegistryRecords({
       supportedFormats: ["lm_studio_catalog"],
       hardware,
       checkedAt,
-      evidenceRefs: ["lm_studio_public_cli_or_server_probe"],
+      evidenceRefs: ["lm_studio_public_discovery_retired"],
     },
     {
       id: "backend.openai-compatible",

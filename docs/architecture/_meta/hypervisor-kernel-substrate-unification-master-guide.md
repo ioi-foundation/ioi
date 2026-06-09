@@ -1288,6 +1288,20 @@ terminal provider migration: direct Rust daemon-core provider transports,
 provider request shaping, projection, Agentgres-backed reads, lifecycle
 ownership, and command-transport retirement remain required.
 
+Slice 825 retired the default LM Studio public-discovery projection fallback.
+Default seeding no longer runs the LM Studio public CLI to infer provider
+status, no longer runs `lms ls` to mint artifact records, no longer creates the
+legacy `lmstudio.detected` artifact fallback, and no longer prunes
+LM Studio artifact/endpoint/instance projection maps from JS. `discoverLmStudioProvider()`
+now only records inert absent/configured provider metadata with
+`lm_studio_public_discovery_retired` evidence, `discoverLmStudioArtifacts()`
+returns an empty list before public-CLI execution, and
+`pruneLmStudioPublicProjectionRecords()` returns a retired Rust-required
+projection result without touching maps. This still does not claim terminal
+provider inventory/projection migration: direct Rust daemon-core provider
+inventory, lifecycle, Agentgres-backed projection reads, and command-transport
+retirement remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

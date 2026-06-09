@@ -44,13 +44,8 @@ export function ensureNativeLocalFixtureArtifact(state, checkedAt, deps = {}) {
 export function discoverLmStudioProvider(state, checkedAt, deps = {}) {
   const {
     env = process.env,
-    isExecutable,
-    lmStudioPublicCliEnabled,
-    runPublicCommand,
-    truncate,
   } = deps;
-  const publicCliEnabled = lmStudioPublicCliEnabled();
-  if (!publicCliEnabled && !env.LM_STUDIO_BASE_URL && !env.LM_STUDIO_URL) {
+  if (!env.LM_STUDIO_BASE_URL && !env.LM_STUDIO_URL) {
     return {
       id: "provider.lmstudio",
       kind: "lm_studio",
@@ -63,30 +58,14 @@ export function discoverLmStudioProvider(state, checkedAt, deps = {}) {
       capabilities: ["chat", "responses", "embeddings"],
       discovery: {
         checkedAt,
-        evidenceRefs: ["lm_studio_public_cli_discovery_disabled"],
+        evidenceRefs: ["lm_studio_public_discovery_retired"],
         publicCli: null,
         disabledByDefault: true,
+        rustCoreBoundary: "model_mount.provider_inventory",
       },
     };
   }
-  const candidates = [
-    env.IOI_LMS_PATH,
-    path.join(state.homeDir, ".local/bin/lm-studio"),
-    path.join(state.homeDir, ".local/bin/lm-studio.AppImage"),
-    path.join(state.homeDir, ".lmstudio/bin/lms"),
-  ].filter(Boolean);
-  const executables = candidates.filter((candidate) => isExecutable(candidate));
-  const lmsPath = candidates.find((candidate) => path.basename(candidate) === "lms" && isExecutable(candidate));
-  const serverStatus = publicCliEnabled && lmsPath ? runPublicCommand(lmsPath, ["server", "status"]) : null;
-  const serverStatusText = serverStatus?.stdout ?? serverStatus?.stderr ?? "";
   const baseUrl = env.LM_STUDIO_BASE_URL ?? env.LM_STUDIO_URL ?? "http://127.0.0.1:1234/v1";
-  const status = serverStatusText.match(/\b(ON|RUNNING|STARTED)\b/i)
-    ? "running"
-    : env.LM_STUDIO_BASE_URL || env.LM_STUDIO_URL
-      ? "configured"
-      : executables.length > 0
-      ? "stopped"
-      : "absent";
   return {
     id: "provider.lmstudio",
     kind: "lm_studio",
@@ -94,64 +73,32 @@ export function discoverLmStudioProvider(state, checkedAt, deps = {}) {
     apiFormat: "openai_compatible",
     driver: "lm_studio",
     baseUrl,
-    status,
+    status: "configured",
     privacyClass: "local_private",
     capabilities: ["chat", "responses", "embeddings"],
     discovery: {
       checkedAt,
-      evidenceRefs: [
-        publicCliEnabled ? "lm_studio_public_cli_or_server_probe" : "lm_studio_public_cli_discovery_disabled",
-      ],
-      executableCandidates: candidates,
-      foundExecutables: publicCliEnabled ? executables : [],
-      publicCli: publicCliEnabled && lmsPath
-        ? {
-            path: lmsPath,
-            serverStatus: truncate(serverStatusText),
-            exitCode: serverStatus?.status ?? null,
-          }
-        : null,
+      evidenceRefs: ["lm_studio_base_url_configured", "lm_studio_public_discovery_retired"],
+      publicCli: null,
+      rustCoreBoundary: "model_mount.provider_inventory",
     },
   };
 }
 
 export function discoverLmStudioArtifacts(_state, provider, checkedAt, deps = {}) {
-  const {
-    lmStudioArtifact,
-    lmStudioPublicCliEnabled,
-    parseLmStudioList,
-    runPublicCommand,
-  } = deps;
-  if (!lmStudioPublicCliEnabled()) return [];
-  const lmsPath = provider.discovery?.publicCli?.path;
-  if (!lmsPath) return [];
-  const result = runPublicCommand(lmsPath, ["ls"]);
-  if (!result || result.status !== 0) return [];
-  return parseLmStudioList(result.stdout).map((model) => lmStudioArtifact(provider, model, checkedAt));
+  return [];
 }
 
 export function pruneLmStudioPublicProjectionRecords(state) {
-  for (const [id, artifact] of state.artifacts.entries()) {
-    if (
-      artifact.providerId === "provider.lmstudio" ||
-      String(id).startsWith("lmstudio.") ||
-      String(artifact.source ?? "").startsWith("lm_studio_public")
-    ) {
-      state.artifacts.delete(id);
-    }
-  }
-  const removedEndpointIds = new Set();
-  for (const [id, endpoint] of state.endpoints.entries()) {
-    if (endpoint.providerId === "provider.lmstudio" || String(id).includes("provider.lmstudio")) {
-      removedEndpointIds.add(id);
-      state.endpoints.delete(id);
-    }
-  }
-  for (const [id, instance] of state.instances.entries()) {
-    if (instance.providerId === "provider.lmstudio" || removedEndpointIds.has(instance.endpointId)) {
-      state.instances.delete(id);
-    }
-  }
+  return {
+    status: "retired",
+    rust_core_boundary: "model_mount.provider_inventory_projection",
+    evidence_refs: [
+      "lm_studio_public_projection_prune_retired",
+      "rust_daemon_core_provider_inventory_required",
+      "agentgres_provider_inventory_projection_required",
+    ],
+  };
 }
 
 export function pruneInternalFixtureProjectionRecords(state, deps = {}) {

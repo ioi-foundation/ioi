@@ -295,7 +295,6 @@ import {
 import {
   backendRegistryRecords,
   defaultRouteRecords,
-  lmStudioDetectedArtifactRecord,
   localFixtureArtifactRecords,
   localFixtureEndpointRecord,
   localFolderProviderRecord,
@@ -462,7 +461,6 @@ export class ModelMountingState {
       findExecutable,
       hostedProvider,
       internalFixtureModelsEnabled,
-      lmStudioDetectedArtifactRecord,
       localFixtureArtifactRecords,
       localFixtureEndpointRecord,
       localFolderProviderRecord,
