@@ -1,9 +1,6 @@
 import {
-} from "./catalog-entries.mjs";
-import {
   catalogProviderConfigHealthFields,
 } from "./catalog-projections.mjs";
-import { catalogProviderStatus } from "./catalog-registry.mjs";
 import {
   liveModelCatalogEnabled,
   liveModelDownloadEnabled,
@@ -42,8 +39,8 @@ export function localManifestCatalogProviderPort(state) {
 }
 
 export function ollamaCatalogProviderPort(state) {
+  void state;
   const evidenceRefs = ["ollama_catalog_list_bridge", "model_catalog_provider_port"];
-  const provider = state.providers.get("provider.ollama");
   return {
     id: "catalog.ollama",
     label: "Ollama catalog bridge",
@@ -52,24 +49,24 @@ export function ollamaCatalogProviderPort(state) {
     formats: ["ollama"],
     evidenceRefs,
     health: () => ({
-      status: provider && provider.status !== "blocked" ? "configured" : "gated",
-      baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null,
+      status: "gated",
+      baseUrlHash: null,
+      rustCoreBoundary: "model_mount.catalog_provider_projection",
       evidenceRefs,
     }),
     search: async ({ query, format, quantization, searchedAt }) => {
       void query;
       void quantization;
       void searchedAt;
-      if (format && format !== "ollama") return { ...catalogProviderStatus({ id: "catalog.ollama", label: "Ollama catalog bridge", evidenceRefs }), status: "configured", results: [] };
-      if (!provider || provider.status === "blocked") {
-        return { status: "gated", baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null, evidenceRefs, results: [] };
-      }
+      void format;
       return {
-        status: "configured",
-        baseUrlHash: provider?.baseUrl ? stableHash(provider.baseUrl) : null,
+        status: "gated",
+        baseUrlHash: null,
+        rustCoreBoundary: "model_mount.catalog_provider_search",
         evidenceRefs: [
           ...evidenceRefs,
           "ollama_catalog_js_driver_bridge_retired",
+          "ollama_catalog_provider_map_readback_retired",
           "rust_daemon_core_provider_inventory_required",
         ],
         results: [],

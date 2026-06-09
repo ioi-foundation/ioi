@@ -1533,6 +1533,18 @@ config. Catalog-provider port health helpers also no longer call
 direct Rust daemon-core catalog-provider projection owns admitted provider
 configuration, custody, and auth-header readiness.
 
+Slice 845 retired the remaining Ollama catalog-provider JS provider-map
+readback from the catalog-provider port. `ollamaCatalogProviderPort()` no longer
+reads `state.providers.get("provider.ollama")`, calls `catalogProviderStatus()`,
+hashes JS `provider.baseUrl`, or reports configured provider truth from the JS
+inventory map. Its health and search surfaces now expose only gated
+Rust-core-required projection/search metadata with
+`ollama_catalog_provider_map_readback_retired` evidence until direct Rust
+daemon-core provider inventory and catalog-provider projection APIs own admitted
+Ollama provider truth. This keeps the Ollama bridge explicitly non-terminal:
+the long-term shape is direct Rust daemon-core model_mount/catalog-provider
+projection, not JS provider-map status readback or bridge-owned authority.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

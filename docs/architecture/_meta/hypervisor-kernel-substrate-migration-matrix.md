@@ -17375,7 +17375,7 @@ surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 843 is now satisfied.
 
-## Implementation Slice Evidence: 844
+## Compacted Implementation Slice Evidence: 844
 
 Slice 844 retired private catalog-provider configuration readback and
 config-derived auth-header projection from JS. `catalogProviderConfig()` now
@@ -17409,7 +17409,39 @@ Agentgres-backed provider configuration/material truth, command-transport
 replacement, and local map/projection materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 844 after the next direct
+Scheduled matrix-compaction obligation from Slice 844 is now satisfied.
+
+## Implementation Slice Evidence: 845
+
+Slice 845 retired the remaining Ollama catalog-provider JS provider-map
+readback from the catalog-provider port. `ollamaCatalogProviderPort()` no
+longer reads `state.providers.get("provider.ollama")`, calls
+`catalogProviderStatus()`, hashes JS `provider.baseUrl`, or reports configured
+provider truth from the JS inventory map. Ollama catalog health now reports only
+gated `model_mount.catalog_provider_projection` metadata, and search now reports
+only gated `model_mount.catalog_provider_search` metadata with
+`ollama_catalog_provider_map_readback_retired` evidence. The focused test
+installs a poisonous provider map and provider driver to prove the port cannot
+recover live catalog truth from JS provider inventory while direct Rust
+daemon-core provider inventory and catalog-provider projection APIs remain the
+required terminal path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal catalog-provider migration: direct Rust
+daemon-core catalog-provider projection/control APIs, Rust-owned provider
+inventory, wallet/cTEE custody, Agentgres-backed provider configuration/material
+truth, command-transport replacement, and local map/projection materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 845 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

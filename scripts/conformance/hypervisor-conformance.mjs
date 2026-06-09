@@ -601,6 +601,9 @@ function runDocs() {
       /Slice 844 retired private catalog-provider configuration readback/.test(guide) &&
       /`catalogProviderConfig\(\)` helper now fails closed at\s+`model_mount\.catalog_provider_configuration\.read_private`/.test(guide) &&
       /Catalog-provider\s+auth-header resolution now fails closed before calling\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
+      /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback/.test(guide) &&
+      /`ollamaCatalogProviderPort\(\)` no longer\s+reads `state\.providers\.get\("provider\.ollama"\)`/.test(guide) &&
+      /`ollama_catalog_provider_map_readback_retired` evidence/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -701,6 +704,9 @@ function runDocs() {
       /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
       /Slice 844 retired private catalog-provider configuration readback and\s+config-derived auth-header projection from JS/.test(guide) &&
       /Catalog-provider port health helpers also no longer call\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
+      /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback from the catalog-provider port/.test(guide) &&
+      /Its health and search surfaces now expose only gated\s+Rust-core-required projection\/search metadata/.test(guide) &&
+      /the long-term shape is direct Rust daemon-core model_mount\/catalog-provider\s+projection/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -878,10 +884,15 @@ function runDocs() {
       /Slice 843 retired cached catalog-provider runtime-material readback/.test(matrix) &&
       /Catalog-provider port health helpers for\s+local-manifest, Hugging Face-compatible, and custom HTTP providers also no\s+longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 843 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 844/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 844/.test(matrix) &&
       /Slice 844 retired private catalog-provider configuration readback/.test(matrix) &&
       /`catalogProviderAuthHeaders\(\)` now fails closed at\s+`model_mount\.catalog_provider_auth_header\.resolve` before calling\s+`state\.catalogProviderConfig\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 844/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 844 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 845/.test(matrix) &&
+      /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback/.test(matrix) &&
+      /`ollamaCatalogProviderPort\(\)` no\s+longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(matrix) &&
+      /`ollama_catalog_provider_map_readback_retired` evidence/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 845/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -892,6 +903,8 @@ function runDocs() {
       /private catalog-provider config readback now fails closed at `model_mount\.catalog_provider_configuration\.read_private`/.test(implementationMatrix) &&
       /cached bound\/missing\/failed runtime-material readback/.test(implementationMatrix) &&
       /catalog-provider port health helpers no longer call `state\.catalogProviderConfig\(\)` or `state\.catalogProviderRuntimeMaterial\(\)`/.test(implementationMatrix) &&
+      /the Ollama catalog-provider port no longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(implementationMatrix) &&
+      /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -8578,6 +8591,16 @@ function runBridge() {
       !/return existing;/.test(catalogProviderConfigurationOperations) &&
       !/state\?\.catalogProviderConfig/.test(catalogProviderPorts) &&
       !/state\?\.catalogProviderRuntimeMaterial/.test(catalogProviderPorts) &&
+      !/state\.providers\.get\("provider\.ollama"\)/.test(catalogProviderPorts) &&
+      !/catalogProviderStatus/.test(catalogProviderPorts) &&
+      /ollama_catalog_provider_map_readback_retired/.test(catalogProviderPorts) &&
+      /rustCoreBoundary:\s*"model_mount\.catalog_provider_projection"/.test(catalogProviderPorts) &&
+      /Ollama catalog provider port must not read JS provider inventory/.test(
+        catalogProviderPortsTest,
+      ) &&
+      /ollama catalog provider ignores JS provider map and retires bridge search/.test(
+        catalogProviderPortsTest,
+      ) &&
       /private catalog provider config readback fails closed before JS map projection/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&

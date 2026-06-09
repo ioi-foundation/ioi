@@ -73,25 +73,33 @@ test("local manifest catalog projects metadata and retires JS manifest search", 
   }
 });
 
-test("ollama catalog provider reports gated and configured bridge states", async () => {
-  const gated = ollamaCatalogProviderPort({ providers: new Map() });
-  assert.equal(gated.health().status, "gated");
-
-  const provider = { id: "provider.ollama", baseUrl: "http://127.0.0.1:11434", status: "configured" };
+test("ollama catalog provider ignores JS provider map and retires bridge search", async () => {
+  const providerMap = {
+    get() {
+      throw new Error("Ollama catalog provider port must not read JS provider inventory");
+    },
+  };
   let driverCalled = false;
-  const configured = ollamaCatalogProviderPort({
-    providers: new Map([["provider.ollama", provider]]),
+  const port = ollamaCatalogProviderPort({
+    providers: providerMap,
     driverForProvider() {
       driverCalled = true;
       throw new Error("Ollama catalog bridge must not call JS provider driver inventory");
     },
   });
 
-  assert.equal(configured.health().status, "configured");
-  const result = await configured.search({ query: "llama", format: "ollama", searchedAt: "2026-06-03T12:00:00.000Z" });
-  assert.equal(result.status, "configured");
+  const health = port.health();
+  assert.equal(health.status, "gated");
+  assert.equal(health.baseUrlHash, null);
+  assert.equal(health.rustCoreBoundary, "model_mount.catalog_provider_projection");
+
+  const result = await port.search({ query: "llama", format: "ollama", searchedAt: "2026-06-03T12:00:00.000Z" });
+  assert.equal(result.status, "gated");
+  assert.equal(result.baseUrlHash, null);
+  assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
   assert.deepEqual(result.results, []);
   assert.equal(result.evidenceRefs.includes("ollama_catalog_js_driver_bridge_retired"), true);
+  assert.equal(result.evidenceRefs.includes("ollama_catalog_provider_map_readback_retired"), true);
   assert.equal(driverCalled, false);
 });
 
