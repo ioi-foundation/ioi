@@ -396,7 +396,6 @@ export function createModelMountingReadProjectionFacade({
       };
     }
     return {
-      server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
       receipts: state.listReceipts(),
     };
   }

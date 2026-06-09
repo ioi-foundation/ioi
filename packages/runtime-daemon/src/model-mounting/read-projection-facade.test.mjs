@@ -1033,6 +1033,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "vault"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "provider_health"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_survey_input"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "server_status_input"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "artifacts"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "endpoints"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "instances"), false);
@@ -1060,6 +1061,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "vault"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "provider_health"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "runtime_survey_input"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "server_status_input"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "artifacts"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "endpoints"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "instances"), false);

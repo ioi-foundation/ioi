@@ -632,6 +632,9 @@ function runDocs() {
       /Slice 855 retired broad snapshot\/projection model-topology input from JS/.test(guide) &&
       /no longer sends `artifacts`,\s+`endpoints`, `instances`, `providers`, `routes`, `downloads`, or\s+`product_artifact_policy`/.test(guide) &&
       /Dedicated topology read projections still use narrow Rust-planned inputs/.test(guide) &&
+      /Slice 856 retired broad snapshot\/projection server-status input from JS/.test(guide) &&
+      /no longer sends\s+`server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(guide) &&
+      /dedicated `server_status` read projection and\s+authority snapshot still use their explicit narrow server-status input/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -987,11 +990,16 @@ function runDocs() {
       /`provider_health: providerHealthList\(\.\.\.\)` or\s+`runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(matrix) &&
       /`provider_health` and\s+`runtime_survey_input` are absent from broad snapshot\/projection request state/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 854 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 855/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 855/.test(matrix) &&
       /Slice 855 retired broad snapshot\/projection model-topology input from JS/.test(matrix) &&
       /`artifacts`,\s+`endpoints`, `instances`, `providers`, `routes`, `downloads`, or\s+`product_artifact_policy`/.test(matrix) &&
       /topology fields are absent from broad\s+snapshot\/projection request state/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 855/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 855 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 856/.test(matrix) &&
+      /Slice 856 retired broad snapshot\/projection server-status input from JS/.test(matrix) &&
+      /`server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(matrix) &&
+      /`server_status_input` is absent from broad\s+snapshot\/projection request state/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 856/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1012,6 +1020,7 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
+      /broad snapshot\/projection requests also no longer send `server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -8205,7 +8214,7 @@ function runBridge() {
       !/runtime_preference:\s*state\.runtimePreference\(\)/.test(modelMountingReadProjectionFacade) &&
       !/mcp_servers:\s*state\.listMcpServers\(\)/.test(modelMountingReadProjectionFacade) &&
       !/conversation_states:\s*state\.listConversations\(\)/.test(modelMountingReadProjectionFacade) &&
-      /return \{\s*server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\),\s*receipts:\s*state\.listReceipts\(\),\s*\};\s*\}\s*function throwReadProjectionRustCoreRequired/.test(modelMountingReadProjectionFacade) &&
+      /return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};\s*\}\s*function throwReadProjectionRustCoreRequired/.test(modelMountingReadProjectionFacade) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
       /latestRuntimeSurvey\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_runtime_survey"\)/.test(modelMountingReadProjectionFacade) &&
@@ -8314,6 +8323,7 @@ function runBridge() {
       /Object\.hasOwn\(snapshotRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"endpoints"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"instances"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8344,6 +8354,7 @@ function runBridge() {
       /Object\.hasOwn\(projectionRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"server_status_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"endpoints"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"instances"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&

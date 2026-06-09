@@ -1638,6 +1638,14 @@ receipt replay still receives the topology slices it explicitly needs, but
 local JS model topology maps can no longer become public projection truth
 through the broad Rust projection envelope.
 
+Slice 856 retired broad snapshot/projection server-status input from JS. The
+default model_mount read-projection input no longer sends
+`server_status_input: serverStatusProjectionInput(...)` for broad `snapshot`
+and `projection` requests. The dedicated `server_status` read projection and
+authority snapshot still use their explicit narrow server-status input, but JS
+volatile server-control state can no longer become public server truth through
+the broad Rust projection envelope.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

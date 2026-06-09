@@ -17672,7 +17672,7 @@ still remain before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 854 is now satisfied.
 
-## Implementation Slice Evidence: 855
+## Compacted Implementation Slice Evidence: 855
 
 Slice 855 retired broad snapshot/projection model-topology input from JS. The
 default model_mount read-projection input no longer sends `artifacts`,
@@ -17697,7 +17697,31 @@ receipt-replay topology ownership, and local map/projection materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 855 after the next direct
+Scheduled matrix-compaction obligation from Slice 855 is now satisfied.
+
+## Implementation Slice Evidence: 856
+
+Slice 856 retired broad snapshot/projection server-status input from JS. The
+default model_mount read-projection input no longer sends
+`server_status_input: serverStatusProjectionInput(...)` for broad `snapshot`
+and `projection` requests. The dedicated `server_status` read projection and
+authority snapshot still use their explicit narrow server-status input. The
+focused test asserts `server_status_input` is absent from broad
+snapshot/projection request state.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal server-control projection migration: direct
+Rust daemon-core server-control projection APIs, Agentgres-backed server truth,
+command-transport replacement, authority-snapshot server ownership, and local
+volatile state materialization retirement still remain before this surface
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 856 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry transport facades,
