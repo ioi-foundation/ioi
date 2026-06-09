@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  customHttpCatalogProviderPort,
   fixtureCatalogProviderPort,
   huggingFaceCatalogBaseUrl,
   huggingFaceCatalogProviderPort,
@@ -91,7 +92,7 @@ test("ollama catalog provider reports gated and configured bridge states", async
   assert.equal(driverCalled, false);
 });
 
-test("Hugging Face catalog provider projects material-backed health", () => {
+test("Hugging Face catalog provider projects material-backed health and retires live JS search", async () => {
   const material = {
     baseUrl: "https://hf.example.test",
     runtimeMaterialStatus: "bound_runtime_session",
@@ -101,12 +102,63 @@ test("Hugging Face catalog provider projects material-backed health", () => {
   const state = {
     catalogProviderConfig: () => ({ id: "catalog.huggingface", enabled: true }),
     catalogProviderRuntimeMaterial: () => material,
-    searchHuggingFaceCatalog: async () => ({ results: [] }),
   };
 
   assert.equal(huggingFaceCatalogBaseUrl(state), "https://hf.example.test");
-  const health = huggingFaceCatalogProviderPort(state).health();
+  const port = huggingFaceCatalogProviderPort(state);
+  const health = port.health();
   assert.equal(health.gate, "vault-backed Hugging Face-compatible catalog setup");
   assert.equal(health.materialConfigured, true);
   assert.equal(health.materialVaultRefHash, "hash-material");
+
+  const result = await port.search({
+    query: "llama",
+    format: "gguf",
+    quantization: "q4",
+    limit: 5,
+    searchedAt: "2026-06-09T12:00:00.000Z",
+  });
+  assert.equal(result.status, "gated");
+  assert.equal(result.code, "model_catalog_live_http_search_retired");
+  assert.equal(result.providerId, "catalog.huggingface");
+  assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
+  assert.equal(result.evidenceRefs.includes("catalog_live_http_search_js_retired"), true);
+  assert.equal(result.evidenceRefs.includes("rust_daemon_core_catalog_search_required"), true);
+  assert.deepEqual(result.results, []);
+});
+
+test("custom HTTP catalog provider retires live JS auth and HTTP search", async () => {
+  const state = {
+    catalogProviderConfig(providerId) {
+      assert.equal(providerId, "catalog.custom_http");
+      return { id: providerId, enabled: true };
+    },
+    catalogProviderRuntimeMaterial(providerId) {
+      assert.equal(providerId, "catalog.custom_http");
+      return {
+        baseUrl: "https://catalog.example.test",
+        runtimeMaterialStatus: "bound_runtime_session",
+        materialVaultRefHash: "hash-material",
+        materialSource: "runtime_memory",
+      };
+    },
+  };
+  const port = customHttpCatalogProviderPort(state);
+
+  const result = await port.search({
+    query: "llama",
+    format: "gguf",
+    quantization: "q4",
+    limit: 5,
+    searchedAt: "2026-06-09T12:00:00.000Z",
+  });
+
+  assert.equal(result.status, "configured");
+  assert.equal(result.code, "model_catalog_live_http_search_retired");
+  assert.equal(result.providerId, "catalog.custom_http");
+  assert.match(result.baseUrlHash, /^[0-9a-f]{64}$/);
+  assert.equal(result.materialVaultRefHash, "hash-material");
+  assert.equal(result.evidenceRefs.includes("catalog_live_http_search_js_retired"), true);
+  assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
+  assert.deepEqual(result.results, []);
 });

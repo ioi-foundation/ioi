@@ -1356,6 +1356,20 @@ Rust daemon-core provider transport, provider inventory/control projection,
 wallet/cTEE vault material resolution, Agentgres-backed read APIs, and
 replacement of command transport with direct Rust APIs remain required.
 
+Slice 830 retired external live model-catalog HTTP search from the JS daemon
+catalog-provider ports. The Hugging Face-compatible search helper module is
+deleted, `model-mounting.mjs` no longer exposes `searchHuggingFaceCatalog()`,
+and the Hugging Face-compatible plus custom HTTP catalog ports now return
+`model_catalog_live_http_search_retired` with
+`catalog_live_http_search_js_retired` evidence before catalog auth material,
+`/api/models`, `/catalog/search`, timeout, or `fetchWithTimeout()` request
+shaping can run in JS. Fixture and local-manifest catalog reads remain local
+read adapters only. This still does not claim terminal catalog migration:
+direct Rust daemon-core catalog search/provider transport, wallet/cTEE custody
+resolution, Agentgres-backed catalog projection, and direct Rust APIs must
+replace the remaining JS catalog status/search orchestration and local
+materialization before the pure Rust substrate target is met.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

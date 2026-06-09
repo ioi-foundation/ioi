@@ -3,28 +3,18 @@ import path from "node:path";
 
 import {
   catalogEntryMatches,
-  catalogRecordsFromPayload,
   fixtureModelCatalog,
-  genericCatalogEntry,
   localManifestCatalogEntries,
 } from "./catalog-entries.mjs";
 import {
-  catalogAuthFailureFields,
-  catalogAuthFailureStatus,
-  catalogAuthProviderFields,
-  catalogEntryWithAuth,
   catalogProviderConfigHealthFields,
 } from "./catalog-projections.mjs";
 import { catalogProviderStatus } from "./catalog-registry.mjs";
-import { catalogProviderAuthHeaders } from "./catalog-provider-config.mjs";
 import {
   liveModelCatalogEnabled,
   liveModelDownloadEnabled,
-  modelCatalogTimeoutMs,
 } from "./environment.mjs";
 import {
-  fetchWithTimeout,
-  normalizeScopes,
   stableHash,
 } from "./io.mjs";
 
@@ -137,7 +127,10 @@ export function huggingFaceCatalogProviderPort(state) {
       liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
       evidenceRefs,
     }),
-    search: async ({ query, format, quantization, limit, searchedAt }) => state.searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }),
+    search: async () => {
+      const health = huggingFaceCatalogProviderPort(state).health();
+      return retiredLiveCatalogSearchResult("catalog.huggingface", health, evidenceRefs);
+    },
   };
 }
 
@@ -150,63 +143,31 @@ export function customHttpCatalogProviderPort(state) {
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
     health: () => customHttpCatalogHealth(state, evidenceRefs),
-    search: async ({ query, format, quantization, limit, searchedAt }) => {
+    search: async () => {
       const health = customHttpCatalogHealth(state, evidenceRefs);
-      const baseUrl = customHttpCatalogBaseUrl(state);
-      if (!baseUrl) return { ...health, results: [] };
-      try {
-        const auth = await catalogProviderAuthHeaders("catalog.custom_http", state);
-        const url = new URL("/catalog/search", baseUrl);
-        if (query) url.searchParams.set("q", query);
-        if (format) url.searchParams.set("format", format);
-        if (quantization) url.searchParams.set("quantization", quantization);
-        url.searchParams.set("limit", String(limit));
-        const response = await fetchWithTimeout(url, { timeoutMs: modelCatalogTimeoutMs(), headers: auth.headers });
-        if (!response.ok) {
-          return {
-            ...health,
-            ...catalogAuthProviderFields(auth.evidence),
-            status: "degraded",
-            baseUrlHash: stableHash(baseUrl),
-            errorHash: stableHash(`http:${response.status}`),
-            evidenceRefs: [...evidenceRefs, ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
-            results: [],
-          };
-        }
-        const payload = await response.json();
-        const records = catalogRecordsFromPayload(payload);
-        const results = records
-          .map((record) =>
-            genericCatalogEntry(record, {
-              catalogProviderId: "catalog.custom_http",
-              sourceLabelPrefix: "Custom catalog",
-              searchedAt,
-            }),
-          )
-          .filter(Boolean)
-          .map((entry) => catalogEntryWithAuth(entry, auth.evidence))
-          .filter((entry) => catalogEntryMatches(entry, { query, format, quantization }))
-          .slice(0, limit);
-        return {
-          ...health,
-          ...catalogAuthProviderFields(auth.evidence),
-          status: "available",
-          baseUrlHash: stableHash(baseUrl),
-          evidenceRefs: [...evidenceRefs, "custom_http_catalog_search", ...normalizeScopes(auth.evidence?.evidenceRefs, [])],
-          results,
-        };
-      } catch (error) {
-        return {
-          ...health,
-          ...catalogAuthFailureFields(error),
-          status: catalogAuthFailureStatus(error),
-          baseUrlHash: stableHash(baseUrl),
-          errorHash: stableHash(error?.message ?? "custom catalog failed"),
-          evidenceRefs,
-          results: [],
-        };
-      }
+      return retiredLiveCatalogSearchResult("catalog.custom_http", health, evidenceRefs);
     },
+  };
+}
+
+export function retiredLiveCatalogSearchResult(providerId, health = {}, evidenceRefs = []) {
+  const status = health.status === "disabled" || health.status === "gated" || health.status === "unconfigured"
+    ? health.status
+    : "configured";
+  return {
+    ...health,
+    status,
+    code: "model_catalog_live_http_search_retired",
+    operationKind: "model_catalog.live_http_search",
+    providerId,
+    rustCoreBoundary: "model_mount.catalog_provider_search",
+    evidenceRefs: [
+      ...evidenceRefs,
+      "catalog_live_http_search_js_retired",
+      "rust_daemon_core_catalog_search_required",
+      "agentgres_catalog_projection_required",
+    ],
+    results: [],
   };
 }
 

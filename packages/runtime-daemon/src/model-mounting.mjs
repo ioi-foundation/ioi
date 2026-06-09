@@ -114,9 +114,6 @@ import {
   storageSummary as storageSummaryState,
 } from "./model-mounting/catalog-operations.mjs";
 import {
-  searchHuggingFaceCatalog as searchHuggingFaceCatalogState,
-} from "./model-mounting/huggingface-catalog-search.mjs";
-import {
   catalogImportUrl as catalogImportUrlState,
   downloadModel as downloadModelState,
 } from "./model-mounting/catalog-download-operations.mjs";
@@ -784,10 +781,6 @@ export class ModelMountingState {
     return enrichCatalogEntryForState(this, entry, options, {
       enrichCatalogEntry,
     });
-  }
-
-  async searchHuggingFaceCatalog({ query, format, quantization, limit, searchedAt }) {
-    return searchHuggingFaceCatalogState(this, { query, format, quantization, limit, searchedAt });
   }
 
   async catalogImportUrl(body = {}) {

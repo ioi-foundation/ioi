@@ -16940,7 +16940,7 @@ required before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 828 is now satisfied.
 
-## Implementation Slice Evidence: 829
+## Compacted Implementation Slice Evidence: 829
 
 Slice 829 retired the remaining JS provider HTTP transport/probe authority
 path. `provider-transport.mjs` no longer performs live `fetch()` calls, resolves
@@ -16973,9 +16973,42 @@ transport with direct Rust daemon-core APIs, and retirement of remaining
 provider lifecycle/read adapters remain required before this surface reaches
 the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 829 after the next direct
+Scheduled matrix-compaction obligation from Slice 829 is now satisfied.
+
+## Implementation Slice Evidence: 830
+
+Slice 830 retired external live model-catalog HTTP search from the JS daemon
+catalog-provider ports. The Hugging Face-compatible search helper module and
+test were deleted, and `model-mounting.mjs` no longer imports or exposes
+`searchHuggingFaceCatalog()`. Hugging Face-compatible and custom HTTP catalog
+provider searches now return `model_catalog_live_http_search_retired` with
+`catalog_live_http_search_js_retired`,
+`rust_daemon_core_catalog_search_required`, and
+`agentgres_catalog_projection_required` evidence before JS can resolve catalog
+auth headers, shape `/api/models` or `/catalog/search` URLs, apply catalog HTTP
+timeouts, or call `fetchWithTimeout()`.
+
+Fixture catalog and local-manifest catalog reads remain local read adapters
+only. External catalog search, provider transport, wallet/cTEE custody
+resolution, and Agentgres-backed catalog projection must move into direct Rust
+daemon-core APIs before catalog search can become authoritative again.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog/provider/search, wallet/cTEE vault material resolution,
+Agentgres-backed read/projection APIs, replacement of command transport with
+direct Rust daemon-core APIs, and retirement of remaining catalog
+status/search orchestration and local materialization remain required before
+this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 830 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-provider transport facades, provider lifecycle/read adapters, local
-map/projection materialization, and Rust daemon-core provider read/execution
-APIs.
+catalog/provider transport facades, catalog status/search orchestration,
+provider lifecycle/read adapters, local map/projection materialization, and
+Rust daemon-core catalog/provider read/execution APIs.

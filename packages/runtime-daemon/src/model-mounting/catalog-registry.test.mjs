@@ -41,16 +41,16 @@ test("catalog provider status merges public health and result fields", () => {
       }),
     },
     {
-      status: "available",
+      status: "configured",
       baseUrlHash: "result-base",
-      evidenceRefs: ["custom_http_catalog_search"],
+      evidenceRefs: ["catalog_live_http_search_js_retired"],
     },
   );
 
   assert.equal(status.id, "catalog.custom_http");
-  assert.equal(status.status, "available");
+  assert.equal(status.status, "configured");
   assert.equal(status.baseUrlHash, "result-base");
   assert.equal(status.materialConfigured, true);
-  assert.deepEqual(status.evidenceRefs, ["custom_http_catalog_search"]);
+  assert.deepEqual(status.evidenceRefs, ["catalog_live_http_search_js_retired"]);
   assert.deepEqual(status.operations, ["search", "resolveVariant", "importUrl", "download", "health"]);
 });

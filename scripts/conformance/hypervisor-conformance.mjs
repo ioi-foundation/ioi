@@ -645,6 +645,10 @@ function runDocs() {
       /`provider-transport\.mjs` no longer performs `fetch\(\)`/.test(guide) &&
       /`fetchProviderJson\(\)` and `retryProviderOpen\(\)` now fail closed with\s+`model_mount_provider_http_transport_retired`/.test(guide) &&
       /Ollama catalog bridge no longer reaches through the JS provider driver for live\s+catalog truth/.test(guide) &&
+      /Slice 830 retired external live model-catalog HTTP search from the JS daemon\s+catalog-provider ports/.test(guide) &&
+      /Hugging Face-compatible search helper module is\s+deleted/.test(guide) &&
+      /`model_catalog_live_http_search_retired`/.test(guide) &&
+      /before catalog auth material,\s+`\/api\/models`, `\/catalog\/search`, timeout, or `fetchWithTimeout\(\)` request\s+shaping can run in JS/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -751,12 +755,20 @@ function runDocs() {
       /model_mount_backend_process_supervisor_retired/.test(matrix) &&
       /Binary-backed vLLM, llama\.cpp, and Ollama lifecycle paths now fail before JS\s+process staging/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 828 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 829/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 829/.test(matrix) &&
       /Slice 829 retired the remaining JS provider HTTP transport\/probe authority\s+path/.test(matrix) &&
       /model_mount_provider_http_transport_retired/.test(matrix) &&
       /OpenAI-compatible, Ollama, vLLM, and llama\.cpp driver health\/inventory\/lifecycle\s+methods now fail before/.test(matrix) &&
       /ollama_catalog_js_driver_bridge_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 829/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 829 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 830/.test(matrix) &&
+      /Slice 830 retired external live model-catalog HTTP search from the JS daemon\s+catalog-provider ports/.test(matrix) &&
+      /model_catalog_live_http_search_retired/.test(matrix) &&
+      /catalog_live_http_search_js_retired/.test(matrix) &&
+      /before JS can resolve catalog\s+auth headers, shape `\/api\/models` or `\/catalog\/search` URLs/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 830/.test(matrix) &&
+      /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
+      /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -1492,6 +1504,12 @@ function runBridge() {
     : "";
   const catalogProviderConfigTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
+    : "";
+  const catalogProviderPorts = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs")
+    : "";
+  const catalogProviderPortsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
     : "";
   const providerDriverHelpers = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
@@ -11097,6 +11115,12 @@ function runReceipts() {
   const catalogProviderConfigTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs")
     : "";
+  const catalogProviderPorts = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs")
+    : "";
+  const catalogProviderPortsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
+    : "";
   const catalogProviderRuntimeMaterialFromBodyBlock =
     catalogProviderConfig.match(/export function catalogProviderRuntimeMaterialFromBody[\s\S]*?export function catalogProviderAuthConfig/)?.[0] ?? "";
   const catalogProviderAuthConfigBlock =
@@ -13375,6 +13399,37 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
     ],
     "Phase 9/10 is pending: model-mount state accessor mutation facades must fail closed or reuse projections without JS artifact/instance writes",
+  );
+  assertCheck(
+    result,
+    "model-mount-live-catalog-http-search-js-retired",
+    !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.test.mjs") &&
+      /retiredLiveCatalogSearchResult/.test(catalogProviderPorts) &&
+      /model_catalog_live_http_search_retired/.test(catalogProviderPorts) &&
+      /catalog_live_http_search_js_retired/.test(catalogProviderPorts) &&
+      /rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
+      /agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
+      /model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
+      /huggingFaceCatalogProviderPort\(state\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+      /customHttpCatalogProviderPort\(state\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+      !/searchHuggingFaceCatalog/.test(modelMountingRoot) &&
+      !/new URL\("\/api\/models"/.test(catalogProviderPorts) &&
+      !/new URL\("\/catalog\/search"/.test(catalogProviderPorts) &&
+      !/fetchWithTimeout/.test(catalogProviderPorts) &&
+      !/catalogProviderAuthHeaders/.test(catalogProviderPorts) &&
+      !/huggingface_catalog_search|custom_http_catalog_search/.test(catalogProviderPorts) &&
+      /Hugging Face catalog provider projects material-backed health and retires live JS search/.test(
+        catalogProviderPortsTest,
+      ) &&
+      /custom HTTP catalog provider retires live JS auth and HTTP search/.test(catalogProviderPortsTest) &&
+      /model_catalog_live_http_search_retired/.test(catalogProviderPortsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+    ],
+    "Phase 7/11 is pending: external model catalog search must fail closed before JS auth, URL shaping, or HTTP transport",
   );
   assertCheck(
     result,
