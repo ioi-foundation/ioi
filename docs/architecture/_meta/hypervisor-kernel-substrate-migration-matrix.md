@@ -17131,7 +17131,7 @@ Scheduled matrix-compaction obligation from Slice 834 is now satisfied.
 ## Compacted Implementation Slice Evidence: 835
 
 Slice 835 retired public model catalog search orchestration from JS.
-`catalogSearch()` now fails closed with
+Mounted `catalogSearch()` now fails closed with
 `model_catalog_search_js_orchestrator_retired` at `model_catalog.search` before
 JS can normalize `q`/`query`, format, quantization, or limit filters, iterate
 `state.catalogProviderPorts()`, call provider `search()` functions, enrich
@@ -17214,7 +17214,7 @@ Scheduled matrix-compaction obligation from Slice 837 is now satisfied.
 ## Compacted Implementation Slice Evidence: 838
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
-JS. `enrichCatalogEntryForState()` now fails closed with
+JS. Mounted catalog entry enrichment now fails closed with
 `model_catalog_variant_enrichment_js_retired` at
 `model_catalog.variant_enrich` before JS can read storage summaries, materialize
 artifact maps, apply max-byte policy, call the local enrichment helper, or
@@ -17325,13 +17325,12 @@ Scheduled matrix-compaction obligation from Slice 841 is now satisfied.
 
 Slice 842 retired stale public catalog-search orchestration helper injection
 from the mounted model_mount facade. `catalogSearch()` already fails closed with
-`model_catalog_search_js_orchestrator_retired`; it now passes only
-`runtimeError` and schema metadata into `catalog-operations.mjs` instead of
-injecting `catalogProviderStatus()` or `normalizeLimit()`. The focused catalog
-operation test passes those retired search helpers as poisonous dependencies to
-prove the fail-closed operation ignores them before any JS provider-status
-shaping, filter normalization, provider iteration, entry enrichment, result
-aggregation, or `lastCatalogSearch` write can run.
+`model_catalog_search_js_orchestrator_retired`; the mounted facade stopped
+injecting `catalogProviderStatus()` or `normalizeLimit()` into the retired search
+operation. The focused catalog operation test now calls the mounted method
+directly to prove the fail-closed operation ignores provider-status shaping,
+filter normalization, provider iteration, entry enrichment, result aggregation,
+or `lastCatalogSearch` writes.
 
 Focused evidence:
 
@@ -18012,7 +18011,7 @@ read-projection boundary. Public `catalogStatus()` now calls
 `plan_model_mount_read_projection` kind `catalog_status` with empty request
 state, translates only the Rust `model_catalog_status_js_readback_retired`
 refusal at the JS edge, and no longer imports the dead `catalogStatus()` or
-`catalogStatusProjectionInput()` helpers from `catalog-operations.mjs`. The Rust
+`catalogStatusProjectionInput()` helpers. The Rust
 bridge direct `catalog_status` arm fails closed even when a direct caller
 provides `catalog_status_input`; broad `snapshot` and `projection` nested
 `catalog` envelopes remain schema-stable empty/default objects instead of
@@ -18487,10 +18486,36 @@ state, provider lifecycle execution, replay, command-transport retirement, and
 stable protocol APIs remain required before backend lifecycle reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 884 after the next direct
+Scheduled matrix-compaction obligation from Slice 884 is now satisfied.
+
+## Implementation Slice Evidence: 885
+
+Slice 885 retired the fail-closed `catalog-operations.mjs` helper module after
+public catalog search orchestration, catalog-status readback, and non-search
+catalog variant enrichment had already been reduced to Rust-core-required or
+Rust read-projection edge refusals. The mounted public `ModelMountingState`
+catalog methods now own storage-summary readback,
+`model_catalog_search_js_orchestrator_retired`, and
+`model_catalog_variant_enrichment_js_retired` directly, without importing a
+standalone catalog operations helper or preserving a helper-level catalog
+operations facade surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog search/status/variant projection APIs over Agentgres-backed state,
+command-transport retirement, and stable protocol APIs remain required before
+catalog reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 885 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls, direct
-Rust daemon-core backend lifecycle APIs, provider lifecycle execution,
-Agentgres-backed replay, projection, process control, and stable protocol APIs.
-The `ioi-step-module-bridge` command path is acceptable only as migration
-transport; it is not the terminal architecture.
+Rust daemon-core catalog/search/status/projection APIs, Agentgres-backed replay,
+and stable protocol APIs. The `ioi-step-module-bridge` command path is
+acceptable only as migration transport; it is not the terminal architecture.

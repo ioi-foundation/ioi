@@ -55,11 +55,6 @@ import {
   seedBackends as seedBackendsState,
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
-import {
-  catalogSearch as catalogSearchState,
-  enrichCatalogEntryForState,
-  storageSummary as storageSummaryState,
-} from "./model-mounting/catalog-operations.mjs";
 import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
 import {
   providerHealthFailureStatus,
@@ -913,23 +908,45 @@ export class ModelMountingState {
   }
 
   storageSummary() {
-    return storageSummaryState(this, {
-      env: process.env,
-      listModelFiles,
-      stableHash,
-      statSync: fs.statSync,
-    });
+    const files = listModelFiles(this.modelRoot);
+    const totalBytes = files.reduce((total, filePath) => total + fs.statSync(filePath).size, 0);
+    const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
+    const orphanCount = files.filter((filePath) => !knownPaths.has(filePath)).length;
+    const quotaBytes = Number(process.env.IOI_MODEL_STORAGE_QUOTA_BYTES ?? 0) || null;
+    return {
+      rootHash: stableHash(this.modelRoot),
+      totalBytes,
+      quotaBytes,
+      quotaStatus: quotaBytes && totalBytes > quotaBytes ? "over_quota" : "ok",
+      fileCount: files.length,
+      orphanCount,
+      destructiveActionsRequireUnload: true,
+      evidenceRefs: ["model_storage_quota_boundary", "artifact_delete_unload_guard"],
+    };
   }
 
   async catalogSearch(query = {}) {
-    return catalogSearchState(this, query, {
-      runtimeError,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+    throw runtimeError({
+      status: 501,
+      code: "model_catalog_search_js_orchestrator_retired",
+      message: "Model catalog search orchestration is retired in JS; use Rust daemon-core catalog search/projection.",
+      details: {
+        operation_kind: "model_catalog.search",
+        rust_core_boundary: "model_mount.catalog_provider_search",
+        request_field_count: Object.keys(query ?? {}).length,
+        evidence_refs: [
+          "model_catalog_search_js_orchestrator_retired",
+          "rust_daemon_core_catalog_search_required",
+          "agentgres_catalog_projection_required",
+        ],
+      },
     });
   }
 
   enrichCatalogEntry(entry, options = {}) {
-    return enrichCatalogEntryForState(this, entry, options);
+    void entry;
+    void options;
+    throwCatalogVariantEnrichmentRetired();
   }
 
   async catalogImportUrl(body = {}) {
@@ -2223,6 +2240,23 @@ function throwCatalogDownloadRustCoreRequired(operation_kind, details = {}) {
         "rust_daemon_core_catalog_download_required",
       ],
       ...details,
+    },
+  });
+}
+
+function throwCatalogVariantEnrichmentRetired() {
+  throw runtimeError({
+    status: 501,
+    code: "model_catalog_variant_enrichment_js_retired",
+    message: "Model catalog variant enrichment is retired in JS; use Rust daemon-core catalog projection/search.",
+    details: {
+      operation_kind: "model_catalog.variant_enrich",
+      rust_core_boundary: "model_mount.catalog_variant_projection",
+      evidence_refs: [
+        "model_catalog_variant_enrichment_js_retired",
+        "rust_daemon_core_catalog_variant_projection_required",
+        "agentgres_catalog_projection_required",
+      ],
     },
   });
 }

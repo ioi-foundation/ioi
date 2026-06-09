@@ -773,6 +773,8 @@ function runDocs() {
       /`startCatalogProviderOAuth\(\)`,\s+`completeCatalogProviderOAuth\(\)`, `exchangeCatalogProviderOAuth\(\)`,\s+`refreshCatalogProviderOAuth\(\)`, and `revokeCatalogProviderOAuth\(\)` now pass only/.test(guide) &&
       /Slice 842 retired stale public catalog-search orchestration helper injection\s+from the mounted model_mount facade/.test(guide) &&
       /`catalogSearch\(\)` already fails closed with\s+`model_catalog_search_js_orchestrator_retired`/.test(guide) &&
+      /Slice 885 retired the fail-closed `catalog-operations\.mjs` helper module/.test(guide) &&
+      /Mounted `ModelMountingState` methods now own\s+storage-summary readback/.test(guide) &&
       /Slice 843 retired cached catalog-provider runtime-material readback from the JS\s+catalog-provider control surface/.test(guide) &&
       /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
       /Slice 844 retired private catalog-provider configuration readback and\s+config-derived auth-header projection from JS/.test(guide) &&
@@ -1025,7 +1027,11 @@ function runDocs() {
       /Implementation Slice Evidence: 884/.test(matrix) &&
       /Slice 884 retired the fail-closed `backend-lifecycle\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` backend methods now own backend health\/start\/stop\/log\s+refusals/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 884/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 884 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 885/.test(matrix) &&
+      /Slice 885 retired the fail-closed `catalog-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState`\s+catalog methods now own storage-summary readback/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 885/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1188,7 +1194,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 881 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 882 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 883 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 884/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 884 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 885/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1273,7 +1280,10 @@ function runDocs() {
       /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
         implementationMatrix,
       ) &&
-      /mounted `catalogSearch\(\)` no longer injects `catalogProviderStatus\(\)` or `normalizeLimit\(\)` compatibility helpers/.test(
+      /the fail-closed `catalog-operations\.mjs` helper module is deleted/.test(
+        implementationMatrix,
+      ) &&
+      /mounted `ModelMountingState` catalog methods now own storage-summary readback/.test(
         implementationMatrix,
       ) &&
       /public catalog-provider configuration list\/get now fail closed at `model_mount\.catalog_provider_configuration\.list`\/`get`/.test(
@@ -11958,9 +11968,10 @@ function runReceipts() {
   const catalogProviderPortsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
     : "";
-  const catalogOperations = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs")
-    : "";
+  const catalogOperations = [
+    modelMountingState.match(/\n\s+storageSummary\(\) \{[\s\S]*?\n\s+async catalogImportUrl\(body = \{\}\) \{/)?.[0] ?? "",
+    modelMountingState.match(/function throwCatalogVariantEnrichmentRetired\(\) \{[\s\S]*?\n\}\n\nfunction assertCanonicalModelTokenizerRequestBody/)?.[0] ?? "",
+  ].join("\n");
   const catalogOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
     : "";
@@ -14339,29 +14350,28 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-search-js-orchestrator-retired",
-    /model_catalog_search_js_orchestrator_retired/.test(catalogOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
+      /model_catalog_search_js_orchestrator_retired/.test(catalogOperations) &&
       /model_catalog\.search/.test(catalogOperations) &&
       /rust_core_boundary:\s*"model_mount\.catalog_provider_search"/.test(catalogOperations) &&
       /rust_daemon_core_catalog_search_required/.test(catalogOperations) &&
       /agentgres_catalog_projection_required/.test(catalogOperations) &&
-      !/for \(const port of state\.catalogProviderPorts\(\)\)/.test(catalogOperations) &&
-      !/state\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
+      !/for \(const port of (?:state|this)\.catalogProviderPorts\(\)\)/.test(catalogOperations) &&
+      !/(?:state|this)\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
       !/providerResults/.test(catalogOperations) &&
-      !/state\.enrichCatalogEntry/.test(catalogOperations) &&
-      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?catalogSearchState\(this,\s*query,\s*\{\s*runtimeError,\s*schemaVersion:\s*MODEL_MOUNT_SCHEMA_VERSION,\s*\}\)/.test(modelMountingState) &&
+      !/(?:state|this)\.enrichCatalogEntry/.test(catalogOperations) &&
+      /catalogSearch\(query = \{\}\)\s*\{[\s\S]*?throw runtimeError\(\{[\s\S]*?model_catalog_search_js_orchestrator_retired/.test(modelMountingState) &&
       !/catalogSearch\(query = \{\}\)\s*\{(?:(?!\n  enrichCatalogEntry).)*(?:catalogProviderStatus|normalizeLimit)/s.test(modelMountingState) &&
       !/import\s*\{[\s\S]*?normalizeLimit[\s\S]*?\}\s*from "\.\/model-mounting\/provider-protocol\.mjs"/.test(modelMountingState) &&
       !/catalogProviderStatus,\s*modelCatalogProviderPorts/.test(modelMountingState) &&
       /catalog search fails closed before JS provider orchestration/.test(catalogOperationsTest) &&
-      /depsWithRetiredSearchHelpers/.test(catalogOperationsTest) &&
-      /catalogProviderStatus must not run in JS catalog search facade/.test(catalogOperationsTest) &&
-      /normalizeLimit must not run in JS catalog search facade/.test(catalogOperationsTest) &&
+      /ModelMountingState\.prototype\.catalogSearch/.test(catalogOperationsTest) &&
       /model_catalog_search_js_orchestrator_retired/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.lastCatalogSearch,\s*null\)/.test(catalogOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
     ],
     "Phase 7/11 is pending: public catalog search orchestration must fail closed before JS provider iteration, entry enrichment, result aggregation, or last-search writes",
@@ -14379,11 +14389,12 @@ function runReceipts() {
       ) &&
       /translateCatalogStatusError/.test(modelMountingReadProjectionFacade) &&
       !/retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
       !/catalogStatusProjectionInput/.test(catalogOperations) &&
       !/throwCatalogStatusReadbackRetired/.test(catalogOperations) &&
-      !/const providers = state\.catalogProviderPorts\(\)/.test(catalogOperations) &&
-      !/const lastSearch = state\.lastCatalogSearch/.test(catalogOperations) &&
-      !/storage:\s*state\.storageSummary\(\)/.test(catalogOperations) &&
+      !/const providers = (?:state|this)\.catalogProviderPorts\(\)/.test(catalogOperations) &&
+      !/const lastSearch = (?:state|this)\.lastCatalogSearch/.test(catalogOperations) &&
+      !/storage:\s*(?:state|this)\.storageSummary\(\)/.test(catalogOperations) &&
       !/catalog status fails closed before JS status readback/.test(catalogOperationsTest) &&
       !/catalog status projection input fails closed before JS provider and storage materialization/.test(
         catalogOperationsTest,
@@ -14398,8 +14409,6 @@ function runReceipts() {
       /"catalog_status" => Err\(BridgeError::new\(\s*"model_catalog_status_js_readback_retired"/.test(bridgeModule) &&
       !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(bridgeModule),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
-      "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
     ],
@@ -14408,7 +14417,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-variant-enrichment-js-retired",
-    /model_catalog_variant_enrichment_js_retired/.test(catalogOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
+      /model_catalog_variant_enrichment_js_retired/.test(catalogOperations) &&
       /model_catalog\.variant_enrich/.test(catalogOperations) &&
       /rust_core_boundary:\s*"model_mount\.catalog_variant_projection"/.test(catalogOperations) &&
       /rust_daemon_core_catalog_variant_projection_required/.test(catalogOperations) &&
@@ -14432,11 +14442,12 @@ function runReceipts() {
       !/selectionReceiptFields:/.test(catalogEntries) &&
       /catalog entry enrichment fails closed before JS storage and artifact materialization/.test(catalogOperationsTest) &&
       /fixture catalog variant enrichment fails closed before JS selection metadata/.test(catalogEntriesTest) &&
-      /assert\.equal\(state\.storageSummaryCalls,\s*0\)/.test(catalogOperationsTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
-      !/enrichCatalogEntryForState\(this,\s*entry,\s*options,\s*\{/.test(modelMountingRoot),
+      /ModelMountingState\.prototype\.enrichCatalogEntry/.test(catalogOperationsTest) &&
+      !/enrichCatalogEntryForState\(this,\s*entry,\s*options,\s*\{/.test(modelMountingRoot) &&
+      !/from "\.\/model-mounting\/catalog-operations\.mjs"/.test(modelMountingState),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-entries.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs",

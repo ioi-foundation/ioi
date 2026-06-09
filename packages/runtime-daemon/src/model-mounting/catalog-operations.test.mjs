@@ -1,19 +1,28 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import {
-  catalogSearch,
-  enrichCatalogEntryForState,
-  storageSummary,
-} from "./catalog-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
+
+function catalogSearch(state, query = {}) {
+  return ModelMountingState.prototype.catalogSearch.call(state, query);
+}
+
+function enrichCatalogEntryForState(state, entry, options = {}) {
+  return ModelMountingState.prototype.enrichCatalogEntry.call(state, entry, options);
+}
+
+function storageSummary(state) {
+  return ModelMountingState.prototype.storageSummary.call(state);
+}
 
 function fakeState() {
   return {
-    artifacts: new Map([
-      ["artifact.known", { id: "artifact.known", artifactPath: "/models/known.gguf" }],
-    ]),
+    artifacts: new Map(),
     lastCatalogSearch: null,
-    modelRoot: "/models",
+    modelRoot: null,
     now: "2026-06-03T23:00:00.000Z",
     catalogProviderPortCalls: 0,
     enrichCatalogEntryCalls: 0,
@@ -43,77 +52,43 @@ function fakeState() {
     nowIso() {
       return this.now;
     },
-    storageSummary() {
-      this.storageSummaryCalls += 1;
-      return storageSummary(this, storageDeps());
-    },
   };
 }
-
-function storageDeps(env = { IOI_MODEL_STORAGE_QUOTA_BYTES: "12" }) {
-  const sizes = new Map([
-    ["/models/known.gguf", 5],
-    ["/models/orphan.gguf", 10],
-  ]);
-  return {
-    env,
-    listModelFiles(root) {
-      assert.equal(root, "/models");
-      return [...sizes.keys()];
-    },
-    statSync(filePath) {
-      return { size: sizes.get(filePath) };
-    },
-    stableHash(value) {
-      return `hash:${value}`;
-    },
-  };
-}
-
-const deps = {
-  catalogProviderStatus(port, result = null) {
-    return {
-      id: port.id,
-      status: result?.status ?? port.status ?? "unknown",
-      searchedAt: result?.searchedAt ?? null,
-    };
-  },
-  normalizeLimit(value, fallback, max) {
-    const parsed = Number(value ?? fallback);
-    return Math.min(max, Number.isFinite(parsed) && parsed > 0 ? parsed : fallback);
-  },
-  schemaVersion: "schema.catalog-ops.test",
-};
-
-const depsWithRetiredSearchHelpers = {
-  ...deps,
-  catalogProviderStatus() {
-    throw new Error("catalogProviderStatus must not run in JS catalog search facade");
-  },
-  normalizeLimit() {
-    throw new Error("normalizeLimit must not run in JS catalog search facade");
-  },
-};
 
 test("storage summary counts bytes, quota, and orphan model files", () => {
+  const previousQuota = process.env.IOI_MODEL_STORAGE_QUOTA_BYTES;
+  const modelRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-storage-"));
   const state = fakeState();
+  state.modelRoot = modelRoot;
+  const knownPath = path.join(modelRoot, "known.gguf");
+  const orphanPath = path.join(modelRoot, "nested", "orphan.gguf");
+  fs.mkdirSync(path.dirname(orphanPath), { recursive: true });
+  fs.writeFileSync(knownPath, "12345");
+  fs.writeFileSync(orphanPath, "1234567890");
+  state.artifacts.set("artifact.known", { id: "artifact.known", artifactPath: knownPath });
+  process.env.IOI_MODEL_STORAGE_QUOTA_BYTES = "12";
+  try {
+    const summary = storageSummary(state);
 
-  const summary = storageSummary(state, storageDeps());
-
-  assert.equal(summary.rootHash, "hash:/models");
-  assert.equal(summary.totalBytes, 15);
-  assert.equal(summary.quotaBytes, 12);
-  assert.equal(summary.quotaStatus, "over_quota");
-  assert.equal(summary.fileCount, 2);
-  assert.equal(summary.orphanCount, 1);
-  assert.deepEqual(summary.evidenceRefs, ["model_storage_quota_boundary", "artifact_delete_unload_guard"]);
+    assert.equal(summary.rootHash.length, 64);
+    assert.equal(summary.totalBytes, 15);
+    assert.equal(summary.quotaBytes, 12);
+    assert.equal(summary.quotaStatus, "over_quota");
+    assert.equal(summary.fileCount, 2);
+    assert.equal(summary.orphanCount, 1);
+    assert.deepEqual(summary.evidenceRefs, ["model_storage_quota_boundary", "artifact_delete_unload_guard"]);
+  } finally {
+    if (previousQuota === undefined) delete process.env.IOI_MODEL_STORAGE_QUOTA_BYTES;
+    else process.env.IOI_MODEL_STORAGE_QUOTA_BYTES = previousQuota;
+    fs.rmSync(modelRoot, { recursive: true, force: true });
+  }
 });
 
 test("catalog search fails closed before JS provider orchestration", async () => {
   const state = fakeState();
 
   await assert.rejects(
-    () => catalogSearch(state, { query: "  LLAMA  ", format: "GGUF", quantization: "Q4", limit: 1 }, depsWithRetiredSearchHelpers),
+    () => catalogSearch(state, { query: "  LLAMA  ", format: "GGUF", quantization: "Q4", limit: 1 }),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_catalog_search_js_orchestrator_retired");
@@ -140,7 +115,7 @@ test("catalog entry enrichment fails closed before JS storage and artifact mater
   const state = fakeState();
 
   assert.throws(
-    () => enrichCatalogEntryForState(state, { id: "entry.1", sizeBytes: 10 }, { maxBytes: 20 }, deps),
+    () => enrichCatalogEntryForState(state, { id: "entry.1", sizeBytes: 10 }, { maxBytes: 20 }),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_catalog_variant_enrichment_js_retired");

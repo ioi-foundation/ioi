@@ -1426,7 +1426,7 @@ historical fixture tests; later slices retired the remaining non-search catalog
 variant enrichment path as a JS authority surface.
 
 Slice 835 retired public model catalog search orchestration from JS. The
-`catalogSearch()` facade now fails closed with
+mounted `catalogSearch()` facade now fails closed with
 `model_catalog_search_js_orchestrator_retired` before JS can normalize search
 filters, iterate catalog provider ports, enrich catalog entries, aggregate
 provider results, or write `lastCatalogSearch`. Provider-level catalog search
@@ -1459,8 +1459,8 @@ Slice 867 moved public catalog-status readback refusal onto the Rust
 read-projection boundary. Public `catalogStatus()` now calls
 `plan_model_mount_read_projection` kind `catalog_status` with empty request
 state, translates only the Rust `model_catalog_status_js_readback_retired`
-refusal at the JS edge, and no longer imports the dead `catalogStatus()` or
-`catalogStatusProjectionInput()` helpers from `catalog-operations.mjs`. The Rust
+refusal at the JS edge, and no longer imports dead JS `catalogStatus()` or
+`catalogStatusProjectionInput()` helpers. The Rust
 bridge direct `catalog_status` arm fails closed even when a direct caller
 provides `catalog_status_input`; broad `snapshot` and `projection` nested
 `catalog` envelopes remain schema-stable empty/default objects instead of
@@ -1484,7 +1484,7 @@ retirement, and stable protocol APIs remain required before runtime survey
 reaches the pure Rust substrate target.
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
-JS. `enrichCatalogEntryForState()` now fails closed with
+JS. Mounted catalog entry enrichment now fails closed with
 `model_catalog_variant_enrichment_js_retired` before reading storage summaries,
 artifact maps, max-byte policy, or local helper-generated backend/download/
 recommendation fields. `catalogVariantForSource()` now fails closed at the same
@@ -1527,9 +1527,9 @@ terminal catalog-provider custody migration is complete.
 
 Slice 842 retired stale public catalog-search orchestration helper injection
 from the mounted model_mount facade. `catalogSearch()` already fails closed with
-`model_catalog_search_js_orchestrator_retired`; it now passes only
-`runtimeError` and schema metadata into `catalog-operations.mjs` instead of
-injecting `catalogProviderStatus()` or `normalizeLimit()`. The public facade can
+`model_catalog_search_js_orchestrator_retired`; the mounted facade stopped
+injecting `catalogProviderStatus()` or `normalizeLimit()` into the retired search
+operation. The public facade can
 therefore no longer accidentally restore JS provider-status shaping, filter
 normalization, provider iteration, entry enrichment, result aggregation, or
 `lastCatalogSearch` writes through unused dependency hooks. Direct Rust
@@ -2020,6 +2020,17 @@ importing a backend lifecycle helper. This does not claim terminal backend
 lifecycle migration: direct Rust daemon-core backend lifecycle/control/projection
 APIs over Agentgres-backed state, provider lifecycle execution, replay,
 command-transport retirement, and stable protocol APIs remain required.
+
+Slice 885 retired the fail-closed `catalog-operations.mjs` helper module after
+public catalog search orchestration, catalog-status readback, and non-search
+catalog variant enrichment had already been reduced to Rust-core-required or
+Rust read-projection edge refusals. Mounted `ModelMountingState` methods now own
+storage-summary readback, `model_catalog_search_js_orchestrator_retired`, and
+`model_catalog_variant_enrichment_js_retired` directly, without importing a
+standalone catalog operations helper. This does not claim terminal catalog
+migration: direct Rust daemon-core catalog search/status/variant projection APIs
+over Agentgres-backed state, command-transport retirement, and stable protocol
+APIs remain required.
 
 ## Part II: Target Execution Model
 
