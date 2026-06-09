@@ -146,7 +146,6 @@ import {
   publicOAuthSession,
   publicOAuthState,
 } from "./model-mounting/oauth-boundary.mjs";
-import { OAuthCredentialProvider } from "./model-mounting/oauth-credential-provider.mjs";
 import {
   completeCatalogProviderOAuth as completeCatalogProviderOAuthState,
   exchangeCatalogProviderOAuth as exchangeCatalogProviderOAuthState,
@@ -371,10 +370,6 @@ export class ModelMountingState {
       now: this.now,
       secrets: vaultSecrets,
       materialAdapter: configuredVaultMaterialAdapter({ now: this.now }),
-    });
-    this.oauthCredentialProvider = new OAuthCredentialProvider({
-      now: this.now,
-      vault: this.vault,
     });
     this.providers = new Map();
     this.backends = new Map();

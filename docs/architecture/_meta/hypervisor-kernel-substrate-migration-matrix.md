@@ -16975,7 +16975,7 @@ the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 829 is now satisfied.
 
-## Implementation Slice Evidence: 830
+## Compacted Implementation Slice Evidence: 830
 
 Slice 830 retired external live model-catalog HTTP search from the JS daemon
 catalog-provider ports. The Hugging Face-compatible search helper module and
@@ -17006,9 +17006,39 @@ direct Rust daemon-core APIs, and retirement of remaining catalog
 status/search orchestration and local materialization remain required before
 this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 830 after the next direct
+Scheduled matrix-compaction obligation from Slice 830 is now satisfied.
+
+## Implementation Slice Evidence: 831
+
+Slice 831 retired the private JS OAuth credential custody helper. The mounted
+model-mounting state no longer constructs `OAuthCredentialProvider`, and the
+helper now fails closed with
+`model_mount_oauth_credential_provider_js_retired` before JS can bind vault
+refs, resolve vault refs, remove vault refs, exchange authorization codes,
+refresh access tokens, revoke sessions, or resolve OAuth access headers.
+`fetchOAuthToken()` now fails closed with
+`model_mount_oauth_token_transport_retired` before `fetchWithTimeout()`,
+form-body construction, timeout policy, or token endpoint transport can run in
+JS. OAuth boundary projections now identify
+`RustDaemonCore.catalogProviderOAuth` rather than
+`OAuthCredentialProvider.exchangeAuthorizationCode` as the exchange owner.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal catalog-provider custody migration: direct
+Rust daemon-core OAuth control, wallet/cTEE vault custody, Agentgres-backed
+OAuth/session projection, direct Rust API replacement for command transport,
+and retirement of remaining catalog-provider read/config helpers remain
+required before OAuth-backed catalog/provider auth can execute again.
+
+Next scheduled matrix-compaction pass: compact Slice 831 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider transport facades, catalog status/search orchestration,
+catalog/provider transport facades, catalog-provider read/config helpers,
 provider lifecycle/read adapters, local map/projection materialization, and
-Rust daemon-core catalog/provider read/execution APIs.
+Rust daemon-core catalog/provider/OAuth custody APIs.

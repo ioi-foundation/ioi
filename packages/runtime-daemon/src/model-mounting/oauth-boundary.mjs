@@ -1,14 +1,12 @@
 import crypto from "node:crypto";
 
 import {
-  fetchWithTimeout,
   normalizeOAuthScopes,
   normalizeScopes,
   runtimeError,
   safeId,
   stableHash,
 } from "./io.mjs";
-import { modelCatalogTimeoutMs } from "./environment.mjs";
 
 const SECRET_REDACTION = "[REDACTED]";
 
@@ -46,14 +44,14 @@ export function oauthBoundaryForSession(session, options = {}) {
     return {
       configured: false,
       status: "requires_oauth_exchange",
-      tokenExchange: "OAuthCredentialProvider.exchangeAuthorizationCode",
+      tokenExchange: "RustDaemonCore.catalogProviderOAuth",
       evidenceRefs: ["catalog_oauth_boundary"],
     };
   }
   return {
     configured: session.status === "active",
     status: session.status === "active" ? (options.refreshed ? "refreshed" : "active") : session.status ?? "unknown",
-    tokenExchange: "OAuthCredentialProvider",
+    tokenExchange: "RustDaemonCore.catalogProviderOAuth",
     oauthSessionHash: stableHash(session.id),
     expiresAt: session.expiresAt ?? null,
     scopes: normalizeOAuthScopes(session.scopes, []),
@@ -118,25 +116,22 @@ export function publicOAuthState(state) {
 }
 
 export async function fetchOAuthToken(tokenEndpoint, payload) {
-  const response = await fetchWithTimeout(tokenEndpoint, {
-    method: "POST",
-    timeoutMs: modelCatalogTimeoutMs(),
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(payload),
+  void payload;
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_oauth_token_transport_retired",
+    message: "OAuth token transport is retired in JS; use Rust daemon-core wallet/cTEE custody.",
+    details: {
+      token_endpoint_hash: stableHash(tokenEndpoint),
+      operation_kind: "model_mount.catalog_provider_oauth.token_transport",
+      rust_core_boundary: "model_mount.catalog_provider_oauth_custody",
+      evidence_refs: [
+        "oauth_token_transport_js_retired",
+        "rust_daemon_core_catalog_provider_oauth_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ],
+    },
   });
-  if (!response.ok) {
-    throw runtimeError({
-      status: 403,
-      code: "policy",
-      message: "OAuth token endpoint rejected the credential exchange.",
-      details: {
-        token_endpoint_hash: stableHash(tokenEndpoint),
-        error_hash: stableHash(`oauth:${response.status}`),
-        evidence_refs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_exchange_fail_closed"],
-      },
-    });
-  }
-  return response;
 }
 
 export async function parseOAuthTokenResponse(response) {
@@ -146,7 +141,7 @@ export async function parseOAuthTokenResponse(response) {
       status: 502,
       code: "provider_error",
       message: "OAuth token endpoint did not return an access token.",
-      details: { evidence_refs: ["OAuthCredentialProvider.tokenEndpoint", "oauth_access_token_required"] },
+      details: { evidence_refs: ["oauth_token_response_parser", "oauth_access_token_required"] },
     });
   }
   return payload;

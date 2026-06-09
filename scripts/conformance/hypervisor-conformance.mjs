@@ -649,6 +649,11 @@ function runDocs() {
       /Hugging Face-compatible search helper module is\s+deleted/.test(guide) &&
       /`model_catalog_live_http_search_retired`/.test(guide) &&
       /before catalog auth material,\s+`\/api\/models`, `\/catalog\/search`, timeout, or `fetchWithTimeout\(\)` request\s+shaping can run in JS/.test(guide) &&
+      /Slice 831 retired the private JS OAuth credential custody helper/.test(guide) &&
+      /no longer constructs `OAuthCredentialProvider`/.test(guide) &&
+      /`model_mount_oauth_credential_provider_js_retired`/.test(guide) &&
+      /`model_mount_oauth_token_transport_retired`/.test(guide) &&
+      /`RustDaemonCore\.catalogProviderOAuth`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -761,14 +766,22 @@ function runDocs() {
       /OpenAI-compatible, Ollama, vLLM, and llama\.cpp driver health\/inventory\/lifecycle\s+methods now fail before/.test(matrix) &&
       /ollama_catalog_js_driver_bridge_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 829 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 830/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 830/.test(matrix) &&
       /Slice 830 retired external live model-catalog HTTP search from the JS daemon\s+catalog-provider ports/.test(matrix) &&
       /model_catalog_live_http_search_retired/.test(matrix) &&
       /catalog_live_http_search_js_retired/.test(matrix) &&
       /before JS can resolve catalog\s+auth headers, shape `\/api\/models` or `\/catalog\/search` URLs/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 830/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 830 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 831/.test(matrix) &&
+      /Slice 831 retired the private JS OAuth credential custody helper/.test(matrix) &&
+      /model_mount_oauth_credential_provider_js_retired/.test(matrix) &&
+      /model_mount_oauth_token_transport_retired/.test(matrix) &&
+      /`RustDaemonCore\.catalogProviderOAuth`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 831/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
+      /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
+      /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -11133,19 +11146,19 @@ function runReceipts() {
     : "";
   const oauthCredentialStartAuthorizationBlock =
     oauthCredentialProvider.match(
-      /startAuthorization\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async completeAuthorization/,
+      /startAuthorization\(\{ providerId, body = \{\} \} = \{\}\) \{[\s\S]*?\n  }\n\n  async completeAuthorization/,
     )?.[0] ?? "";
   const oauthCredentialCompleteAuthorizationBlock =
     oauthCredentialProvider.match(
-      /async completeAuthorization\(\{ providerId, stateRecord, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async exchangeAuthorizationCode/,
+      /async completeAuthorization\(\{ providerId, stateRecord = null, body = \{\} \} = \{\}\) \{[\s\S]*?\n  }\n\n  async exchangeAuthorizationCode/,
     )?.[0] ?? "";
   const oauthCredentialExchangeAuthorizationCodeBlock =
     oauthCredentialProvider.match(
-      /async exchangeAuthorizationCode\(\{ providerId, body = \{\} \}\) \{[\s\S]*?\n  }\n\n  async refreshAccessToken/,
+      /async exchangeAuthorizationCode\(\{ providerId, body = \{\} \} = \{\}\) \{[\s\S]*?\n  }\n\n  async refreshAccessToken/,
     )?.[0] ?? "";
   const oauthCredentialRefreshAccessTokenBlock =
     oauthCredentialProvider.match(
-      /async refreshAccessToken\(session\) \{[\s\S]*?\n  }\n\n  revokeSession/,
+      /async refreshAccessToken\(session = null\) \{[\s\S]*?\n  }\n\n  revokeSession/,
     )?.[0] ?? "";
   const oauthBoundary = exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs")
@@ -13539,169 +13552,121 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-oauth-start-request-aliases-retired",
-    /body\.state_id/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.session_id/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.authorization_endpoint/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.token_endpoint/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.redirect_uri/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.client_id/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.pkce_required/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.state_ttl_seconds/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.state_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.code_verifier_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.authorization_endpoint_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.token_endpoint_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.redirect_uri_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
-      /body\.client_id_vault_ref/.test(oauthCredentialStartAuthorizationBlock) &&
-      /OAuth credential provider ignores retired start authorization request aliases/.test(
-        oauthCredentialProviderTest,
-      ) &&
-      /authorizationEndpoint: "https:\/\/auth\.example\.test\/oauth"/.test(oauthCredentialProviderTest) &&
-      /authUrl: "https:\/\/auth\.example\.test\/auth-url"/.test(oauthCredentialProviderTest) &&
-      /tokenEndpoint: "https:\/\/auth\.example\.test\/token"/.test(oauthCredentialProviderTest) &&
-      /clientId: "client-id"/.test(oauthCredentialProviderTest) &&
-      /stateVaultRef: "vault:\/\/oauth\/retired-state"/.test(oauthCredentialProviderTest) &&
-      /assert\.equal\(vault\.bindings\.size,\s*0\)/.test(oauthCredentialProviderTest) &&
-      !/body\.(?:stateId|sessionId|authorizationEndpoint|auth_url|authUrl|tokenEndpoint|redirectUri|clientId|pkceRequired|stateTtlSeconds|stateVaultRef|codeVerifierVaultRef|authorizationEndpointVaultRef|tokenEndpointVaultRef|redirectUriVaultRef|clientIdVaultRef)\b/.test(
-        oauthCredentialStartAuthorizationBlock,
-      ),
+    /throwOAuthCredentialProviderRustCoreRequired\("model_mount\.catalog_provider_oauth\.start_authorization"/.test(
+      oauthCredentialStartAuthorizationBlock,
+    ) &&
+      /model_mount_oauth_credential_provider_js_retired/.test(oauthCredentialProvider) &&
+      /oauth_credential_provider_js_retired/.test(oauthCredentialProvider) &&
+      /rust_daemon_core_catalog_provider_oauth_required/.test(oauthCredentialProvider) &&
+      /rust_daemon_core_wallet_ctee_custody_required/.test(oauthCredentialProvider) &&
+      !/new OAuthCredentialProvider/.test(modelMountingState) &&
+      !/this\.oauthCredentialProvider/.test(modelMountingState) &&
+      !/bindVaultRef/.test(oauthCredentialStartAuthorizationBlock) &&
+      /OAuth credential provider start authorization fails before JS vault binding/.test(oauthCredentialProviderTest) &&
+      /assert\.equal\(vault\.bindCount,\s*0\)/.test(oauthCredentialProviderTest),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
-    "Phase 7/11 is pending: OAuth start-authorization requests must use canonical snake_case fields and ignore retired camelCase/auth_url aliases before vault binding",
+    "Phase 7/11 is pending: OAuth start authorization must fail closed at the retired JS helper before vault binding",
   );
   assertCheck(
     result,
     "model-mount-oauth-exchange-request-aliases-retired",
-    /body\.session_id/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.token_endpoint/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.authorization_code/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.redirect_uri/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.client_id/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.code_verifier/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.client_secret_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.token_endpoint_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.client_id_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.access_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /body\.refresh_vault_ref/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /tokenPayload\.expires_in/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /tokenPayload\.access_token/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /tokenPayload\.refresh_token/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      /OAuth credential provider exchanges authorization code with canonical vault bindings/.test(
+    /throwOAuthCredentialProviderRustCoreRequired\("model_mount\.catalog_provider_oauth\.exchange_authorization_code"/.test(
+      oauthCredentialExchangeAuthorizationCodeBlock,
+    ) &&
+      /model_mount_oauth_token_transport_retired/.test(oauthBoundary) &&
+      /oauth_token_transport_js_retired/.test(oauthBoundary) &&
+      !/fetchWithTimeout/.test(oauthBoundary) &&
+      !/new URLSearchParams\(payload\)/.test(oauthBoundary) &&
+      !/fetchOAuthToken\(/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      !/parseOAuthTokenResponse/.test(oauthCredentialProvider) &&
+      !/bindVaultRef/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
+      /OAuth credential provider completion and exchange fail before token transport/.test(
         oauthCredentialProviderTest,
       ) &&
-      /OAuth credential provider ignores retired exchange request aliases/.test(
-        oauthCredentialProviderTest,
-      ) &&
-      /tokenEndpoint: "https:\/\/auth\.example\.test\/token"/.test(oauthCredentialProviderTest) &&
-      /authorizationCode: "auth-code"/.test(oauthCredentialProviderTest) &&
-      /clientIdVaultRef: "vault:\/\/oauth\/retired-client-id"/.test(oauthCredentialProviderTest) &&
-      /accessToken: "retired-access-token"/.test(oauthCredentialProviderTest) &&
       /assert\.equal\(fetched,\s*false\)/.test(oauthCredentialProviderTest) &&
-      /assert\.equal\(vault\.bindings\.size,\s*0\)/.test(oauthCredentialProviderTest) &&
-      !/body\.(?:sessionId|tokenEndpoint|authorizationCode|redirectUri|clientId|codeVerifier|clientSecretVaultRef|tokenEndpointVaultRef|clientIdVaultRef|accessVaultRef|refreshVaultRef)\b/.test(
-        oauthCredentialExchangeAuthorizationCodeBlock,
-      ) &&
-      !/body\.code\b/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      !/body\.clientSecret\b/.test(oauthCredentialExchangeAuthorizationCodeBlock) &&
-      !/tokenPayload\.(?:expiresIn|accessToken|refreshToken)\b/.test(
-        oauthCredentialExchangeAuthorizationCodeBlock,
-      ),
+      /assert\.equal\(vault\.bindCount,\s*0\)/.test(oauthCredentialProviderTest),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
-    "Phase 7/11 is pending: OAuth authorization-code exchange must use canonical snake_case request and token payload fields before vault binding",
+    "Phase 7/11 is pending: OAuth authorization-code exchange must fail closed before JS token transport or vault binding",
   );
   assertCheck(
     result,
     "model-mount-oauth-callback-request-aliases-retired",
-    /body\.state/.test(oauthCredentialCompleteAuthorizationBlock) &&
-      /body\.code/.test(oauthCredentialCompleteAuthorizationBlock) &&
-      /OAuth credential provider ignores retired callback request aliases/.test(
+    /throwOAuthCredentialProviderRustCoreRequired\("model_mount\.catalog_provider_oauth\.complete_authorization"/.test(
+      oauthCredentialCompleteAuthorizationBlock,
+    ) &&
+      /oauth_state_hash:\s*stateRecord\?\.id \? stableHash\(stateRecord\.id\) : null/.test(
+        oauthCredentialCompleteAuthorizationBlock,
+      ) &&
+      !/resolveVaultRef/.test(oauthCredentialCompleteAuthorizationBlock) &&
+      !/fetchOAuthToken/.test(oauthCredentialCompleteAuthorizationBlock) &&
+      /OAuth credential provider completion and exchange fail before token transport/.test(
         oauthCredentialProviderTest,
       ) &&
-      /oauth_state: "state"/.test(oauthCredentialProviderTest) &&
-      /oauthState: "state"/.test(oauthCredentialProviderTest) &&
-      /authorization_code: "code"/.test(oauthCredentialProviderTest) &&
-      /authorizationCode: "code"/.test(oauthCredentialProviderTest) &&
-      /assert\.equal\(resolved,\s*0\)/.test(oauthCredentialProviderTest) &&
-      !/body\.(?:oauth_state|oauthState|authorization_code|authorizationCode)\b/.test(
-        oauthCredentialCompleteAuthorizationBlock,
-      ),
+      /assert\.equal\(vault\.resolveCount,\s*0\)/.test(oauthCredentialProviderTest),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
-    "Phase 7/11 is pending: OAuth callback completion must require canonical state/code and ignore retired callback aliases before vault resolution",
+    "Phase 7/11 is pending: OAuth callback completion must fail closed before JS vault resolution or token exchange",
   );
   assertCheck(
     result,
     "model-mount-oauth-refresh-response-aliases-retired",
-    /tokenPayload\.access_token/.test(oauthCredentialRefreshAccessTokenBlock) &&
-      /tokenPayload\.refresh_token/.test(oauthCredentialRefreshAccessTokenBlock) &&
-      /tokenPayload\.expires_in/.test(oauthCredentialRefreshAccessTokenBlock) &&
-      /OAuth credential provider refreshes access tokens with canonical response fields/.test(
+    /throwOAuthCredentialProviderRustCoreRequired\("model_mount\.catalog_provider_oauth\.refresh_access_token"/.test(
+      oauthCredentialRefreshAccessTokenBlock,
+    ) &&
+      /throwOAuthCredentialProviderRustCoreRequired\("model_mount\.catalog_provider_oauth\.revoke_session"/.test(
+        oauthCredentialProvider,
+      ) &&
+      /throwOAuthCredentialProviderRustCoreRequired\("model_mount\.catalog_provider_oauth\.resolve_access_header"/.test(
+        oauthCredentialProvider,
+      ) &&
+      !/resolveVaultRef/.test(oauthCredentialRefreshAccessTokenBlock) &&
+      !/removeVaultRef/.test(oauthCredentialProvider.match(/revokeSession\(session[\s\S]*?\n  \}/)?.[0] ?? "") &&
+      !/fetchOAuthToken/.test(oauthCredentialRefreshAccessTokenBlock) &&
+      /OAuth credential provider refresh, revoke, and access-header resolution fail before JS custody/.test(
         oauthCredentialProviderTest,
       ) &&
-      /OAuth credential provider ignores retired refresh token response aliases/.test(
-        oauthCredentialProviderTest,
-      ) &&
-      /accessToken: "retired-access-token"/.test(oauthCredentialProviderTest) &&
-      /refreshToken: "retired-refresh-token"/.test(oauthCredentialProviderTest) &&
-      /expiresIn: 600/.test(oauthCredentialProviderTest) &&
-      /assert\.equal\(vault\.bindings\.get\("vault:\/\/access"\)\.material,\s*"old-access"\)/.test(
-        oauthCredentialProviderTest,
-      ) &&
-      !/tokenPayload\.(?:accessToken|refreshToken|expiresIn)\b/.test(
-        oauthCredentialRefreshAccessTokenBlock,
-      ),
+      /assert\.equal\(vault\.removeCount,\s*0\)/.test(oauthCredentialProviderTest),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
     ],
-    "Phase 7/11 is pending: OAuth refresh must ignore retired camelCase token response aliases before vault binding",
+    "Phase 7/11 is pending: OAuth refresh/revoke/access-header helper paths must fail closed before JS custody",
   );
   assertCheck(
     result,
     "model-mount-oauth-error-detail-aliases-retired",
-    /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(oauthCredentialProvider) &&
-      /state_provider_id:\s*stateRecord\.providerId/.test(oauthCredentialProvider) &&
-      /oauth_state_hash:\s*stableHash\(stateRecord\.id\)/.test(oauthCredentialProvider) &&
-      /callback_state_hash:\s*stableHash\(callbackState\)/.test(oauthCredentialProvider) &&
-      /client_secret:\s*SECRET_REDACTION/.test(oauthCredentialProvider) &&
-      /client_secret_vault_ref_hash:\s*clientSecret\?\.vaultRefHash/.test(oauthCredentialProvider) &&
-      /oauth_session_hash:\s*stableHash\(session\.id\)/.test(oauthCredentialProvider) &&
-      /auth_vault_ref_hash:\s*access\?\.vaultRefHash/.test(oauthCredentialProvider) &&
-      /resolved_material:\s*false/.test(oauthCredentialProvider) &&
-      /catalog_auth_scheme:\s*"oauth2"/.test(oauthCredentialProvider) &&
-      /catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(oauthCredentialProvider) &&
-      /oauth_boundary:\s*oauthBoundaryForSession/.test(oauthCredentialProvider) &&
+    /operation_kind/.test(oauthCredentialProvider) &&
+      /provider_id/.test(oauthCredentialProvider) &&
+      /oauth_state_hash/.test(oauthCredentialProvider) &&
+      /oauth_session_hash/.test(oauthCredentialProvider) &&
+      /catalog_auth_scheme/.test(oauthCredentialProvider) &&
+      /catalog_auth_header_name_hash/.test(oauthCredentialProvider) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_oauth_custody"/.test(oauthCredentialProvider) &&
       /evidence_refs:\s*normalizeScopes/.test(oauthCredentialProvider) &&
       /token_endpoint_hash:\s*stableHash\(tokenEndpoint\)/.test(oauthBoundary) &&
-      /error_hash:\s*stableHash\(`oauth:\$\{response\.status\}`\)/.test(oauthBoundary) &&
-      /details:\s*\{\s*evidence_refs:\s*\["OAuthCredentialProvider\.tokenEndpoint",\s*"oauth_access_token_required"\]\s*\}/.test(
+      /operation_kind:\s*"model_mount\.catalog_provider_oauth\.token_transport"/.test(oauthBoundary) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_oauth_custody"/.test(oauthBoundary) &&
+      /details:\s*\{\s*evidence_refs:\s*\["oauth_token_response_parser",\s*"oauth_access_token_required"\]\s*\}/.test(
         oauthBoundary,
       ) &&
-      !/details:\s*\{\s*(?:providerId|clientSecret|oauthSessionHash|tokenEndpointHash|evidenceRefs)\b/.test(
+      !/details:\s*\{\s*(?:providerId|clientSecret|oauthSessionHash|tokenEndpointHash|operationKind|rustCoreBoundary|evidenceRefs)\b/.test(
         `${oauthCredentialProvider}\n${oauthBoundary}`,
       ) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"stateProviderId"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"oauthStateHash"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"callbackStateHash"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"clientSecret"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"clientSecretVaultRefHash"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"oauthSessionHash"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"authVaultRefHash"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"resolvedMaterial"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalogAuthScheme"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalogAuthHeaderNameHash"\),\s*false/.test(oauthCredentialProviderTest) &&
-      /Object\.hasOwn\(error\.details,\s*"oauthBoundary"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(oauthCredentialProviderTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(oauthCredentialProviderTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(oauthCredentialProviderTest) &&
       /Object\.hasOwn\(error\.details,\s*"tokenEndpointHash"\),\s*false/.test(oauthBoundaryTest) &&
-      /Object\.hasOwn\(error\.details,\s*"errorHash"\),\s*false/.test(oauthBoundaryTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(oauthBoundaryTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(oauthBoundaryTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(oauthBoundaryTest),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",

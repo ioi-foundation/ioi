@@ -119,7 +119,7 @@ export function catalogProviderAuthConfig(providerId, body = {}, existing = null
         : {
             configured: catalogAuthConfigured,
             status: catalogAuthConfigured ? "vault_token_passthrough" : "requires_oauth_exchange",
-            tokenExchange: catalogAuthConfigured ? "vault_token_passthrough" : "OAuthCredentialProvider.exchangeAuthorizationCode",
+            tokenExchange: catalogAuthConfigured ? "vault_token_passthrough" : "RustDaemonCore.catalogProviderOAuth",
             oauthSessionHash,
             evidenceRefs: ["catalog_oauth_boundary", "vault_ref_oauth_token_material"],
           }

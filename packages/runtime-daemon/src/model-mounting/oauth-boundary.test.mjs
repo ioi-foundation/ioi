@@ -81,7 +81,7 @@ test("OAuth boundary status and refresh timing stay product-safe", () => {
   assert.deepEqual(oauthBoundaryForSession(null), {
     configured: false,
     status: "requires_oauth_exchange",
-    tokenExchange: "OAuthCredentialProvider.exchangeAuthorizationCode",
+    tokenExchange: "RustDaemonCore.catalogProviderOAuth",
     evidenceRefs: ["catalog_oauth_boundary"],
   });
 
@@ -95,7 +95,7 @@ test("OAuth boundary status and refresh timing stay product-safe", () => {
 
   assert.equal(boundary.configured, true);
   assert.equal(boundary.status, "refreshed");
-  assert.equal(boundary.tokenExchange, "OAuthCredentialProvider");
+  assert.equal(boundary.tokenExchange, "RustDaemonCore.catalogProviderOAuth");
   assert.equal(boundary.refreshCount, 2);
 });
 
@@ -104,7 +104,7 @@ test("OAuth token response parsing requires an access token", async () => {
     () => parseOAuthTokenResponse({ json: async () => ({ token_type: "bearer" }) }),
     (error) => {
       assert.match(error.message, /did not return an access token/);
-      assert.deepEqual(error.details.evidence_refs, ["OAuthCredentialProvider.tokenEndpoint", "oauth_access_token_required"]);
+      assert.deepEqual(error.details.evidence_refs, ["oauth_token_response_parser", "oauth_access_token_required"]);
       assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
     },
@@ -115,19 +115,31 @@ test("OAuth token response parsing requires an access token", async () => {
   );
 });
 
-test("OAuth token endpoint failures use canonical detail metadata", async () => {
+test("OAuth token transport fails closed before JS fetch", async () => {
   const previousFetch = globalThis.fetch;
+  let fetched = false;
   try {
-    globalThis.fetch = async () => ({ ok: false, status: 401 });
+    globalThis.fetch = async () => {
+      fetched = true;
+      return { ok: false, status: 401 };
+    };
     await assert.rejects(
       () => fetchOAuthToken("https://auth.example.test/token", { grant_type: "authorization_code" }),
       (error) => {
-        assert.match(error.message, /token endpoint rejected/);
+        assert.match(error.message, /OAuth token transport is retired in JS/);
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "model_mount_oauth_token_transport_retired");
         assert.equal(typeof error.details.token_endpoint_hash, "string");
-        assert.equal(typeof error.details.error_hash, "string");
-        assert.deepEqual(error.details.evidence_refs, ["OAuthCredentialProvider.tokenEndpoint", "oauth_exchange_fail_closed"]);
+        assert.equal(error.details.operation_kind, "model_mount.catalog_provider_oauth.token_transport");
+        assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_oauth_custody");
+        assert.deepEqual(error.details.evidence_refs, [
+          "oauth_token_transport_js_retired",
+          "rust_daemon_core_catalog_provider_oauth_required",
+          "rust_daemon_core_wallet_ctee_custody_required",
+        ]);
         assert.equal(Object.hasOwn(error.details, "tokenEndpointHash"), false);
-        assert.equal(Object.hasOwn(error.details, "errorHash"), false);
+        assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+        assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
         assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
         return true;
       },
@@ -135,4 +147,5 @@ test("OAuth token endpoint failures use canonical detail metadata", async () => 
   } finally {
     globalThis.fetch = previousFetch;
   }
+  assert.equal(fetched, false);
 });

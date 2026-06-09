@@ -1370,6 +1370,20 @@ resolution, Agentgres-backed catalog projection, and direct Rust APIs must
 replace the remaining JS catalog status/search orchestration and local
 materialization before the pure Rust substrate target is met.
 
+Slice 831 retired the private JS OAuth credential custody helper. The mounted
+model-mounting state no longer constructs `OAuthCredentialProvider`, and that
+helper now fails closed with `model_mount_oauth_credential_provider_js_retired`
+before JS vault binding, vault resolution, vault removal, authorization-code
+exchange, refresh, revoke, or access-header resolution can run. `fetchOAuthToken()`
+now fails closed with `model_mount_oauth_token_transport_retired` before
+`fetchWithTimeout()`, form-body construction, timeout policy, or token endpoint
+transport can run in JS, and OAuth boundary projections identify
+`RustDaemonCore.catalogProviderOAuth` rather than the retired JS helper as the
+exchange owner. This still does not claim terminal catalog-provider custody
+migration: direct Rust daemon-core OAuth control, wallet/cTEE vault custody,
+Agentgres-backed OAuth/session projection, and direct Rust APIs remain required
+before OAuth-backed catalog/provider auth can execute again.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
