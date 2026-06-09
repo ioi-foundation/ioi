@@ -660,6 +660,9 @@ function runDocs() {
       /Slice 863 retired broad snapshot\/projection topology and product-catalog\s+materialization/.test(guide) &&
       /returns empty\/default topology, runtime-engine, MCP\/conversation, and\s+product-catalog fields instead of honoring direct caller arrays/.test(guide) &&
       /retired\s+Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,\s+model-capability, and ad hoc timestamp helper tree was deleted/.test(guide) &&
+      /Slice 864 retired receipt-replay topology input from the runtime-daemon facade\s+and Rust bridge/.test(guide) &&
+      /`receipt_replay` read projection now sends only admitted\s+receipts plus `receipt_id`/.test(guide) &&
+      /Rust preserves the receipt and embedded\s+`model_route_decision` evidence but returns null route, endpoint, instance, and\s+provider enrichments/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -1059,11 +1062,17 @@ function runDocs() {
       /`product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`\s+read projections now send `\{\}`/.test(matrix) &&
       /Rust bridge\s+direct arms for those projection kinds return empty\/default product\/catalog\s+lists instead of filtering or translating caller-supplied artifact arrays/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 862 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 863/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 863/.test(matrix) &&
       /Slice 863 retired broad snapshot\/projection topology and product-catalog\s+materialization/.test(matrix) &&
       /fields now return empty\/default topology, runtime-engine, MCP\/conversation, and\s+product-catalog values instead of honoring direct caller arrays/.test(matrix) &&
       /retired\s+Rust helper tree for product artifacts, runtime catalog, OpenAI model-list\s+projection, fixture filtering, model-capability derivation, and ad hoc\s+timestamp parsing was deleted/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 863/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 863 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 864/.test(matrix) &&
+      /Slice 864 retired receipt-replay topology input from the runtime-daemon facade\s+and Rust bridge/.test(matrix) &&
+      /`receipt_replay` read projection now sends only admitted\s+receipts plus `receipt_id`/.test(matrix) &&
+      /returns null route, endpoint, instance, and\s+provider enrichments until direct Rust daemon-core Agentgres topology lookup/.test(matrix) &&
+      /Rust `projection_lookup`\s+compatibility helper were removed/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 864/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1098,6 +1107,9 @@ function runDocs() {
       /JS artifact maps and fixture policy cannot become public product catalog or OpenAI-compatible model-list truth/.test(implementationMatrix) &&
       /broad Rust `snapshot` and `projection` envelopes now also return empty\/default topology, runtime-engine, MCP\/conversation, and product-catalog fields/.test(implementationMatrix) &&
       /dead Rust product-artifact\/runtime-catalog\/OpenAI-list\/fixture-filter\/model-capability helper tree plus the JS fixture mirror were deleted/.test(implementationMatrix) &&
+      /receipt-replay now sends only admitted receipts plus receipt_id/.test(implementationMatrix) &&
+      /Rust returns null route\/endpoint\/instance\/provider enrichments until direct Agentgres topology lookup/.test(implementationMatrix) &&
+      /JS topology imports plus Rust projection_lookup helper are removed/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /public `adapterBoundaries\(\)` now calls dedicated Rust read-projection kind `adapter_boundaries` with empty request state/.test(implementationMatrix) &&
       /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
@@ -8298,7 +8310,11 @@ function runBridge() {
       !/projectionKind === "authority_snapshot"[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       !/projectionKind === "authority_snapshot"[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "receipt_replay"[\s\S]*?return \{\s*receipts:\s*state\.listReceipts\(\),\s*\};/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "receipt_replay"[\s\S]*?routes:\s*routeList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "receipt_replay"[\s\S]*?endpoints:\s*endpointList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "receipt_replay"[\s\S]*?instances:\s*instanceList\(state\)/.test(modelMountingReadProjectionFacade) &&
+      !/projectionKind === "receipt_replay"[\s\S]*?providers:\s*providerList\(state\)/.test(modelMountingReadProjectionFacade) &&
       !/backends:\s*state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
       !/backend_processes:\s*state\.listBackendProcesses\(\)/.test(modelMountingReadProjectionFacade) &&
       !/runtime_engines:\s*state\.listRuntimeEngines\(\)/.test(modelMountingReadProjectionFacade) &&
@@ -8397,8 +8413,15 @@ function runBridge() {
       /workflowRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(summaryRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(replayRequest\.state\)\.sort\(\),\s*\[[\s\S]*"endpoints"[\s\S]*"instances"[\s\S]*"providers"[\s\S]*"receipts"[\s\S]*"routes"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(replayRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /replayRequest\.receipt_id,\s*"receipt-route"/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(replay\.route,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(replay\.endpoint,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.equal\(replay\.provider,\s*null\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(replayRequest\.state,\s*"routes"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(replayRequest\.state,\s*"endpoints"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(replayRequest\.state,\s*"instances"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(replayRequest\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(replayRequest\.state,\s*"server"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(replayRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(routeDecisionRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8584,6 +8607,11 @@ function runBridge() {
       !/fn model_mount_projection_summary(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
       /fn model_mount_receipt_replay_context/.test(bridgeModule) &&
       !/fn model_mount_receipt_replay\((?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
+      !/fn projection_lookup/.test(bridgeModule) &&
+      !/"routes": array_field\(state,\s*"routes"\)/.test(bridgeModule) &&
+      !/"endpoints": array_field\(state,\s*"endpoints"\)/.test(bridgeModule) &&
+      !/"instances": array_field\(state,\s*"instances"\)/.test(bridgeModule) &&
+      !/"providers": array_field\(state,\s*"providers"\)/.test(bridgeModule) &&
       /fn model_mount_latest_provider_health/.test(bridgeModule) &&
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_latest_runtime_survey/.test(bridgeModule) &&
@@ -8631,7 +8659,10 @@ function runBridge() {
       /"projection_kind": "workflow_bindings"/.test(bridgeModule) &&
       /"projection_kind": "adapter_boundaries"/.test(bridgeModule) &&
       /"projection_kind": "receipt_replay"/.test(bridgeModule) &&
-      /receipt replay projected from slim Rust context/.test(bridgeModule) &&
+      /receipt replay projected from receipt-only Rust context/.test(bridgeModule) &&
+      /receipt_replay_response\["projection"\]\["route"\],\s*Value::Null/.test(bridgeModule) &&
+      /receipt_replay_response\["projection"\]\["endpoint"\],\s*Value::Null/.test(bridgeModule) &&
+      /receipt_replay_response\["projection"\]\["provider"\],\s*Value::Null/.test(bridgeModule) &&
       /"projection_kind": "runtime_engines"/.test(bridgeModule) &&
       /"projection_kind": "runtime_engine_profiles"/.test(bridgeModule) &&
       /"projection_kind": "runtime_preference"/.test(bridgeModule) &&
@@ -8705,9 +8736,9 @@ function runBridge() {
       !/^ {6}(?:routeId|selectedModel|endpointId|providerId|policyHash|workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(
         modelRouteSelectionDetailsObject,
       ) &&
-      /details\.get\("route_id"\)/.test(bridgeModule) &&
-      /details\.get\("endpoint_id"\)/.test(bridgeModule) &&
-      /details\.get\("provider_id"\)/.test(bridgeModule) &&
+      !/details\.get\("route_id"\)/.test(bridgeModule) &&
+      !/details\.get\("endpoint_id"\)/.test(bridgeModule) &&
+      !/details\.get\("provider_id"\)/.test(bridgeModule) &&
       !/details\.get\("(?:routeId|endpointId|providerId)"\)/.test(bridgeModule) &&
       /details:\s*\{\s*route_id:\s*route\.id,\s*capability,\s*policy,\s*evaluated_candidates:\s*evaluatedCandidates\s*\}/.test(
         modelRoutes,
@@ -9189,7 +9220,6 @@ function runBridge() {
       /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps) &&
       !/const receiptDetails = \{[\s\S]*?model_invocation_stream_completed/.test(modelConversationOps) &&
       !/state\.receipt\("model_invocation_stream_completed"/.test(modelConversationOps) &&
-      /details\.get\("instance_id"\)/.test(bridgeModule) &&
       /details\.get\("tool_receipt_ids"\)/.test(bridgeModule) &&
       !/details\.get\("(?:instanceId|toolReceiptIds)"\)/.test(bridgeModule) &&
       /receipt\.details\?\.backend_id/.test(modelWorkflowNode) &&

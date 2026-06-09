@@ -17893,7 +17893,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 862 is now satisfied.
 
-## Implementation Slice Evidence: 863
+## Compacted Implementation Slice Evidence: 863
 
 Slice 863 retired broad snapshot/projection topology and product-catalog
 materialization from caller-supplied bridge state. The Rust bridge keeps the
@@ -17919,10 +17919,36 @@ command-transport replacement, and local map/projection materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 863 after the next direct
+Scheduled matrix-compaction obligation from Slice 863 is now satisfied.
+
+## Implementation Slice Evidence: 864
+
+Slice 864 retired receipt-replay topology input from the runtime-daemon facade
+and Rust bridge. The `receipt_replay` read projection now sends only admitted
+receipts plus `receipt_id`; Rust preserves the receipt and embedded
+`model_route_decision` evidence but returns null route, endpoint, instance, and
+provider enrichments until direct Rust daemon-core Agentgres topology lookup
+owns those joins. The JS topology list imports and the Rust `projection_lookup`
+compatibility helper were removed, so replay can no longer promote local JS
+route/provider/endpoint maps into replay truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal model_mount replay migration: direct Rust
+daemon-core Agentgres topology lookup, command-transport replacement,
+Agentgres-backed projection APIs, and local map/projection materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 864 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport
-facades, provider lifecycle/read adapters, receipt-replay topology lookup, local
+facades, provider lifecycle/read adapters, direct replay topology lookup, local
 map/projection materialization, and Rust daemon-core
 catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.

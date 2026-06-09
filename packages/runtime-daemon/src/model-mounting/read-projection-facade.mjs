@@ -1,11 +1,6 @@
 import {
-  downloadList,
-  endpointList,
-  instanceList,
   oauthSessionList,
   oauthStateList,
-  providerList,
-  routeList,
 } from "./read-model.mjs";
 import { notFound } from "./io.mjs";
 import {
@@ -286,10 +281,6 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "receipt_replay") {
       return {
         receipts: state.listReceipts(),
-        routes: routeList(state),
-        endpoints: endpointList(state),
-        instances: instanceList(state),
-        providers: providerList(state),
       };
     }
     if (

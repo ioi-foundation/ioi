@@ -456,10 +456,10 @@ function rustProjectionFixture(request) {
       source: "agentgres_model_mounting_projection_replay",
       receipt,
       model_route_decision: receipt.details?.model_route_decision ?? null,
-      route: (state.routes ?? []).find((route) => route.id === receipt.details?.route_id) ?? null,
-      endpoint: (state.endpoints ?? []).find((endpoint) => endpoint.id === receipt.details?.endpoint_id) ?? null,
-      instance: (state.instances ?? []).find((instance) => instance.id === receipt.details?.instance_id) ?? null,
-      provider: (state.providers ?? []).find((provider) => provider.id === receipt.details?.provider_id) ?? null,
+      route: null,
+      endpoint: null,
+      instance: null,
+      provider: null,
       toolReceipts: [],
       projectionWatermark: projection.watermark,
     };
@@ -813,9 +813,9 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const replay = facade.receiptReplay(state, "receipt-route");
   assert.equal(replay.schemaVersion, "model.mount.schema");
-  assert.equal(replay.route.id, "route.local-first");
-  assert.equal(replay.endpoint.id, "endpoint.local");
-  assert.equal(replay.provider.id, "provider.local");
+  assert.equal(replay.route, null);
+  assert.equal(replay.endpoint, null);
+  assert.equal(replay.provider, null);
   assert.equal(replay.model_route_decision.selected_model, "model.local");
   assert.equal(Object.hasOwn(replay, "modelRouteDecision"), false);
 
@@ -896,16 +896,12 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");
-  assert.deepEqual(Object.keys(replayRequest.state).sort(), [
-    "endpoints",
-    "instances",
-    "providers",
-    "receipts",
-    "routes",
-  ]);
+  assert.deepEqual(Object.keys(replayRequest.state), ["receipts"]);
   assert.equal(replayRequest.receipt_id, "receipt-route");
-  assert.equal(replayRequest.state.routes[0].id, "route.local-first");
-  assert.equal(replayRequest.state.endpoints[0].id, "endpoint.local");
+  assert.equal(Object.hasOwn(replayRequest.state, "routes"), false);
+  assert.equal(Object.hasOwn(replayRequest.state, "endpoints"), false);
+  assert.equal(Object.hasOwn(replayRequest.state, "instances"), false);
+  assert.equal(Object.hasOwn(replayRequest.state, "providers"), false);
   assert.equal(Object.hasOwn(replayRequest.state, "server"), false);
   assert.equal(Object.hasOwn(replayRequest.state, "artifacts"), false);
   const routeDecisionRequest = readProjectionRequests.find((request) => request.projection_kind === "model_route_decisions");

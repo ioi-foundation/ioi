@@ -2462,10 +2462,6 @@ fn model_mount_receipt_replay_context(request: &ModelMountReadProjectionRequest)
     json!({
         "watermark": receipts.len(),
         "receipts": receipts,
-        "routes": array_field(state, "routes"),
-        "endpoints": array_field(state, "endpoints"),
-        "instances": array_field(state, "instances"),
-        "providers": array_field(state, "providers"),
     })
 }
 
@@ -2501,10 +2497,10 @@ fn model_mount_receipt_replay_projection(
         "source": "agentgres_model_mounting_projection_replay",
         "receipt": receipt,
         "model_route_decision": details.get("model_route_decision").cloned().unwrap_or(Value::Null),
-        "route": projection_lookup(&projection, "routes", details.get("route_id")),
-        "endpoint": projection_lookup(&projection, "endpoints", details.get("endpoint_id")),
-        "instance": projection_lookup(&projection, "instances", details.get("instance_id")),
-        "provider": projection_lookup(&projection, "providers", details.get("provider_id")),
+        "route": Value::Null,
+        "endpoint": Value::Null,
+        "instance": Value::Null,
+        "provider": Value::Null,
         "toolReceipts": tool_receipts_from_details(&receipts, &details),
         "projectionWatermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
     })
@@ -2768,22 +2764,6 @@ fn route_decision_from_receipt(receipt: &Value) -> Option<Value> {
         receipt.get("kind").cloned().unwrap_or(Value::Null),
     );
     Some(Value::Object(decision))
-}
-
-fn projection_lookup(projection: &Value, collection_key: &str, id: Option<&Value>) -> Value {
-    let Some(id) = id.and_then(Value::as_str) else {
-        return Value::Null;
-    };
-    projection
-        .get(collection_key)
-        .and_then(Value::as_array)
-        .and_then(|records| {
-            records
-                .iter()
-                .find(|record| json_string_field(record, "id").as_deref() == Some(id))
-        })
-        .cloned()
-        .unwrap_or(Value::Null)
 }
 
 fn tool_receipts_from_details(receipts: &[Value], details: &Value) -> Vec<Value> {
@@ -8467,26 +8447,30 @@ mod tests {
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "receipt_id": "receipt-route",
                     "state": {
-                        "receipts": state["receipts"].clone(),
-                        "routes": state["routes"].clone(),
-                        "endpoints": state["endpoints"].clone(),
-                        "instances": state["instances"].clone(),
-                        "providers": state["providers"].clone()
+                        "receipts": state["receipts"].clone()
                     }
                 }
             }))
             .expect("model_mount receipt replay request");
 
         let receipt_replay_response = plan_model_mount_read_projection(receipt_replay_request)
-            .expect("receipt replay projected from slim Rust context");
+            .expect("receipt replay projected from receipt-only Rust context");
         assert_eq!(receipt_replay_response["projection_kind"], "receipt_replay");
         assert_eq!(
             receipt_replay_response["projection"]["receipt"]["id"],
             "receipt-route"
         );
         assert_eq!(
-            receipt_replay_response["projection"]["route"]["id"],
-            "route.local-first"
+            receipt_replay_response["projection"]["route"],
+            Value::Null
+        );
+        assert_eq!(
+            receipt_replay_response["projection"]["endpoint"],
+            Value::Null
+        );
+        assert_eq!(
+            receipt_replay_response["projection"]["provider"],
+            Value::Null
         );
         assert_eq!(
             receipt_replay_response["projection"]["projectionWatermark"],

@@ -1729,8 +1729,16 @@ product-catalog fields instead of honoring direct caller arrays. The retired
 Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,
 model-capability, and ad hoc timestamp helper tree was deleted, and the focused
 JS fixture planner mirrors the default envelope rather than reimplementing the
-old derivation. Receipt replay still receives its explicit topology context
-until the separate Rust Agentgres topology lookup seam is migrated.
+old derivation. Receipt replay remained a separate topology-lookup seam.
+
+Slice 864 retired receipt-replay topology input from the runtime-daemon facade
+and Rust bridge. The `receipt_replay` read projection now sends only admitted
+receipts plus `receipt_id`; Rust preserves the receipt and embedded
+`model_route_decision` evidence but returns null route, endpoint, instance, and
+provider enrichments until direct Rust daemon-core Agentgres topology lookup
+owns those joins. The JS topology list imports and the Rust `projection_lookup`
+compatibility helper were removed, so replay can no longer promote local JS
+route/provider/endpoint maps into replay truth.
 
 ## Part II: Target Execution Model
 
