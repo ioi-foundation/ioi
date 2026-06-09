@@ -14482,13 +14482,11 @@ implementation-matrix row, model-mounting route-family row, conformance command
 contract, and terminal blockers above remain authoritative for current and
 target ownership.
 
-- Slice 761 retired remaining camelCase policy aliases from the model-mount
-  route-selection helper.
-- `selectRoute()` now reads only canonical `deny_fixture_models`; retired
-  `denyFixtureModels` cannot deny fixture endpoints.
-- `selectRoute()` now reads only canonical `max_cost_usd` before falling back to
-  the admitted route record's `maxCostUsd`; retired `maxCostUsd` cannot widen
-  the request policy cost ceiling.
+- Slice 761 retired remaining camelCase policy aliases from the then-live
+  model-mount route-selection helper.
+- That historical `selectRoute()` helper used only canonical
+  `deny_fixture_models` and `max_cost_usd` policy fields before Slice 886
+  deleted the JS selector entirely.
 - Existing `allowHostedFallback` policy alias retirement remains guarded.
 - Conformance anchor `model-mount-route-decision-live-bridge` guards this
   slice.
@@ -16693,8 +16691,9 @@ Scheduled matrix-compaction obligation from Slice 818 is now satisfied.
 ## Compacted Implementation Slice Evidence: 819
 
 Slice 819 deleted the remaining `route-decision.mjs` compatibility module and
-its self-test. `isAutoModelSelector()` moved into `routes.mjs`, the runtime
-state no longer imports or passes a `routeDecision` dependency, and
+its self-test. `isAutoModelSelector()` temporarily moved into `routes.mjs`
+before the Slice 886 selector retirement, the runtime state no longer imports
+or passes a `routeDecision` dependency, and
 `modelRouteBindingFromReceipt()` now owns its narrow canonical receipt projection
 inside `thread-runtime-controls.mjs` while emitting `receipt_id` without the
 retired `receiptId` alias. The unused provider request-shaping helper/test path
@@ -18513,9 +18512,38 @@ catalog search/status/variant projection APIs over Agentgres-backed state,
 command-transport retirement, and stable protocol APIs remain required before
 catalog reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 885 after the next direct
+Scheduled matrix-compaction obligation from Slice 885 is now satisfied.
+
+## Implementation Slice Evidence: 886
+
+Slice 886 retired the direct JS model-route selector and explicit endpoint
+resolver from `routes.mjs`. Mounted `ModelMountingState.selectRoute()` and
+`endpointIdsForExplicitModel()` now fail closed at
+`model_mount.route.select` and `model_mount.route.explicit_model_endpoints`
+before route-map reads, endpoint/provider reads, endpoint mounting, JS policy
+evaluation, or JS candidate scoring. The route-selection module now keeps only
+Rust admission request assembly, Rust-authored route-selection receipt
+persistence, and migration transport around `admit_model_mount_route_decision`;
+that bridge transport remains explicitly non-terminal architecture.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal model_route migration: direct Rust
+daemon-core route-control/projection APIs over Agentgres-backed state, stable
+protocol APIs, replay, command-transport retirement, and removal of the
+remaining JS route-control migration wrappers remain required before model
+route control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 886 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls, direct
-Rust daemon-core catalog/search/status/projection APIs, Agentgres-backed replay,
-and stable protocol APIs. The `ioi-step-module-bridge` command path is
-acceptable only as migration transport; it is not the terminal architecture.
+Rust daemon-core route-control/projection APIs, Agentgres-backed replay, and
+stable protocol APIs. The `ioi-step-module-bridge` command path is acceptable
+only as migration transport; it is not the terminal architecture.

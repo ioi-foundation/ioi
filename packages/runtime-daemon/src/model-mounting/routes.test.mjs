@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { ModelMountingState } from "../model-mounting.mjs";
 import {
-  endpointIdsForExplicitModel,
-  endpointIdsForExplicitModelForState,
   modelMountRouteDecisionRequestForSelection,
   routeSelectionReceipt,
   routeSelectionReceiptForState,
-  selectRoute,
-  selectRouteForState,
   persistModelRouteSelectionState,
   testRoute,
   upsertRoute,
@@ -188,225 +185,6 @@ test("model mounting route upsert rejects retired request aliases before state w
   assert.equal(Object.hasOwn(error.details, "providerEligibility"), false);
   assert.deepEqual(calls, []);
   assert.equal(state.routes.size, 0);
-});
-
-test("model mounting route helpers order explicit model endpoints by route fallback", () => {
-  const endpoints = new Map([
-    ["endpoint.b", { id: "endpoint.b", modelId: "model.local", status: "mounted" }],
-    ["endpoint.a", { id: "endpoint.a", modelId: "model.local", status: "mounted" }],
-    ["endpoint.c", { id: "endpoint.c", modelId: "model.other", status: "mounted" }],
-  ]);
-
-  assert.deepEqual(endpointIdsForExplicitModel({
-    endpoints,
-    modelId: "model.local",
-    mountEndpoint: () => ({ id: "mounted.new" }),
-    normalizeScopes,
-    route: { fallback: ["endpoint.a"] },
-  }), ["endpoint.a", "endpoint.b"]);
-});
-
-test("model mounting route helpers mount explicit models with no existing endpoint", () => {
-  const mounted = [];
-
-  assert.deepEqual(endpointIdsForExplicitModel({
-    endpoints: new Map(),
-    modelId: "model.new",
-    mountEndpoint: (body) => {
-      mounted.push(body);
-      return { id: "endpoint.new" };
-    },
-    normalizeScopes,
-    route: { fallback: [] },
-  }), ["endpoint.new"]);
-  assert.deepEqual(mounted, [{ model_id: "model.new" }]);
-});
-
-test("model mounting route helpers select policy-allowed endpoints after rejected candidates", () => {
-  const routes = new Map([["route.local-first", {
-    id: "route.local-first",
-    fallback: ["endpoint.hosted", "endpoint.local"],
-    deniedProviders: [],
-    providerEligibility: [],
-    privacy: "local_or_enterprise",
-    maxCostUsd: 1,
-  }]]);
-  const endpoints = new Map([
-    ["endpoint.hosted", {
-      id: "endpoint.hosted",
-      providerId: "provider.hosted",
-      modelId: "model.hosted",
-      capabilities: ["chat"],
-    }],
-    ["endpoint.local", {
-      id: "endpoint.local",
-      providerId: "provider.local",
-      modelId: "model.local",
-      capabilities: ["chat"],
-    }],
-  ]);
-  const providers = new Map([
-    ["provider.hosted", { id: "provider.hosted", kind: "openai", privacyClass: "hosted" }],
-    ["provider.local", { id: "provider.local", kind: "local_folder", privacyClass: "local_private" }],
-  ]);
-
-  const selection = selectRoute({
-    endpoint: (id) => endpoints.get(id),
-    endpointIdsForExplicitModel: () => [],
-    isAutoModelSelector: () => true,
-    isFixtureEndpointCandidate: () => false,
-    model_id: "auto",
-    policy: {},
-    provider: (id) => providers.get(id),
-    route: (id) => routes.get(id),
-    routes,
-    runtimeError,
-    truthy: Boolean,
-  });
-
-  assert.equal(selection.endpoint.id, "endpoint.local");
-  assert.deepEqual(selection.evaluatedCandidates.map((candidate) => candidate.reason), [
-    "hosted_fallback_not_allowed",
-    "policy_allowed",
-  ]);
-});
-
-test("model mounting route helpers ignore retired hosted fallback policy alias", () => {
-  const routes = new Map([["route.local-first", {
-    id: "route.local-first",
-    fallback: ["endpoint.hosted", "endpoint.local"],
-    deniedProviders: [],
-    providerEligibility: [],
-    privacy: "local_or_enterprise",
-    maxCostUsd: 1,
-  }]]);
-  const endpoints = new Map([
-    ["endpoint.hosted", {
-      id: "endpoint.hosted",
-      providerId: "provider.hosted",
-      modelId: "model.hosted",
-      capabilities: ["chat"],
-    }],
-    ["endpoint.local", {
-      id: "endpoint.local",
-      providerId: "provider.local",
-      modelId: "model.local",
-      capabilities: ["chat"],
-    }],
-  ]);
-  const providers = new Map([
-    ["provider.hosted", { id: "provider.hosted", kind: "openai", privacyClass: "hosted" }],
-    ["provider.local", { id: "provider.local", kind: "local_folder", privacyClass: "local_private" }],
-  ]);
-  const base = {
-    endpoint: (id) => endpoints.get(id),
-    endpointIdsForExplicitModel: () => [],
-    isAutoModelSelector: () => true,
-    isFixtureEndpointCandidate: () => false,
-    model_id: "auto",
-    provider: (id) => providers.get(id),
-    route: (id) => routes.get(id),
-    routes,
-    runtimeError,
-    truthy: Boolean,
-  };
-
-  assert.equal(selectRoute({ ...base, policy: { allow_hosted_fallback: true } }).endpoint.id, "endpoint.hosted");
-  assert.equal(selectRoute({ ...base, policy: { allowHostedFallback: true } }).endpoint.id, "endpoint.local");
-});
-
-test("model mounting route helpers ignore retired cost and fixture-deny policy aliases", () => {
-  const routes = new Map([["route.local-first", {
-    id: "route.local-first",
-    fallback: ["endpoint.fixture", "endpoint.hosted"],
-    deniedProviders: [],
-    providerEligibility: [],
-    privacy: "hosted_allowed",
-    maxCostUsd: 0.01,
-  }]]);
-  const endpoints = new Map([
-    ["endpoint.fixture", {
-      id: "endpoint.fixture",
-      providerId: "provider.fixture",
-      modelId: "model.fixture",
-      capabilities: ["chat"],
-      estimatedCostUsd: 0,
-    }],
-    ["endpoint.hosted", {
-      id: "endpoint.hosted",
-      providerId: "provider.hosted",
-      modelId: "model.hosted",
-      capabilities: ["chat"],
-      estimatedCostUsd: 0.05,
-    }],
-  ]);
-  const providers = new Map([
-    ["provider.fixture", { id: "provider.fixture", kind: "local_folder", privacyClass: "local_private" }],
-    ["provider.hosted", { id: "provider.hosted", kind: "openai", privacyClass: "hosted" }],
-  ]);
-  const base = {
-    endpoint: (id) => endpoints.get(id),
-    endpointIdsForExplicitModel: () => [],
-    isAutoModelSelector: () => true,
-    isFixtureEndpointCandidate: (endpoint) => endpoint.id === "endpoint.fixture",
-    model_id: "auto",
-    provider: (id) => providers.get(id),
-    route: (id) => routes.get(id),
-    routes,
-    runtimeError,
-    truthy: Boolean,
-  };
-
-  assert.equal(
-    selectRoute({ ...base, policy: { deny_fixture_models: true, max_cost_usd: 0.1 } }).endpoint.id,
-    "endpoint.hosted",
-  );
-  assert.equal(
-    selectRoute({ ...base, policy: { denyFixtureModels: true, maxCostUsd: 0.1 } }).endpoint.id,
-    "endpoint.fixture",
-  );
-});
-
-test("model mounting route helpers report blocker details when no endpoint satisfies policy", () => {
-  const routes = new Map([["route.local-first", {
-    id: "route.local-first",
-    fallback: ["endpoint.local"],
-    deniedProviders: [],
-    providerEligibility: ["ollama"],
-    privacy: "local_or_enterprise",
-    maxCostUsd: 1,
-  }]]);
-  const endpoints = new Map([["endpoint.local", {
-    id: "endpoint.local",
-    providerId: "provider.local",
-    modelId: "model.local",
-    capabilities: ["chat"],
-  }]]);
-  const providers = new Map([["provider.local", {
-    id: "provider.local",
-    kind: "local_folder",
-    privacyClass: "local_private",
-  }]]);
-
-  const error = captureError(() => selectRoute({
-    endpoint: (id) => endpoints.get(id),
-    endpointIdsForExplicitModel: () => [],
-    isAutoModelSelector: () => true,
-    isFixtureEndpointCandidate: () => false,
-    model_id: "auto",
-    policy: {},
-    provider: (id) => providers.get(id),
-    route: (id) => routes.get(id),
-    routes,
-    runtimeError,
-    truthy: Boolean,
-  }));
-
-  assert.equal(error.status, 424);
-  assert.equal(error.details.route_id, "route.local-first");
-  assert.equal(error.details.evaluated_candidates[0].reason, "provider_not_eligible_for_route");
-  assert.equal(Object.hasOwn(error.details, "routeId"), false);
-  assert.equal(Object.hasOwn(error.details, "evaluatedCandidates"), false);
 });
 
 test("model mounting route helpers preserve route-selection receipt metadata", () => {
@@ -703,7 +481,7 @@ test("model mounting route request ignores retired policy privacy profile alias"
   assert.equal(Object.hasOwn(request, "privacyProfile"), false);
 });
 
-test("model mounting route selection operations preserve delegate wiring without route state mutation", () => {
+test("model mounting route selection receipt preserves delegate wiring without route state mutation", () => {
   const writes = [];
   const receipts = [];
   const route = {
@@ -717,34 +495,8 @@ test("model mounting route selection operations preserve delegate wiring without
   };
   const state = {
     routes: new Map([[route.id, route]]),
-    endpoints: new Map([["endpoint.local", {
-      id: "endpoint.local",
-      modelId: "model.local",
-      providerId: "provider.local",
-      capabilities: ["chat"],
-      status: "mounted",
-    }]]),
-    providers: new Map([["provider.local", {
-      id: "provider.local",
-      kind: "local_folder",
-      privacyClass: "local_private",
-    }]]),
-    endpoint(endpointId) {
-      return this.endpoints.get(endpointId);
-    },
-    endpointIdsForExplicitModel(route, modelId) {
-      return endpointIdsForExplicitModelForState(this, route, modelId, { normalizeScopes });
-    },
-    mountEndpoint(body) {
-      const endpoint = { id: `endpoint.${body.model_id}`, modelId: body.model_id, providerId: "provider.local", capabilities: ["chat"], status: "mounted" };
-      this.endpoints.set(endpoint.id, endpoint);
-      return endpoint;
-    },
     admitModelMountRouteDecision: admitModelMountRouteDecision,
     nextReceiptId: () => "receipt-route",
-    provider(providerId) {
-      return this.providers.get(providerId);
-    },
     persistRustAuthoredReceipt(record) {
       receipts.push(record);
       return record;
@@ -757,23 +509,12 @@ test("model mounting route selection operations preserve delegate wiring without
     },
   };
 
-  assert.deepEqual(endpointIdsForExplicitModelForState(state, route, "missing-model", { normalizeScopes }), ["endpoint.missing-model"]);
-
-  const selection = selectRouteForState(state, {
-    model_id: "auto",
-    route_id: route.id,
-    capability: "chat",
-    policy: {},
+  const receipt = routeSelectionReceiptForState(state, {
+    route,
+    endpoint: { id: "endpoint.local", modelId: "model.local", providerId: "provider.local" },
+    provider: { id: "provider.local" },
+    evaluatedCandidates: [{ endpointId: "endpoint.local", status: "selected" }],
   }, {
-    isAutoModelSelector: () => true,
-    isFixtureEndpointCandidate: () => false,
-    runtimeError,
-    truthy: Boolean,
-  });
-  assert.equal(selection.endpoint.id, "endpoint.local");
-  assert.equal(selection.evaluatedCandidates.at(-1).reason, "policy_allowed");
-
-  const receipt = routeSelectionReceiptForState(state, selection, {
     body: { model: "auto" },
     capability: "chat",
   }, {
@@ -783,6 +524,61 @@ test("model mounting route selection operations preserve delegate wiring without
   assert.equal(receipts.at(-1).details.model_route_decision_id, "model_route_decision:receipt-route");
   assert.equal(Object.hasOwn(receipts.at(-1).details, "modelRouteDecisionId"), false);
   assert.equal(receipts.at(-1).details.model_mount_route_decision_ref, "model_mount://route_decision/test");
+  assert.deepEqual(writes, []);
+});
+
+test("mounted route selection facades fail closed before JS endpoint policy evaluation", () => {
+  const calls = [];
+  const state = {
+    routes: new Map([["route.local-first", { id: "route.local-first" }]]),
+    endpoints: new Map([["endpoint.local", { id: "endpoint.local" }]]),
+    providers: new Map([["provider.local", { id: "provider.local" }]]),
+    route(routeId) {
+      calls.push(["route", routeId]);
+      return this.routes.get(routeId);
+    },
+    endpoint(endpointId) {
+      calls.push(["endpoint", endpointId]);
+      return this.endpoints.get(endpointId);
+    },
+    provider(providerId) {
+      calls.push(["provider", providerId]);
+      return this.providers.get(providerId);
+    },
+    mountEndpoint(body) {
+      calls.push(["mountEndpoint", body]);
+      return { id: "endpoint.created" };
+    },
+  };
+
+  const selectError = captureError(() =>
+    ModelMountingState.prototype.selectRoute.call(state, {
+      modelId: "auto",
+      routeId: "route.local-first",
+      capability: "chat",
+      policy: { allow_hosted_fallback: true },
+    }),
+  );
+  assert.equal(selectError.status, 501);
+  assert.equal(selectError.code, "model_mount_route_control_rust_core_required");
+  assert.equal(selectError.details.operation_kind, "model_mount.route.select");
+  assert.equal(selectError.details.model_id, "auto");
+  assert.equal(selectError.details.route_id, "route.local-first");
+  assert.equal(selectError.details.capability, "chat");
+  assert.deepEqual(calls, []);
+
+  const explicitError = captureError(() =>
+    ModelMountingState.prototype.endpointIdsForExplicitModel.call(
+      state,
+      { id: "route.local-first", fallback: ["endpoint.local"] },
+      "model.local",
+    ),
+  );
+  assert.equal(explicitError.status, 501);
+  assert.equal(explicitError.code, "model_mount_route_control_rust_core_required");
+  assert.equal(explicitError.details.operation_kind, "model_mount.route.explicit_model_endpoints");
+  assert.equal(explicitError.details.model_id, "model.local");
+  assert.deepEqual(calls, []);
 });
 
 test("model mounting public route control facades fail closed before selection, receipts, or state mutation", () => {

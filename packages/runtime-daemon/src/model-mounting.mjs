@@ -209,9 +209,8 @@ import {
   validateReceiptGate as validateReceiptGateRule,
 } from "./model-mounting/validation.mjs";
 import {
-  endpointIdsForExplicitModelForState,
   routeSelectionReceiptForState,
-  selectRouteForState,
+  throwModelRouteControlRustCoreRequired,
   testRoute as testRouteState,
   upsertRoute as upsertRouteState,
 } from "./model-mounting/routes.mjs";
@@ -1656,14 +1655,18 @@ export class ModelMountingState {
   }
 
   endpointIdsForExplicitModel(route, modelId) {
-    return endpointIdsForExplicitModelForState(this, route, modelId, { normalizeScopes });
+    throwModelRouteControlRustCoreRequired("model_mount.route.explicit_model_endpoints", {
+      route_id: route?.id ?? null,
+      model_id: modelId ?? null,
+    });
   }
 
   selectRoute({ modelId, routeId, capability, policy }) {
-    return selectRouteForState(this, { model_id: modelId, route_id: routeId, capability, policy }, {
-      isFixtureEndpointCandidate,
-      runtimeError,
-      truthy,
+    void policy;
+    throwModelRouteControlRustCoreRequired("model_mount.route.select", {
+      model_id: modelId ?? null,
+      route_id: routeId ?? null,
+      capability: capability ?? "chat",
     });
   }
 

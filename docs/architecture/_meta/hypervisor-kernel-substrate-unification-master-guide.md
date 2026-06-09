@@ -1214,8 +1214,9 @@ Agentgres-backed read APIs still need to replace JS helper transport and the
 temporary bridge command path.
 
 Slice 819 deleted the remaining `route-decision.mjs` compatibility module and
-its self-test. The tiny `model=auto` selector now lives with route selection in
-`routes.mjs`; the thread model-route binding reads canonical
+its self-test. At that point the tiny `model=auto` selector moved beside route
+selection in `routes.mjs`; Slice 886 later deleted that JS selector as
+migration-only scaffolding. The thread model-route binding reads canonical
 `details.model_route_decision` locally and emits canonical `receipt_id` without
 a `receiptId` alias; and the unused provider request-shaping helper/test path
 is gone instead of being preserved as compatibility scaffolding. This still
@@ -2031,6 +2032,20 @@ standalone catalog operations helper. This does not claim terminal catalog
 migration: direct Rust daemon-core catalog search/status/variant projection APIs
 over Agentgres-backed state, command-transport retirement, and stable protocol
 APIs remain required.
+
+Slice 886 retired the direct JS model-route selector and explicit endpoint
+resolver from `routes.mjs`. Mounted `ModelMountingState.selectRoute()` and
+`endpointIdsForExplicitModel()` now fail closed at
+`model_mount.route.select` and `model_mount.route.explicit_model_endpoints`
+before route-map reads, endpoint/provider reads, endpoint mounting, JS policy
+evaluation, or JS candidate scoring. The remaining route-selection helpers are
+limited to Rust admission request assembly, Rust-authored receipt persistence,
+and migration transport around `admit_model_mount_route_decision`; they are not
+a terminal bridge architecture. This still does not claim terminal model_route
+migration: direct Rust daemon-core route-control/projection APIs over
+Agentgres-backed state, stable protocol APIs, replay, and command-transport
+retirement remain required before model route control reaches the pure Rust
+substrate target.
 
 ## Part II: Target Execution Model
 

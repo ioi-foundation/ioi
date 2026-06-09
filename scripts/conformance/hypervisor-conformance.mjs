@@ -860,7 +860,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 818 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 819/.test(matrix) &&
       /Slice 819 deleted the remaining `route-decision\.mjs` compatibility module/.test(matrix) &&
-      /`isAutoModelSelector\(\)` moved into `routes\.mjs`/.test(matrix) &&
+      /`isAutoModelSelector\(\)` temporarily moved into `routes\.mjs`\s+before the Slice 886 selector retirement/.test(matrix) &&
       /`modelRouteBindingFromReceipt\(\)` now owns its narrow canonical receipt projection\s+inside `thread-runtime-controls\.mjs` while emitting `receipt_id` without the\s+retired `receiptId` alias/.test(matrix) &&
       /unused provider request-shaping helper\/test path\s+is absent rather than preserved as a compatibility shim/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 819 is now satisfied/.test(matrix) &&
@@ -1031,7 +1031,11 @@ function runDocs() {
       /Implementation Slice Evidence: 885/.test(matrix) &&
       /Slice 885 retired the fail-closed `catalog-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState`\s+catalog methods now own storage-summary readback/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 885/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 885 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 886/.test(matrix) &&
+      /Slice 886 retired the direct JS model-route selector and explicit endpoint\s+resolver from `routes\.mjs`/.test(matrix) &&
+      /before route-map reads, endpoint\/provider reads, endpoint mounting, JS policy\s+evaluation, or JS candidate scoring/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 886/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1195,7 +1199,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 882 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 883 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 884 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 885/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 885 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 886/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1709,7 +1714,8 @@ function runDocs() {
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /reject retired `bandwidth_limit_bps`, `resume_download`, `retries`, and\s+`destructive_confirmed` synonyms before policy evaluation/.test(implementationMatrix) &&
-      /route selection now ignores retired `allowHostedFallback`, `denyFixtureModels`,\s+and `maxCostUsd` policy aliases/.test(implementationMatrix) &&
+      /the direct JS route-selection policy engine, `model=auto` selector, and\s+explicit model endpoint resolver are retired/.test(implementationMatrix) &&
+      /mounted `selectRoute\(\)` and `endpointIdsForExplicitModel\(\)` fail closed\s+before route-map reads, endpoint\/provider reads, endpoint mounting, JS policy\s+evaluation, or candidate scoring/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
       ) &&
@@ -7980,16 +7986,25 @@ function runBridge() {
       !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(modelWorkflowNode) &&
       /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(openAiCompatRoutes) &&
       !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(openAiCompatRoutes) &&
-      /allow_hosted_fallback/.test(modelRoutes) &&
+      !/export function isAutoModelSelector\b/.test(modelRoutes) &&
+      !/export function endpointIdsForExplicitModel\b/.test(modelRoutes) &&
+      !/export function endpointIdsForExplicitModelForState\b/.test(modelRoutes) &&
+      !/export function selectRoute\b/.test(modelRoutes) &&
+      !/export function selectRouteForState\b/.test(modelRoutes) &&
+      !/selectRouteForState/.test(modelMountingState) &&
+      /throwModelRouteControlRustCoreRequired\("model_mount\.route\.select"/.test(modelMountingState) &&
+      /throwModelRouteControlRustCoreRequired\("model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
+      /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
+      /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelRoutesTest) &&
+      /allow_hosted_fallback/.test(modelRoutesTest) &&
       !/allowHostedFallback/.test(modelRoutes) &&
-      /policy\?\.deny_fixture_models/.test(modelRoutes) &&
+      !/allowHostedFallback/.test(modelRoutesTest) &&
+      !/policy\?\.deny_fixture_models/.test(modelRoutes) &&
       !/policy\?\.denyFixtureModels/.test(modelRoutes) &&
-      /policy\?\.max_cost_usd/.test(modelRoutes) &&
+      !/policy\?\.denyFixtureModels/.test(modelRoutesTest) &&
+      !/policy\?\.max_cost_usd/.test(modelRoutes) &&
       !/policy\?\.maxCostUsd/.test(modelRoutes) &&
-      /allow_hosted_fallback/.test(
-        modelRoutes,
-      ) &&
-      !/allowHostedFallback/.test(modelRoutes) &&
+      !/policy\?\.maxCostUsd/.test(modelRoutesTest) &&
       !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
       !/createModelRouteDecision/.test(modelRoutes) &&
       /idempotency_key:\s*`model_route_decision:\$\{requiredRef\("receipt_id", receiptId\)\}`/.test(modelRoutes) &&
@@ -7999,12 +8014,6 @@ function runBridge() {
       !/policy\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/originalBody\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/originalBody\.thinkingEffort/.test(modelRouteDecisionModule) &&
-      /ignore retired hosted fallback policy alias/.test(
-        read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
-      ) &&
-      /ignore retired cost and fixture-deny policy aliases/.test(
-        read("packages/runtime-daemon/src/model-mounting/routes.test.mjs"),
-      ) &&
       /rejects Rust admission results without Rust-authored receipt record/.test(modelRoutesTest) &&
       /receipt operations reject JS receipt creation after Rust receipt authoring cut/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
@@ -8906,17 +8915,16 @@ function runBridge() {
       !/details\.get\("endpoint_id"\)/.test(bridgeModule) &&
       !/details\.get\("provider_id"\)/.test(bridgeModule) &&
       !/details\.get\("(?:routeId|endpointId|providerId)"\)/.test(bridgeModule) &&
-      /details:\s*\{\s*route_id:\s*route\.id,\s*capability,\s*policy,\s*evaluated_candidates:\s*evaluatedCandidates\s*\}/.test(
-        modelRoutes,
-      ) &&
+      !/evaluated_candidates:\s*evaluatedCandidates/.test(modelRoutes) &&
       !/details:\s*\{\s*routeId:\s*route\.id,\s*capability,\s*policy,\s*evaluatedCandidates\s*\}/.test(
         modelRoutes,
       ) &&
       /routeReceipt\?\.details\?\.workflow_graph_id/.test(modelInvocationOps) &&
       /routeReceipt\?\.details\?\.workflow_node_id/.test(modelInvocationOps) &&
       !/routeReceipt\?\.details\?\.(?:workflowGraphId|workflowNodeId)/.test(modelInvocationOps) &&
-      /Object\.hasOwn\(error\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
-      /Object\.hasOwn\(error\.details,\s*"evaluatedCandidates"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
+      /operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
+      /operation_kind,\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelRoutesTest) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"policyHash"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"workflowNodeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
