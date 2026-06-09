@@ -230,7 +230,6 @@ import {
   updateRuntimeEngine as updateRuntimeEngineState,
 } from "./model-mounting/runtime-engines.mjs";
 import {
-  latestRuntimeSurvey as latestRuntimeSurveyState,
   lmStudioRuntimeEngines as lmStudioRuntimeEnginesState,
   lmStudioRuntimeSurvey as lmStudioRuntimeSurveyState,
   runtimeSurvey as runtimeSurveyState,
@@ -413,6 +412,7 @@ export class ModelMountingState {
       internalFixtureModelsEnabled,
       listJson,
       modelMountSchemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      hardwareSnapshot,
       path,
       providerHasVaultRef,
       publicOAuthSession,
@@ -1432,7 +1432,7 @@ export class ModelMountingState {
   }
 
   latestRuntimeSurvey() {
-    return latestRuntimeSurveyState(this, { hardwareSnapshot });
+    return this.readProjectionFacade.latestRuntimeSurvey(this);
   }
 
   lmStudioRuntimeEngines(checkedAt) {

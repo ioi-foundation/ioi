@@ -1124,6 +1124,18 @@ does not claim terminal runtime-engine migration: direct Rust daemon-core
 Agentgres runtime-engine preference/profile/projection APIs still need to
 replace JS current-state materialization and command transport.
 
+Slice 811 moved public model_mount latest runtime-survey readback through a
+dedicated Rust read-projection kind. `latestRuntimeSurvey()` now requests
+`latest_runtime_survey` from `plan_model_mount_read_projection`, and broad
+projection/snapshot input uses an explicit `runtime_survey_default` migration
+payload instead of recursively calling the public JS read facade. Rust now
+authors the checked runtime-survey envelope from canonical snake_case
+`runtime_survey` receipt details, or returns the explicit not-checked default
+when no admitted survey receipt exists. This still does not claim terminal
+runtime-survey migration: capture still fails closed until direct Rust
+daemon-core survey APIs own hardware/runtime probing, Agentgres admission,
+record-state, projection, and command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

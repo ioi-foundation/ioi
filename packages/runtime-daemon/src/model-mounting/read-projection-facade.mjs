@@ -17,11 +17,15 @@ import {
   runtimePreference,
   runtimePreferenceForEndpoint,
 } from "./runtime-engines.mjs";
+import {
+  latestRuntimeSurvey as latestRuntimeSurveyInput,
+} from "./runtime-survey.mjs";
 
 export function createModelMountingReadProjectionFacade({
   internalFixtureModelsEnabled,
   listJson,
   modelMountSchemaVersion,
+  hardwareSnapshot = () => null,
   notFound: notFoundDep = notFound,
   path,
   providerHasVaultRef,
@@ -159,6 +163,10 @@ export function createModelMountingReadProjectionFacade({
     }
   }
 
+  function latestRuntimeSurvey(state) {
+    return rustReadProjection(state, "latest_runtime_survey");
+  }
+
   function workflowNodeBindings(state) {
     return rustReadProjection(state, "workflow_bindings");
   }
@@ -280,6 +288,12 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "latest_vault_health") {
       return {
         receipts: state.listReceipts(),
+      };
+    }
+    if (projectionKind === "latest_runtime_survey") {
+      return {
+        receipts: state.listReceipts(),
+        runtime_survey_default: latestRuntimeSurveyInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       };
     }
     if (projectionKind === "latest_provider_health") {
@@ -404,7 +418,7 @@ export function createModelMountingReadProjectionFacade({
       runtime_engines: state.listRuntimeEngines(),
       runtime_engine_profiles: state.listRuntimeEngineProfiles(),
       runtime_preference: state.runtimePreference(),
-      runtime_survey: state.latestRuntimeSurvey(),
+      runtime_survey: latestRuntimeSurveyInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       grants: state.listTokens(),
       vault_refs: state.listVaultRefs(),
       mcp_servers: state.listMcpServers(),
@@ -459,11 +473,19 @@ export function createModelMountingReadProjectionFacade({
     return runtimeState;
   }
 
+  function runtimeSurveyProjectionState(state) {
+    const runtimeState = runtimeEngineProjectionState(state);
+    runtimeState.listRuntimeEngines = () => listRuntimeEngines(runtimeState);
+    runtimeState.runtimePreference = () => runtimePreference(runtimeState);
+    return runtimeState;
+  }
+
   return {
     adapterBoundaries,
     authoritySnapshot,
     canonicalProjectionWritePlan,
     latestProviderHealth,
+    latestRuntimeSurvey,
     latestVaultHealth,
     listArtifacts,
     listDownloads,

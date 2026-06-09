@@ -2117,6 +2117,7 @@ fn model_mount_read_projection(
         )),
         "latest_provider_health" => model_mount_latest_provider_health(request),
         "latest_vault_health" => model_mount_latest_vault_health(request),
+        "latest_runtime_survey" => Ok(model_mount_latest_runtime_survey(request)),
         other => Err(BridgeError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),
@@ -3128,6 +3129,50 @@ fn model_mount_latest_vault_health(
         "replay": model_mount_receipt_replay_projection(request, &projection, &receipt),
         "projectionWatermark": projection.get("watermark").cloned().unwrap_or(Value::Null),
     }))
+}
+
+fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) -> Value {
+    let receipts = array_field(&request.state, "receipts");
+    let runtime_survey_default = object_or_null(request.state.get("runtime_survey_default"));
+    let Some(receipt) = receipts.iter().rev().find(|candidate| {
+        json_string_field(candidate, "kind").as_deref() == Some("runtime_survey")
+    }) else {
+        return runtime_survey_default;
+    };
+    let details = receipt.get("details").unwrap_or(&Value::Null);
+    json!({
+        "status": "checked",
+        "receiptId": json_string_field(receipt, "id").unwrap_or_else(|| "none".to_string()),
+        "checkedAt": details
+            .get("checked_at")
+            .cloned()
+            .or_else(|| receipt.get("createdAt").cloned())
+            .unwrap_or(Value::Null),
+        "engineCount": details
+            .get("engine_count")
+            .and_then(Value::as_u64)
+            .unwrap_or(0),
+        "selectedEngines": array_field(details, "selected_engines"),
+        "runtimePreference": details
+            .get("runtime_preference")
+            .cloned()
+            .unwrap_or_else(|| {
+                runtime_survey_default
+                    .get("runtimePreference")
+                    .cloned()
+                    .unwrap_or(Value::Null)
+            }),
+        "hardware": details.get("hardware").cloned().unwrap_or_else(|| {
+            runtime_survey_default
+                .get("hardware")
+                .cloned()
+                .unwrap_or(Value::Null)
+        }),
+        "lmStudio": details
+            .get("lm_studio")
+            .cloned()
+            .unwrap_or_else(|| json!({"status": "unknown"})),
+    })
 }
 
 fn model_mount_projection_schema_version(request: &ModelMountReadProjectionRequest) -> String {
@@ -9107,6 +9152,94 @@ mod tests {
         assert_eq!(
             missing_runtime_engine_detail_error.code,
             "model_mount_runtime_engine_not_found"
+        );
+
+        let latest_runtime_survey_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "latest_runtime_survey",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "receipts": [],
+                        "runtime_survey_default": {
+                            "status": "not_checked",
+                            "receiptId": "none",
+                            "engineCount": 1,
+                            "hardware": {"cpuCount": 8},
+                            "runtimePreference": {"selectedEngineId": "backend.llama-cpp"},
+                            "lmStudio": {"status": "not_checked"}
+                        }
+                    }
+                }
+            }))
+            .expect("model_mount latest runtime survey request");
+        let latest_runtime_survey_response =
+            plan_model_mount_read_projection(latest_runtime_survey_request)
+                .expect("latest runtime survey default projected in Rust");
+        assert_eq!(
+            latest_runtime_survey_response["projection_kind"],
+            "latest_runtime_survey"
+        );
+        assert_eq!(
+            latest_runtime_survey_response["projection"]["status"],
+            "not_checked"
+        );
+        assert_eq!(
+            latest_runtime_survey_response["projection"]["runtimePreference"]["selectedEngineId"],
+            "backend.llama-cpp"
+        );
+
+        let checked_runtime_survey_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "latest_runtime_survey",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "runtime_survey_default": {
+                            "status": "not_checked",
+                            "receiptId": "none",
+                            "hardware": {"cpuCount": 8},
+                            "runtimePreference": {"selectedEngineId": "backend.llama-cpp"}
+                        },
+                        "receipts": [{
+                            "id": "receipt-runtime-survey",
+                            "kind": "runtime_survey",
+                            "createdAt": "2026-06-08T00:03:00.000Z",
+                            "details": {
+                                "checked_at": "2026-06-08T00:03:00.000Z",
+                                "engine_count": 1,
+                                "selected_engines": ["backend.llama-cpp"],
+                                "runtime_preference": {"selectedEngineId": "backend.llama-cpp"},
+                                "hardware": {"cpuCount": 16},
+                                "lm_studio": {"status": "available"}
+                            }
+                        }]
+                    }
+                }
+            }))
+            .expect("checked model_mount latest runtime survey request");
+        let checked_runtime_survey_response =
+            plan_model_mount_read_projection(checked_runtime_survey_request)
+                .expect("latest runtime survey receipt projected in Rust");
+        assert_eq!(
+            checked_runtime_survey_response["projection"]["receiptId"],
+            "receipt-runtime-survey"
+        );
+        assert_eq!(
+            checked_runtime_survey_response["projection"]["selectedEngines"][0],
+            "backend.llama-cpp"
+        );
+        assert_eq!(
+            checked_runtime_survey_response["projection"]["hardware"]["cpuCount"],
+            16
         );
 
         let snapshot_request: ModelMountReadProjectionBridgeRequest =

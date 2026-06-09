@@ -16439,7 +16439,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 810
+## Compacted Implementation Slice Evidence: 810
 
 Slice 810 moved public model_mount runtime-engine read surfaces through
 dedicated Rust read-projection kinds. `runtimePreference()`,
@@ -16466,10 +16466,40 @@ This does not claim terminal runtime-engine migration: direct Rust daemon-core
 Agentgres runtime-engine preference/profile/projection APIs still need to
 replace JS current-state materialization, command transport, and edge wrappers.
 
-Scheduled matrix-compaction obligation from Slice 810 is pending after this
+Scheduled matrix-compaction obligation from Slice 810 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 811
+
+Slice 811 moved public model_mount latest runtime-survey readback through a
+dedicated Rust read-projection kind. `latestRuntimeSurvey()` now requests
+`latest_runtime_survey` from `plan_model_mount_read_projection`, while broad
+projection/snapshot input passes explicit `runtime_survey_default` migration
+input instead of recursively calling the public JS read facade. Rust now authors
+the checked runtime-survey envelope from canonical snake_case `runtime_survey`
+receipt details, or returns the explicit not-checked default when no admitted
+survey receipt exists.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal runtime-survey migration: capture still fails
+closed until direct Rust daemon-core survey APIs own hardware/runtime probing,
+Agentgres admission, record-state, projection, and command-transport retirement.
+
+Scheduled matrix-compaction obligation from Slice 811 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 810 after the next
+Next scheduled matrix-compaction pass: compact Slice 811 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

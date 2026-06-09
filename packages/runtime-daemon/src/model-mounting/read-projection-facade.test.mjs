@@ -180,6 +180,7 @@ function createState() {
       status: "healthy",
     }),
     readProjectionPlanner,
+    hardwareSnapshot: () => ({ cpuCount: 8 }),
     notFound: (message, details) => Object.assign(new Error(message), {
       status: 404,
       code: "not_found",
@@ -226,6 +227,7 @@ function rustProjectionFixture(request) {
     }
     return state.runtime_engine;
   }
+  if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
   if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
   if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
   const projection = {
@@ -407,6 +409,22 @@ function rustProjectionFixture(request) {
     };
   }
   throw new Error(`unsupported projection fixture: ${request.projection_kind}`);
+}
+
+function latestRuntimeSurveyFromRustState(state) {
+  const receipt = [...(state.receipts ?? [])].reverse()
+    .find((candidate) => candidate.kind === "runtime_survey");
+  if (!receipt) return state.runtime_survey_default ?? null;
+  return {
+    status: "checked",
+    receiptId: receipt.id,
+    checkedAt: receipt.details?.checked_at ?? receipt.createdAt,
+    engineCount: receipt.details?.engine_count ?? 0,
+    selectedEngines: receipt.details?.selected_engines ?? [],
+    runtimePreference: receipt.details?.runtime_preference ?? state.runtime_survey_default?.runtimePreference ?? null,
+    hardware: receipt.details?.hardware ?? state.runtime_survey_default?.hardware ?? null,
+    lmStudio: receipt.details?.lm_studio ?? { status: "unknown" },
+  };
 }
 
 function productArtifactsFromRustState(state) {
@@ -909,6 +927,51 @@ test("read projection facade projects latest provider and vault health envelopes
   assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["receipts"]);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "artifacts")), true);
+});
+
+test("read projection facade delegates latest runtime survey through Rust projection", () => {
+  const { facade, state, readProjectionRequests } = createState();
+
+  const notChecked = facade.latestRuntimeSurvey(state);
+  assert.equal(notChecked.status, "not_checked");
+  assert.equal(notChecked.receiptId, "none");
+  assert.equal(notChecked.engineCount, 1);
+  assert.equal(notChecked.runtimePreference.selectedEngineId, "backend.llama-cpp");
+  assert.deepEqual(notChecked.hardware, { cpuCount: 8 });
+  assert.equal(notChecked.lmStudio.status, "not_checked");
+
+  state.listReceipts().push({
+    id: "receipt-runtime-survey",
+    kind: "runtime_survey",
+    createdAt: "2026-06-03T00:01:00.000Z",
+    details: {
+      checked_at: "2026-06-03T00:01:00.000Z",
+      engine_count: 1,
+      selected_engines: ["backend.llama-cpp"],
+      runtime_preference: { selectedEngineId: "backend.llama-cpp" },
+      hardware: { cpuCount: 16 },
+      lm_studio: { status: "available" },
+    },
+  });
+  const checked = facade.latestRuntimeSurvey(state);
+  assert.equal(checked.status, "checked");
+  assert.equal(checked.receiptId, "receipt-runtime-survey");
+  assert.deepEqual(checked.selectedEngines, ["backend.llama-cpp"]);
+  assert.deepEqual(checked.hardware, { cpuCount: 16 });
+  assert.equal(checked.lmStudio.status, "available");
+
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), [
+    "latest_runtime_survey",
+    "latest_runtime_survey",
+  ]);
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
+    "receipts",
+    "runtime_survey_default",
+  ]);
+  assert.equal(readProjectionRequests[0].state.runtime_survey_default.engineCount, 1);
+  assert.equal(readProjectionRequests[1].state.receipts.at(-1).id, "receipt-runtime-survey");
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey")), true);
 });
 
 test("read projection facade preserves latest health not-found errors", () => {
