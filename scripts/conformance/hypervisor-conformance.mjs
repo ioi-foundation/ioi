@@ -977,7 +977,11 @@ function runDocs() {
       /Implementation Slice Evidence: 872/.test(matrix) &&
       /Slice 872 retired the fail-closed `storage-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` storage methods now own canonical storage request alias\s+rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 872/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 873/.test(matrix) &&
+      /Slice 873 retired the fail-closed `capability-token-operations\.mjs` helper\s+module/.test(matrix) &&
+      /`ModelMountingState` capability-token methods now own token\s+redaction\/list sorting/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 873/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1128,9 +1132,12 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 869 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 871 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 872/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 873/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` capability-token methods now own token redaction\/list sorting/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -14935,44 +14942,50 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-capability-token-js-facade-retired",
-    /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
-      /notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*token_id:\s*tokenId\s*\}\)/.test(
-        capabilityTokenOperations,
+    !exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs") &&
+      !/authorizeState|createTokenState|listTokensState|revokeTokenState/.test(modelMountingState) &&
+      /details:\s*\{\s*required_scope:\s*requiredScope\s*\}/.test(modelMountingState) &&
+      /notFound\(`Token not found: \$\{tokenId\}`,\s*\{\s*token_id:\s*tokenId\s*\}\)/.test(
+        modelMountingState,
       ) &&
-      /throwCapabilityTokenRustCoreRequired/.test(capabilityTokenOperations) &&
-      /model_mount_capability_token_rust_core_required/.test(capabilityTokenOperations) &&
-      /rust_core_boundary:\s*"model_mount\.capability_token"/.test(capabilityTokenOperations) &&
-      /public_capability_token_js_facade_retired/.test(capabilityTokenOperations) &&
-      /rust_daemon_core_wallet_authority_required/.test(capabilityTokenOperations) &&
-      /model_mount\.capability_token\.create/.test(capabilityTokenOperations) &&
-      /model_mount\.capability_token\.authorize/.test(capabilityTokenOperations) &&
-      /model_mount\.capability_token\.revoke/.test(capabilityTokenOperations) &&
+      /throwCapabilityTokenRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_capability_token_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.capability_token"/.test(modelMountingState) &&
+      /public_capability_token_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_wallet_authority_required/.test(modelMountingState) &&
+      /model_mount\.capability_token\.create/.test(modelMountingState) &&
+      /model_mount\.capability_token\.authorize/.test(modelMountingState) &&
+      /model_mount\.capability_token\.revoke/.test(modelMountingState) &&
       !/commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
       !/commitModelMountRecordState/.test(capabilityTokenOperations) &&
       !/recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
       !/model_mount_capability_token_state_commit_unconfigured/.test(capabilityTokenOperations) &&
-      !/state\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(capabilityTokenOperations) &&
+      !/this\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(modelMountingState) &&
       !/state\.receipt\("permission_token/.test(capabilityTokenOperations) &&
-      !/state\.tokens\.set/.test(capabilityTokenOperations) &&
+      !/this\.tokens\.set/.test(modelMountingState) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
       !/normalizeCapabilityTokenRecordStateCommit/.test(capabilityTokenOperations) &&
       !/state\.writeMap\("tokens"/.test(capabilityTokenOperations) &&
-      !/details:\s*\{\s*requiredScope\s*\}/.test(capabilityTokenOperations) &&
-      !/notFoundDep\(`Token not found: \$\{tokenId\}`,\s*\{\s*tokenId\s*\}\)/.test(
-        capabilityTokenOperations,
+      !/details:\s*\{\s*requiredScope\s*\}/.test(modelMountingState) &&
+      !/notFound\(`Token not found: \$\{tokenId\}`,\s*\{\s*tokenId\s*\}\)/.test(
+        modelMountingState,
       ) &&
       /recordStateCommits/.test(capabilityTokenOperationsTest) &&
       /capability token mutation and authorization facades fail closed until Rust wallet authority owns them/.test(
         capabilityTokenOperationsTest,
       ) &&
       /capability token list remains a read-only projection adapter/.test(capabilityTokenOperationsTest) &&
+      /ModelMountingState\.prototype\.createToken\.call/.test(capabilityTokenOperationsTest) &&
+      /ModelMountingState\.prototype\.revokeToken\.call/.test(capabilityTokenOperationsTest) &&
+      /ModelMountingState\.prototype\.authorize\.call/.test(capabilityTokenOperationsTest) &&
+      /ModelMountingState\.prototype\.listTokens\.call/.test(capabilityTokenOperationsTest) &&
       /assertNoCapabilityTokenMutation/.test(capabilityTokenOperationsTest) &&
       /model_mount_capability_token_rust_core_required/.test(capabilityTokenOperationsTest) &&
       /public_capability_token_js_facade_retired/.test(capabilityTokenOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"requiredScope"\),\s*false/.test(capabilityTokenOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"tokenId"\),\s*false/.test(capabilityTokenOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/capability-token-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs",
     ],
     "Phase 7/11 is pending: capability token mutation/authorization must fail closed until Rust daemon-core wallet authority owns grant, revocation, authorization, receipt, record-state, and projection semantics",

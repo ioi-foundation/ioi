@@ -1861,6 +1861,19 @@ artifact/download/storage filesystem control, Agentgres-admitted receipt and
 record-state truth, projection persistence, command-transport retirement, and
 stable protocol APIs remain required.
 
+Slice 873 retired the fail-closed `capability-token-operations.mjs` helper
+module after public capability-token create/revoke and Bearer authorization had
+already been reduced to Rust-core-required wallet-authority edge refusals. The
+mounted public `ModelMountingState` capability-token methods now own token
+redaction/list sorting, canonical `token_id` not-found details, Bearer
+authorization preflight, token-hash lookup, and
+`model_mount.capability_token` Rust-core-required errors directly, without
+importing a helper module or dependency-injecting wallet-authority helpers.
+This does not claim terminal wallet authority migration: direct Rust
+daemon-core wallet.network grant creation, revocation, authorization,
+Agentgres-admitted receipt and record-state truth, projection persistence,
+command-transport retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

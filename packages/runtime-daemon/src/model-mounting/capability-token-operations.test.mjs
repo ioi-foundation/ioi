@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  authorize,
-  createToken,
-  listTokens,
-  revokeToken,
-} from "./capability-token-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
+import { hashToken } from "./io.mjs";
 
 function createState() {
   const calls = [];
@@ -58,16 +54,6 @@ function createState() {
   return state;
 }
 
-function deps(overrides = {}) {
-  return {
-    hashToken: (value) => `hash:${value}`,
-    runtimeError({ status, code, message, details }) {
-      return Object.assign(new Error(message), { status, code, details });
-    },
-    ...overrides,
-  };
-}
-
 function assertNoCapabilityTokenMutation(state) {
   assert.deepEqual(state.calls, []);
   assert.deepEqual(state.receipts, []);
@@ -80,7 +66,7 @@ test("capability token mutation and authorization facades fail closed until Rust
 
   assert.throws(
     () =>
-      createToken(
+      ModelMountingState.prototype.createToken.call(
         createStateValue,
         {
           audience: "agent-studio",
@@ -92,7 +78,6 @@ test("capability token mutation and authorization facades fail closed until Rust
           expires_at: "2026-06-05T14:00:00.000Z",
           grant_id: "wallet.grant.test",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -118,7 +103,7 @@ test("capability token mutation and authorization facades fail closed until Rust
     audience: "agent-studio",
     allowed: ["model.chat:*"],
     denied: [],
-    tokenHash: "hash:ioi_mnt_test_token",
+    tokenHash: hashToken("ioi_mnt_test_token"),
     grantId: "wallet.grant.test",
     createdAt: "2026-06-04T14:00:00.000Z",
   };
@@ -126,7 +111,7 @@ test("capability token mutation and authorization facades fail closed until Rust
   const revokeStateValue = createState();
   revokeStateValue.tokens.set(token.id, token);
   assert.throws(
-    () => revokeToken(revokeStateValue, token.id, deps()),
+    () => ModelMountingState.prototype.revokeToken.call(revokeStateValue, token.id),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_capability_token_rust_core_required");
@@ -141,7 +126,11 @@ test("capability token mutation and authorization facades fail closed until Rust
   const authorizeStateValue = createState();
   authorizeStateValue.tokens.set(token.id, token);
   assert.throws(
-    () => authorize(authorizeStateValue, "Bearer ioi_mnt_test_token", "model.chat:complete", deps()),
+    () => ModelMountingState.prototype.authorize.call(
+      authorizeStateValue,
+      "Bearer ioi_mnt_test_token",
+      "model.chat:complete",
+    ),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_capability_token_rust_core_required");
@@ -170,8 +159,11 @@ test("capability token list remains a read-only projection adapter", () => {
     tokenHash: "hash:a",
   });
 
-  assert.deepEqual(listTokens(state).map((token) => token.id), ["grant-a", "grant-b"]);
-  assert.equal(listTokens(state).some((token) => Object.hasOwn(token, "tokenHash")), false);
+  assert.deepEqual(ModelMountingState.prototype.listTokens.call(state).map((token) => token.id), ["grant-a", "grant-b"]);
+  assert.equal(
+    ModelMountingState.prototype.listTokens.call(state).some((token) => Object.hasOwn(token, "tokenHash")),
+    false,
+  );
   assertNoCapabilityTokenMutation(state);
 });
 
@@ -179,7 +171,7 @@ test("capability token authorization and revoke preserve auth and not-found erro
   const state = createState();
 
   assert.throws(
-    () => authorize(state, "", "model.chat:complete", deps()),
+    () => ModelMountingState.prototype.authorize.call(state, "", "model.chat:complete"),
     (error) => {
       assert.equal(error.status, 401);
       assert.equal(error.code, "auth");
@@ -189,7 +181,7 @@ test("capability token authorization and revoke preserve auth and not-found erro
     },
   );
   assert.throws(
-    () => authorize(state, "Bearer missing", "model.chat:complete", deps()),
+    () => ModelMountingState.prototype.authorize.call(state, "Bearer missing", "model.chat:complete"),
     (error) => {
       assert.equal(error.status, 401);
       assert.equal(error.code, "auth");
@@ -200,7 +192,7 @@ test("capability token authorization and revoke preserve auth and not-found erro
     },
   );
   assert.throws(
-    () => revokeToken(state, "missing-token"),
+    () => ModelMountingState.prototype.revokeToken.call(state, "missing-token"),
     (error) => {
       assert.equal(error.status, 404);
       assert.equal(error.code, "not_found");

@@ -18158,10 +18158,36 @@ receipt and record-state truth, projection persistence, command-transport
 retirement, and stable protocol APIs remain required before model storage
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 872 after the next direct
+Scheduled matrix-compaction obligation from Slice 872 is now satisfied.
+
+## Implementation Slice Evidence: 873
+
+Slice 873 retired the fail-closed `capability-token-operations.mjs` helper
+module after public capability-token create/revoke and Bearer authorization had
+already been reduced to Rust-core-required wallet-authority edge refusals. The
+mounted public `ModelMountingState` capability-token methods now own token
+redaction/list sorting, canonical `token_id` not-found details, Bearer
+authorization preflight, token-hash lookup, and
+`model_mount.capability_token` Rust-core-required errors directly, without
+importing a helper module or dependency-injecting wallet-authority helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal wallet authority migration: direct Rust
+daemon-core wallet.network grant creation, revocation, authorization,
+Agentgres-admitted receipt and record-state truth, projection persistence,
+command-transport retirement, and stable protocol APIs remain required before
+capability-token control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 873 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-model storage filesystem/receipt/projection materialization, local map-backed
-download status readback, and direct Rust daemon-core artifact/download/storage
-APIs. The `ioi-step-module-bridge` command path is acceptable only as
-migration transport; it is not the terminal architecture.
+wallet authority grant/authorization projection materialization, local
+map-backed token readback, and direct Rust daemon-core wallet.network
+capability-token APIs. The `ioi-step-module-bridge` command path is acceptable
+only as migration transport; it is not the terminal architecture.

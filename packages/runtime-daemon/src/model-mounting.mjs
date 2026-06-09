@@ -51,12 +51,6 @@ import {
   vaultStatus as vaultStatusState,
 } from "./model-mounting/vault-operations.mjs";
 import {
-  authorize as authorizeState,
-  createToken as createTokenState,
-  listTokens as listTokensState,
-  revokeToken as revokeTokenState,
-} from "./model-mounting/capability-token-operations.mjs";
-import {
   contextWindowForEndpoint as contextWindowForEndpointState,
   countModelTokens as countModelTokensState,
   fitModelContext as fitModelContextState,
@@ -241,6 +235,8 @@ import {
   normalizeNonNegativeInteger,
   truthy,
   matchesAny,
+  hashToken,
+  publicToken,
   publicMcpServer,
   publicVaultRefs,
   normalizeScopes,
@@ -861,19 +857,56 @@ export class ModelMountingState {
   }
 
   createToken(body = {}) {
-    return createTokenState(this, body);
+    throwCapabilityTokenRustCoreRequired(
+      "model_mount.capability_token.create",
+      {
+        ...(body.audience ? { audience: body.audience } : {}),
+        ...(body.grant_id ? { grant_id: body.grant_id } : {}),
+      },
+    );
   }
 
   listTokens() {
-    return listTokensState(this);
+    return [...this.tokens.values()]
+      .map(publicToken)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
   revokeToken(tokenId) {
-    return revokeTokenState(this, tokenId);
+    if (!this.tokens.has(tokenId)) throw notFound(`Token not found: ${tokenId}`, { token_id: tokenId });
+    throwCapabilityTokenRustCoreRequired(
+      "model_mount.capability_token.revoke",
+      { token_id: tokenId },
+    );
   }
 
   authorize(authorization, requiredScope) {
-    return authorizeState(this, authorization, requiredScope);
+    if (!authorization || !authorization.startsWith("Bearer ")) {
+      throw runtimeError({
+        status: 401,
+        code: "auth",
+        message: "Bearer capability token is required for this model mounting operation.",
+        details: { required_scope: requiredScope },
+      });
+    }
+    const tokenHash = hashToken(authorization.slice("Bearer ".length).trim());
+    const token = [...this.tokens.values()].find((candidate) => candidate.tokenHash === tokenHash);
+    if (!token) {
+      throw runtimeError({
+        status: 401,
+        code: "auth",
+        message: "Capability token was not recognized.",
+        details: { required_scope: requiredScope },
+      });
+    }
+    throwCapabilityTokenRustCoreRequired(
+      "model_mount.capability_token.authorize",
+      {
+        token_id: token.id,
+        grant_id: token.grantId ?? null,
+        required_scope: requiredScope,
+      },
+    );
   }
 
   upsertProvider(body = {}) {
@@ -1526,6 +1559,24 @@ function throwModelStorageRustCoreRequired(operation_kind, details = {}) {
       evidence_refs: [
         "public_model_storage_js_facade_retired",
         "rust_daemon_core_model_storage_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function throwCapabilityTokenRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_capability_token_rust_core_required",
+    message:
+      "Capability token mutation and authorization facades require Rust daemon-core wallet authority ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.capability_token",
+      evidence_refs: [
+        "public_capability_token_js_facade_retired",
+        "rust_daemon_core_wallet_authority_required",
       ],
       ...details,
     },
