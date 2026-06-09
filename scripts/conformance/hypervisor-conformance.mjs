@@ -985,7 +985,11 @@ function runDocs() {
       /Implementation Slice Evidence: 874/.test(matrix) &&
       /Slice 874 retired the fail-closed `vault-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` vault methods now own canonical vault request alias\s+rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 874/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 875/.test(matrix) &&
+      /Slice 875 retired the fail-closed `tokenizer-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer\s+request alias rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 875/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1138,13 +1142,16 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 871 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 874/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 875/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` capability-token methods now own token redaction\/list sorting/.test(implementationMatrix) &&
       /the fail-closed `vault-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` vault methods now own canonical vault request alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `tokenizer-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer request alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1933,9 +1940,6 @@ function runBridge() {
   const modelMountInvocationReceiptRunnerBlock =
     modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n\n  invokeBridge)/)?.[0] ??
     "";
-  const modelTokenizerOperations = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
-    : "";
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     : "";
@@ -8928,16 +8932,17 @@ function runBridge() {
       !/commitModelRouteRecordState/.test(modelRoutes) &&
       !/commitModelMountRecordState/.test(modelRoutes) &&
       !/recordDir:\s*"model-routes"/.test(modelRoutes) &&
-      !/model_mount\.route\.tokenizer_selection/.test(modelTokenizerOperations) &&
+      !exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs") &&
+      !/model_mount\.route\.tokenizer_selection/.test(modelMountingState) &&
       !/model_mount\.route\.invocation_selection/.test(modelInvocationOps) &&
       !/model_mount_route_state_commit_unconfigured/.test(modelRoutes) &&
       !/model_mount_route_state_receipt_required/.test(modelRoutes) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(modelRoutes) &&
       !/normalizeModelRouteRecordStateCommit/.test(modelRoutes) &&
-      !/persistModelRouteSelectionState/.test(modelTokenizerOperations) &&
+      !/persistModelRouteSelectionState/.test(modelMountingState) &&
       !/persistModelRouteSelectionState/.test(modelInvocationOps) &&
       !/state\.writeMap\("model-routes"/.test(modelRoutes) &&
-      !/state\.writeMap\("model-routes"/.test(modelTokenizerOperations) &&
+      !/state\.writeMap\("model-routes"/.test(modelMountingState) &&
       !/state\.writeMap\("model-routes"/.test(modelInvocationOps) &&
       !/body\.(?:maxCostUsd|maxLatencyMs|providerEligibility|deniedProviders|lastSelectedModel|lastReceiptId)\b/.test(
         modelRoutes,
@@ -8967,7 +8972,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
@@ -12095,9 +12100,6 @@ function runReceipts() {
   const modelMountStoreTest = exists("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/store.test.mjs")
     : "";
-  const modelTokenizerOperations = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs")
-    : "";
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     : "";
@@ -12808,32 +12810,45 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-tokenizer-js-facade-retired",
-    /modelTokenizerRustCoreRequiredError/.test(modelTokenizerOperations) &&
-      /model_mount_tokenizer_rust_core_required/.test(modelTokenizerOperations) &&
-      /rust_core_boundary:\s*"model_mount\.tokenizer"/.test(modelTokenizerOperations) &&
-      /model_mount_tokenizer_js_facade_retired/.test(modelTokenizerOperations) &&
-      /model_mount_context_fit_js_facade_retired/.test(modelTokenizerOperations) &&
-      /rust_daemon_core_model_tokenizer_required/.test(modelTokenizerOperations) &&
-      /rust_daemon_core_model_context_fit_required/.test(modelTokenizerOperations) &&
-      /agentgres_model_tokenizer_truth_required/.test(modelTokenizerOperations) &&
-      /return modelTokenizerUtility\(state,\s*\{ authorization,\s*requiredScope,\s*body,\s*operation:\s*"tokenize" \},\s*deps\);/.test(
-        modelTokenizerOperations,
+    !exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs") &&
+      !/modelTokenizerUtilityState|tokenizeModelState|countModelTokensState|fitModelContextState|contextWindowForEndpointState/.test(
+        modelMountingState,
       ) &&
-      /return modelTokenizerUtility\(state,\s*\{ authorization,\s*requiredScope,\s*body,\s*operation:\s*"count_tokens" \},\s*deps\);/.test(
-        modelTokenizerOperations,
+      /modelTokenizerRustCoreRequiredError/.test(modelMountingState) &&
+      /model_mount_tokenizer_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.tokenizer"/.test(modelMountingState) &&
+      /model_mount_tokenizer_js_facade_retired/.test(modelMountingState) &&
+      /model_mount_context_fit_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_model_tokenizer_required/.test(modelMountingState) &&
+      /rust_daemon_core_model_context_fit_required/.test(modelMountingState) &&
+      /agentgres_model_tokenizer_truth_required/.test(modelMountingState) &&
+      /tokenizeModel\(\{ authorization,\s*requiredScope = "model\.tokenize:\*",\s*body = \{\} \}\) \{[\s\S]*?operation:\s*"tokenize"/.test(
+        modelMountingState,
       ) &&
-      /return modelTokenizerUtility\(state,\s*\{ authorization,\s*requiredScope,\s*body,\s*operation:\s*"context_fit" \},\s*deps\);/.test(
-        modelTokenizerOperations,
+      /countModelTokens\(\{ authorization,\s*requiredScope = "model\.tokenize:\*",\s*body = \{\} \}\) \{[\s\S]*?operation:\s*"count_tokens"/.test(
+        modelMountingState,
       ) &&
-      !/state\.authorize\(/.test(modelTokenizerOperations) &&
-      !/state\.selectRoute\(/.test(modelTokenizerOperations) &&
-      !/state\.routeSelectionReceipt\(/.test(modelTokenizerOperations) &&
-      !/state\.receipt\("model_tokenization"/.test(modelTokenizerOperations) &&
-      !/state\.receipt\("model_context_fit"/.test(modelTokenizerOperations) &&
-      !/deterministic_context_estimator/.test(modelTokenizerOperations) &&
-      !/utility\.selection/.test(modelTokenizerOperations) &&
-      !/utility\.receipt/.test(modelTokenizerOperations) &&
+      /fitModelContext\(\{ authorization,\s*requiredScope = "model\.context:\*",\s*body = \{\} \}\) \{[\s\S]*?operation:\s*"context_fit"/.test(
+        modelMountingState,
+      ) &&
+      !/state\.authorize\(/.test(modelMountingState) &&
+      !/state\.selectRoute\(/.test(modelMountingState) &&
+      !/state\.routeSelectionReceipt\(/.test(modelMountingState) &&
+      !/state\.receipt\("model_tokenization"/.test(modelMountingState) &&
+      !/state\.receipt\("model_context_fit"/.test(modelMountingState) &&
+      !/deterministic_context_estimator/.test(modelMountingState) &&
+      !/utility\.selection/.test(modelMountingState) &&
+      !/utility\.receipt/.test(modelMountingState) &&
       /modelTokenizerUtility fails closed before JS tokenization receipt or route mutation/.test(
+        modelTokenizerOperationsTest,
+      ) &&
+      /ModelMountingState\.prototype\.modelTokenizerUtility\.call/.test(
+        modelTokenizerOperationsTest,
+      ) &&
+      /ModelMountingState\.prototype\.tokenizeModel\.call/.test(modelTokenizerOperationsTest) &&
+      /ModelMountingState\.prototype\.countModelTokens\.call/.test(modelTokenizerOperationsTest) &&
+      /ModelMountingState\.prototype\.fitModelContext\.call/.test(modelTokenizerOperationsTest) &&
+      /ModelMountingState\.prototype\.contextWindowForEndpoint\.call/.test(
         modelTokenizerOperationsTest,
       ) &&
       /tokenizeModel and countModelTokens fail closed before public JS response envelopes/.test(
@@ -12847,7 +12862,7 @@ function runReceipts() {
       /assert\.equal\(state\.routeReceiptCount,\s*0\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
     ],
     "Phase 9/11 is pending: tokenizer and context-fit public JS facades must fail closed before JS authorization, route selection, receipt synthesis, route mutation, or response-envelope shaping",
@@ -12855,14 +12870,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-tokenizer-request-aliases-retired",
-      /RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES/.test(modelTokenizerOperations) &&
-      /model_mount_tokenizer_request_aliases_retired/.test(modelTokenizerOperations) &&
-      /assertCanonicalModelTokenizerRequestBody\(body\);/.test(modelTokenizerOperations) &&
-      /route_id:\s*body\.route_id \?\? null/.test(modelTokenizerOperations) &&
-      /requested_scope:\s*requiredScope \?\? null/.test(modelTokenizerOperations) &&
-      /const explicit = Number\(body\.context_length\);/.test(modelTokenizerOperations) &&
+      !exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs") &&
+      /RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES/.test(modelMountingState) &&
+      /model_mount_tokenizer_request_aliases_retired/.test(modelMountingState) &&
+      /assertCanonicalModelTokenizerRequestBody\(body\);/.test(modelMountingState) &&
+      /route_id:\s*body\.route_id \?\? null/.test(modelMountingState) &&
+      /requested_scope:\s*requiredScope \?\? null/.test(modelMountingState) &&
+      /const explicit = Number\(body\.context_length\);/.test(modelMountingState) &&
       !/body\.(?:routeId|modelPolicy|contextLength|contextWindow|maxOutputTokens|reserveOutputTokens|reserve_output_tokens)\b/.test(
-        modelTokenizerOperations,
+        modelMountingState,
       ) &&
       /modelTokenizerUtility rejects retired request aliases before authorization/.test(
         modelTokenizerOperationsTest,
@@ -12871,7 +12887,7 @@ function runReceipts() {
         modelTokenizerOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/tokenizer-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
     ],
     "Phase 10/11 is pending: tokenizer and context-fit request bodies must fail closed on retired route, policy, context-window, and output-token aliases",

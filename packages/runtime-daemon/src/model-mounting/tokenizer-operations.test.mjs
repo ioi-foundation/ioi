@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  contextWindowForEndpoint,
-  countModelTokens,
-  fitModelContext,
-  modelTokenizerUtility,
-  tokenizeModel,
-} from "./tokenizer-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   const endpoint = {
@@ -39,12 +33,6 @@ function fakeState() {
     authorize(authorization, requiredScope) {
       this.authorizationCalls.push({ authorization, requiredScope });
       return { authorization, requiredScope, grantId: `grant.${requiredScope}` };
-    },
-    contextWindowForEndpoint(endpointRecord, body) {
-      return contextWindowForEndpoint(this, endpointRecord, body);
-    },
-    modelTokenizerUtility(args) {
-      return modelTokenizerUtility(this, args, deps);
     },
     receipt(kind, payload) {
       const receipt = { id: `receipt.${kind}.${this.receipts.length + 1}`, kind, payload };
@@ -88,32 +76,12 @@ function fakeState() {
   };
 }
 
-const deps = {
-  deterministicTokenizeText(input) {
-    return String(input).trim() ? String(input).trim().split(/\s+/) : [];
-  },
-  inputText(body = {}) {
-    return body.input ?? body.prompt ?? "";
-  },
-  normalizeNonNegativeInteger(value, fallback) {
-    const number = Number(value);
-    return Number.isFinite(number) && number >= 0 ? Math.floor(number) : fallback;
-  },
-  schemaVersion: "schema.tokenizer.test",
-  stableHash(value) {
-    return `hash:${value}`;
-  },
-  truncateToEstimatedTokens(input, availableTokens) {
-    return String(input).trim().split(/\s+/).slice(-availableTokens).join(" ");
-  },
-};
-
 test("modelTokenizerUtility fails closed before JS tokenization receipt or route mutation", () => {
   const state = fakeState();
 
   assert.throws(
     () =>
-      modelTokenizerUtility(
+      ModelMountingState.prototype.modelTokenizerUtility.call(
         state,
         {
           authorization: "auth",
@@ -121,7 +89,6 @@ test("modelTokenizerUtility fails closed before JS tokenization receipt or route
           body: { input: "one two three", model: "llama-test", route_id: "route.local-first" },
           operation: "tokenize",
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -152,10 +119,9 @@ test("modelTokenizerUtility does not fall back to JS route record-state commit",
 
   assert.throws(
     () =>
-      modelTokenizerUtility(
+      ModelMountingState.prototype.modelTokenizerUtility.call(
         state,
         { authorization: "auth", requiredScope: "model.tokenize:*", body: { input: "one two three" }, operation: "count_tokens" },
-        deps,
       ),
     (error) => {
       assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
@@ -175,7 +141,7 @@ test("modelTokenizerUtility rejects retired request aliases before authorization
 
   assert.throws(
     () =>
-      modelTokenizerUtility(
+      ModelMountingState.prototype.modelTokenizerUtility.call(
         state,
         {
           authorization: "auth",
@@ -192,7 +158,6 @@ test("modelTokenizerUtility rejects retired request aliases before authorization
           },
           operation: "tokenize",
         },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -226,10 +191,9 @@ test("tokenizeModel and countModelTokens fail closed before public JS response e
 
   assert.throws(
     () =>
-      tokenizeModel(
+      ModelMountingState.prototype.tokenizeModel.call(
         state,
         { authorization: "auth", body: { input: "alpha beta" } },
-        { schemaVersion: deps.schemaVersion },
       ),
     (error) => {
       assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
@@ -239,10 +203,9 @@ test("tokenizeModel and countModelTokens fail closed before public JS response e
   );
   assert.throws(
     () =>
-      countModelTokens(
+      ModelMountingState.prototype.countModelTokens.call(
         state,
         { authorization: "auth", body: { input: "alpha beta gamma" } },
-        { schemaVersion: deps.schemaVersion, stableHash: deps.stableHash },
       ),
     (error) => {
       assert.equal(error.code, "model_mount_tokenizer_rust_core_required");
@@ -262,10 +225,9 @@ test("fitModelContext fails closed before JS context-fit receipt or truncation e
 
   assert.throws(
     () =>
-      fitModelContext(
+      ModelMountingState.prototype.fitModelContext.call(
         state,
         { authorization: "auth", body: { input: "one two three four five", max_output_tokens: 1 } },
-        deps,
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -286,14 +248,24 @@ test("fitModelContext fails closed before JS context-fit receipt or truncation e
 test("contextWindowForEndpoint honors explicit, artifact, metadata, and default fallbacks", () => {
   const state = fakeState();
 
-  assert.equal(contextWindowForEndpoint(state, { modelId: "missing" }, { context_length: 16 }), 16);
-  assert.equal(contextWindowForEndpoint(state, { modelId: "llama-test", artifactId: "artifact.llama" }, {}), 4);
+  assert.equal(
+    ModelMountingState.prototype.contextWindowForEndpoint.call(state, { modelId: "missing" }, { context_length: 16 }),
+    16,
+  );
+  assert.equal(
+    ModelMountingState.prototype.contextWindowForEndpoint.call(
+      state,
+      { modelId: "llama-test", artifactId: "artifact.llama" },
+      {},
+    ),
+    4,
+  );
 
   state.artifacts.set("artifact.meta", {
     id: "artifact.meta",
     modelId: "meta-model",
     metadata: { context: 12 },
   });
-  assert.equal(contextWindowForEndpoint(state, { modelId: "meta-model" }, {}), 12);
-  assert.equal(contextWindowForEndpoint(state, { modelId: "unknown" }, {}), 4096);
+  assert.equal(ModelMountingState.prototype.contextWindowForEndpoint.call(state, { modelId: "meta-model" }, {}), 12);
+  assert.equal(ModelMountingState.prototype.contextWindowForEndpoint.call(state, { modelId: "unknown" }, {}), 4096);
 });

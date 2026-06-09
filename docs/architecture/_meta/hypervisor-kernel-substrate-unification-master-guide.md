@@ -1886,6 +1886,18 @@ daemon-core wallet.network/cTEE vault binding, removal, health receipts,
 Agentgres-admitted record-state truth, projection persistence, command-transport
 retirement, and stable protocol APIs remain required.
 
+Slice 875 retired the fail-closed `tokenizer-operations.mjs` helper module after
+public tokenize/count/context-fit utilities had already been reduced to
+Rust-core-required model tokenizer edge refusals. The mounted public
+`ModelMountingState` tokenizer/context-fit methods now own canonical tokenizer
+request alias rejection, operation-specific `model_mount.tokenizer`
+Rust-core-required errors, and context-window fallback reads directly, without
+importing a helper module or dependency-injecting JS tokenization/truncation
+helpers. This does not claim terminal tokenizer migration: direct Rust
+daemon-core tokenizer/context-fit admission and projection, receipt/state-root
+binding, Agentgres truth, replay, command-transport retirement, and stable
+protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

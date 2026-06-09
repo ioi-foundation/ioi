@@ -18210,10 +18210,37 @@ Agentgres-admitted record-state truth, projection persistence, command-transport
 retirement, and stable protocol APIs remain required before vault control
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 874 after the next direct
+Scheduled matrix-compaction obligation from Slice 874 is now satisfied.
+
+## Implementation Slice Evidence: 875
+
+Slice 875 retired the fail-closed `tokenizer-operations.mjs` helper module after
+public tokenize/count/context-fit utilities had already been reduced to
+Rust-core-required model tokenizer edge refusals. The mounted public
+`ModelMountingState` tokenizer/context-fit methods now own canonical tokenizer
+request alias rejection, operation-specific `model_mount.tokenizer`
+Rust-core-required errors, and context-window fallback reads directly, without
+importing a helper module or dependency-injecting JS tokenization/truncation
+helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal tokenizer migration: direct Rust daemon-core
+tokenizer/context-fit admission and projection, receipt/state-root binding,
+Agentgres truth, replay, command-transport retirement, and stable protocol APIs
+remain required before tokenizer/context-fit control reaches the pure Rust
+substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 875 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-wallet/cTEE vault custody projection materialization, local vault-port readback,
-and direct Rust daemon-core wallet.network/cTEE vault APIs. The
+tokenizer/context-fit projection and receipt materialization, direct Rust
+daemon-core tokenizer/context-fit APIs, and Agentgres-backed replay. The
 `ioi-step-module-bridge` command path is acceptable only as migration transport;
 it is not the terminal architecture.

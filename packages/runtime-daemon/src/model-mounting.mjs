@@ -43,13 +43,6 @@ import {
   unloadModel as unloadModelState,
 } from "./model-mounting/model-loading-operations.mjs";
 import {
-  contextWindowForEndpoint as contextWindowForEndpointState,
-  countModelTokens as countModelTokensState,
-  fitModelContext as fitModelContextState,
-  modelTokenizerUtility as modelTokenizerUtilityState,
-  tokenizeModel as tokenizeModelState,
-} from "./model-mounting/tokenizer-operations.mjs";
-import {
   compileEphemeralMcpIntegrations as compileEphemeralMcpIntegrationsState,
   executeWorkflowNode as executeWorkflowNodeState,
   importMcpJson as importMcpJsonState,
@@ -309,6 +302,22 @@ const RETIRED_VAULT_OPERATION_REQUEST_ALIASES = [
 const CANONICAL_VAULT_OPERATION_REQUEST_FIELDS = [
   "vault_ref",
   "material",
+];
+const RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES = [
+  "routeId",
+  "modelPolicy",
+  "contextLength",
+  "contextWindow",
+  "maxOutputTokens",
+  "reserveOutputTokens",
+  "reserve_output_tokens",
+];
+const MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
+  "model_mount_tokenizer_js_facade_retired",
+  "model_mount_context_fit_js_facade_retired",
+  "rust_daemon_core_model_tokenizer_required",
+  "rust_daemon_core_model_context_fit_required",
+  "agentgres_model_tokenizer_truth_required",
 ];
 const {
   hostedProvider,
@@ -1063,35 +1072,52 @@ export class ModelMountingState {
   }
 
   modelTokenizerUtility({ authorization, requiredScope, body = {}, operation }) {
-    return modelTokenizerUtilityState(this, { authorization, requiredScope, body, operation }, {
-      deterministicTokenizeText,
-      inputText,
-      stableHash,
+    void authorization;
+    assertCanonicalModelTokenizerRequestBody(body);
+    throw modelTokenizerRustCoreRequiredError({
+      operation,
+      model: body.model ?? null,
+      route_id: body.route_id ?? null,
+      requested_scope: requiredScope ?? null,
     });
   }
 
   tokenizeModel({ authorization, requiredScope = "model.tokenize:*", body = {} }) {
-    return tokenizeModelState(this, { authorization, requiredScope, body }, { schemaVersion: MODEL_MOUNT_SCHEMA_VERSION });
+    return ModelMountingState.prototype.modelTokenizerUtility.call(this, {
+      authorization,
+      requiredScope,
+      body,
+      operation: "tokenize",
+    });
   }
 
   countModelTokens({ authorization, requiredScope = "model.tokenize:*", body = {} }) {
-    return countModelTokensState(this, { authorization, requiredScope, body }, {
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
+    return ModelMountingState.prototype.modelTokenizerUtility.call(this, {
+      authorization,
+      requiredScope,
+      body,
+      operation: "count_tokens",
     });
   }
 
   fitModelContext({ authorization, requiredScope = "model.context:*", body = {} }) {
-    return fitModelContextState(this, { authorization, requiredScope, body }, {
-      normalizeNonNegativeInteger,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
-      truncateToEstimatedTokens,
+    return ModelMountingState.prototype.modelTokenizerUtility.call(this, {
+      authorization,
+      requiredScope,
+      body,
+      operation: "context_fit",
     });
   }
 
   contextWindowForEndpoint(endpoint, body = {}) {
-    return contextWindowForEndpointState(this, endpoint, body);
+    const explicit = Number(body.context_length);
+    if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
+    const artifact =
+      (endpoint.artifactId ? this.artifacts.get(endpoint.artifactId) : null) ??
+      [...this.artifacts.values()].find((candidate) => candidate.modelId === endpoint.modelId);
+    const artifactContext = Number(artifact?.contextWindow ?? artifact?.metadata?.contextWindow ?? artifact?.metadata?.context);
+    if (Number.isFinite(artifactContext) && artifactContext > 0) return Math.floor(artifactContext);
+    return 4096;
   }
 
   nextResponseId(requested) {
@@ -1640,4 +1666,35 @@ function throwVaultRustCoreRequired(operation_kind, details = {}) {
       ...details,
     },
   });
+}
+
+function assertCanonicalModelTokenizerRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_TOKENIZER_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model tokenizer request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_tokenizer_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: ["route_id", "model_policy", "context_length", "max_output_tokens"],
+  };
+  throw error;
+}
+
+function modelTokenizerRustCoreRequiredError(details = {}) {
+  const error = new Error(
+    "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+  );
+  error.status = 501;
+  error.code = "model_mount_tokenizer_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.tokenizer",
+    ...details,
+    evidence_refs: MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+  };
+  return error;
 }
