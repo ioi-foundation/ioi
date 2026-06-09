@@ -651,6 +651,9 @@ function runDocs() {
       /Rust bridge `provider_health` arm also ignores\s+caller-supplied provider-health records/.test(guide) &&
       /`latest_provider_health` read\s+projection now\s+sends only admitted receipts/.test(guide) &&
       /canonical\s+`provider_id`/.test(guide) &&
+      /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(guide) &&
+      /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send empty state\s+objects/.test(guide) &&
+      /Rust bridge direct arms return\s+empty\/default lists instead of echoing caller-supplied topology arrays/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -1033,13 +1036,18 @@ function runDocs() {
       /`latest_runtime_survey` read projection now sends only admitted\s+receipts/.test(matrix) &&
       /Rust ignores `runtime_survey_input` for\s+this projection/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 859 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 860/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 860/.test(matrix) &&
       /Slice 860 retired dedicated provider-health JS read-projection\s+input/.test(matrix) &&
       /`provider_health` read projection now sends `\{\}`/.test(matrix) &&
       /Rust bridge `provider_health` arm also ignores caller-supplied\s+provider-health records/.test(matrix) &&
       /`latest_provider_health` read\s+projection\s+now sends only\s+admitted receipts/.test(matrix) &&
       /canonical `provider_id`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 860/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 860 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 861/.test(matrix) &&
+      /Slice 861 retired dedicated model-topology list JS read-projection\s+input/.test(matrix) &&
+      /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send `\{\}`/.test(matrix) &&
+      /Rust bridge direct arms for those projection kinds\s+return empty\/default lists instead of echoing caller-supplied topology arrays/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 861/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1068,6 +1076,8 @@ function runDocs() {
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with receipt-only request state/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
+      /dedicated `artifacts`, `providers`, `endpoints`, `instances`, `routes`, `model_capabilities`, and `downloads` read projections now also send empty request state/.test(implementationMatrix) &&
+      /Rust bridge direct arms return empty\/default lists instead of caller-supplied topology arrays/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /public `adapterBoundaries\(\)` now calls dedicated Rust read-projection kind `adapter_boundaries` with empty request state/.test(implementationMatrix) &&
       /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
@@ -8302,6 +8312,10 @@ function runBridge() {
       /listRoutes\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
       /listModelCapabilities\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacade) &&
       /listDownloads\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/if \(projectionKind === "endpoints"\)[\s\S]*?return \{ endpoints \};/.test(modelMountingReadProjectionFacade) &&
+      !/if \(projectionKind === "providers"\)[\s\S]*?return \{ providers \};/.test(modelMountingReadProjectionFacade) &&
+      !/if \(projectionKind === "model_capabilities"\)[\s\S]*?return \{\s*artifacts,\s*endpoints,\s*instances,\s*providers,\s*routes,\s*\};/.test(modelMountingReadProjectionFacade) &&
       /listOAuthSessions\(state\)\s*\{[\s\S]*?oauthSessionList\(state\)/.test(modelMountingReadProjectionFacade) &&
       /listOAuthStates\(state\)\s*\{[\s\S]*?oauthStateList\(state\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "oauth_sessions" \|\| projectionKind === "oauth_states"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
@@ -8375,6 +8389,13 @@ function runBridge() {
       /Object\.hasOwn\(authorityRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listProviderHealth\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /providerHealthRequest\.state,\s*\{\}/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listArtifacts\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listProviders\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listEndpoints\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listRoutes\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listModelCapabilities\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listDownloads\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /topologyRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"providers"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8499,13 +8520,13 @@ function runBridge() {
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
       /"latest_runtime_survey" => Ok\(model_mount_latest_runtime_survey\(request\)\)/.test(bridgeModule) &&
       /"product_artifacts" => Ok\(Value::Array\(model_mount_product_artifacts\(&request\.state\)\)\)/.test(bridgeModule) &&
-      /"artifacts" => Ok\(Value::Array\(array_field\(&request\.state,\s*"artifacts"\)\)\)/.test(bridgeModule) &&
-      /"providers" => Ok\(Value::Array\(array_field\(&request\.state,\s*"providers"\)\)\)/.test(bridgeModule) &&
-      /"endpoints" => Ok\(Value::Array\(array_field\(&request\.state,\s*"endpoints"\)\)\)/.test(bridgeModule) &&
-      /"instances" => Ok\(Value::Array\(array_field\(&request\.state,\s*"instances"\)\)\)/.test(bridgeModule) &&
-      /"routes" => Ok\(Value::Array\(array_field\(&request\.state,\s*"routes"\)\)\)/.test(bridgeModule) &&
-      /"model_capabilities" => Ok\(model_mount_model_capabilities\(&request\.state\)\)/.test(bridgeModule) &&
-      /"downloads" => Ok\(Value::Array\(array_field\(&request\.state,\s*"downloads"\)\)\)/.test(bridgeModule) &&
+      /"artifacts" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"providers" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"endpoints" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"instances" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"routes" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"model_capabilities" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
+      /"downloads" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
       /"oauth_sessions" => Ok\(Value::Array\(array_field\(&request\.state,\s*"oauth_sessions"\)\)\)/.test(bridgeModule) &&
       /"oauth_states" => Ok\(Value::Array\(array_field\(&request\.state,\s*"oauth_states"\)\)\)/.test(bridgeModule) &&
       /"provider_health" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&

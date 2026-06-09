@@ -252,14 +252,14 @@ function assertOAuthReadProjectionRetired(readFn, operationKind) {
 function rustProjectionFixture(request) {
   const state = request.state;
   const receipts = state.receipts ?? [];
-  if (request.projection_kind === "artifacts") return state.artifacts ?? [];
+  if (request.projection_kind === "artifacts") return [];
   if (request.projection_kind === "product_artifacts") return productArtifactsFromRustState(state);
-  if (request.projection_kind === "providers") return state.providers ?? [];
-  if (request.projection_kind === "endpoints") return state.endpoints ?? [];
-  if (request.projection_kind === "instances") return state.instances ?? [];
-  if (request.projection_kind === "routes") return state.routes ?? [];
-  if (request.projection_kind === "model_capabilities") return modelCapabilitiesFromRustState(state);
-  if (request.projection_kind === "downloads") return state.downloads ?? [];
+  if (request.projection_kind === "providers") return [];
+  if (request.projection_kind === "endpoints") return [];
+  if (request.projection_kind === "instances") return [];
+  if (request.projection_kind === "routes") return [];
+  if (request.projection_kind === "model_capabilities") return [];
+  if (request.projection_kind === "downloads") return [];
   if (request.projection_kind === "oauth_sessions") return state.oauth_sessions ?? [];
   if (request.projection_kind === "oauth_states") return state.oauth_states ?? [];
   if (request.projection_kind === "provider_health") return [];
@@ -839,30 +839,13 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.runtimeModelCatalogList(state).map((model) => model.id), ["model.local"]);
   assert.deepEqual(facade.openAiModelList(state).data.map((model) => model.id), ["model.local"]);
   assert.deepEqual(facade.listProductArtifacts(state).map((artifact) => artifact.id), ["artifact.local"]);
-  assert.deepEqual(facade.listArtifacts(state).map((artifact) => artifact.id), ["artifact.fixture", "artifact.local"]);
-  assert.deepEqual(facade.listProviders(state).map((provider) => ({
-    id: provider.id,
-    kind: provider.kind,
-    status: provider.status,
-    vaultMetadata: provider.vaultMetadata,
-    hasSecretRef: Object.hasOwn(provider, "secretRef"),
-  })), [
-    {
-      id: "provider.local",
-      kind: "local",
-      status: "running",
-      vaultMetadata: undefined,
-      hasSecretRef: true,
-    },
-  ]);
-  assert.deepEqual(facade.listEndpoints(state).map((endpoint) => endpoint.id), ["endpoint.local"]);
+  assert.deepEqual(facade.listArtifacts(state), []);
+  assert.deepEqual(facade.listProviders(state), []);
+  assert.deepEqual(facade.listEndpoints(state), []);
   assert.deepEqual(facade.listInstances(state).map((instance) => instance.id), []);
-  assert.deepEqual(facade.listRoutes(state).map((route) => route.id), ["route.local-first"]);
-  const [modelCapability] = facade.listModelCapabilities(state);
-  assert.equal(modelCapability.route_id, "route.local-first");
-  assert.equal(modelCapability.credential_readiness.status, "ready");
-  assert.equal(modelCapability.candidates[0].model_id, "model.local");
-  assert.deepEqual(facade.listDownloads(state).map((download) => download.id), ["download.one"]);
+  assert.deepEqual(facade.listRoutes(state), []);
+  assert.deepEqual(facade.listModelCapabilities(state), []);
+  assert.deepEqual(facade.listDownloads(state), []);
   assertOAuthReadProjectionRetired(
     () => facade.listOAuthSessions(state),
     "model_mount.catalog_provider_oauth.sessions",
@@ -902,8 +885,13 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(adapterRequest.state, {});
   const providerHealthRequest = readProjectionRequests.find((request) => request.projection_kind === "provider_health");
   assert.deepEqual(providerHealthRequest.state, {});
+  const topologyRequests = readProjectionRequests.filter((request) =>
+    ["artifacts", "providers", "endpoints", "instances", "routes", "model_capabilities", "downloads"].includes(
+      request.projection_kind,
+    ));
+  assert.equal(topologyRequests.every((request) => Object.keys(request.state).length === 0), true);
   assert.equal(
-    readProjectionRequests.slice(0, 4).every((request) =>
+    readProjectionRequests.slice(0, 3).every((request) =>
       request.state.product_artifact_policy.include_internal_fixtures === false),
     true,
   );

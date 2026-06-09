@@ -294,6 +294,17 @@ export function createModelMountingReadProjectionFacade({
         providers: providerList(state),
       };
     }
+    if (
+      projectionKind === "artifacts" ||
+      projectionKind === "providers" ||
+      projectionKind === "endpoints" ||
+      projectionKind === "instances" ||
+      projectionKind === "routes" ||
+      projectionKind === "model_capabilities" ||
+      projectionKind === "downloads"
+    ) {
+      return {};
+    }
     const artifacts = artifactList(state);
     const productArtifactPolicy = {
       include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),
@@ -308,35 +319,6 @@ export function createModelMountingReadProjectionFacade({
         artifacts,
         product_artifact_policy: productArtifactPolicy,
       };
-    }
-    const endpoints = endpointList(state);
-    if (projectionKind === "endpoints") {
-      return { endpoints };
-    }
-    const instances = instanceList(state);
-    if (projectionKind === "instances") {
-      return { instances };
-    }
-    const providers = providerList(state);
-    if (projectionKind === "providers") {
-      return { providers };
-    }
-    const routes = routeList(state);
-    if (projectionKind === "routes") {
-      return { routes };
-    }
-    if (projectionKind === "model_capabilities") {
-      return {
-        artifacts,
-        endpoints,
-        instances,
-        providers,
-        routes,
-      };
-    }
-    const downloads = downloadList(state);
-    if (projectionKind === "downloads") {
-      return { downloads };
     }
     if (projectionKind === "oauth_sessions" || projectionKind === "oauth_states") return {};
     if (projectionKind === "provider_health") {

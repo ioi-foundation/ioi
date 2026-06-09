@@ -1697,6 +1697,19 @@ command-transport replacement, and local provider-health materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
+Slice 861 retired dedicated model-topology list JS read-projection input. The
+`artifacts`, `providers`, `endpoints`, `instances`, `routes`,
+`model_capabilities`, and `downloads` read projections now send empty state
+objects from the runtime-daemon facade, and the Rust bridge direct arms return
+empty/default lists instead of echoing caller-supplied topology arrays. This
+prevents local JS maps from becoming public topology or capability-list truth
+through the dedicated list surfaces while direct Rust daemon-core Agentgres
+topology projection APIs are still pending. Product artifact/catalog readbacks
+and receipt replay remain separate migration seams: product-safe catalog
+surfaces still receive artifact/policy input, and receipt replay still receives
+the topology context it explicitly needs for replay until Rust-owned topology
+lookup can replace that context.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
