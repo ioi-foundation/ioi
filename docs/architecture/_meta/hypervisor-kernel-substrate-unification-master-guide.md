@@ -1970,6 +1970,19 @@ migration: direct Rust daemon-core conversation admission/projection,
 receipt/state-root binding, Agentgres truth, replay, command-transport
 retirement, and stable protocol APIs remain required.
 
+Slice 881 retired the fail-closed `provider-operations.mjs` helper module after
+provider upsert, health, inventory, and start/stop control had already been
+reduced to Rust-core-required provider control/health/inventory edge refusals.
+The mounted public `ModelMountingState` provider methods now own provider
+upsert alias rejection, vault-ref normalization, `model_mount.provider_control`,
+`model_mount.provider_health`, and `model_mount.provider_inventory`
+Rust-core-required errors directly, without importing a provider operations
+helper or preserving a standalone JS provider mutation/inventory surface. This
+does not claim terminal provider migration: direct Rust daemon-core provider
+control, wallet/cTEE vault authority, provider health/inventory projection,
+Agentgres record-state truth, receipt/state-root binding, command-transport
+retirement, replay, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

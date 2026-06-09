@@ -1,15 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  listProviderLoaded,
-  listProviderModels,
-  normalizeProviderSecretRef,
-  providerHealth,
-  startProvider,
-  stopProvider,
-  upsertProvider,
-} from "./provider-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   const state = {
@@ -170,6 +162,39 @@ function providerDeps(overrides = {}) {
   return { ...deps, ...overrides };
 }
 
+function upsertProvider(state, body = {}) {
+  return ModelMountingState.prototype.upsertProvider.call(state, body);
+}
+
+function normalizeProviderSecretRef(state, kind, body = {}, existingSecretRef = null) {
+  return ModelMountingState.prototype.normalizeProviderSecretRef.call(
+    state,
+    kind,
+    body,
+    existingSecretRef,
+  );
+}
+
+function providerHealth(state, providerId) {
+  return ModelMountingState.prototype.providerHealth.call(state, providerId);
+}
+
+function listProviderModels(state, providerId) {
+  return ModelMountingState.prototype.listProviderModels.call(state, providerId);
+}
+
+function listProviderLoaded(state, providerId) {
+  return ModelMountingState.prototype.listProviderLoaded.call(state, providerId);
+}
+
+function startProvider(state, providerId) {
+  return ModelMountingState.prototype.startProvider.call(state, providerId);
+}
+
+function stopProvider(state, providerId) {
+  return ModelMountingState.prototype.stopProvider.call(state, providerId);
+}
+
 test("provider upsert fails closed before vault resolution, record-state commit, or provider mutation", () => {
   const state = fakeState();
 
@@ -267,7 +292,7 @@ test("provider secret normalization rejects plaintext and preserves existing vau
   );
   assert.throws(
     () => normalizeProviderSecretRef(state, "openai", { api_key: "plain" }, null, providerDeps()),
-    /plaintext provider secret/,
+    /Provider secrets and auth headers/,
   );
   assert.equal(normalizeProviderSecretRef(state, "openai", { secret_ref: "" }, null, providerDeps()), null);
 });

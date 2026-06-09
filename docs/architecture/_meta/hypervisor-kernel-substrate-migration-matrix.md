@@ -18377,10 +18377,37 @@ Agentgres truth, replay, command-transport retirement, and stable protocol APIs
 remain required before conversation control reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 880 after the next direct
+Scheduled matrix-compaction obligation from Slice 880 is now satisfied.
+
+## Implementation Slice Evidence: 881
+
+Slice 881 retired the fail-closed `provider-operations.mjs` helper module after
+provider upsert, health, inventory, and start/stop control had already been
+reduced to Rust-core-required provider control/health/inventory edge refusals.
+The mounted public `ModelMountingState` provider methods now own provider
+upsert alias rejection, vault-ref normalization, `model_mount.provider_control`,
+`model_mount.provider_health`, and `model_mount.provider_inventory`
+Rust-core-required errors directly, without importing a helper module or
+preserving a standalone JS provider mutation/inventory surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider control, wallet/cTEE vault authority, provider health/inventory
+projection, Agentgres record-state truth, receipt/state-root binding,
+command-transport retirement, replay, and stable protocol APIs remain required
+before provider control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 881 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-conversation admission/projection materialization, direct Rust daemon-core
-conversation APIs, and Agentgres-backed replay. The `ioi-step-module-bridge`
-command path is acceptable only as migration transport; it is not the terminal
-architecture.
+provider control/health/inventory materialization, direct Rust daemon-core
+provider APIs, wallet/cTEE vault authority, and Agentgres-backed replay. The
+`ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.

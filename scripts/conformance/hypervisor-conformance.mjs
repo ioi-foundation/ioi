@@ -1009,7 +1009,11 @@ function runDocs() {
       /Implementation Slice Evidence: 880/.test(matrix) &&
       /Slice 880 retired the fail-closed `conversation-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` conversation methods now own\s+response-id collision checks/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 880/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 880 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 881/.test(matrix) &&
+      /Slice 881 retired the fail-closed `provider-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` provider methods now own provider\s+upsert alias rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 881/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1168,7 +1172,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 877 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 878 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 879 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 880/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 880 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 881/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1185,6 +1190,8 @@ function runDocs() {
       /mounted public `ModelMountingState` receipt methods now own receipt list\/get store adapters/.test(implementationMatrix) &&
       /the fail-closed `conversation-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` conversation methods now own response-id collision checks/.test(implementationMatrix) &&
+      /the fail-closed `provider-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` provider methods now own provider upsert alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -11914,14 +11921,12 @@ function runReceipts() {
   const modelMountingEnvironment = exists("packages/runtime-daemon/src/model-mounting/environment.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/environment.mjs")
     : "";
-  const providerOperations = exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs")
-    : "";
+  const providerOperations = modelMountingRoot;
   const providerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
     : "";
   const providerUpsertBlock =
-    providerOperations.match(/export function upsertProvider[\s\S]*?function assertCanonicalProviderUpsertRequestBody/)?.[0] ?? "";
+    providerOperations.match(/\n\s+upsertProvider\(body = \{\}\) \{[\s\S]*?\n\s+normalizeProviderSecretRef/)?.[0] ?? "";
   const catalogProviderConfig = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs")
     : "";
@@ -13796,12 +13801,9 @@ function runReceipts() {
       !/state\.driverForProvider\(provider\)\.listLoaded/.test(providerOperations) &&
       !/state\.lifecycleReceipt\("provider_models_list"/.test(providerOperations) &&
       !/state\.lifecycleReceipt\("provider_loaded_list"/.test(providerOperations) &&
-      !/modelMountProviderInventory/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/\binventoryHash\b/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      !/modelMountProviderInventory/.test(providerOperations) &&
+      !/\binventoryHash\b/.test(providerOperations) &&
       /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderInventoryReceiptBound/.test(
         modelMountReceiptWriteGuards,
@@ -13845,48 +13847,21 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-health-js-facade-retired",
-    /model_mount_provider_health_rust_core_required/.test(
-      read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-    ) &&
-      /rust_core_boundary:\s*"model_mount\.provider_health"/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      /model_mount_provider_health_js_facade_retired/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      /rust_daemon_core_provider_health_required/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      /agentgres_provider_health_record_truth_required/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      /model_mount\.provider\.health/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/commitModelMountRecordState/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/commitProviderHealthStateRecord/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/commitProviderRecordState/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/providerLifecycleReceiptFields/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/state\.driverForProvider\(provider\)\.health/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/state\.receipt\("provider_health"/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/state\.providers\.set/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/state\.writeProjection/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      /model_mount_provider_health_rust_core_required/.test(providerOperations) &&
+      /rust_core_boundary:\s*"model_mount\.provider_health"/.test(providerOperations) &&
+      /model_mount_provider_health_js_facade_retired/.test(providerOperations) &&
+      /rust_daemon_core_provider_health_required/.test(providerOperations) &&
+      /agentgres_provider_health_record_truth_required/.test(providerOperations) &&
+      /model_mount\.provider\.health/.test(providerOperations) &&
+      !/commitModelMountRecordState/.test(providerOperations) &&
+      !/commitProviderHealthStateRecord/.test(providerOperations) &&
+      !/commitProviderRecordState/.test(providerOperations) &&
+      !/providerLifecycleReceiptFields/.test(providerOperations) &&
+      !/state\.driverForProvider\(provider\)\.health/.test(providerOperations) &&
+      !/state\.receipt\("provider_health"/.test(providerOperations) &&
+      !/state\.providers\.set/.test(providerOperations) &&
+      !/state\.writeProjection/.test(providerOperations) &&
       /provider health mutation facade fails closed before JS driver, receipt, or provider write/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -13914,12 +13889,9 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-control-receipt-direct-write-guard",
-      /model_mount_provider_control_rust_core_required/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
-      !/provider_stateless_start|provider_stateless_stop/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
+      !/provider_stateless_start|provider_stateless_stop/.test(providerOperations) &&
       /assertModelMountingReceiptWriteBound/.test(modelMountStore) &&
       /assertProviderControlReceiptBound/.test(
         modelMountReceiptWriteGuards,
@@ -13929,9 +13901,7 @@ function runReceipts() {
       ) &&
       /model_mount_provider_lifecycle_hash/.test(modelMountReceiptWriteGuards) &&
       /assertNoRetiredProviderDetailAliases/.test(modelMountReceiptWriteGuards) &&
-      !/modelMountProviderLifecycle|providerLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-operations.mjs"),
-      ) &&
+      !/modelMountProviderLifecycle|providerLifecycleHash/.test(providerOperations) &&
       !/modelMountProviderLifecycle|providerLifecycleHash/.test(modelMountReceiptWriteGuards) &&
       /retired_aliases\.includes\("providerKind"\)/.test(
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
@@ -14870,13 +14840,14 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-upsert-request-aliases-retired",
-    /RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES/.test(providerOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      /RETIRED_PROVIDER_UPSERT_REQUEST_ALIASES/.test(providerOperations) &&
       /CANONICAL_PROVIDER_UPSERT_REQUEST_FIELDS/.test(providerOperations) &&
       /provider_upsert_request_aliases_retired/.test(providerOperations) &&
       /assertCanonicalProviderUpsertRequestBody\(body\);/.test(
         providerUpsertBlock,
       ) &&
-      /providerControlRustCoreRequired/.test(providerUpsertBlock) &&
+      /modelMountProviderControlRustCoreRequired/.test(providerUpsertBlock) &&
       /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
       /rust_core_boundary:\s*"model_mount\.provider_control"/.test(providerOperations) &&
       /model_mount_provider_control_js_facade_retired/.test(providerOperations) &&
@@ -14937,7 +14908,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-inventory-artifact-js-mutation-retired",
-    !/commitModelArtifactRecordState/.test(providerOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      !/commitModelArtifactRecordState/.test(providerOperations) &&
       !/model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
       /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
       /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
@@ -14960,7 +14932,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-operation-detail-aliases-retired",
-    /provider_id:\s*provider\?\.id \?\? null/.test(providerOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
+      /provider_id:\s*provider\?\.id \?\? null/.test(providerOperations) &&
       /provider_kind:\s*provider\?\.kind \?\? null/.test(providerOperations) &&
       /model_mount_provider_inventory_rust_core_required/.test(providerOperations) &&
       /model_mount_provider_control_rust_core_required/.test(providerOperations) &&
