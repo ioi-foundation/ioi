@@ -212,6 +212,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "oauth_sessions") return state.oauth_sessions ?? [];
   if (request.projection_kind === "oauth_states") return state.oauth_states ?? [];
   if (request.projection_kind === "provider_health") return state.provider_health ?? [];
+  if (request.projection_kind === "server_status") return state.server ?? null;
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
   if (request.projection_kind === "runtime_engines") return state.runtime_engines ?? [];
@@ -815,7 +816,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
 
   const snapshot = facade.snapshot(state, "http://127.0.0.1:3200");
   assert.equal(snapshot.schemaVersion, "model.mount.schema");
-  assert.equal(snapshot.server.status, "running");
+  assert.equal(snapshot.server.status, "stopped");
   assert.equal(snapshot.artifacts.length, 2);
   assert.equal(snapshot.modelCapabilities.length, 1);
   assert.equal(snapshot.modelCapabilities[0].credential_readiness.status, "ready");
@@ -891,6 +892,25 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(authorityRequest.state.wallet.port, "WalletAuthorityPort");
   assert.equal(Object.hasOwn(authorityRequest.state, "providers"), false);
   assert.equal(Object.hasOwn(authorityRequest.state, "artifacts"), false);
+});
+
+test("read projection facade delegates server status through Rust projection", () => {
+  const { facade, state, readProjectionRequests } = createState();
+
+  const status = facade.serverStatus(state, "http://127.0.0.1:3200");
+
+  assert.equal(status.schemaVersion, "model.mount.schema");
+  assert.equal(status.status, "stopped");
+  assert.equal(status.gatewayStatus, "running");
+  assert.equal(status.nativeBaseUrl, "http://127.0.0.1:3200/api/v1");
+  assert.equal(status.openAiCompatibleBaseUrl, "http://127.0.0.1:3200/v1");
+  assert.equal(status.loadedInstances, 0);
+  assert.equal(status.mountedEndpoints, 1);
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["server_status"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["server"]);
+  assert.equal(readProjectionRequests[0].base_url, "http://127.0.0.1:3200");
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "receipts"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {

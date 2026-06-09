@@ -2084,6 +2084,7 @@ fn model_mount_read_projection(
         "receipt_replay" => model_mount_receipt_replay(request),
         "model_route_decisions" => Ok(model_mount_route_decisions(request)),
         "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
+        "server_status" => Ok(object_or_null(request.state.get("server"))),
         "artifacts" => Ok(Value::Array(array_field(&request.state, "artifacts"))),
         "product_artifacts" => Ok(Value::Array(model_mount_product_artifacts(&request.state))),
         "providers" => Ok(Value::Array(array_field(&request.state, "providers"))),
@@ -8960,6 +8961,36 @@ mod tests {
         assert_eq!(
             adapter_boundaries_response["projection"]["oauth"]["plaintextPersistence"],
             false
+        );
+
+        let server_status_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "server_status",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "server": {
+                            "schemaVersion": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                            "status": "running",
+                            "gatewayStatus": "running",
+                            "nativeBaseUrl": "http://127.0.0.1:3200/api/v1",
+                            "openAiCompatibleBaseUrl": "http://127.0.0.1:3200/v1"
+                        }
+                    }
+                }
+            }))
+            .expect("model_mount server status request");
+        let server_status_response = plan_model_mount_read_projection(server_status_request)
+            .expect("server status projected in Rust");
+        assert_eq!(server_status_response["projection_kind"], "server_status");
+        assert_eq!(server_status_response["projection"]["status"], "running");
+        assert_eq!(
+            server_status_response["projection"]["nativeBaseUrl"],
+            "http://127.0.0.1:3200/api/v1"
         );
 
         let runtime_engines_request: ModelMountReadProjectionBridgeRequest =

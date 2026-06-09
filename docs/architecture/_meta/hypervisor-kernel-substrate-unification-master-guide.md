@@ -1136,6 +1136,16 @@ runtime-survey migration: capture still fails closed until direct Rust
 daemon-core survey APIs own hardware/runtime probing, Agentgres admission,
 record-state, projection, and command-transport retirement.
 
+Slice 812 moved public model_mount server-status readback through a dedicated
+Rust read-projection kind. `serverStatus()` now requests `server_status` from
+`plan_model_mount_read_projection`, and broad projection/snapshot input uses an
+explicit server-status migration payload instead of recursively calling the
+public JS read facade. Server-control start/stop/restart/log/event mutations
+still fail closed. This still does not claim terminal server-control migration:
+direct Rust daemon-core server-control/state/log/event/projection APIs still
+need to own server status, control state, log/event replay, Agentgres admission,
+record-state, and command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

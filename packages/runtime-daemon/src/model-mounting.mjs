@@ -530,7 +530,7 @@ export class ModelMountingState {
   }
 
   serverStatus(baseUrl) {
-    return serverControl.serverStatus(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    return this.readProjectionFacade.serverStatus(this, baseUrl);
   }
 
   serverControlState() {
