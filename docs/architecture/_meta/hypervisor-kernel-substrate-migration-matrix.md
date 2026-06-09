@@ -17495,7 +17495,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 847 is now satisfied.
 
-## Implementation Slice Evidence: 848
+## Compacted Implementation Slice Evidence: 848
 
 Slice 848 retired LM Studio provider-map seeding from default model-mounting
 initialization. `seedModelMountingDefaults()` no longer calls
@@ -17518,7 +17518,31 @@ provider truth, lifecycle/control ownership, command-transport replacement,
 and local provider-map projection materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 848 after the next direct
+Scheduled matrix-compaction obligation from Slice 848 is now satisfied.
+
+## Implementation Slice Evidence: 849
+
+Slice 849 retired JS backend-status summaries from server-status projection
+input. `serverStatusProjectionInput()` no longer calls `state.listBackends()`
+and no longer sends `backend_statuses` in `server_status_input`, so the
+runtime-daemon cannot summarize backend readiness from local JS backend records
+while Rust authors the public server-status envelope. The focused test installs
+a poisonous `listBackends()` accessor and asserts the `backend_statuses` field
+is absent from the primitive server-status input.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/server-control.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal server-control projection migration: direct
+Rust daemon-core server-control/backend projection, Agentgres-backed backend
+truth, provider-state projection, command-transport replacement, and local
+map/projection materialization retirement still remain before this surface
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 849 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

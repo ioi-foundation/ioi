@@ -4,14 +4,12 @@ export function serverStatusProjectionInput(state, baseUrl, { schema_version } =
   state.evictExpiredInstances();
   state.coalesceLoadedInstances();
   const runningInstances = [...state.instances.values()].filter((instance) => instance.status === "loaded");
-  const backends = state.listBackends();
   const controlState = serverControlState(state, { schema_version });
   return {
     schema_version,
     base_url: baseUrl ?? null,
     loaded_instances: runningInstances.length,
     mounted_endpoints: state.endpoints.size,
-    backend_statuses: backends.map((backend) => backend.status),
     control_state: {
       status: controlState.status,
       gateway_status: controlState.gatewayStatus,

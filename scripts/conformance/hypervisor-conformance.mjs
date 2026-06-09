@@ -610,6 +610,10 @@ function runDocs() {
       /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(guide) &&
       /`serverStatusProjectionInput\(\)` no longer reads `state\.providers\.values\(\)`/.test(guide) &&
       /Direct Rust daemon-core\s+server-control\/provider projection must own provider-state counts/.test(guide) &&
+      /Slice 849 retired JS backend-status summaries from server-status projection\s+input/.test(guide) &&
+      /`serverStatusProjectionInput\(\)` no longer calls `state\.listBackends\(\)`/.test(guide) &&
+      /or sends `backend_statuses` into `server_status_input`/.test(guide) &&
+      /server-control\/backend projection must own backend-state counts/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -719,6 +723,11 @@ function runDocs() {
       /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(guide) &&
       /or sends `provider_statuses` into `server_status_input`/.test(guide) &&
       /Agentgres provider truth before terminal server-control projection is complete/.test(guide) &&
+      /Slice 848 retired LM Studio provider-map seeding/.test(guide) &&
+      /provider inventory truth must now come from direct Rust\s+daemon-core provider inventory\/projection APIs/.test(guide) &&
+      /Slice 849 retired JS backend-status summaries from server-status projection\s+input/.test(guide) &&
+      /or sends `backend_statuses` into `server_status_input`/.test(guide) &&
+      /Agentgres backend truth before terminal server-control projection is complete/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -915,11 +924,16 @@ function runDocs() {
       /`serverStatusProjectionInput\(\)` no longer reads\s+`state\.providers\.values\(\)`/.test(matrix) &&
       /`provider_statuses` field is absent from the primitive server-status input/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 847 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 848/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 848/.test(matrix) &&
       /Slice 848 retired LM Studio provider-map seeding/.test(matrix) &&
       /`seedModelMountingDefaults\(\)` no longer calls\s+`state\.discoverLmStudioProvider\(checkedAt\)`/.test(matrix) &&
       /no longer writes or merges\s+`provider\.lmstudio` into `state\.providers`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 848/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 848 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 849/.test(matrix) &&
+      /Slice 849 retired JS backend-status summaries from server-status projection\s+input/.test(matrix) &&
+      /`serverStatusProjectionInput\(\)` no longer calls `state\.listBackends\(\)`/.test(matrix) &&
+      /`backend_statuses` field\s+is absent from the primitive server-status input/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 849/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -933,6 +947,7 @@ function runDocs() {
       /the Ollama catalog-provider port no longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(implementationMatrix) &&
       /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
+      /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -1323,7 +1338,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
       /Next scheduled matrix-compaction pass: compact Slice 805 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
-      /JS no longer sends provider-status summaries from `state\.providers\.values\(\)` or `provider_statuses` into that input/.test(implementationMatrix) &&
+      /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -8210,6 +8225,7 @@ function runBridge() {
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"provider_statuses"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"backend_statuses"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
@@ -13226,6 +13242,8 @@ function runReceipts() {
       !/readLines\(filePath\)/.test(serverControl) &&
       !/state\.providers\.values\(\)/.test(serverControl) &&
       !/provider_statuses/.test(serverControl) &&
+      !/state\.listBackends\(\)/.test(serverControl) &&
+      !/backend_statuses/.test(serverControl) &&
       /server control ignores retired schemaVersion option before record-state commit/.test(
         serverControlTest,
       ) &&
@@ -13240,7 +13258,9 @@ function runReceipts() {
       /receipt\.legacy\.server_stop/.test(serverControlTest) &&
       /serverStatusProjectionInput/.test(serverControlTest) &&
       /server-status projection input must not read JS provider statuses/.test(serverControlTest) &&
+      /server-status projection input must not read JS backend statuses/.test(serverControlTest) &&
       /assert\.equal\(Object\.hasOwn\(input,\s*"provider_statuses"\),\s*false\)/.test(serverControlTest) &&
+      /assert\.equal\(Object\.hasOwn\(input,\s*"backend_statuses"\),\s*false\)/.test(serverControlTest) &&
       /assert\.equal\(input\.control_state\.receipt_id,\s*null\)/.test(
         serverControlTest,
       ) &&

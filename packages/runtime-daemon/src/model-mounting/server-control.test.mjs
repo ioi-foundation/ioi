@@ -45,7 +45,7 @@ function fakeState({ stateDir = mkdtempSync(join(tmpdir(), "ioi-server-control-"
       this.coalesced += 1;
     },
     listBackends() {
-      return this.backends;
+      throw new Error("server-status projection input must not read JS backend statuses");
     },
     lifecycleReceipt(kind, details) {
       const receipt = { id: `receipt.${kind}.${receipts.length + 1}`, kind, details };
@@ -86,7 +86,7 @@ test("server control builds primitive server-status projection input", () => {
     assert.equal(input.loaded_instances, 1);
     assert.equal(input.mounted_endpoints, 1);
     assert.equal(Object.hasOwn(input, "provider_statuses"), false);
-    assert.deepEqual(input.backend_statuses, ["running", "degraded"]);
+    assert.equal(Object.hasOwn(input, "backend_statuses"), false);
     assert.deepEqual(input.control_state, {
       status: "running",
       gateway_status: "running",

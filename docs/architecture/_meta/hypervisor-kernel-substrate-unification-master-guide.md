@@ -1572,6 +1572,14 @@ boundary, but provider inventory truth must now come from direct Rust
 daemon-core provider inventory/projection APIs backed by admitted Agentgres
 state rather than JS-discovered provider records.
 
+Slice 849 retired JS backend-status summaries from server-status projection
+input. `serverStatusProjectionInput()` no longer calls `state.listBackends()`
+or sends `backend_statuses` into `server_status_input`, so the runtime-daemon
+cannot summarize backend readiness from local JS backend records while Rust
+authors the public server-status envelope. Direct Rust daemon-core
+server-control/backend projection must own backend-state counts over admitted
+Agentgres backend truth before terminal server-control projection is complete.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
