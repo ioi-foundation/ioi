@@ -1589,6 +1589,16 @@ public projection truth through the broad Rust projection envelope. Direct Rust
 daemon-core backend lifecycle/projection APIs over Agentgres-admitted backend
 truth must own those arrays before terminal backend projection is complete.
 
+Slice 851 retired broad snapshot/projection runtime-engine input from JS. The
+default model_mount read-projection input no longer sends
+`runtime_engines: state.listRuntimeEngines()`,
+`runtime_engine_profiles: state.listRuntimeEngineProfiles()`, or
+`runtime_preference: state.runtimePreference()` for broad `snapshot` and
+`projection` requests. Dedicated runtime-engine read projections still use
+narrow Rust-planned inputs, but local JS runtime-engine maps/preferences can no
+longer become public projection truth through the broad Rust projection
+envelope.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

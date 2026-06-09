@@ -17544,7 +17544,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 849 is now satisfied.
 
-## Implementation Slice Evidence: 850
+## Compacted Implementation Slice Evidence: 850
 
 Slice 850 retired broad snapshot/projection backend registry and backend
 process input from JS. The default model_mount read-projection input no longer
@@ -17567,7 +17567,33 @@ command-transport replacement, process-control ownership, and local
 map/projection materialization retirement still remain before this surface
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 850 after the next direct
+Scheduled matrix-compaction obligation from Slice 850 is now satisfied.
+
+## Implementation Slice Evidence: 851
+
+Slice 851 retired broad snapshot/projection runtime-engine input from JS. The
+default model_mount read-projection input no longer sends
+`runtime_engines: state.listRuntimeEngines()`,
+`runtime_engine_profiles: state.listRuntimeEngineProfiles()`, or
+`runtime_preference: state.runtimePreference()` for broad `snapshot` and
+`projection` requests. Dedicated runtime-engine read projections still use
+narrow Rust-planned inputs, but the focused test poisons the broad JS runtime
+accessors and asserts `runtime_engines`, `runtime_engine_profiles`, and
+`runtime_preference` are absent from broad snapshot/projection request state.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal runtime-engine projection migration: direct
+Rust daemon-core runtime-engine projection APIs, Agentgres-backed runtime
+engine truth, command-transport replacement, runtime preference ownership, and
+local map/projection materialization retirement still remain before this
+surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 851 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

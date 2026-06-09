@@ -163,13 +163,19 @@ function createState() {
       processStatus: "stopped",
       evidenceRefs: ["receipt-runtime"],
     }],
-    listRuntimeEngineProfiles: () => [],
-    listRuntimeEngines: () => [],
+    listRuntimeEngineProfiles: () => {
+      throw new Error("broad read-projection input must not read JS runtime engine profiles");
+    },
+    listRuntimeEngines: () => {
+      throw new Error("broad read-projection input must not read JS runtime engine lists");
+    },
     listTokens: () => [],
     listVaultRefs: () => [],
     latestRuntimeSurvey: () => null,
     lmStudioRuntimeEngines: () => [],
-    runtimePreference: () => ({ routeId: "route.local-first" }),
+    runtimePreference: () => {
+      throw new Error("broad read-projection input must not read JS runtime preference");
+    },
     vaultStatus: () => ({ port: "VaultPort" }),
     workflowNodeBindings: () => [],
   };
@@ -1001,6 +1007,9 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_provider_configs"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "oauth_sessions"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "oauth_states"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_engines"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_engine_profiles"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_preference"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "backends"), false);
@@ -1009,6 +1018,9 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_provider_configs"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "oauth_sessions"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "oauth_states"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "runtime_engines"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "runtime_engine_profiles"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "runtime_preference"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");
