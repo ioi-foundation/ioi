@@ -17867,7 +17867,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 861 is now satisfied.
 
-## Implementation Slice Evidence: 862
+## Compacted Implementation Slice Evidence: 862
 
 Slice 862 retired dedicated product artifact/catalog JS read-projection input.
 The `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`
@@ -17891,10 +17891,38 @@ command-transport replacement, and local map/projection materialization
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 862 after the next direct
+Scheduled matrix-compaction obligation from Slice 862 is now satisfied.
+
+## Implementation Slice Evidence: 863
+
+Slice 863 retired broad snapshot/projection topology and product-catalog
+materialization from caller-supplied bridge state. The Rust bridge keeps the
+public `snapshot` and `projection` envelope fields schema-stable, but those
+fields now return empty/default topology, runtime-engine, MCP/conversation, and
+product-catalog values instead of honoring direct caller arrays. The retired
+Rust helper tree for product artifacts, runtime catalog, OpenAI model-list
+projection, fixture filtering, model-capability derivation, and ad hoc
+timestamp parsing was deleted. The focused JS fixture planner now mirrors the
+default broad envelope instead of reimplementing the old derivation.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal model_mount projection migration:
+receipt-replay topology lookup, direct Rust daemon-core Agentgres-backed
+catalog/topology/runtime-engine/MCP/conversation projection APIs,
+command-transport replacement, and local map/projection materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 863 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport
-facades, provider lifecycle/read adapters, receipt-replay topology input, local
+facades, provider lifecycle/read adapters, receipt-replay topology lookup, local
 map/projection materialization, and Rust daemon-core
 catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.

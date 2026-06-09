@@ -657,6 +657,9 @@ function runDocs() {
       /Slice 862 retired dedicated product artifact\/catalog JS read-projection\s+input/.test(guide) &&
       /`product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`\s+read projections now send empty state objects/.test(guide) &&
       /Rust bridge direct arms return empty\/default product\/catalog lists\s+instead of filtering or translating caller-supplied artifact arrays/.test(guide) &&
+      /Slice 863 retired broad snapshot\/projection topology and product-catalog\s+materialization/.test(guide) &&
+      /returns empty\/default topology, runtime-engine, MCP\/conversation, and\s+product-catalog fields instead of honoring direct caller arrays/.test(guide) &&
+      /retired\s+Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,\s+model-capability, and ad hoc timestamp helper tree was deleted/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -1051,11 +1054,16 @@ function runDocs() {
       /`artifacts`, `providers`, `endpoints`, `instances`, `routes`,\s+`model_capabilities`, and `downloads` read projections now send `\{\}`/.test(matrix) &&
       /Rust bridge direct arms for those projection kinds\s+return empty\/default lists instead of echoing caller-supplied topology arrays/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 861 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 862/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 862/.test(matrix) &&
       /Slice 862 retired dedicated product artifact\/catalog JS read-projection\s+input/.test(matrix) &&
       /`product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`\s+read projections now send `\{\}`/.test(matrix) &&
       /Rust bridge\s+direct arms for those projection kinds return empty\/default product\/catalog\s+lists instead of filtering or translating caller-supplied artifact arrays/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 862/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 862 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 863/.test(matrix) &&
+      /Slice 863 retired broad snapshot\/projection topology and product-catalog\s+materialization/.test(matrix) &&
+      /fields now return empty\/default topology, runtime-engine, MCP\/conversation, and\s+product-catalog values instead of honoring direct caller arrays/.test(matrix) &&
+      /retired\s+Rust helper tree for product artifacts, runtime catalog, OpenAI model-list\s+projection, fixture filtering, model-capability derivation, and ad hoc\s+timestamp parsing was deleted/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 863/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1088,6 +1096,8 @@ function runDocs() {
       /Rust bridge direct arms return empty\/default lists instead of caller-supplied topology arrays/.test(implementationMatrix) &&
       /dedicated `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list` read projections also send empty request state/.test(implementationMatrix) &&
       /JS artifact maps and fixture policy cannot become public product catalog or OpenAI-compatible model-list truth/.test(implementationMatrix) &&
+      /broad Rust `snapshot` and `projection` envelopes now also return empty\/default topology, runtime-engine, MCP\/conversation, and product-catalog fields/.test(implementationMatrix) &&
+      /dead Rust product-artifact\/runtime-catalog\/OpenAI-list\/fixture-filter\/model-capability helper tree plus the JS fixture mirror were deleted/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /public `adapterBoundaries\(\)` now calls dedicated Rust read-projection kind `adapter_boundaries` with empty request state/.test(implementationMatrix) &&
       /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
@@ -8513,12 +8523,15 @@ function runBridge() {
       /error\.details\.engine_id === "backend\.llama-cpp"/.test(modelMountingReadProjectionFacadeTest) &&
       /error\.details\.engine_id === "backend\.missing"/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
-      /productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      !/productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      !/runtimeModelCatalogFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      !/openAiModelListFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      !/modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      !/artifactIsInternalFixture/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
       /serverStatusFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /catalogStatusFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
-      /modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
       /vault adapter health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8557,6 +8570,13 @@ function runBridge() {
       /"open_ai_model_list" => Ok\(json!\(\{\s*"object": "list",\s*"data": \[\],\s*\}\)\)/.test(bridgeModule) &&
       /fn model_mount_snapshot/.test(bridgeModule) &&
       !/fn model_mount_snapshot(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(bridgeModule) &&
+      /"artifacts": \[\][\s\S]*"productArtifacts": \[\][\s\S]*"runtimeModelCatalog": \[\][\s\S]*"openAiModelList": \{\s*"object": "list",\s*"data": \[\],\s*\}/.test(bridgeModule) &&
+      /"routes": \[\][\s\S]*"modelCapabilities": \[\]/.test(bridgeModule) &&
+      !/fn model_mount_product_artifacts/.test(bridgeModule) &&
+      !/fn model_mount_runtime_model_catalog/.test(bridgeModule) &&
+      !/fn model_mount_open_ai_model_list/.test(bridgeModule) &&
+      !/fn model_mount_model_capabilities/.test(bridgeModule) &&
+      !/MODEL_CAPABILITY_SCHEMA_VERSION/.test(bridgeModule) &&
       /"adapterBoundaries": model_mount_adapter_boundaries\(state\)/.test(bridgeModule) &&
       /fn model_mount_projection_summary/.test(bridgeModule) &&
       !/"catalogProviderConfigs"/.test(bridgeModule) &&
@@ -8575,10 +8595,10 @@ function runBridge() {
       /fn model_mount_catalog_adapter_boundary/.test(bridgeModule) &&
       /fn status_count/.test(bridgeModule) &&
       /fn model_mount_runtime_engine_detail/.test(bridgeModule) &&
-      /fn model_mount_model_capabilities/.test(bridgeModule) &&
-      /fn model_mount_product_artifacts/.test(bridgeModule) &&
-      /fn model_mount_runtime_model_catalog/.test(bridgeModule) &&
-      /fn model_mount_open_ai_model_list/.test(bridgeModule) &&
+      !/fn model_mount_model_capabilities/.test(bridgeModule) &&
+      !/fn model_mount_product_artifacts/.test(bridgeModule) &&
+      !/fn model_mount_runtime_model_catalog/.test(bridgeModule) &&
+      !/fn model_mount_open_ai_model_list/.test(bridgeModule) &&
       !/"adapter_boundaries":/.test(bridgeModule) &&
       !/"workflow_bindings":/.test(bridgeModule) &&
       !/"model_capabilities":/.test(bridgeModule) &&
@@ -8596,7 +8616,7 @@ function runBridge() {
       /"catalog": model_mount_catalog_status\(request\)/.test(bridgeModule) &&
       /"workflowNodes": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"workflowBindings": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
-      /"modelCapabilities": model_mount_model_capabilities\(state\)/.test(bridgeModule) &&
+      /"modelCapabilities": \[\]/.test(bridgeModule) &&
       /rust_model_mount_read_projection_command/.test(bridgeModule) &&
       /rust_daemon_core_model_mount_projection/.test(bridgeModule) &&
       /agentgres_model_mount_read_truth/.test(bridgeModule) &&
@@ -8640,10 +8660,10 @@ function runBridge() {
       /response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["adapterBoundaries"\]\["agentgres"\]\["port"\]/.test(bridgeModule) &&
       /response\["projection"\]\["workflowBindings"\]\[4\]\["capability"\]/.test(bridgeModule) &&
-      /response\["projection"\]\["modelCapabilities"\]\[0\]\["credential_readiness"\]\["status"\]/.test(bridgeModule) &&
-      /response\["projection"\]\["productArtifacts"\]/.test(bridgeModule) &&
-      /response\["projection"\]\["runtimeModelCatalog"\]/.test(bridgeModule) &&
-      /response\["projection"\]\["openAiModelList"\]/.test(bridgeModule) &&
+      /response\["projection"\]\["modelCapabilities"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
+      /response\["projection"\]\["productArtifacts"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
+      /response\["projection"\]\["runtimeModelCatalog"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
+      /response\["projection"\]\["openAiModelList"\]\["data"\][\s\S]*?\.len\(\),\s*0/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["workflowNodes"\]/.test(bridgeModule) &&
       /server status projected in Rust/.test(bridgeModule) &&
       /catalog status projected in Rust/.test(bridgeModule) &&

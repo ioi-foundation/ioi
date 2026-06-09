@@ -1721,6 +1721,17 @@ Agentgres-backed catalog/topology projection APIs are still pending. Broad
 snapshot/projection catalog fields remain default/non-authoritative, and
 receipt replay remains a separate topology-lookup migration seam.
 
+Slice 863 retired broad snapshot/projection topology and product-catalog
+materialization from caller-supplied bridge state. The Rust bridge now keeps
+the public `snapshot` and `projection` envelope fields schema-stable but
+returns empty/default topology, runtime-engine, MCP/conversation, and
+product-catalog fields instead of honoring direct caller arrays. The retired
+Rust product artifact, runtime catalog, OpenAI model-list, fixture filtering,
+model-capability, and ad hoc timestamp helper tree was deleted, and the focused
+JS fixture planner mirrors the default envelope rather than reimplementing the
+old derivation. Receipt replay still receives its explicit topology context
+until the separate Rust Agentgres topology lookup seam is migrated.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

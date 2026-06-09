@@ -286,30 +286,30 @@ function rustProjectionFixture(request) {
     source: "agentgres_model_mounting_projection",
     generatedAt: request.generated_at,
     watermark: receipts.length,
-    artifacts: state.artifacts ?? [],
-    productArtifacts: productArtifactsFromRustState(state),
-    endpoints: state.endpoints ?? [],
-    instances: state.instances ?? [],
-    routes: state.routes ?? [],
-    modelCapabilities: modelCapabilitiesFromRustState(state),
-    runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
-    openAiModelList: openAiModelListFromRustState(state, request.generated_at),
-    backends: state.backends ?? [],
-    backendProcesses: state.backend_processes ?? [],
-    providers: state.providers ?? [],
+    artifacts: [],
+    productArtifacts: [],
+    endpoints: [],
+    instances: [],
+    routes: [],
+    modelCapabilities: [],
+    runtimeModelCatalog: [],
+    openAiModelList: { object: "list", data: [] },
+    backends: [],
+    backendProcesses: [],
+    providers: [],
     catalog: catalogStatusFromRustState(state, request.schema_version),
     oauthSessions: state.oauth_sessions,
     oauthStates: state.oauth_states,
-    downloads: state.downloads ?? [],
-    providerHealth: state.provider_health ?? [],
-    runtimeEngines: state.runtime_engines,
-    runtimeEngineProfiles: state.runtime_engine_profiles,
-    runtimePreference: state.runtime_preference,
+    downloads: [],
+    providerHealth: [],
+    runtimeEngines: [],
+    runtimeEngineProfiles: [],
+    runtimePreference: null,
     runtimeSurvey: latestRuntimeSurveyFromRustState(state),
     grants: state.grants ?? [],
     vaultRefs: state.vault_refs ?? [],
-    mcpServers: state.mcp_servers ?? [],
-    conversationStates: state.conversation_states ?? [],
+    mcpServers: [],
+    conversationStates: [],
     workflowBindings: workflowBindingsFromRust(),
     adapterBoundaries: adapterBoundariesFromState(state),
     lifecycleEvents: receipts.filter((receipt) => receipt.kind === "model_lifecycle"),
@@ -328,27 +328,27 @@ function rustProjectionFixture(request) {
       catalog: catalogStatusFromRustState(state, request.schema_version),
       oauthSessions: state.oauth_sessions,
       oauthStates: state.oauth_states,
-      artifacts: state.artifacts ?? [],
-      productArtifacts: productArtifactsFromRustState(state),
-      backends: state.backends ?? [],
-      backendProcesses: state.backend_processes ?? [],
-      endpoints: state.endpoints ?? [],
-      instances: state.instances ?? [],
-      providers: state.providers ?? [],
-      routes: state.routes ?? [],
-      modelCapabilities: modelCapabilitiesFromRustState(state),
-      runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
-      openAiModelList: openAiModelListFromRustState(state, request.generated_at),
-      downloads: state.downloads ?? [],
-      providerHealth: state.provider_health ?? [],
-      runtimeEngines: state.runtime_engines,
-      runtimeEngineProfiles: state.runtime_engine_profiles,
-      runtimePreference: state.runtime_preference,
+      artifacts: [],
+      productArtifacts: [],
+      backends: [],
+      backendProcesses: [],
+      endpoints: [],
+      instances: [],
+      providers: [],
+      routes: [],
+      modelCapabilities: [],
+      runtimeModelCatalog: [],
+      openAiModelList: { object: "list", data: [] },
+      downloads: [],
+      providerHealth: [],
+      runtimeEngines: [],
+      runtimeEngineProfiles: [],
+      runtimePreference: null,
       runtimeSurvey: latestRuntimeSurveyFromRustState(state),
       tokens: state.grants ?? [],
       vaultRefs: state.vault_refs ?? [],
-      mcpServers: state.mcp_servers ?? [],
-      conversationStates: state.conversation_states ?? [],
+      mcpServers: [],
+      conversationStates: [],
       workflowNodes: workflowBindingsFromRust(),
       receipts: receipts.slice(-25),
       projection: {
@@ -456,10 +456,10 @@ function rustProjectionFixture(request) {
       source: "agentgres_model_mounting_projection_replay",
       receipt,
       model_route_decision: receipt.details?.model_route_decision ?? null,
-      route: projection.routes.find((route) => route.id === receipt.details?.route_id) ?? null,
-      endpoint: projection.endpoints.find((endpoint) => endpoint.id === receipt.details?.endpoint_id) ?? null,
-      instance: projection.instances.find((instance) => instance.id === receipt.details?.instance_id) ?? null,
-      provider: projection.providers.find((provider) => provider.id === receipt.details?.provider_id) ?? null,
+      route: (state.routes ?? []).find((route) => route.id === receipt.details?.route_id) ?? null,
+      endpoint: (state.endpoints ?? []).find((endpoint) => endpoint.id === receipt.details?.endpoint_id) ?? null,
+      instance: (state.instances ?? []).find((instance) => instance.id === receipt.details?.instance_id) ?? null,
+      provider: (state.providers ?? []).find((provider) => provider.id === receipt.details?.provider_id) ?? null,
       toolReceipts: [],
       projectionWatermark: projection.watermark,
     };
@@ -554,193 +554,6 @@ function catalogStatusFromRustState(state, schemaVersion) {
     lastSearch,
     results: input.results ?? [],
   };
-}
-
-function productArtifactsFromRustState(state) {
-  const includeInternalFixtures = Boolean(state.product_artifact_policy?.include_internal_fixtures);
-  return (state.artifacts ?? []).filter((artifact) => includeInternalFixtures || !artifactIsInternalFixture(artifact));
-}
-
-function runtimeModelCatalogFromRustState(state) {
-  return [...productArtifactsFromRustState(state)]
-    .sort((left, right) => String(left.modelId ?? "").localeCompare(String(right.modelId ?? "")))
-    .map((artifact) => ({
-      id: artifact.modelId ?? null,
-      provider: (artifact.providerId === "provider.local.folder" || artifact.providerId === "provider.autopilot.local")
-        ? "ioi-daemon-local"
-        : artifact.providerId ?? null,
-      cost: artifact.privacyClass === "local_private" ? "local" : "metered",
-      quality: artifact.family === "fixture" ? "adaptive" : "provider",
-      capabilities: artifact.capabilities ?? [],
-      privacyClass: artifact.privacyClass ?? null,
-      route: "route.local-first",
-    }));
-}
-
-function openAiModelListFromRustState(state, generatedAt) {
-  return {
-    object: "list",
-    data: productArtifactsFromRustState(state).map((artifact) => ({
-      id: artifact.modelId ?? null,
-      object: "model",
-      created: Math.floor(Date.parse(artifact.discoveredAt ?? generatedAt) / 1000),
-      owned_by: artifact.providerId ?? null,
-      permission: [],
-      root: artifact.modelId ?? null,
-      parent: null,
-    })),
-  };
-}
-
-function artifactIsInternalFixture(artifact) {
-  const haystack = [
-    artifact.id,
-    artifact.modelId,
-    artifact.model_id,
-    artifact.displayName,
-    artifact.name,
-    artifact.family,
-    artifact.quantization,
-    artifact.source,
-    artifact.driver,
-    artifact.providerId,
-    artifact.provider_id,
-    artifact.artifactPath,
-    artifact.artifact_path,
-  ].map((value) => String(value ?? "").toLowerCase()).join(" ");
-  return haystack.includes("fixture")
-    || haystack.includes("local:auto")
-    || haystack.includes("autopilot:native-fixture")
-    || haystack.includes("stories260k");
-}
-
-function modelCapabilitiesFromRustState(state) {
-  const endpointById = new Map((state.endpoints ?? []).map((endpoint) => [endpoint.id, endpoint]));
-  const providerById = new Map((state.providers ?? []).map((provider) => [provider.id, provider]));
-  const artifactByModelId = new Map((state.artifacts ?? []).map((artifact) => [artifact.modelId, artifact]));
-  const loadedEndpointIds = new Set(
-    (state.instances ?? []).filter((instance) => instance.status === "loaded").map((instance) => instance.endpointId),
-  );
-  return (state.routes ?? []).map((route) => {
-    const candidates = (route.fallback ?? []).map((endpointId, priority) => {
-      const endpoint = endpointById.get(endpointId) ?? null;
-      const provider = endpoint ? providerById.get(endpoint.providerId) ?? null : null;
-      const artifact = endpoint ? artifactByModelId.get(endpoint.modelId) ?? null : null;
-      const vaultRequired = Boolean(provider?.vaultBoundary?.required)
-        || ["openai", "anthropic", "gemini", "custom_http"].includes(String(provider?.kind));
-      const vaultReady = !vaultRequired || Boolean(provider?.secretConfigured || provider?.vaultBoundary?.configured);
-      const providerReady = ["available", "configured", "running"].includes(String(provider?.status));
-      const endpointReady = endpoint ? endpoint.status === "mounted" || loadedEndpointIds.has(endpoint.id) : false;
-      const ready = route.status === "active" && endpointReady && providerReady && vaultReady;
-      const reason = !endpoint
-        ? "Route fallback endpoint is not registered."
-        : !provider
-          ? "Endpoint provider is not registered."
-          : !providerReady
-            ? `Provider status is ${provider.status}.`
-            : vaultRequired && !vaultReady
-              ? "Provider requires wallet vault credentials."
-              : !endpointReady
-                ? `Endpoint status is ${endpoint.status}.`
-                : "Endpoint, provider, and credential posture are ready.";
-      const evidenceRefs = [...new Set([
-        endpoint?.lastReceiptId,
-        provider?.lastReceiptId,
-        artifact?.lastReceiptId,
-        ...(endpoint?.evidenceRefs ?? []),
-        ...(provider?.evidenceRefs ?? []),
-      ].filter((value) => typeof value === "string" && value.trim()))];
-      return {
-        endpoint_id: endpointId,
-        priority,
-        model_id: endpoint?.modelId ?? null,
-        provider_id: provider?.id ?? null,
-        provider_kind: provider?.kind ?? null,
-        capability: endpoint?.capabilities?.[0] ?? artifact?.capabilities?.[0] ?? "chat",
-        privacy_tier: endpoint?.privacyClass ?? provider?.privacyClass ?? route.privacy,
-        status: ready ? "ready" : "blocked",
-        ready,
-        vault_required: vaultRequired,
-        vault_ready: vaultReady,
-        reason,
-        evidence_refs: evidenceRefs,
-        evidence: {
-          endpoint_id: endpointId,
-          provider_id: provider?.id ?? null,
-          status: ready ? "ready" : "blocked",
-          reason,
-          vault_required: vaultRequired,
-          vault_ready: vaultReady,
-        },
-      };
-    });
-    const readyCandidates = candidates.filter((candidate) => candidate.ready);
-    const selectedCandidate = readyCandidates[0] ?? candidates[0] ?? null;
-    const capability = selectedCandidate?.capability ?? "chat";
-    const evidenceRefs = [...new Set(candidates.flatMap((candidate) => candidate.evidence_refs))];
-    const missingVaultCount = candidates.filter((candidate) => candidate.vault_required && !candidate.vault_ready).length;
-    const available = route.status === "active" && readyCandidates.length > 0;
-    return {
-      schema_version: "ioi.model-capability.v1",
-      object: "ioi.model_capability",
-      id: `model-capability:${route.id}`,
-      route_id: route.id,
-      role: route.role ?? null,
-      model_role: route.role ?? null,
-      capability,
-      primitive_capability: `prim:model.${capability}`,
-      authority_scope_requirements: [`route.use:${route.id}`, `model.${capability}:*`],
-      policy_target: route.id.startsWith("route.") ? `model.${route.id}` : `model.route.${route.id}`,
-      privacy_tier: route.privacy ?? null,
-      provider_priority: route.providerEligibility ?? null,
-      fallback_policy: {
-        allowed: (route.fallback ?? []).length > 1,
-        endpoint_ids: route.fallback ?? [],
-        denied_providers: route.deniedProviders ?? null,
-        selected_endpoint_id: selectedCandidate?.endpoint_id ?? null,
-        deterministic_order: true,
-      },
-      fallback_evidence: candidates.map((candidate) => candidate.evidence),
-      cost_estimate_visibility: {
-        visible: true,
-        max_cost_usd: route.maxCostUsd ?? null,
-        max_latency_ms: route.maxLatencyMs ?? null,
-        source: "model_route_policy",
-      },
-      credential_readiness: {
-        status: route.status !== "active" ? "disabled" : readyCandidates.length > 0 ? "ready" : missingVaultCount > 0 ? "missing" : "degraded",
-        reason: route.status !== "active"
-          ? "Model route is disabled."
-          : readyCandidates.length > 0
-            ? "Route has an executable candidate."
-            : candidates[0]?.reason ?? "Route has no configured fallback candidates.",
-        evidence_refs: evidenceRefs,
-      },
-      vault_readiness: {
-        status: missingVaultCount === 0 ? "ready" : "missing",
-        required_count: candidates.filter((candidate) => candidate.vault_required).length,
-        configured_count: candidates.filter((candidate) => candidate.vault_required && candidate.vault_ready).length,
-        missing_count: missingVaultCount,
-      },
-      byok_required: candidates.some((candidate) => candidate.vault_required),
-      receipt_behavior: {
-        receipt_required: true,
-        required_receipt_types: ["model_route_selection", "model_invocation"],
-      },
-      workflow_availability: {
-        available,
-        reason: available ? "At least one route candidate is executable." : "No executable model route candidate is ready.",
-        config_fields: ["model_ref", "route_id", "model_binding"],
-        evidence_refs: evidenceRefs,
-      },
-      agent_availability: {
-        available,
-        reason: available ? "Agent runtime can request this route capability." : "Agent runtime must resolve model readiness first.",
-        evidence_refs: evidenceRefs,
-      },
-      candidates,
-    };
-  });
 }
 
 function adapterBoundariesFromState(state) {

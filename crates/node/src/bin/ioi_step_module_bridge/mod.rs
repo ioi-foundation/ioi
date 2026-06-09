@@ -77,7 +77,6 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::io::{self, Read};
@@ -93,7 +92,6 @@ const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.comman
 const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
-const MODEL_CAPABILITY_SCHEMA_VERSION: &str = "ioi.model-capability.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
 const MAX_DIFF_BYTES: u64 = 64 * 1024;
@@ -2136,27 +2134,30 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "catalog": model_mount_catalog_status(request),
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
-        "artifacts": array_field(state, "artifacts"),
-        "productArtifacts": model_mount_product_artifacts(state),
-        "backends": array_field(state, "backends"),
-        "backendProcesses": array_field(state, "backend_processes"),
-        "endpoints": array_field(state, "endpoints"),
-        "instances": array_field(state, "instances"),
-        "providers": array_field(state, "providers"),
-        "routes": array_field(state, "routes"),
-        "modelCapabilities": model_mount_model_capabilities(state),
-        "runtimeModelCatalog": model_mount_runtime_model_catalog(state),
-        "openAiModelList": model_mount_open_ai_model_list(state, model_mount_projection_generated_at(request)),
-        "downloads": array_field(state, "downloads"),
-        "providerHealth": array_field(state, "provider_health"),
-        "runtimeEngines": array_field(state, "runtime_engines"),
-        "runtimeEngineProfiles": array_field(state, "runtime_engine_profiles"),
-        "runtimePreference": object_or_null(state.get("runtime_preference")),
+        "artifacts": [],
+        "productArtifacts": [],
+        "backends": [],
+        "backendProcesses": [],
+        "endpoints": [],
+        "instances": [],
+        "providers": [],
+        "routes": [],
+        "modelCapabilities": [],
+        "runtimeModelCatalog": [],
+        "openAiModelList": {
+            "object": "list",
+            "data": [],
+        },
+        "downloads": [],
+        "providerHealth": [],
+        "runtimeEngines": [],
+        "runtimeEngineProfiles": [],
+        "runtimePreference": Value::Null,
         "runtimeSurvey": model_mount_latest_runtime_survey(request),
         "tokens": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
-        "mcpServers": array_field(state, "mcp_servers"),
-        "conversationStates": array_field(state, "conversation_states"),
+        "mcpServers": [],
+        "conversationStates": [],
         "workflowNodes": model_mount_workflow_bindings(),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": model_mount_projection_summary(request),
@@ -2172,30 +2173,33 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "source": "agentgres_model_mounting_projection",
         "generatedAt": model_mount_projection_generated_at(request),
         "watermark": receipts.len(),
-        "artifacts": array_field(state, "artifacts"),
-        "productArtifacts": model_mount_product_artifacts(state),
-        "endpoints": array_field(state, "endpoints"),
-        "instances": array_field(state, "instances"),
-        "routes": array_field(state, "routes"),
-        "modelCapabilities": model_mount_model_capabilities(state),
-        "runtimeModelCatalog": model_mount_runtime_model_catalog(state),
-        "openAiModelList": model_mount_open_ai_model_list(state, model_mount_projection_generated_at(request)),
-        "backends": array_field(state, "backends"),
-        "backendProcesses": array_field(state, "backend_processes"),
-        "providers": array_field(state, "providers"),
+        "artifacts": [],
+        "productArtifacts": [],
+        "endpoints": [],
+        "instances": [],
+        "routes": [],
+        "modelCapabilities": [],
+        "runtimeModelCatalog": [],
+        "openAiModelList": {
+            "object": "list",
+            "data": [],
+        },
+        "backends": [],
+        "backendProcesses": [],
+        "providers": [],
         "catalog": model_mount_catalog_status(request),
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
-        "downloads": array_field(state, "downloads"),
-        "providerHealth": array_field(state, "provider_health"),
-        "runtimeEngines": array_field(state, "runtime_engines"),
-        "runtimeEngineProfiles": array_field(state, "runtime_engine_profiles"),
-        "runtimePreference": object_or_null(state.get("runtime_preference")),
+        "downloads": [],
+        "providerHealth": [],
+        "runtimeEngines": [],
+        "runtimeEngineProfiles": [],
+        "runtimePreference": Value::Null,
         "runtimeSurvey": model_mount_latest_runtime_survey(request),
         "grants": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
-        "mcpServers": array_field(state, "mcp_servers"),
-        "conversationStates": array_field(state, "conversation_states"),
+        "mcpServers": [],
+        "conversationStates": [],
         "workflowBindings": model_mount_workflow_bindings(),
         "adapterBoundaries": model_mount_adapter_boundaries(state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
@@ -2421,620 +2425,6 @@ fn model_mount_runtime_engine_detail(
         ));
     }
     Ok(runtime_engine)
-}
-
-fn model_mount_product_artifacts(state: &Value) -> Vec<Value> {
-    let include_internal_fixtures = state
-        .get("product_artifact_policy")
-        .and_then(|policy| policy.get("include_internal_fixtures"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    array_field(state, "artifacts")
-        .into_iter()
-        .filter(|artifact| {
-            include_internal_fixtures || !model_mount_artifact_is_internal_fixture(artifact)
-        })
-        .collect()
-}
-
-fn model_mount_runtime_model_catalog(state: &Value) -> Value {
-    let mut artifacts = model_mount_product_artifacts(state);
-    artifacts.sort_by(|left, right| {
-        json_string_field(left, "modelId")
-            .unwrap_or_default()
-            .cmp(&json_string_field(right, "modelId").unwrap_or_default())
-    });
-    Value::Array(
-        artifacts
-            .iter()
-            .map(|artifact| {
-                let provider_id = json_string_field(artifact, "providerId");
-                json!({
-                    "id": artifact.get("modelId").cloned().unwrap_or(Value::Null),
-                    "provider": if matches!(
-                        provider_id.as_deref(),
-                        Some("provider.local.folder" | "provider.autopilot.local")
-                    ) {
-                        Value::String("ioi-daemon-local".to_string())
-                    } else {
-                        artifact.get("providerId").cloned().unwrap_or(Value::Null)
-                    },
-                    "cost": if json_string_field(artifact, "privacyClass").as_deref() == Some("local_private") {
-                        "local"
-                    } else {
-                        "metered"
-                    },
-                    "quality": if json_string_field(artifact, "family").as_deref() == Some("fixture") {
-                        "adaptive"
-                    } else {
-                        "provider"
-                    },
-                    "capabilities": artifact.get("capabilities").cloned().unwrap_or_else(|| Value::Array(vec![])),
-                    "privacyClass": artifact.get("privacyClass").cloned().unwrap_or(Value::Null),
-                    "route": "route.local-first",
-                })
-            })
-            .collect(),
-    )
-}
-
-fn model_mount_open_ai_model_list(state: &Value, generated_at: String) -> Value {
-    json!({
-        "object": "list",
-        "data": model_mount_product_artifacts(state)
-            .iter()
-            .map(|artifact| {
-                json!({
-                    "id": artifact.get("modelId").cloned().unwrap_or(Value::Null),
-                    "object": "model",
-                    "created": artifact
-                        .get("discoveredAt")
-                        .and_then(Value::as_str)
-                        .and_then(parse_iso_epoch_seconds)
-                        .unwrap_or_else(|| parse_iso_epoch_seconds(&generated_at).unwrap_or(0)),
-                    "owned_by": artifact.get("providerId").cloned().unwrap_or(Value::Null),
-                    "permission": [],
-                    "root": artifact.get("modelId").cloned().unwrap_or(Value::Null),
-                    "parent": Value::Null,
-                })
-            })
-            .collect::<Vec<_>>(),
-    })
-}
-
-fn model_mount_artifact_is_internal_fixture(artifact: &Value) -> bool {
-    [
-        "id",
-        "modelId",
-        "model_id",
-        "displayName",
-        "name",
-        "family",
-        "quantization",
-        "source",
-        "driver",
-        "providerId",
-        "provider_id",
-        "artifactPath",
-        "artifact_path",
-    ]
-    .iter()
-    .filter_map(|key| artifact.get(*key))
-    .filter_map(Value::as_str)
-    .map(str::to_lowercase)
-    .any(|value| {
-        value.contains("fixture")
-            || value.contains("local:auto")
-            || value.contains("autopilot:native-fixture")
-            || value.contains("stories260k")
-    })
-}
-
-fn parse_iso_epoch_seconds(value: &str) -> Option<i64> {
-    let date_time = value.split_once('T')?;
-    let mut date = date_time.0.split('-').map(|part| part.parse::<i64>().ok());
-    let year = date.next()??;
-    let month = date.next()??;
-    let day = date.next()??;
-    let time_part = date_time
-        .1
-        .trim_end_matches('Z')
-        .split_once('.')
-        .map(|(time, _)| time)
-        .unwrap_or_else(|| date_time.1.trim_end_matches('Z'));
-    let mut time = time_part.split(':').map(|part| part.parse::<i64>().ok());
-    let hour = time.next()??;
-    let minute = time.next()??;
-    let second = time.next()??;
-    if !(1..=12).contains(&month)
-        || !(1..=31).contains(&day)
-        || !(0..=23).contains(&hour)
-        || !(0..=59).contains(&minute)
-        || !(0..=60).contains(&second)
-    {
-        return None;
-    }
-    let days_before_year = (1970..year).map(days_in_year).sum::<i64>();
-    let days_before_month = (1..month)
-        .map(|candidate| days_in_month(year, candidate))
-        .sum::<i64>();
-    Some(
-        (days_before_year + days_before_month + day - 1) * 86_400
-            + hour * 3_600
-            + minute * 60
-            + second,
-    )
-}
-
-fn days_in_year(year: i64) -> i64 {
-    if is_leap_year(year) {
-        366
-    } else {
-        365
-    }
-}
-
-fn days_in_month(year: i64, month: i64) -> i64 {
-    match month {
-        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
-        4 | 6 | 9 | 11 => 30,
-        2 if is_leap_year(year) => 29,
-        2 => 28,
-        _ => 0,
-    }
-}
-
-fn is_leap_year(year: i64) -> bool {
-    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
-}
-
-fn model_mount_model_capabilities(state: &Value) -> Value {
-    let artifacts = array_field(state, "artifacts");
-    let endpoints = array_field(state, "endpoints");
-    let instances = array_field(state, "instances");
-    let providers = array_field(state, "providers");
-    let routes = array_field(state, "routes");
-
-    let endpoint_by_id = endpoints
-        .iter()
-        .filter_map(|endpoint| json_string_field(endpoint, "id").map(|id| (id, endpoint)))
-        .collect::<HashMap<_, _>>();
-    let provider_by_id = providers
-        .iter()
-        .filter_map(|provider| json_string_field(provider, "id").map(|id| (id, provider)))
-        .collect::<HashMap<_, _>>();
-    let artifact_by_model_id = artifacts
-        .iter()
-        .filter_map(|artifact| json_string_field(artifact, "modelId").map(|id| (id, artifact)))
-        .collect::<HashMap<_, _>>();
-    let loaded_endpoint_ids = instances
-        .iter()
-        .filter(|instance| json_string_field(instance, "status").as_deref() == Some("loaded"))
-        .filter_map(|instance| json_string_field(instance, "endpointId"))
-        .collect::<HashSet<_>>();
-
-    Value::Array(
-        routes
-            .iter()
-            .map(|route| {
-                model_mount_model_capability_for_route(
-                    route,
-                    &artifact_by_model_id,
-                    &endpoint_by_id,
-                    &loaded_endpoint_ids,
-                    &provider_by_id,
-                )
-            })
-            .collect(),
-    )
-}
-
-fn model_mount_model_capability_for_route(
-    route: &Value,
-    artifact_by_model_id: &HashMap<String, &Value>,
-    endpoint_by_id: &HashMap<String, &Value>,
-    loaded_endpoint_ids: &HashSet<String>,
-    provider_by_id: &HashMap<String, &Value>,
-) -> Value {
-    let route_id = json_string_field(route, "id").unwrap_or_default();
-    let fallback_endpoint_ids = route
-        .get("fallback")
-        .and_then(Value::as_array)
-        .map(|values| {
-            values
-                .iter()
-                .filter_map(Value::as_str)
-                .map(str::to_string)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-    let candidates = fallback_endpoint_ids
-        .iter()
-        .enumerate()
-        .map(|(priority, endpoint_id)| {
-            model_mount_candidate_readiness(
-                route,
-                endpoint_id,
-                priority,
-                artifact_by_model_id,
-                endpoint_by_id,
-                loaded_endpoint_ids,
-                provider_by_id,
-            )
-        })
-        .collect::<Vec<_>>();
-    let ready_candidates = candidates
-        .iter()
-        .filter(|candidate| {
-            candidate
-                .get("ready")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-        })
-        .collect::<Vec<_>>();
-    let missing_vault_count = candidates
-        .iter()
-        .filter(|candidate| {
-            candidate
-                .get("vault_required")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-                && !candidate
-                    .get("vault_ready")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-        })
-        .count();
-    let selected_candidate = ready_candidates
-        .first()
-        .copied()
-        .or_else(|| candidates.first());
-    let route_active = json_string_field(route, "status").as_deref() == Some("active");
-    let available = route_active && !ready_candidates.is_empty();
-    let capability = selected_candidate
-        .and_then(|candidate| json_string_field(candidate, "capability"))
-        .unwrap_or_else(|| "chat".to_string());
-    let evidence_refs = compact_evidence(
-        candidates
-            .iter()
-            .flat_map(|candidate| {
-                candidate
-                    .get("evidence_refs")
-                    .and_then(Value::as_array)
-                    .cloned()
-                    .unwrap_or_default()
-            })
-            .collect(),
-    );
-
-    json!({
-        "schema_version": MODEL_CAPABILITY_SCHEMA_VERSION,
-        "object": "ioi.model_capability",
-        "id": format!("model-capability:{route_id}"),
-        "route_id": route_id,
-        "role": route.get("role").cloned().unwrap_or(Value::Null),
-        "model_role": route.get("role").cloned().unwrap_or(Value::Null),
-        "capability": capability,
-        "primitive_capability": format!("prim:model.{capability}"),
-        "authority_scope_requirements": [
-            format!("route.use:{route_id}"),
-            format!("model.{capability}:*"),
-        ],
-        "policy_target": model_mount_model_policy_target(&route_id),
-        "privacy_tier": route.get("privacy").cloned().unwrap_or(Value::Null),
-        "provider_priority": route.get("providerEligibility").cloned().unwrap_or(Value::Null),
-        "fallback_policy": {
-            "allowed": fallback_endpoint_ids.len() > 1,
-            "endpoint_ids": fallback_endpoint_ids,
-            "denied_providers": route.get("deniedProviders").cloned().unwrap_or(Value::Null),
-            "selected_endpoint_id": selected_candidate
-                .and_then(|candidate| candidate.get("endpoint_id"))
-                .cloned()
-                .unwrap_or(Value::Null),
-            "deterministic_order": true,
-        },
-        "fallback_evidence": candidates
-            .iter()
-            .map(|candidate| candidate.get("evidence").cloned().unwrap_or(Value::Null))
-            .collect::<Vec<_>>(),
-        "cost_estimate_visibility": {
-            "visible": true,
-            "max_cost_usd": route.get("maxCostUsd").cloned().unwrap_or(Value::Null),
-            "max_latency_ms": route.get("maxLatencyMs").cloned().unwrap_or(Value::Null),
-            "source": "model_route_policy",
-        },
-        "credential_readiness": {
-            "status": model_mount_readiness_status(route, &candidates, ready_candidates.len()),
-            "reason": model_mount_readiness_reason(route, &candidates, ready_candidates.len()),
-            "evidence_refs": evidence_refs,
-        },
-        "vault_readiness": {
-            "status": if missing_vault_count == 0 { "ready" } else { "missing" },
-            "required_count": candidates.iter().filter(|candidate| {
-                candidate.get("vault_required").and_then(Value::as_bool).unwrap_or(false)
-            }).count(),
-            "configured_count": candidates.iter().filter(|candidate| {
-                candidate.get("vault_required").and_then(Value::as_bool).unwrap_or(false)
-                    && candidate.get("vault_ready").and_then(Value::as_bool).unwrap_or(false)
-            }).count(),
-            "missing_count": missing_vault_count,
-        },
-        "byok_required": candidates.iter().any(|candidate| {
-            candidate.get("vault_required").and_then(Value::as_bool).unwrap_or(false)
-        }),
-        "receipt_behavior": {
-            "receipt_required": true,
-            "required_receipt_types": ["model_route_selection", "model_invocation"],
-        },
-        "workflow_availability": {
-            "available": available,
-            "reason": if available {
-                "At least one route candidate is executable."
-            } else {
-                "No executable model route candidate is ready."
-            },
-            "config_fields": ["model_ref", "route_id", "model_binding"],
-            "evidence_refs": evidence_refs,
-        },
-        "agent_availability": {
-            "available": available,
-            "reason": if available {
-                "Agent runtime can request this route capability."
-            } else {
-                "Agent runtime must resolve model readiness first."
-            },
-            "evidence_refs": evidence_refs,
-        },
-        "candidates": candidates,
-    })
-}
-
-fn model_mount_candidate_readiness(
-    route: &Value,
-    endpoint_id: &str,
-    priority: usize,
-    artifact_by_model_id: &HashMap<String, &Value>,
-    endpoint_by_id: &HashMap<String, &Value>,
-    loaded_endpoint_ids: &HashSet<String>,
-    provider_by_id: &HashMap<String, &Value>,
-) -> Value {
-    let endpoint = endpoint_by_id.get(endpoint_id).copied();
-    let provider = endpoint
-        .and_then(|endpoint| json_string_field(endpoint, "providerId"))
-        .and_then(|provider_id| provider_by_id.get(&provider_id).copied());
-    let artifact = endpoint
-        .and_then(|endpoint| json_string_field(endpoint, "modelId"))
-        .and_then(|model_id| artifact_by_model_id.get(&model_id).copied());
-    let vault_required = model_mount_provider_requires_vault(provider);
-    let vault_ready = !vault_required
-        || provider
-            .map(|provider| {
-                provider
-                    .get("secretConfigured")
-                    .and_then(Value::as_bool)
-                    .unwrap_or(false)
-                    || provider
-                        .get("vaultBoundary")
-                        .and_then(|boundary| boundary.get("configured"))
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false)
-            })
-            .unwrap_or(false);
-    let provider_ready = provider
-        .and_then(|provider| json_string_field(provider, "status"))
-        .map(|status| matches!(status.as_str(), "available" | "configured" | "running"))
-        .unwrap_or(false);
-    let endpoint_ready = endpoint
-        .map(|endpoint| {
-            json_string_field(endpoint, "status").as_deref() == Some("mounted")
-                || json_string_field(endpoint, "id")
-                    .map(|id| loaded_endpoint_ids.contains(&id))
-                    .unwrap_or(false)
-        })
-        .unwrap_or(false);
-    let route_active = json_string_field(route, "status").as_deref() == Some("active");
-    let ready = route_active && endpoint_ready && provider_ready && vault_ready;
-    let reason = model_mount_readiness_candidate_reason(
-        endpoint,
-        endpoint_ready,
-        provider,
-        provider_ready,
-        vault_required,
-        vault_ready,
-    );
-    let evidence_refs = compact_evidence(
-        vec![
-            endpoint
-                .and_then(|endpoint| endpoint.get("lastReceiptId"))
-                .cloned()
-                .unwrap_or(Value::Null),
-            provider
-                .and_then(|provider| provider.get("lastReceiptId"))
-                .cloned()
-                .unwrap_or(Value::Null),
-            artifact
-                .and_then(|artifact| artifact.get("lastReceiptId"))
-                .cloned()
-                .unwrap_or(Value::Null),
-        ]
-        .into_iter()
-        .chain(array_field(
-            endpoint.unwrap_or(&Value::Null),
-            "evidenceRefs",
-        ))
-        .chain(array_field(
-            provider.unwrap_or(&Value::Null),
-            "evidenceRefs",
-        ))
-        .collect(),
-    );
-    json!({
-        "endpoint_id": endpoint_id,
-        "priority": priority,
-        "model_id": endpoint
-            .and_then(|endpoint| endpoint.get("modelId"))
-            .cloned()
-            .unwrap_or(Value::Null),
-        "provider_id": provider
-            .and_then(|provider| provider.get("id"))
-            .cloned()
-            .unwrap_or(Value::Null),
-        "provider_kind": provider
-            .and_then(|provider| provider.get("kind"))
-            .cloned()
-            .unwrap_or(Value::Null),
-        "capability": first_model_mount_capability(
-            endpoint.and_then(|endpoint| endpoint.get("capabilities"))
-                .or_else(|| artifact.and_then(|artifact| artifact.get("capabilities"))),
-        ),
-        "privacy_tier": endpoint
-            .and_then(|endpoint| endpoint.get("privacyClass"))
-            .or_else(|| provider.and_then(|provider| provider.get("privacyClass")))
-            .or_else(|| route.get("privacy"))
-            .cloned()
-            .unwrap_or(Value::Null),
-        "status": if ready { "ready" } else { "blocked" },
-        "ready": ready,
-        "vault_required": vault_required,
-        "vault_ready": vault_ready,
-        "reason": reason,
-        "evidence_refs": evidence_refs,
-        "evidence": {
-            "endpoint_id": endpoint_id,
-            "provider_id": provider
-                .and_then(|provider| provider.get("id"))
-                .cloned()
-                .unwrap_or(Value::Null),
-            "status": if ready { "ready" } else { "blocked" },
-            "reason": reason,
-            "vault_required": vault_required,
-            "vault_ready": vault_ready,
-        },
-    })
-}
-
-fn model_mount_provider_requires_vault(provider: Option<&Value>) -> bool {
-    let Some(provider) = provider else {
-        return false;
-    };
-    provider
-        .get("vaultBoundary")
-        .and_then(|boundary| boundary.get("required"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
-        || json_string_field(provider, "kind")
-            .map(|kind| {
-                matches!(
-                    kind.as_str(),
-                    "openai" | "anthropic" | "gemini" | "custom_http"
-                )
-            })
-            .unwrap_or(false)
-}
-
-fn model_mount_model_policy_target(route_id: &str) -> String {
-    if route_id.starts_with("route.") {
-        format!("model.{route_id}")
-    } else {
-        format!("model.route.{route_id}")
-    }
-}
-
-fn model_mount_readiness_status(
-    route: &Value,
-    candidates: &[Value],
-    ready_candidate_count: usize,
-) -> &'static str {
-    if json_string_field(route, "status").as_deref() != Some("active") {
-        return "disabled";
-    }
-    if ready_candidate_count > 0 {
-        return "ready";
-    }
-    if candidates.iter().any(|candidate| {
-        candidate
-            .get("vault_required")
-            .and_then(Value::as_bool)
-            .unwrap_or(false)
-            && !candidate
-                .get("vault_ready")
-                .and_then(Value::as_bool)
-                .unwrap_or(false)
-    }) {
-        return "missing";
-    }
-    "degraded"
-}
-
-fn model_mount_readiness_reason(
-    route: &Value,
-    candidates: &[Value],
-    ready_candidate_count: usize,
-) -> String {
-    if json_string_field(route, "status").as_deref() != Some("active") {
-        return "Model route is disabled.".to_string();
-    }
-    if ready_candidate_count > 0 {
-        return "Route has an executable candidate.".to_string();
-    }
-    candidates
-        .first()
-        .and_then(|candidate| json_string_field(candidate, "reason"))
-        .unwrap_or_else(|| "Route has no configured fallback candidates.".to_string())
-}
-
-fn model_mount_readiness_candidate_reason(
-    endpoint: Option<&Value>,
-    endpoint_ready: bool,
-    provider: Option<&Value>,
-    provider_ready: bool,
-    vault_required: bool,
-    vault_ready: bool,
-) -> String {
-    if endpoint.is_none() {
-        return "Route fallback endpoint is not registered.".to_string();
-    }
-    if provider.is_none() {
-        return "Endpoint provider is not registered.".to_string();
-    }
-    if !provider_ready {
-        let status = provider
-            .and_then(|provider| json_string_field(provider, "status"))
-            .unwrap_or_else(|| "null".to_string());
-        return format!("Provider status is {status}.");
-    }
-    if vault_required && !vault_ready {
-        return "Provider requires wallet vault credentials.".to_string();
-    }
-    if !endpoint_ready {
-        let status = endpoint
-            .and_then(|endpoint| json_string_field(endpoint, "status"))
-            .unwrap_or_else(|| "null".to_string());
-        return format!("Endpoint status is {status}.");
-    }
-    "Endpoint, provider, and credential posture are ready.".to_string()
-}
-
-fn first_model_mount_capability(capabilities: Option<&Value>) -> String {
-    capabilities
-        .and_then(Value::as_array)
-        .and_then(|values| values.first())
-        .and_then(Value::as_str)
-        .map(str::to_string)
-        .unwrap_or_else(|| "chat".to_string())
-}
-
-fn compact_evidence(values: Vec<Value>) -> Value {
-    let mut seen = HashSet::new();
-    Value::Array(
-        values
-            .into_iter()
-            .filter_map(|value| value.as_str().map(str::trim).map(str::to_string))
-            .filter(|value| !value.is_empty())
-            .filter(|value| seen.insert(value.clone()))
-            .map(Value::String)
-            .collect(),
-    )
 }
 
 fn model_mount_projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
@@ -9017,23 +8407,35 @@ mod tests {
                 .as_array()
                 .expect("product artifacts")
                 .len(),
-            1
+            0
         );
         assert_eq!(
-            response["projection"]["runtimeModelCatalog"][0]["provider"],
-            "ioi-daemon-local"
+            response["projection"]["runtimeModelCatalog"]
+                .as_array()
+                .expect("runtime model catalog")
+                .len(),
+            0
         );
         assert_eq!(
-            response["projection"]["openAiModelList"]["data"][0]["id"],
-            "model.local"
+            response["projection"]["openAiModelList"]["data"]
+                .as_array()
+                .expect("openai model list data")
+                .len(),
+            0
         );
         assert_eq!(
-            response["projection"]["modelCapabilities"][0]["credential_readiness"]["status"],
-            "ready"
+            response["projection"]["modelCapabilities"]
+                .as_array()
+                .expect("model capabilities")
+                .len(),
+            0
         );
         assert_eq!(
-            response["projection"]["modelCapabilities"][0]["candidates"][0]["model_id"],
-            "model.local"
+            response["projection"]["routes"]
+                .as_array()
+                .expect("routes")
+                .len(),
+            0
         );
         assert_eq!(
             response["projection"]["catalog"]["adapterBoundary"]["port"],
