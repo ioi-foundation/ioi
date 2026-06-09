@@ -50,19 +50,6 @@ function fakeState() {
     listReceipts() {
       return this.receipts;
     },
-    lmStudioRuntimeEngines() {
-      return [
-        {
-          id: "runtime.lmstudio.cpu",
-          kind: "lm_studio",
-          label: "LM Studio CPU",
-          status: "available",
-          selected: false,
-          modelFormat: "gguf",
-          source: "lm_studio_public_lms",
-        },
-      ];
-    },
     nowIso() {
       return "2026-06-03T12:00:00.000Z";
     },

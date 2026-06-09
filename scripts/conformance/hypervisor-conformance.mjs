@@ -717,6 +717,9 @@ function runDocs() {
       /Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path/.test(guide) &&
       /no longer runs `lms runtime ls` or `lms runtime survey`/.test(guide) &&
       /runtime engine listing no longer calls `state\.lmStudioRuntimeEngines\(\)`/.test(guide) &&
+      /later\s+runtime-survey facade-retirement work deleted those helpers entirely/.test(guide) &&
+      /Slice 868 retired the remaining runtime-survey projection-input and LM Studio\s+runtime placeholder helpers from JS/.test(guide) &&
+      /`latestRuntimeSurveyProjectionInput\(\)`,\s+`lmStudioRuntimeEngines\(\)`, and `lmStudioRuntimeSurvey\(\)` were deleted/.test(guide) &&
       /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(guide) &&
       /`LmStudioModelProviderDriver` no longer resolves `lmsPath`/.test(guide) &&
       /fail closed with\s+`model_mount_lm_studio_public_cli_retired`/.test(guide) &&
@@ -891,8 +894,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 825 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 826/.test(matrix) &&
       /Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path/.test(matrix) &&
-      /`lmStudioRuntimeEngines\(\)` now returns an empty list before public CLI\s+execution/.test(matrix) &&
-      /runtime-specific LM Studio parser helpers and env toggle are removed/.test(matrix) &&
+      /later runtime-survey facade-retirement work deleted\s+those helper exports entirely/.test(matrix) &&
+      /runtime-specific LM Studio\s+parser helpers and env toggle are removed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 826 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 827/.test(matrix) &&
       /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(matrix) &&
@@ -950,11 +953,15 @@ function runDocs() {
       /Slice 837 retired public catalog-status readback input composition from JS/.test(matrix) &&
       /model_catalog_status_js_readback_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 837 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 867/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 867/.test(matrix) &&
       /Slice 867 moved public catalog-status readback refusal onto the Rust\s+read-projection boundary/.test(matrix) &&
       /Public `catalogStatus\(\)` now calls\s+`plan_model_mount_read_projection` kind `catalog_status` with empty request\s+state/.test(matrix) &&
       /direct `catalog_status` arm fails closed even when a direct caller\s+provides `catalog_status_input`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 867/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 867 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 868/.test(matrix) &&
+      /Slice 868 retired the remaining runtime-survey projection-input and LM Studio\s+runtime placeholder helpers from JS/.test(matrix) &&
+      /`latestRuntimeSurveyProjectionInput\(\)`, `lmStudioRuntimeEngines\(\)`, and\s+`lmStudioRuntimeSurvey\(\)` were deleted/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 868/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1100,7 +1107,8 @@ function runDocs() {
       /no longer import the dead `oauthSessionList\(\)`\/`oauthStateList\(\)`\s+helpers/.test(matrix) &&
       /direct arms for `oauth_sessions` and `oauth_states`\s+fail closed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 866 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 867/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 867 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 868/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1128,7 +1136,7 @@ function runDocs() {
       /dedicated `latestProviderHealth\(\)` sends only admitted receipts/.test(implementationMatrix) &&
       /Rust ignores local provider-health records/.test(implementationMatrix) &&
       /dedicated `latestRuntimeSurvey\(\)` also sends only admitted receipts/.test(implementationMatrix) &&
-      /Rust ignores local provider-health records plus `runtime_survey_input` so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
+      /Rust ignores local provider-health records plus `runtime_survey_input`, and the dead JS runtime-survey projection-input helper is deleted so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with receipt-only request state/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
@@ -13517,8 +13525,11 @@ function runReceipts() {
       /model_mount_runtime_survey_js_facade_retired/.test(runtimeSurveyModule) &&
       /rust_daemon_core_runtime_survey_required/.test(runtimeSurveyModule) &&
       /agentgres_runtime_survey_projection_required/.test(runtimeSurveyModule) &&
-      /lm_studio_public_runtime_survey_retired/.test(runtimeSurveyModule) &&
       /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(runtimeSurveyModule) &&
+      !/latestRuntimeSurveyProjectionInput/.test(runtimeSurveyModule) &&
+      !/lmStudioRuntimeEngines/.test(runtimeSurveyModule) &&
+      !/lmStudioRuntimeSurvey/.test(runtimeSurveyModule) &&
+      !/lm_studio_public_runtime_survey_retired/.test(runtimeSurveyModule) &&
       !/state\.receipt\("runtime_survey"/.test(runtimeSurveyModule) &&
       !/runPublicCommand/.test(runtimeSurveyModule) &&
       !/lmStudioRuntimeLmsPath/.test(runtimeSurveyModule) &&
@@ -13529,16 +13540,16 @@ function runReceipts() {
       !/const engines = state\.listRuntimeEngines\(\);/.test(runtimeSurveyModule) &&
       !/const lmStudio = state\.lmStudioRuntimeSurvey\(checkedAt\);/.test(runtimeSurveyModule) &&
       !/state\.lmStudioRuntimeEngines\(checkedAt\)/.test(runtimeEngines) &&
+      !/lmStudioRuntimeEngines/.test(runtimeEnginesTest) &&
       !/lmStudioRuntimeEnginesState|lmStudioRuntimeSurveyState/.test(modelMountingRoot) &&
       !/lmStudioRuntimeDiscoveryEnabled/.test(modelMountingRoot) &&
       !/export function lmStudioRuntimeDiscoveryEnabled/.test(modelMountingEnvironment) &&
       !/parseLmStudioRuntimeEngines|parseLmStudioRuntimeSurvey/.test(localSystemProbes) &&
       !/parseLmStudioRuntimeEngines|parseLmStudioRuntimeSurvey/.test(localSystemProbesTest) &&
       runtimeSurveyReceiptDetailsObject === "" &&
-      /latestRuntimeSurveyProjectionInput/.test(runtimeSurveyModule) &&
-      /engine_count:\s*state\.listRuntimeEngines\(\)\.length/.test(runtimeSurveyModule) &&
-      /runtime_preference:\s*state\.runtimePreference\(\)/.test(runtimeSurveyModule) &&
-      /hardware:\s*hardwareSnapshot\(\)/.test(runtimeSurveyModule) &&
+      !/engine_count:\s*state\.listRuntimeEngines\(\)\.length/.test(runtimeSurveyModule) &&
+      !/runtime_preference:\s*state\.runtimePreference\(\)/.test(runtimeSurveyModule) &&
+      !/hardware:\s*hardwareSnapshot\(\)/.test(runtimeSurveyModule) &&
       !/export function latestRuntimeSurvey\b/.test(runtimeSurveyModule) &&
       !/\b(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\s*:/.test(
         runtimeSurveyReceiptDetailsObject,
@@ -13553,18 +13564,9 @@ function runReceipts() {
       /assert\.equal\(engineCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.equal\(lmStudioCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeSurveyTest) &&
-      /latestRuntimeSurveyProjectionInput builds primitive runtime-survey input/.test(runtimeSurveyTest) &&
-      /Object\.hasOwn\(latest,\s*"status"\),\s*false/.test(runtimeSurveyTest) &&
-      /Object\.hasOwn\(latest,\s*"receiptId"\),\s*false/.test(runtimeSurveyTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"checkedAt"\),\s*false/.test(runtimeSurveyTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"engineCount"\),\s*false/.test(runtimeSurveyTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"selectedEngines"\),\s*false/.test(runtimeSurveyTest) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"runtimePreference"\),\s*false/.test(
-        runtimeSurveyTest,
-      ) &&
-      /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"lmStudio"\),\s*false/.test(runtimeSurveyTest) &&
-      /LM Studio runtime engine discovery is retired before public CLI execution/.test(runtimeSurveyTest) &&
-      /LM Studio runtime survey is not checked until Rust core owns probing/.test(runtimeSurveyTest),
+      !/latestRuntimeSurveyProjectionInput builds primitive runtime-survey input/.test(runtimeSurveyTest) &&
+      !/LM Studio runtime engine discovery is retired before public CLI execution/.test(runtimeSurveyTest) &&
+      !/LM Studio runtime survey is not checked until Rust core owns probing/.test(runtimeSurveyTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/environment.mjs",

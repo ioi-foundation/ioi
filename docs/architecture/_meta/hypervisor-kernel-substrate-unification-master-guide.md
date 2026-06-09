@@ -1311,9 +1311,10 @@ surface now also no longer runs `lms runtime ls` or `lms runtime survey`,
 runtime engine listing no longer calls `state.lmStudioRuntimeEngines()`, the
 aggregate model-mounting state no longer exposes LM Studio runtime helper
 wrappers, and the runtime-specific LM Studio parser helpers plus public runtime
-discovery env toggle are removed. `lmStudioRuntimeEngines()` returns an empty
-list before public-CLI execution, and `lmStudioRuntimeSurvey()` records only
-`not_checked` Rust-boundary evidence with `lm_studio_public_runtime_survey_retired`.
+discovery env toggle are removed. In that slice, the remaining helper-level
+exports still returned empty/not-checked Rust-boundary placeholders; later
+runtime-survey facade-retirement work deleted those helpers entirely rather than
+preserving them as compatibility scaffolding.
 This still does not claim terminal runtime-survey migration: direct Rust
 daemon-core runtime probing, Agentgres-admitted survey truth, and direct Rust
 projection APIs remain required before the pure Rust substrate target is met.
@@ -1469,6 +1470,19 @@ bridge work, not the long-term resting architecture: direct Rust daemon-core
 Agentgres-backed catalog status/projection APIs must replace command transport
 and the remaining JS facade/error-translation edge before the catalog surface
 reaches terminal unification.
+
+Slice 868 retired the remaining runtime-survey projection-input and LM Studio
+runtime placeholder helpers from JS. The runtime-daemon public `runtimeSurvey()`
+facade still fails closed before hardware probes, runtime-engine reads, LM Studio
+public-CLI execution, receipt creation, or projection writes. The latest
+runtime-survey readback already uses Rust `latest_runtime_survey` receipt-only
+projection, so `latestRuntimeSurveyProjectionInput()`,
+`lmStudioRuntimeEngines()`, and `lmStudioRuntimeSurvey()` were deleted instead
+of being preserved as non-authoritative compatibility shims. This is still not
+terminal runtime-survey migration: direct Rust daemon-core runtime probing,
+Agentgres-admitted survey truth, projection persistence, command-transport
+retirement, and stable protocol APIs remain required before runtime survey
+reaches the pure Rust substrate target.
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
 JS. `enrichCatalogEntryForState()` now fails closed with

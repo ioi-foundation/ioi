@@ -2,9 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  latestRuntimeSurveyProjectionInput,
-  lmStudioRuntimeEngines,
-  lmStudioRuntimeSurvey,
   runtimeSurvey,
 } from "./runtime-survey.mjs";
 
@@ -21,15 +18,6 @@ function fakeState() {
     listReceipts() {
       return this.receipts;
     },
-    listRuntimeEngines() {
-      return [
-        { id: "engine_a", selected: true },
-        { id: "engine_b", selected: false },
-      ];
-    },
-    lmStudioRuntimeSurvey(checkedAt) {
-      return { status: "available", checkedAt, selectedRuntime: "llama.cpp" };
-    },
     nowIso() {
       return "2026-06-03T12:00:00.000Z";
     },
@@ -42,9 +30,6 @@ function fakeState() {
       };
       this.receipts.push(receipt);
       return receipt;
-    },
-    runtimePreference() {
-      return { selectedEngineId: "engine_a" };
     },
   };
   return state;
@@ -101,73 +86,4 @@ test("runtimeSurvey facade fails closed before JS probes, engine reads, or recei
   assert.equal(engineCalls, 0);
   assert.equal(lmStudioCalls, 0);
   assert.deepEqual(state.receipts, []);
-});
-
-test("latestRuntimeSurveyProjectionInput builds primitive runtime-survey input", () => {
-  const state = fakeState();
-
-  assert.deepEqual(latestRuntimeSurveyProjectionInput(state, deps), {
-    engine_count: 2,
-    runtime_preference: { selectedEngineId: "engine_a" },
-    hardware: { cpuCount: 8 },
-  });
-
-  state.receipts.push({
-    id: "receipt_1",
-    kind: "runtime_survey",
-    createdAt: "2026-06-03T12:00:00.000Z",
-    details: {
-      checked_at: "2026-06-03T12:00:00.000Z",
-      engine_count: 2,
-      selected_engines: ["engine_a"],
-      runtime_preference: { selectedEngineId: "engine_a" },
-      hardware: { cpuCount: 8 },
-      lm_studio: { status: "available" },
-    },
-  });
-  const latest = latestRuntimeSurveyProjectionInput(state, deps);
-
-  assert.equal(latest.engine_count, 2);
-  assert.deepEqual(latest.runtime_preference, { selectedEngineId: "engine_a" });
-  assert.deepEqual(latest.hardware, { cpuCount: 8 });
-  assert.equal(Object.hasOwn(latest, "status"), false);
-  assert.equal(Object.hasOwn(latest, "receiptId"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "engineCount"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "selectedEngines"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "runtimePreference"), false);
-  assert.equal(Object.hasOwn(state.receipts[0].details, "lmStudio"), false);
-});
-
-test("LM Studio runtime engine discovery is retired before public CLI execution", () => {
-  const state = fakeState();
-  const commands = [];
-
-  const engines = lmStudioRuntimeEngines(state, "2026-06-03T12:00:00.000Z", {
-    ...deps,
-    runPublicCommand: (...args) => commands.push(args),
-  });
-
-  assert.deepEqual(engines, []);
-  assert.deepEqual(commands, []);
-});
-
-test("LM Studio runtime survey is not checked until Rust core owns probing", () => {
-  const state = fakeState();
-  const commands = [];
-
-  assert.deepEqual(lmStudioRuntimeSurvey(state, "now", {
-    ...deps,
-    runPublicCommand: (...args) => commands.push(args),
-  }), {
-    status: "not_checked",
-    checkedAt: "now",
-    rustCoreBoundary: "model_mount.runtime_survey",
-    evidenceRefs: [
-      "lm_studio_public_runtime_survey_retired",
-      "rust_daemon_core_runtime_survey_required",
-      "agentgres_runtime_survey_projection_required",
-    ],
-  });
-  assert.deepEqual(commands, []);
 });

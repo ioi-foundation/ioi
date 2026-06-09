@@ -16871,12 +16871,13 @@ Scheduled matrix-compaction obligation from Slice 825 is now satisfied.
 Slice 826 retired the hidden LM Studio runtime-survey public-CLI helper path.
 `runtimeSurvey()` already failed closed at the public capture facade; the helper
 surface now also no longer runs `lms runtime ls` or `lms runtime survey`.
-`lmStudioRuntimeEngines()` now returns an empty list before public CLI
-execution, `lmStudioRuntimeSurvey()` returns `not_checked` Rust-boundary
-evidence with `lm_studio_public_runtime_survey_retired`, `listRuntimeEngines()`
-no longer calls `state.lmStudioRuntimeEngines()`, the aggregate
-model-mounting state no longer exposes LM Studio runtime helper wrappers, and
-the runtime-specific LM Studio parser helpers and env toggle are removed.
+In that slice, `lmStudioRuntimeEngines()` still returned an empty list before
+public CLI execution and `lmStudioRuntimeSurvey()` still returned `not_checked`
+Rust-boundary evidence; later runtime-survey facade-retirement work deleted
+those helper exports entirely. `listRuntimeEngines()` no longer calls
+`state.lmStudioRuntimeEngines()`, the aggregate model-mounting state no longer
+exposes LM Studio runtime helper wrappers, and the runtime-specific LM Studio
+parser helpers and env toggle are removed.
 
 Focused evidence:
 
@@ -18006,7 +18007,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 866 is now satisfied.
 
-## Implementation Slice Evidence: 867
+## Compacted Implementation Slice Evidence: 867
 
 Slice 867 moved public catalog-status readback refusal onto the Rust
 read-projection boundary. Public `catalogStatus()` now calls
@@ -18032,10 +18033,34 @@ replacement, edge error translation retirement, and local catalog materializatio
 retirement still remain before this surface reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 867 after the next direct
+Scheduled matrix-compaction obligation from Slice 867 is now satisfied.
+
+## Implementation Slice Evidence: 868
+
+Slice 868 retired the remaining runtime-survey projection-input and LM Studio
+runtime placeholder helpers from JS. The public `runtimeSurvey()` facade still
+fails closed before hardware probes, runtime-engine reads, LM Studio public-CLI
+execution, receipt creation, or projection writes. Latest runtime-survey readback
+already uses Rust `latest_runtime_survey` receipt-only projection, so
+`latestRuntimeSurveyProjectionInput()`, `lmStudioRuntimeEngines()`, and
+`lmStudioRuntimeSurvey()` were deleted instead of being preserved as
+non-authoritative compatibility shims.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal runtime-survey migration: direct Rust
+daemon-core runtime probing, Agentgres-admitted survey truth, projection
+persistence, command-transport retirement, and stable protocol APIs remain
+required before runtime survey reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 868 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport
-facades, provider lifecycle/read adapters, direct replay topology lookup, local
-map/projection materialization, and Rust daemon-core
-catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.
+runtime-survey capture/projection transport, telemetry/runtime-engine transport
+facades, local map/projection materialization, and direct Rust daemon-core
+runtime-survey Agentgres projection APIs.
