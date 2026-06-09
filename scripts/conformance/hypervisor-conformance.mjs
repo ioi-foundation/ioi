@@ -1017,7 +1017,11 @@ function runDocs() {
       /Implementation Slice Evidence: 882/.test(matrix) &&
       /Slice 882 retired the fail-closed `mcp-workflow-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` MCP\s+methods now own MCP import aliases/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 882/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 882 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 883/.test(matrix) &&
+      /Slice 883 retired the fail-closed `model-loading-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` model-loading methods now own canonical load request alias\s+rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 883/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1178,7 +1182,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 879 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 880 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 881 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 882/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 882 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 883/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1199,6 +1204,8 @@ function runDocs() {
       /mounted public `ModelMountingState` provider methods now own provider upsert alias rejection/.test(implementationMatrix) &&
       /the fail-closed `mcp-workflow-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` MCP methods now own MCP import aliases/.test(implementationMatrix) &&
+      /the fail-closed `model-loading-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` model-loading methods now own canonical load request alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1925,9 +1932,11 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
   const modelMountReceiptOperationsBridge = modelMountingState;
-  const modelLoadingOperations = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
-    : "";
+  const modelLoadingOperations = [
+    modelMountingState.match(/const RETIRED_MODEL_LOADING_REQUEST_ALIASES = \[[\s\S]*?\n\];\nconst CANONICAL_MODEL_LOADING_REQUEST_FIELDS = \[[\s\S]*?\n\];/)?.[0] ?? "",
+    modelMountingState.match(/\n\s+async loadModel\(body = \{\}\) \{[\s\S]*?\n\s+async downloadModel\(body = \{\}\) \{/)?.[0] ?? "",
+    modelMountingState.match(/function assertCanonicalModelLoadingRequestBody\(body = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwModelLoadingRustCoreRequired\(operation, provider = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwArtifactEndpointRustCoreRequired/)?.[0] ?? "",
+  ].join("\n");
   const loadedInstances = exists("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs")
     : "";
@@ -10341,6 +10350,7 @@ function runBridge() {
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.mjs"),
       ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs") &&
       /model_mount_model_loading_rust_core_required/.test(modelLoadingOperations) &&
       /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
       /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
@@ -10352,12 +10362,8 @@ function runBridge() {
       !/commitModelInstanceRecordState/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_(?:idle_evict|supersede)"/.test(loadedInstances) &&
       !/state\.instances\.set/.test(loadedInstances) &&
-      !/providerLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
-      ) &&
-      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs"),
-      ) &&
+      !/providerLifecycleHash/.test(modelLoadingOperations) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(modelLoadingOperations) &&
       /idle TTL eviction fails closed before JS lifecycle receipt or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
@@ -10376,7 +10382,6 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
@@ -12058,9 +12063,11 @@ function runReceipts() {
   const modelMountReceiptOperationsTest = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     : "";
-  const modelLoadingOperations = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
-    : "";
+  const modelLoadingOperations = [
+    modelMountingState.match(/const RETIRED_MODEL_LOADING_REQUEST_ALIASES = \[[\s\S]*?\n\];\nconst CANONICAL_MODEL_LOADING_REQUEST_FIELDS = \[[\s\S]*?\n\];/)?.[0] ?? "",
+    modelMountingState.match(/\n\s+async loadModel\(body = \{\}\) \{[\s\S]*?\n\s+async downloadModel\(body = \{\}\) \{/)?.[0] ?? "",
+    modelMountingState.match(/function assertCanonicalModelLoadingRequestBody\(body = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwModelLoadingRustCoreRequired\(operation, provider = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwArtifactEndpointRustCoreRequired/)?.[0] ?? "",
+  ].join("\n");
   const modelInstanceRecordState = exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs")
     : "";
@@ -12658,6 +12665,7 @@ function runReceipts() {
       /commitModelInstanceRecordState/.test(modelInstanceRecordState) &&
       /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
       /model_mount\.instance\.load/.test(modelLoadingOperations) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs") &&
       /model_mount\.instance\.unload/.test(modelLoadingOperations) &&
       /model_mount_model_loading_rust_core_required/.test(modelLoadingOperations) &&
       /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
@@ -12724,7 +12732,6 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
       "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
@@ -12776,7 +12783,6 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
     ],
     "Phase 9/10 is pending: direct JS model-instance lifecycle receipt persistence for migrated local providers must fail closed without provider kind and Rust model_mount instance lifecycle binding",
@@ -12818,7 +12824,6 @@ function runReceipts() {
       /retired_aliases\.includes\("providerKind"\)/.test(modelMountStoreTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerKind"\) === false/.test(modelMountStoreTest),
     [
-      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
@@ -12835,7 +12840,7 @@ function runReceipts() {
     /RETIRED_MODEL_LOADING_REQUEST_ALIASES/.test(modelLoadingOperations) &&
       /model_mount_loading_request_aliases_retired/.test(modelLoadingOperations) &&
       (modelLoadingOperations.match(/assertCanonicalModelLoadingRequestBody\(body\);/g) ?? []).length >= 2 &&
-      /state\.resolveEndpoint\(body\.endpoint_id,\s*body\.model_id\)/.test(modelLoadingOperations) &&
+      /this\.resolveEndpoint\(body\.endpoint_id,\s*body\.model_id\)/.test(modelLoadingOperations) &&
       /normalizeLoadPolicy\(body\.load_policy \?\? endpoint\.loadPolicy\)/.test(modelLoadingOperations) &&
       /const requestLoadOptions = body\.load_options \?\? \{\};/.test(modelLoadingOperations) &&
       /const instanceId = body\.instance_id \?\? body\.id;/.test(modelLoadingOperations) &&
@@ -12848,7 +12853,7 @@ function runReceipts() {
         modelLoadingOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
     ],
     "Phase 9/11 is pending: model loading/unloading request bodies must fail closed on retired camelCase endpoint/model/load/scope/instance aliases",

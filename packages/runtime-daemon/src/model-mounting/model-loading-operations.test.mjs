@@ -1,11 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  loadEstimate,
-  loadModel,
-  unloadModel,
-} from "./model-loading-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
+
+function loadModel(state, body = {}) {
+  return ModelMountingState.prototype.loadModel.call(state, body);
+}
+
+function loadEstimate(state, endpoint, loadOptions = {}, runtimePreference = state.runtimePreference()) {
+  return ModelMountingState.prototype.loadEstimate.call(state, endpoint, loadOptions, runtimePreference);
+}
+
+function unloadModel(state, body = {}) {
+  return ModelMountingState.prototype.unloadModel.call(state, body);
+}
 
 function fakeState() {
   const endpoint = {
@@ -118,7 +126,7 @@ function fakeState() {
       };
     },
     loadEstimate(endpointRecord, loadOptions, runtimePreference) {
-      return loadEstimate(this, endpointRecord, loadOptions, runtimePreference, deps);
+      return loadEstimate(this, endpointRecord, loadOptions, runtimePreference);
     },
     loadedInstanceForEndpoint(endpointId) {
       return [...this.instances.values()].find((instance) => instance.endpointId === endpointId && instance.status === "loaded");
@@ -298,9 +306,9 @@ test("loadModel returns estimate-only envelope without invoking provider driver"
     deps,
   );
 
-  assert.equal(result.schemaVersion, "schema.model-loading.test");
+  assert.equal(result.schemaVersion, "ioi.model-mounting.runtime.v1");
   assert.equal(result.status, "estimate_only");
-  assert.equal(result.backend_id, "backend.native");
+  assert.equal(result.backend_id, "backend.autopilot.native-local.fixture");
   assert.equal(result.provider_kind, "ioi_native_local");
   assert.equal(result.runtime_engine_profile.id, "engine.native");
   assert.equal(result.estimate.contextLength, 2048);
@@ -337,7 +345,7 @@ test("loadModel mutation facade fails closed before JS driver, receipt, or insta
       assert.equal(error.details.model_id, "llama-test");
       assert.equal(error.details.provider_id, "provider.local");
       assert.equal(error.details.provider_kind, "ioi_native_local");
-      assert.equal(error.details.backend_id, "backend.native");
+      assert.equal(error.details.backend_id, "backend.autopilot.native-local.fixture");
       assert.equal(Object.hasOwn(error.details, "providerId"), false);
       assert.equal(Object.hasOwn(error.details, "endpointId"), false);
       return true;
@@ -364,11 +372,11 @@ test("loadEstimate derives native resource estimate and backend defaults", () =>
     deps,
   );
 
-  assert.equal(estimate.backendId, "backend.native");
+  assert.equal(estimate.backendId, "backend.autopilot.native-local.fixture");
   assert.equal(estimate.contextLength, 2048);
   assert.equal(estimate.parallelism, 4);
   assert.equal(estimate.gpuOffload, "full");
-  assert.equal(estimate.realInference, true);
+  assert.equal(estimate.realInference, false);
   assert.deepEqual(estimate.evidenceRefs, ["model_load_option_estimate", "runtime_engine_preference"]);
 });
 

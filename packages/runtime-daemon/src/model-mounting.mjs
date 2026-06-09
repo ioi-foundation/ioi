@@ -33,11 +33,6 @@ import {
   normalizeImportMode,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
-  loadEstimate as loadEstimateState,
-  loadModel as loadModelState,
-  unloadModel as unloadModelState,
-} from "./model-mounting/model-loading-operations.mjs";
-import {
   invokeModel as invokeModelState,
   startModelStream as startModelStreamState,
 } from "./model-mounting/model-invocation-operations.mjs";
@@ -389,6 +384,24 @@ const CANONICAL_ENDPOINT_MOUNT_REQUEST_FIELDS = [
 ];
 const RETIRED_ENDPOINT_UNMOUNT_REQUEST_ALIASES = ["endpointId"];
 const CANONICAL_ENDPOINT_UNMOUNT_REQUEST_FIELDS = ["endpoint_id"];
+const RETIRED_MODEL_LOADING_REQUEST_ALIASES = [
+  "endpointId",
+  "modelId",
+  "loadPolicy",
+  "loadOptions",
+  "workflowScope",
+  "agentScope",
+  "instanceId",
+];
+const CANONICAL_MODEL_LOADING_REQUEST_FIELDS = [
+  "endpoint_id",
+  "model_id",
+  "load_policy",
+  "load_options",
+  "workflow_scope",
+  "agent_scope",
+  "instance_id",
+];
 const RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES = [
   "sourceUrl",
   "modelId",
@@ -969,27 +982,92 @@ export class ModelMountingState {
   }
 
   async loadModel(body = {}) {
-    return loadModelState(this, body, {
-      defaultBackendForProvider,
-      driverNameForProvider,
-      expiresAt,
-      hasExplicitTtlOption,
-      normalizeLoadOptions,
-      normalizeLoadPolicy,
-      safeId,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+    assertCanonicalModelLoadingRequestBody(body);
+    const endpoint = this.resolveEndpoint(body.endpoint_id, body.model_id);
+    const provider = this.provider(endpoint.providerId);
+    const loadPolicy = normalizeLoadPolicy(body.load_policy ?? endpoint.loadPolicy);
+    const runtimePreference = this.runtimePreferenceForEndpoint(endpoint);
+    const requestLoadOptions = body.load_options ?? {};
+    const runtimeDefaults = { ...this.runtimeDefaultLoadOptions(runtimePreference.selectedEngineId) };
+    if (body.load_policy && !hasExplicitTtlOption(body) && !hasExplicitTtlOption(requestLoadOptions)) {
+      delete runtimeDefaults.ttlSeconds;
+    }
+    const loadOptions = normalizeLoadOptions(
+      { ...runtimeDefaults, ...body, ...requestLoadOptions },
+      loadPolicy,
+    );
+    if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
+    const estimate = this.loadEstimate(endpoint, loadOptions, runtimePreference);
+    const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
+    const runtimeEngineProfile = this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null;
+    if (loadOptions.estimateOnly) {
+      return {
+        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+        status: "estimate_only",
+        endpoint_id: endpoint.id,
+        model_id: endpoint.modelId,
+        provider_id: endpoint.providerId,
+        provider_kind: provider.kind,
+        backend_id: backendId,
+        runtime_engine_id: runtimePreference.selectedEngineId,
+        runtime_engine_profile: runtimeEngineProfile,
+        load_policy: loadPolicy,
+        load_options: loadOptions,
+        estimate,
+        receipt_id: null,
+        evidence_refs: [
+          "model_mount_model_loading_js_facade_retired",
+          "model_load_estimate_projection_only",
+        ],
+      };
+    }
+    throwModelLoadingRustCoreRequired("model_load", provider, {
+      operation_kind: "model_mount.instance.load",
+      endpoint_id: endpoint.id,
+      model_id: endpoint.modelId,
+      backend_id: backendId,
     });
   }
 
   loadEstimate(endpoint, loadOptions = {}, runtimePreference = this.runtimePreference()) {
-    return loadEstimateState(this, endpoint, loadOptions, runtimePreference, {
-      defaultBackendForProvider,
-      estimateNativeLocalResources,
+    const provider = this.provider(endpoint.providerId);
+    const artifact = this.getModel(endpoint.modelId);
+    const nativeEstimate = estimateNativeLocalResources({
+      ...artifact,
+      contextWindow: loadOptions.contextLength ?? artifact.contextWindow,
     });
+    return {
+      endpointId: endpoint.id,
+      modelId: endpoint.modelId,
+      providerId: endpoint.providerId,
+      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
+      runtimeEngineId: runtimePreference.selectedEngineId,
+      contextLength: loadOptions.contextLength ?? nativeEstimate.contextWindow,
+      parallelism: loadOptions.parallel ?? 1,
+      gpuOffload: loadOptions.gpu ?? "auto",
+      identifier: loadOptions.identifier ?? null,
+      estimatedVramBytes: nativeEstimate.estimatedVramBytes,
+      estimatedSizeBytes: nativeEstimate.sizeBytes,
+      realInference: provider.kind !== "ioi_native_local" ? null : nativeEstimate.realInference,
+      evidenceRefs: ["model_load_option_estimate", "runtime_engine_preference"],
+    };
   }
 
   async unloadModel(body = {}) {
-    return unloadModelState(this, body);
+    assertCanonicalModelLoadingRequestBody(body);
+    const instanceId = body.instance_id ?? body.id;
+    const instance = instanceId
+      ? this.instance(instanceId)
+      : this.loadedInstanceForEndpoint(this.resolveEndpoint(body.endpoint_id, body.model_id).id);
+    const endpoint = this.endpoint(instance.endpointId);
+    const provider = this.provider(instance.providerId);
+    throwModelLoadingRustCoreRequired("model_unload", provider, {
+      operation_kind: "model_mount.instance.unload",
+      instance_id: instance.id,
+      endpoint_id: endpoint.id,
+      model_id: instance.modelId,
+      backend_id: instance.backendId ?? endpoint.backendId ?? null,
+    });
   }
 
   async downloadModel(body = {}) {
@@ -1976,6 +2054,44 @@ function assertCanonicalEndpointUnmountRequestBody(body = {}) {
   error.details = {
     retired_aliases: retiredAliases,
     canonical_fields: CANONICAL_ENDPOINT_UNMOUNT_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function assertCanonicalModelLoadingRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_LOADING_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model loading request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_mount_loading_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MODEL_LOADING_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function throwModelLoadingRustCoreRequired(operation, provider = {}, details = {}) {
+  const error = new Error("Model load/unload requires a Rust model_mount provider lifecycle backend.");
+  error.status = 501;
+  error.code = "model_mount_model_loading_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.instance_lifecycle",
+    operation,
+    ...details,
+    provider_id: provider?.id ?? null,
+    provider_kind: provider?.kind ?? null,
+    provider_driver: provider?.driver ?? null,
+    api_format: provider?.apiFormat ?? null,
+    evidence_refs: [
+      "model_mount_model_loading_js_facade_retired",
+      "rust_daemon_core_instance_lifecycle_required",
+      "agentgres_model_instance_record_truth_required",
+    ],
   };
   throw error;
 }

@@ -1997,6 +1997,19 @@ wallet authority, StepModuleRouter dispatch, receipt binding, Agentgres
 admission, projection, replay, command-transport retirement, and stable
 protocol APIs remain required.
 
+Slice 883 retired the fail-closed `model-loading-operations.mjs` helper module
+after public load/unload mutation paths had already been reduced to
+Rust-core-required instance lifecycle edge refusals. The mounted public
+`ModelMountingState` model-loading methods now own canonical load request alias
+rejection, estimate-only projection shaping, load estimate derivation,
+endpoint/instance lookup, and `model_mount.instance_lifecycle`
+Rust-core-required errors directly, without importing a model-loading helper or
+preserving a standalone JS load/unload mutation surface. This does not claim
+terminal instance lifecycle migration: direct Rust daemon-core load/unload
+admission, provider lifecycle execution, receipt/state-root binding,
+Agentgres truth, replay, projection, command-transport retirement, and stable
+protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

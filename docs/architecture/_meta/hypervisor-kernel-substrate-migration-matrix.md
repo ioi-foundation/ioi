@@ -18432,10 +18432,37 @@ receipt binding, Agentgres admission, projection, replay, command-transport
 retirement, and stable protocol APIs remain required before MCP/workflow
 control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 882 after the next direct
+Scheduled matrix-compaction obligation from Slice 882 is now satisfied.
+
+## Implementation Slice Evidence: 883
+
+Slice 883 retired the fail-closed `model-loading-operations.mjs` helper module
+after public load/unload mutation paths had already been reduced to
+Rust-core-required instance lifecycle edge refusals. The mounted public
+`ModelMountingState` model-loading methods now own canonical load request alias
+rejection, estimate-only projection shaping, load estimate derivation,
+endpoint/instance lookup, and `model_mount.instance_lifecycle`
+Rust-core-required errors directly, without importing a model-loading helper or
+preserving a standalone JS load/unload mutation surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal instance lifecycle migration: direct Rust
+daemon-core load/unload admission, provider lifecycle execution,
+receipt/state-root binding, Agentgres truth, replay, projection,
+command-transport retirement, and stable protocol APIs remain required before
+model loading reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 883 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-preserve the non-terminal status of command transport, JS wrapper calls,
-MCP/workflow materialization, direct Rust daemon-core MCP/workflow APIs, wallet
-authority, StepModuleRouter dispatch, and Agentgres-backed replay. The
-`ioi-step-module-bridge` command path is acceptable only as migration
-transport; it is not the terminal architecture.
+preserve the non-terminal status of command transport, JS wrapper calls, direct
+Rust daemon-core instance lifecycle APIs, provider lifecycle execution,
+receipt/state-root binding, Agentgres-backed replay, projection, and stable
+protocol APIs. The `ioi-step-module-bridge` command path is acceptable only as
+migration transport; it is not the terminal architecture.
