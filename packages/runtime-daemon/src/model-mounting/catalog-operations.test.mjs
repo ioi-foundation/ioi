@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   catalogSearch,
   catalogStatus,
+  catalogStatusProjectionInput,
   enrichCatalogEntryForState,
   storageSummary,
 } from "./catalog-operations.mjs";
@@ -113,6 +114,29 @@ test("catalog status projects providers, filters, storage, and last search summa
   assert.equal(status.storage.totalBytes, 15);
   assert.equal(status.lastSearch.resultCount, 2);
   assert.equal(status.results.length, 2);
+});
+
+test("catalog status projection input omits Rust-authored public envelope fields", () => {
+  const state = fakeState();
+  state.lastCatalogSearch = {
+    searchedAt: "2026-06-03T22:59:00.000Z",
+    query: "llama",
+    filters: { limit: 2 },
+    results: [{ id: "entry.1" }, { id: "entry.2" }],
+  };
+
+  const input = catalogStatusProjectionInput(state, deps);
+
+  assert.equal(input.schema_version, "schema.catalog-ops.test");
+  assert.equal(input.checked_at, state.now);
+  assert.equal(input.providers[0].id, "catalog.fixture");
+  assert.equal(input.storage.totalBytes, 15);
+  assert.equal(input.last_search.result_count, 2);
+  assert.equal(input.results.length, 2);
+  assert.equal(Object.hasOwn(input, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(input, "adapterBoundary"), false);
+  assert.equal(Object.hasOwn(input, "filters"), false);
+  assert.equal(Object.hasOwn(input.last_search, "resultCount"), false);
 });
 
 test("catalog search normalizes query filters, aggregates provider results, and stores last search", async () => {

@@ -16559,7 +16559,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 814
+## Compacted Implementation Slice Evidence: 814
 
 Slice 814 retired the JS-authored latest runtime-survey public envelope from
 the model_mount read-projection path. The runtime-daemon now sends only
@@ -16579,10 +16579,38 @@ runtime-survey APIs still need to replace JS hardware/runtime probing,
 Agentgres admission, record-state, projection persistence, and
 command-transport retirement.
 
-Scheduled matrix-compaction obligation from Slice 814 is pending after this
+Scheduled matrix-compaction obligation from Slice 814 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 815
+
+Slice 815 retired the JS-authored catalog-status public envelope from the
+model_mount read-projection path. The public `catalogStatus()` now requests
+`catalog_status` from `plan_model_mount_read_projection`; the runtime-daemon
+now sends only primitive `catalog_status_input` migration data, and Rust authors
+the public catalog-status projection plus nested snapshot/projection `catalog`
+objects through the shared read-projection planner.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal catalog migration: direct Rust daemon-core
+catalog/provider/search, download, Agentgres admission, projection persistence,
+and command-transport retirement remain required before catalog control and
+readback reach terminal unification.
+
+Scheduled matrix-compaction obligation from Slice 815 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 814 after the next
+Next scheduled matrix-compaction pass: compact Slice 815 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

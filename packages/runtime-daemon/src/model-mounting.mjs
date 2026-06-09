@@ -111,7 +111,6 @@ import {
 import { enrichCatalogEntry } from "./model-mounting/catalog-entries.mjs";
 import {
   catalogSearch as catalogSearchState,
-  catalogStatus as catalogStatusState,
   enrichCatalogEntryForState,
   storageSummary as storageSummaryState,
 } from "./model-mounting/catalog-operations.mjs";
@@ -420,6 +419,7 @@ export class ModelMountingState {
       publicProvider,
       readJson,
       readProjectionPlanner: this.modelMountAdmissionRunner,
+      catalogProviderStatus,
     });
     this.ensureDirs();
     this.load();
@@ -691,10 +691,7 @@ export class ModelMountingState {
   }
 
   catalogStatus() {
-    return catalogStatusState(this, {
-      catalogProviderStatus,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-    });
+    return this.readProjectionFacade.catalogStatus(this);
   }
 
   catalogProviderPorts() {

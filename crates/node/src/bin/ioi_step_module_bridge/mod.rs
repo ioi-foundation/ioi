@@ -2119,6 +2119,7 @@ fn model_mount_read_projection(
         "latest_provider_health" => model_mount_latest_provider_health(request),
         "latest_vault_health" => model_mount_latest_vault_health(request),
         "latest_runtime_survey" => Ok(model_mount_latest_runtime_survey(request)),
+        "catalog_status" => Ok(model_mount_catalog_status(request)),
         other => Err(BridgeError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),
@@ -2132,7 +2133,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     json!({
         "schemaVersion": model_mount_projection_schema_version(request),
         "server": model_mount_server_status(request),
-        "catalog": object_or_null(state.get("catalog")),
+        "catalog": model_mount_catalog_status(request),
         "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
@@ -2183,7 +2184,7 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "backends": array_field(state, "backends"),
         "backendProcesses": array_field(state, "backend_processes"),
         "providers": array_field(state, "providers"),
-        "catalog": object_or_null(state.get("catalog")),
+        "catalog": model_mount_catalog_status(request),
         "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
         "oauthSessions": array_field(state, "oauth_sessions"),
         "oauthStates": array_field(state, "oauth_states"),
@@ -2322,6 +2323,48 @@ fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value
         "idleTtlSeconds": 900,
         "autoEvict": true,
         "checkedAt": input.get("checked_at").cloned().unwrap_or(Value::Null),
+    })
+}
+
+fn model_mount_catalog_status(request: &ModelMountReadProjectionRequest) -> Value {
+    let input = object_or_null(request.state.get("catalog_status_input"));
+    let last_search = input
+        .get("last_search")
+        .filter(|value| value.is_object())
+        .map(|last_search| {
+            json!({
+                "searchedAt": last_search.get("searched_at").cloned().unwrap_or(Value::Null),
+                "query": last_search.get("query").cloned().unwrap_or(Value::Null),
+                "filters": last_search.get("filters").cloned().unwrap_or(Value::Null),
+                "resultCount": last_search
+                    .get("result_count")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0),
+            })
+        })
+        .unwrap_or(Value::Null);
+    json!({
+        "schemaVersion": json_string_field(&input, "schema_version")
+            .unwrap_or_else(|| model_mount_projection_schema_version(request)),
+        "checkedAt": input.get("checked_at").cloned().unwrap_or(Value::Null),
+        "providers": array_field(&input, "providers"),
+        "adapterBoundary": model_mount_catalog_adapter_boundary(),
+        "filters": {
+            "formats": ["gguf", "mlx", "safetensors"],
+            "quantization": ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
+            "compatibility": ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
+        },
+        "storage": object_or_null(input.get("storage")),
+        "lastSearch": last_search,
+        "results": array_field(&input, "results"),
+    })
+}
+
+fn model_mount_catalog_adapter_boundary() -> Value {
+    json!({
+        "port": "ModelCatalogProviderPort",
+        "operations": ["search", "resolveVariant", "importUrl", "download", "health"],
+        "evidenceRefs": ["provider_neutral_model_catalog_adapter_boundary"],
     })
 }
 
@@ -8801,7 +8844,39 @@ mod tests {
                 "status": "running",
                 "lastReceiptId": "receipt-provider"
             }],
-            "catalog": {"status": "ready"},
+            "catalog_status_input": {
+                "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                "checked_at": "2026-06-08T00:00:00.000Z",
+                "providers": [{
+                    "id": "catalog.fixture",
+                    "label": "Fixture catalog",
+                    "status": "available",
+                    "formats": ["gguf"],
+                    "adapterPort": "ModelCatalogProviderPort",
+                    "operations": ["search", "resolveVariant", "importUrl", "download", "health"],
+                    "evidenceRefs": ["provider_neutral_model_catalog_adapter_boundary"]
+                }],
+                "storage": {
+                    "rootHash": "sha256:model-root",
+                    "totalBytes": 42,
+                    "quotaBytes": null,
+                    "quotaStatus": "ok",
+                    "fileCount": 1,
+                    "orphanCount": 0,
+                    "destructiveActionsRequireUnload": true,
+                    "evidenceRefs": ["model_storage_quota_boundary", "artifact_delete_unload_guard"]
+                },
+                "last_search": {
+                    "searched_at": "2026-06-08T00:00:00.000Z",
+                    "query": "local",
+                    "filters": {"limit": 2},
+                    "result_count": 1
+                },
+                "results": [{
+                    "id": "catalog.local",
+                    "modelId": "model.local"
+                }]
+            },
             "catalog_provider_configs": [],
             "oauth_sessions": [],
             "oauth_states": [],
@@ -8958,6 +9033,18 @@ mod tests {
             response["projection"]["modelCapabilities"][0]["candidates"][0]["model_id"],
             "model.local"
         );
+        assert_eq!(
+            response["projection"]["catalog"]["adapterBoundary"]["port"],
+            "ModelCatalogProviderPort"
+        );
+        assert_eq!(
+            response["projection"]["catalog"]["lastSearch"]["resultCount"],
+            1
+        );
+        assert_eq!(
+            response["projection"]["catalog"]["storage"]["totalBytes"],
+            42
+        );
         assert!(response["projection"].get("route_decisions").is_none());
         assert!(response["evidence_refs"]
             .as_array()
@@ -9110,6 +9197,41 @@ mod tests {
         );
         assert_eq!(
             server_status_response["projection"]["backendStates"]["degraded"],
+            1
+        );
+
+        let catalog_status_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "catalog_status",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {
+                        "catalog_status_input": state["catalog_status_input"].clone()
+                    }
+                }
+            }))
+            .expect("model_mount catalog status request");
+        let catalog_status_response = plan_model_mount_read_projection(catalog_status_request)
+            .expect("catalog status projected in Rust");
+        assert_eq!(catalog_status_response["projection_kind"], "catalog_status");
+        assert_eq!(
+            catalog_status_response["projection"]["adapterBoundary"]["port"],
+            "ModelCatalogProviderPort"
+        );
+        assert_eq!(
+            catalog_status_response["projection"]["providers"][0]["id"],
+            "catalog.fixture"
+        );
+        assert_eq!(
+            catalog_status_response["projection"]["filters"]["formats"][0],
+            "gguf"
+        );
+        assert_eq!(
+            catalog_status_response["projection"]["lastSearch"]["resultCount"],
             1
         );
 
@@ -9421,6 +9543,10 @@ mod tests {
         assert_eq!(
             snapshot_response["projection"]["adapterBoundaries"]["agentgres"]["port"],
             "AgentgresStorePort"
+        );
+        assert_eq!(
+            snapshot_response["projection"]["catalog"]["adapterBoundary"]["port"],
+            "ModelCatalogProviderPort"
         );
         assert_eq!(
             snapshot_response["projection"]["workflowNodes"]

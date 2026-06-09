@@ -593,6 +593,10 @@ function runDocs() {
       /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only\s+primitive `runtime_survey_input` migration data/.test(guide) &&
       /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(guide) &&
+      /Slice 815 retired the JS-authored catalog-status public envelope from\s+the model_mount read-projection path/.test(guide) &&
+      /The public `catalogStatus\(\)` now requests\s+`catalog_status` from `plan_model_mount_read_projection`/.test(guide) &&
+      /the runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(guide) &&
+      /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -623,9 +627,14 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 813/.test(matrix) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(matrix) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(matrix) &&
-      /Implementation Slice Evidence: 814/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 814/.test(matrix) &&
       /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(matrix) &&
       /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(matrix) &&
+      /Implementation Slice Evidence: 815/.test(matrix) &&
+      /Slice 815 retired the JS-authored catalog-status public envelope from the\s+model_mount read-projection path/.test(matrix) &&
+      /public `catalogStatus\(\)` now requests\s+`catalog_status`/.test(matrix) &&
+      /runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(matrix) &&
+      /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7796,6 +7805,9 @@ function runBridge() {
       /serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
+      /catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
+      /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "catalog_status"[\s\S]*?catalog_status_input:\s*catalogStatusProjectionInput\(state,\s*\{[\s\S]*?catalogProviderStatus[\s\S]*?schemaVersion:\s*modelMountSchemaVersion/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state/.test(modelMountingReadProjectionFacade) &&
@@ -7812,6 +7824,8 @@ function runBridge() {
       /model_mount_vault_health_not_found/.test(modelMountingReadProjectionFacade) &&
       /runtime_survey_input:\s*latestRuntimeSurveyProjectionInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
       /server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
+      /catalog_status_input:\s*catalogStatusProjectionInput\(state,\s*\{[\s\S]*?catalogProviderStatus[\s\S]*?schemaVersion:\s*modelMountSchemaVersion/.test(modelMountingReadProjectionFacade) &&
+      !/catalog:\s*state\.catalogStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
       /listArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
       /listProviders\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7832,6 +7846,7 @@ function runBridge() {
       /listRuntimeEngines\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimeEngineList\(this\)/.test(modelMountingState) &&
       /latestRuntimeSurvey\(\)\s*\{[\s\S]*?readProjectionFacade\.latestRuntimeSurvey\(this\)/.test(modelMountingState) &&
       /serverStatus\(baseUrl\)\s*\{[\s\S]*?readProjectionFacade\.serverStatus\(this,\s*baseUrl\)/.test(modelMountingState) &&
+      /catalogStatus\(\)\s*\{[\s\S]*?readProjectionFacade\.catalogStatus\(this\)/.test(modelMountingState) &&
       /runtimeEngineList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engines"\)/.test(modelMountingReadProjectionFacade) &&
       /runtimeEngineProfileList\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_engine_profiles"\)/.test(modelMountingReadProjectionFacade) &&
       /runtimePreferenceProjection\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"runtime_preference"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7855,6 +7870,7 @@ function runBridge() {
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates runtime-engine reads through Rust projections/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates server status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
+      /read projection facade delegates catalog status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates latest runtime survey through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7872,6 +7888,10 @@ function runBridge() {
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["catalog_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_status_input,\s*"adapterBoundary"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_status_input"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"receipts"[\s\S]*"runtime_survey_input"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.runtime_survey_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"runtime_survey"\),\s*true/.test(modelMountingReadProjectionFacadeTest) === false &&
@@ -7891,6 +7911,7 @@ function runBridge() {
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
       /serverStatusFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
+      /catalogStatusFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7902,6 +7923,7 @@ function runBridge() {
       /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(bridgeModule) &&
       /"server_status" => Ok\(model_mount_server_status\(request\)\)/.test(bridgeModule) &&
+      /"catalog_status" => Ok\(model_mount_catalog_status\(request\)\)/.test(bridgeModule) &&
       /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(bridgeModule) &&
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
       /"latest_runtime_survey" => Ok\(model_mount_latest_runtime_survey\(request\)\)/.test(bridgeModule) &&
@@ -7941,6 +7963,8 @@ function runBridge() {
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
       /fn model_mount_workflow_bindings/.test(bridgeModule) &&
       /fn model_mount_server_status/.test(bridgeModule) &&
+      /fn model_mount_catalog_status/.test(bridgeModule) &&
+      /fn model_mount_catalog_adapter_boundary/.test(bridgeModule) &&
       /fn status_count/.test(bridgeModule) &&
       /fn model_mount_runtime_engine_detail/.test(bridgeModule) &&
       /fn model_mount_model_capabilities/.test(bridgeModule) &&
@@ -7959,6 +7983,7 @@ function runBridge() {
       /runtime_survey_input/.test(bridgeModule) &&
       !/runtime_survey_default/.test(bridgeModule) &&
       /"server": model_mount_server_status\(request\)/.test(bridgeModule) &&
+      /"catalog": model_mount_catalog_status\(request\)/.test(bridgeModule) &&
       /"workflowNodes": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"workflowBindings": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"modelCapabilities": model_mount_model_capabilities\(state\)/.test(bridgeModule) &&
@@ -7968,6 +7993,8 @@ function runBridge() {
       /"projection_kind": "snapshot"/.test(bridgeModule) &&
       /"projection_kind": "server_status"/.test(bridgeModule) &&
       /"server_status_input"/.test(bridgeModule) &&
+      /"projection_kind": "catalog_status"/.test(bridgeModule) &&
+      /"catalog_status_input"/.test(bridgeModule) &&
       /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
       /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
       /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7993,6 +8020,7 @@ function runBridge() {
       /response\["projection"\]\["openAiModelList"\]/.test(bridgeModule) &&
       /snapshot_response\["projection"\]\["workflowNodes"\]/.test(bridgeModule) &&
       /server status projected in Rust/.test(bridgeModule) &&
+      /catalog status projected in Rust/.test(bridgeModule) &&
       /runtime engines projected in Rust/.test(bridgeModule) &&
       /runtime engine profiles projected in Rust/.test(bridgeModule) &&
       /runtime preference projected in Rust/.test(bridgeModule) &&

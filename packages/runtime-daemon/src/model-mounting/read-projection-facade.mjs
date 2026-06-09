@@ -23,6 +23,9 @@ import {
 import {
   serverStatusProjectionInput,
 } from "./server-control.mjs";
+import {
+  catalogStatusProjectionInput,
+} from "./catalog-operations.mjs";
 
 export function createModelMountingReadProjectionFacade({
   internalFixtureModelsEnabled,
@@ -37,6 +40,7 @@ export function createModelMountingReadProjectionFacade({
   publicProvider,
   readJson,
   readProjectionPlanner = null,
+  catalogProviderStatus,
 } = {}) {
   function runtimeModelCatalogList(state) {
     return rustReadProjection(state, "runtime_model_catalog");
@@ -96,6 +100,10 @@ export function createModelMountingReadProjectionFacade({
 
   function serverStatus(state, baseUrl) {
     return rustReadProjection(state, "server_status", { baseUrl });
+  }
+
+  function catalogStatus(state) {
+    return rustReadProjection(state, "catalog_status");
   }
 
   function authoritySnapshot(state, baseUrl) {
@@ -322,6 +330,14 @@ export function createModelMountingReadProjectionFacade({
         server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
       };
     }
+    if (projectionKind === "catalog_status") {
+      return {
+        catalog_status_input: catalogStatusProjectionInput(state, {
+          catalogProviderStatus,
+          schemaVersion: modelMountSchemaVersion,
+        }),
+      };
+    }
     if (projectionKind === "receipt_replay") {
       return {
         receipts: state.listReceipts(),
@@ -413,7 +429,10 @@ export function createModelMountingReadProjectionFacade({
     }
     return {
       server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
-      catalog: state.catalogStatus(),
+      catalog_status_input: catalogStatusProjectionInput(state, {
+        catalogProviderStatus,
+        schemaVersion: modelMountSchemaVersion,
+      }),
       catalog_provider_configs: state.listCatalogProviderConfigs(),
       oauth_sessions: oauthSessions,
       oauth_states: oauthStates,
@@ -496,6 +515,7 @@ export function createModelMountingReadProjectionFacade({
     adapterBoundaries,
     authoritySnapshot,
     canonicalProjectionWritePlan,
+    catalogStatus,
     latestProviderHealth,
     latestRuntimeSurvey,
     latestVaultHealth,

@@ -23,6 +23,27 @@ export function storageSummary(state, deps = {}) {
 }
 
 export function catalogStatus(state, deps = {}) {
+  const input = catalogStatusProjectionInput(state, deps);
+  return {
+    schemaVersion: input.schema_version,
+    checkedAt: input.checked_at,
+    providers: input.providers,
+    adapterBoundary: catalogAdapterBoundary(),
+    filters: catalogFilters(),
+    storage: input.storage,
+    lastSearch: input.last_search
+      ? {
+          searchedAt: input.last_search.searched_at,
+          query: input.last_search.query,
+          filters: input.last_search.filters,
+          resultCount: input.last_search.result_count,
+        }
+      : null,
+    results: input.results,
+  };
+}
+
+export function catalogStatusProjectionInput(state, deps = {}) {
   const {
     catalogProviderStatus,
     schemaVersion,
@@ -30,22 +51,16 @@ export function catalogStatus(state, deps = {}) {
   const lastSearch = state.lastCatalogSearch;
   const providers = state.catalogProviderPorts().map((port) => catalogProviderStatus(port));
   return {
-    schemaVersion,
-    checkedAt: state.nowIso(),
+    schema_version: schemaVersion,
+    checked_at: state.nowIso(),
     providers,
-    adapterBoundary: catalogAdapterBoundary(),
-    filters: {
-      formats: ["gguf", "mlx", "safetensors"],
-      quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
-      compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
-    },
     storage: state.storageSummary(),
-    lastSearch: lastSearch
+    last_search: lastSearch
       ? {
-          searchedAt: lastSearch.searchedAt,
+          searched_at: lastSearch.searchedAt,
           query: lastSearch.query,
           filters: lastSearch.filters,
-          resultCount: lastSearch.results.length,
+          result_count: lastSearch.results.length,
         }
       : null,
     results: lastSearch?.results ?? [],
@@ -112,5 +127,13 @@ function catalogAdapterBoundary() {
     port: "ModelCatalogProviderPort",
     operations: ["search", "resolveVariant", "importUrl", "download", "health"],
     evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
+  };
+}
+
+function catalogFilters() {
+  return {
+    formats: ["gguf", "mlx", "safetensors"],
+    quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
+    compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
   };
 }

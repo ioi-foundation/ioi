@@ -115,7 +115,29 @@ function createState() {
     coalesceLoadedInstances() {},
     nowIso: () => "2026-06-03T00:00:00.000Z",
     serverStatus: () => ({ status: "running" }),
-    catalogStatus: () => ({ status: "ready" }),
+    lastCatalogSearch: {
+      searchedAt: "2026-06-03T00:00:00.000Z",
+      query: "local",
+      filters: { limit: 2 },
+      results: [{ id: "catalog.local", modelId: "model.local" }],
+    },
+    catalogProviderPorts: () => [{
+      id: "catalog.fixture",
+      label: "Fixture catalog",
+      status: "available",
+      formats: ["gguf"],
+      evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
+    }],
+    storageSummary: () => ({
+      rootHash: "sha256:model-root",
+      totalBytes: 42,
+      quotaBytes: null,
+      quotaStatus: "ok",
+      fileCount: 1,
+      orphanCount: 0,
+      destructiveActionsRequireUnload: true,
+      evidenceRefs: ["model_storage_quota_boundary", "artifact_delete_unload_guard"],
+    }),
     listBackends: () => [],
     listBackendProcesses: () => [],
     listCatalogProviderConfigs: () => [],
@@ -181,6 +203,15 @@ function createState() {
     }),
     readProjectionPlanner,
     hardwareSnapshot: () => ({ cpuCount: 8 }),
+    catalogProviderStatus: (port) => ({
+      id: port.id,
+      label: port.label,
+      status: port.status,
+      formats: port.formats,
+      adapterPort: "ModelCatalogProviderPort",
+      operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+      evidenceRefs: port.evidenceRefs,
+    }),
     notFound: (message, details) => Object.assign(new Error(message), {
       status: 404,
       code: "not_found",
@@ -229,6 +260,7 @@ function rustProjectionFixture(request) {
     return state.runtime_engine;
   }
   if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
+  if (request.projection_kind === "catalog_status") return catalogStatusFromRustState(state, request.schema_version);
   if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
   if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
   const projection = {
@@ -247,7 +279,7 @@ function rustProjectionFixture(request) {
     backends: state.backends,
     backendProcesses: state.backend_processes,
     providers: state.providers,
-    catalog: state.catalog,
+    catalog: catalogStatusFromRustState(state, request.schema_version),
     catalogProviderConfigs: state.catalog_provider_configs,
     oauthSessions: state.oauth_sessions,
     oauthStates: state.oauth_states,
@@ -276,7 +308,7 @@ function rustProjectionFixture(request) {
     return {
       schemaVersion: request.schema_version,
       server: serverStatusFromRustState(state, request.schema_version),
-      catalog: state.catalog,
+      catalog: catalogStatusFromRustState(state, request.schema_version),
       catalogProviderConfigs: state.catalog_provider_configs,
       oauthSessions: state.oauth_sessions,
       oauthStates: state.oauth_states,
@@ -469,6 +501,36 @@ function serverStatusFromRustState(state, schemaVersion) {
     idleTtlSeconds: 900,
     autoEvict: true,
     checkedAt: input.checked_at ?? null,
+  };
+}
+
+function catalogStatusFromRustState(state, schemaVersion) {
+  const input = state.catalog_status_input ?? {};
+  const lastSearch = input.last_search
+    ? {
+        searchedAt: input.last_search.searched_at ?? null,
+        query: input.last_search.query ?? null,
+        filters: input.last_search.filters ?? null,
+        resultCount: input.last_search.result_count ?? 0,
+      }
+    : null;
+  return {
+    schemaVersion: input.schema_version ?? schemaVersion,
+    checkedAt: input.checked_at ?? null,
+    providers: input.providers ?? [],
+    adapterBoundary: {
+      port: "ModelCatalogProviderPort",
+      operations: ["search", "resolveVariant", "importUrl", "download", "health"],
+      evidenceRefs: ["provider_neutral_model_catalog_adapter_boundary"],
+    },
+    filters: {
+      formats: ["gguf", "mlx", "safetensors"],
+      quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
+      compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
+    },
+    storage: input.storage ?? {},
+    lastSearch,
+    results: input.results ?? [],
   };
 }
 
@@ -861,6 +923,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   const snapshot = facade.snapshot(state, "http://127.0.0.1:3200");
   assert.equal(snapshot.schemaVersion, "model.mount.schema");
   assert.equal(snapshot.server.status, "stopped");
+  assert.equal(snapshot.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
+  assert.equal(snapshot.catalog.lastSearch.resultCount, 1);
   assert.equal(snapshot.artifacts.length, 2);
   assert.equal(snapshot.modelCapabilities.length, 1);
   assert.equal(snapshot.modelCapabilities[0].credential_readiness.status, "ready");
@@ -871,6 +935,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.schemaVersion, "model.mount.schema");
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
+  assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
 
   const projectionWritePlan = facade.canonicalProjectionWritePlan(state);
@@ -907,6 +972,15 @@ test("read projection facade composes snapshots, projection, and receipt replay"
     "model_route_decisions",
     "authority_snapshot",
   ]);
+  const snapshotRequest = readProjectionRequests[0];
+  assert.equal(Object.hasOwn(snapshotRequest.state, "catalog"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_status_input"), true);
+  assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "adapterBoundary"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "filters"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "schemaVersion"), false);
+  const projectionRequest = readProjectionRequests[1];
+  assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "catalog_status_input"), true);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");
@@ -958,6 +1032,30 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(readProjectionRequests[0].base_url, "http://127.0.0.1:3200");
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "receipts"), false);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);
+});
+
+test("read projection facade delegates catalog status through Rust projection", () => {
+  const { facade, state, readProjectionRequests } = createState();
+
+  const status = facade.catalogStatus(state);
+
+  assert.equal(status.schemaVersion, "model.mount.schema");
+  assert.equal(status.checkedAt, "2026-06-03T00:00:00.000Z");
+  assert.equal(status.providers[0].id, "catalog.fixture");
+  assert.equal(status.adapterBoundary.port, "ModelCatalogProviderPort");
+  assert.equal(status.filters.formats.includes("gguf"), true);
+  assert.equal(status.storage.totalBytes, 42);
+  assert.equal(status.lastSearch.resultCount, 1);
+  assert.equal(status.results[0].id, "catalog.local");
+  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["catalog_status"]);
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["catalog_status_input"]);
+  assert.equal(readProjectionRequests[0].state.catalog_status_input.schema_version, "model.mount.schema");
+  assert.equal(readProjectionRequests[0].state.catalog_status_input.providers[0].adapterPort, "ModelCatalogProviderPort");
+  assert.equal(readProjectionRequests[0].state.catalog_status_input.last_search.result_count, 1);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state.catalog_status_input, "adapterBoundary"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state.catalog_status_input, "filters"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state.catalog_status_input, "schemaVersion"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "catalog"), false);
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {

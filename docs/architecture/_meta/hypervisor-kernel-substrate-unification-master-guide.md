@@ -1163,6 +1163,17 @@ does not claim terminal runtime-survey migration: direct Rust daemon-core
 runtime-survey APIs still need to replace JS hardware/runtime probing,
 Agentgres admission, record-state, and command transport.
 
+Slice 815 retired the JS-authored catalog-status public envelope from
+the model_mount read-projection path. The public `catalogStatus()` now requests
+`catalog_status` from `plan_model_mount_read_projection`; the runtime-daemon
+now sends only primitive `catalog_status_input` migration data, and Rust authors
+the public catalog-status projection plus nested snapshot/projection `catalog`
+objects through the shared read-projection planner. This still does not claim
+terminal catalog migration: direct Rust daemon-core catalog/provider/search,
+download, Agentgres admission, projection persistence, and command-transport
+retirement remain required before catalog control and readback reach terminal
+unification.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
