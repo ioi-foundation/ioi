@@ -17,7 +17,10 @@ function fakeState() {
     lastCatalogSearch: null,
     modelRoot: "/models",
     now: "2026-06-03T23:00:00.000Z",
+    catalogProviderPortCalls: 0,
+    enrichCatalogEntryCalls: 0,
     catalogProviderPorts() {
+      this.catalogProviderPortCalls += 1;
       return [
         {
           id: "catalog.fixture",
@@ -35,6 +38,7 @@ function fakeState() {
       ];
     },
     enrichCatalogEntry(entry) {
+      this.enrichCatalogEntryCalls += 1;
       return { ...entry, enriched: true };
     },
     nowIso() {
@@ -139,18 +143,31 @@ test("catalog status projection input omits Rust-authored public envelope fields
   assert.equal(Object.hasOwn(input.last_search, "resultCount"), false);
 });
 
-test("catalog search normalizes query filters, aggregates provider results, and stores last search", async () => {
+test("catalog search fails closed before JS provider orchestration", async () => {
   const state = fakeState();
 
-  const search = await catalogSearch(state, { query: "  LLAMA  ", format: "GGUF", quantization: "Q4", limit: 1 }, deps);
-
-  assert.equal(search.schemaVersion, "schema.catalog-ops.test");
-  assert.equal(search.query, "llama");
-  assert.deepEqual(search.filters, { format: "gguf", quantization: "q4", limit: 1 });
-  assert.equal(search.providers[0].id, "catalog.fixture");
-  assert.equal(search.providers[0].status, "available");
-  assert.deepEqual(search.results, [{ id: "entry.1", modelId: "llama-one", sourceUrl: "fixture://one", enriched: true }]);
-  assert.equal(state.lastCatalogSearch, search);
+  await assert.rejects(
+    () => catalogSearch(state, { query: "  LLAMA  ", format: "GGUF", quantization: "Q4", limit: 1 }, deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_catalog_search_js_orchestrator_retired");
+      assert.equal(error.details.operation_kind, "model_catalog.search");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_search");
+      assert.equal(error.details.request_field_count, 4);
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_catalog_search_js_orchestrator_retired",
+        "rust_daemon_core_catalog_search_required",
+        "agentgres_catalog_projection_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
+  assert.equal(state.catalogProviderPortCalls, 0);
+  assert.equal(state.enrichCatalogEntryCalls, 0);
+  assert.equal(state.lastCatalogSearch, null);
 });
 
 test("catalog entry enrichment passes storage, artifacts, and max bytes to entry helper", () => {

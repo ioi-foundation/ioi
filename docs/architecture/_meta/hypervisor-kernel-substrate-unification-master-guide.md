@@ -1422,6 +1422,15 @@ materialization can run in JS. Fixture metadata remains available only for
 non-search catalog variant enrichment until Rust catalog projection/search APIs
 own the full path.
 
+Slice 835 retired public model catalog search orchestration from JS. The
+`catalogSearch()` facade now fails closed with
+`model_catalog_search_js_orchestrator_retired` before JS can normalize search
+filters, iterate catalog provider ports, enrich catalog entries, aggregate
+provider results, or write `lastCatalogSearch`. Provider-level catalog search
+paths were already retired in prior slices; this slice removes the remaining
+JS search coordinator and leaves catalog search blocked until direct Rust
+daemon-core catalog search/projection APIs own the request.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

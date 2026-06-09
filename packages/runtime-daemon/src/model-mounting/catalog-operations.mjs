@@ -69,46 +69,24 @@ export function catalogStatusProjectionInput(state, deps = {}) {
 
 export async function catalogSearch(state, query = {}, deps = {}) {
   const {
-    catalogProviderStatus,
-    normalizeLimit,
-    schemaVersion,
+    runtimeError = defaultRuntimeError,
   } = deps;
-  const searchedAt = state.nowIso();
-  const text = String(query.q ?? query.query ?? "autopilot").trim().toLowerCase();
-  const requestedFormat = query.format === undefined || query.format === "" ? null : String(query.format).toLowerCase();
-  const requestedQuantization = query.quantization === undefined || query.quantization === "" ? null : String(query.quantization).toLowerCase();
-  const limit = normalizeLimit(query.limit, 20, 100);
-  const providerResults = [];
-  for (const port of state.catalogProviderPorts()) {
-    const result = await port.search({
-      state,
-      query: text,
-      format: requestedFormat,
-      quantization: requestedQuantization,
-      limit,
-      searchedAt,
-    });
-    providerResults.push({
-      ...catalogProviderStatus(port, result),
-      results: (Array.isArray(result.results) ? result.results : []).map((entry) => state.enrichCatalogEntry(entry)),
-    });
-  }
-  const results = providerResults.flatMap((provider) => provider.results).slice(0, limit);
-  const search = {
-    schemaVersion,
-    searchedAt,
-    query: text,
-    filters: {
-      format: requestedFormat,
-      quantization: requestedQuantization,
-      limit,
+  void state;
+  throw runtimeError({
+    status: 501,
+    code: "model_catalog_search_js_orchestrator_retired",
+    message: "Model catalog search orchestration is retired in JS; use Rust daemon-core catalog search/projection.",
+    details: {
+      operation_kind: "model_catalog.search",
+      rust_core_boundary: "model_mount.catalog_provider_search",
+      request_field_count: Object.keys(query ?? {}).length,
+      evidence_refs: [
+        "model_catalog_search_js_orchestrator_retired",
+        "rust_daemon_core_catalog_search_required",
+        "agentgres_catalog_projection_required",
+      ],
     },
-    adapterBoundary: catalogAdapterBoundary(),
-    providers: providerResults.map(({ results: _results, ...provider }) => provider),
-    results,
-  };
-  state.lastCatalogSearch = search;
-  return search;
+  });
 }
 
 export function enrichCatalogEntryForState(state, entry, options = {}, deps = {}) {
@@ -136,4 +114,8 @@ function catalogFilters() {
     quantization: ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
     compatibility: ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
   };
+}
+
+function defaultRuntimeError({ code, message, details, status }) {
+  return Object.assign(new Error(message), { code, details, status });
 }

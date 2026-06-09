@@ -663,6 +663,8 @@ function runDocs() {
       /Slice 834 retired fixture catalog search materialization from the JS\s+catalog-provider port/.test(guide) &&
       /`model_catalog_fixture_search_retired`/.test(guide) &&
       /`fixture_catalog_search_js_retired`/.test(guide) &&
+      /Slice 835 retired public model catalog search orchestration from JS/.test(guide) &&
+      /`model_catalog_search_js_orchestrator_retired`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -797,11 +799,15 @@ function runDocs() {
       /model_catalog_local_manifest_search_retired/.test(matrix) &&
       /local_manifest_catalog_search_js_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 833 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 834/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 834/.test(matrix) &&
       /Slice 834 retired fixture catalog search materialization from the JS\s+catalog-provider port/.test(matrix) &&
       /model_catalog_fixture_search_retired/.test(matrix) &&
       /fixture_catalog_search_js_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 834/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 834 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 835/.test(matrix) &&
+      /Slice 835 retired public model catalog search orchestration from JS/.test(matrix) &&
+      /model_catalog_search_js_orchestrator_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 835/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -812,6 +818,9 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /fixture catalog search now fails closed with `model_catalog_fixture_search_retired`/.test(
+        implementationMatrix,
+      ) &&
+      /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -11184,6 +11193,12 @@ function runReceipts() {
   const catalogProviderPortsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
     : "";
+  const catalogOperations = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs")
+    : "";
+  const catalogOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs")
+    : "";
   const catalogProviderRuntimeMaterialFromBodyBlock =
     catalogProviderConfig.match(/export function catalogProviderRuntimeMaterialFromBody[\s\S]*?export function catalogProviderAuthConfig/)?.[0] ?? "";
   const catalogProviderAuthConfigBlock =
@@ -13542,6 +13557,29 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
     ],
     "Phase 7/11 is pending: fixture catalog search must fail closed before JS fixture entry filtering or materialization",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-search-js-orchestrator-retired",
+    /model_catalog_search_js_orchestrator_retired/.test(catalogOperations) &&
+      /model_catalog\.search/.test(catalogOperations) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_search"/.test(catalogOperations) &&
+      /rust_daemon_core_catalog_search_required/.test(catalogOperations) &&
+      /agentgres_catalog_projection_required/.test(catalogOperations) &&
+      !/for \(const port of state\.catalogProviderPorts\(\)\)/.test(catalogOperations) &&
+      !/state\.lastCatalogSearch\s*=\s*search/.test(catalogOperations) &&
+      !/providerResults/.test(catalogOperations) &&
+      !/state\.enrichCatalogEntry/.test(catalogOperations) &&
+      /catalog search fails closed before JS provider orchestration/.test(catalogOperationsTest) &&
+      /model_catalog_search_js_orchestrator_retired/.test(catalogOperationsTest) &&
+      /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
+      /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
+      /assert\.equal\(state\.lastCatalogSearch,\s*null\)/.test(catalogOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
+    ],
+    "Phase 7/11 is pending: public catalog search orchestration must fail closed before JS provider iteration, entry enrichment, result aggregation, or last-search writes",
   );
   assertCheck(
     result,
