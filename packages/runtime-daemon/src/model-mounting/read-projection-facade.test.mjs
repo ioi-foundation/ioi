@@ -270,7 +270,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "runtime_engine_profiles") return state.runtime_engine_profiles ?? [];
   if (request.projection_kind === "runtime_preference") return state.runtime_preference ?? null;
   if (request.projection_kind === "runtime_preference_for_endpoint") return state.runtime_preference ?? null;
-  if (request.projection_kind === "runtime_default_load_options") return state.default_load_options ?? {};
+  if (request.projection_kind === "runtime_default_load_options") return state.default_load_options ?? null;
   if (request.projection_kind === "runtime_engine_detail") {
     if (!state.runtime_engine) {
       throw Object.assign(new Error("runtime engine not found"), {
@@ -913,29 +913,29 @@ test("read projection facade delegates runtime-engine reads through Rust project
   const { facade, state, readProjectionRequests } = createState();
 
   const engines = facade.runtimeEngineList(state);
-  assert.deepEqual(engines.map((engine) => engine.id), ["backend.llama-cpp"]);
-  assert.equal(engines[0].operatorProfile.defaultLoadOptions.gpu, "auto");
+  assert.deepEqual(engines, []);
 
   const profiles = facade.runtimeEngineProfileList(state);
-  assert.deepEqual(profiles.map((profile) => profile.id), ["backend.llama-cpp"]);
+  assert.deepEqual(profiles, []);
 
   const preference = facade.runtimePreferenceProjection(state);
-  assert.equal(preference.selectedEngineId, "backend.llama-cpp");
-  assert.equal(preference.defaultLoadOptions.gpu, "auto");
+  assert.equal(preference, null);
 
   const endpointPreference = facade.runtimePreferenceForEndpointProjection(state, {
     backendId: "backend.llama-cpp",
   });
-  assert.equal(endpointPreference.selectedEngineId, "backend.llama-cpp");
+  assert.equal(endpointPreference, null);
 
   const defaultLoadOptions = facade.runtimeDefaultLoadOptionsProjection(state, "backend.llama-cpp");
-  assert.deepEqual(defaultLoadOptions, { gpu: "auto" });
+  assert.equal(defaultLoadOptions, null);
 
-  const runtimeEngine = facade.runtimeEngineProjection(state, "backend.llama-cpp");
-  assert.equal(runtimeEngine.id, "backend.llama-cpp");
-  assert.equal(runtimeEngine.profile.id, "backend.llama-cpp");
-  assert.equal(runtimeEngine.preference.selectedEngineId, "backend.llama-cpp");
-  assert.deepEqual(runtimeEngine.latestReceipts.map((receipt) => receipt.id), ["receipt-runtime"]);
+  assert.throws(
+    () => facade.runtimeEngineProjection(state, "backend.llama-cpp"),
+    (error) =>
+      error.status === 404 &&
+      error.code === "not_found" &&
+      error.details.engine_id === "backend.llama-cpp",
+  );
 
   assert.throws(
     () => facade.runtimeEngineProjection(state, "backend.missing"),
@@ -954,16 +954,10 @@ test("read projection facade delegates runtime-engine reads through Rust project
     "runtime_engine_detail",
     "runtime_engine_detail",
   ]);
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["runtime_engines"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[1].state), ["runtime_engine_profiles"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[2].state), ["runtime_preference"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[3].state), ["runtime_preference"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[4].state), ["default_load_options"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[5].state), ["runtime_engine"]);
+  assert.equal(readProjectionRequests.every((request) => Object.keys(request.state).length === 0), true);
   assert.equal(readProjectionRequests[4].engine_id, "backend.llama-cpp");
   assert.equal(readProjectionRequests[5].engine_id, "backend.llama-cpp");
   assert.equal(readProjectionRequests[6].engine_id, "backend.missing");
-  assert.equal(readProjectionRequests[6].state.runtime_engine, null);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "projection")), true);
 });

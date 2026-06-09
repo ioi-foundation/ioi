@@ -9263,13 +9263,7 @@ mod tests {
                     "projection_kind": "runtime_engines",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {
-                        "runtime_engines": [{
-                            "id": "backend.llama-cpp",
-                            "kind": "llama_cpp",
-                            "status": "configured"
-                        }]
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount runtime engines request");
@@ -9280,8 +9274,11 @@ mod tests {
             "runtime_engines"
         );
         assert_eq!(
-            runtime_engines_response["projection"][0]["id"],
-            "backend.llama-cpp"
+            runtime_engines_response["projection"]
+                .as_array()
+                .expect("runtime engines projection array")
+                .len(),
+            0
         );
 
         let runtime_profiles_request: ModelMountReadProjectionBridgeRequest =
@@ -9293,12 +9290,7 @@ mod tests {
                     "projection_kind": "runtime_engine_profiles",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {
-                        "runtime_engine_profiles": [{
-                            "id": "backend.llama-cpp",
-                            "defaultLoadOptions": {"gpu": "auto"}
-                        }]
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount runtime engine profiles request");
@@ -9309,8 +9301,11 @@ mod tests {
             "runtime_engine_profiles"
         );
         assert_eq!(
-            runtime_profiles_response["projection"][0]["defaultLoadOptions"]["gpu"],
-            "auto"
+            runtime_profiles_response["projection"]
+                .as_array()
+                .expect("runtime engine profiles projection array")
+                .len(),
+            0
         );
 
         let runtime_preference_request: ModelMountReadProjectionBridgeRequest =
@@ -9322,11 +9317,7 @@ mod tests {
                     "projection_kind": "runtime_preference",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {
-                        "runtime_preference": {
-                            "selectedEngineId": "backend.llama-cpp"
-                        }
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount runtime preference request");
@@ -9334,8 +9325,8 @@ mod tests {
             plan_model_mount_read_projection(runtime_preference_request)
                 .expect("runtime preference projected in Rust");
         assert_eq!(
-            runtime_preference_response["projection"]["selectedEngineId"],
-            "backend.llama-cpp"
+            runtime_preference_response["projection"],
+            Value::Null
         );
 
         let runtime_endpoint_preference_request: ModelMountReadProjectionBridgeRequest =
@@ -9347,12 +9338,7 @@ mod tests {
                     "projection_kind": "runtime_preference_for_endpoint",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {
-                        "runtime_preference": {
-                            "selectedEngineId": "backend.llama-cpp",
-                            "endpointBackendId": "backend.llama-cpp"
-                        }
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount endpoint runtime preference request");
@@ -9360,8 +9346,8 @@ mod tests {
             plan_model_mount_read_projection(runtime_endpoint_preference_request)
                 .expect("endpoint runtime preference projected in Rust");
         assert_eq!(
-            runtime_endpoint_preference_response["projection"]["endpointBackendId"],
-            "backend.llama-cpp"
+            runtime_endpoint_preference_response["projection"],
+            Value::Null
         );
 
         let runtime_default_load_options_request: ModelMountReadProjectionBridgeRequest =
@@ -9374,11 +9360,7 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "engine_id": "backend.llama-cpp",
-                    "state": {
-                        "default_load_options": {
-                            "gpu": "auto"
-                        }
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount runtime default load options request");
@@ -9386,8 +9368,8 @@ mod tests {
             plan_model_mount_read_projection(runtime_default_load_options_request)
                 .expect("runtime default load options projected in Rust");
         assert_eq!(
-            runtime_default_load_options_response["projection"]["gpu"],
-            "auto"
+            runtime_default_load_options_response["projection"],
+            Value::Null
         );
 
         let runtime_engine_detail_request: ModelMountReadProjectionBridgeRequest =
@@ -9400,26 +9382,16 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "engine_id": "backend.llama-cpp",
-                    "state": {
-                        "runtime_engine": {
-                            "id": "backend.llama-cpp",
-                            "profile": {"id": "backend.llama-cpp"},
-                            "latestReceipts": [{"id": "receipt-runtime"}]
-                        }
-                    }
+                    "state": {}
                 }
             }))
             .expect("model_mount runtime engine detail request");
-        let runtime_engine_detail_response =
+        let runtime_engine_detail_error =
             plan_model_mount_read_projection(runtime_engine_detail_request)
-                .expect("runtime engine detail projected in Rust");
+                .expect_err("runtime engine detail fails closed without Rust-owned engine state");
         assert_eq!(
-            runtime_engine_detail_response["projection"]["id"],
-            "backend.llama-cpp"
-        );
-        assert_eq!(
-            runtime_engine_detail_response["projection"]["latestReceipts"][0]["id"],
-            "receipt-runtime"
+            runtime_engine_detail_error.code,
+            "model_mount_runtime_engine_not_found"
         );
 
         let missing_runtime_engine_detail_request: ModelMountReadProjectionBridgeRequest =
@@ -9432,9 +9404,7 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "engine_id": "backend.missing",
-                    "state": {
-                        "runtime_engine": null
-                    }
+                    "state": {}
                 }
             }))
             .expect("missing model_mount runtime engine detail request");

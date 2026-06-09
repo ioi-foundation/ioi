@@ -11,11 +11,8 @@ import {
 } from "./read-model.mjs";
 import { notFound } from "./io.mjs";
 import {
-  listRuntimeEngineProfiles,
   listRuntimeEngines,
-  runtimeDefaultLoadOptions,
   runtimePreference,
-  runtimePreferenceForEndpoint,
 } from "./runtime-engines.mjs";
 import {
   latestRuntimeSurveyProjectionInput,
@@ -213,7 +210,7 @@ export function createModelMountingReadProjectionFacade({
       receipt_id: receiptId,
       state: readProjectionInput(state, baseUrl, projectionKind, { engineId, endpoint }),
     });
-    if (!result?.projection || typeof result.projection !== "object") {
+    if (!result || !Object.hasOwn(result, "projection")) {
       throwReadProjectionRustCoreRequired(projectionKind, {
         reason: "missing_rust_projection",
         source: result?.source ?? null,
@@ -254,34 +251,22 @@ export function createModelMountingReadProjectionFacade({
       return {};
     }
     if (projectionKind === "runtime_engines") {
-      return {
-        runtime_engines: listRuntimeEngines(runtimeEngineProjectionState(state)),
-      };
+      return {};
     }
     if (projectionKind === "runtime_engine_profiles") {
-      return {
-        runtime_engine_profiles: listRuntimeEngineProfiles(runtimeEngineProjectionState(state)),
-      };
+      return {};
     }
     if (projectionKind === "runtime_preference") {
-      return {
-        runtime_preference: runtimePreference(runtimeEngineProjectionState(state)),
-      };
+      return {};
     }
     if (projectionKind === "runtime_preference_for_endpoint") {
-      return {
-        runtime_preference: runtimePreferenceForEndpoint(runtimeEngineProjectionState(state), endpoint ?? {}),
-      };
+      return {};
     }
     if (projectionKind === "runtime_default_load_options") {
-      return {
-        default_load_options: runtimeDefaultLoadOptions(runtimeEngineProjectionState(state), engineId),
-      };
+      return {};
     }
     if (projectionKind === "runtime_engine_detail") {
-      return {
-        runtime_engine: runtimeEngineReadInput(state, engineId),
-      };
+      return {};
     }
     if (projectionKind === "adapter_boundaries") {
       return {};
@@ -406,26 +391,6 @@ export function createModelMountingReadProjectionFacade({
       ],
     };
     throw error;
-  }
-
-  function runtimeEngineReadInput(state, engineId) {
-    const runtimeState = runtimeEngineProjectionState(state);
-    const engine = listRuntimeEngines(runtimeState).find((item) => item.id === engineId) ?? null;
-    if (!engine) return null;
-    const preference = runtimePreference(runtimeState);
-    return {
-      ...engine,
-      profile: listRuntimeEngineProfiles(runtimeState).find((profile) => profile.id === engineId) ?? null,
-      preference: preference.selectedEngineId === engineId ? preference : null,
-      loadedInstances: instanceList(state).filter((instance) =>
-        instance.runtimeEngineId === engineId || instance.backendId === engineId),
-      latestReceipts: state.listReceipts()
-        .filter((receipt) =>
-          receipt.details?.runtime_engine_id === engineId ||
-          receipt.details?.engine_id === engineId ||
-          receipt.details?.backend_id === engineId)
-        .slice(-8),
-    };
   }
 
   function runtimeEngineProjectionState(state) {

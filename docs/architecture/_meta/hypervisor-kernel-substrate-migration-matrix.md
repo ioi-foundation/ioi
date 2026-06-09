@@ -17723,7 +17723,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 856 is now satisfied.
 
-## Implementation Slice Evidence: 857
+## Compacted Implementation Slice Evidence: 857
 
 Slice 857 retired dedicated authority and adapter-boundary JS read-projection
 input. The `adapter_boundaries` read projection now sends `{}` and the Rust
@@ -17749,10 +17749,40 @@ cTEE custody status, command-transport replacement, and local authority
 materialization retirement still remain before this surface reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 857 after the next direct
+Scheduled matrix-compaction obligation from Slice 857 is now satisfied.
+
+## Implementation Slice Evidence: 858
+
+Slice 858 retired dedicated runtime-engine JS read-projection input. The
+`runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,
+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and
+`runtime_engine_detail` read projections now send `{}` from the runtime-daemon
+facade. Rust returns empty list/profile projections, null
+preference/default-load projections, and fails closed with
+`model_mount_runtime_engine_not_found` for runtime-engine detail until direct
+Rust daemon-core runtime-engine projection APIs own the surface. The focused JS
+test asserts every dedicated runtime-engine request state is empty; the focused
+Rust bridge test sends empty runtime-engine state and verifies empty/null
+defaults plus fail-closed detail.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal runtime-engine projection migration: direct
+Rust daemon-core runtime-engine projection APIs, Agentgres-backed
+runtime-engine truth, preference/profile/default-load ownership,
+command-transport replacement, local runtime-engine materialization
+retirement, and latest-runtime-survey primitive input retirement still remain
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 858 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider/MCP/conversation/authority/telemetry transport facades,
-provider lifecycle/read adapters, local map/projection materialization, and
-Rust daemon-core catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody
+catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport
+facades, provider lifecycle/read adapters, local map/projection materialization,
+and Rust daemon-core catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody
 APIs.

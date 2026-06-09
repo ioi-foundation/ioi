@@ -1656,6 +1656,19 @@ Direct Rust daemon-core wallet/vault/Agentgres authority projection still needs
 to replace the remaining receipt-only/default authority envelope before
 terminal authority projection is complete.
 
+Slice 858 retired dedicated runtime-engine JS read-projection input. The
+`runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,
+`runtime_preference_for_endpoint`, `runtime_default_load_options`, and
+`runtime_engine_detail` read projections now send empty state objects from the
+runtime-daemon facade. Rust returns empty list/profile projections, null
+preference/default-load projections, and fails closed with
+`model_mount_runtime_engine_not_found` for runtime-engine detail until direct
+Rust daemon-core runtime-engine projection APIs own the surface. Direct Rust
+runtime-engine projection, Agentgres-backed runtime-engine truth,
+preference/profile/default-load ownership, command-transport replacement, and
+local runtime-engine materialization retirement still remain before this
+surface reaches the pure Rust substrate target.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
