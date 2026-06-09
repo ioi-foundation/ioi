@@ -602,6 +602,10 @@ function runDocs() {
       /`modelMountingSnapshot\(\)` was removed from `read-model\.mjs`/.test(guide) &&
       /`buildModelMountingProjection\(\)`,\s+`buildAuthoritySnapshot\(\)`, `buildProjectionSummary\(\)`,\s+`buildAdapterBoundaries\(\)`, and `buildReceiptReplay\(\)` were removed from\s+`projections\.mjs`/.test(guide) &&
       /`projections\.mjs` now retains only the narrow\s+`buildModelRouteDecisions\(\)` admitted-receipt projection helper/.test(guide) &&
+      /Slice 817 retired that final dead `projections\.mjs` compatibility surface/.test(guide) &&
+      /remaining public\s+model_route_decision reads continue through `modelRouteDecisions\(\)` on the\s+read-projection facade/.test(guide) &&
+      /`packages\/runtime-daemon\/src\/model-mounting\/projections\.mjs` and its self-test\s+were deleted/.test(guide) &&
+      /conformance now requires those files to remain absent/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -640,11 +644,16 @@ function runDocs() {
       /public `catalogStatus\(\)` now requests\s+`catalog_status`/.test(matrix) &&
       /runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(matrix) &&
       /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(matrix) &&
-      /Implementation Slice Evidence: 816/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 816/.test(matrix) &&
       /Slice 816 retired the remaining dead JS model_mount broad projection helper\s+exports/.test(matrix) &&
       /`workflowNodeBindings\(\)` was removed from that same legacy read helper module/.test(matrix) &&
       /`buildModelMountingProjection\(\)`, `buildAuthoritySnapshot\(\)`,\s+`buildProjectionSummary\(\)`, `buildAdapterBoundaries\(\)`, and\s+`buildReceiptReplay\(\)` were removed from `projections\.mjs`/.test(matrix) &&
-      /Scheduled matrix-compaction obligation from Slice 816 is pending/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 816 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 817/.test(matrix) &&
+      /Slice 817 retired the final dead `projections\.mjs` compatibility surface/.test(matrix) &&
+      /`packages\/runtime-daemon\/src\/model-mounting\/projections\.mjs` and\s+`packages\/runtime-daemon\/src\/model-mounting\/projections\.test\.mjs` were deleted/.test(matrix) &&
+      /conformance now requires both files to remain absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 817/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -1312,12 +1321,8 @@ function runBridge() {
   const modelRouteDecisionTest = exists("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/route-decision.test.mjs")
     : "";
-  const modelProjections = exists("packages/runtime-daemon/src/model-mounting/projections.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/projections.mjs")
-    : "";
-  const modelProjectionsTest = exists("packages/runtime-daemon/src/model-mounting/projections.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/projections.test.mjs")
-    : "";
+  const modelProjectionsPath = "packages/runtime-daemon/src/model-mounting/projections.mjs";
+  const modelProjectionsTestPath = "packages/runtime-daemon/src/model-mounting/projections.test.mjs";
   const modelWorkflowNode = exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/workflow-node.mjs")
     : "";
@@ -7325,7 +7330,8 @@ function runBridge() {
       /receipt operations reject JS receipt creation after Rust receipt authoring cut/.test(
         read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
       ) &&
-      /model_route_decision/.test(modelProjectionsTest) &&
+      !exists(modelProjectionsPath) &&
+      !exists(modelProjectionsTestPath) &&
       /canonical route decision details/.test(
         read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
       ) &&
@@ -7338,8 +7344,6 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.test.mjs",
       "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
@@ -7732,11 +7736,11 @@ function runBridge() {
       /Object\.hasOwn\(projection,\s*"receiptId"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(projection,\s*"receiptCreatedAt"\),\s*false/.test(modelRouteDecisionTest) &&
       /Object\.hasOwn\(projection,\s*"receiptKind"\),\s*false/.test(modelRouteDecisionTest) &&
-      /Object\.hasOwn\(decisions\[0\],\s*"receiptId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/projections.test.mjs")),
+      !exists(modelProjectionsPath) &&
+      !exists(modelProjectionsTestPath),
     [
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/agent-sdk/src/messages.ts",
     ],
@@ -7804,11 +7808,8 @@ function runBridge() {
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
       !/export function modelMountingSnapshot/.test(modelMountingReadModel) &&
       !/export function workflowNodeBindings/.test(modelMountingReadModel) &&
-      !/export function buildModelMountingProjection/.test(modelProjections) &&
-      !/export function buildAuthoritySnapshot/.test(modelProjections) &&
-      !/export function buildProjectionSummary/.test(modelProjections) &&
-      !/export function buildAdapterBoundaries/.test(modelProjections) &&
-      !/export function buildReceiptReplay/.test(modelProjections) &&
+      !exists(modelProjectionsPath) &&
+      !exists(modelProjectionsTestPath) &&
       /serverStatus\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_status",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacade) &&
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
@@ -8098,8 +8099,6 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
@@ -8498,7 +8497,6 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.mjs",
       "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
     ],
@@ -13963,7 +13961,6 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/index.mjs",
-      "packages/runtime-daemon/src/model-mounting/projections.mjs",
     ],
     "Phase 5/11 is pending: model-mount receipt persistence must pass through Rust Agentgres receipt-state storage admission and must not append duplicate JS operation-log records after Rust binding and Agentgres admission",
   );

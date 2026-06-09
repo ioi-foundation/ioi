@@ -16615,7 +16615,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 816
+## Compacted Implementation Slice Evidence: 816
 
 Slice 816 retired the remaining dead JS model_mount broad projection helper
 exports after their public callers had moved to Rust read-projection kinds.
@@ -16627,26 +16627,47 @@ and `buildModelMountingProjection()`, `buildAuthoritySnapshot()`,
 now retains only the narrow `buildModelRouteDecisions()` admitted-receipt
 projection helper used by canonical route-decision checks.
 
-Focused evidence:
-
-| Check | Result |
-| --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
-| `npm run hypervisor-conformance:bridge` | passed |
-| `npm run hypervisor-conformance:receipts` | passed |
-| `npm run hypervisor-conformance` | passed |
-| `git diff --check` | passed |
+Focused evidence compacted after Slice 817: targeted JS tests,
+`hypervisor-conformance:bridge`, `hypervisor-conformance:receipts`, full
+`hypervisor-conformance`, and `git diff --check` passed before commit.
 
 This does not claim terminal model_mount projection migration: direct Rust
 daemon-core Agentgres projection APIs still need to replace JS state
 materialization, local map/projection-file materialization, command transport,
 and edge error-envelope translation.
 
-Scheduled matrix-compaction obligation from Slice 816 is pending after this
-verified slice.
+Scheduled matrix-compaction obligation from Slice 816 is now satisfied.
 
-Next scheduled matrix-compaction pass: compact Slice 816 after the next
+## Implementation Slice Evidence: 817
+
+Slice 817 retired the final dead `projections.mjs` compatibility surface rather
+than preserving a one-helper JS projection module. Public model_route_decision
+reads already route through `modelRouteDecisions()` on the read-projection
+facade, which calls Rust `plan_model_mount_read_projection` kind
+`model_route_decisions` with admitted receipts as migration input.
+`packages/runtime-daemon/src/model-mounting/projections.mjs` and
+`packages/runtime-daemon/src/model-mounting/projections.test.mjs` were deleted,
+and conformance now requires both files to remain absent.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal model_mount projection migration: direct Rust
+daemon-core Agentgres projection APIs still need to replace JS state
+materialization, local map/projection-file materialization, command transport,
+edge error-envelope translation, and the remaining live route-decision helper in
+`route-decision.mjs`.
+
+Next scheduled matrix-compaction pass: compact Slice 817 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper
-calls, and local map/projection materialization.
+calls, local map/projection materialization, and the remaining route-decision JS
+helper.

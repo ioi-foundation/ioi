@@ -1187,6 +1187,17 @@ projection migration: the daemon still prepares local current-state input for
 Rust projection transport until direct Rust daemon-core Agentgres projection APIs
 replace JS state materialization and command transport.
 
+Slice 817 retired that final dead `projections.mjs` compatibility surface
+instead of preserving a one-helper projection module. The remaining public
+model_route_decision reads continue through `modelRouteDecisions()` on the
+read-projection facade, which calls Rust `plan_model_mount_read_projection`
+kind `model_route_decisions` with admitted receipts as migration input.
+`packages/runtime-daemon/src/model-mounting/projections.mjs` and its self-test
+were deleted, and conformance now requires those files to remain absent. This
+keeps the route-decision receipt projection helper in `route-decision.mjs` only
+for live route/thread binding code until direct Rust daemon-core route-decision
+projection APIs replace that remaining JS helper.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
