@@ -34,10 +34,8 @@ export function createModelMountingReadProjectionFacade({
   hardwareSnapshot = () => null,
   notFound: notFoundDep = notFound,
   path,
-  providerHasVaultRef,
   publicOAuthSession,
   publicOAuthState,
-  publicProvider,
   readJson,
   readProjectionPlanner = null,
 } = {}) {
@@ -312,10 +310,7 @@ export function createModelMountingReadProjectionFacade({
     }
     if (projectionKind === "latest_provider_health") {
       return {
-        providers: providerList(state, {
-          providerHasVaultRef,
-          publicProvider,
-        }),
+        providers: providerList(state),
         provider_health: providerHealthList(state, {
           listJson,
           path,
@@ -336,10 +331,7 @@ export function createModelMountingReadProjectionFacade({
         routes: routeList(state),
         endpoints: endpointList(state),
         instances: instanceList(state),
-        providers: providerList(state, {
-          providerHasVaultRef,
-          publicProvider,
-        }),
+        providers: providerList(state),
       };
     }
     const artifacts = artifactList(state);
@@ -365,10 +357,7 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "instances") {
       return { instances };
     }
-    const providers = providerList(state, {
-      providerHasVaultRef,
-      publicProvider,
-    });
+    const providers = providerList(state);
     if (projectionKind === "providers") {
       return { providers };
     }

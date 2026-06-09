@@ -674,6 +674,9 @@ function runDocs() {
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(guide) &&
       /`model_catalog_variant_enrichment_js_retired`/.test(guide) &&
       /`catalogVariantForSource\(\)`/.test(guide) &&
+      /Slice 839 retired JS-authored provider public\/vault metadata projection/.test(guide) &&
+      /`providerHasVaultRef`/.test(guide) &&
+      /`publicProvider`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -826,10 +829,15 @@ function runDocs() {
       /Slice 837 retired public catalog-status readback input composition from JS/.test(matrix) &&
       /model_catalog_status_js_readback_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 837 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 838/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 838/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 838 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 839/.test(matrix) &&
+      /Slice 839 retired JS-authored provider public\/vault metadata projection/.test(matrix) &&
+      /providerHasVaultRef/.test(matrix) &&
+      /publicProvider/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 839/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -858,6 +866,9 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /non-search catalog variant enrichment now fails closed with `model_catalog_variant_enrichment_js_retired`/.test(
+        implementationMatrix,
+      ) &&
+      /provider read-projection input no longer calls JS `publicProvider\(\)`, `providerHasVaultRef\(\)`, or `state\.vault\.vaultRefMetadata\(\)`/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -8002,9 +8013,16 @@ function runBridge() {
       /projectionKind === "catalog_status"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/catalogProviderStatus/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
+      /export function providerList\(state\)[\s\S]*?return sortedValues\(state\.providers/.test(modelMountingReadModel) &&
+      !/state\.vault\.vaultRefMetadata/.test(modelMountingReadModel) &&
+      !/publicProvider\(/.test(modelMountingReadModel) &&
+      !/providerHasVaultRef/.test(modelMountingReadProjectionFacade) &&
+      !/publicProvider/.test(modelMountingReadProjectionFacade) &&
+      !/providerHasVaultRef,\s*publicOAuthSession/.test(modelMountingState) &&
+      !/publicProvider,\s*readJson/.test(modelMountingState) &&
+      /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state\)[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state\)/.test(modelMountingReadProjectionFacade) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
       /latestRuntimeSurvey\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_runtime_survey"\)/.test(modelMountingReadProjectionFacade) &&

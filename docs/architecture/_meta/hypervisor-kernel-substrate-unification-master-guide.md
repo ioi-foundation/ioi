@@ -1461,6 +1461,15 @@ Rust catalog-variant projection boundary before fixture lookup, legacy
 camelCase variant aliases, catalog auth projection, or selection receipt-field
 synthesis can become JS truth.
 
+Slice 839 retired JS-authored provider public/vault metadata projection from
+model_mount read-projection input. `providerList()` now returns sorted raw
+provider records only, and `read-projection-facade.mjs` no longer injects
+`providerHasVaultRef` or `publicProvider` into provider, model-capability,
+receipt-replay, latest-provider-health, snapshot, or projection requests. Public
+provider envelope shaping and vault metadata redaction are therefore no longer
+JS readback authority; direct Rust daemon-core projection APIs must own that
+shape over Agentgres/wallet/cTEE admitted truth.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

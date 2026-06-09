@@ -45,16 +45,8 @@ export function openAiModelList(state) {
   };
 }
 
-export function providerList(state, deps = {}) {
-  const {
-    providerHasVaultRef = () => false,
-    publicProvider = (provider) => provider,
-  } = deps;
-  return sortedValues(state.providers, (left, right) => left.id.localeCompare(right.id))
-    .map((provider) => publicProvider(
-      provider,
-      providerHasVaultRef(provider) ? state.vault.vaultRefMetadata(provider.secretRef) : null,
-    ));
+export function providerList(state) {
+  return sortedValues(state.providers, (left, right) => left.id.localeCompare(right.id));
 }
 
 export function endpointList(state) {

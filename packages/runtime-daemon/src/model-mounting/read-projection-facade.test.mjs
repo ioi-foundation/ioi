@@ -192,10 +192,8 @@ function createState() {
     listJson: () => ["/state/provider-health/provider.local.json"],
     modelMountSchemaVersion: "model.mount.schema",
     path: { join: (...parts) => parts.join("/") },
-    providerHasVaultRef: (provider) => Boolean(provider.secretRef),
     publicOAuthSession: (session) => ({ id: session.id }),
     publicOAuthState: (oauthState) => ({ id: oauthState.id }),
-    publicProvider: (provider, vaultMetadata) => ({ ...provider, vaultMetadata }),
     readJson: () => ({
       providerId: "provider.local",
       receiptId: "receipt-provider-health",
@@ -784,12 +782,14 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     kind: provider.kind,
     status: provider.status,
     vaultMetadata: provider.vaultMetadata,
+    hasSecretRef: Object.hasOwn(provider, "secretRef"),
   })), [
     {
       id: "provider.local",
       kind: "local",
       status: "running",
-      vaultMetadata: { secretRef: "vault://provider.local/api-key", configured: true },
+      vaultMetadata: undefined,
+      hasSecretRef: true,
     },
   ]);
   assert.deepEqual(facade.listEndpoints(state).map((endpoint) => endpoint.id), ["endpoint.local"]);

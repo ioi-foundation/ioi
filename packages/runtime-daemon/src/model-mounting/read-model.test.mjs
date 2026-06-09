@@ -80,10 +80,7 @@ function fakeState() {
       return [];
     },
     listProviders() {
-      return providerList(this, {
-        providerHasVaultRef: (provider) => Boolean(provider.secretRef),
-        publicProvider: (provider, vaultMetadata) => ({ id: provider.id, vaultMetadata }),
-      });
+      return providerList(this);
     },
     listRoutes() {
       return routeList(this);
@@ -126,15 +123,25 @@ test("model mounting read model builds product and protocol model lists", () => 
   assert.equal(nativeModel.provider, "ioi-daemon-local");
 });
 
-test("model mounting read model applies provider vault metadata and capabilities", () => {
+test("model mounting read model leaves provider projection shaping to Rust", () => {
   const state = fakeState();
-  assert.deepEqual(providerList(state, {
-    providerHasVaultRef: (provider) => Boolean(provider.secretRef),
-    publicProvider: (provider, vaultMetadata) => ({ id: provider.id, vaultMetadata }),
-  }), [
-    { id: "provider_a", vaultMetadata: { secretRef: "vault://provider_a/api-key", configured: true } },
-    { id: "provider_b", vaultMetadata: null },
-  ]);
+  let vaultMetadataCalls = 0;
+  state.vault.vaultRefMetadata = () => {
+    vaultMetadataCalls += 1;
+    throw new Error("provider vault metadata must not be projected in JS");
+  };
+  const providers = providerList(state, {
+    providerHasVaultRef: () => {
+      throw new Error("providerHasVaultRef must not be used by providerList");
+    },
+    publicProvider: () => {
+      throw new Error("publicProvider must not be used by providerList");
+    },
+  });
+  assert.deepEqual(providers.map((provider) => provider.id), ["provider_a", "provider_b"]);
+  assert.equal(providers[0].secretRef, "vault://provider_a/api-key");
+  assert.equal(Object.hasOwn(providers[0], "vaultMetadata"), false);
+  assert.equal(vaultMetadataCalls, 0);
   assert.deepEqual(modelCapabilityList(state, {
     buildModelCapabilities({ routes, endpoints, providers, artifacts, instances }) {
       return [{ routes: routes.length, endpoints: endpoints.length, providers: providers.length, artifacts: artifacts.length, instances: instances.length }];

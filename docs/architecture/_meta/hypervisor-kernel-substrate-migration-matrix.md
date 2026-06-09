@@ -17209,7 +17209,7 @@ Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 837 is now satisfied.
 
-## Implementation Slice Evidence: 838
+## Compacted Implementation Slice Evidence: 838
 
 Slice 838 retired the remaining non-search catalog variant enrichment path from
 JS. `enrichCatalogEntryForState()` now fails closed with
@@ -17234,7 +17234,35 @@ APIs, catalog search/projection APIs, Agentgres-backed projection, and
 command-transport replacement still remain before this surface reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 838 after the next direct
+Scheduled matrix-compaction obligation from Slice 838 is now satisfied.
+
+## Implementation Slice Evidence: 839
+
+Slice 839 retired JS-authored provider public/vault metadata projection from
+model_mount read-projection input. `providerList()` now returns sorted raw
+provider records only and ignores old `providerHasVaultRef`/`publicProvider`
+projection helpers, so provider readback can no longer call
+`state.vault.vaultRefMetadata()` or synthesize `vaultMetadata` in JS.
+`read-projection-facade.mjs` no longer accepts or injects `providerHasVaultRef`
+or `publicProvider` for `providers`, `model_capabilities`, `receipt_replay`,
+`latest_provider_health`, broad `snapshot`, or broad `projection` requests.
+The runtime-daemon may still carry provider records as migration transport, but
+public provider envelope shaping and vault metadata redaction are no longer JS
+readback authority.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal provider/projection migration: direct Rust
+daemon-core provider projection APIs, Agentgres-backed provider truth,
+wallet/cTEE vault metadata redaction, local map/projection materialization
+replacement, and command-transport replacement still remain before this surface
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 839 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local

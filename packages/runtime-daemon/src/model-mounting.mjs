@@ -397,10 +397,8 @@ export class ModelMountingState {
       modelMountSchemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
       hardwareSnapshot,
       path,
-      providerHasVaultRef,
       publicOAuthSession,
       publicOAuthState,
-      publicProvider,
       readJson,
       readProjectionPlanner: this.modelMountAdmissionRunner,
     });
