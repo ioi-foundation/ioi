@@ -18569,7 +18569,34 @@ stable protocol APIs, command-transport retirement, and removal of the remaining
 JS provider edge adapters remain required before provider execution reaches the
 pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 887 after the next direct
+Scheduled matrix-compaction obligation from Slice 887 is now satisfied.
+
+## Implementation Slice Evidence: 888
+
+Slice 888 retired the LM Studio driver's nested OpenAI-compatible adapter. The
+fail-closed `LmStudioModelProviderDriver` no longer imports or constructs
+`OpenAICompatibleModelProviderDriver`, no longer stores `this.openAi` or
+`this.state`, and remains a pure Rust-core-required refusal stub for LM Studio
+health, inventory, lifecycle, load/unload, invoke, and stream-invoke paths. This
+removes one more lower-level JS driver composition point after the mounted
+provider-driver factory was retired.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal LM Studio/provider migration: direct Rust
+daemon-core LM Studio/provider transports, lifecycle, inventory, projection,
+Agentgres-backed replay, stable protocol APIs, command-transport retirement,
+and removal of the remaining JS provider edge adapters remain required before
+provider execution reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 888 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, lower-level fail-closed
 JS driver modules, direct Rust daemon-core provider execution/control APIs,

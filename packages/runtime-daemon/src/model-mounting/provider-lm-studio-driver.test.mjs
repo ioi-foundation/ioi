@@ -52,6 +52,8 @@ test("LM Studio driver control and inventory fail closed before public CLI trans
 
   assert.equal(Object.hasOwn(Object.getPrototypeOf(driver), "lmsPath"), false);
   assert.equal(Object.hasOwn(Object.getPrototypeOf(driver), "requireLmsPath"), false);
+  assert.equal(Object.hasOwn(driver, "openAi"), false);
+  assert.equal(Object.hasOwn(driver, "state"), false);
 
   await assert.rejects(
     () => driver.health(selectedProvider),

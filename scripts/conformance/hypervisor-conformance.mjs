@@ -1039,7 +1039,11 @@ function runDocs() {
       /Implementation Slice Evidence: 887/.test(matrix) &&
       /Slice 887 retired the mounted JS provider-driver factory/.test(matrix) &&
       /`provider-driver-factory\.mjs` module and concrete-driver routing test are\s+deleted/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 887/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 887 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 888/.test(matrix) &&
+      /Slice 888 retired the LM Studio driver's nested OpenAI-compatible adapter/.test(matrix) &&
+      /no longer imports or constructs\s+`OpenAICompatibleModelProviderDriver`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 888/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1205,7 +1209,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 884 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 885 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 886 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 887/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 887 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 888/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -14169,6 +14174,8 @@ function runReceipts() {
     /model_mount_lm_studio_public_cli_retired/.test(lmStudioProviderDriver) &&
       /rust_core_boundary:\s*"model_mount\.provider_lm_studio"/.test(lmStudioProviderDriver) &&
       /lm_studio_public_cli_driver_retired/.test(lmStudioProviderDriver) &&
+      !/OpenAICompatibleModelProviderDriver/.test(lmStudioProviderDriver) &&
+      !/this\.openAi|this\.state/.test(lmStudioProviderDriver) &&
       !/runPublicCommand/.test(lmStudioProviderDriver) &&
       !/lmsPath|requireLmsPath/.test(lmStudioProviderDriver) &&
       !/providerCommandError|parseLmStudioList|parseLmStudioProcessList|lmStudioArtifact/.test(lmStudioProviderDriver) &&
@@ -14180,7 +14187,9 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(lmStudioProviderDriverTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(lmStudioProviderDriverTest) &&
       /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"lmsPath"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"requireLmsPath"\),\s*false/.test(lmStudioProviderDriverTest),
+      /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"requireLmsPath"\),\s*false/.test(lmStudioProviderDriverTest) &&
+      /Object\.hasOwn\(driver,\s*"openAi"\),\s*false/.test(lmStudioProviderDriverTest) &&
+      /Object\.hasOwn\(driver,\s*"state"\),\s*false/.test(lmStudioProviderDriverTest),
     [
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",

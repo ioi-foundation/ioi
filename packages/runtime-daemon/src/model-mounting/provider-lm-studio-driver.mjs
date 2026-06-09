@@ -1,12 +1,6 @@
 import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
-import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
 
 export class LmStudioModelProviderDriver {
-  constructor({ state }) {
-    this.state = state;
-    this.openAi = new OpenAICompatibleModelProviderDriver({ label: "lm_studio" });
-  }
-
   async health(provider) {
     throw lmStudioDriverRustCoreRequired(provider, "provider_health", {
       operation_kind: "model_mount.provider.health",

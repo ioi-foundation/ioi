@@ -2060,6 +2060,17 @@ inventory, projection, Agentgres-backed replay, stable protocol APIs, and
 command-transport retirement remain required before provider execution reaches
 the pure Rust substrate target.
 
+Slice 888 retired the LM Studio driver's nested OpenAI-compatible adapter. The
+fail-closed `LmStudioModelProviderDriver` no longer imports or constructs
+`OpenAICompatibleModelProviderDriver`, no longer stores `this.openAi` or
+`this.state`, and remains a pure Rust-core-required refusal stub for LM Studio
+health, inventory, lifecycle, load/unload, invoke, and stream-invoke paths.
+This removes one more lower-level JS driver composition point after the mounted
+provider-driver factory was retired. Terminal provider migration still requires
+direct Rust daemon-core LM Studio/provider transports, lifecycle, inventory,
+projection, Agentgres-backed replay, stable protocol APIs, and
+command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
