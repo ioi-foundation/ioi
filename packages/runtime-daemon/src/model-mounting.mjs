@@ -43,12 +43,6 @@ import {
   unloadModel as unloadModelState,
 } from "./model-mounting/model-loading-operations.mjs";
 import {
-  cancelDownload as cancelDownloadState,
-  cleanupModelStorage as cleanupModelStorageState,
-  deleteModelArtifact as deleteModelArtifactState,
-  downloadStatus as downloadStatusState,
-} from "./model-mounting/storage-operations.mjs";
-import {
   bindVaultRef as bindVaultRefState,
   listVaultRefs as listVaultRefsState,
   removeVaultRef as removeVaultRefState,
@@ -309,6 +303,16 @@ import {
 } from "./model-mounting/receipt-operations.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
+const RETIRED_MODEL_STORAGE_REQUEST_ALIASES = [
+  "cleanupPartial",
+  "dryRun",
+  "removeOrphans",
+];
+const CANONICAL_MODEL_STORAGE_REQUEST_FIELDS = [
+  "cleanup_partial",
+  "dry_run",
+  "remove_orphans",
+];
 const {
   hostedProvider,
   optionalString,
@@ -812,40 +816,24 @@ export class ModelMountingState {
   }
 
   cancelDownload(jobId, body = {}) {
-    return cancelDownloadState(this, jobId, body, {
-      cleanupPartialDownload,
-      destructiveConfirmationState,
-      fileSizeIfExists,
-      truthy,
-    });
+    assertCanonicalModelStorageRequestBody(body);
+    throwModelStorageRustCoreRequired("model_mount.download.cancel", { job_id: jobId });
   }
 
   downloadStatus(jobId) {
-    return downloadStatusState(this, jobId, { notFound });
+    const job = this.downloads.get(jobId);
+    if (!job) throw notFound(`Download job not found: ${jobId}`, { job_id: jobId });
+    return job;
   }
 
   deleteModelArtifact(id, body = {}) {
-    return deleteModelArtifactState(this, id, body, {
-      destructiveConfirmationState,
-      fileSizeIfExists,
-      runtimeError,
-      safeFileName,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
-      truthy,
-    });
+    assertCanonicalModelStorageRequestBody(body);
+    throwModelStorageRustCoreRequired("model_mount.artifact.delete", { artifact_id: id });
   }
 
   cleanupModelStorage(body = {}) {
-    return cleanupModelStorageState(this, body, {
-      destructiveConfirmationState,
-      fileSizeIfExists,
-      listModelFiles,
-      runtimeError,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
-      truthy,
-    });
+    assertCanonicalModelStorageRequestBody(body);
+    throwModelStorageRustCoreRequired("model_mount.storage.cleanup");
   }
 
   bindVaultRef(body = {}) {
@@ -1507,4 +1495,39 @@ function throwRuntimeSurveyRustCoreRequired(details = {}) {
     ],
   };
   throw error;
+}
+
+function assertCanonicalModelStorageRequestBody(body = {}) {
+  const retiredAliases = RETIRED_MODEL_STORAGE_REQUEST_ALIASES.filter((field) =>
+    Object.hasOwn(body, field),
+  );
+  if (retiredAliases.length === 0) return;
+  const error = new Error(
+    "Model storage request aliases are retired; use canonical snake_case request fields.",
+  );
+  error.status = 400;
+  error.code = "model_storage_request_aliases_retired";
+  error.details = {
+    retired_aliases: retiredAliases,
+    canonical_fields: CANONICAL_MODEL_STORAGE_REQUEST_FIELDS,
+  };
+  throw error;
+}
+
+function throwModelStorageRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_storage_rust_core_required",
+    message:
+      "Model storage mutation facades require Rust daemon-core model_mount storage ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.storage",
+      evidence_refs: [
+        "public_model_storage_js_facade_retired",
+        "rust_daemon_core_model_storage_required",
+      ],
+      ...details,
+    },
+  });
 }

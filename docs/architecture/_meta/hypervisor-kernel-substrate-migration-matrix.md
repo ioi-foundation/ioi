@@ -18132,10 +18132,36 @@ OAuth truth, command-transport retirement, and edge error-envelope translation
 retirement still remain before catalog-provider OAuth reaches the pure Rust
 substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 871 after the next direct
+Scheduled matrix-compaction obligation from Slice 871 is now satisfied.
+
+## Implementation Slice Evidence: 872
+
+Slice 872 retired the fail-closed `storage-operations.mjs` helper module after
+public download-cancel, artifact-delete, and storage-cleanup mutations had
+already been reduced to Rust-core-required edge refusals. The mounted public
+`ModelMountingState` storage methods now own canonical storage request alias
+rejection, download-status not-found projection details, and
+`model_mount.storage` Rust-core-required errors directly, without importing a
+helper module or dependency-injecting destructive-confirmation, filesystem, or
+hash helpers that cannot run before the Rust boundary.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal model storage migration: direct Rust
+daemon-core artifact/download/storage filesystem control, Agentgres-admitted
+receipt and record-state truth, projection persistence, command-transport
+retirement, and stable protocol APIs remain required before model storage
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 872 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog-provider OAuth readback/error translation, local map/projection
-materialization, and direct Rust daemon-core wallet/cTEE OAuth custody
-projection APIs. The `ioi-step-module-bridge` command path is acceptable only
-as migration transport; it is not the terminal architecture.
+model storage filesystem/receipt/projection materialization, local map-backed
+download status readback, and direct Rust daemon-core artifact/download/storage
+APIs. The `ioi-step-module-bridge` command path is acceptable only as
+migration transport; it is not the terminal architecture.

@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  cancelDownload,
-  cleanupModelStorage,
-  deleteModelArtifact,
-  downloadStatus,
-} from "./storage-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   return {
@@ -18,9 +13,6 @@ function fakeState() {
     receipts: [],
     writes: [],
     projections: 0,
-    downloadStatus(jobId) {
-      return downloadStatus(this, jobId, { notFound: deps.notFound });
-    },
     getModel(id) {
       throw new Error(`artifact lookup should not run: ${id}`);
     },
@@ -45,27 +37,6 @@ function fakeState() {
   };
 }
 
-const deps = {
-  cleanupPartialDownload() {
-    throw new Error("partial cleanup should not run");
-  },
-  destructiveConfirmationState() {
-    throw new Error("destructive confirmation should not run");
-  },
-  fileSizeIfExists() {
-    throw new Error("filesystem stat should not run");
-  },
-  listModelFiles() {
-    throw new Error("storage scan should not run");
-  },
-  notFound(message, details) {
-    return Object.assign(new Error(message), { status: 404, details });
-  },
-  runtimeError({ status, code, message, details }) {
-    return Object.assign(new Error(message), { status, code, details });
-  },
-};
-
 function assertNoMutation(state) {
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
@@ -77,9 +48,9 @@ test("downloadStatus remains a read projection and uses canonical not-found deta
   const state = fakeState();
   state.downloads.set("job.1", { id: "job.1", status: "queued" });
 
-  assert.equal(downloadStatus(state, "job.1", { notFound: deps.notFound }).id, "job.1");
+  assert.equal(ModelMountingState.prototype.downloadStatus.call(state, "job.1").id, "job.1");
   assert.throws(
-    () => downloadStatus(state, "missing", { notFound: deps.notFound }),
+    () => ModelMountingState.prototype.downloadStatus.call(state, "missing"),
     (error) => {
       assert.equal(error.status, 404);
       assert.equal(error.details.job_id, "missing");
@@ -96,17 +67,17 @@ test("model storage mutation facades fail closed until Rust core owns them", () 
 
   const cases = [
     [
-      () => cancelDownload(state, "job.active", {}, deps),
+      () => ModelMountingState.prototype.cancelDownload.call(state, "job.active", {}),
       "model_mount.download.cancel",
       { job_id: "job.active" },
     ],
     [
-      () => deleteModelArtifact(state, "artifact.llama", {}, deps),
+      () => ModelMountingState.prototype.deleteModelArtifact.call(state, "artifact.llama", {}),
       "model_mount.artifact.delete",
       { artifact_id: "artifact.llama" },
     ],
     [
-      () => cleanupModelStorage(state, {}, deps),
+      () => ModelMountingState.prototype.cleanupModelStorage.call(state, {}),
       "model_mount.storage.cleanup",
       {},
     ],
@@ -141,7 +112,7 @@ test("storage mutations reject retired aliases before Rust-core boundary", () =>
   const state = fakeState();
 
   assert.throws(
-    () => cancelDownload(state, "job.active", { cleanupPartial: false }, deps),
+    () => ModelMountingState.prototype.cancelDownload.call(state, "job.active", { cleanupPartial: false }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_storage_request_aliases_retired");
@@ -156,7 +127,7 @@ test("storage mutations reject retired aliases before Rust-core boundary", () =>
   );
 
   assert.throws(
-    () => deleteModelArtifact(state, "artifact.llama", { dryRun: true }, deps),
+    () => ModelMountingState.prototype.deleteModelArtifact.call(state, "artifact.llama", { dryRun: true }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_storage_request_aliases_retired");
@@ -166,7 +137,7 @@ test("storage mutations reject retired aliases before Rust-core boundary", () =>
   );
 
   assert.throws(
-    () => cleanupModelStorage(state, { removeOrphans: true }, deps),
+    () => ModelMountingState.prototype.cleanupModelStorage.call(state, { removeOrphans: true }),
     (error) => {
       assert.equal(error.status, 400);
       assert.equal(error.code, "model_storage_request_aliases_retired");

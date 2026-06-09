@@ -1848,6 +1848,19 @@ custody migration: direct Rust daemon-core wallet/cTEE OAuth state/session
 projection APIs, Agentgres-admitted OAuth truth, command-transport retirement,
 and edge error-envelope translation retirement still remain.
 
+Slice 872 retired the fail-closed `storage-operations.mjs` helper module after
+public download-cancel, artifact-delete, and storage-cleanup mutations had
+already been reduced to Rust-core-required edge refusals. The mounted public
+`ModelMountingState` storage methods now own canonical storage request alias
+rejection, download-status not-found projection details, and
+`model_mount.storage` Rust-core-required errors directly, without importing a
+helper module or dependency-injecting destructive-confirmation, filesystem, or
+hash helpers that cannot run before the Rust boundary. This does not claim
+terminal model storage migration: direct Rust daemon-core
+artifact/download/storage filesystem control, Agentgres-admitted receipt and
+record-state truth, projection persistence, command-transport retirement, and
+stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

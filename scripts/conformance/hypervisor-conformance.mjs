@@ -973,7 +973,11 @@ function runDocs() {
       /Implementation Slice Evidence: 871/.test(matrix) &&
       /Slice 871 retired the fail-closed `catalog-provider-oauth\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` OAuth methods now own provider configurability preflight/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 871/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 871 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 872/.test(matrix) &&
+      /Slice 872 retired the fail-closed `storage-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` storage methods now own canonical storage request alias\s+rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 872/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1123,7 +1127,10 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 868 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 869 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 870 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 871/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 871 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 872/.test(matrix) &&
+      /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -12099,11 +12106,11 @@ function runReceipts() {
     storageOperations.match(/state\.lifecycleReceipt\("model_storage_cleanup",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "",
   ].join("\n");
   const cancelDownloadBlock =
-    storageOperations.match(/export function cancelDownload[\s\S]*?export function downloadStatus/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+cancelDownload\(jobId, body = \{\}\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const deleteModelArtifactBlock =
-    storageOperations.match(/export function deleteModelArtifact[\s\S]*?export function cleanupModelStorage/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+deleteModelArtifact\(id, body = \{\}\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const cleanupModelStorageBlock =
-    storageOperations.match(/export function cleanupModelStorage[\s\S]*?function assertCanonicalModelStorageRequestBody/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+cleanupModelStorage\(body = \{\}\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const mcpServerReceiptDetailsHelper =
     mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const mcpToolReceiptDetailsObject =
@@ -12957,19 +12964,20 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-storage-request-aliases-retired",
-    /RETIRED_MODEL_STORAGE_REQUEST_ALIASES/.test(storageOperations) &&
-      /CANONICAL_MODEL_STORAGE_REQUEST_FIELDS/.test(storageOperations) &&
-      /model_storage_request_aliases_retired/.test(storageOperations) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwStorageRustCoreRequired\("model_mount\.download\.cancel"/.test(
+    !exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs") &&
+      /RETIRED_MODEL_STORAGE_REQUEST_ALIASES/.test(modelMountingState) &&
+      /CANONICAL_MODEL_STORAGE_REQUEST_FIELDS/.test(modelMountingState) &&
+      /model_storage_request_aliases_retired/.test(modelMountingState) &&
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwModelStorageRustCoreRequired\("model_mount\.download\.cancel"/.test(
         cancelDownloadBlock,
       ) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwStorageRustCoreRequired\("model_mount\.artifact\.delete"/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwModelStorageRustCoreRequired\("model_mount\.artifact\.delete"/.test(
         deleteModelArtifactBlock,
       ) &&
-      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwStorageRustCoreRequired\("model_mount\.storage\.cleanup"/.test(
+      /assertCanonicalModelStorageRequestBody\(body\);[\s\S]*throwModelStorageRustCoreRequired\("model_mount\.storage\.cleanup"/.test(
         cleanupModelStorageBlock,
       ) &&
-      !/body\.(?:cleanupPartial|dryRun|removeOrphans)\b/.test(storageOperations) &&
+      !/body\.(?:cleanupPartial|dryRun|removeOrphans)\b/.test(modelMountingState) &&
       /storage mutations reject retired aliases before Rust-core boundary/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"cleanupPartial"\s*\]/.test(storageOperationsTest) &&
       /retired_aliases,\s*\[\s*"dryRun"\s*\]/.test(storageOperationsTest) &&
@@ -12978,7 +12986,7 @@ function runReceipts() {
         storageOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
     "Phase 9/11 is pending: model storage request bodies must fail closed on retired camelCase cleanup/dry-run/orphan aliases before state lookup or filesystem scanning",
@@ -12986,19 +12994,21 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-storage-js-facade-retired",
-    /throwStorageRustCoreRequired/.test(storageOperations) &&
-      /model_mount_storage_rust_core_required/.test(storageOperations) &&
-      /rust_core_boundary:\s*"model_mount\.storage"/.test(storageOperations) &&
-      /public_model_storage_js_facade_retired/.test(storageOperations) &&
-      /rust_daemon_core_model_storage_required/.test(storageOperations) &&
-      /throwStorageRustCoreRequired\("model_mount\.download\.cancel",\s*\{ job_id: jobId \},\s*deps\)/.test(
-        storageOperations,
+    !exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs") &&
+      !/cancelDownloadState|downloadStatusState|deleteModelArtifactState|cleanupModelStorageState/.test(modelMountingState) &&
+      /throwModelStorageRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_storage_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.storage"/.test(modelMountingState) &&
+      /public_model_storage_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_model_storage_required/.test(modelMountingState) &&
+      /throwModelStorageRustCoreRequired\("model_mount\.download\.cancel",\s*\{ job_id: jobId \}\)/.test(
+        modelMountingState,
       ) &&
-      /throwStorageRustCoreRequired\("model_mount\.artifact\.delete",\s*\{ artifact_id: id \},\s*deps\)/.test(
-        storageOperations,
+      /throwModelStorageRustCoreRequired\("model_mount\.artifact\.delete",\s*\{ artifact_id: id \}\)/.test(
+        modelMountingState,
       ) &&
-      /throwStorageRustCoreRequired\("model_mount\.storage\.cleanup",\s*\{\},\s*deps\)/.test(
-        storageOperations,
+      /throwModelStorageRustCoreRequired\("model_mount\.storage\.cleanup"\)/.test(
+        modelMountingState,
       ) &&
       !/state\.lifecycleReceipt\("model_(?:download_canceled|artifact_delete|artifact_delete_dry_run|storage_cleanup)"/.test(storageOperations) &&
       !/commitModelDownloadRecordState/.test(storageOperations) &&
@@ -13008,13 +13018,17 @@ function runReceipts() {
       !/state\.writeMap\("model-downloads"/.test(cancelDownloadBlock) &&
       !/state\.writeMap\("model-artifacts"/.test(deleteModelArtifactBlock) &&
       !/state\.writeMap\("model-endpoints"/.test(deleteModelArtifactBlock) &&
-      !/state\.downloads\.set/.test(storageOperations) &&
-      !/state\.artifacts\.delete/.test(storageOperations) &&
-      !/state\.endpoints\.set/.test(storageOperations) &&
-      /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(storageOperations) &&
+      !/this\.downloads\.set/.test(modelMountingState) &&
+      !/this\.artifacts\.delete/.test(modelMountingState) &&
+      !/this\.endpoints\.set/.test(modelMountingState) &&
+      /notFound\(`Download job not found: \$\{jobId\}`,\s*\{ job_id: jobId \}\)/.test(modelMountingState) &&
       !/\S/.test(storageLifecycleReceiptBlocks) &&
-      !/notFound\(`Download job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(storageOperations) &&
+      !/notFound\(`Download job not found: \$\{jobId\}`,\s*\{ jobId \}\)/.test(modelMountingState) &&
       /model storage mutation facades fail closed until Rust core owns them/.test(storageOperationsTest) &&
+      /ModelMountingState\.prototype\.cancelDownload\.call/.test(storageOperationsTest) &&
+      /ModelMountingState\.prototype\.deleteModelArtifact\.call/.test(storageOperationsTest) &&
+      /ModelMountingState\.prototype\.cleanupModelStorage\.call/.test(storageOperationsTest) &&
+      /ModelMountingState\.prototype\.downloadStatus\.call/.test(storageOperationsTest) &&
       /model_mount_storage_rust_core_required/.test(storageOperationsTest) &&
       /model_mount\.download\.cancel/.test(storageOperationsTest) &&
       /model_mount\.artifact\.delete/.test(storageOperationsTest) &&
@@ -13031,7 +13045,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/storage-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
     "Phase 9/11 is pending: model storage mutation must fail closed until Rust daemon-core owns download cancel, artifact delete, cleanup, receipt, record-state, filesystem, and projection semantics",
