@@ -18322,10 +18322,37 @@ truth, projection persistence, command-transport retirement, and stable protocol
 APIs remain required before catalog-provider control reaches the pure Rust
 substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 878 after the next direct
+Scheduled matrix-compaction obligation from Slice 878 is now satisfied.
+
+## Implementation Slice Evidence: 879
+
+Slice 879 retired the fail-closed `receipt-operations.mjs` helper module after
+direct model lifecycle receipt authoring and generic model_mount JS receipt
+creation had already been reduced to Rust-core-required receipt-authoring edge
+refusals. The mounted public `ModelMountingState` receipt methods now own
+receipt list/get store adapters, lifecycle subject alias rejection,
+`model_mount.lifecycle_receipt` Rust-core-required errors, generic JS
+receipt-creation retirement, and Rust-authored receipt persistence validation
+directly, without importing a helper module or preserving a standalone JS
+receipt-authoring surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal receipt migration: direct Rust daemon-core
+receipt authoring, binding, Agentgres admission, state-root/expected-head
+checks, projection persistence, command-transport retirement, and stable
+protocol APIs remain required before lifecycle receipt control reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 879 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog-provider control/search/status/custody projection and receipt
-materialization, direct Rust daemon-core catalog-provider APIs, and
-Agentgres-backed replay. The `ioi-step-module-bridge` command path is
-acceptable only as migration transport; it is not the terminal architecture.
+receipt authoring/binding/projection materialization, direct Rust daemon-core
+receipt APIs, and Agentgres-backed replay. The `ioi-step-module-bridge` command
+path is acceptable only as migration transport; it is not the terminal
+architecture.

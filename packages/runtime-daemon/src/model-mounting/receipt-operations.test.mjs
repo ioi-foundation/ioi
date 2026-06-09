@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  getReceipt,
-  lifecycleReceipt,
-  listReceipts,
-  persistRustAuthoredReceipt,
-  receipt,
-} from "./receipt-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function captureError(fn) {
   try {
@@ -27,8 +21,8 @@ test("receipt operations delegate receipt reads to the canonical store", () => {
     },
   };
 
-  assert.equal(listReceipts(state), receipts);
-  assert.equal(getReceipt(state, "receipt-one"), receipts[0]);
+  assert.equal(ModelMountingState.prototype.listReceipts.call(state), receipts);
+  assert.equal(ModelMountingState.prototype.getReceipt.call(state, "receipt-one"), receipts[0]);
 });
 
 test("lifecycleReceipt fails closed before JS model_lifecycle receipt creation", () => {
@@ -43,7 +37,7 @@ test("lifecycleReceipt fails closed before JS model_lifecycle receipt creation",
 
   assert.throws(
     () =>
-      lifecycleReceipt(state, "model_mount", {
+      ModelMountingState.prototype.lifecycleReceipt.call(state, "model_mount", {
         model_id: "model.local",
         endpoint_id: "endpoint.local",
       }),
@@ -76,7 +70,7 @@ test("lifecycleReceipt fails closed for canonical backend lifecycle receipt deta
 
   assert.throws(
     () =>
-      lifecycleReceipt(state, "backend_health", {
+      ModelMountingState.prototype.lifecycleReceipt.call(state, "backend_health", {
         model_id: "Native backend",
         backend_id: "backend.native",
       }),
@@ -104,7 +98,7 @@ test("lifecycle receipt subject aliases are retired", () => {
   };
 
   assert.throws(
-    () => lifecycleReceipt(state, "model_mount", {
+    () => ModelMountingState.prototype.lifecycleReceipt.call(state, "model_mount", {
       modelId: "model.legacy",
       endpointId: "endpoint.legacy",
     }),
@@ -131,7 +125,7 @@ test("model instance lifecycle receipt helper fails closed even with Rust bindin
   };
 
   assert.throws(
-    () => lifecycleReceipt(state, "model_load", {
+    () => ModelMountingState.prototype.lifecycleReceipt.call(state, "model_load", {
       instance_id: "instance.local",
       model_id: "model.local",
       provider_id: "provider.local",
@@ -146,7 +140,7 @@ test("model instance lifecycle receipt helper fails closed even with Rust bindin
 
   assert.throws(
     () =>
-      lifecycleReceipt(state, "model_load", {
+      ModelMountingState.prototype.lifecycleReceipt.call(state, "model_load", {
         instance_id: "instance.local",
         model_id: "model.local",
         provider_id: "provider.local",
@@ -196,7 +190,7 @@ test("receipt operations persist Rust-authored receipts and refresh projection",
     schemaVersion: "ioi.model-mounting.runtime.v1",
   };
 
-  const record = persistRustAuthoredReceipt(state, rustRecord);
+  const record = ModelMountingState.prototype.persistRustAuthoredReceipt.call(state, rustRecord);
 
   assert.equal(record, rustRecord);
   assert.equal(writes[0], rustRecord);
@@ -206,7 +200,7 @@ test("receipt operations persist Rust-authored receipts and refresh projection",
 test("receipt operations reject JS receipt creation after Rust receipt authoring cut", () => {
   const error = captureError(
     () =>
-      receipt({}, "provider_health", {
+      ModelMountingState.prototype.receipt.call({}, "provider_health", {
         summary: "Provider checked.",
         redaction: "redacted",
         evidenceRefs: ["provider.health"],
@@ -221,14 +215,17 @@ test("receipt operations reject JS receipt creation after Rust receipt authoring
 test("receipt operations reject non-Rust-authored receipt persistence", () => {
   const error = captureError(
     () =>
-      persistRustAuthoredReceipt({ store: { writeReceipt() {} }, writeProjection() {} }, {
-        id: "receipt-route",
-        kind: "model_route_selection",
-        createdAt: "unix:1",
-        schemaVersion: "ioi.model-mounting.runtime.v1",
-        evidenceRefs: [],
-        details: {},
-      }),
+      ModelMountingState.prototype.persistRustAuthoredReceipt.call(
+        { store: { writeReceipt() {} }, writeProjection() {} },
+        {
+          id: "receipt-route",
+          kind: "model_route_selection",
+          createdAt: "unix:1",
+          schemaVersion: "ioi.model-mounting.runtime.v1",
+          evidenceRefs: [],
+          details: {},
+        },
+      ),
   );
 
   assert.equal(error.code, "model_mount_rust_authored_receipt_required");

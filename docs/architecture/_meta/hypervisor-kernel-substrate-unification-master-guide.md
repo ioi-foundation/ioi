@@ -1944,6 +1944,19 @@ path is migration scaffolding for proving a stable daemon-to-kernel protocol
 surface, not a permanent bridge binary, and must not be treated as the terminal
 substrate; the transport must collapse into the Rust daemon core API.
 
+Slice 879 retired the fail-closed `receipt-operations.mjs` helper module after
+direct model lifecycle receipt authoring and generic model_mount JS receipt
+creation had already been reduced to Rust-core-required receipt-authoring edge
+refusals. The mounted public `ModelMountingState` receipt methods now own
+receipt list/get store adapters, lifecycle subject alias rejection,
+`model_mount.lifecycle_receipt` Rust-core-required errors, generic JS
+receipt-creation retirement, and Rust-authored receipt persistence validation
+directly, without importing a helper module or preserving a standalone JS
+receipt-authoring surface. This does not claim terminal receipt migration:
+direct Rust daemon-core receipt authoring, binding, Agentgres admission,
+state-root/expected-head checks, projection persistence, command-transport
+retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

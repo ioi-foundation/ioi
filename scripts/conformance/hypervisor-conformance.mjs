@@ -1001,7 +1001,11 @@ function runDocs() {
       /Implementation Slice Evidence: 878/.test(matrix) &&
       /Slice 878 retired the fail-closed\s+`catalog-provider-configuration-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` catalog-provider control\s+methods now own provider configurability preflight/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 878/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 878 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 879/.test(matrix) &&
+      /Slice 879 retired the fail-closed `receipt-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` receipt methods now own\s+receipt list\/get store adapters/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 879/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1158,7 +1162,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 875 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 876 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 877 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 878/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 878 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 879/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1171,6 +1176,8 @@ function runDocs() {
       /mounted public `ModelMountingState` artifact\/endpoint methods now own canonical import, endpoint mount, and endpoint unmount request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `catalog-download-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` catalog\/download methods now own canonical catalog import URL, download identity, download control, and download metadata request alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `receipt-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` receipt methods now own receipt list\/get store adapters/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1896,9 +1903,7 @@ function runBridge() {
   const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
-  const modelMountReceiptOperationsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
-    : "";
+  const modelMountReceiptOperationsBridge = modelMountingState;
   const modelLoadingOperations = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs")
     : "";
@@ -7911,6 +7916,7 @@ function runBridge() {
       /accepted_receipt_record/.test(modelMountAdmissionRunner) &&
       /persistRustAuthoredReceipt/.test(modelRoutes) &&
       /persistRustAuthoredReceipt/.test(modelMountingState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperationsBridge) &&
       /rust_daemon_core_model_route_selection_receipt_required/.test(modelRoutes) &&
       !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
@@ -8335,11 +8341,12 @@ function runBridge() {
       ].join("\n"),
     ) &&
       /details:\s*redact\(error\?\.details \?\? \{\}\)/.test(runtimeHttpUtilsBridge) &&
-      /return state\.store\.listReceipts\(\);/.test(modelMountReceiptOperationsBridge) &&
-      /return state\.store\.getReceipt\(receiptId\);/.test(modelMountReceiptOperationsBridge) &&
+      /return this\.store\.listReceipts\(\);/.test(modelMountReceiptOperationsBridge) &&
+      /return this\.store\.getReceipt\(receiptId\);/.test(modelMountReceiptOperationsBridge) &&
       /planReadProjection/.test(modelMountAdmissionRunner) &&
       /plan_model_mount_read_projection/.test(modelMountAdmissionRunner) &&
       /model_mount_read_projection_rust_core_required/.test(modelMountingReadProjectionFacade) &&
+      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
         modelMountingReadProjectionFacade,
       ) &&
@@ -8351,7 +8358,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/route-decision.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
-      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 10/11 is pending: model-mounting read, receipt, route-decision, and HTTP error surfaces must not expose prototype-based camelCase compatibility wrappers",
   );
@@ -12030,9 +12037,7 @@ function runReceipts() {
   const modelMountIo = exists("packages/runtime-daemon/src/model-mounting/io.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/io.mjs")
     : "";
-  const modelMountReceiptOperations = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs")
-    : "";
+  const modelMountReceiptOperations = modelMountingState;
   const modelMountReceiptOperationsTest = exists("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs")
     : "";
@@ -12725,16 +12730,16 @@ function runReceipts() {
         modelMountReceiptWriteGuards,
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+        modelMountingState,
       ) &&
       !/providerLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+        modelMountingState,
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+        modelMountingState,
       ) &&
       !/providerLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs"),
+        modelMountingState,
       ) &&
       !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
         modelMountReceiptWriteGuards,
@@ -12754,7 +12759,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/store.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/store.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
@@ -12773,6 +12778,7 @@ function runReceipts() {
         loadedInstances,
       ) &&
       /superseded_by:\s*keepInstanceId/.test(loadedInstances) &&
+      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
       /model_mount_lifecycle_receipt_rust_core_required/.test(modelMountReceiptOperations) &&
       /provider_id:\s*details\.provider_id \?\? null/.test(modelMountReceiptOperations) &&
@@ -12799,7 +12805,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
-      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
@@ -14784,6 +14790,7 @@ function runReceipts() {
       /model_mount\.backend_process\.start/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.spawn/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.stop/.test(backendLifecycleTest) &&
+      !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
       /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&
       /modelLifecycleReceiptRustCoreRequiredError/.test(modelMountReceiptOperations) &&
@@ -14812,7 +14819,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/receipt-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],
     "Phase 10/11 is pending: public backend lifecycle facade control must fail closed until Rust daemon-core model_mount owns lifecycle receipts and control semantics",
