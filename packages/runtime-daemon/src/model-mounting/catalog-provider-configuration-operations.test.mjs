@@ -1,13 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  catalogProviderConfig,
-  catalogProviderRuntimeMaterial,
-  configureCatalogProvider,
-  getCatalogProviderConfig,
-  listCatalogProviderConfigs,
-} from "./catalog-provider-configuration-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function createState() {
   const calls = [];
@@ -94,7 +88,7 @@ function createState() {
   };
   state.catalogProviderRuntimeMaterial = (providerId) => {
     state.catalogProviderRuntimeMaterialCalls += 1;
-    return catalogProviderRuntimeMaterial(state, providerId);
+    return ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId);
   };
   return state;
 }
@@ -114,7 +108,7 @@ test("catalog provider configuration list/get fail closed before JS public proje
   });
 
   assert.throws(
-    () => listCatalogProviderConfigs(state),
+    () => ModelMountingState.prototype.listCatalogProviderConfigs.call(state),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
@@ -132,7 +126,7 @@ test("catalog provider configuration list/get fail closed before JS public proje
   );
 
   assert.throws(
-    () => getCatalogProviderConfig(state, "catalog.custom_http"),
+    () => ModelMountingState.prototype.getCatalogProviderConfig.call(state, "catalog.custom_http"),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
@@ -144,7 +138,10 @@ test("catalog provider configuration list/get fail closed before JS public proje
     },
   );
 
-  assert.throws(() => getCatalogProviderConfig(state, "catalog.fixture"), /not configurable/);
+  assert.throws(
+    () => ModelMountingState.prototype.getCatalogProviderConfig.call(state, "catalog.fixture"),
+    /not configurable/,
+  );
   assert.equal(state.catalogProviderRuntimeMaterialCalls, 0);
   assert.equal(state.calls.some((call) => call.name === "catalogProviderPorts"), false);
   assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
@@ -158,7 +155,7 @@ test("catalog provider configuration mutation facade fails closed until Rust cor
 
   assert.throws(
     () =>
-      configureCatalogProvider(state, "catalog.custom_http", {
+      ModelMountingState.prototype.configureCatalogProvider.call(state, "catalog.custom_http", {
         base_url: "https://catalog.example.test/",
       }),
     (error) => {
@@ -202,7 +199,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
   });
 
   assert.throws(
-    () => catalogProviderRuntimeMaterial(state, providerId),
+    () => ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
@@ -239,12 +236,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
   });
   assert.throws(
     () =>
-      catalogProviderRuntimeMaterial(state, providerId, {
-        catalogProviderHasSourceMaterial() {
-          sourceMaterialProbeCount += 1;
-          throw new Error("catalogProviderHasSourceMaterial must not preserve JS runtime material");
-        },
-      }),
+      ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId),
     (error) => {
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
       assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
@@ -261,7 +253,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
     runtimeMaterialStatus: "missing_runtime_material",
   });
   assert.throws(
-    () => catalogProviderRuntimeMaterial(state, providerId),
+    () => ModelMountingState.prototype.catalogProviderRuntimeMaterial.call(state, providerId),
     (error) => {
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
       assert.equal(error.details.runtime_material_status, "missing_runtime_material");
@@ -282,7 +274,7 @@ test("private catalog provider config readback fails closed before JS map projec
   });
 
   assert.throws(
-    () => catalogProviderConfig(state, providerId),
+    () => ModelMountingState.prototype.catalogProviderConfig.call(state, providerId),
     (error) => {
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");

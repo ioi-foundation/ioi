@@ -18291,10 +18291,41 @@ binding, Agentgres truth, replay, command-transport retirement, and stable
 protocol APIs remain required before catalog/download control reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 877 after the next direct
+Scheduled matrix-compaction obligation from Slice 877 is now satisfied.
+
+## Implementation Slice Evidence: 878
+
+Slice 878 retired the fail-closed
+`catalog-provider-configuration-operations.mjs` helper module after public
+catalog-provider config list/get/write and private config/runtime-material
+readback had already been reduced to Rust-core-required wallet/cTEE custody
+edge refusals. The mounted public `ModelMountingState` catalog-provider control
+methods now own provider configurability preflight, configurable-provider count
+reporting, request-field counts, local runtime-material status summaries, and
+operation-specific `model_mount.catalog_provider_configuration.*` /
+`model_mount.catalog_provider_runtime_material.resolve` Rust-core-required
+errors directly, without importing a helper module or dependency-injecting JS
+projection, vault, runtime-material, receipt, or record-state helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal catalog-provider control migration: direct
+Rust daemon-core catalog-provider control/search/status/custody APIs,
+wallet.network/cTEE vault binding, Agentgres-admitted receipts and record-state
+truth, projection persistence, command-transport retirement, and stable protocol
+APIs remain required before catalog-provider control reaches the pure Rust
+substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 878 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/download projection and receipt materialization, direct Rust
-daemon-core catalog/download APIs, and Agentgres-backed replay. The
-`ioi-step-module-bridge` command path is acceptable only as migration transport;
-it is not the terminal architecture.
+catalog-provider control/search/status/custody projection and receipt
+materialization, direct Rust daemon-core catalog-provider APIs, and
+Agentgres-backed replay. The `ioi-step-module-bridge` command path is
+acceptable only as migration transport; it is not the terminal architecture.

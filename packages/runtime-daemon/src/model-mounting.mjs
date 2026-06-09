@@ -105,16 +105,10 @@ import {
   providerSecretInput,
 } from "./model-mounting/provider-auth.mjs";
 import {
+  MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
   assertConfigurableCatalogProvider,
   throwCatalogProviderControlRustCoreRequired,
 } from "./model-mounting/catalog-provider-config.mjs";
-import {
-  catalogProviderConfig as catalogProviderConfigState,
-  catalogProviderRuntimeMaterial as catalogProviderRuntimeMaterialState,
-  configureCatalogProvider as configureCatalogProviderState,
-  getCatalogProviderConfig as getCatalogProviderConfigState,
-  listCatalogProviderConfigs as listCatalogProviderConfigsState,
-} from "./model-mounting/catalog-provider-configuration-operations.mjs";
 import {
   customHttpCatalogProviderPort,
   fixtureCatalogProviderPort,
@@ -770,15 +764,26 @@ export class ModelMountingState {
   }
 
   listCatalogProviderConfigs() {
-    return listCatalogProviderConfigsState(this);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_configuration.list",
+      { configurable_provider_count: MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS.length },
+    );
   }
 
   getCatalogProviderConfig(providerId) {
-    return getCatalogProviderConfigState(this, providerId);
+    assertConfigurableCatalogProvider(providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_configuration.get",
+      { provider_id: providerId },
+    );
   }
 
   configureCatalogProvider(providerId, body = {}) {
-    return configureCatalogProviderState(this, providerId, body);
+    assertConfigurableCatalogProvider(providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_configuration.write",
+      { provider_id: providerId, request_field_count: Object.keys(body ?? {}).length },
+    );
   }
 
   startCatalogProviderOAuth(providerId, body = {}) {
@@ -823,11 +828,27 @@ export class ModelMountingState {
   }
 
   catalogProviderConfig(providerId) {
-    return catalogProviderConfigState(this, providerId);
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_configuration.read_private",
+      { provider_id: providerId },
+    );
   }
 
   catalogProviderRuntimeMaterial(providerId) {
-    return catalogProviderRuntimeMaterialState(this, providerId);
+    const existing = this.catalogProviderRuntimeMaterials.get(providerId) ?? null;
+    throwCatalogProviderControlRustCoreRequired(
+      "model_mount.catalog_provider_runtime_material.resolve",
+      {
+        provider_id: providerId,
+        material_vault_ref_hash: existing?.materialVaultRefHash ?? null,
+        material_configured: Boolean(
+          existing?.manifestPath ||
+            existing?.baseUrl ||
+            existing?.materialVaultRefHash,
+        ),
+        runtime_material_status: existing?.runtimeMaterialStatus ?? "rust_core_projection_required",
+      },
+    );
   }
 
   storageSummary() {

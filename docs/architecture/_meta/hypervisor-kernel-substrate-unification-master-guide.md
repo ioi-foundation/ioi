@@ -1924,6 +1924,26 @@ catalog/download migration: direct Rust daemon-core catalog/download admission,
 filesystem custody, receipt/state-root binding, Agentgres truth, replay,
 command-transport retirement, and stable protocol APIs remain required.
 
+Slice 878 retired the fail-closed
+`catalog-provider-configuration-operations.mjs` helper module after public
+catalog-provider config list/get/write and private runtime-material/config
+readback had already been reduced to Rust-core-required wallet/cTEE custody
+edge refusals. The mounted public `ModelMountingState` catalog-provider control
+methods now own provider configurability preflight, configurable-provider count
+reporting, request-field counting, local runtime-material status summaries, and
+`model_mount.catalog_provider_configuration.*` /
+`model_mount.catalog_provider_runtime_material.resolve` Rust-core-required
+errors directly, without importing a helper module or dependency-injecting JS
+projection, vault, runtime-material, receipt, or record-state helpers. This
+does not claim terminal catalog-provider control migration: direct Rust
+daemon-core catalog-provider control/search/status/custody APIs,
+wallet.network/cTEE vault binding, Agentgres-admitted receipts and record-state
+truth, projection persistence, command-transport retirement, and stable
+protocol APIs remain required. The current `ioi-step-module-bridge` command
+path is migration scaffolding for proving a stable daemon-to-kernel protocol
+surface, not a permanent bridge binary, and must not be treated as the terminal
+substrate; the transport must collapse into the Rust daemon core API.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

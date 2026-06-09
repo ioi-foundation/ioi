@@ -997,7 +997,11 @@ function runDocs() {
       /Implementation Slice Evidence: 877/.test(matrix) &&
       /Slice 877 retired the fail-closed `catalog-download-operations\.mjs` helper\s+module/.test(matrix) &&
       /`ModelMountingState` catalog\/download methods now own canonical\s+catalog import URL, download identity, download control, and download metadata\s+request alias rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 877/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 877 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 878/.test(matrix) &&
+      /Slice 878 retired the fail-closed\s+`catalog-provider-configuration-operations\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` catalog-provider control\s+methods now own provider configurability preflight/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 878/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1153,7 +1157,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 875 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 876 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 877/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 877 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 878/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1963,19 +1968,20 @@ function runBridge() {
   const oauthRecordState = exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs")
     : "";
-  const catalogProviderConfigurationOperations = exists(
-    "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs",
-  )
-    ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs")
-    : "";
   const catalogProviderListBlock =
-    catalogProviderConfigurationOperations.match(/export function listCatalogProviderConfigs[\s\S]*?(?=\n\nexport function getCatalogProviderConfig)/)?.[0] ??
+    modelMountingState.match(/\n\s+listCatalogProviderConfigs\(\) \{[\s\S]*?\n\s+getCatalogProviderConfig/)?.[0] ??
     "";
   const catalogProviderGetBlock =
-    catalogProviderConfigurationOperations.match(/export function getCatalogProviderConfig[\s\S]*?(?=\n\nexport function configureCatalogProvider)/)?.[0] ??
+    modelMountingState.match(/\n\s+getCatalogProviderConfig\(providerId\) \{[\s\S]*?\n\s+configureCatalogProvider/)?.[0] ??
     "";
   const catalogProviderConfigureBlock =
-    catalogProviderConfigurationOperations.match(/export function configureCatalogProvider[\s\S]*?export function catalogProviderConfig/)?.[0] ??
+    modelMountingState.match(/\n\s+configureCatalogProvider\(providerId, body = \{\}\) \{[\s\S]*?\n\s+startCatalogProviderOAuth/)?.[0] ??
+    "";
+  const catalogProviderPrivateConfigBlock =
+    modelMountingState.match(/\n\s+catalogProviderConfig\(providerId\) \{[\s\S]*?\n\s+catalogProviderRuntimeMaterial/)?.[0] ??
+    "";
+  const catalogProviderRuntimeMaterialBlock =
+    modelMountingState.match(/\n\s+catalogProviderRuntimeMaterial\(providerId\) \{[\s\S]*?\n\s+storageSummary/)?.[0] ??
     "";
   const catalogProviderConfigurationOperationsTest = exists(
     "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
@@ -8997,7 +9003,9 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-catalog-provider-control-js-facade-retired",
-    /throwCatalogProviderControlRustCoreRequired/.test(catalogProviderConfigurationOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs") &&
+      /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
+      !/catalogProviderConfigState|catalogProviderRuntimeMaterialState|configureCatalogProviderState|getCatalogProviderConfigState|listCatalogProviderConfigsState/.test(modelMountingState) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(
         catalogProviderConfig,
       ) &&
@@ -9009,20 +9017,32 @@ function runBridge() {
       /rust_daemon_core_wallet_ctee_custody_required/.test(catalogProviderConfig) &&
       /model_mount\.catalog_provider_configuration\.list/.test(catalogProviderListBlock) &&
       /model_mount\.catalog_provider_configuration\.get/.test(catalogProviderGetBlock) &&
-      !/publicCatalogProviderConfig/.test(catalogProviderConfigurationOperations) &&
-      !/catalogProviderStatus/.test(catalogProviderConfigurationOperations) &&
+      !/publicCatalogProviderConfig/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}`,
+      ) &&
+      !/catalogProviderStatus/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}`,
+      ) &&
       !/state\.catalogProviderPorts/.test(catalogProviderListBlock) &&
       !/state\.catalogProviderPorts/.test(catalogProviderGetBlock) &&
       !/state\.catalogProviderRuntimeMaterial/.test(catalogProviderListBlock) &&
       !/state\.catalogProviderRuntimeMaterial/.test(catalogProviderGetBlock) &&
       /model_mount\.catalog_provider_configuration\.write/.test(catalogProviderConfigureBlock) &&
       !/state\.receipt\("model_catalog_provider_configuration"/.test(catalogProviderConfigureBlock) &&
-      !/commitModelMountRecordState/.test(catalogProviderConfigurationOperations) &&
+      !/commitModelMountRecordState/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}`,
+      ) &&
       !/state\.catalogProviderConfigs\.set/.test(catalogProviderConfigureBlock) &&
       !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(catalogProviderConfigureBlock) &&
-      !/state\.writeVaultRefs\(\)/.test(catalogProviderConfigurationOperations) &&
-      !/state\.vault\.resolveVaultRef/.test(catalogProviderConfigurationOperations) &&
-      !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(catalogProviderConfigurationOperations) &&
+      !/state\.writeVaultRefs\(\)/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}\n${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
+      ) &&
+      !/state\.vault\.resolveVaultRef/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}\n${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
+      ) &&
+      !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(
+        `${catalogProviderListBlock}\n${catalogProviderGetBlock}\n${catalogProviderConfigureBlock}\n${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
+      ) &&
       !/state\.writeMap\("model-catalog-providers"/.test(
         catalogProviderConfigureBlock,
       ) &&
@@ -9052,16 +9072,18 @@ function runBridge() {
       /catalog provider runtime material fails closed before JS vault resolution/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
-      /model_mount\.catalog_provider_runtime_material\.resolve/.test(catalogProviderConfigurationOperations) &&
+      /model_mount\.catalog_provider_runtime_material\.resolve/.test(catalogProviderRuntimeMaterialBlock) &&
       /runtime_material_status:\s*existing\?\.runtimeMaterialStatus \?\? "rust_core_projection_required"/.test(
-        catalogProviderConfigurationOperations,
+        catalogProviderRuntimeMaterialBlock,
       ) &&
-      /model_mount\.catalog_provider_configuration\.read_private/.test(catalogProviderConfigurationOperations) &&
-      !/state\.catalogProviderConfigs\.get/.test(catalogProviderConfigurationOperations) &&
+      /model_mount\.catalog_provider_configuration\.read_private/.test(catalogProviderPrivateConfigBlock) &&
+      !/state\.catalogProviderConfigs\.get/.test(
+        `${catalogProviderPrivateConfigBlock}\n${catalogProviderRuntimeMaterialBlock}`,
+      ) &&
       !/if\s*\(\s*catalogProviderHasSourceMaterialDep\(existing\)\s*\)\s*return existing/.test(
-        catalogProviderConfigurationOperations,
+        catalogProviderRuntimeMaterialBlock,
       ) &&
-      !/return existing;/.test(catalogProviderConfigurationOperations) &&
+      !/return existing;/.test(catalogProviderRuntimeMaterialBlock) &&
       !/state\?\.catalogProviderConfig/.test(catalogProviderPorts) &&
       !/state\?\.catalogProviderRuntimeMaterial/.test(catalogProviderPorts) &&
       !/state\.providers\.get\("provider\.ollama"\)/.test(catalogProviderPorts) &&
@@ -9080,7 +9102,7 @@ function runBridge() {
       /catalogProviderConfig must not feed local manifest port health/.test(catalogProviderPortsTest) &&
       /catalogProviderConfig must not feed Hugging Face port health/.test(catalogProviderPortsTest) &&
       /catalogProviderConfig must not feed custom HTTP port health/.test(catalogProviderPortsTest) &&
-      /catalogProviderHasSourceMaterial must not preserve JS runtime material/.test(
+      /ModelMountingState\.prototype\.catalogProviderRuntimeMaterial\.call/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
       /catalogProviderRuntimeMaterial must not feed local manifest port health/.test(
@@ -9103,7 +9125,7 @@ function runBridge() {
         catalogProviderConfigurationOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
     ],
     "Phase 9/10 is pending: public catalog provider configuration mutations must fail closed until Rust daemon-core catalog provider control owns receipts, wallet/cTEE custody, record-state, and projection semantics",
