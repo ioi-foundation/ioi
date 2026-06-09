@@ -17008,7 +17008,7 @@ this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 830 is now satisfied.
 
-## Implementation Slice Evidence: 831
+## Compacted Implementation Slice Evidence: 831
 
 Slice 831 retired the private JS OAuth credential custody helper. The mounted
 model-mounting state no longer constructs `OAuthCredentialProvider`, and the
@@ -17036,9 +17036,40 @@ OAuth/session projection, direct Rust API replacement for command transport,
 and retirement of remaining catalog-provider read/config helpers remain
 required before OAuth-backed catalog/provider auth can execute again.
 
-Next scheduled matrix-compaction pass: compact Slice 831 after the next direct
+Scheduled matrix-compaction obligation from Slice 831 is now satisfied.
+
+## Implementation Slice Evidence: 832
+
+Slice 832 retired the remaining JS catalog-provider runtime-material and
+non-OAuth auth-header vault-resolution helpers. `catalogProviderRuntimeMaterial()`
+still returns already-materialized runtime session projections and previously
+recorded missing-material status, but configured source material now fails
+closed with `model_mount_catalog_provider_control_rust_core_required` at
+`model_mount.catalog_provider_runtime_material.resolve` before JS can call
+`state.vault.resolveVaultRef()`, parse catalog source material from vault
+plaintext, write vault refs, cache runtime material, synthesize missing/failed
+vault material projection, or produce catalog source truth. `catalogProviderAuthHeaders()`
+now fails closed at `model_mount.catalog_provider_auth_header.resolve` for
+bearer/raw/API-key material before JS can resolve auth vault refs, write vault
+metadata, or shape plaintext auth headers. The OAuth auth-header refresh path
+remains fail-closed at `model_mount.catalog_provider_auth_header.refresh`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs` | passed |
+
+This still does not claim terminal catalog-provider migration: direct Rust
+daemon-core catalog-provider custody, auth-header resolution, Agentgres-backed
+provider projection, direct Rust API replacement for command transport, local
+catalog materialization retirement, and remaining catalog-provider list/get and
+status/search orchestration cleanup remain required before this surface reaches
+the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 832 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider transport facades, catalog-provider read/config helpers,
-provider lifecycle/read adapters, local map/projection materialization, and
-Rust daemon-core catalog/provider/OAuth custody APIs.
+catalog/provider transport facades, catalog-provider list/get/status/search
+helpers, provider lifecycle/read adapters, local map/projection materialization,
+and Rust daemon-core catalog/provider/OAuth custody APIs.

@@ -8,7 +8,6 @@ import {
   getCatalogProviderConfig,
   listCatalogProviderConfigs,
 } from "./catalog-provider-configuration-operations.mjs";
-import { catalogProviderMaterialVaultRef } from "./catalog-provider-config.mjs";
 
 function createState() {
   const calls = [];
@@ -151,44 +150,62 @@ test("catalog provider configuration mutation facade fails closed until Rust cor
   assert.deepEqual(state.recordStateCommits, []);
 });
 
-test("catalog provider runtime material resolves without writing local material cache", () => {
+test("catalog provider runtime material fails closed before JS vault resolution", () => {
   const state = createState();
   const providerId = "catalog.custom_http";
+  let resolveCount = 0;
+  state.vault.resolveVaultRef = () => {
+    resolveCount += 1;
+    throw new Error("catalog source vault resolution should not run in JS");
+  };
   state.catalogProviderConfigs.set(providerId, {
     id: providerId,
     materialConfigured: true,
     materialVaultRefHash: "known-material-hash",
   });
 
-  const resolved = catalogProviderRuntimeMaterial(state, providerId);
-  assert.equal(resolved.baseUrl, "https://catalog.example.test");
-  assert.equal(resolved.runtimeMaterialStatus, "resolved_from_vault");
-  assert.equal(resolved.materialVaultRefHash, `hash:${catalogProviderMaterialVaultRef(providerId)}`);
+  assert.throws(
+    () => catalogProviderRuntimeMaterial(state, providerId),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
+      assert.equal(error.details.provider_id, providerId);
+      assert.equal(error.details.material_vault_ref_hash, "known-material-hash");
+      assert.equal(error.details.material_configured, true);
+      assert.equal(error.details.runtime_material_status, "requires_rust_core_custody");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "providerId"), false);
+      assert.equal(Object.hasOwn(error.details, "materialVaultRefHash"), false);
+      return true;
+    },
+  );
+  assert.equal(resolveCount, 0);
   assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
+  assert.equal(state.calls.some((call) => call.name === "resolveVaultRef"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
+  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
   assert.equal(state.calls.some((call) => call.name === "writeVaultRefs"), false);
+  assert.deepEqual(state.receipts, []);
+  assert.deepEqual(state.recordStateCommits, []);
 
-  state.vault.resolveVaultRef = (vaultRef) => ({
-    resolvedMaterial: false,
-    material: "",
-    materialSource: "unbound",
-    vaultRefHash: `hash:${vaultRef}`,
-    evidenceRefs: ["VaultPort.resolveVaultRef"],
+  state.catalogProviderRuntimeMaterials.set(providerId, {
+    baseUrl: "https://catalog.example.test",
+    runtimeMaterialStatus: "bound_runtime_session",
+  });
+  const existing = catalogProviderRuntimeMaterial(state, providerId);
+  assert.equal(existing.baseUrl, "https://catalog.example.test");
+  assert.equal(existing.runtimeMaterialStatus, "bound_runtime_session");
+
+  state.catalogProviderRuntimeMaterials.set(providerId, {
+    runtimeMaterialStatus: "missing_runtime_material",
   });
   const missing = catalogProviderRuntimeMaterial(state, providerId);
   assert.equal(missing.runtimeMaterialStatus, "missing_runtime_material");
-  assert.equal(missing.materialSource, "unbound");
-  assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
-
-  state.vault.resolveVaultRef = () => {
-    throw new Error("keychain unavailable");
-  };
-  const failed = catalogProviderRuntimeMaterial(state, providerId);
-  assert.equal(failed.runtimeMaterialStatus, "vault_material_unavailable");
-  assert.equal(failed.materialVaultRefHash, "known-material-hash");
-  assert.deepEqual(failed.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_provider_source_material_fail_closed"]);
-  assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
-  assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
-  assert.equal(state.calls.some((call) => call.name === "writeProjection"), false);
-  assert.deepEqual(state.receipts, []);
-  assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(resolveCount, 0);
 });

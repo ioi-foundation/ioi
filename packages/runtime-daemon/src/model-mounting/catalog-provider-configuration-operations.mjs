@@ -2,15 +2,12 @@ import {
   MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
   assertConfigurableCatalogProvider,
   catalogProviderHasSourceMaterial,
-  catalogProviderMaterialPurpose,
   catalogProviderMaterialVaultRef,
-  catalogProviderRuntimeMaterialFromValue,
   throwCatalogProviderControlRustCoreRequired,
 } from "./catalog-provider-config.mjs";
 import { publicCatalogProviderConfig } from "./catalog-projections.mjs";
 import { catalogProviderStatus } from "./catalog-registry.mjs";
 import {
-  normalizeScopes,
   stableHash,
 } from "./io.mjs";
 
@@ -66,10 +63,7 @@ export function catalogProviderConfig(state, providerId) {
 export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
   const {
     catalogProviderHasSourceMaterial: catalogProviderHasSourceMaterialDep = catalogProviderHasSourceMaterial,
-    catalogProviderMaterialPurpose: catalogProviderMaterialPurposeDep = catalogProviderMaterialPurpose,
     catalogProviderMaterialVaultRef: catalogProviderMaterialVaultRefDep = catalogProviderMaterialVaultRef,
-    catalogProviderRuntimeMaterialFromValue: catalogProviderRuntimeMaterialFromValueDep = catalogProviderRuntimeMaterialFromValue,
-    normalizeScopes: normalizeScopesDep = normalizeScopes,
     stableHash: stableHashDep = stableHash,
   } = deps;
   const existing = state.catalogProviderRuntimeMaterials.get(providerId) ?? null;
@@ -83,37 +77,14 @@ export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
   const config = state.catalogProviderConfigs.get(providerId) ?? null;
   if (!config?.materialConfigured && !config?.materialVaultRefHash) return existing;
   const vaultRef = catalogProviderMaterialVaultRefDep(providerId);
-  const purpose = catalogProviderMaterialPurposeDep(providerId);
-  try {
-    const resolved = state.vault.resolveVaultRef(vaultRef, purpose);
-    if (!resolved.resolvedMaterial || typeof resolved.material !== "string" || !resolved.material.trim()) {
-      return {
-        runtimeMaterialStatus: "missing_runtime_material",
-        materialSource: resolved.materialSource ?? "unbound",
-        materialVaultRefHash: resolved.vaultRefHash,
-        evidenceRefs: normalizeScopesDep(
-          resolved.evidenceRefs,
-          ["VaultPort.resolveVaultRef", "catalog_provider_source_material_unbound"],
-        ),
-      };
-    }
-    return {
-      ...catalogProviderRuntimeMaterialFromValueDep(providerId, resolved.material),
-      runtimeMaterialStatus: "resolved_from_vault",
-      materialSource: resolved.materialSource ?? "vault_material_adapter",
-      materialVaultRefHash: resolved.vaultRefHash,
-      evidenceRefs: normalizeScopesDep(
-        resolved.evidenceRefs,
-        ["VaultPort.resolveVaultRef", "catalog_provider_source_material_resolved"],
-      ),
-    };
-  } catch (error) {
-    return {
-      runtimeMaterialStatus: "vault_material_unavailable",
-      materialSource: "unavailable",
-      materialVaultRefHash: config.materialVaultRefHash ?? stableHashDep(vaultRef),
-      errorHash: stableHashDep(error?.message ?? "catalog source vault resolution failed"),
-      evidenceRefs: ["VaultPort.resolveVaultRef", "catalog_provider_source_material_fail_closed"],
-    };
-  }
+  throwCatalogProviderControlRustCoreRequired(
+    "model_mount.catalog_provider_runtime_material.resolve",
+    {
+      provider_id: providerId,
+      material_vault_ref_hash: config.materialVaultRefHash ?? stableHashDep(vaultRef),
+      material_configured: Boolean(config.materialConfigured || config.materialVaultRefHash),
+      runtime_material_status: existing?.runtimeMaterialStatus ?? "requires_rust_core_custody",
+    },
+    deps,
+  );
 }

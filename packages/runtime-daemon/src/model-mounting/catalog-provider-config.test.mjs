@@ -226,24 +226,50 @@ test("catalog provider auth config accepts canonical request fields", () => {
   assert.equal(auth.oauthBoundary.status, "active");
 });
 
-test("catalog provider auth headers resolve vault material without plaintext persistence", async () => {
+test("catalog provider auth headers fail closed before JS vault resolution", async () => {
   const state = createState();
+  let resolveCount = 0;
+  state.vault.resolveVaultRef = () => {
+    resolveCount += 1;
+    throw new Error("catalog auth vault resolution should not run in JS");
+  };
   state.catalogProviderConfig = () => ({
     id: "catalog.custom_http",
     authVaultRef: "vault://catalog/auth",
+    authVaultRefHash: "hash:vault://catalog/auth",
     catalogAuthScheme: "api_key",
     catalogAuthHeaderName: "X-Catalog-Key",
   });
 
-  const auth = await catalogProviderAuthHeaders("catalog.custom_http", state);
-
-  assert.deepEqual(auth.headers, {
-    "x-catalog-key": "material:catalog.auth:catalog.custom_http",
-  });
-  assert.equal(auth.evidence.authVaultRefHash, "hash:vault://catalog/auth");
-  assert.equal(auth.evidence.resolvedMaterial, true);
-  assert.deepEqual(auth.evidence.headerNames, ["x-catalog-key"]);
-  assert.equal(state.writeVaultRefsCount(), 1);
+  await assert.rejects(
+    () => catalogProviderAuthHeaders("catalog.custom_http", state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_auth_header.resolve");
+      assert.equal(error.details.provider_id, "catalog.custom_http");
+      assert.equal(error.details.auth_vault_ref_hash, "hash:vault://catalog/auth");
+      assert.equal(error.details.catalog_auth_scheme, "api_key");
+      assert.equal(typeof error.details.catalog_auth_header_name_hash, "string");
+      assert.equal(error.details.resolved_material, false);
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_catalog_provider_control_js_facade_retired",
+        "rust_daemon_core_catalog_provider_control_required",
+        "rust_daemon_core_wallet_ctee_custody_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "catalogProviderId"), false);
+      assert.equal(Object.hasOwn(error.details, "authVaultRefHash"), false);
+      assert.equal(Object.hasOwn(error.details, "resolvedMaterial"), false);
+      assert.equal(Object.hasOwn(error.details, "authScheme"), false);
+      assert.equal(Object.hasOwn(error.details, "catalogAuthScheme"), false);
+      assert.equal(Object.hasOwn(error.details, "catalogAuthHeaderNameHash"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
+  assert.equal(resolveCount, 0);
+  assert.equal(state.writeVaultRefsCount(), 0);
 
   state.catalogProviderConfig = () => ({
     id: "catalog.custom_http",
@@ -254,14 +280,18 @@ test("catalog provider auth headers resolve vault material without plaintext per
   await assert.rejects(
     () => catalogProviderAuthHeaders("catalog.custom_http", state),
     (error) => {
-      assert.match(error.message, /configured by hash only/);
-      assert.equal(error.details.catalog_provider_id, "catalog.custom_http");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_auth_header.resolve");
+      assert.equal(error.details.provider_id, "catalog.custom_http");
       assert.equal(error.details.auth_vault_ref_hash, "hash:vault://catalog/auth");
       assert.equal(error.details.resolved_material, false);
-      assert.deepEqual(error.details.evidence_refs, ["catalog_auth_fail_closed", "vault_ref_required"]);
       assert.equal(Object.hasOwn(error.details, "catalogProviderId"), false);
       assert.equal(Object.hasOwn(error.details, "authVaultRefHash"), false);
       assert.equal(Object.hasOwn(error.details, "resolvedMaterial"), false);
+      assert.equal(Object.hasOwn(error.details, "authScheme"), false);
+      assert.equal(Object.hasOwn(error.details, "catalogAuthScheme"), false);
+      assert.equal(Object.hasOwn(error.details, "catalogAuthHeaderNameHash"), false);
       assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
     },
@@ -274,30 +304,29 @@ test("catalog provider auth headers resolve vault material without plaintext per
     catalogAuthScheme: "api_key",
     catalogAuthHeaderName: "X-Catalog-Key",
   });
-  state.vault.resolveVaultRef = () => ({
-    vaultRefHash: "hash:vault://catalog/missing-auth",
-    resolvedMaterial: false,
-    evidenceRefs: ["VaultPort.resolveVaultRef"],
-  });
   await assert.rejects(
     () => catalogProviderAuthHeaders("catalog.custom_http", state),
     (error) => {
-      assert.match(error.message, /no runtime vault material/);
-      assert.equal(error.details.catalog_provider_id, "catalog.custom_http");
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_auth_header.resolve");
+      assert.equal(error.details.provider_id, "catalog.custom_http");
       assert.equal(error.details.auth_vault_ref_hash, "hash:vault://catalog/missing-auth");
       assert.equal(error.details.resolved_material, false);
       assert.equal(error.details.catalog_auth_scheme, "api_key");
       assert.equal(typeof error.details.catalog_auth_header_name_hash, "string");
-      assert.deepEqual(error.details.evidence_refs, ["VaultPort.resolveVaultRef"]);
       assert.equal(Object.hasOwn(error.details, "catalogProviderId"), false);
       assert.equal(Object.hasOwn(error.details, "authVaultRefHash"), false);
       assert.equal(Object.hasOwn(error.details, "resolvedMaterial"), false);
+      assert.equal(Object.hasOwn(error.details, "authScheme"), false);
       assert.equal(Object.hasOwn(error.details, "catalogAuthScheme"), false);
       assert.equal(Object.hasOwn(error.details, "catalogAuthHeaderNameHash"), false);
       assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
       return true;
     },
   );
+  assert.equal(resolveCount, 0);
+  assert.equal(state.writeVaultRefsCount(), 0);
 });
 
 test("catalog provider OAuth auth-header refresh facade fails closed until Rust core owns catalog provider control", async () => {

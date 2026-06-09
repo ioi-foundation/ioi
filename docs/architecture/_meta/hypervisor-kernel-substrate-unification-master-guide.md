@@ -1384,6 +1384,20 @@ migration: direct Rust daemon-core OAuth control, wallet/cTEE vault custody,
 Agentgres-backed OAuth/session projection, and direct Rust APIs remain required
 before OAuth-backed catalog/provider auth can execute again.
 
+Slice 832 retired the remaining JS catalog-provider runtime-material and
+non-OAuth auth-header vault-resolution helpers. `catalogProviderRuntimeMaterial()`
+now preserves already-materialized session projections but fails closed with
+`model_mount_catalog_provider_control_rust_core_required` for configured source
+material before JS can resolve vault refs, parse catalog source material, or
+project missing/failed vault material. `catalogProviderAuthHeaders()` now fails
+closed with the same Rust catalog-provider control boundary for bearer/raw/API
+key header material before JS can resolve vault refs, write vault metadata, or
+shape plaintext auth headers. This still does not claim terminal
+catalog-provider migration: direct Rust daemon-core catalog provider custody,
+auth-header resolution, Agentgres-backed provider projection, local catalog
+materialization retirement, and direct Rust APIs remain required before catalog
+provider reads and auth can execute again.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

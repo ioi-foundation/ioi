@@ -1,7 +1,6 @@
 import path from "node:path";
 
 import {
-  normalizeScopes,
   runtimeError,
   safeId,
   stableHash,
@@ -208,59 +207,16 @@ export async function catalogProviderAuthHeaders(providerId, state) {
       },
     );
   }
-  if (!config.authVaultRef) {
-    throw runtimeError({
-      status: 403,
-      code: "policy",
-      message: "Catalog auth is configured by hash only; request-time vault ref resolution requires a vault ref.",
-      details: {
-        catalog_provider_id: providerId,
-        auth_vault_ref_hash: config.authVaultRefHash ?? null,
-        resolved_material: false,
-        evidence_refs: ["catalog_auth_fail_closed", "vault_ref_required"],
-      },
-    });
-  }
-  const resolved = state?.vault?.resolveVaultRef(config.authVaultRef, `catalog.auth:${providerId}`);
-  state?.writeVaultRefs?.();
-  if (!resolved?.material) {
-    throw runtimeError({
-      status: 403,
-      code: "policy",
-      message: "Catalog auth vault ref is configured, but no runtime vault material is available.",
-      details: {
-        catalog_provider_id: providerId,
-        auth_vault_ref_hash: resolved?.vaultRefHash ?? config.authVaultRefHash ?? stableHash(config.authVaultRef),
-        resolved_material: false,
-        catalog_auth_scheme: authScheme,
-        catalog_auth_header_name_hash: stableHash(headerName),
-        evidence_refs: normalizeScopes(resolved?.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_auth_fail_closed"]),
-      },
-    });
-  }
-  return {
-    headers: {
-      [headerName]: catalogAuthorizationHeaderValue(authScheme, resolved.material),
+  throwCatalogProviderControlRustCoreRequired(
+    "model_mount.catalog_provider_auth_header.resolve",
+    {
+      provider_id: providerId,
+      auth_vault_ref_hash: config.authVaultRefHash ?? (config.authVaultRef ? stableHash(config.authVaultRef) : null),
+      catalog_auth_scheme: authScheme,
+      catalog_auth_header_name_hash: stableHash(headerName),
+      resolved_material: false,
     },
-    evidence: {
-      authVaultRefHash: resolved.vaultRefHash,
-      resolvedMaterial: true,
-      catalogAuthResolved: true,
-      catalogAuthScheme: authScheme,
-      catalogAuthHeaderNameHash: stableHash(headerName),
-      headerNames: [headerName],
-      oauthBoundary:
-        authScheme === "oauth2"
-          ? {
-              configured: true,
-              status: "vault_token_passthrough",
-              tokenExchange: "not_local",
-              evidenceRefs: ["catalog_oauth_boundary", "vault_ref_oauth_token_material"],
-            }
-          : null,
-      evidenceRefs: normalizeScopes(resolved.evidenceRefs, ["VaultPort.resolveVaultRef", "catalog_auth_resolved"]),
-    },
-  };
+  );
 }
 
 export function catalogAuthorizationHeaderValue(authScheme, material) {

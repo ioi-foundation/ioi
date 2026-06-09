@@ -654,6 +654,9 @@ function runDocs() {
       /`model_mount_oauth_credential_provider_js_retired`/.test(guide) &&
       /`model_mount_oauth_token_transport_retired`/.test(guide) &&
       /`RustDaemonCore\.catalogProviderOAuth`/.test(guide) &&
+      /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
+      /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
+      /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -772,16 +775,23 @@ function runDocs() {
       /catalog_live_http_search_js_retired/.test(matrix) &&
       /before JS can resolve catalog\s+auth headers, shape `\/api\/models` or `\/catalog\/search` URLs/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 830 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 831/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 831/.test(matrix) &&
       /Slice 831 retired the private JS OAuth credential custody helper/.test(matrix) &&
       /model_mount_oauth_credential_provider_js_retired/.test(matrix) &&
       /model_mount_oauth_token_transport_retired/.test(matrix) &&
       /`RustDaemonCore\.catalogProviderOAuth`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 831/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 831 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 832/.test(matrix) &&
+      /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(matrix) &&
+      /model_mount\.catalog_provider_runtime_material\.resolve/.test(matrix) &&
+      /model_mount\.catalog_provider_auth_header\.resolve/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 832/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
       /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
+      /configured catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -1173,9 +1183,8 @@ function runDocs() {
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
       /the hidden `catalogProviderConfigUpdate` JS writer has been removed/.test(implementationMatrix) &&
       /source material parsing accepts only canonical `manifest_path` and `base_url`/.test(implementationMatrix) &&
-      /runtime material lookup no longer writes vault refs or local runtime-material cache entries/.test(
-        implementationMatrix,
-      ) &&
+      /configured catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /reject retired `bandwidth_limit_bps`, `resume_download`, `retries`, and\s+`destructive_confirmed` synonyms before policy evaluation/.test(implementationMatrix) &&
       /route selection now ignores retired `allowHostedFallback`, `denyFixtureModels`,\s+and `maxCostUsd` policy aliases/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
@@ -8336,6 +8345,7 @@ function runBridge() {
       !/state\.catalogProviderConfigs\.set/.test(catalogProviderConfigureBlock) &&
       !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(catalogProviderConfigureBlock) &&
       !/state\.writeVaultRefs\(\)/.test(catalogProviderConfigurationOperations) &&
+      !/state\.vault\.resolveVaultRef/.test(catalogProviderConfigurationOperations) &&
       !/state\.catalogProviderRuntimeMaterials\.(?:set|delete)/.test(catalogProviderConfigurationOperations) &&
       !/state\.writeMap\("model-catalog-providers"/.test(
         catalogProviderConfigureBlock,
@@ -8352,10 +8362,18 @@ function runBridge() {
       /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "writeMap"\), false\)/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
-      /catalog provider runtime material resolves without writing local material cache/.test(
+      /catalog provider runtime material fails closed before JS vault resolution/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
+      /model_mount\.catalog_provider_runtime_material\.resolve/.test(catalogProviderConfigurationOperations) &&
+      /runtime_material_status:\s*existing\?\.runtimeMaterialStatus \?\? "requires_rust_core_custody"/.test(
+        catalogProviderConfigurationOperations,
+      ) &&
+      /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigurationOperationsTest) &&
       /assert\.equal\(state\.catalogProviderRuntimeMaterials\.has\(providerId\),\s*false\)/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "resolveVaultRef"\), false\)/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
       /assert\.equal\(state\.calls\.some\(\(call\) => call\.name === "writeVaultRefs"\), false\)/.test(
@@ -8397,6 +8415,7 @@ function runBridge() {
       !/state\.writeVaultRefs\(\)/.test(catalogProviderOAuthOperations) &&
       !/state\.writeProjection\(\)/.test(catalogProviderOAuthOperations) &&
       /model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
+      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
       !/model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
       !/model_mount_catalog_provider_auth_header_state_commit_unconfigured/.test(
@@ -8405,6 +8424,9 @@ function runBridge() {
       !/commitOAuthSessionRecordState/.test(catalogProviderConfig) &&
       !/commitModelMountRecordState/.test(catalogProviderConfig) &&
       !/resolveAccessHeader/.test(catalogProviderConfig) &&
+      !/state\?\.vault\?\.resolveVaultRef/.test(catalogProviderConfig) &&
+      !/state\?\.writeVaultRefs/.test(catalogProviderConfig) &&
+      !/\[headerName\]: catalogAuthorizationHeaderValue/.test(catalogProviderConfig) &&
       !/state\.writeMap\("model-catalog-providers"/.test(catalogProviderOAuthOperations) &&
       !/state\.writeMap\("oauth-states"/.test(catalogProviderOAuthOperations) &&
       !/state\.writeMap\("oauth-sessions"/.test(catalogProviderOAuthOperations) &&
@@ -8429,9 +8451,15 @@ function runBridge() {
       /catalog provider OAuth auth-header refresh facade fails closed until Rust core owns catalog provider control/.test(
         catalogProviderConfigTest,
       ) &&
+      /catalog provider auth headers fail closed before JS vault resolution/.test(
+        catalogProviderConfigTest,
+      ) &&
+      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfigTest) &&
       /recordStateCommits/.test(catalogProviderConfigTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderConfigTest) &&
       /assert\.equal\(resolveAccessHeaderCount,\s*0\)/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigTest) &&
+      /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
@@ -13449,14 +13477,12 @@ function runReceipts() {
     "model-mount-catalog-provider-auth-error-detail-aliases-retired",
     /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(catalogProviderConfig) &&
       /details:\s*\{\s*auth_scheme:\s*scheme\s*\}/.test(catalogProviderConfig) &&
-      /catalog_provider_id:\s*providerId/.test(catalogProviderConfig) &&
+      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig) &&
+      /provider_id:\s*providerId/.test(catalogProviderConfig) &&
       /auth_vault_ref_hash:\s*config\.authVaultRefHash/.test(catalogProviderConfig) &&
-      /auth_vault_ref_hash:\s*resolved\?\.vaultRefHash/.test(catalogProviderConfig) &&
       /resolved_material:\s*false/.test(catalogProviderConfig) &&
       /catalog_auth_scheme:\s*authScheme/.test(catalogProviderConfig) &&
       /catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(catalogProviderConfig) &&
-      /evidence_refs:\s*\["catalog_auth_fail_closed",\s*"vault_ref_required"\]/.test(catalogProviderConfig) &&
-      /evidence_refs:\s*normalizeScopes/.test(catalogProviderConfig) &&
       !/details:\s*\{[^}]*\b(?:providerId|authScheme|catalogProviderId|authVaultRefHash|resolvedMaterial|catalogAuthScheme|catalogAuthHeaderNameHash|evidenceRefs)\s*:/.test(
         catalogProviderConfig,
       ) &&
