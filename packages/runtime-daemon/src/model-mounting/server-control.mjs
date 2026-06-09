@@ -11,7 +11,6 @@ export function serverStatusProjectionInput(state, baseUrl, { schema_version } =
     base_url: baseUrl ?? null,
     loaded_instances: runningInstances.length,
     mounted_endpoints: state.endpoints.size,
-    provider_statuses: [...state.providers.values()].map((provider) => provider.status),
     backend_statuses: backends.map((backend) => backend.status),
     control_state: {
       status: controlState.status,

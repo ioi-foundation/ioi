@@ -1049,6 +1049,7 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(readProjectionRequests[0].state.server_status_input.loaded_instances, 0);
   assert.equal(readProjectionRequests[0].state.server_status_input.mounted_endpoints, 1);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state.server_status_input, "status"), false);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state.server_status_input, "provider_statuses"), false);
   assert.equal(readProjectionRequests[0].base_url, "http://127.0.0.1:3200");
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "receipts"), false);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);

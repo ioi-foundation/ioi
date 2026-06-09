@@ -607,6 +607,9 @@ function runDocs() {
       /Slice 846 retired backend-registry provider-map readback/.test(guide) &&
       /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(guide) &&
       /provider-map records can no longer\s+become backend lifecycle\/projection truth/.test(guide) &&
+      /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(guide) &&
+      /`serverStatusProjectionInput\(\)` no longer reads `state\.providers\.values\(\)`/.test(guide) &&
+      /Direct Rust daemon-core\s+server-control\/provider projection must own provider-state counts/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -713,6 +716,9 @@ function runDocs() {
       /Slice 846 retired backend-registry provider-map readback from derived backend\s+records/.test(guide) &&
       /the default backend registry no longer reads\s+LM Studio, OpenAI-compatible, Ollama, or vLLM provider records/.test(guide) &&
       /direct Rust daemon-core backend and\s+provider projection APIs must own admitted backend\/provider truth/.test(guide) &&
+      /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(guide) &&
+      /or sends `provider_statuses` into `server_status_input`/.test(guide) &&
+      /Agentgres provider truth before terminal server-control projection is complete/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -899,11 +905,16 @@ function runDocs() {
       /`ollamaCatalogProviderPort\(\)` no\s+longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(matrix) &&
       /`ollama_catalog_provider_map_readback_retired` evidence/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 845 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 846/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 846/.test(matrix) &&
       /Slice 846 retired backend-registry provider-map readback/.test(matrix) &&
       /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(matrix) &&
       /Focused tests install\s+poisonous provider maps at both the default-record and derivation boundaries/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 846/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 846 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 847/.test(matrix) &&
+      /Slice 847 retired JS provider-status summaries from server-status projection\s+input/.test(matrix) &&
+      /`serverStatusProjectionInput\(\)` no longer reads\s+`state\.providers\.values\(\)`/.test(matrix) &&
+      /`provider_statuses` field is absent from the primitive server-status input/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 847/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1306,6 +1317,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
       /Next scheduled matrix-compaction pass: compact Slice 805 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
+      /JS no longer sends provider-status summaries from `state\.providers\.values\(\)` or `provider_statuses` into that input/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
@@ -8191,6 +8203,7 @@ function runBridge() {
       /Object\.keys\(readProjectionRequests\[1\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"provider_statuses"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
@@ -13205,6 +13218,8 @@ function runReceipts() {
       !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(serverControl) &&
       !/fs\.appendFileSync/.test(serverControl) &&
       !/readLines\(filePath\)/.test(serverControl) &&
+      !/state\.providers\.values\(\)/.test(serverControl) &&
+      !/provider_statuses/.test(serverControl) &&
       /server control ignores retired schemaVersion option before record-state commit/.test(
         serverControlTest,
       ) &&
@@ -13218,6 +13233,8 @@ function runReceipts() {
       ) &&
       /receipt\.legacy\.server_stop/.test(serverControlTest) &&
       /serverStatusProjectionInput/.test(serverControlTest) &&
+      /server-status projection input must not read JS provider statuses/.test(serverControlTest) &&
+      /assert\.equal\(Object\.hasOwn\(input,\s*"provider_statuses"\),\s*false\)/.test(serverControlTest) &&
       /assert\.equal\(input\.control_state\.receipt_id,\s*null\)/.test(
         serverControlTest,
       ) &&

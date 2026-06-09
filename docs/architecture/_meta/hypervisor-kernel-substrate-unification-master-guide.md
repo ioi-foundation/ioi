@@ -1555,6 +1555,14 @@ become backend lifecycle/projection truth; direct Rust daemon-core backend and
 provider projection APIs must own admitted backend/provider truth before the
 terminal pure Rust substrate target is met.
 
+Slice 847 retired JS provider-status summaries from server-status projection
+input. `serverStatusProjectionInput()` no longer reads `state.providers.values()`
+or sends `provider_statuses` into `server_status_input`, so the runtime-daemon
+cannot summarize provider readiness from local JS provider maps while Rust
+authors the public server-status envelope. Direct Rust daemon-core
+server-control/provider projection must own provider-state counts over admitted
+Agentgres provider truth before terminal server-control projection is complete.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

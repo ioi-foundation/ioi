@@ -24,10 +24,11 @@ function fakeState({ stateDir = mkdtempSync(join(tmpdir(), "ioi-server-control-"
   const state = {
     stateDir,
     recordStateCommits,
-    providers: new Map([
-      ["provider.local", { id: "provider.local", status: "available" }],
-      ["provider.remote", { id: "provider.remote", status: "blocked" }],
-    ]),
+    providers: {
+      values() {
+        throw new Error("server-status projection input must not read JS provider statuses");
+      },
+    },
     endpoints: new Map([["endpoint.local", { id: "endpoint.local" }]]),
     instances: new Map([["instance.loaded", { id: "instance.loaded", status: "loaded" }]]),
     backends: [
@@ -84,7 +85,7 @@ test("server control builds primitive server-status projection input", () => {
     assert.equal(input.base_url, "http://127.0.0.1:3200");
     assert.equal(input.loaded_instances, 1);
     assert.equal(input.mounted_endpoints, 1);
-    assert.deepEqual(input.provider_statuses, ["available", "blocked"]);
+    assert.equal(Object.hasOwn(input, "provider_statuses"), false);
     assert.deepEqual(input.backend_statuses, ["running", "degraded"]);
     assert.deepEqual(input.control_state, {
       status: "running",

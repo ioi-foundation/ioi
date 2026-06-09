@@ -17443,7 +17443,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 845 is now satisfied.
 
-## Implementation Slice Evidence: 846
+## Compacted Implementation Slice Evidence: 846
 
 Slice 846 retired backend-registry provider-map readback from derived backend
 records. `deriveBackendRegistry()` no longer passes `state.providers` into
@@ -17469,7 +17469,31 @@ inventory/projection, Agentgres-backed backend/provider truth, command-transport
 replacement, and local map/projection materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 846 after the next direct
+Scheduled matrix-compaction obligation from Slice 846 is now satisfied.
+
+## Implementation Slice Evidence: 847
+
+Slice 847 retired JS provider-status summaries from server-status projection
+input. `serverStatusProjectionInput()` no longer reads
+`state.providers.values()` or sends `provider_statuses` in `server_status_input`,
+so the runtime-daemon cannot summarize provider readiness from local JS provider
+maps while Rust authors the public server-status envelope. The focused test
+installs a poisonous `providers.values()` accessor and asserts the
+`provider_statuses` field is absent from the primitive server-status input.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/server-control.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal server-control projection migration: direct
+Rust daemon-core server-control/provider projection, Agentgres-backed provider
+truth, backend-state projection, command-transport replacement, and local
+map/projection materialization retirement still remain before this surface
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 847 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local
