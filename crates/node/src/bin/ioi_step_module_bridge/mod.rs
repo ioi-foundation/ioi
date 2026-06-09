@@ -2152,7 +2152,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "runtimeEngines": array_field(state, "runtime_engines"),
         "runtimeEngineProfiles": array_field(state, "runtime_engine_profiles"),
         "runtimePreference": object_or_null(state.get("runtime_preference")),
-        "runtimeSurvey": state.get("runtime_survey").cloned().unwrap_or(Value::Null),
+        "runtimeSurvey": model_mount_latest_runtime_survey(request),
         "tokens": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": array_field(state, "mcp_servers"),
@@ -2192,7 +2192,7 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "runtimeEngines": array_field(state, "runtime_engines"),
         "runtimeEngineProfiles": array_field(state, "runtime_engine_profiles"),
         "runtimePreference": object_or_null(state.get("runtime_preference")),
-        "runtimeSurvey": state.get("runtime_survey").cloned().unwrap_or(Value::Null),
+        "runtimeSurvey": model_mount_latest_runtime_survey(request),
         "grants": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": array_field(state, "mcp_servers"),
@@ -3201,11 +3201,11 @@ fn model_mount_latest_vault_health(
 
 fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) -> Value {
     let receipts = array_field(&request.state, "receipts");
-    let runtime_survey_default = object_or_null(request.state.get("runtime_survey_default"));
+    let runtime_survey_input = object_or_null(request.state.get("runtime_survey_input"));
     let Some(receipt) = receipts.iter().rev().find(|candidate| {
         json_string_field(candidate, "kind").as_deref() == Some("runtime_survey")
     }) else {
-        return runtime_survey_default;
+        return model_mount_runtime_survey_not_checked(request);
     };
     let details = receipt.get("details").unwrap_or(&Value::Null);
     json!({
@@ -3225,13 +3225,13 @@ fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) 
             .get("runtime_preference")
             .cloned()
             .unwrap_or_else(|| {
-                runtime_survey_default
-                    .get("runtimePreference")
+                runtime_survey_input
+                    .get("runtime_preference")
                     .cloned()
                     .unwrap_or(Value::Null)
             }),
         "hardware": details.get("hardware").cloned().unwrap_or_else(|| {
-            runtime_survey_default
+            runtime_survey_input
                 .get("hardware")
                 .cloned()
                 .unwrap_or(Value::Null)
@@ -3240,6 +3240,23 @@ fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) 
             .get("lm_studio")
             .cloned()
             .unwrap_or_else(|| json!({"status": "unknown"})),
+    })
+}
+
+fn model_mount_runtime_survey_not_checked(request: &ModelMountReadProjectionRequest) -> Value {
+    let input = object_or_null(request.state.get("runtime_survey_input"));
+    json!({
+        "status": "not_checked",
+        "receiptId": "none",
+        "checkedAt": Value::Null,
+        "engineCount": input.get("engine_count").and_then(Value::as_u64).unwrap_or(0),
+        "selectedEngines": Value::Array(Vec::new()),
+        "runtimePreference": input.get("runtime_preference").cloned().unwrap_or(Value::Null),
+        "hardware": input.get("hardware").cloned().unwrap_or(Value::Null),
+        "lmStudio": {
+            "status": "not_checked",
+            "evidenceRefs": ["runtime_survey_not_checked"],
+        },
     })
 }
 
@@ -9299,13 +9316,10 @@ mod tests {
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "state": {
                         "receipts": [],
-                        "runtime_survey_default": {
-                            "status": "not_checked",
-                            "receiptId": "none",
-                            "engineCount": 1,
+                        "runtime_survey_input": {
+                            "engine_count": 1,
                             "hardware": {"cpuCount": 8},
-                            "runtimePreference": {"selectedEngineId": "backend.llama-cpp"},
-                            "lmStudio": {"status": "not_checked"}
+                            "runtime_preference": {"selectedEngineId": "backend.llama-cpp"}
                         }
                     }
                 }
@@ -9337,11 +9351,9 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "state": {
-                        "runtime_survey_default": {
-                            "status": "not_checked",
-                            "receiptId": "none",
+                        "runtime_survey_input": {
                             "hardware": {"cpuCount": 8},
-                            "runtimePreference": {"selectedEngineId": "backend.llama-cpp"}
+                            "runtime_preference": {"selectedEngineId": "backend.llama-cpp"}
                         },
                         "receipts": [{
                             "id": "receipt-runtime-survey",

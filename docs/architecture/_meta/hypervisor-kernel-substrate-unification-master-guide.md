@@ -1154,6 +1154,15 @@ objects through a shared planner helper. This still does not claim terminal
 server-control migration: direct Rust daemon-core server-control/state/log/event
 APIs still need to replace JS volatile-state collection and command transport.
 
+Slice 814 retired the JS-authored latest runtime-survey public envelope from
+the model_mount read-projection path. The runtime-daemon now sends only
+primitive `runtime_survey_input` migration data, and Rust authors the
+not-checked fallback, checked receipt projection, and nested snapshot/projection
+`runtimeSurvey` objects through the shared read-projection planner. This still
+does not claim terminal runtime-survey migration: direct Rust daemon-core
+runtime-survey APIs still need to replace JS hardware/runtime probing,
+Agentgres admission, record-state, and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  latestRuntimeSurvey,
+  latestRuntimeSurveyProjectionInput,
   lmStudioRuntimeEngines,
   lmStudioRuntimeSurvey,
   runtimeSurvey,
@@ -116,18 +116,13 @@ test("runtimeSurvey facade fails closed before JS probes, engine reads, or recei
   assert.deepEqual(state.receipts, []);
 });
 
-test("latestRuntimeSurvey reports not-checked state and checked receipts", () => {
+test("latestRuntimeSurveyProjectionInput builds primitive runtime-survey input", () => {
   const state = fakeState();
 
-  assert.deepEqual(latestRuntimeSurvey(state, deps), {
-    status: "not_checked",
-    receiptId: "none",
-    checkedAt: null,
-    engineCount: 2,
-    selectedEngines: [],
-    runtimePreference: { selectedEngineId: "engine_a" },
+  assert.deepEqual(latestRuntimeSurveyProjectionInput(state, deps), {
+    engine_count: 2,
+    runtime_preference: { selectedEngineId: "engine_a" },
     hardware: { cpuCount: 8 },
-    lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
   });
 
   state.receipts.push({
@@ -143,12 +138,13 @@ test("latestRuntimeSurvey reports not-checked state and checked receipts", () =>
       lm_studio: { status: "available" },
     },
   });
-  const latest = latestRuntimeSurvey(state, deps);
+  const latest = latestRuntimeSurveyProjectionInput(state, deps);
 
-  assert.equal(latest.status, "checked");
-  assert.equal(latest.receiptId, "receipt_1");
-  assert.equal(latest.engineCount, 2);
-  assert.deepEqual(latest.selectedEngines, ["engine_a"]);
+  assert.equal(latest.engine_count, 2);
+  assert.deepEqual(latest.runtime_preference, { selectedEngineId: "engine_a" });
+  assert.deepEqual(latest.hardware, { cpuCount: 8 });
+  assert.equal(Object.hasOwn(latest, "status"), false);
+  assert.equal(Object.hasOwn(latest, "receiptId"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "checkedAt"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "engineCount"), false);
   assert.equal(Object.hasOwn(state.receipts[0].details, "selectedEngines"), false);

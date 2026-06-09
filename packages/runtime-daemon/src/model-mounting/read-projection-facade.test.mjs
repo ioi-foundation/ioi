@@ -256,7 +256,7 @@ function rustProjectionFixture(request) {
     runtimeEngines: state.runtime_engines,
     runtimeEngineProfiles: state.runtime_engine_profiles,
     runtimePreference: state.runtime_preference,
-    runtimeSurvey: state.runtime_survey,
+    runtimeSurvey: latestRuntimeSurveyFromRustState(state),
     grants: state.grants,
     vaultRefs: state.vault_refs,
     mcpServers: state.mcp_servers,
@@ -296,7 +296,7 @@ function rustProjectionFixture(request) {
       runtimeEngines: state.runtime_engines,
       runtimeEngineProfiles: state.runtime_engine_profiles,
       runtimePreference: state.runtime_preference,
-      runtimeSurvey: state.runtime_survey,
+      runtimeSurvey: latestRuntimeSurveyFromRustState(state),
       tokens: state.grants,
       vaultRefs: state.vault_refs,
       mcpServers: state.mcp_servers,
@@ -415,15 +415,27 @@ function rustProjectionFixture(request) {
 function latestRuntimeSurveyFromRustState(state) {
   const receipt = [...(state.receipts ?? [])].reverse()
     .find((candidate) => candidate.kind === "runtime_survey");
-  if (!receipt) return state.runtime_survey_default ?? null;
+  const input = state.runtime_survey_input ?? {};
+  if (!receipt) {
+    return {
+      status: "not_checked",
+      receiptId: "none",
+      checkedAt: null,
+      engineCount: input.engine_count ?? 0,
+      selectedEngines: [],
+      runtimePreference: input.runtime_preference ?? null,
+      hardware: input.hardware ?? null,
+      lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
+    };
+  }
   return {
     status: "checked",
     receiptId: receipt.id,
     checkedAt: receipt.details?.checked_at ?? receipt.createdAt,
     engineCount: receipt.details?.engine_count ?? 0,
     selectedEngines: receipt.details?.selected_engines ?? [],
-    runtimePreference: receipt.details?.runtime_preference ?? state.runtime_survey_default?.runtimePreference ?? null,
-    hardware: receipt.details?.hardware ?? state.runtime_survey_default?.hardware ?? null,
+    runtimePreference: receipt.details?.runtime_preference ?? input.runtime_preference ?? null,
+    hardware: receipt.details?.hardware ?? input.hardware ?? null,
     lmStudio: receipt.details?.lm_studio ?? { status: "unknown" },
   };
 }
@@ -1021,9 +1033,10 @@ test("read projection facade delegates latest runtime survey through Rust projec
   ]);
   assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
     "receipts",
-    "runtime_survey_default",
+    "runtime_survey_input",
   ]);
-  assert.equal(readProjectionRequests[0].state.runtime_survey_default.engineCount, 1);
+  assert.equal(readProjectionRequests[0].state.runtime_survey_input.engine_count, 1);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state.runtime_survey_input, "status"), false);
   assert.equal(readProjectionRequests[1].state.receipts.at(-1).id, "receipt-runtime-survey");
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey")), true);

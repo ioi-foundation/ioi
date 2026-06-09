@@ -18,7 +18,7 @@ import {
   runtimePreferenceForEndpoint,
 } from "./runtime-engines.mjs";
 import {
-  latestRuntimeSurvey as latestRuntimeSurveyInput,
+  latestRuntimeSurveyProjectionInput,
 } from "./runtime-survey.mjs";
 import {
   serverStatusProjectionInput,
@@ -300,7 +300,7 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "latest_runtime_survey") {
       return {
         receipts: state.listReceipts(),
-        runtime_survey_default: latestRuntimeSurveyInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
+        runtime_survey_input: latestRuntimeSurveyProjectionInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       };
     }
     if (projectionKind === "latest_provider_health") {
@@ -430,7 +430,7 @@ export function createModelMountingReadProjectionFacade({
       runtime_engines: state.listRuntimeEngines(),
       runtime_engine_profiles: state.listRuntimeEngineProfiles(),
       runtime_preference: state.runtimePreference(),
-      runtime_survey: latestRuntimeSurveyInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
+      runtime_survey_input: latestRuntimeSurveyProjectionInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       grants: state.listTokens(),
       vault_refs: state.listVaultRefs(),
       mcp_servers: state.listMcpServers(),

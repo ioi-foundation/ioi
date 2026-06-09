@@ -590,6 +590,9 @@ function runDocs() {
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
+      /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(guide) &&
+      /runtime-daemon now sends only\s+primitive `runtime_survey_input` migration data/.test(guide) &&
+      /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -617,9 +620,12 @@ function runDocs() {
       /`latestRuntimeSurvey\(\)` now requests\s+`latest_runtime_survey`/.test(matrix) &&
       /Slice 812 moved public model_mount server-status readback through a dedicated\s+Rust read-projection kind/.test(matrix) &&
       /`serverStatus\(\)` now requests `server_status`/.test(matrix) &&
-      /Implementation Slice Evidence: 813/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 813/.test(matrix) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(matrix) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(matrix) &&
+      /Implementation Slice Evidence: 814/.test(matrix) &&
+      /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(matrix) &&
+      /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7784,7 +7790,9 @@ function runBridge() {
       /projectionKind === "adapter_boundaries"[\s\S]*?agentgres_store:\s*state\.store\.adapterStatus\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_vault_health"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "latest_runtime_survey"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?runtime_survey_default:\s*latestRuntimeSurveyInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
+      /latestRuntimeSurveyProjectionInput/.test(modelMountingReadProjectionFacade) &&
+      !/latestRuntimeSurvey as latestRuntimeSurveyInput/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "latest_runtime_survey"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?runtime_survey_input:\s*latestRuntimeSurveyProjectionInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
       /serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
@@ -7802,7 +7810,7 @@ function runBridge() {
       /model_mount_provider_health_not_found/.test(modelMountingReadProjectionFacade) &&
       /translateLatestVaultHealthError/.test(modelMountingReadProjectionFacade) &&
       /model_mount_vault_health_not_found/.test(modelMountingReadProjectionFacade) &&
-      /runtime_survey:\s*latestRuntimeSurveyInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
+      /runtime_survey_input:\s*latestRuntimeSurveyProjectionInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
       /server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
       /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
       /listArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7864,7 +7872,8 @@ function runBridge() {
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"receipts"[\s\S]*"runtime_survey_default"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"receipts"[\s\S]*"runtime_survey_input"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.runtime_survey_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"runtime_survey"\),\s*true/.test(modelMountingReadProjectionFacadeTest) === false &&
       /Object\.hasOwn\(request\.state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7928,6 +7937,7 @@ function runBridge() {
       /fn model_mount_latest_provider_health/.test(bridgeModule) &&
       /fn model_mount_latest_vault_health/.test(bridgeModule) &&
       /fn model_mount_latest_runtime_survey/.test(bridgeModule) &&
+      /fn model_mount_runtime_survey_not_checked/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
       /fn model_mount_workflow_bindings/.test(bridgeModule) &&
       /fn model_mount_server_status/.test(bridgeModule) &&
@@ -7946,7 +7956,8 @@ function runBridge() {
       /model_mount_provider_health_not_found/.test(bridgeModule) &&
       /model_mount_vault_health_not_found/.test(bridgeModule) &&
       /model_mount_runtime_engine_not_found/.test(bridgeModule) &&
-      /runtime_survey_default/.test(bridgeModule) &&
+      /runtime_survey_input/.test(bridgeModule) &&
+      !/runtime_survey_default/.test(bridgeModule) &&
       /"server": model_mount_server_status\(request\)/.test(bridgeModule) &&
       /"workflowNodes": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"workflowBindings": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
@@ -12578,11 +12589,11 @@ function runReceipts() {
       !/const engines = state\.listRuntimeEngines\(\);/.test(runtimeSurveyModule) &&
       !/const lmStudio = state\.lmStudioRuntimeSurvey\(checkedAt\);/.test(runtimeSurveyModule) &&
       runtimeSurveyReceiptDetailsObject === "" &&
-      /receipt\.details\?\.checked_at/.test(runtimeSurveyModule) &&
-      /receipt\.details\?\.engine_count/.test(runtimeSurveyModule) &&
-      /receipt\.details\?\.selected_engines/.test(runtimeSurveyModule) &&
-      /receipt\.details\?\.runtime_preference/.test(runtimeSurveyModule) &&
-      /receipt\.details\?\.lm_studio/.test(runtimeSurveyModule) &&
+      /latestRuntimeSurveyProjectionInput/.test(runtimeSurveyModule) &&
+      /engine_count:\s*state\.listRuntimeEngines\(\)\.length/.test(runtimeSurveyModule) &&
+      /runtime_preference:\s*state\.runtimePreference\(\)/.test(runtimeSurveyModule) &&
+      /hardware:\s*hardwareSnapshot\(\)/.test(runtimeSurveyModule) &&
+      !/export function latestRuntimeSurvey\b/.test(runtimeSurveyModule) &&
       !/\b(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\s*:/.test(
         runtimeSurveyReceiptDetailsObject,
       ) &&
@@ -12596,6 +12607,9 @@ function runReceipts() {
       /assert\.equal\(engineCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.equal\(lmStudioCalls,\s*0\)/.test(runtimeSurveyTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeSurveyTest) &&
+      /latestRuntimeSurveyProjectionInput builds primitive runtime-survey input/.test(runtimeSurveyTest) &&
+      /Object\.hasOwn\(latest,\s*"status"\),\s*false/.test(runtimeSurveyTest) &&
+      /Object\.hasOwn\(latest,\s*"receiptId"\),\s*false/.test(runtimeSurveyTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"checkedAt"\),\s*false/.test(runtimeSurveyTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"engineCount"\),\s*false/.test(runtimeSurveyTest) &&
       /Object\.hasOwn\(state\.receipts\[0\]\.details,\s*"selectedEngines"\),\s*false/.test(runtimeSurveyTest) &&

@@ -7,30 +7,12 @@ export function runtimeSurvey(state, deps = {}) {
   });
 }
 
-export function latestRuntimeSurvey(state, deps = {}) {
+export function latestRuntimeSurveyProjectionInput(state, deps = {}) {
   const { hardwareSnapshot } = deps;
-  const receipt = [...state.listReceipts()].reverse().find((item) => item.kind === "runtime_survey");
-  if (!receipt) {
-    return {
-      status: "not_checked",
-      receiptId: "none",
-      checkedAt: null,
-      engineCount: state.listRuntimeEngines().length,
-      selectedEngines: [],
-      runtimePreference: state.runtimePreference(),
-      hardware: hardwareSnapshot(),
-      lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
-    };
-  }
   return {
-    status: "checked",
-    receiptId: receipt.id,
-    checkedAt: receipt.details?.checked_at ?? receipt.createdAt,
-    engineCount: receipt.details?.engine_count ?? 0,
-    selectedEngines: receipt.details?.selected_engines ?? [],
-    runtimePreference: receipt.details?.runtime_preference ?? state.runtimePreference(),
-    hardware: receipt.details?.hardware ?? hardwareSnapshot(),
-    lmStudio: receipt.details?.lm_studio ?? { status: "unknown" },
+    engine_count: state.listRuntimeEngines().length,
+    runtime_preference: state.runtimePreference(),
+    hardware: hardwareSnapshot(),
   };
 }
 
