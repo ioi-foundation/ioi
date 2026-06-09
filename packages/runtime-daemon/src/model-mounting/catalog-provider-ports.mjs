@@ -1,6 +1,4 @@
 import {
-  catalogEntryMatches,
-  fixtureModelCatalog,
 } from "./catalog-entries.mjs";
 import {
   catalogProviderConfigHealthFields,
@@ -23,11 +21,7 @@ export function fixtureCatalogProviderPort() {
     formats: ["gguf"],
     evidenceRefs,
     health: () => ({ status: "available", evidenceRefs }),
-    search: async ({ query, format, quantization, searchedAt }) => ({
-      status: "available",
-      evidenceRefs,
-      results: fixtureModelCatalog(searchedAt).filter((entry) => catalogEntryMatches(entry, { query, format, quantization })),
-    }),
+    search: async () => retiredFixtureCatalogSearchResult(evidenceRefs),
   };
 }
 
@@ -167,6 +161,23 @@ export function retiredLocalManifestCatalogSearchResult(health = {}, evidenceRef
     evidenceRefs: [
       ...evidenceRefs,
       "local_manifest_catalog_search_js_retired",
+      "rust_daemon_core_catalog_search_required",
+      "agentgres_catalog_projection_required",
+    ],
+    results: [],
+  };
+}
+
+export function retiredFixtureCatalogSearchResult(evidenceRefs = []) {
+  return {
+    status: "configured",
+    code: "model_catalog_fixture_search_retired",
+    operationKind: "model_catalog.fixture_search",
+    providerId: "catalog.fixture",
+    rustCoreBoundary: "model_mount.catalog_provider_search",
+    evidenceRefs: [
+      ...evidenceRefs,
+      "fixture_catalog_search_js_retired",
       "rust_daemon_core_catalog_search_required",
       "agentgres_catalog_projection_required",
     ],

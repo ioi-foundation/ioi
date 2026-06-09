@@ -11,7 +11,7 @@ import {
   ollamaCatalogProviderPort,
 } from "./catalog-provider-ports.mjs";
 
-test("fixture catalog provider exposes filtered fixture results", async () => {
+test("fixture catalog provider retires JS fixture search materialization", async () => {
   const port = fixtureCatalogProviderPort();
   const result = await port.search({
     query: "native",
@@ -21,9 +21,14 @@ test("fixture catalog provider exposes filtered fixture results", async () => {
   });
 
   assert.equal(port.id, "catalog.fixture");
-  assert.equal(result.status, "available");
-  assert.equal(result.results.length, 1);
-  assert.equal(result.results[0].modelId, "autopilot/native-fixture-3b");
+  assert.equal(port.health().status, "available");
+  assert.equal(result.status, "configured");
+  assert.equal(result.code, "model_catalog_fixture_search_retired");
+  assert.equal(result.providerId, "catalog.fixture");
+  assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
+  assert.equal(result.evidenceRefs.includes("fixture_catalog_search_js_retired"), true);
+  assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
+  assert.deepEqual(result.results, []);
 });
 
 test("local manifest catalog projects metadata and retires JS manifest search", async () => {

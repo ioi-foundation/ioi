@@ -660,6 +660,9 @@ function runDocs() {
       /Slice 833 retired local-manifest catalog search materialization from the JS\s+catalog-provider port/.test(guide) &&
       /`model_catalog_local_manifest_search_retired`/.test(guide) &&
       /`local_manifest_catalog_search_js_retired`/.test(guide) &&
+      /Slice 834 retired fixture catalog search materialization from the JS\s+catalog-provider port/.test(guide) &&
+      /`model_catalog_fixture_search_retired`/.test(guide) &&
+      /`fixture_catalog_search_js_retired`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -789,11 +792,16 @@ function runDocs() {
       /model_mount\.catalog_provider_runtime_material\.resolve/.test(matrix) &&
       /model_mount\.catalog_provider_auth_header\.resolve/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 832 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 833/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 833/.test(matrix) &&
       /Slice 833 retired local-manifest catalog search materialization from the JS\s+catalog-provider port/.test(matrix) &&
       /model_catalog_local_manifest_search_retired/.test(matrix) &&
       /local_manifest_catalog_search_js_retired/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 833/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 833 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 834/.test(matrix) &&
+      /Slice 834 retired fixture catalog search materialization from the JS\s+catalog-provider port/.test(matrix) &&
+      /model_catalog_fixture_search_retired/.test(matrix) &&
+      /fixture_catalog_search_js_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 834/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -801,6 +809,9 @@ function runDocs() {
       /configured catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
+        implementationMatrix,
+      ) &&
+      /fixture catalog search now fails closed with `model_catalog_fixture_search_retired`/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -13508,6 +13519,29 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
     ],
     "Phase 7/11 is pending: local manifest catalog search must fail closed before JS filesystem checks, manifest parsing, or entry materialization",
+  );
+  assertCheck(
+    result,
+    "model-mount-fixture-catalog-search-js-retired",
+    /retiredFixtureCatalogSearchResult/.test(catalogProviderPorts) &&
+      /model_catalog_fixture_search_retired/.test(catalogProviderPorts) &&
+      /fixture_catalog_search_js_retired/.test(catalogProviderPorts) &&
+      /rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
+      /agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
+      /model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
+      /fixtureCatalogProviderPort\(\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+      !/fixtureModelCatalog/.test(catalogProviderPorts) &&
+      !/catalogEntryMatches/.test(catalogProviderPorts) &&
+      /fixture catalog provider retires JS fixture search materialization/.test(
+        catalogProviderPortsTest,
+      ) &&
+      /model_catalog_fixture_search_retired/.test(catalogProviderPortsTest) &&
+      /fixture_catalog_search_js_retired/.test(catalogProviderPortsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
+    ],
+    "Phase 7/11 is pending: fixture catalog search must fail closed before JS fixture entry filtering or materialization",
   );
   assertCheck(
     result,

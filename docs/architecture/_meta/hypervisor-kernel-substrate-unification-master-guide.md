@@ -1411,6 +1411,17 @@ daemon-core catalog search, Agentgres-backed projection, local catalog
 materialization, and direct Rust APIs remain required before local-manifest
 catalog search can execute again.
 
+Slice 834 retired fixture catalog search materialization from the JS
+catalog-provider port. `fixtureCatalogProviderPort()` no longer imports or
+filters `fixtureModelCatalog()` entries and no longer returns deterministic
+fixture catalog entries as JS search truth. The port still reports fixture
+catalog health for product-safe status, but search now returns
+`model_catalog_fixture_search_retired` with
+`fixture_catalog_search_js_retired` evidence before fixture catalog
+materialization can run in JS. Fixture metadata remains available only for
+non-search catalog variant enrichment until Rust catalog projection/search APIs
+own the full path.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

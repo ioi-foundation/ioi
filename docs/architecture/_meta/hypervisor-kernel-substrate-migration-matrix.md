@@ -17070,7 +17070,7 @@ the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 832 is now satisfied.
 
-## Implementation Slice Evidence: 833
+## Compacted Implementation Slice Evidence: 833
 
 Slice 833 retired local-manifest catalog search materialization from the JS
 catalog-provider port. `catalog-provider-ports.mjs` no longer imports
@@ -17096,10 +17096,39 @@ command transport, remaining catalog-provider list/get and status/search
 orchestration cleanup, and fixture catalog strategy remain required before this
 surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 833 after the next direct
+Scheduled matrix-compaction obligation from Slice 833 is now satisfied.
+
+## Implementation Slice Evidence: 834
+
+Slice 834 retired fixture catalog search materialization from the JS
+catalog-provider port. `catalog-provider-ports.mjs` no longer imports
+`fixtureModelCatalog()` or `catalogEntryMatches()` and no longer filters or
+returns deterministic fixture catalog entries as JS search truth.
+`fixtureCatalogProviderPort()` still exposes product-safe health metadata, but
+its search path now returns `model_catalog_fixture_search_retired` with
+`fixture_catalog_search_js_retired`,
+`rust_daemon_core_catalog_search_required`, and
+`agentgres_catalog_projection_required` evidence before fixture catalog
+materialization can run in JS. `fixtureModelCatalog()` remains only in
+`catalog-entries.mjs` for non-search catalog variant enrichment until Rust
+catalog projection/search APIs own that path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog search, Agentgres-backed projection, direct Rust API replacement for
+command transport, remaining catalog-provider list/get and status/search
+orchestration cleanup, and non-search catalog variant enrichment still remain
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 834 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, catalog-provider list/get/status/search
 helpers, provider lifecycle/read adapters, local map/projection materialization,
-fixture catalog strategy, and Rust daemon-core catalog/provider/OAuth custody
-APIs.
+non-search catalog variant enrichment, and Rust daemon-core catalog/provider/OAuth
+custody APIs.
