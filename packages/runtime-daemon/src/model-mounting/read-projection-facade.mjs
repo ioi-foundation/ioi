@@ -11,13 +11,6 @@ import {
 } from "./read-model.mjs";
 import { notFound } from "./io.mjs";
 import {
-  listRuntimeEngines,
-  runtimePreference,
-} from "./runtime-engines.mjs";
-import {
-  latestRuntimeSurveyProjectionInput,
-} from "./runtime-survey.mjs";
-import {
   serverStatusProjectionInput,
 } from "./server-control.mjs";
 import {
@@ -28,7 +21,6 @@ export function createModelMountingReadProjectionFacade({
   internalFixtureModelsEnabled,
   listJson,
   modelMountSchemaVersion,
-  hardwareSnapshot = () => null,
   notFound: notFoundDep = notFound,
   path,
   readJson,
@@ -284,7 +276,6 @@ export function createModelMountingReadProjectionFacade({
     if (projectionKind === "latest_runtime_survey") {
       return {
         receipts: state.listReceipts(),
-        runtime_survey_input: latestRuntimeSurveyProjectionInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       };
     }
     if (projectionKind === "latest_provider_health") {
@@ -391,19 +382,6 @@ export function createModelMountingReadProjectionFacade({
       ],
     };
     throw error;
-  }
-
-  function runtimeEngineProjectionState(state) {
-    const runtimeState = Object.create(state);
-    runtimeState.listInstances = () => instanceList(state);
-    return runtimeState;
-  }
-
-  function runtimeSurveyProjectionState(state) {
-    const runtimeState = runtimeEngineProjectionState(state);
-    runtimeState.listRuntimeEngines = () => listRuntimeEngines(runtimeState);
-    runtimeState.runtimePreference = () => runtimePreference(runtimeState);
-    return runtimeState;
   }
 
   return {

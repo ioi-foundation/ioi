@@ -17751,7 +17751,7 @@ Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 857 is now satisfied.
 
-## Implementation Slice Evidence: 858
+## Compacted Implementation Slice Evidence: 858
 
 Slice 858 retired dedicated runtime-engine JS read-projection input. The
 `runtime_engines`, `runtime_engine_profiles`, `runtime_preference`,
@@ -17775,11 +17775,39 @@ Focused evidence:
 This still does not claim terminal runtime-engine projection migration: direct
 Rust daemon-core runtime-engine projection APIs, Agentgres-backed
 runtime-engine truth, preference/profile/default-load ownership,
-command-transport replacement, local runtime-engine materialization
-retirement, and latest-runtime-survey primitive input retirement still remain
-before this surface reaches the pure Rust substrate target.
+command-transport replacement, and local runtime-engine materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
 
-Next scheduled matrix-compaction pass: compact Slice 858 after the next direct
+Scheduled matrix-compaction obligation from Slice 858 is now satisfied.
+
+## Implementation Slice Evidence: 859
+
+Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection
+input. The `latest_runtime_survey` read projection now sends only admitted
+receipts from the runtime-daemon facade and no longer imports
+`latestRuntimeSurveyProjectionInput()`, reads JS runtime-engine preferences, or
+passes JS hardware/probe fallback data. Rust ignores `runtime_survey_input` for
+this projection: not-checked survey readback returns zero/null/default values,
+and checked survey readback is derived only from admitted `runtime_survey`
+receipt details. The focused JS test asserts every latest-runtime-survey request
+state is receipt-only; the focused Rust bridge test verifies the default/null
+not-checked projection and checked receipt-derived projection without
+`runtime_survey_input`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal runtime-survey migration: direct Rust
+daemon-core runtime probing, Agentgres-admitted survey capture,
+command-transport replacement, and local survey materialization retirement
+still remain before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 859 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport

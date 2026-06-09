@@ -1669,6 +1669,18 @@ preference/profile/default-load ownership, command-transport replacement, and
 local runtime-engine materialization retirement still remain before this
 surface reaches the pure Rust substrate target.
 
+Slice 859 retired dedicated latest-runtime-survey JS primitive read-projection
+input. The `latest_runtime_survey` read projection now sends only admitted
+receipts from the runtime-daemon facade and no longer imports
+`latestRuntimeSurveyProjectionInput()`, reads JS runtime-engine preferences, or
+passes JS hardware/probe fallback data. Rust ignores `runtime_survey_input` for
+this projection: not-checked survey readback returns zero/null/default values,
+and checked survey readback is derived only from admitted `runtime_survey`
+receipt details. Direct Rust daemon-core runtime probing, Agentgres-admitted
+survey capture, command-transport replacement, and local survey materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

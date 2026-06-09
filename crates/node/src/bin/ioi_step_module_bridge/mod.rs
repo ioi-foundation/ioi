@@ -3268,7 +3268,6 @@ fn model_mount_latest_vault_health(
 
 fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) -> Value {
     let receipts = array_field(&request.state, "receipts");
-    let runtime_survey_input = object_or_null(request.state.get("runtime_survey_input"));
     let Some(receipt) = receipts.iter().rev().find(|candidate| {
         json_string_field(candidate, "kind").as_deref() == Some("runtime_survey")
     }) else {
@@ -3291,18 +3290,8 @@ fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) 
         "runtimePreference": details
             .get("runtime_preference")
             .cloned()
-            .unwrap_or_else(|| {
-                runtime_survey_input
-                    .get("runtime_preference")
-                    .cloned()
-                    .unwrap_or(Value::Null)
-            }),
-        "hardware": details.get("hardware").cloned().unwrap_or_else(|| {
-            runtime_survey_input
-                .get("hardware")
-                .cloned()
-                .unwrap_or(Value::Null)
-        }),
+            .unwrap_or(Value::Null),
+        "hardware": details.get("hardware").cloned().unwrap_or(Value::Null),
         "lmStudio": details
             .get("lm_studio")
             .cloned()
@@ -3310,16 +3299,15 @@ fn model_mount_latest_runtime_survey(request: &ModelMountReadProjectionRequest) 
     })
 }
 
-fn model_mount_runtime_survey_not_checked(request: &ModelMountReadProjectionRequest) -> Value {
-    let input = object_or_null(request.state.get("runtime_survey_input"));
+fn model_mount_runtime_survey_not_checked(_request: &ModelMountReadProjectionRequest) -> Value {
     json!({
         "status": "not_checked",
         "receiptId": "none",
         "checkedAt": Value::Null,
-        "engineCount": input.get("engine_count").and_then(Value::as_u64).unwrap_or(0),
+        "engineCount": 0,
         "selectedEngines": Value::Array(Vec::new()),
-        "runtimePreference": input.get("runtime_preference").cloned().unwrap_or(Value::Null),
-        "hardware": input.get("hardware").cloned().unwrap_or(Value::Null),
+        "runtimePreference": Value::Null,
+        "hardware": Value::Null,
         "lmStudio": {
             "status": "not_checked",
             "evidenceRefs": ["runtime_survey_not_checked"],
@@ -9426,12 +9414,7 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "state": {
-                        "receipts": [],
-                        "runtime_survey_input": {
-                            "engine_count": 1,
-                            "hardware": {"cpuCount": 8},
-                            "runtime_preference": {"selectedEngineId": "backend.llama-cpp"}
-                        }
+                        "receipts": []
                     }
                 }
             }))
@@ -9448,8 +9431,16 @@ mod tests {
             "not_checked"
         );
         assert_eq!(
-            latest_runtime_survey_response["projection"]["runtimePreference"]["selectedEngineId"],
-            "backend.llama-cpp"
+            latest_runtime_survey_response["projection"]["engineCount"],
+            0
+        );
+        assert_eq!(
+            latest_runtime_survey_response["projection"]["runtimePreference"],
+            Value::Null
+        );
+        assert_eq!(
+            latest_runtime_survey_response["projection"]["hardware"],
+            Value::Null
         );
 
         let checked_runtime_survey_request: ModelMountReadProjectionBridgeRequest =
@@ -9462,10 +9453,6 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "state": {
-                        "runtime_survey_input": {
-                            "hardware": {"cpuCount": 8},
-                            "runtime_preference": {"selectedEngineId": "backend.llama-cpp"}
-                        },
                         "receipts": [{
                             "id": "receipt-runtime-survey",
                             "kind": "runtime_survey",

@@ -465,16 +465,15 @@ function rustProjectionFixture(request) {
 function latestRuntimeSurveyFromRustState(state) {
   const receipt = [...(state.receipts ?? [])].reverse()
     .find((candidate) => candidate.kind === "runtime_survey");
-  const input = state.runtime_survey_input ?? {};
   if (!receipt) {
     return {
       status: "not_checked",
       receiptId: "none",
       checkedAt: null,
-      engineCount: input.engine_count ?? 0,
+      engineCount: 0,
       selectedEngines: [],
-      runtimePreference: input.runtime_preference ?? null,
-      hardware: input.hardware ?? null,
+      runtimePreference: null,
+      hardware: null,
       lmStudio: { status: "not_checked", evidenceRefs: ["runtime_survey_not_checked"] },
     };
   }
@@ -484,8 +483,8 @@ function latestRuntimeSurveyFromRustState(state) {
     checkedAt: receipt.details?.checked_at ?? receipt.createdAt,
     engineCount: receipt.details?.engine_count ?? 0,
     selectedEngines: receipt.details?.selected_engines ?? [],
-    runtimePreference: receipt.details?.runtime_preference ?? input.runtime_preference ?? null,
-    hardware: receipt.details?.hardware ?? input.hardware ?? null,
+    runtimePreference: receipt.details?.runtime_preference ?? null,
+    hardware: receipt.details?.hardware ?? null,
     lmStudio: receipt.details?.lm_studio ?? { status: "unknown" },
   };
 }
@@ -1200,9 +1199,9 @@ test("read projection facade delegates latest runtime survey through Rust projec
   const notChecked = facade.latestRuntimeSurvey(state);
   assert.equal(notChecked.status, "not_checked");
   assert.equal(notChecked.receiptId, "none");
-  assert.equal(notChecked.engineCount, 1);
-  assert.equal(notChecked.runtimePreference.selectedEngineId, "backend.llama-cpp");
-  assert.deepEqual(notChecked.hardware, { cpuCount: 8 });
+  assert.equal(notChecked.engineCount, 0);
+  assert.equal(notChecked.runtimePreference, null);
+  assert.equal(notChecked.hardware, null);
   assert.equal(notChecked.lmStudio.status, "not_checked");
 
   state.listReceipts().push({
@@ -1229,15 +1228,12 @@ test("read projection facade delegates latest runtime survey through Rust projec
     "latest_runtime_survey",
     "latest_runtime_survey",
   ]);
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state).sort(), [
-    "receipts",
-    "runtime_survey_input",
-  ]);
-  assert.equal(readProjectionRequests[0].state.runtime_survey_input.engine_count, 1);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.runtime_survey_input, "status"), false);
+  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["receipts"]);
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "runtime_survey_input"), false);
   assert.equal(readProjectionRequests[1].state.receipts.at(-1).id, "receipt-runtime-survey");
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "server")), true);
   assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey")), true);
+  assert.equal(readProjectionRequests.every((request) => !Object.hasOwn(request.state, "runtime_survey_input")), true);
 });
 
 test("read projection facade preserves latest health not-found errors", () => {
