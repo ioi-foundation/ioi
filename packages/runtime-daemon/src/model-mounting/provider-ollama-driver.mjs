@@ -1,11 +1,8 @@
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
-import { chatCompletionRequestBody, estimateTokens } from "./provider-protocol.mjs";
 import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
-import {
-  fetchProviderJson,
-  fetchProviderStream,
-} from "./provider-transport.mjs";
-import { safeId, stableHash } from "./io.mjs";
+import { fetchProviderJson } from "./provider-transport.mjs";
+import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
+import { safeId } from "./io.mjs";
 
 export class OllamaModelProviderDriver {
   async health(provider, { state } = {}) {
@@ -132,61 +129,14 @@ export class OllamaModelProviderDriver {
   }
 
   supportsStream(kind) {
-    return kind === "chat.completions" || kind === "chat" || kind === "responses";
+    return false;
   }
 
-  async streamInvoke({ state, provider, endpoint, kind, body }) {
-    if (!this.supportsStream(kind)) return null;
-    const result = await fetchProviderStream(provider, "/api/chat", {
-      method: "POST",
-      body: chatCompletionRequestBody({ ...body, stream: true }, endpoint.modelId),
-      state,
-    });
-    return {
-      stream: result.stream,
-      abort: result.abort,
-      status: result.status,
-      streamFormat: "ollama_jsonl",
-      providerResponseKind: kind === "responses" ? "ollama.responses.stream" : "ollama.chat.stream",
-      backend: "ollama",
-      backendId: endpoint.backendId ?? "backend.ollama",
-      backendEvidenceRefs: ["ollama_api_chat_native_stream"],
-    };
+  async streamInvoke({ provider } = {}) {
+    throw retiredJsProviderInvocationError(provider, { label: "ollama", stream: true });
   }
 
-  async invoke({ state, provider, endpoint, kind, body, input }) {
-    if (kind === "embeddings") {
-      const result = await fetchProviderJson(provider, "/api/embeddings", {
-        method: "POST",
-        body: { model: endpoint.modelId, prompt: Array.isArray(body.input) ? body.input.join("\n") : String(body.input ?? "") },
-        state,
-      });
-      const outputText = `embedding:${endpoint.modelId}:${stableHash(result.body?.embedding ?? input).slice(0, 12)}`;
-      return {
-        outputText,
-        tokenCount: estimateTokens(input, outputText),
-        providerResponse: {
-          object: "list",
-          data: [{ object: "embedding", index: 0, embedding: result.body?.embedding ?? [] }],
-        },
-        providerResponseKind: "embeddings",
-        backend: "ollama",
-        backendId: endpoint.backendId ?? "backend.ollama",
-      };
-    }
-    const result = await fetchProviderJson(provider, "/api/chat", {
-      method: "POST",
-      body: chatCompletionRequestBody({ ...body, stream: false }, endpoint.modelId),
-      state,
-    });
-    const outputText = String(result.body?.message?.content ?? result.body?.response ?? "");
-    return {
-      outputText,
-      tokenCount: estimateTokens(input, outputText),
-      providerResponse: result.body,
-      providerResponseKind: "ollama.chat",
-      backend: "ollama",
-      backendId: endpoint.backendId ?? "backend.ollama",
-    };
+  async invoke({ provider } = {}) {
+    throw retiredJsProviderInvocationError(provider, { label: "ollama", stream: false });
   }
 }

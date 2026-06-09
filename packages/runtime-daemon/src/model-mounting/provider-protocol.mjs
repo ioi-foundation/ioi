@@ -8,38 +8,6 @@ export function parseJsonMaybe(text) {
   }
 }
 
-export function chatCompletionRequestBody(body, modelId) {
-  if (Array.isArray(body.messages)) {
-    return { ...body, model: body.model ?? modelId };
-  }
-  const content = body.input ?? body.prompt ?? "";
-  return {
-    ...body,
-    model: body.model ?? modelId,
-    messages: [{ role: "user", content: String(content) }],
-  };
-}
-
-export function outputTextFromChat(body) {
-  return String(
-    body?.choices?.[0]?.message?.content ??
-      body?.choices?.[0]?.message?.reasoning_content ??
-      body?.choices?.[0]?.text ??
-      body?.output_text ??
-      "",
-  );
-}
-
-export function outputTextFromResponse(body) {
-  if (typeof body?.output_text === "string") return body.output_text;
-  const content = body?.output?.[0]?.content;
-  if (Array.isArray(content)) {
-    const text = content.find((item) => typeof item?.text === "string")?.text;
-    if (text) return text;
-  }
-  return outputTextFromChat(body);
-}
-
 export function normalizeUsage(usage, fallback) {
   if (!usage || typeof usage !== "object") return fallback;
   const normalized = {

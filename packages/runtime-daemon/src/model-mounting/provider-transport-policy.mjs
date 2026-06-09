@@ -5,15 +5,6 @@ export function providerRequestTimeoutMs(provider = {}) {
   return 30000;
 }
 
-export function providerStreamRequestTimeoutMs(provider = {}) {
-  const configured = Number(process.env.IOI_PROVIDER_STREAM_TIMEOUT_MS ?? "");
-  if (Number.isFinite(configured) && configured >= 1000) return configured;
-  const httpConfigured = Number(process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS ?? "");
-  if (Number.isFinite(httpConfigured) && httpConfigured >= 1000) return httpConfigured;
-  if (["llama_cpp", "lm_studio", "ollama", "vllm"].includes(provider.kind)) return 120000;
-  return 60000;
-}
-
 export function providerOpenRetryPolicy(provider = {}) {
   const rawConfigured = process.env.IOI_PROVIDER_OPEN_RETRY_MS;
   const configured = Number(rawConfigured ?? "");

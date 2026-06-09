@@ -108,7 +108,7 @@ test("Ollama driver lists available and loaded models", async () => {
   });
 });
 
-test("Ollama driver invokes chat, embeddings, load, and unload probes", async () => {
+test("Ollama driver keeps lifecycle probes separate from retired JS invocation", async () => {
   await withOllamaServer(async ({ baseUrl, requests }) => {
     const state = fakeState();
     const driver = new OllamaModelProviderDriver();
@@ -129,34 +129,60 @@ test("Ollama driver invokes chat, embeddings, load, and unload probes", async ()
     assert.equal(load.status, "loaded");
     assert.equal(load.providerStatus, "warmed");
 
-    const chat = await driver.invoke({
-      state,
-      provider: selectedProvider,
-      endpoint: selectedEndpoint,
-      kind: "chat.completions",
-      body: { messages: [{ role: "user", content: "hello" }] },
-      input: "hello",
-    });
-    assert.equal(chat.outputText, "ollama says hi");
-    assert.equal(chat.providerResponseKind, "ollama.chat");
-
-    const embedding = await driver.invoke({
-      state,
-      provider: selectedProvider,
-      endpoint: selectedEndpoint,
-      kind: "embeddings",
-      body: { input: "hello" },
-      input: "hello",
-    });
-    assert.equal(embedding.providerResponseKind, "embeddings");
-    assert.deepEqual(embedding.providerResponse.data[0].embedding, [0.1, 0.2, 0.3]);
-
     const unload = await driver.unload({ state, provider: selectedProvider, endpoint: selectedEndpoint });
     assert.equal(unload.status, "unloaded");
     assert.equal(unload.providerStatus, "evicted");
 
-    assert.ok(requests.some((request) => request.url === "/api/chat"));
+    assert.equal(requests.some((request) => request.url === "/api/chat"), false);
+    assert.equal(requests.some((request) => request.url === "/api/embeddings"), false);
     assert.equal(requests.filter((request) => request.url === "/api/generate").length, 2);
     assert.equal(requests.find((request) => request.url === "/api/generate").body.keep_alive, "60s");
+  });
+});
+
+test("Ollama driver fails closed for retired JS invocation before HTTP request shaping", async () => {
+  await withOllamaServer(async ({ baseUrl, requests }) => {
+    const state = fakeState();
+    const driver = new OllamaModelProviderDriver();
+    const selectedProvider = provider(baseUrl);
+
+    await assert.rejects(
+      () => driver.invoke({
+        state,
+        provider: selectedProvider,
+        endpoint: endpoint(),
+        kind: "chat.completions",
+        body: { messages: [{ role: "user", content: "hello" }] },
+        input: "hello",
+      }),
+      (error) => {
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "model_mount_provider_js_invocation_retired");
+        assert.equal(error.details.provider_kind, "ollama");
+        assert.equal(error.details.provider_driver, "ollama");
+        assert.equal(error.details.stream, false);
+        return true;
+      },
+    );
+
+    await assert.rejects(
+      () => driver.streamInvoke({
+        state,
+        provider: selectedProvider,
+        endpoint: endpoint(),
+        kind: "chat.completions",
+        body: { messages: [{ role: "user", content: "hello" }] },
+      }),
+      (error) => {
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "model_mount_provider_js_invocation_retired");
+        assert.equal(error.details.provider_kind, "ollama");
+        assert.equal(error.details.stream, true);
+        return true;
+      },
+    );
+
+    assert.equal(driver.supportsStream("chat.completions"), false);
+    assert.equal(requests.length, 0);
   });
 });

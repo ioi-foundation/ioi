@@ -3,7 +3,6 @@ import { parseJsonMaybe, truncate } from "./provider-protocol.mjs";
 import {
   providerOpenRetryDelayMs,
   providerRequestTimeoutMs,
-  providerStreamRequestTimeoutMs,
   shouldRetryProviderOpen,
 } from "./provider-transport-policy.mjs";
 import { runtimeError, stableHash } from "./io.mjs";
@@ -63,86 +62,6 @@ export async function fetchProviderJson(provider, route, { method = "GET", body,
         status: 424,
         code: "external_blocker",
         message: "OpenAI-compatible provider request failed.",
-        details: {
-          provider_id: provider.id,
-          provider_kind: provider.kind,
-          error: String(error?.name ?? error?.message ?? error),
-          timeout_ms: timeoutMs,
-        },
-      });
-    }
-  }
-}
-
-export async function fetchProviderStream(provider, route, { method = "GET", body, state } = {}) {
-  assertProviderVaultBoundary(provider);
-  if (!provider.baseUrl || String(provider.baseUrl).startsWith("local://")) {
-    throw runtimeError({
-      status: 424,
-      code: "external_blocker",
-      message: "Provider does not expose an HTTP model endpoint.",
-      details: { provider_id: provider.id, provider_kind: provider.kind },
-    });
-  }
-  const timeoutMs = providerStreamRequestTimeoutMs(provider);
-  const url = `${String(provider.baseUrl).replace(/\/+$/, "")}/${route.replace(/^\/+/, "")}`;
-  const auth = providerAuthHeaders(provider, state);
-  const startedAt = Date.now();
-  for (let attempt = 0; ; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(url, {
-        method,
-        signal: controller.signal,
-        headers: {
-          accept: "text/event-stream",
-          ...auth.headers,
-          ...(body === undefined ? {} : { "content-type": "application/json" }),
-        },
-        body: body === undefined ? undefined : JSON.stringify(body),
-      });
-      clearTimeout(timeout);
-      if (!response.ok) {
-        const text = await response.text();
-        const parsed = text.trim() ? parseJsonMaybe(text) : null;
-        if (shouldRetryProviderOpen(provider, response.status, attempt, Date.now() - startedAt)) {
-          await retryProviderOpen(provider, route, { attempt });
-          continue;
-        }
-        throw providerHttpError(provider, "OpenAI-compatible provider stream failed.", {
-          ok: false,
-          status: response.status,
-          body: parsed,
-          authEvidence: auth.evidence,
-        });
-      }
-      if (!response.body) {
-        throw runtimeError({
-          status: 424,
-          code: "external_blocker",
-          message: "OpenAI-compatible provider did not return a stream body.",
-          details: { provider_id: provider.id, provider_kind: provider.kind },
-        });
-      }
-      return {
-        ok: true,
-        status: response.status,
-        stream: response.body,
-        abort: () => controller.abort(),
-        authEvidence: auth.evidence,
-      };
-    } catch (error) {
-      clearTimeout(timeout);
-      if (error?.status || error?.code === "external_blocker") throw error;
-      if (shouldRetryProviderOpen(provider, "network", attempt, Date.now() - startedAt)) {
-        await retryProviderOpen(provider, route, { attempt });
-        continue;
-      }
-      throw runtimeError({
-        status: 424,
-        code: "external_blocker",
-        message: "OpenAI-compatible provider stream failed.",
         details: {
           provider_id: provider.id,
           provider_kind: provider.kind,

@@ -5,25 +5,18 @@ import {
   providerOpenRetryDelayMs,
   providerOpenRetryPolicy,
   providerRequestTimeoutMs,
-  providerStreamRequestTimeoutMs,
   shouldRetryProviderOpen,
 } from "./provider-transport-policy.mjs";
 
-test("provider transport policy gives local streams a native first-token budget", () => {
+test("provider transport policy gives local JSON probes a native readiness budget", () => {
   const previousHttp = process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS;
-  const previousStream = process.env.IOI_PROVIDER_STREAM_TIMEOUT_MS;
   delete process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS;
-  delete process.env.IOI_PROVIDER_STREAM_TIMEOUT_MS;
   try {
     assert.equal(providerRequestTimeoutMs(), 30000);
     assert.equal(providerRequestTimeoutMs({ kind: "llama_cpp" }), 300000);
-    assert.equal(providerStreamRequestTimeoutMs({ kind: "llama_cpp" }), 120000);
-    assert.equal(providerStreamRequestTimeoutMs({ kind: "openai_compatible" }), 60000);
   } finally {
     if (previousHttp === undefined) delete process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS;
     else process.env.IOI_PROVIDER_HTTP_TIMEOUT_MS = previousHttp;
-    if (previousStream === undefined) delete process.env.IOI_PROVIDER_STREAM_TIMEOUT_MS;
-    else process.env.IOI_PROVIDER_STREAM_TIMEOUT_MS = previousStream;
   }
 });
 

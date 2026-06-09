@@ -1273,6 +1273,21 @@ This still does not claim terminal provider migration: direct Rust daemon-core
 hosted/provider transports, provider request shaping, projection,
 Agentgres-backed reads, and command-transport retirement remain required.
 
+Slice 824 retired the remaining Ollama JS provider invocation and daemon-local
+HTTP stream transport body. `OllamaModelProviderDriver.invoke()` and
+`.streamInvoke()` now fail closed with
+`model_mount_provider_js_invocation_retired` before Ollama `/api/chat` or
+`/api/embeddings` request shaping, provider HTTP stream transport, token
+estimation, output synthesis, or provider-result assembly. The shared
+fail-closed boundary moved into `provider-invocation-retirement.mjs`, and the
+dead JS chat/Responses request and output translators plus generic
+`fetchProviderStream()`/stream-timeout helper were removed rather than retained
+as dormant compatibility scaffolding. Catalog/list/health and lifecycle probes
+remain non-authoritative migration support only. This still does not claim
+terminal provider migration: direct Rust daemon-core provider transports,
+provider request shaping, projection, Agentgres-backed reads, lifecycle
+ownership, and command-transport retirement remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

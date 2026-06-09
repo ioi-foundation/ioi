@@ -16785,7 +16785,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 822 is now satisfied.
 
-## Implementation Slice Evidence: 823
+## Compacted Implementation Slice Evidence: 823
 
 Slice 823 retired hosted/OpenAI-compatible JS provider invocation and
 stream-invocation bodies. `OpenAICompatibleModelProviderDriver.invoke()` and
@@ -16801,15 +16801,41 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs` | passed |
+| OpenAI-compatible/backend/LM Studio provider-driver focused tests plus full `hypervisor-conformance` | passed before Slice 824 Ollama JS provider invocation and stream-transport retirement |
 
 This still does not claim terminal provider migration: direct Rust daemon-core
 hosted/provider transports, provider request shaping, projection,
 Agentgres-backed read APIs, and command-transport retirement remain required
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 823 after the next direct
+Scheduled matrix-compaction obligation from Slice 823 is now satisfied.
+
+## Implementation Slice Evidence: 824
+
+Slice 824 retired the remaining Ollama JS provider invocation and generic JS
+provider stream transport. `OllamaModelProviderDriver.invoke()` and
+`.streamInvoke()` now fail closed with
+`model_mount_provider_js_invocation_retired` before `/api/chat` or
+`/api/embeddings` request shaping, provider HTTP stream transport,
+token-estimation, output synthesis, or provider-result assembly. The shared
+fail-closed boundary now lives in `provider-invocation-retirement.mjs` instead
+of the OpenAI-compatible driver, and the dead JS chat/Responses request/output
+translator helpers plus `fetchProviderStream()`/stream-timeout helper are
+removed rather than preserved as dormant compatibility scaffolding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-protocol.test.mjs packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs packages/runtime-daemon/src/model-mounting/provider-transport-policy.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, provider request shaping, projection, Agentgres-backed
+read APIs, lifecycle ownership, and command-transport retirement remain
+required before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 824 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-preserve the non-terminal status of command transport, JS wrapper calls, local
-map/projection materialization, and Rust daemon-core provider read/execution
-APIs.
+preserve the non-terminal status of command transport, JS wrapper calls,
+lifecycle/list probe support, local map/projection materialization, and Rust
+daemon-core provider read/execution APIs.

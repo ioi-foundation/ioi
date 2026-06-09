@@ -625,6 +625,9 @@ function runDocs() {
       /Slice 823 retired the hosted\/OpenAI-compatible JS provider invocation and\s+stream-invocation bodies/.test(guide) &&
       /`model_mount_provider_js_invocation_retired`/.test(guide) &&
       /before backend-process staging or public-CLI transport/.test(guide) &&
+      /Slice 824 retired the remaining Ollama JS provider invocation and daemon-local\s+HTTP stream transport body/.test(guide) &&
+      /before Ollama `\/api\/chat` or\s+`\/api\/embeddings` request shaping/.test(guide) &&
+      /`fetchProviderStream\(\)`\/stream-timeout helper were removed/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -701,11 +704,16 @@ function runDocs() {
       /`rust_model_mount_provider_result_backend_bound` evidence/.test(matrix) &&
       /`UnsupportedProviderResultBackend`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 822 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 823/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 823/.test(matrix) &&
       /Slice 823 retired hosted\/OpenAI-compatible JS provider invocation/.test(matrix) &&
       /`model_mount_provider_js_invocation_retired`/.test(matrix) &&
       /before backend-process staging or public-CLI transport/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 823/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 823 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 824/.test(matrix) &&
+      /Slice 824 retired the remaining Ollama JS provider invocation/.test(matrix) &&
+      /`provider-invocation-retirement\.mjs`/.test(matrix) &&
+      /`fetchProviderStream\(\)`\/stream-timeout helper are\s+removed/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 824/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -2269,6 +2277,18 @@ function runBridge() {
   const openAiCompatibleDriverTest = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs")
     : "";
+  const providerInvocationRetirement = exists("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs")
+    : "";
+  const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
+    : "";
+  const providerTransport = exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
+    : "";
+  const providerTransportPolicy = exists("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs")
+    : "";
   const providerLocalDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
     : "";
@@ -2302,6 +2322,12 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs")
     : "";
   const openAiCompatibleProviderDrivers = [openAiCompatibleDriver, openAiBackendDrivers, lmStudioDriver].join("\n");
+  const retiredProviderInvocationDrivers = [
+    openAiCompatibleDriver,
+    openAiBackendDrivers,
+    lmStudioDriver,
+    ollamaDriver,
+  ].join("\n");
   const openAiCompatRoutes = exists("packages/runtime-daemon/src/openai-compat-routes.mjs")
     ? read("packages/runtime-daemon/src/openai-compat-routes.mjs")
     : "";
@@ -9489,16 +9515,32 @@ function runBridge() {
       /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
-      /model_mount_provider_js_invocation_retired/.test(openAiCompatibleProviderDrivers) &&
+      /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
+      /rust_core_boundary:\s*"model_mount\.provider_invocation"/.test(providerInvocationRetirement) &&
+      /retiredJsProviderInvocationError/.test(retiredProviderInvocationDrivers) &&
       /retiredJsProviderInvocationError/.test(openAiCompatibleDriver) &&
+      /retiredJsProviderInvocationError/.test(ollamaDriver) &&
       !/fetchProviderStream/.test(openAiCompatibleDriver) &&
       !/chatCompletionRequestBody/.test(openAiCompatibleDriver) &&
       !/outputTextFromChat/.test(openAiCompatibleDriver) &&
       !/outputTextFromResponse/.test(openAiCompatibleDriver) &&
       !/providerHttpError/.test(openAiCompatibleDriver) &&
+      !/fetchProviderStream/.test(providerTransport) &&
+      !/providerStreamRequestTimeoutMs/.test(providerTransportPolicy) &&
+      !/chatCompletionRequestBody/.test(providerProtocol) &&
+      !/outputTextFromChat/.test(providerProtocol) &&
+      !/outputTextFromResponse/.test(providerProtocol) &&
+      !/fetchProviderStream/.test(ollamaDriver) &&
+      !/chatCompletionRequestBody/.test(ollamaDriver) &&
+      !/estimateTokens/.test(ollamaDriver) &&
+      !/stableHash/.test(ollamaDriver) &&
+      !/\/api\/(?:chat|embeddings)/.test(ollamaDriver) &&
       !/this\.openAi\.(?:invoke|streamInvoke)/.test(openAiCompatibleProviderDrivers) &&
       !/reason:\s*"(?:vllm|llama_cpp)_model_(?:invoke|stream)"/.test(openAiBackendDrivers) &&
       /invocation fails closed before HTTP request shaping/.test(openAiCompatibleDriverTest) &&
+      /Ollama driver fails closed for retired JS invocation before HTTP request shaping/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs"),
+      ) &&
       /fails closed for retired JS invocation before process staging/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs"),
       ) &&
@@ -9546,13 +9588,14 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-provider-responses-chat-fallback-retired",
-    /model_mount_provider_js_invocation_retired/.test(openAiCompatibleDriver) &&
+    /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
       !/responsesFallbackStatus/.test(openAiCompatibleDriver) &&
       !/error\?\.details\?\.httpStatus/.test(openAiCompatibleDriver) &&
       !/allowResponsesFallback/.test(openAiCompatibleProviderDrivers) &&
       !/compatTranslation:\s*"chat_completions"/.test(openAiCompatibleProviderDrivers) &&
       !/kind:\s*"chat\.completions"[\s\S]*body:\s*responseBody/.test(openAiCompatibleDriver),
     [
+      "packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
@@ -12990,7 +13033,11 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-protocol.mjs",
     ],
     "Phase 9/10 is pending: provider results must be Rust-backed observations bound to provider execution",
   );

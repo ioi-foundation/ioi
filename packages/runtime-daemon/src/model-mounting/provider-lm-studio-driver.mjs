@@ -10,10 +10,8 @@ import {
 import { providerCommandError } from "./provider-transport.mjs";
 import { truncate } from "./provider-protocol.mjs";
 import { isExecutable, runtimeError, stableHash } from "./io.mjs";
-import {
-  OpenAICompatibleModelProviderDriver,
-  retiredJsProviderInvocationError,
-} from "./provider-openai-compatible-driver.mjs";
+import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
+import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
 
 export class LmStudioModelProviderDriver {
   constructor({ state }) {

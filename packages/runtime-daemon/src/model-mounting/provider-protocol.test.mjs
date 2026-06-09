@@ -2,47 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  chatCompletionRequestBody,
   deterministicOutput,
   deterministicTokenizeText,
   estimateTokens,
   inputText,
   normalizeLimit,
   normalizeUsage,
-  outputTextFromChat,
-  outputTextFromResponse,
   parseJsonMaybe,
   truncateToEstimatedTokens,
 } from "./provider-protocol.mjs";
-
-test("chat completion request body preserves messages and fills model", () => {
-  const body = chatCompletionRequestBody({
-    messages: [{ role: "system", content: "stay focused" }],
-    temperature: 0,
-  }, "route.local-first");
-
-  assert.equal(body.model, "route.local-first");
-  assert.deepEqual(body.messages, [{ role: "system", content: "stay focused" }]);
-  assert.equal(body.temperature, 0);
-});
-
-test("chat completion request body converts input payloads to user messages", () => {
-  const body = chatCompletionRequestBody({ input: "hello" }, "route.local-first");
-
-  assert.equal(body.model, "route.local-first");
-  assert.deepEqual(body.messages, [{ role: "user", content: "hello" }]);
-});
-
-test("provider output helpers read chat and responses payload text", () => {
-  assert.equal(
-    outputTextFromChat({ choices: [{ message: { content: "chat text" } }] }),
-    "chat text",
-  );
-  assert.equal(
-    outputTextFromResponse({ output: [{ content: [{ type: "output_text", text: "response text" }] }] }),
-    "response text",
-  );
-});
 
 test("normalize usage maps OpenAI and Responses token names with perf fields", () => {
   const normalized = normalizeUsage({
