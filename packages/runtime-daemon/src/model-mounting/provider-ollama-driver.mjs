@@ -1,3 +1,4 @@
+import { throwBackendProcessSupervisorRetired } from "./backend-lifecycle.mjs";
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
 import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
 import { fetchProviderJson } from "./provider-transport.mjs";
@@ -81,10 +82,12 @@ export class OllamaModelProviderDriver {
     const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
     const backend = state.backend(backendId);
-    const processRecord =
-      provider.id === "provider.ollama" && backend.binaryPath
-        ? state.ensureBackendProcess(backendId, { endpoint, loadOptions, reason: "ollama_model_load" })
-        : null;
+    if (provider.id === "provider.ollama" && backend.binaryPath) {
+      throwBackendProcessSupervisorRetired("model_mount.provider_lifecycle.ollama_load", backend, {
+        provider_id: provider.id,
+        endpoint_id: endpoint.id,
+      });
+    }
     const generate = await fetchProviderJson(provider, "/api/generate", {
       method: "POST",
       body: {
@@ -100,11 +103,11 @@ export class OllamaModelProviderDriver {
       status: "loaded",
       backend: "ollama",
       backendId,
-      process: state.backendProcessSnapshot(processRecord),
+      process: null,
       providerStatus: generate.ok ? "warmed" : "load_probe_degraded",
       evidenceRefs: [
         "ollama_generate_keep_alive_load",
-        ...(processRecord ? ["ollama_process_supervisor"] : ["ollama_http_provider_load"]),
+        "ollama_http_provider_load",
       ],
     };
   }

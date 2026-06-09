@@ -51,7 +51,7 @@ function fakeState(backends = {}) {
   };
 }
 
-test("vLLM backend driver promotes configured backend and records supervised load/unload", async () => {
+test("vLLM backend driver promotes configured backend but fails before JS process supervision", async () => {
   const state = fakeState({
     "backend.vllm": {
       id: "backend.vllm",
@@ -67,34 +67,38 @@ test("vLLM backend driver promotes configured backend and records supervised loa
   assert.equal(effective.status, "configured");
   assert.equal(effective.baseUrl, "http://127.0.0.1:8000/v1");
 
-  const load = await driver.load({
-    state,
-    provider,
-    endpoint,
-    body: {
-      load_options: { context_length: 4096, model_path: "/models/vllm" },
-      loadOptions: { context_length: 9999 },
-      contextLength: 8888,
-      modelPath: "/models/retired",
-    },
-  });
-  assert.equal(load.status, "loaded");
-  assert.equal(load.backend, "vllm");
-  assert.equal(load.backendId, "backend.vllm");
-  assert.ok(load.evidenceRefs.includes("vllm_process_supervisor"));
-  assert.equal(state.processes.at(-1).reason, "vllm_model_load");
-  assert.equal(state.processes.at(-1).loadOptions.contextLength, 4096);
-  assert.equal(state.processes.at(-1).loadOptions.modelPath, "/models/vllm");
+  await assert.rejects(
+    () =>
+      driver.load({
+        state,
+        provider,
+        endpoint,
+        body: {
+          load_options: { context_length: 4096, model_path: "/models/vllm" },
+          loadOptions: { context_length: 9999 },
+          contextLength: 8888,
+          modelPath: "/models/retired",
+        },
+      }),
+    (error) =>
+      error.code === "model_mount_backend_process_supervisor_retired" &&
+      error.details.operation_kind === "model_mount.provider_lifecycle.vllm_load" &&
+      error.details.provider_id === "provider.vllm",
+  );
+  assert.deepEqual(state.processes, []);
 
   const loaded = await driver.listLoaded({ state, provider });
   assert.equal(loaded.length, 1);
   assert.equal(loaded[0].backend, "vllm");
-  assert.equal(loaded[0].backendProcess.id, "process.backend.vllm.1");
+  assert.equal(loaded[0].backendProcess, null);
 
-  const unload = await driver.unload({ state, provider, endpoint });
-  assert.equal(unload.status, "unloaded");
-  assert.ok(unload.evidenceRefs.includes("clean_backend_stop"));
-  assert.equal(unload.process.reason, "vllm_model_unload");
+  await assert.rejects(
+    () => driver.unload({ state, provider, endpoint }),
+    (error) =>
+      error.code === "model_mount_backend_process_supervisor_retired" &&
+      error.details.operation_kind === "model_mount.provider_lifecycle.vllm_unload",
+  );
+  assert.deepEqual(state.processes, []);
 });
 
 test("vLLM backend driver fails closed for retired JS invocation before process staging", async () => {
@@ -127,7 +131,7 @@ test("vLLM backend driver fails closed for retired JS invocation before process 
   assert.deepEqual(state.processes, []);
 });
 
-test("llama.cpp backend driver records supervised load/unload evidence", async () => {
+test("llama.cpp backend driver fails before JS process supervision", async () => {
   const state = fakeState({
     "backend.llama-cpp": {
       id: "backend.llama-cpp",
@@ -142,30 +146,31 @@ test("llama.cpp backend driver records supervised load/unload evidence", async (
   const effective = driver.providerWithBackendBaseUrl(provider);
   assert.equal(effective.baseUrl, "http://127.0.0.1:8080/v1");
 
-  const load = await driver.load({
-    state,
-    provider,
-    endpoint,
-    body: {
-      ttl_seconds: 90,
-      loadOptions: { context_length: 9999 },
-      contextLength: 8888,
-      modelPath: "/models/retired",
-    },
-  });
-  assert.equal(load.status, "loaded");
-  assert.equal(load.backend, "llama_cpp");
-  assert.ok(load.evidenceRefs.includes("llama_cpp_process_supervisor"));
-  assert.equal(load.process.reason, "llama_cpp_model_load");
-  assert.equal(state.processes.at(-1).loadOptions.ttlSeconds, 90);
-  assert.equal(state.processes.at(-1).loadOptions.contextLength, null);
-  assert.equal(state.processes.at(-1).loadOptions.modelPath, null);
-
-  const unload = await driver.unload({ state, provider, endpoint });
-  assert.equal(unload.status, "unloaded");
-  assert.equal(unload.backendId, "backend.llama-cpp");
-  assert.ok(unload.evidenceRefs.includes("clean_backend_stop"));
-  assert.equal(unload.process.reason, "llama_cpp_model_unload");
+  await assert.rejects(
+    () =>
+      driver.load({
+        state,
+        provider,
+        endpoint,
+        body: {
+          ttl_seconds: 90,
+          loadOptions: { context_length: 9999 },
+          contextLength: 8888,
+          modelPath: "/models/retired",
+        },
+      }),
+    (error) =>
+      error.code === "model_mount_backend_process_supervisor_retired" &&
+      error.details.operation_kind === "model_mount.provider_lifecycle.llama_cpp_load" &&
+      error.details.provider_id === "provider.llama-cpp",
+  );
+  await assert.rejects(
+    () => driver.unload({ state, provider, endpoint }),
+    (error) =>
+      error.code === "model_mount_backend_process_supervisor_retired" &&
+      error.details.operation_kind === "model_mount.provider_lifecycle.llama_cpp_unload",
+  );
+  assert.deepEqual(state.processes, []);
 });
 
 test("llama.cpp backend driver fails closed for retired JS invocation before process staging", async () => {

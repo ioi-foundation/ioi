@@ -637,6 +637,10 @@ function runDocs() {
       /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(guide) &&
       /`LmStudioModelProviderDriver` no longer resolves `lmsPath`/.test(guide) &&
       /fail closed with\s+`model_mount_lm_studio_public_cli_retired`/.test(guide) &&
+      /Slice 828 retired the JS backend-process supervisor authority path/.test(guide) &&
+      /`backend-lifecycle\.mjs` no longer imports `node:child_process`/.test(guide) &&
+      /fail closed with\s+`model_mount_backend_process_supervisor_retired`/.test(guide) &&
+      /native-local provider lifecycle path still calls the Rust `model_mount`\s+planner, but now sends no JS process snapshot or local backend-log evidence/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -733,10 +737,16 @@ function runDocs() {
       /`lmStudioRuntimeEngines\(\)` now returns an empty list before public CLI\s+execution/.test(matrix) &&
       /runtime-specific LM Studio parser helpers and env toggle are removed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 826 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 827/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 827/.test(matrix) &&
       /Slice 827 retired the LM Studio provider driver's public-CLI command transport/.test(matrix) &&
       /`LmStudioModelProviderDriver\.health\(\)`, `listModels\(\)`, `listLoaded\(\)`,\s+`start\(\)`, `stop\(\)`, `load\(\)`, and `unload\(\)` now fail closed/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 827/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 827 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 828/.test(matrix) &&
+      /Slice 828 retired the JS backend-process supervisor authority path/.test(matrix) &&
+      /`backend-lifecycle\.mjs` no longer imports `node:child_process`/.test(matrix) &&
+      /model_mount_backend_process_supervisor_retired/.test(matrix) &&
+      /Binary-backed vLLM, llama\.cpp, and Ollama lifecycle paths now fail before JS\s+process staging/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 828/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -9337,13 +9347,13 @@ function runBridge() {
           productDefaultsTest,
         ) &&
         /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLocalDriversTest) &&
-        /assert\.equal\(state\.logs\.at\(-1\)\.loadOptions\.contextLength,\s*null\)/.test(
-          providerLocalDriversTest,
-        ) &&
+        /native-local provider driver plans lifecycle through Rust without JS process supervision/.test(providerLocalDriversTest) &&
+        /assert\.deepEqual\(state\.lifecycleRequests\.at\(-1\)\.process_evidence_refs,\s*\[\]\)/.test(providerLocalDriversTest) &&
+        /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(providerLocalDriversTest) &&
         /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerOpenAiBackendDriversTest) &&
-        /assert\.equal\(state\.processes\.at\(-1\)\.loadOptions\.contextLength,\s*null\)/.test(
-          providerOpenAiBackendDriversTest,
-        ) &&
+        /fails before JS process supervision/.test(providerOpenAiBackendDriversTest) &&
+        /model_mount_backend_process_supervisor_retired/.test(providerOpenAiBackendDriversTest) &&
+        /assert\.deepEqual\(state\.processes,\s*\[\]\)/.test(providerOpenAiBackendDriversTest) &&
         /loadOptions:\s*\{\s*idle_ttl_seconds:\s*999\s*\}/.test(providerOllamaDriverTest) &&
         /assert\.equal\(requests\.find\(.*?keep_alive,\s*"60s"\)/s.test(providerOllamaDriverTest) &&
         /load_options:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLmStudioDriverTest) &&
@@ -13677,22 +13687,28 @@ function runReceipts() {
       /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*backend,\s*deps\)/.test(
         backendLifecycle,
       ) &&
-      /commitBackendProcessRecordState/.test(backendLifecycle) &&
-      /commitBackendRecordState/.test(backendLifecycle) &&
-      /recordDir:\s*"backend-processes"/.test(backendLifecycle) &&
-      /recordDir:\s*"model-backends"/.test(backendLifecycle) &&
-      /model_mount\.backend_process\.touch/.test(backendLifecycle) &&
-      /model_mount\.backend_process\.start/.test(backendLifecycle) &&
-      /model_mount\.backend_process\.exit/.test(backendLifecycle) &&
-      /model_mount\.backend_process\.stop/.test(backendLifecycle) &&
+      /model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
+      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.ensure"/.test(backendLifecycle) &&
+      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.touch"/.test(backendLifecycle) &&
+      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.start"/.test(backendLifecycle) &&
+      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.spawn"/.test(backendLifecycle) &&
+      /throwBackendProcessSupervisorRetired\("model_mount\.backend_process\.stop"/.test(backendLifecycle) &&
+      /js_backend_process_supervisor_retired/.test(backendLifecycle) &&
+      /rust_daemon_core_backend_process_required/.test(backendLifecycle) &&
+      /agentgres_backend_process_truth_required/.test(backendLifecycle) &&
+      !/from "node:child_process"|childProcess\.spawn|spawn\(backend\.binaryPath/.test(backendLifecycle) &&
+      !/commitBackendProcessRecordState|commitBackendRecordState/.test(backendLifecycle) &&
+      !/model_mount\.backend_process\.exit/.test(backendLifecycle) &&
+      !/model_mount_backend_process_state_commit_unconfigured/.test(backendLifecycle) &&
+      !/model_mount_backend_state_commit_unconfigured/.test(backendLifecycle) &&
+      !/state\.backendProcesses\.set/.test(backendLifecycle) &&
+      !/state\.backendChildProcesses/.test(backendLifecycle) &&
       /model_mount_backend_log_js_writer_retired/.test(backendRegistryState) &&
       /persistenceStatus:\s*"not_persisted"/.test(backendRegistryState) &&
       !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
       /writeBackendLog returns redacted telemetry without local backend log files/.test(backendRegistryStateTest) &&
       /existsSync\(endpointLog\),\s*false/.test(backendRegistryStateTest) &&
       /existsSync\(backendLog\),\s*false/.test(backendRegistryStateTest) &&
-      /model_mount_backend_process_state_commit_unconfigured/.test(backendLifecycle) &&
-      /model_mount_backend_state_commit_unconfigured/.test(backendLifecycle) &&
       !/state\.writeMap\("backend-processes"/.test(backendLifecycle) &&
       !/state\.writeMap\("model-backends"/.test(backendLifecycle) &&
       !/details:\s*\{\s*backendId\b/.test(backendLifecycle) &&
@@ -13701,10 +13717,8 @@ function runReceipts() {
         backendLifecycle,
       ) &&
       !/state\.stopBackendProcess\(backend,\s*\{ reason:\s*"backend_stop"/.test(backendLifecycle) &&
-      /recordStateCommits/.test(backendLifecycleTest) &&
-      /backend process persistence fails closed without Rust Agentgres record-state commit/.test(
-        backendLifecycleTest,
-      ) &&
+      /backend process supervisor entrypoints fail closed before JS process authority/.test(backendLifecycleTest) &&
+      /backend process supervisor retired error uses canonical Rust-boundary metadata/.test(backendLifecycleTest) &&
       /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
         backendLifecycleTest,
       ) &&
@@ -13716,11 +13730,11 @@ function runReceipts() {
       ) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(backendLifecycleTest) &&
       /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(backendLifecycleTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(backendLifecycleTest) &&
       /assert\.equal\(listFilesCalled,\s*false\)/.test(backendLifecycleTest) &&
+      /model_mount\.backend_process\.ensure/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.touch/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.start/.test(backendLifecycleTest) &&
-      /model_mount\.backend_process\.exit/.test(backendLifecycleTest) &&
+      /model_mount\.backend_process\.spawn/.test(backendLifecycleTest) &&
       /model_mount\.backend_process\.stop/.test(backendLifecycleTest) &&
       /assertNoRetiredLifecycleSubjectAliases\(details\)/.test(modelMountReceiptOperations) &&
       /model_lifecycle_receipt_detail_aliases_retired/.test(modelMountReceiptOperations) &&

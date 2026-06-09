@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { EventEmitter } from "node:events";
 import test from "node:test";
 
 import {
   backendHealth,
   backendLogs,
+  backendProcessSupervisorRetiredError,
   ensureBackendProcess,
   spawnBackendChildProcess,
   startBackend,
@@ -13,7 +13,6 @@ import {
   stopBackendProcess,
   touchBackendProcess,
 } from "./backend-lifecycle.mjs";
-import { backendProcessSnapshot } from "./backend-processes.mjs";
 
 function fakeState() {
   const backends = new Map([
@@ -30,23 +29,13 @@ function fakeState() {
     backends,
     logs: [],
     receipts: [],
-    recordStateCommits: [],
     writes: [],
     now: "2026-06-03T20:00:00.000Z",
     backend(backendId) {
       return this.backends.get(backendId);
     },
-    backendProcessArgs(backend) {
-      return [backend.kind, "--model", "fixture"];
-    },
     backendProcessForBackend(backendId) {
       return [...this.backendProcesses.values()].filter((record) => record.backendId === backendId).at(-1) ?? null;
-    },
-    backendProcessSnapshot(record) {
-      return backendProcessSnapshot(record);
-    },
-    backendProcessSpawnArgs() {
-      return ["--serve"];
     },
     backendSupportsSupervision(backend) {
       return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
@@ -65,9 +54,6 @@ function fakeState() {
     reconciledBackendProcess(record) {
       return { stale: false, ...record };
     },
-    runtimeDefaultLoadOptions() {
-      return { contextLength: 4096 };
-    },
     spawnBackendChildProcess(backend, details) {
       return spawnBackendChildProcess(this, backend, details, deps);
     },
@@ -82,27 +68,6 @@ function fakeState() {
     },
     writeBackendLog(backendId, event) {
       this.logs.push({ backendId, ...event });
-    },
-    writeMap(dir, map) {
-      this.writes.push([dir, [...map.values()].map((record) => ({ ...record }))]);
-    },
-    commitRuntimeModelMountRecordState(request) {
-      this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
-      return {
-        record_id: request.record_id,
-        object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
-        content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
-        admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
-        commit_hash: `sha256:commit:${request.operation_kind}:${request.record_id}`,
-        written_record: request.record,
-        storage_record: {
-          object_ref: `agentgres://model-mounting/${request.record_dir}/${request.record_id}`,
-          content_hash: `sha256:${request.operation_kind}:${request.record_id}`,
-          admission: {
-            admission_hash: `sha256:admission:${request.operation_kind}:${request.record_id}`,
-          },
-        },
-      };
     },
   };
   return state;
@@ -129,7 +94,27 @@ const deps = {
   stableHash: (value) => `hash_${String(value).replace(/[^a-z0-9]+/gi, "_")}`,
 };
 
-test("ensure backend process touches an existing started record", () => {
+function assertBackendProcessSupervisorRetired(error, operationKind) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "model_mount_backend_process_supervisor_retired");
+  assert.equal(error.details.backend_id, "backend.native");
+  assert.equal(error.details.backend_kind, "native_local");
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.rust_core_boundary, "model_mount.backend_lifecycle");
+  assert.deepEqual(error.details.evidence_refs, [
+    "js_backend_process_supervisor_retired",
+    "rust_daemon_core_backend_process_required",
+    "agentgres_backend_process_truth_required",
+  ]);
+  assert.equal(Object.hasOwn(error.details, "backendId"), false);
+  assert.equal(Object.hasOwn(error.details, "backendKind"), false);
+  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+  assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+  return true;
+}
+
+test("backend process supervisor entrypoints fail closed before JS process authority", () => {
   const state = fakeState();
   state.backendProcesses.set("process-a", {
     id: "process-a",
@@ -140,126 +125,39 @@ test("ensure backend process touches an existing started record", () => {
     evidenceRefs: ["existing"],
   });
 
-  const result = ensureBackendProcess(state, "backend.native", { reason: "health_probe" });
-
-  assert.equal(result.status, "stale_recovered");
-  assert.equal(result.reason, "health_probe");
-  assert.deepEqual(state.writes, []);
-  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
-  assert.equal(state.recordStateCommits[0].record_id, "process-a");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.touch");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
-});
-
-test("start backend process records deterministic fixture process metadata", () => {
-  const state = fakeState();
-
-  const result = startBackendProcess(state, state.backend("backend.native"), { loadOptions: { startupTimeoutMs: 10 } }, deps);
-
-  assert.equal(result.backendId, "backend.native");
-  assert.equal(result.supervisorKind, "deterministic_fixture_process");
-  assert.equal(result.spawned, false);
-  assert.equal(result.spawnStatus, "not_required");
-  assert.equal(result.startupTimeoutMs, 10);
-  assert.equal(result.loadOptions.redacted, true);
-  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.start");
-  assert.deepEqual(state.recordStateCommits[0].receipt_refs, []);
-  assert.equal(state.logs.at(-1).event, "backend_process_start");
-});
-
-test("backend process persistence fails closed without Rust Agentgres record-state commit", () => {
-  const state = fakeState();
-  delete state.commitRuntimeModelMountRecordState;
-
+  assert.throws(
+    () => ensureBackendProcess(state, "backend.native", { reason: "health_probe" }),
+    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.ensure"),
+  );
+  assert.throws(
+    () => touchBackendProcess(state, state.backendProcesses.get("process-a"), { reason: "health_probe" }, deps),
+    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.touch"),
+  );
   assert.throws(
     () => startBackendProcess(state, state.backend("backend.native"), { loadOptions: { startupTimeoutMs: 10 } }, deps),
-    (error) => {
-      assert.equal(error.code, "model_mount_backend_process_state_commit_unconfigured");
-      assert.equal(error.details.backend_id, "backend.native");
-      assert.equal(error.details.record_dir, "backend-processes");
-      return true;
-    },
+    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.start"),
+  );
+  assert.throws(
+    () => spawnBackendChildProcess(state, state.backend("backend.native"), { processRef: "supervised://native/process" }, deps),
+    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.spawn"),
+  );
+  assert.throws(
+    () => stopBackendProcess(state, state.backend("backend.native"), { reason: "operator_stop" }, deps),
+    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.stop"),
   );
 
-  assert.equal(state.backendProcesses.size, 0);
+  assert.equal(state.backendProcesses.get("process-a").status, "started");
+  assert.deepEqual(state.logs, []);
   assert.deepEqual(state.writes, []);
 });
 
-test("spawn backend child process records output and exit without leaking raw output", () => {
-  const state = fakeState();
-  const child = new EventEmitter();
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
-  child.pid = 42;
-
-  const result = spawnBackendChildProcess(
-    state,
-    state.backend("backend.llama"),
-    {
-      endpoint: { artifactPath: "/models/model.gguf" },
-      processRef: "supervised://backend.llama/process",
-      argsRedacted: ["llama-server", "--model", "artifact:hash"],
-    },
-    {
-      ...deps,
-      spawn(binaryPath, args, options) {
-        assert.equal(binaryPath, "/bin/llama-server");
-        assert.deepEqual(args, ["--serve"]);
-        assert.equal(options.env.IOI_MODEL_BACKEND_BASE_URL, "http://127.0.0.1:8091/v1");
-        assert.match(options.env.LD_LIBRARY_PATH, /^\/bin\/llama-server:lib:/);
-        return child;
-      },
-    },
-  );
-
-  assert.equal(result.spawned, true);
-  state.backendProcesses.set("process-llama", {
-    id: "process-llama",
-    backendId: "backend.llama",
-    backendKind: "llama_cpp",
-    status: "started",
-    pidHash: result.pidHash,
-    evidenceRefs: ["started"],
-  });
-  child.stdout.emit("data", "secret stdout");
-  child.emit("exit", 1, null);
-
-  assert.equal(state.logs.some((record) => record.event === "backend_process_stdout" && record.outputHash), true);
-  assert.equal(state.logs.some((record) => record.event === "backend_process_exit" && record.exitCode === 1), true);
-  assert.equal(state.backendProcesses.get("process-llama").status, "degraded");
-  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
-  assert.equal(state.recordStateCommits[0].record_id, "process-llama");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.exit");
-});
-
-test("stop backend process kills tracked children and appends clean stop evidence", () => {
-  const state = fakeState();
-  let killedWith = null;
-  state.backendProcesses.set("process-a", {
-    id: "process-a",
-    backendId: "backend.llama",
-    backendKind: "llama_cpp",
-    status: "started",
-    childProcessKey: "child-a",
-    evidenceRefs: ["started"],
-  });
-  state.backendChildProcesses.set("child-a", {
-    killed: false,
-    kill(signal) {
-      killedWith = signal;
-    },
+test("backend process supervisor retired error uses canonical Rust-boundary metadata", () => {
+  const error = backendProcessSupervisorRetiredError("model_mount.backend_process.start", {
+    id: "backend.native",
+    kind: "native_local",
   });
 
-  const result = stopBackendProcess(state, state.backend("backend.llama"), { reason: "operator_stop" }, deps);
-
-  assert.equal(killedWith, "SIGTERM");
-  assert.equal(result.status, "stopped");
-  assert.deepEqual(result.evidenceRefs, ["started", "clean_backend_stop"]);
-  assert.equal(state.recordStateCommits[0].record_dir, "backend-processes");
-  assert.equal(state.recordStateCommits[0].record_id, "process-a");
-  assert.equal(state.recordStateCommits[0].operation_kind, "model_mount.backend_process.stop");
-  assert.equal(state.logs.at(-1).event, "backend_process_stop");
+  assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.start");
 });
 
 test("public backend lifecycle facade fails closed until Rust core owns lifecycle control", () => {
@@ -307,7 +205,6 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
 
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.logs, []);
-  assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.writes, []);
 });
 

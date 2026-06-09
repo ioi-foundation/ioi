@@ -16888,7 +16888,7 @@ surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 826 is now satisfied.
 
-## Implementation Slice Evidence: 827
+## Compacted Implementation Slice Evidence: 827
 
 Slice 827 retired the LM Studio provider driver's public-CLI command transport.
 `LmStudioModelProviderDriver.health()`, `listModels()`, `listLoaded()`,
@@ -16910,8 +16910,37 @@ daemon-core provider control, inventory, lifecycle, Agentgres-backed projection
 reads, and command-transport retirement for remaining provider surfaces remain
 required before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 827 after the next direct
+Scheduled matrix-compaction obligation from Slice 827 is now satisfied.
+
+## Implementation Slice Evidence: 828
+
+Slice 828 retired the JS backend-process supervisor authority path.
+`backend-lifecycle.mjs` no longer imports `node:child_process`, spawns backend
+binaries, tracks child processes, writes backend-process record-state commits,
+observes child exits, writes supervisor start/stop/output telemetry, or
+maintains `backend_process` Agentgres commit transport from JS. The backend
+process helper entrypoints now fail closed with
+`model_mount_backend_process_supervisor_retired` and canonical Rust-boundary
+metadata before JS can touch, start, spawn, stop, or persist a process record.
+Binary-backed vLLM, llama.cpp, and Ollama lifecycle paths now fail before JS
+process staging, while native-local lifecycle planning still calls the Rust
+`model_mount` planner with no JS process snapshot or backend-log evidence.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs` | passed |
+
+This still does not claim terminal backend lifecycle migration: direct Rust
+daemon-core backend lifecycle/control/projection APIs over Agentgres-backed
+state, replacement of planner command transport with direct Rust daemon-core
+APIs, and retirement of remaining provider lifecycle/read adapters remain
+required before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 828 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-lifecycle/list probe support, local map/projection materialization, and Rust
-daemon-core provider read/execution APIs.
+backend lifecycle planner transport, provider lifecycle facades, local
+map/projection materialization, and Rust daemon-core provider read/execution
+APIs.

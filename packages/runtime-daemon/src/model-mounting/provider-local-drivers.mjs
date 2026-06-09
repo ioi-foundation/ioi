@@ -62,29 +62,13 @@ export class NativeLocalModelProviderDriver {
     const estimate = estimateNativeLocalResources(artifact);
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
     const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
-    const processRecord = state.ensureBackendProcess(backendId, {
-      endpoint,
-      loadOptions,
-      reason: "model_load",
-    });
-    const processSnapshot = state.backendProcessSnapshot(processRecord);
-    state.writeBackendLog(endpoint.id, {
-      backendId,
-      event: "load",
-      modelId: endpoint.modelId,
-      estimate,
-      loadOptions,
-      backend: "autopilot.native_local.fixture",
-      processId: processRecord?.id ?? null,
-      pidHash: processRecord?.pidHash ?? null,
-      argsHash: processRecord?.argsHash ?? null,
-    });
+    void loadOptions;
     const lifecycle = requireNativeLocalLifecycleResult(state.planModelMountProviderLifecycle(nativeLocalLifecycleRequest({
       action: "load",
       provider,
       endpoint,
       backendId,
-      processSnapshot,
+      processSnapshot: null,
       evidenceRefs: ["daemon_native_local_load_request"],
     })), "load");
     return {
@@ -93,7 +77,7 @@ export class NativeLocalModelProviderDriver {
       driver: lifecycle.driver,
       status: lifecycle.status,
       estimate,
-      process: processSnapshot,
+      process: null,
       evidenceRefs: lifecycle.evidence_refs ?? [],
       lifecycleHash: lifecycle.lifecycle_hash ?? null,
     };
@@ -101,22 +85,12 @@ export class NativeLocalModelProviderDriver {
 
   async unload({ state, provider = null, endpoint }) {
     const backendId = endpoint.backendId ?? "backend.autopilot.native-local.fixture";
-    const processRecord = state.backendProcessForBackend(backendId);
-    const processSnapshot = state.backendProcessSnapshot(processRecord);
-    state.writeBackendLog(endpoint.id, {
-      backendId,
-      event: "unload",
-      modelId: endpoint.modelId,
-      backend: "autopilot.native_local.fixture",
-      processId: processRecord?.id ?? null,
-      pidHash: processRecord?.pidHash ?? null,
-    });
     const lifecycle = requireNativeLocalLifecycleResult(state.planModelMountProviderLifecycle(nativeLocalLifecycleRequest({
       action: "unload",
       provider,
       endpoint,
       backendId,
-      processSnapshot,
+      processSnapshot: null,
       evidenceRefs: ["daemon_native_local_unload_request"],
     })), "unload");
     return {
@@ -124,7 +98,7 @@ export class NativeLocalModelProviderDriver {
       status: lifecycle.status,
       backend: lifecycle.providerBackend,
       backendId: lifecycle.backendId,
-      process: processSnapshot,
+      process: null,
       evidenceRefs: lifecycle.evidence_refs ?? [],
       lifecycleHash: lifecycle.lifecycle_hash ?? null,
     };

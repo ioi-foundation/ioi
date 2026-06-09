@@ -1,6 +1,7 @@
+import { throwBackendProcessSupervisorRetired } from "./backend-lifecycle.mjs";
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
 import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
-import { normalizeScopes, stableHash } from "./io.mjs";
+import { stableHash } from "./io.mjs";
 import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
 import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
 
@@ -65,34 +66,36 @@ export class VllmModelProviderDriver {
     const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
     const backend = state.backend(backendId);
-    const processRecord =
-      provider.id === "provider.vllm" && backend.binaryPath
-        ? state.ensureBackendProcess(backendId, { endpoint, loadOptions, reason: "vllm_model_load" })
-        : null;
+    if (provider.id === "provider.vllm" && backend.binaryPath) {
+      throwBackendProcessSupervisorRetired("model_mount.provider_lifecycle.vllm_load", backend, {
+        provider_id: provider.id,
+        endpoint_id: endpoint.id,
+      });
+    }
     return {
       status: "loaded",
       backend: "vllm",
       backendId,
-      process: state.backendProcessSnapshot(processRecord),
-      evidenceRefs: [
-        ...(processRecord ? ["vllm_process_supervisor", "vllm_openai_compatible_server"] : ["vllm_stateless_http_load"]),
-      ],
+      process: null,
+      evidenceRefs: ["vllm_stateless_http_load"],
     };
   }
 
   async unload({ state, provider, endpoint }) {
     const backendId = endpoint?.backendId ?? defaultBackendForProvider(provider);
     const backend = state.backend(backendId);
-    const stopped = provider.id === "provider.vllm" && backend.binaryPath ? state.stopBackendProcess(backend, { reason: "vllm_model_unload" }) : null;
-    const processSnapshot = state.backendProcessSnapshot(stopped);
+    if (provider.id === "provider.vllm" && backend.binaryPath) {
+      throwBackendProcessSupervisorRetired("model_mount.provider_lifecycle.vllm_unload", backend, {
+        provider_id: provider.id,
+        endpoint_id: endpoint?.id ?? null,
+      });
+    }
     return {
       status: "unloaded",
       backend: "vllm",
       backendId,
-      process: processSnapshot,
-      evidenceRefs: [
-        ...(stopped ? ["vllm_process_supervisor", "clean_backend_stop", ...normalizeScopes(processSnapshot.evidenceRefs, [])] : ["vllm_stateless_http_unload"]),
-      ],
+      process: null,
+      evidenceRefs: ["vllm_stateless_http_unload"],
     };
   }
 
@@ -177,36 +180,20 @@ export class LlamaCppModelProviderDriver {
   async load({ state, provider, endpoint, body = {} }) {
     const loadOptions = normalizeLoadOptions(canonicalLoadOptionsInput(body), endpoint.loadPolicy);
     const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
-    const processRecord = state.ensureBackendProcess(backendId, {
-      endpoint,
-      loadOptions,
-      reason: "llama_cpp_model_load",
+    const backend = state.backend(backendId);
+    void loadOptions;
+    throwBackendProcessSupervisorRetired("model_mount.provider_lifecycle.llama_cpp_load", backend, {
+      provider_id: provider.id,
+      endpoint_id: endpoint.id,
     });
-    const processSnapshot = state.backendProcessSnapshot(processRecord);
-    return {
-      status: "loaded",
-      backend: "llama_cpp",
-      backendId,
-      process: processSnapshot,
-      evidenceRefs: [
-        "llama_cpp_process_supervisor",
-        "llama_cpp_openai_compatible_server",
-        ...normalizeScopes(processSnapshot.evidenceRefs, []),
-      ],
-    };
   }
 
   async unload({ state, provider, endpoint }) {
     const backend = state.backend(endpoint?.backendId ?? defaultBackendForProvider(provider));
-    const stopped = state.stopBackendProcess(backend, { reason: "llama_cpp_model_unload" });
-    const processSnapshot = state.backendProcessSnapshot(stopped);
-    return {
-      status: "unloaded",
-      backend: "llama_cpp",
-      backendId: backend.id,
-      process: processSnapshot,
-      evidenceRefs: ["llama_cpp_process_supervisor", "clean_backend_stop", ...normalizeScopes(processSnapshot.evidenceRefs, [])],
-    };
+    throwBackendProcessSupervisorRetired("model_mount.provider_lifecycle.llama_cpp_unload", backend, {
+      provider_id: provider.id,
+      endpoint_id: endpoint?.id ?? null,
+    });
   }
 
   supportsStream(kind) {

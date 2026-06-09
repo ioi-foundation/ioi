@@ -1326,6 +1326,22 @@ migration: direct Rust daemon-core provider control, inventory, lifecycle,
 Agentgres-backed projection reads, and command-transport retirement for the
 remaining provider surfaces are still required.
 
+Slice 828 retired the JS backend-process supervisor authority path.
+`backend-lifecycle.mjs` no longer imports `node:child_process`, spawns
+backend binaries, tracks child processes, writes backend-process record-state
+commits, observes process exits, or writes start/stop/output telemetry from the
+JS supervisor. `ensureBackendProcess()`, `touchBackendProcess()`,
+`startBackendProcess()`, `spawnBackendChildProcess()`, and
+`stopBackendProcess()` now fail closed with
+`model_mount_backend_process_supervisor_retired`, and binary-backed vLLM,
+llama.cpp, and Ollama lifecycle paths fail before JS process staging. The
+native-local provider lifecycle path still calls the Rust `model_mount`
+planner, but now sends no JS process snapshot or local backend-log evidence.
+This still does not claim terminal backend lifecycle migration: direct Rust
+daemon-core backend lifecycle/control/projection APIs over Agentgres-backed
+state must replace the remaining planner command transport, read adapters, and
+provider lifecycle facades before the pure Rust substrate target is met.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

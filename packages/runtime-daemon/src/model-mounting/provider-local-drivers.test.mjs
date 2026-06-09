@@ -42,13 +42,6 @@ function fakeNativeState() {
       modelId: "native:model",
     },
   ];
-  const processRecord = {
-    id: "backend_process_native",
-    backendId: "backend.autopilot.native-local.fixture",
-    pidHash: "pid-hash",
-    argsHash: "args-hash",
-    evidenceRefs: ["fake_process"],
-  };
   return {
     logs,
     lifecycleRequests,
@@ -68,22 +61,25 @@ function fakeNativeState() {
       return instances;
     },
     ensureBackendProcess(backendId, details = {}) {
-      assert.equal(backendId, "backend.autopilot.native-local.fixture");
-      processRecord.loadOptions = details.loadOptions;
-      return processRecord;
+      void backendId;
+      void details;
+      throw new Error("native-local lifecycle must not use JS backend process supervision");
     },
     backendProcessForBackend(backendId) {
-      assert.equal(backendId, "backend.autopilot.native-local.fixture");
-      return processRecord;
+      void backendId;
+      throw new Error("native-local lifecycle must not read JS backend process records");
     },
     backendProcessSnapshot(record) {
-      return record ? { id: record.id, evidenceRefs: record.evidenceRefs } : null;
+      void record;
+      throw new Error("native-local lifecycle must not snapshot JS backend process records");
     },
     loadedInstanceForEndpoint() {
       return { loadOptions: { idleTtlSeconds: 900 } };
     },
     writeBackendLog(endpointId, event) {
-      logs.push({ endpointId, ...event });
+      void endpointId;
+      void event;
+      throw new Error("native-local lifecycle must not write JS backend lifecycle telemetry");
     },
     planModelMountProviderLifecycle(request) {
       lifecycleRequests.push(request);
@@ -309,7 +305,7 @@ test("local provider inventory listing fails closed without Rust planner result"
   );
 });
 
-test("native-local provider driver keeps load control and retires direct stream production", async () => {
+test("native-local provider driver plans lifecycle through Rust without JS process supervision", async () => {
   const state = fakeNativeState();
   const driver = new NativeLocalModelProviderDriver();
   const endpoint = {
@@ -334,12 +330,9 @@ test("native-local provider driver keeps load control and retires direct stream 
   assert.equal(load.lifecycleHash, "sha256:load");
   assert.ok(load.evidenceRefs.includes("rust_model_mount_provider_lifecycle"));
   assert.equal(state.lifecycleRequests.at(-1).execution_backend, "rust_model_mount_native_local_lifecycle");
-  assert.deepEqual(state.lifecycleRequests.at(-1).process_evidence_refs, ["fake_process"]);
-  assert.equal(state.logs.at(-1).event, "load");
-  assert.equal(state.logs.at(-1).loadOptions.ttlSeconds, 120);
-  assert.equal(state.logs.at(-1).loadOptions.contextLength, null);
-  assert.equal(state.logs.at(-1).loadOptions.modelPath, null);
-  assert.equal(Object.hasOwn(state.logs.at(-1).loadOptions, "embedding"), false);
+  assert.deepEqual(state.lifecycleRequests.at(-1).process_evidence_refs, []);
+  assert.equal(load.process, null);
+  assert.deepEqual(state.logs, []);
 
   await assert.rejects(
     () =>
@@ -351,7 +344,7 @@ test("native-local provider driver keeps load control and retires direct stream 
       }),
     (error) => error.code === "model_mount_local_provider_direct_stream_retired",
   );
-  assert.equal(state.logs.at(-1).event, "load");
+  assert.deepEqual(state.logs, []);
 
   const unload = await driver.unload({ state, endpoint });
   assert.equal(unload.status, "unloaded");
@@ -359,5 +352,7 @@ test("native-local provider driver keeps load control and retires direct stream 
   assert.equal(unload.lifecycleHash, "sha256:unload");
   assert.ok(unload.evidenceRefs.includes("rust_model_mount_native_local_lifecycle_backend"));
   assert.equal(state.lifecycleRequests.at(-1).action, "unload");
-  assert.equal(state.logs.at(-1).event, "unload");
+  assert.deepEqual(state.lifecycleRequests.at(-1).process_evidence_refs, []);
+  assert.equal(unload.process, null);
+  assert.deepEqual(state.logs, []);
 });
