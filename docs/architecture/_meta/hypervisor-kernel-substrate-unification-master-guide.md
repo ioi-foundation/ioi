@@ -1146,6 +1146,14 @@ direct Rust daemon-core server-control/state/log/event/projection APIs still
 need to own server status, control state, log/event replay, Agentgres admission,
 record-state, and command-transport retirement.
 
+Slice 813 retired the JS-authored public server-status envelope from the
+model_mount read-projection path. The runtime-daemon now sends only primitive
+`server_status_input` migration data, and Rust authors the public
+`server_status` projection plus nested snapshot and authority-snapshot `server`
+objects through a shared planner helper. This still does not claim terminal
+server-control migration: direct Rust daemon-core server-control/state/log/event
+APIs still need to replace JS volatile-state collection and command transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

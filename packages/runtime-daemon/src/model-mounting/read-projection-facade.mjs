@@ -21,7 +21,7 @@ import {
   latestRuntimeSurvey as latestRuntimeSurveyInput,
 } from "./runtime-survey.mjs";
 import {
-  serverStatus as serverStatusInput,
+  serverStatusProjectionInput,
 } from "./server-control.mjs";
 
 export function createModelMountingReadProjectionFacade({
@@ -319,7 +319,7 @@ export function createModelMountingReadProjectionFacade({
     }
     if (projectionKind === "server_status") {
       return {
-        server: serverStatusInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
+        server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
       };
     }
     if (projectionKind === "receipt_replay") {
@@ -403,7 +403,7 @@ export function createModelMountingReadProjectionFacade({
     }
     if (projectionKind === "authority_snapshot") {
       return {
-        server: serverStatusInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
+        server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
         grants: state.listTokens(),
         vault_refs: state.listVaultRefs(),
         receipts: state.listReceipts(),
@@ -412,7 +412,7 @@ export function createModelMountingReadProjectionFacade({
       };
     }
     return {
-      server: serverStatusInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
+      server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
       catalog: state.catalogStatus(),
       catalog_provider_configs: state.listCatalogProviderConfigs(),
       oauth_sessions: oauthSessions,

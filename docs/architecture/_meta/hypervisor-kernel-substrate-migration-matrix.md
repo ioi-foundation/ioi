@@ -16503,7 +16503,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 812
+## Compacted Implementation Slice Evidence: 812
 
 Slice 812 moved public model_mount server-status readback through a dedicated
 Rust read-projection kind. `serverStatus()` now requests `server_status` from
@@ -16525,10 +16525,37 @@ server-control/state/log/event/projection APIs still need to own server status,
 control state, log/event replay, Agentgres admission, record-state, and
 command-transport retirement.
 
-Scheduled matrix-compaction obligation from Slice 812 is pending after this
+Scheduled matrix-compaction obligation from Slice 812 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 813
+
+Slice 813 retired the JS-authored public server-status envelope from the
+model_mount read-projection path. The runtime-daemon now sends only primitive
+`server_status_input` migration data, and Rust authors the public
+`server_status` projection plus nested snapshot and authority-snapshot `server`
+objects through a shared planner helper.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/server-control.test.mjs` | passed |
+| `cargo test -p ioi-node bridge_plans_model_mount_read_projection_through_rust_core` | passed |
+
+This does not claim terminal server-control migration: direct Rust daemon-core
+server-control/state/log/event APIs still need to replace JS volatile-state
+collection, Agentgres admission, record-state, log/event replay, and
+command-transport retirement.
+
+Scheduled matrix-compaction obligation from Slice 813 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 812 after the next
+Next scheduled matrix-compaction pass: compact Slice 813 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper

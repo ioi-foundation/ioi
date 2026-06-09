@@ -1,40 +1,26 @@
 const SERVER_CONTROL_RECORD_ID = "server-control.default";
 
-export function serverStatus(state, baseUrl, { schema_version } = {}) {
-  const schemaVersion = schema_version;
+export function serverStatusProjectionInput(state, baseUrl, { schema_version } = {}) {
   state.evictExpiredInstances();
   state.coalesceLoadedInstances();
   const runningInstances = [...state.instances.values()].filter((instance) => instance.status === "loaded");
-  const degradedProviders = [...state.providers.values()].filter((provider) =>
-    ["blocked", "absent", "stopped"].includes(provider.status),
-  );
   const backends = state.listBackends();
   const controlState = serverControlState(state, { schema_version });
   return {
-    schemaVersion,
-    status: runningInstances.length > 0 ? "running" : "stopped",
-    gatewayStatus: "running",
-    controlStatus: controlState.status,
-    lastServerOperation: controlState.operation,
-    lastServerOperationAt: controlState.updatedAt,
-    lastServerReceiptId: controlState.receiptId,
-    nativeBaseUrl: baseUrl ? `${baseUrl}/api/v1` : "/api/v1",
-    openAiCompatibleBaseUrl: baseUrl ? `${baseUrl}/v1` : "/v1",
-    loadedInstances: runningInstances.length,
-    mountedEndpoints: state.endpoints.size,
-    providerStates: {
-      available: [...state.providers.values()].filter((provider) =>
-        ["available", "configured", "running"].includes(provider.status),
-      ).length,
-      degraded: degradedProviders.length,
+    schema_version,
+    base_url: baseUrl ?? null,
+    loaded_instances: runningInstances.length,
+    mounted_endpoints: state.endpoints.size,
+    provider_statuses: [...state.providers.values()].map((provider) => provider.status),
+    backend_statuses: backends.map((backend) => backend.status),
+    control_state: {
+      status: controlState.status,
+      gateway_status: controlState.gatewayStatus,
+      operation: controlState.operation,
+      updated_at: controlState.updatedAt,
+      receipt_id: controlState.receiptId,
     },
-    backendStates: {
-      available: backends.filter((backend) => ["available", "configured", "running"].includes(backend.status)).length,
-      degraded: backends.filter((backend) => ["blocked", "absent", "stopped", "degraded"].includes(backend.status)).length,
-    },
-    idleTtlSeconds: 900,
-    autoEvict: true,
-    checkedAt: state.nowIso(),
+    checked_at: state.nowIso(),
   };
 }
 

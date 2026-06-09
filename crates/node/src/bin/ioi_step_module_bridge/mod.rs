@@ -2084,7 +2084,7 @@ fn model_mount_read_projection(
         "receipt_replay" => model_mount_receipt_replay(request),
         "model_route_decisions" => Ok(model_mount_route_decisions(request)),
         "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
-        "server_status" => Ok(object_or_null(request.state.get("server"))),
+        "server_status" => Ok(model_mount_server_status(request)),
         "artifacts" => Ok(Value::Array(array_field(&request.state, "artifacts"))),
         "product_artifacts" => Ok(Value::Array(model_mount_product_artifacts(&request.state))),
         "providers" => Ok(Value::Array(array_field(&request.state, "providers"))),
@@ -2131,7 +2131,7 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let receipts = array_field(state, "receipts");
     json!({
         "schemaVersion": model_mount_projection_schema_version(request),
-        "server": object_or_null(state.get("server")),
+        "server": model_mount_server_status(request),
         "catalog": object_or_null(state.get("catalog")),
         "catalogProviderConfigs": array_field(state, "catalog_provider_configs"),
         "oauthSessions": array_field(state, "oauth_sessions"),
@@ -2270,6 +2270,73 @@ fn model_mount_workflow_bindings() -> Value {
         })
         .collect(),
     )
+}
+
+fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value {
+    let input = request
+        .state
+        .get("server_status_input")
+        .unwrap_or(&Value::Null);
+    let control_state = input.get("control_state").unwrap_or(&Value::Null);
+    let loaded_instances = input
+        .get("loaded_instances")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let mounted_endpoints = input
+        .get("mounted_endpoints")
+        .and_then(Value::as_u64)
+        .unwrap_or(0);
+    let base_url = json_string_field(input, "base_url");
+    let native_base_url = base_url
+        .as_ref()
+        .map(|url| format!("{url}/api/v1"))
+        .unwrap_or_else(|| "/api/v1".to_string());
+    let open_ai_compatible_base_url = base_url
+        .as_ref()
+        .map(|url| format!("{url}/v1"))
+        .unwrap_or_else(|| "/v1".to_string());
+    json!({
+        "schemaVersion": json_string_field(input, "schema_version")
+            .unwrap_or_else(|| model_mount_projection_schema_version(request)),
+        "status": if loaded_instances > 0 { "running" } else { "stopped" },
+        "gatewayStatus": json_string_field(control_state, "gateway_status")
+            .unwrap_or_else(|| "running".to_string()),
+        "controlStatus": json_string_field(control_state, "status")
+            .unwrap_or_else(|| "running".to_string()),
+        "lastServerOperation": json_string_field(control_state, "operation")
+            .unwrap_or_else(|| "server_status".to_string()),
+        "lastServerOperationAt": control_state.get("updated_at").cloned().unwrap_or(Value::Null),
+        "lastServerReceiptId": control_state.get("receipt_id").cloned().unwrap_or(Value::Null),
+        "nativeBaseUrl": native_base_url,
+        "openAiCompatibleBaseUrl": open_ai_compatible_base_url,
+        "loadedInstances": loaded_instances,
+        "mountedEndpoints": mounted_endpoints,
+        "providerStates": {
+            "available": status_count(input, "provider_statuses", &["available", "configured", "running"]),
+            "degraded": status_count(input, "provider_statuses", &["blocked", "absent", "stopped"]),
+        },
+        "backendStates": {
+            "available": status_count(input, "backend_statuses", &["available", "configured", "running"]),
+            "degraded": status_count(input, "backend_statuses", &["blocked", "absent", "stopped", "degraded"]),
+        },
+        "idleTtlSeconds": 900,
+        "autoEvict": true,
+        "checkedAt": input.get("checked_at").cloned().unwrap_or(Value::Null),
+    })
+}
+
+fn status_count(input: &Value, key: &str, statuses: &[&str]) -> usize {
+    input
+        .get(key)
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .filter(|status| statuses.contains(status))
+                .count()
+        })
+        .unwrap_or(0)
 }
 
 fn model_mount_runtime_engine_detail(
@@ -3032,7 +3099,7 @@ fn model_mount_authority_snapshot(request: &ModelMountReadProjectionRequest) -> 
         "schemaVersion": "ioi.wallet-core-lite.authority.v1",
         "source": "agentgres_wallet_authority_projection",
         "generatedAt": model_mount_projection_generated_at(request),
-        "server": object_or_null(state.get("server")),
+        "server": model_mount_server_status(request),
         "wallet": wallet,
         "vault": object_or_null(state.get("vault")),
         "grants": grants,
@@ -8735,7 +8802,22 @@ mod tests {
             "wallet": {"port": "WalletAuthorityPort"},
             "vault": {"port": "VaultPort"},
             "agentgres_store": {"port": "AgentgresStorePort"},
-            "server": {"status": "running"},
+            "server_status_input": {
+                "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                "base_url": "http://127.0.0.1:3200",
+                "loaded_instances": 1,
+                "mounted_endpoints": 1,
+                "provider_statuses": ["running"],
+                "backend_statuses": ["running"],
+                "control_state": {
+                    "status": "running",
+                    "gateway_status": "running",
+                    "operation": "server_status",
+                    "updated_at": null,
+                    "receipt_id": null
+                },
+                "checked_at": "2026-06-08T00:00:00.000Z"
+            },
             "receipts": [
                 {
                     "id": "receipt-route",
@@ -8973,12 +9055,21 @@ mod tests {
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
                     "state": {
-                        "server": {
-                            "schemaVersion": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
-                            "status": "running",
-                            "gatewayStatus": "running",
-                            "nativeBaseUrl": "http://127.0.0.1:3200/api/v1",
-                            "openAiCompatibleBaseUrl": "http://127.0.0.1:3200/v1"
+                        "server_status_input": {
+                            "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                            "base_url": "http://127.0.0.1:3200",
+                            "loaded_instances": 1,
+                            "mounted_endpoints": 1,
+                            "provider_statuses": ["available", "blocked"],
+                            "backend_statuses": ["running", "degraded"],
+                            "control_state": {
+                                "status": "running",
+                                "gateway_status": "running",
+                                "operation": "server_status",
+                                "updated_at": null,
+                                "receipt_id": null
+                            },
+                            "checked_at": "2026-06-08T00:00:00.000Z"
                         }
                     }
                 }
@@ -8991,6 +9082,18 @@ mod tests {
         assert_eq!(
             server_status_response["projection"]["nativeBaseUrl"],
             "http://127.0.0.1:3200/api/v1"
+        );
+        assert_eq!(
+            server_status_response["projection"]["providerStates"]["available"],
+            1
+        );
+        assert_eq!(
+            server_status_response["projection"]["providerStates"]["degraded"],
+            1
+        );
+        assert_eq!(
+            server_status_response["projection"]["backendStates"]["degraded"],
+            1
         );
 
         let runtime_engines_request: ModelMountReadProjectionBridgeRequest =

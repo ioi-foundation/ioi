@@ -587,6 +587,9 @@ function runDocs() {
       /Slice 812 moved public model_mount server-status readback through a dedicated\s+Rust read-projection kind/.test(guide) &&
       /`serverStatus\(\)` now requests `server_status` from\s+`plan_model_mount_read_projection`/.test(guide) &&
       /Server-control start\/stop\/restart\/log\/event mutations\s+still fail closed/.test(guide) &&
+      /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
+      /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
+      /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -609,11 +612,14 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 811/.test(matrix) &&
       /Slice 810 moved public model_mount runtime-engine read surfaces through\s+dedicated Rust read-projection kinds/.test(matrix) &&
       /missing runtime-engine detail is\s+now rejected by Rust with `model_mount_runtime_engine_not_found`/.test(matrix) &&
-      /Implementation Slice Evidence: 812/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 812/.test(matrix) &&
       /Slice 811 moved public model_mount latest runtime-survey readback through a\s+dedicated Rust read-projection kind/.test(matrix) &&
       /`latestRuntimeSurvey\(\)` now requests\s+`latest_runtime_survey`/.test(matrix) &&
       /Slice 812 moved public model_mount server-status readback through a dedicated\s+Rust read-projection kind/.test(matrix) &&
       /`serverStatus\(\)` now requests `server_status`/.test(matrix) &&
+      /Implementation Slice Evidence: 813/.test(matrix) &&
+      /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(matrix) &&
+      /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -999,7 +1005,7 @@ function runDocs() {
       ) &&
       /MCP serve `tools\/call` now consumes canonical `params\.arguments` only/.test(implementationMatrix) &&
       /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
-      /JS may remain only as protocol\/input transport until direct Rust projection APIs own\s+the full server-control surface/.test(
+      /JS may remain only as primitive volatile-state collection and protocol\/input transport until direct Rust projection APIs own\s+the full server-control surface/.test(
         implementationMatrix,
       ) &&
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
@@ -7779,9 +7785,11 @@ function runBridge() {
       /projectionKind === "model_route_decisions" \|\| projectionKind === "projection_summary"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_vault_health"[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_runtime_survey"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?runtime_survey_default:\s*latestRuntimeSurveyInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "server_status"[\s\S]*?server:\s*serverStatusInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
+      /serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
+      !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "server_status"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "authority_snapshot"[\s\S]*?server:\s*serverStatusInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state/.test(modelMountingReadProjectionFacade) &&
       /latestProviderHealth\(state,\s*providerId\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_provider_health",\s*\{ providerId \}\)/.test(modelMountingReadProjectionFacade) &&
       /latestVaultHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"latest_vault_health"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7795,7 +7803,7 @@ function runBridge() {
       /translateLatestVaultHealthError/.test(modelMountingReadProjectionFacade) &&
       /model_mount_vault_health_not_found/.test(modelMountingReadProjectionFacade) &&
       /runtime_survey:\s*latestRuntimeSurveyInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
-      /server:\s*serverStatusInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
+      /server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
       /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
       /listArtifacts\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"artifacts"\)/.test(modelMountingReadProjectionFacade) &&
       /listProviders\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"providers"\)/.test(modelMountingReadProjectionFacade) &&
@@ -7850,10 +7858,11 @@ function runBridge() {
       /Object\.hasOwn\(replayRequest\.state,\s*"server"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(replayRequest\.state,\s*"artifacts"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(routeDecisionRequest\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(authorityRequest\.state\)\.sort\(\),\s*\[[\s\S]*"grants"[\s\S]*"receipts"[\s\S]*"server"[\s\S]*"vault"[\s\S]*"vault_refs"[\s\S]*"wallet"/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(authorityRequest\.state\)\.sort\(\),\s*\[[\s\S]*"grants"[\s\S]*"receipts"[\s\S]*"server_status_input"[\s\S]*"vault"[\s\S]*"vault_refs"[\s\S]*"wallet"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"provider_health"[\s\S]*"providers"[\s\S]*"receipts"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[1\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\)\.sort\(\),\s*\[[\s\S]*"receipts"[\s\S]*"runtime_survey_default"/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(request\.state,\s*"runtime_survey"\),\s*true/.test(modelMountingReadProjectionFacadeTest) === false &&
@@ -7872,6 +7881,7 @@ function runBridge() {
       /productArtifactsFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /adapterBoundariesFromState/.test(modelMountingReadProjectionFacadeTest) &&
       /workflowBindingsFromRust/.test(modelMountingReadProjectionFacadeTest) &&
+      /serverStatusFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /modelCapabilitiesFromRustState/.test(modelMountingReadProjectionFacadeTest) &&
       /Reranker"\)\.capability,\s*"rerank"/.test(modelMountingReadProjectionFacadeTest) &&
       /provider health has not been checked/.test(modelMountingReadProjectionFacadeTest) &&
@@ -7882,7 +7892,7 @@ function runBridge() {
       /normalizeReadProjectionBridgeResult/.test(modelMountAdmissionRunner) &&
       /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(bridgeModule) &&
-      /"server_status" => Ok\(object_or_null\(request\.state\.get\("server"\)\)\)/.test(bridgeModule) &&
+      /"server_status" => Ok\(model_mount_server_status\(request\)\)/.test(bridgeModule) &&
       /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(bridgeModule) &&
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(bridgeModule) &&
       /"latest_runtime_survey" => Ok\(model_mount_latest_runtime_survey\(request\)\)/.test(bridgeModule) &&
@@ -7920,6 +7930,8 @@ function runBridge() {
       /fn model_mount_latest_runtime_survey/.test(bridgeModule) &&
       /fn model_mount_adapter_boundaries/.test(bridgeModule) &&
       /fn model_mount_workflow_bindings/.test(bridgeModule) &&
+      /fn model_mount_server_status/.test(bridgeModule) &&
+      /fn status_count/.test(bridgeModule) &&
       /fn model_mount_runtime_engine_detail/.test(bridgeModule) &&
       /fn model_mount_model_capabilities/.test(bridgeModule) &&
       /fn model_mount_product_artifacts/.test(bridgeModule) &&
@@ -7935,6 +7947,7 @@ function runBridge() {
       /model_mount_vault_health_not_found/.test(bridgeModule) &&
       /model_mount_runtime_engine_not_found/.test(bridgeModule) &&
       /runtime_survey_default/.test(bridgeModule) &&
+      /"server": model_mount_server_status\(request\)/.test(bridgeModule) &&
       /"workflowNodes": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"workflowBindings": model_mount_workflow_bindings\(\)/.test(bridgeModule) &&
       /"modelCapabilities": model_mount_model_capabilities\(state\)/.test(bridgeModule) &&
@@ -7943,6 +7956,7 @@ function runBridge() {
       /agentgres_model_mount_read_truth/.test(bridgeModule) &&
       /"projection_kind": "snapshot"/.test(bridgeModule) &&
       /"projection_kind": "server_status"/.test(bridgeModule) &&
+      /"server_status_input"/.test(bridgeModule) &&
       /"runtime_model_catalog"/.test(modelMountingReadProjectionFacadeTest) &&
       /"open_ai_model_list"/.test(modelMountingReadProjectionFacadeTest) &&
       /"product_artifacts"/.test(modelMountingReadProjectionFacadeTest) &&
@@ -12631,9 +12645,11 @@ function runReceipts() {
         serverControlTest,
       ) &&
       /receipt\.legacy\.server_stop/.test(serverControlTest) &&
-      /assert\.equal\(status\.lastServerReceiptId,\s*null\)/.test(
+      /serverStatusProjectionInput/.test(serverControlTest) &&
+      /assert\.equal\(input\.control_state\.receipt_id,\s*null\)/.test(
         serverControlTest,
       ) &&
+      /assert\.equal\(Object\.hasOwn\(input,\s*"status"\),\s*false\)/.test(serverControlTest) &&
       /server control state writes fail closed before Rust admission or local cache writes/.test(
         serverControlTest,
       ) &&

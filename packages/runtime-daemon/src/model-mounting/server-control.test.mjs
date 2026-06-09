@@ -10,7 +10,7 @@ import {
   serverLogs,
   serverRestart,
   serverStart,
-  serverStatus,
+  serverStatusProjectionInput,
   serverStop,
   writeServerControlState,
   writeServerLog,
@@ -75,20 +75,27 @@ function fakeState({ stateDir = mkdtempSync(join(tmpdir(), "ioi-server-control-"
   return state;
 }
 
-test("server control projects gateway status from mounted state", () => {
+test("server control builds primitive server-status projection input", () => {
   const state = fakeState();
   try {
-    const status = serverStatus(state, "http://127.0.0.1:3200", { schema_version: SCHEMA });
+    const input = serverStatusProjectionInput(state, "http://127.0.0.1:3200", { schema_version: SCHEMA });
 
-    assert.equal(status.schemaVersion, SCHEMA);
-    assert.equal(status.status, "running");
-    assert.equal(status.controlStatus, "running");
-    assert.equal(status.nativeBaseUrl, "http://127.0.0.1:3200/api/v1");
-    assert.equal(status.openAiCompatibleBaseUrl, "http://127.0.0.1:3200/v1");
-    assert.equal(status.loadedInstances, 1);
-    assert.equal(status.mountedEndpoints, 1);
-    assert.deepEqual(status.providerStates, { available: 1, degraded: 1 });
-    assert.deepEqual(status.backendStates, { available: 1, degraded: 1 });
+    assert.equal(input.schema_version, SCHEMA);
+    assert.equal(input.base_url, "http://127.0.0.1:3200");
+    assert.equal(input.loaded_instances, 1);
+    assert.equal(input.mounted_endpoints, 1);
+    assert.deepEqual(input.provider_statuses, ["available", "blocked"]);
+    assert.deepEqual(input.backend_statuses, ["running", "degraded"]);
+    assert.deepEqual(input.control_state, {
+      status: "running",
+      gateway_status: "running",
+      operation: "server_status",
+      updated_at: null,
+      receipt_id: null,
+    });
+    assert.equal(input.checked_at, "2026-06-03T20:45:00.000Z");
+    assert.equal(Object.hasOwn(input, "status"), false);
+    assert.equal(Object.hasOwn(input, "schemaVersion"), false);
     assert.equal(state.evicted, 1);
     assert.equal(state.coalesced, 1);
   } finally {
@@ -110,12 +117,12 @@ test("server control status ignores retired local server-state cache", () => {
       }),
     );
 
-    const status = serverStatus(state, "http://127.0.0.1:3200", { schema_version: SCHEMA });
+    const input = serverStatusProjectionInput(state, "http://127.0.0.1:3200", { schema_version: SCHEMA });
 
-    assert.equal(status.controlStatus, "running");
-    assert.equal(status.lastServerOperation, "server_status");
-    assert.equal(status.lastServerOperationAt, null);
-    assert.equal(status.lastServerReceiptId, null);
+    assert.equal(input.control_state.status, "running");
+    assert.equal(input.control_state.operation, "server_status");
+    assert.equal(input.control_state.updated_at, null);
+    assert.equal(input.control_state.receipt_id, null);
   } finally {
     rmSync(state.stateDir, { recursive: true, force: true });
   }
@@ -177,8 +184,8 @@ test("server control ignores retired schemaVersion option before record-state co
 
   const aliasOnlyState = fakeState();
   try {
-    const aliasOnly = serverStatus(aliasOnlyState, null, { schemaVersion: "schema.retired.only" });
-    assert.equal(aliasOnly.schemaVersion, undefined);
+    const aliasOnly = serverStatusProjectionInput(aliasOnlyState, null, { schemaVersion: "schema.retired.only" });
+    assert.equal(aliasOnly.schema_version, undefined);
   } finally {
     rmSync(aliasOnlyState.stateDir, { recursive: true, force: true });
   }
