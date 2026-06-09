@@ -965,7 +965,11 @@ function runDocs() {
       /Implementation Slice Evidence: 869/.test(matrix) &&
       /Slice 869 retired the orphaned JS `read-model\.mjs` projection-helper facade/.test(matrix) &&
       /JS no longer carries fallback list builders for artifact, provider,\s+endpoint, instance, route, model-capability, download, provider-health,\s+product-artifact, runtime-catalog, or OpenAI-compatible model lists/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 869/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 869 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 870/.test(matrix) &&
+      /Slice 870 retired the one-function JS `runtime-survey\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState\.runtimeSurvey\(\)` method now owns the edge refusal directly/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 870/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1113,7 +1117,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 866 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 867 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 868 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 869/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 869 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 870/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1142,6 +1147,8 @@ function runDocs() {
       /Rust ignores local provider-health records/.test(implementationMatrix) &&
       /dedicated `latestRuntimeSurvey\(\)` also sends only admitted receipts/.test(implementationMatrix) &&
       /Rust ignores local provider-health records plus `runtime_survey_input`, and the dead JS runtime-survey projection-input helper is deleted so JS telemetry fallback cannot become public provider-health or runtime-survey truth/.test(implementationMatrix) &&
+      /the one-function JS `runtime-survey\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState\.runtimeSurvey\(\)` method now owns the edge refusal directly/.test(implementationMatrix) &&
       /latest runtime-survey readback now routes through Rust `plan_model_mount_read_projection` kind `latest_runtime_survey` with receipt-only request state/.test(implementationMatrix) &&
       /Rust now authors not-checked readback as zero\/null\/default and checked readback only from admitted `runtime_survey` receipt details/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `artifacts`, `endpoints`, `instances`, `providers`, `routes`, `downloads`, or `product_artifact_policy`/.test(implementationMatrix) &&
@@ -13529,12 +13536,14 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-runtime-survey-receipt-detail-aliases-retired",
-    /model_mount_runtime_survey_rust_core_required/.test(runtimeSurveyModule) &&
-      /rust_core_boundary:\s*"model_mount\.runtime_survey"/.test(runtimeSurveyModule) &&
-      /model_mount_runtime_survey_js_facade_retired/.test(runtimeSurveyModule) &&
-      /rust_daemon_core_runtime_survey_required/.test(runtimeSurveyModule) &&
-      /agentgres_runtime_survey_projection_required/.test(runtimeSurveyModule) &&
-      /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(runtimeSurveyModule) &&
+    !exists("packages/runtime-daemon/src/model-mounting/runtime-survey.mjs") &&
+      /runtimeSurvey\(\)\s*\{[\s\S]*?throwRuntimeSurveyRustCoreRequired/.test(modelMountingRoot) &&
+      /model_mount_runtime_survey_rust_core_required/.test(modelMountingRoot) &&
+      /rust_core_boundary:\s*"model_mount\.runtime_survey"/.test(modelMountingRoot) &&
+      /model_mount_runtime_survey_js_facade_retired/.test(modelMountingRoot) &&
+      /rust_daemon_core_runtime_survey_required/.test(modelMountingRoot) &&
+      /agentgres_runtime_survey_projection_required/.test(modelMountingRoot) &&
+      /operation_kind:\s*"model_mount\.runtime_survey\.capture"/.test(modelMountingRoot) &&
       !/latestRuntimeSurveyProjectionInput/.test(runtimeSurveyModule) &&
       !/lmStudioRuntimeEngines/.test(runtimeSurveyModule) &&
       !/lmStudioRuntimeSurvey/.test(runtimeSurveyModule) &&
@@ -13550,7 +13559,7 @@ function runReceipts() {
       !/const lmStudio = state\.lmStudioRuntimeSurvey\(checkedAt\);/.test(runtimeSurveyModule) &&
       !/state\.lmStudioRuntimeEngines\(checkedAt\)/.test(runtimeEngines) &&
       !/lmStudioRuntimeEngines/.test(runtimeEnginesTest) &&
-      !/lmStudioRuntimeEnginesState|lmStudioRuntimeSurveyState/.test(modelMountingRoot) &&
+      !/runtimeSurveyState|lmStudioRuntimeEnginesState|lmStudioRuntimeSurveyState/.test(modelMountingRoot) &&
       !/lmStudioRuntimeDiscoveryEnabled/.test(modelMountingRoot) &&
       !/export function lmStudioRuntimeDiscoveryEnabled/.test(modelMountingEnvironment) &&
       !/parseLmStudioRuntimeEngines|parseLmStudioRuntimeSurvey/.test(localSystemProbes) &&
@@ -13566,6 +13575,7 @@ function runReceipts() {
       !/receipt\.details\?\.(?:checkedAt|engineCount|selectedEngines|runtimePreference|lmStudio)\b/.test(
         runtimeSurveyModule,
       ) &&
+      /ModelMountingState\.prototype\.runtimeSurvey\.call/.test(runtimeSurveyTest) &&
       /runtimeSurvey facade fails closed before JS probes, engine reads, or receipt creation/.test(
         runtimeSurveyTest,
       ) &&
@@ -13582,7 +13592,6 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/local-system-probes.mjs",
       "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
-      "packages/runtime-daemon/src/model-mounting/runtime-survey.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
     ],
     "Phase 9/11 is pending: runtime survey capture and helper-level LM Studio runtime probes must fail closed until Rust daemon-core owns survey receipts/projection, while readback uses canonical snake_case metadata without duplicate camelCase aliases",

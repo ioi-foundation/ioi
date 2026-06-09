@@ -18083,10 +18083,34 @@ retirement, command-transport replacement, and edge error-envelope translation
 retirement still remain before model_mount reaches the pure Rust substrate
 target.
 
-Next scheduled matrix-compaction pass: compact Slice 869 after the next direct
+Scheduled matrix-compaction obligation from Slice 869 is now satisfied.
+
+## Implementation Slice Evidence: 870
+
+Slice 870 retired the one-function JS `runtime-survey.mjs` helper module after
+runtime-survey capture had already failed closed and latest runtime-survey
+readback had moved to Rust receipt-only projection. The mounted public
+`ModelMountingState.runtimeSurvey()` method now owns the edge refusal directly,
+without importing a helper module or dependency-injecting JS probe helpers.
+The method still fails closed before hardware probes, runtime-engine reads,
+LM Studio public-CLI execution, receipt creation, or projection writes.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal runtime-survey migration: direct Rust
+daemon-core runtime probing, Agentgres-admitted survey truth, projection
+persistence, command-transport retirement, and stable protocol APIs remain
+required before runtime survey reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 870 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls, local
-map/projection materialization, edge error translation, and direct Rust
-daemon-core Agentgres projection APIs. The `ioi-step-module-bridge` command
-path is acceptable only as migration transport; it is not the terminal
-architecture.
+runtime-survey readback transport, telemetry/runtime-engine transport facades,
+local map/projection materialization, and direct Rust daemon-core runtime-survey
+Agentgres projection APIs. The `ioi-step-module-bridge` command path is
+acceptable only as migration transport; it is not the terminal architecture.

@@ -215,9 +215,6 @@ import {
   updateRuntimeEngine as updateRuntimeEngineState,
 } from "./model-mounting/runtime-engines.mjs";
 import {
-  runtimeSurvey as runtimeSurveyState,
-} from "./model-mounting/runtime-survey.mjs";
-import {
   backend as backendState,
   backendProcessSnapshot as backendProcessSnapshotState,
 } from "./model-mounting/backend-processes.mjs";
@@ -1370,9 +1367,9 @@ export class ModelMountingState {
   }
 
   runtimeSurvey() {
-    return runtimeSurveyState(this, {
-      hardwareSnapshot,
-      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+    throwRuntimeSurveyRustCoreRequired({
+      operation: "runtime_survey",
+      operation_kind: "model_mount.runtime_survey.capture",
     });
   }
 
@@ -1492,4 +1489,20 @@ export class ModelMountingState {
   driverForProvider(provider) {
     return driverForProviderState(this, provider);
   }
+}
+
+function throwRuntimeSurveyRustCoreRequired(details = {}) {
+  const error = new Error("Runtime survey capture requires direct Rust daemon-core model_mount projection support.");
+  error.status = 501;
+  error.code = "model_mount_runtime_survey_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.runtime_survey",
+    ...details,
+    evidence_refs: [
+      "model_mount_runtime_survey_js_facade_retired",
+      "rust_daemon_core_runtime_survey_required",
+      "agentgres_runtime_survey_projection_required",
+    ],
+  };
+  throw error;
 }

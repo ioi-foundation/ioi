@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  runtimeSurvey,
-} from "./runtime-survey.mjs";
+  ModelMountingState,
+} from "../model-mounting.mjs";
 
 function fakeState() {
   const state = {
@@ -35,16 +35,15 @@ function fakeState() {
   return state;
 }
 
-const deps = {
-  hardwareSnapshot: () => ({ cpuCount: 8 }),
-  schemaVersion: "schema.v1",
-};
-
 test("runtimeSurvey facade fails closed before JS probes, engine reads, or receipt creation", () => {
   const state = fakeState();
   let hardwareCalls = 0;
   let engineCalls = 0;
   let lmStudioCalls = 0;
+  state.hardwareSnapshot = () => {
+    hardwareCalls += 1;
+    return { cpuCount: 8 };
+  };
   state.listRuntimeEngines = () => {
     engineCalls += 1;
     return [{ id: "engine_a", selected: true }];
@@ -55,13 +54,7 @@ test("runtimeSurvey facade fails closed before JS probes, engine reads, or recei
   };
 
   assert.throws(
-    () => runtimeSurvey(state, {
-      ...deps,
-      hardwareSnapshot: () => {
-        hardwareCalls += 1;
-        return { cpuCount: 8 };
-      },
-    }),
+    () => ModelMountingState.prototype.runtimeSurvey.call(state),
     (error) => {
       assert.equal(error.code, "model_mount_runtime_survey_rust_core_required");
       assert.equal(error.status, 501);

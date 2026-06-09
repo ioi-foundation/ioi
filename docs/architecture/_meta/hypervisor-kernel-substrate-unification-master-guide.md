@@ -1826,6 +1826,17 @@ daemon-core Agentgres projection APIs, local map/projection materialization
 retirement, command-transport replacement, and edge error-envelope translation
 retirement still remain.
 
+Slice 870 retired the one-function JS `runtime-survey.mjs` helper module after
+runtime-survey capture had already failed closed and latest runtime-survey
+readback had moved to Rust receipt-only projection. The mounted public
+`ModelMountingState.runtimeSurvey()` method now owns the edge refusal directly,
+without importing a helper module or dependency-injecting JS probe helpers.
+The method still fails closed before hardware probes, runtime-engine reads,
+LM Studio public-CLI execution, receipt creation, or projection writes. This
+does not claim terminal runtime-survey migration: direct Rust daemon-core
+runtime probing, Agentgres-admitted survey truth, projection persistence,
+command-transport retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
