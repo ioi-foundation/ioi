@@ -18058,9 +18058,35 @@ daemon-core runtime probing, Agentgres-admitted survey truth, projection
 persistence, command-transport retirement, and stable protocol APIs remain
 required before runtime survey reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 868 after the next direct
+Scheduled matrix-compaction obligation from Slice 868 is now satisfied.
+
+## Implementation Slice Evidence: 869
+
+Slice 869 retired the orphaned JS `read-model.mjs` projection-helper facade and
+its unit test after public model_mount list, catalog, health, and projection
+readbacks had moved to Rust read-projection kinds. The public daemon method
+names such as `runtimeModelCatalogList()` remain stable protocol-facing facade
+methods, but JS no longer carries fallback list builders for artifact, provider,
+endpoint, instance, route, model-capability, download, provider-health,
+product-artifact, runtime-catalog, or OpenAI-compatible model lists.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+
+This still does not claim terminal model_mount migration: direct Rust
+daemon-core Agentgres projection APIs, local map/projection materialization
+retirement, command-transport replacement, and edge error-envelope translation
+retirement still remain before model_mount reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 869 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-preserve the non-terminal status of command transport, JS wrapper calls,
-runtime-survey capture/projection transport, telemetry/runtime-engine transport
-facades, local map/projection materialization, and direct Rust daemon-core
-runtime-survey Agentgres projection APIs.
+preserve the non-terminal status of command transport, JS wrapper calls, local
+map/projection materialization, edge error translation, and direct Rust
+daemon-core Agentgres projection APIs. The `ioi-step-module-bridge` command
+path is acceptable only as migration transport; it is not the terminal
+architecture.

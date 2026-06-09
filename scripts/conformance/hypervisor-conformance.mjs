@@ -961,7 +961,11 @@ function runDocs() {
       /Implementation Slice Evidence: 868/.test(matrix) &&
       /Slice 868 retired the remaining runtime-survey projection-input and LM Studio\s+runtime placeholder helpers from JS/.test(matrix) &&
       /`latestRuntimeSurveyProjectionInput\(\)`, `lmStudioRuntimeEngines\(\)`, and\s+`lmStudioRuntimeSurvey\(\)` were deleted/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 868/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 868 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 869/.test(matrix) &&
+      /Slice 869 retired the orphaned JS `read-model\.mjs` projection-helper facade/.test(matrix) &&
+      /JS no longer carries fallback list builders for artifact, provider,\s+endpoint, instance, route, model-capability, download, provider-health,\s+product-artifact, runtime-catalog, or OpenAI-compatible model lists/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 869/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1108,7 +1112,8 @@ function runDocs() {
       /direct arms for `oauth_sessions` and `oauth_states`\s+fail closed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 866 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 867 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 868/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 868 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 869/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -1181,6 +1186,12 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /direct Rust `catalog_status` fails closed and broad catalog envelopes ignore `catalog_status_input`/.test(
+        implementationMatrix,
+      ) &&
+      /the orphaned JS `read-model\.mjs` projection helper module and test were deleted/.test(
+        implementationMatrix,
+      ) &&
+      /JS no longer carries fallback list builders for artifacts, providers, endpoints, instances, routes, capabilities, downloads, provider health, product artifacts, runtime catalog, or OpenAI-compatible model lists/.test(
         implementationMatrix,
       ) &&
       /non-search catalog variant enrichment now fails closed with `model_catalog_variant_enrichment_js_retired`/.test(
@@ -8313,8 +8324,8 @@ function runBridge() {
       !/product_artifact_policy:\s*productArtifactPolicy/.test(modelMountingReadProjectionFacade) &&
       /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
-      !/export function modelMountingSnapshot/.test(modelMountingReadModel) &&
-      !/export function workflowNodeBindings/.test(modelMountingReadModel) &&
+      !exists("packages/runtime-daemon/src/model-mounting/read-model.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/read-model.test.mjs") &&
       !exists(modelProjectionsPath) &&
       !exists(modelProjectionsTestPath) &&
       /serverStatus\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_status",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
@@ -8336,7 +8347,6 @@ function runBridge() {
       /projectionKind === "catalog_status"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/catalogProviderStatus/.test(modelMountingReadProjectionFacade) &&
-      /export function providerList\(state\)[\s\S]*?return sortedValues\(state\.providers/.test(modelMountingReadModel) &&
       !/state\.vault\.vaultRefMetadata/.test(modelMountingReadModel) &&
       !/publicProvider\(/.test(modelMountingReadModel) &&
       !/providerHasVaultRef/.test(modelMountingReadProjectionFacade) &&
@@ -8406,6 +8416,7 @@ function runBridge() {
       !/oauth_states:\s*oauthStates/.test(modelMountingReadProjectionFacade) &&
       !/oauthSessionList/.test(modelMountingReadModel) &&
       !/oauthStateList/.test(modelMountingReadModel) &&
+      !/artifactList|productArtifactList|runtimeModelCatalogList|openAiModelList|providerList|endpointList|instanceList|routeList|modelCapabilityList|downloadList|providerHealthList/.test(modelMountingReadModel) &&
       /listProviderHealth\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"provider_health"\)/.test(modelMountingReadProjectionFacade) &&
       /runtimePreference\(\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceProjection\(this\)/.test(modelMountingState) &&
       /runtimePreferenceForEndpoint\(endpoint = \{\}\)\s*\{[\s\S]*?readProjectionFacade\.runtimePreferenceForEndpointProjection\(this,\s*endpoint\)/.test(modelMountingState) &&
@@ -10432,17 +10443,15 @@ function runBridge() {
     ) &&
       /runtimeModelCatalogList/.test(runtimeDaemonIndex) &&
       /runtimeModelCatalogList/.test(modelMountingState) &&
-      /runtimeModelCatalogList/.test(modelMountingReadModel) &&
       /runtimeModelCatalogList/.test(modelMountingReadProjectionFacade) &&
-      /runtimeModelCatalogList/.test(modelMountingReadModelTest) &&
-      /providerId:\s*"provider\.autopilot\.local"/.test(modelMountingReadModelTest) &&
-      /assert\.equal\(nativeModel\.provider,\s*"ioi-daemon-local"\)/.test(modelMountingReadModelTest) &&
+      !exists("packages/runtime-daemon/src/model-mounting/read-model.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/read-model.test.mjs") &&
+      !/provider\.autopilot\.local/.test(modelMountingReadModelTest) &&
+      !/ioi-daemon-local/.test(modelMountingReadModelTest) &&
       /runtimeModelCatalogList/.test(modelMountingReadProjectionFacadeTest),
     [
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-model.mjs",
-      "packages/runtime-daemon/src/model-mounting/read-model.test.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
     ],

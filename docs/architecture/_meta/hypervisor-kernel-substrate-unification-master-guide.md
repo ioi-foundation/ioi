@@ -1795,6 +1795,37 @@ OAuth fields remain schema-stable empty arrays. Direct Rust daemon-core
 wallet/cTEE OAuth projection APIs still need to replace this refusal before
 OAuth public readback can be live.
 
+Slice 867 moved public catalog-status readback refusal onto the Rust
+read-projection boundary. Public `catalogStatus()` now calls
+`plan_model_mount_read_projection` kind `catalog_status` with empty request
+state, translates only the Rust `model_catalog_status_js_readback_retired`
+refusal at the JS edge, and no longer imports JS catalog-status helper
+scaffolding. Direct Rust catalog status/projection APIs, Agentgres-backed
+catalog truth, command-transport replacement, edge error translation retirement,
+and local catalog materialization retirement still remain before this surface
+reaches the pure Rust substrate target.
+
+Slice 868 retired the runtime-survey projection-input and LM Studio runtime
+placeholder helpers from JS. Latest runtime-survey readback already uses Rust
+`latest_runtime_survey` receipt-only projection, so
+`latestRuntimeSurveyProjectionInput()`, `lmStudioRuntimeEngines()`, and
+`lmStudioRuntimeSurvey()` were deleted rather than preserved as
+non-authoritative compatibility shims. Direct Rust daemon-core runtime probing,
+Agentgres-admitted survey truth, projection persistence, command-transport
+retirement, and stable protocol APIs remain required before runtime survey
+reaches the pure Rust substrate target.
+
+Slice 869 retired the orphaned JS `read-model.mjs` projection helper module and
+its unit test after public model_mount list/catalog/health/projection readbacks
+had moved to Rust read-projection kinds. The public daemon method names remain
+protocol-facing facade methods, but JS no longer carries fallback list builders
+for artifact, provider, endpoint, instance, route, model-capability, download,
+provider-health, product-artifact, runtime-catalog, or OpenAI-compatible model
+lists. This does not claim terminal model_mount migration: direct Rust
+daemon-core Agentgres projection APIs, local map/projection materialization
+retirement, command-transport replacement, and edge error-envelope translation
+retirement still remain.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
