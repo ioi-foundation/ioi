@@ -724,7 +724,7 @@ function runDocs() {
       /`LmStudioModelProviderDriver` no longer resolves `lmsPath`/.test(guide) &&
       /fail closed with\s+`model_mount_lm_studio_public_cli_retired`/.test(guide) &&
       /Slice 828 retired the JS backend-process supervisor authority path/.test(guide) &&
-      /`backend-lifecycle\.mjs` no longer imports `node:child_process`/.test(guide) &&
+      /`backend-lifecycle\.mjs` helper module is deleted/.test(guide) &&
       /fail closed with\s+`model_mount_backend_process_supervisor_retired`/.test(guide) &&
       /native-local provider lifecycle path still calls the Rust `model_mount`\s+planner, but now sends no JS process snapshot or local backend-log evidence/.test(guide) &&
       /Slice 829 retired the remaining JS provider HTTP transport\/probe authority\s+path/.test(guide) &&
@@ -903,7 +903,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 827 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 828/.test(matrix) &&
       /Slice 828 retired the JS backend-process supervisor authority path/.test(matrix) &&
-      /`backend-lifecycle\.mjs` no longer imports `node:child_process`/.test(matrix) &&
+      /`backend-lifecycle\.mjs` helper module is deleted/.test(matrix) &&
       /model_mount_backend_process_supervisor_retired/.test(matrix) &&
       /Binary-backed vLLM, llama\.cpp, and Ollama lifecycle paths now fail before JS\s+process staging/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 828 is now satisfied/.test(matrix) &&
@@ -1021,7 +1021,11 @@ function runDocs() {
       /Implementation Slice Evidence: 883/.test(matrix) &&
       /Slice 883 retired the fail-closed `model-loading-operations\.mjs` helper module/.test(matrix) &&
       /`ModelMountingState` model-loading methods now own canonical load request alias\s+rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 883/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 883 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 884/.test(matrix) &&
+      /Slice 884 retired the fail-closed `backend-lifecycle\.mjs` helper module/.test(matrix) &&
+      /`ModelMountingState` backend methods now own backend health\/start\/stop\/log\s+refusals/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 884/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1183,7 +1187,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 880 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 881 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 882 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 883/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 883 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 884/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1206,6 +1211,8 @@ function runDocs() {
       /mounted public `ModelMountingState` MCP methods now own MCP import aliases/.test(implementationMatrix) &&
       /the fail-closed `model-loading-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` model-loading methods now own canonical load request alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `backend-lifecycle\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` backend methods now own backend health\/start\/stop\/log refusals/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -12009,9 +12016,10 @@ function runReceipts() {
   const catalogProviderOAuthTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     : "";
-  const backendLifecycle = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs")
-    : "";
+  const backendLifecycle = [
+    modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(operation_kind, backend\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+  ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     : "";
@@ -14704,21 +14712,22 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-backend-lifecycle-detail-aliases-retired",
+      !exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs") &&
       /throwBackendLifecycleRustCoreRequired/.test(backendLifecycle) &&
       /model_mount_backend_lifecycle_rust_core_required/.test(backendLifecycle) &&
       /operation_kind,\s*[\r\n]\s*rust_core_boundary:\s*"model_mount\.backend_lifecycle"/.test(backendLifecycle) &&
       /public_backend_lifecycle_js_facade_retired/.test(backendLifecycle) &&
       /rust_daemon_core_lifecycle_required/.test(backendLifecycle) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.health",\s*backend,\s*deps\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.health",\s*backend\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.start",\s*backend,\s*deps\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.start",\s*backend\)/.test(
         backendLifecycle,
       ) &&
       /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.stop",\s*backend\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*backend,\s*deps\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*backend\)/.test(
         backendLifecycle,
       ) &&
       /model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
@@ -14806,7 +14815,6 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest),
     [
-      "packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs",

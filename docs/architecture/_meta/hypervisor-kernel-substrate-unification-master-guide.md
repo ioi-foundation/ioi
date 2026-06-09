@@ -1331,20 +1331,19 @@ Agentgres-backed projection reads, and command-transport retirement for the
 remaining provider surfaces are still required.
 
 Slice 828 retired the JS backend-process supervisor authority path.
-`backend-lifecycle.mjs` no longer imports `node:child_process`, spawns
-backend binaries, tracks child processes, writes backend-process record-state
-commits, observes process exits, or writes start/stop/output telemetry from the
-JS supervisor. `ensureBackendProcess()`, `touchBackendProcess()`,
-`startBackendProcess()`, `spawnBackendChildProcess()`, and
-`stopBackendProcess()` now fail closed with
-`model_mount_backend_process_supervisor_retired`, and binary-backed vLLM,
-llama.cpp, and Ollama lifecycle paths fail before JS process staging. The
-native-local provider lifecycle path still calls the Rust `model_mount`
-planner, but now sends no JS process snapshot or local backend-log evidence.
-This still does not claim terminal backend lifecycle migration: direct Rust
-daemon-core backend lifecycle/control/projection APIs over Agentgres-backed
-state must replace the remaining planner command transport, read adapters, and
-provider lifecycle facades before the pure Rust substrate target is met.
+`backend-lifecycle.mjs` helper module is deleted after its public backend
+lifecycle and backend-process supervision entrypoints were reduced to
+Rust-core-required edge refusals. Mounted public `ModelMountingState` backend
+methods now own backend health/start/stop/log refusals,
+`model_mount_backend_process_supervisor_retired`, and canonical Rust-boundary
+metadata directly, without importing a backend lifecycle helper. Binary-backed
+vLLM, llama.cpp, and Ollama lifecycle paths also fail before JS process staging
+without importing that helper. The backend process entrypoints fail closed with
+`model_mount_backend_process_supervisor_retired`. The native-local provider lifecycle path still calls the Rust `model_mount` planner, but now sends no JS process snapshot or local backend-log evidence. This still does not claim
+terminal backend lifecycle migration: direct Rust daemon-core backend
+lifecycle/control/projection APIs over Agentgres-backed state must replace the
+remaining planner command transport, read adapters, and provider lifecycle
+facades before the pure Rust substrate target is met.
 
 Slice 829 retired the remaining JS provider HTTP transport/probe authority
 path. `provider-transport.mjs` no longer performs `fetch()`, applies JS HTTP
@@ -2009,6 +2008,18 @@ terminal instance lifecycle migration: direct Rust daemon-core load/unload
 admission, provider lifecycle execution, receipt/state-root binding,
 Agentgres truth, replay, projection, command-transport retirement, and stable
 protocol APIs remain required.
+
+Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
+public backend lifecycle and backend-process supervision paths had already been
+reduced to Rust-core-required backend lifecycle edge refusals. The mounted
+public `ModelMountingState` backend methods now own backend health/start/stop/log
+refusals, backend-process ensure/touch/start/spawn/stop refusals,
+`model_mount.backend_lifecycle` metadata, and
+`model_mount_backend_process_supervisor_retired` errors directly, without
+importing a backend lifecycle helper. This does not claim terminal backend
+lifecycle migration: direct Rust daemon-core backend lifecycle/control/projection
+APIs over Agentgres-backed state, provider lifecycle execution, replay,
+command-transport retirement, and stable protocol APIs remain required.
 
 ## Part II: Target Execution Model
 

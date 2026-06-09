@@ -16919,16 +16919,14 @@ Scheduled matrix-compaction obligation from Slice 827 is now satisfied.
 ## Compacted Implementation Slice Evidence: 828
 
 Slice 828 retired the JS backend-process supervisor authority path.
-`backend-lifecycle.mjs` no longer imports `node:child_process`, spawns backend
-binaries, tracks child processes, writes backend-process record-state commits,
-observes child exits, writes supervisor start/stop/output telemetry, or
-maintains `backend_process` Agentgres commit transport from JS. The backend
-process helper entrypoints now fail closed with
-`model_mount_backend_process_supervisor_retired` and canonical Rust-boundary
-metadata before JS can touch, start, spawn, stop, or persist a process record.
-Binary-backed vLLM, llama.cpp, and Ollama lifecycle paths now fail before JS
-process staging, while native-local lifecycle planning still calls the Rust
-`model_mount` planner with no JS process snapshot or backend-log evidence.
+`backend-lifecycle.mjs` helper module is deleted by the later Slice 884
+compaction after its backend-process helper entrypoints had been reduced to
+fail-closed `model_mount_backend_process_supervisor_retired` errors with
+canonical Rust-boundary metadata before JS could touch, start, spawn, stop, or
+persist a process record. Binary-backed vLLM, llama.cpp, and Ollama lifecycle paths now fail before JS
+process staging without importing that helper, while native-local lifecycle
+planning still calls the Rust `model_mount` planner with no JS process snapshot
+or backend-log evidence.
 
 Focused evidence:
 
@@ -18459,10 +18457,40 @@ receipt/state-root binding, Agentgres truth, replay, projection,
 command-transport retirement, and stable protocol APIs remain required before
 model loading reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 883 after the next direct
+Scheduled matrix-compaction obligation from Slice 883 is now satisfied.
+
+## Implementation Slice Evidence: 884
+
+Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
+public backend lifecycle and backend-process supervision paths had already been
+reduced to Rust-core-required backend lifecycle edge refusals. The mounted
+public `ModelMountingState` backend methods now own backend health/start/stop/log
+refusals, backend-process ensure/touch/start/spawn/stop refusals,
+`model_mount.backend_lifecycle` metadata, and
+`model_mount_backend_process_supervisor_retired` errors directly, without
+importing a backend lifecycle helper or preserving a standalone JS backend
+lifecycle facade surface. Binary-backed vLLM, llama.cpp, and Ollama driver
+paths now carry their own fail-closed retired-supervisor errors without importing
+the deleted helper.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal backend lifecycle migration: direct Rust
+daemon-core backend lifecycle/control/projection APIs over Agentgres-backed
+state, provider lifecycle execution, replay, command-transport retirement, and
+stable protocol APIs remain required before backend lifecycle reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 884 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls, direct
-Rust daemon-core instance lifecycle APIs, provider lifecycle execution,
-receipt/state-root binding, Agentgres-backed replay, projection, and stable
-protocol APIs. The `ioi-step-module-bridge` command path is acceptable only as
-migration transport; it is not the terminal architecture.
+Rust daemon-core backend lifecycle APIs, provider lifecycle execution,
+Agentgres-backed replay, projection, process control, and stable protocol APIs.
+The `ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.

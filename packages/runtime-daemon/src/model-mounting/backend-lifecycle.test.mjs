@@ -1,18 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  backendHealth,
-  backendLogs,
-  backendProcessSupervisorRetiredError,
-  ensureBackendProcess,
-  spawnBackendChildProcess,
-  startBackend,
-  startBackendProcess,
-  stopBackend,
-  stopBackendProcess,
-  touchBackendProcess,
-} from "./backend-lifecycle.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
+
+function backendHealth(state, backendId) {
+  return ModelMountingState.prototype.backendHealth.call(state, backendId);
+}
+
+function backendLogs(state, backendId) {
+  return ModelMountingState.prototype.backendLogs.call(state, backendId);
+}
+
+function ensureBackendProcess(state, backendId, details = {}) {
+  return ModelMountingState.prototype.ensureBackendProcess.call(state, backendId, details);
+}
+
+function spawnBackendChildProcess(state, backend, details = {}) {
+  return ModelMountingState.prototype.spawnBackendChildProcess.call(state, backend, details);
+}
+
+function startBackend(state, backendId, body = {}) {
+  return ModelMountingState.prototype.startBackend.call(state, backendId, body);
+}
+
+function startBackendProcess(state, backend, details = {}) {
+  return ModelMountingState.prototype.startBackendProcess.call(state, backend, details);
+}
+
+function stopBackend(state, backendId) {
+  return ModelMountingState.prototype.stopBackend.call(state, backendId);
+}
+
+function stopBackendProcess(state, backend, details = {}) {
+  return ModelMountingState.prototype.stopBackendProcess.call(state, backend, details);
+}
+
+function touchBackendProcess(state, processRecord, details = {}) {
+  return ModelMountingState.prototype.touchBackendProcess.call(state, processRecord, details);
+}
 
 function fakeState() {
   const backends = new Map([
@@ -152,12 +177,12 @@ test("backend process supervisor entrypoints fail closed before JS process autho
 });
 
 test("backend process supervisor retired error uses canonical Rust-boundary metadata", () => {
-  const error = backendProcessSupervisorRetiredError("model_mount.backend_process.start", {
-    id: "backend.native",
-    kind: "native_local",
-  });
+  const state = fakeState();
 
-  assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.start");
+  assert.throws(
+    () => startBackendProcess(state, state.backend("backend.native")),
+    (error) => assertBackendProcessSupervisorRetired(error, "model_mount.backend_process.start"),
+  );
 });
 
 test("public backend lifecycle facade fails closed until Rust core owns lifecycle control", () => {

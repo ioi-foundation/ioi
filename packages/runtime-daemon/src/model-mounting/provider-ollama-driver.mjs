@@ -1,4 +1,3 @@
-import { throwBackendProcessSupervisorRetired } from "./backend-lifecycle.mjs";
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
 import { providerHttpTransportRetiredError } from "./provider-transport.mjs";
 import { retiredJsProviderInvocationError } from "./provider-invocation-retirement.mjs";
@@ -69,4 +68,23 @@ export class OllamaModelProviderDriver {
   async invoke({ provider } = {}) {
     throw retiredJsProviderInvocationError(provider, { label: "ollama", stream: false });
   }
+}
+
+function throwBackendProcessSupervisorRetired(operation_kind, backend = {}, details = {}) {
+  const error = new Error("Backend process supervision requires Rust daemon-core model_mount lifecycle ownership.");
+  error.status = 501;
+  error.code = "model_mount_backend_process_supervisor_retired";
+  error.details = {
+    backend_id: backend?.id ?? null,
+    backend_kind: backend?.kind ?? null,
+    operation_kind,
+    rust_core_boundary: "model_mount.backend_lifecycle",
+    ...details,
+    evidence_refs: [
+      "js_backend_process_supervisor_retired",
+      "rust_daemon_core_backend_process_required",
+      "agentgres_backend_process_truth_required",
+    ],
+  };
+  throw error;
 }
