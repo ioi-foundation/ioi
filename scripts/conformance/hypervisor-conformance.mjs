@@ -613,6 +613,9 @@ function runDocs() {
       /Slice 819 deleted the remaining `route-decision\.mjs` compatibility module/.test(guide) &&
       /thread model-route binding reads canonical\s+`details\.model_route_decision` locally and emits canonical `receipt_id` without\s+a `receiptId` alias/.test(guide) &&
       /unused provider request-shaping helper\/test path\s+is gone instead of being preserved as compatibility scaffolding/.test(guide) &&
+      /Slice 820 retired the provider-invocation helper-level false predicate for\s+hosted\/non-migrated providers/.test(guide) &&
+      /`modelMountProviderInvocationRequiresRust\(\)` and\s+`modelMountProviderStreamInvocationRequiresRust\(\)` now report that every\s+provider invocation path requires Rust `model_mount` ownership/.test(guide) &&
+      /request builders fail closed with\s+`model_mount_provider_invocation_rust_backend_required`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -668,12 +671,17 @@ function runDocs() {
       /`modelMountRouteDecisionRequestForSelection\(\)` now uses a receipt-bound\s+`model_route_decision:\$\{receipt_id\}` idempotency key/.test(matrix) &&
       /accepted route-decision receipt details remain authored by Rust\s+`admit_model_mount_route_decision`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 818 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 819/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 819/.test(matrix) &&
       /Slice 819 deleted the remaining `route-decision\.mjs` compatibility module/.test(matrix) &&
       /`isAutoModelSelector\(\)` moved into `routes\.mjs`/.test(matrix) &&
       /`modelRouteBindingFromReceipt\(\)` now owns its narrow canonical receipt projection\s+inside `thread-runtime-controls\.mjs` while emitting `receipt_id` without the\s+retired `receiptId` alias/.test(matrix) &&
       /unused provider request-shaping helper\/test path\s+is absent rather than preserved as a compatibility shim/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 819/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 819 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 820/.test(matrix) &&
+      /Slice 820 retired the provider-invocation helper-level false predicate/.test(matrix) &&
+      /`modelMountProviderInvocationRequiresRust\(\)`\s+and `modelMountProviderStreamInvocationRequiresRust\(\)` now return that every\s+provider invocation path requires Rust `model_mount` ownership/.test(matrix) &&
+      /`model_mount_provider_invocation_rust_backend_required`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 820/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -9031,7 +9039,12 @@ function runBridge() {
       /executeModelMountProviderInvocation/.test(modelMountingState) &&
       /modelMountProviderInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderInvocationRequiresRust/.test(modelInvocationOps) &&
+      /export function modelMountProviderInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
       /rust_model_mount_native_local/.test(modelInvocationOps) &&
+      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
+      /modelMountProviderInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelInvokeFacadeBlock) &&
       !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
@@ -9052,7 +9065,13 @@ function runBridge() {
       /executeModelMountProviderStreamInvocation/.test(modelMountingState) &&
       /modelMountProviderStreamInvocationRequestForExecution/.test(modelInvocationOps) &&
       /modelMountProviderStreamInvocationRequiresRust/.test(modelInvocationOps) &&
+      /export function modelMountProviderStreamInvocationRequiresRust\([\s\S]*?\)\s*\{[\s\S]*?return true;\s*\}/.test(modelInvocationOps) &&
       /rust_model_mount_native_local_stream/.test(modelInvocationOps) &&
+      /modelMountProviderStreamInvocationExecutionBackend/.test(modelInvocationOps) &&
+      /model_mount_provider_invocation_rust_backend_required/.test(modelInvocationOps) &&
+      /modelMountProviderStreamInvocationRequiresRust\(\{ provider: \{ kind: "openai" \}, endpoint: \{\} \}\), true/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/withTextChunksReadableStream/.test(modelInvocationOps) &&
       !/model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
@@ -9440,6 +9459,7 @@ function runBridge() {
       /modelMountProviderResultAdmissionRequestForExecution/.test(modelInvocationOps) &&
       /model_mount_invocation_rust_core_required/.test(modelInvocationOps) &&
       /model_mount_invocation_js_facade_retired/.test(modelInvocationOps) &&
+      /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
       /providerResult\.execution_backend/.test(modelInvocationOps) &&
       !/providerResult\.executionBackend/.test(modelInvocationOps) &&
       !/rejectUnmigratedProviderInvocationExecution/.test(modelInvocationOps) &&
@@ -9455,6 +9475,12 @@ function runBridge() {
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       /startModelStream public facade fails closed before JS stream routing, provider execution, receipts, or fallback/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /error\.details\.stream === false/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
+      ) &&
+      /error\.details\.stream === true/.test(
         read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs"),
       ) &&
       !/modelMountProviderResultAdmission(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs|EvidenceRefs)?\s*:/.test(modelInvocationOps),

@@ -1220,6 +1220,19 @@ does not claim terminal model_route migration: direct Rust daemon-core
 route-control, route-selection, provider execution/request shaping, projection,
 Agentgres-backed read APIs, and command-transport retirement remain required.
 
+Slice 820 retired the provider-invocation helper-level false predicate for
+hosted/non-migrated providers. `modelMountProviderInvocationRequiresRust()` and
+`modelMountProviderStreamInvocationRequiresRust()` now report that every
+provider invocation path requires Rust `model_mount` ownership, while the
+request builders fail closed with
+`model_mount_provider_invocation_rust_backend_required` when a provider kind
+does not yet have a Rust execution backend. This prevents hosted/OpenAI,
+fixture-stream, or other unsupported provider paths from being represented as
+JS-compatible escape hatches while the public invocation facades remain
+fail-closed. This still does not claim terminal provider migration: direct Rust
+daemon-core hosted/provider transports, provider request shaping, projection,
+Agentgres-backed reads, and command-transport retirement remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

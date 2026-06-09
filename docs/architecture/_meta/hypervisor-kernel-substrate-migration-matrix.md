@@ -16687,7 +16687,7 @@ required before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 818 is now satisfied.
 
-## Implementation Slice Evidence: 819
+## Compacted Implementation Slice Evidence: 819
 
 Slice 819 deleted the remaining `route-decision.mjs` compatibility module and
 its self-test. `isAutoModelSelector()` moved into `routes.mjs`, the runtime
@@ -16701,18 +16701,40 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/threads/thread-runtime-controls.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
-| `node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
-| `npm run hypervisor-conformance:bridge` | passed |
+| route-selection/thread binding JS checks and focused tests plus `hypervisor-conformance:bridge` | passed before Slice 820 provider-invocation predicate retirement |
 
 This still does not claim terminal model_route migration: direct Rust
 daemon-core route-control, route-selection, provider execution/request shaping,
 projection, Agentgres-backed read APIs, and command-transport retirement remain
 required before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 819 after the next direct
+Scheduled matrix-compaction obligation from Slice 819 is now satisfied.
+
+## Implementation Slice Evidence: 820
+
+Slice 820 retired the provider-invocation helper-level false predicate for
+hosted/non-migrated provider paths. `modelMountProviderInvocationRequiresRust()`
+and `modelMountProviderStreamInvocationRequiresRust()` now return that every
+provider invocation path requires Rust `model_mount` ownership. The provider
+invocation request builders now fail closed with
+`model_mount_provider_invocation_rust_backend_required` when a provider
+selection does not yet have a Rust execution backend, so hosted/OpenAI,
+fixture-stream, and other unsupported selections cannot be represented as
+JS-compatible execution escape hatches.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+hosted/provider transports, provider request shaping, projection,
+Agentgres-backed read APIs, and command-transport retirement remain required
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 820 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-either compact this evidence once that seam is clear or continue with the next
-seam while preserving the non-terminal status of command transport, JS wrapper
-calls, local map/projection materialization, and Rust daemon-core route read
+preserve the non-terminal status of command transport, JS wrapper calls, local
+map/projection materialization, and Rust daemon-core provider read/execution
 APIs.

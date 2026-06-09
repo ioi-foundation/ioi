@@ -314,7 +314,7 @@ export function modelMountProviderStreamInvocationRequestForExecution({
     invocation_kind: requiredStringRef("providerExecution.invocation_kind", record.invocation_kind ?? kind),
     input: String(input ?? ""),
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
-    execution_backend: "rust_model_mount_native_local_stream",
+    execution_backend: modelMountProviderStreamInvocationExecutionBackend(selection),
     api_format: optionalRef(endpoint.api_format ?? provider.api_format),
     driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
     backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
@@ -538,20 +538,30 @@ export function withModelMountInvocationReceiptBinding(details, binding) {
 
 export function modelMountProviderInvocationRequiresRust(selection = {}, options = {}) {
   assertCanonicalModelInvocationHelperInputs({ selection });
-  const stream = Boolean(options.stream);
-  return fixtureProviderInvocationSelected(selection) || (!stream && nativeLocalProviderInvocationSelected(selection));
+  void options;
+  return true;
 }
 
 export function modelMountProviderStreamInvocationRequiresRust(selection = {}) {
   assertCanonicalModelInvocationHelperInputs({ selection });
-  return nativeLocalProviderInvocationSelected(selection);
+  return true;
 }
 
 function modelMountProviderInvocationExecutionBackend(selection = {}) {
   if (nativeLocalProviderInvocationSelected(selection)) {
     return "rust_model_mount_native_local";
   }
-  return "rust_model_mount_fixture";
+  if (fixtureProviderInvocationSelected(selection)) {
+    return "rust_model_mount_fixture";
+  }
+  throw unsupportedProviderInvocationRustBackend(selection, { stream: false });
+}
+
+function modelMountProviderStreamInvocationExecutionBackend(selection = {}) {
+  if (nativeLocalProviderInvocationSelected(selection)) {
+    return "rust_model_mount_native_local_stream";
+  }
+  throw unsupportedProviderInvocationRustBackend(selection, { stream: true });
 }
 
 function fixtureProviderInvocationSelected(selection = {}) {
@@ -566,6 +576,28 @@ function nativeLocalProviderInvocationSelected(selection = {}) {
   const endpoint = selection.endpoint ?? {};
   const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
   return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.api_format === "ioi_native";
+}
+
+function unsupportedProviderInvocationRustBackend(selection = {}, { stream = false } = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const error = new Error("Provider invocation requires a Rust model_mount execution backend.");
+  error.status = 501;
+  error.code = "model_mount_provider_invocation_rust_backend_required";
+  error.details = {
+    provider_kind: provider.kind ?? null,
+    provider_driver: driver ?? null,
+    api_format: endpoint.api_format ?? provider.api_format ?? null,
+    stream,
+    rust_core_boundary: "model_mount.provider_invocation",
+    evidence_refs: [
+      "model_mount_provider_invocation_js_false_predicate_retired",
+      "rust_daemon_core_provider_invocation_required",
+      "agentgres_provider_invocation_truth_required",
+    ],
+  };
+  return error;
 }
 
 function normalizeAgentgresHead(value) {
