@@ -16563,10 +16563,11 @@ map/projection materialization as terminal architecture.
 ## Compacted Implementation Slice Evidence: 814
 
 Slice 814 retired the JS-authored latest runtime-survey public envelope from
-the model_mount read-projection path. The runtime-daemon now sends only
-primitive `runtime_survey_input` migration data, and Rust authors the
-not-checked fallback, checked receipt projection, and nested snapshot/projection
-`runtimeSurvey` objects through the shared read-projection planner.
+the model_mount read-projection path. The runtime-daemon sends primitive
+`runtime_survey_input` migration data only for the dedicated
+`latest_runtime_survey` read projection, and Rust authors the not-checked
+fallback plus checked receipt projection through the shared read-projection
+planner.
 
 Focused evidence:
 
@@ -17619,7 +17620,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 852 is now satisfied.
 
-## Implementation Slice Evidence: 853
+## Compacted Implementation Slice Evidence: 853
 
 Slice 853 retired broad snapshot/projection authority and adapter-status input
 from JS. The default model_mount read-projection input no longer sends
@@ -17644,9 +17645,35 @@ Agentgres-backed authority truth, wallet/cTEE custody binding, command-transport
 replacement, and local adapter-state materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 853 after the next direct
+Scheduled matrix-compaction obligation from Slice 853 is now satisfied.
+
+## Implementation Slice Evidence: 854
+
+Slice 854 retired broad snapshot/projection provider-health and runtime-survey
+telemetry input from JS. The default model_mount read-projection input no
+longer sends `provider_health: providerHealthList(...)` or
+`runtime_survey_input: latestRuntimeSurveyProjectionInput(...)` for broad
+`snapshot` and `projection` requests. Dedicated `provider_health`,
+`latest_provider_health`, and `latest_runtime_survey` read projections still
+use narrow Rust-planned inputs. The focused test asserts `provider_health` and
+`runtime_survey_input` are absent from broad snapshot/projection request state.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+
+This still does not claim terminal provider-health or runtime-survey projection
+migration: direct Rust daemon-core provider-health/runtime-survey projection
+APIs, Agentgres-backed telemetry truth, hardware/provider probing ownership,
+command-transport replacement, and local telemetry materialization retirement
+still remain before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 854 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider/MCP/conversation/authority transport facades, provider
-lifecycle/read adapters, local map/projection materialization, and Rust
-daemon-core catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.
+catalog/provider/MCP/conversation/authority/telemetry transport facades,
+provider lifecycle/read adapters, local map/projection materialization, and
+Rust daemon-core catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody
+APIs.

@@ -626,12 +626,15 @@ function runDocs() {
       /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(guide) &&
       /no longer sends\s+`grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`,\s+`agentgres_store: state\.store\.adapterStatus\(\)`,\s+`wallet: state\.walletAuthority\.adapterStatus\(\)`, or\s+`vault: state\.vaultStatus\(\)`/.test(guide) &&
       /Dedicated `authority_snapshot` and `adapter_boundaries` read projections still\s+use narrow Rust-planned inputs/.test(guide) &&
+      /Slice 854 retired broad snapshot\/projection provider-health and runtime-survey\s+telemetry input from JS/.test(guide) &&
+      /no\s+longer sends `provider_health: providerHealthList\(\.\.\.\)` or\s+`runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(guide) &&
+      /Dedicated `provider_health`,\s+`latest_provider_health`, and `latest_runtime_survey` read projections still\s+use narrow Rust-planned inputs/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
       /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(guide) &&
-      /runtime-daemon now sends only\s+primitive `runtime_survey_input` migration data/.test(guide) &&
-      /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(guide) &&
+      /runtime-daemon sends primitive\s+`runtime_survey_input` migration data only for the dedicated\s+`latest_runtime_survey` read projection/.test(guide) &&
+      /Rust authors the not-checked\s+fallback plus checked receipt projection/.test(guide) &&
       /Slice 815 retired the JS-authored catalog-status public envelope from\s+the model_mount read-projection path/.test(guide) &&
       /The public `catalogStatus\(\)` now requests\s+`catalog_status` from `plan_model_mount_read_projection`/.test(guide) &&
       /the runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(guide) &&
@@ -748,6 +751,8 @@ function runDocs() {
       /local JS MCP\/conversation maps cannot become public\s+projection truth/.test(guide) &&
       /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(guide) &&
       /local JS wallet\/vault\/Agentgres adapter\s+state can no longer become public authority or adapter-boundary truth/.test(guide) &&
+      /Slice 854 retired broad snapshot\/projection provider-health and runtime-survey\s+telemetry input from JS/.test(guide) &&
+      /local JS provider-health files and\s+runtime-survey probe summaries can no longer become public telemetry truth/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -780,7 +785,7 @@ function runDocs() {
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 814/.test(matrix) &&
       /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(matrix) &&
-      /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(matrix) &&
+      /Rust authors the not-checked\s+fallback plus checked receipt projection/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 815/.test(matrix) &&
       /Slice 815 retired the JS-authored catalog-status public envelope from the\s+model_mount read-projection path/.test(matrix) &&
       /public `catalogStatus\(\)` now requests\s+`catalog_status`/.test(matrix) &&
@@ -969,11 +974,16 @@ function runDocs() {
       /`mcp_servers: state\.listMcpServers\(\)` or\s+`conversation_states: state\.listConversations\(\)`/.test(matrix) &&
       /`mcp_servers` and `conversation_states` are absent from\s+broad snapshot\/projection request state/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 852 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 853/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 853/.test(matrix) &&
       /Slice 853 retired broad snapshot\/projection authority and adapter-status input\s+from JS/.test(matrix) &&
       /`grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`,\s+`agentgres_store: state\.store\.adapterStatus\(\)`,\s+`wallet: state\.walletAuthority\.adapterStatus\(\)`, or\s+`vault: state\.vaultStatus\(\)`/.test(matrix) &&
       /Dedicated `authority_snapshot` and `adapter_boundaries` read projections still\s+use narrow Rust-planned inputs/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 853/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 853 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 854/.test(matrix) &&
+      /Slice 854 retired broad snapshot\/projection provider-health and runtime-survey\s+telemetry input from JS/.test(matrix) &&
+      /`provider_health: providerHealthList\(\.\.\.\)` or\s+`runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(matrix) &&
+      /`provider_health` and\s+`runtime_survey_input` are absent from broad snapshot\/projection request state/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 854/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -992,6 +1002,7 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `runtime_engines: state\.listRuntimeEngines\(\)`, `runtime_engine_profiles: state\.listRuntimeEngineProfiles\(\)`, or `runtime_preference: state\.runtimePreference\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `mcp_servers: state\.listMcpServers\(\)` or `conversation_states: state\.listConversations\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `grants: state\.listTokens\(\)`, `vault_refs: state\.listVaultRefs\(\)`, `agentgres_store: state\.store\.adapterStatus\(\)`, `wallet: state\.walletAuthority\.adapterStatus\(\)`, or `vault: state\.vaultStatus\(\)`/.test(implementationMatrix) &&
+      /broad snapshot\/projection requests also no longer send `provider_health: providerHealthList\(\.\.\.\)` or `runtime_survey_input: latestRuntimeSurveyProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
@@ -8291,6 +8302,8 @@ function runBridge() {
       /Object\.hasOwn\(snapshotRequest\.state,\s*"agentgres_store"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
@@ -8312,6 +8325,8 @@ function runBridge() {
       /Object\.hasOwn\(projectionRequest\.state,\s*"agentgres_store"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"wallet"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"vault"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"runtime_survey_input"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&

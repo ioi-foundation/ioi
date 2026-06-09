@@ -303,7 +303,7 @@ function rustProjectionFixture(request) {
     oauthSessions: state.oauth_sessions,
     oauthStates: state.oauth_states,
     downloads: state.downloads,
-    providerHealth: state.provider_health,
+    providerHealth: state.provider_health ?? [],
     runtimeEngines: state.runtime_engines,
     runtimeEngineProfiles: state.runtime_engine_profiles,
     runtimePreference: state.runtime_preference,
@@ -342,7 +342,7 @@ function rustProjectionFixture(request) {
       runtimeModelCatalog: runtimeModelCatalogFromRustState(state),
       openAiModelList: openAiModelListFromRustState(state, request.generated_at),
       downloads: state.downloads,
-      providerHealth: state.provider_health,
+      providerHealth: state.provider_health ?? [],
       runtimeEngines: state.runtime_engines,
       runtimeEngineProfiles: state.runtime_engine_profiles,
       runtimePreference: state.runtime_preference,
@@ -1022,6 +1022,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(snapshotRequest.state, "agentgres_store"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "wallet"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "vault"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "provider_health"), false);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "runtime_survey_input"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "backends"), false);
@@ -1040,6 +1042,8 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(Object.hasOwn(projectionRequest.state, "agentgres_store"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "wallet"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "vault"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "provider_health"), false);
+  assert.equal(Object.hasOwn(projectionRequest.state, "runtime_survey_input"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
   const replayRequest = readProjectionRequests.find((request) => request.projection_kind === "receipt_replay");

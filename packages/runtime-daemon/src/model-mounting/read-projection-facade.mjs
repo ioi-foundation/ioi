@@ -377,12 +377,12 @@ export function createModelMountingReadProjectionFacade({
       return { downloads };
     }
     if (projectionKind === "oauth_sessions" || projectionKind === "oauth_states") return {};
-    const providerHealth = providerHealthList(state, {
-      listJson,
-      path,
-      readJson,
-    });
     if (projectionKind === "provider_health") {
+      const providerHealth = providerHealthList(state, {
+        listJson,
+        path,
+        readJson,
+      });
       return { provider_health: providerHealth };
     }
     if (projectionKind === "authority_snapshot") {
@@ -403,9 +403,7 @@ export function createModelMountingReadProjectionFacade({
       providers,
       routes,
       downloads,
-      provider_health: providerHealth,
       product_artifact_policy: productArtifactPolicy,
-      runtime_survey_input: latestRuntimeSurveyProjectionInput(runtimeSurveyProjectionState(state), { hardwareSnapshot }),
       receipts: state.listReceipts(),
     };
   }
