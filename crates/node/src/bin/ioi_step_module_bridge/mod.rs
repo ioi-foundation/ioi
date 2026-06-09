@@ -9791,9 +9791,9 @@ mod tests {
                     "route_decision_ref": "model_mount://route_decision/test",
                     "route_receipt_ref": "receipt://route/test",
                     "route_ref": "route.local-first",
-                    "provider_ref": "provider.openai",
-                    "endpoint_ref": "endpoint.openai",
-                    "model_ref": "model.openai",
+                    "provider_ref": "provider.fixture",
+                    "endpoint_ref": "endpoint.fixture",
+                    "model_ref": "fixture:model",
                     "capability": "chat",
                     "invocation_kind": "chat.completions",
                     "policy_hash": "sha256:policy",
@@ -9804,7 +9804,7 @@ mod tests {
                     "authority_grant_refs": ["grant://wallet/model-chat"],
                     "authority_receipt_refs": ["receipt://wallet/model-chat"],
                     "provider_auth_evidence_refs": [],
-                    "backend_evidence_refs": ["backend.openai-compatible"],
+                    "backend_evidence_refs": ["backend.fixture"],
                     "tool_receipt_refs": [],
                     "privacy_profile": "local_private",
                     "node_plaintext_allowed": false
@@ -9820,7 +9820,7 @@ mod tests {
         let provider_execution_hash = admission["provider_execution_hash"]
             .as_str()
             .expect("provider execution hash");
-        let output_text = "hosted provider answer";
+        let output_text = "fixture provider answer";
         let output_hash = format!(
             "sha256:{}",
             sha256_hex(output_text.as_bytes()).expect("output hash")
@@ -9838,22 +9838,22 @@ mod tests {
                     "route_decision_ref": "model_mount://route_decision/test",
                     "route_receipt_ref": "receipt://route/test",
                     "route_ref": "route.local-first",
-                    "provider_ref": "provider.openai",
-                    "provider_kind": "openai",
-                    "endpoint_ref": "endpoint.openai",
-                    "model_ref": "model.openai",
+                    "provider_ref": "provider.fixture",
+                    "provider_kind": "local_folder",
+                    "endpoint_ref": "endpoint.fixture",
+                    "model_ref": "fixture:model",
                     "capability": "chat",
                     "invocation_kind": "chat.completions",
                     "request_hash": "sha256:request",
                     "output_text": output_text,
                     "output_hash": output_hash,
                     "token_count": { "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3 },
-                    "provider_response_kind": "openai.chat",
-                    "execution_backend": "js_provider_driver_observation",
-                    "backend_ref": "backend.openai-compatible",
+                    "provider_response_kind": "rust_model_mount.fixture",
+                    "execution_backend": "rust_model_mount_fixture",
+                    "backend_ref": "backend.fixture",
                     "receipt_refs": ["receipt://route/test"],
-                    "provider_auth_evidence_refs": ["provider.auth"],
-                    "backend_evidence_refs": ["backend.openai-compatible"],
+                    "provider_auth_evidence_refs": [],
+                    "backend_evidence_refs": ["rust_model_mount_fixture_backend"],
                     "evidence_refs": [provider_execution_ref],
                     "admitted_provider_execution": admission.clone()
                 }
@@ -9869,9 +9869,19 @@ mod tests {
         assert_eq!(response["backend"], "rust_model_mount_live");
         assert_eq!(
             response["record"]["execution_backend"],
-            "js_provider_driver_observation"
+            "rust_model_mount_fixture"
         );
         assert_eq!(response["record"]["output_hash"], output_hash);
+        assert!(response["record"]["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_provider_result_backend_bound"));
+        assert!(!response["record"]["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "js_provider_driver_observation_bound"));
         assert!(response["provider_result_ref"]
             .as_str()
             .expect("provider result ref")
@@ -9880,6 +9890,24 @@ mod tests {
             .as_str()
             .expect("provider result hash")
             .starts_with("sha256:"));
+
+        let mut retired_observation_request = response["record"].clone();
+        retired_observation_request["schema_version"] = json!("ioi.model_mount.provider_result.v1");
+        retired_observation_request["output_text"] = json!(output_text);
+        retired_observation_request["execution_backend"] = json!("js_provider_driver_observation");
+        retired_observation_request["admitted_provider_execution"] = admission.clone();
+        let request: ModelMountProviderResultAdmissionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "admit_model_mount_provider_result",
+                "backend": "rust_model_mount_live",
+                "request": retired_observation_request
+            }))
+            .expect("retired provider result bridge request");
+        let error = admit_model_mount_provider_result(request)
+            .expect_err("retired JS provider result observations fail in Rust core");
+        assert_eq!(error.code, "model_mount_provider_result_rejected");
+        assert!(error.message.contains("UnsupportedProviderResultBackend"));
     }
 
     #[test]

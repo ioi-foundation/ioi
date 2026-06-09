@@ -619,6 +619,9 @@ function runDocs() {
       /Slice 821 retired hosted\/non-migrated provider-result observation admission\s+from the JS helper path/.test(guide) &&
       /`modelMountProviderResultAdmissionRequestForExecution\(\)`\s+now derives the expected Rust provider invocation backend/.test(guide) &&
       /`model_mount_provider_result_rust_backend_required`/.test(guide) &&
+      /Slice 822 moved the provider-result backend invariant into the Rust\s+`model_mount` core/.test(guide) &&
+      /`ModelMountProviderResultAdmissionRequest::validate\(\)` no\s+longer accepts `js_provider_driver_observation`/.test(guide) &&
+      /`rust_model_mount_provider_result_backend_bound` evidence/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -685,11 +688,16 @@ function runDocs() {
       /`modelMountProviderInvocationRequiresRust\(\)`\s+and `modelMountProviderStreamInvocationRequiresRust\(\)` now return that every\s+provider invocation path requires Rust `model_mount` ownership/.test(matrix) &&
       /`model_mount_provider_invocation_rust_backend_required`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 820 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 821/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 821/.test(matrix) &&
       /Slice 821 retired hosted\/non-migrated provider-result observation admission/.test(matrix) &&
       /`modelMountProviderResultAdmissionRequestForExecution\(\)` now\s+derives the expected Rust provider invocation backend/.test(matrix) &&
       /`model_mount_provider_result_rust_backend_required`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 821/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 821 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 822/.test(matrix) &&
+      /Slice 822 moved the provider-result backend invariant into Rust\s+`model_mount`\s+core validation/.test(matrix) &&
+      /`rust_model_mount_provider_result_backend_bound` evidence/.test(matrix) &&
+      /`UnsupportedProviderResultBackend`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 822/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -12921,6 +12929,15 @@ function runReceipts() {
       /UnsupportedProviderResultBackend/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
+      /is_rust_provider_result_backend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /rust_model_mount_provider_result_backend_bound/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/js_provider_driver_observation_bound"\.to_string/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /admit_model_mount_provider_result/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
@@ -12954,7 +12971,7 @@ function runReceipts() {
     result,
     "model-mount-stream-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
-      /admits_stream_start_provider_result_observation_bound_to_execution/.test(
+      /admits_stream_start_rust_provider_result_bound_to_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /stream_status/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&

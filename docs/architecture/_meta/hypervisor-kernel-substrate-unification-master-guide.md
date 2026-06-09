@@ -1246,6 +1246,20 @@ migration: direct Rust daemon-core hosted/provider transports, provider request
 shaping, projection, Agentgres-backed reads, and command-transport retirement
 remain required.
 
+Slice 822 moved the provider-result backend invariant into the Rust
+`model_mount` core. `ModelMountProviderResultAdmissionRequest::validate()` no
+longer accepts `js_provider_driver_observation`; provider-result admission now
+requires one of the Rust-owned provider result backends
+(`rust_model_mount_fixture`, `rust_model_mount_native_local`, or
+`rust_model_mount_native_local_stream`) and binds the record with
+`rust_model_mount_provider_result_backend_bound` evidence. The
+`ioi-step-module-bridge` command path now proves fixture provider-result
+admission through Rust and also proves the retired JS observation backend fails
+closed with `UnsupportedProviderResultBackend`. This still does not claim
+terminal provider migration: direct Rust daemon-core hosted/provider transports,
+provider request shaping, projection, Agentgres-backed reads, and
+command-transport retirement remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

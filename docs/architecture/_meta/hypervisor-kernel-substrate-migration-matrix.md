@@ -16735,7 +16735,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 820 is now satisfied.
 
-## Implementation Slice Evidence: 821
+## Compacted Implementation Slice Evidence: 821
 
 Slice 821 retired hosted/non-migrated provider-result observation admission from
 the JS helper path. `modelMountProviderResultAdmissionRequestForExecution()` now
@@ -16751,14 +16751,40 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs` | passed |
+| model invocation focused JS tests plus full `hypervisor-conformance` | passed before Slice 822 Rust provider-result backend invariant |
 
 This still does not claim terminal provider migration: direct Rust daemon-core
 hosted/provider transports, provider request shaping, projection,
 Agentgres-backed read APIs, and command-transport retirement remain required
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 821 after the next direct
+Scheduled matrix-compaction obligation from Slice 821 is now satisfied.
+
+## Implementation Slice Evidence: 822
+
+Slice 822 moved the provider-result backend invariant into Rust `model_mount`
+core validation. `ModelMountProviderResultAdmissionRequest::validate()` now
+rejects the retired `js_provider_driver_observation` backend and requires a
+Rust-owned provider-result backend (`rust_model_mount_fixture`,
+`rust_model_mount_native_local`, or `rust_model_mount_native_local_stream`).
+Provider-result records now carry
+`rust_model_mount_provider_result_backend_bound` evidence, while Rust and bridge
+tests prove the old JS observation backend fails closed with
+`UnsupportedProviderResultBackend`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount --lib` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge bridge_admits_model_mount_provider_result_through_rust_core` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+hosted/provider transports, provider request shaping, projection,
+Agentgres-backed read APIs, and command-transport retirement remain required
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 822 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls, local
 map/projection materialization, and Rust daemon-core provider read/execution

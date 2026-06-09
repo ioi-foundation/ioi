@@ -1542,7 +1542,7 @@ impl ModelMountProviderResultAdmissionRequest {
         if !self.receipt_refs.contains(&self.route_receipt_ref) {
             return Err(ModelMountError::MissingProviderExecutionRouteReceiptRef);
         }
-        if self.execution_backend.trim() != "js_provider_driver_observation" {
+        if !is_rust_provider_result_backend(self) {
             return Err(ModelMountError::UnsupportedProviderResultBackend);
         }
         let actual_output_hash = format!("sha256:{}", sha256_hex(self.output_text.as_bytes())?);
@@ -1618,6 +1618,26 @@ fn is_native_local_provider_stream_invocation_backend(
     let api_format = request.api_format.as_deref().unwrap_or("").trim();
     let driver = request.driver.as_deref().unwrap_or("").trim();
     provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
+}
+
+fn is_rust_provider_result_backend(request: &ModelMountProviderResultAdmissionRequest) -> bool {
+    match request.execution_backend.trim() {
+        "rust_model_mount_fixture" => {
+            let provider_kind = request.provider_kind.trim();
+            provider_kind == "local_folder"
+                || request
+                    .provider_response_kind
+                    .as_deref()
+                    .map(str::trim)
+                    .is_some_and(|kind| kind == "rust_model_mount.fixture")
+        }
+        "rust_model_mount_native_local" => request.provider_kind.trim() == "ioi_native_local",
+        "rust_model_mount_native_local_stream" => {
+            request.provider_kind.trim() == "ioi_native_local"
+                && matches!(request.stream_status.as_deref(), Some("started"))
+        }
+        _ => false,
+    }
 }
 
 fn is_native_local_provider_lifecycle_backend(
@@ -1960,7 +1980,7 @@ fn provider_result_evidence_refs(
 ) -> Vec<String> {
     let mut refs = vec![
         "rust_model_mount_provider_result_admission".to_string(),
-        "js_provider_driver_observation_bound".to_string(),
+        "rust_model_mount_provider_result_backend_bound".to_string(),
         request.provider_execution_ref.clone(),
     ];
     for evidence_ref in request
@@ -2802,7 +2822,7 @@ mod tests {
         let admission = ModelMountCore
             .admit_provider_execution(&provider_execution_request())
             .expect("provider execution admitted");
-        let output_text = "hosted provider answer".to_string();
+        let output_text = "fixture provider answer".to_string();
         let output_hash = format!(
             "sha256:{}",
             sha256_hex(output_text.as_bytes()).expect("output hash")
@@ -2815,7 +2835,7 @@ mod tests {
             route_receipt_ref: admission.route_receipt_ref.clone(),
             route_ref: admission.route_ref.clone(),
             provider_ref: admission.provider_ref.clone(),
-            provider_kind: "openai".to_string(),
+            provider_kind: "local_folder".to_string(),
             endpoint_ref: admission.endpoint_ref.clone(),
             model_ref: admission.model_ref.clone(),
             capability: admission.capability.clone(),
@@ -2828,13 +2848,13 @@ mod tests {
                 completion_tokens: 2,
                 total_tokens: 3,
             },
-            provider_response_kind: Some("openai.chat".to_string()),
-            execution_backend: "js_provider_driver_observation".to_string(),
-            backend_ref: Some("backend.openai-compatible".to_string()),
+            provider_response_kind: Some("rust_model_mount.fixture".to_string()),
+            execution_backend: "rust_model_mount_fixture".to_string(),
+            backend_ref: Some("backend.fixture".to_string()),
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
-            provider_auth_evidence_refs: vec!["provider.auth".to_string()],
-            backend_evidence_refs: vec!["backend.openai-compatible".to_string()],
+            provider_auth_evidence_refs: vec![],
+            backend_evidence_refs: vec!["rust_model_mount_fixture_backend".to_string()],
             evidence_refs: vec![admission.provider_execution_ref.clone()],
             admitted_provider_execution: Some(admission),
         }
@@ -3823,19 +3843,19 @@ mod tests {
     }
 
     #[test]
-    fn admits_unmigrated_provider_result_observation_bound_to_execution() {
+    fn admits_rust_provider_result_bound_to_execution() {
         let record = ModelMountCore
             .admit_provider_result(&provider_result_admission_request())
-            .expect("provider result observation admitted");
+            .expect("Rust provider result admitted");
 
         assert_eq!(
             record.schema_version,
             MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION
         );
-        assert_eq!(record.execution_backend, "js_provider_driver_observation");
+        assert_eq!(record.execution_backend, "rust_model_mount_fixture");
         assert_eq!(
             record.provider_response_kind.as_deref(),
-            Some("openai.chat")
+            Some("rust_model_mount.fixture")
         );
         assert_eq!(record.output_hash.len(), "sha256:".len() + 64);
         assert!(record
@@ -3845,10 +3865,17 @@ mod tests {
         assert!(record
             .evidence_refs
             .contains(&"rust_model_mount_provider_result_admission".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_result_backend_bound".to_string()));
+        assert!(!record
+            .evidence_refs
+            .iter()
+            .any(|value| value == "js_provider_driver_observation_bound"));
     }
 
     #[test]
-    fn admits_stream_start_provider_result_observation_bound_to_execution() {
+    fn admits_stream_start_rust_provider_result_bound_to_execution() {
         let mut execution_request = provider_execution_request();
         execution_request.stream_status = Some("started".to_string());
         let admission = ModelMountCore
@@ -3880,8 +3907,8 @@ mod tests {
                 completion_tokens: 0,
                 total_tokens: 1,
             },
-            provider_response_kind: Some("native_local.responses.stream".to_string()),
-            execution_backend: "js_provider_driver_observation".to_string(),
+            provider_response_kind: Some("rust_model_mount.native_local.stream".to_string()),
+            execution_backend: "rust_model_mount_native_local_stream".to_string(),
             backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
             stream_status: admission.stream_status.clone(),
             receipt_refs: admission.receipt_refs.clone(),
@@ -3893,12 +3920,16 @@ mod tests {
 
         let record = ModelMountCore
             .admit_provider_result(&request)
-            .expect("stream provider result observation admitted");
+            .expect("stream Rust provider result admitted");
 
         assert_eq!(record.stream_status.as_deref(), Some("started"));
         assert_eq!(
             record.provider_response_kind.as_deref(),
-            Some("native_local.responses.stream")
+            Some("rust_model_mount.native_local.stream")
+        );
+        assert_eq!(
+            record.execution_backend,
+            "rust_model_mount_native_local_stream"
         );
     }
 
@@ -3933,10 +3964,10 @@ mod tests {
         assert_eq!(error, ModelMountError::ProviderResultOutputHashMismatch);
 
         let mut request = provider_result_admission_request();
-        request.execution_backend = "rust_model_mount_fixture".to_string();
+        request.execution_backend = "js_provider_driver_observation".to_string();
         let error = ModelMountCore
             .admit_provider_result(&request)
-            .expect_err("fixture execution uses the provider invocation path");
+            .expect_err("JS provider result observations are retired");
 
         assert_eq!(error, ModelMountError::UnsupportedProviderResultBackend);
     }
