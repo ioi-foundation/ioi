@@ -19,6 +19,7 @@ function fakeState() {
     now: "2026-06-03T23:00:00.000Z",
     catalogProviderPortCalls: 0,
     enrichCatalogEntryCalls: 0,
+    storageSummaryCalls: 0,
     catalogProviderPorts() {
       this.catalogProviderPortCalls += 1;
       return [
@@ -45,6 +46,7 @@ function fakeState() {
       return this.now;
     },
     storageSummary() {
+      this.storageSummaryCalls += 1;
       return storageSummary(this, storageDeps());
     },
   };
@@ -99,7 +101,7 @@ test("storage summary counts bytes, quota, and orphan model files", () => {
   assert.deepEqual(summary.evidenceRefs, ["model_storage_quota_boundary", "artifact_delete_unload_guard"]);
 });
 
-test("catalog status projects providers, filters, storage, and last search summary", () => {
+test("catalog status fails closed before JS status readback", () => {
   const state = fakeState();
   state.lastCatalogSearch = {
     searchedAt: "2026-06-03T22:59:00.000Z",
@@ -108,19 +110,29 @@ test("catalog status projects providers, filters, storage, and last search summa
     results: [{ id: "entry.1" }, { id: "entry.2" }],
   };
 
-  const status = catalogStatus(state, deps);
-
-  assert.equal(status.schemaVersion, "schema.catalog-ops.test");
-  assert.equal(status.checkedAt, state.now);
-  assert.equal(status.providers[0].id, "catalog.fixture");
-  assert.equal(status.adapterBoundary.port, "ModelCatalogProviderPort");
-  assert.equal(status.filters.formats.includes("gguf"), true);
-  assert.equal(status.storage.totalBytes, 15);
-  assert.equal(status.lastSearch.resultCount, 2);
-  assert.equal(status.results.length, 2);
+  assert.throws(
+    () => catalogStatus(state, deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_catalog_status_js_readback_retired");
+      assert.equal(error.details.operation_kind, "model_catalog.status");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_status_projection");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_catalog_status_js_readback_retired",
+        "rust_daemon_core_catalog_status_projection_required",
+        "agentgres_catalog_projection_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
+  assert.equal(state.catalogProviderPortCalls, 0);
+  assert.equal(state.storageSummaryCalls, 0);
 });
 
-test("catalog status projection input omits Rust-authored public envelope fields", () => {
+test("catalog status projection input fails closed before JS provider and storage materialization", () => {
   const state = fakeState();
   state.lastCatalogSearch = {
     searchedAt: "2026-06-03T22:59:00.000Z",
@@ -129,18 +141,17 @@ test("catalog status projection input omits Rust-authored public envelope fields
     results: [{ id: "entry.1" }, { id: "entry.2" }],
   };
 
-  const input = catalogStatusProjectionInput(state, deps);
-
-  assert.equal(input.schema_version, "schema.catalog-ops.test");
-  assert.equal(input.checked_at, state.now);
-  assert.equal(input.providers[0].id, "catalog.fixture");
-  assert.equal(input.storage.totalBytes, 15);
-  assert.equal(input.last_search.result_count, 2);
-  assert.equal(input.results.length, 2);
-  assert.equal(Object.hasOwn(input, "schemaVersion"), false);
-  assert.equal(Object.hasOwn(input, "adapterBoundary"), false);
-  assert.equal(Object.hasOwn(input, "filters"), false);
-  assert.equal(Object.hasOwn(input.last_search, "resultCount"), false);
+  assert.throws(
+    () => catalogStatusProjectionInput(state, deps),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_catalog_status_js_readback_retired");
+      assert.equal(error.details.operation_kind, "model_catalog.status");
+      return true;
+    },
+  );
+  assert.equal(state.catalogProviderPortCalls, 0);
+  assert.equal(state.storageSummaryCalls, 0);
 });
 
 test("catalog search fails closed before JS provider orchestration", async () => {

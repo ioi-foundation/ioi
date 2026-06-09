@@ -17153,7 +17153,7 @@ target.
 
 Scheduled matrix-compaction obligation from Slice 835 is now satisfied.
 
-## Implementation Slice Evidence: 836
+## Compacted Implementation Slice Evidence: 836
 
 Slice 836 retired public catalog-provider configuration list/get projection from
 JS. `listCatalogProviderConfigs()` now fails closed with
@@ -17177,13 +17177,41 @@ Focused evidence:
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog provider configuration read/projection APIs, catalog search/projection
-APIs, Agentgres-backed projection, command-transport replacement,
-catalog-status readback cleanup, and non-search catalog variant enrichment still
+APIs, Agentgres-backed projection, command-transport replacement, direct catalog
+status/projection APIs, and non-search catalog variant enrichment still remain
+before this surface reaches the pure Rust substrate target.
+
+Scheduled matrix-compaction obligation from Slice 836 is now satisfied.
+
+## Implementation Slice Evidence: 837
+
+Slice 837 retired public catalog-status readback input composition from JS.
+`catalogStatus()` and `catalogStatusProjectionInput()` now fail closed with
+`model_catalog_status_js_readback_retired` at `model_catalog.status` before JS
+can iterate `state.catalogProviderPorts()`, attach `catalogProviderStatus()`,
+summarize storage, read `state.lastCatalogSearch`, or materialize catalog status
+results. `read-projection-facade.mjs` no longer injects `catalogProviderStatus`
+or sends `catalog_status_input` for public `catalogStatus()`, broad
+`snapshot`, or broad `projection` requests. The Rust bridge can still emit the
+static broad `catalog` envelope, but it receives no JS-authored provider,
+storage, last-search, or result truth for that envelope.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog status/projection APIs, catalog provider configuration read/projection
+APIs, catalog search/projection APIs, Agentgres-backed projection,
+command-transport replacement, and non-search catalog variant enrichment still
 remain before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 836 after the next direct
+Next scheduled matrix-compaction pass: compact Slice 837 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-catalog/provider transport facades, catalog-status readback, provider
-lifecycle/read adapters, local map/projection materialization, non-search catalog
-variant enrichment, and Rust daemon-core catalog/provider/OAuth custody APIs.
+catalog/provider transport facades, provider lifecycle/read adapters, local
+map/projection materialization, non-search catalog variant enrichment, and Rust
+daemon-core catalog/provider/OAuth custody APIs.

@@ -203,15 +203,6 @@ function createState() {
     }),
     readProjectionPlanner,
     hardwareSnapshot: () => ({ cpuCount: 8 }),
-    catalogProviderStatus: (port) => ({
-      id: port.id,
-      label: port.label,
-      status: port.status,
-      formats: port.formats,
-      adapterPort: "ModelCatalogProviderPort",
-      operations: ["search", "resolveVariant", "importUrl", "download", "health"],
-      evidenceRefs: port.evidenceRefs,
-    }),
     notFound: (message, details) => Object.assign(new Error(message), {
       status: 404,
       code: "not_found",
@@ -922,7 +913,9 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(snapshot.schemaVersion, "model.mount.schema");
   assert.equal(snapshot.server.status, "stopped");
   assert.equal(snapshot.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
-  assert.equal(snapshot.catalog.lastSearch.resultCount, 1);
+  assert.equal(snapshot.catalog.lastSearch, null);
+  assert.deepEqual(snapshot.catalog.providers, []);
+  assert.deepEqual(snapshot.catalog.results, []);
   assert.equal(Object.hasOwn(snapshot, "catalogProviderConfigs"), false);
   assert.equal(snapshot.artifacts.length, 2);
   assert.equal(snapshot.modelCapabilities.length, 1);
@@ -935,6 +928,7 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   assert.equal(projection.routeReceipts.length, 1);
   assert.equal(projection.lifecycleEvents.length, 1);
   assert.equal(projection.catalog.adapterBoundary.port, "ModelCatalogProviderPort");
+  assert.equal(projection.catalog.lastSearch, null);
   assert.equal(Object.hasOwn(projection, "catalogProviderConfigs"), false);
   assert.equal(projection.adapterBoundaries.oauth.plaintextPersistence, false);
 
@@ -974,14 +968,11 @@ test("read projection facade composes snapshots, projection, and receipt replay"
   ]);
   const snapshotRequest = readProjectionRequests[0];
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog"), false);
-  assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_status_input"), true);
+  assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_status_input"), false);
   assert.equal(Object.hasOwn(snapshotRequest.state, "catalog_provider_configs"), false);
-  assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "adapterBoundary"), false);
-  assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "filters"), false);
-  assert.equal(Object.hasOwn(snapshotRequest.state.catalog_status_input, "schemaVersion"), false);
   const projectionRequest = readProjectionRequests[1];
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog"), false);
-  assert.equal(Object.hasOwn(projectionRequest.state, "catalog_status_input"), true);
+  assert.equal(Object.hasOwn(projectionRequest.state, "catalog_status_input"), false);
   assert.equal(Object.hasOwn(projectionRequest.state, "catalog_provider_configs"), false);
   const summaryRequest = readProjectionRequests.find((request) => request.projection_kind === "projection_summary");
   assert.deepEqual(Object.keys(summaryRequest.state), ["receipts"]);
@@ -1036,28 +1027,20 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);
 });
 
-test("read projection facade delegates catalog status through Rust projection", () => {
+test("read projection facade catalog status fails closed before JS catalog-status input", () => {
   const { facade, state, readProjectionRequests } = createState();
 
-  const status = facade.catalogStatus(state);
-
-  assert.equal(status.schemaVersion, "model.mount.schema");
-  assert.equal(status.checkedAt, "2026-06-03T00:00:00.000Z");
-  assert.equal(status.providers[0].id, "catalog.fixture");
-  assert.equal(status.adapterBoundary.port, "ModelCatalogProviderPort");
-  assert.equal(status.filters.formats.includes("gguf"), true);
-  assert.equal(status.storage.totalBytes, 42);
-  assert.equal(status.lastSearch.resultCount, 1);
-  assert.equal(status.results[0].id, "catalog.local");
-  assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["catalog_status"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["catalog_status_input"]);
-  assert.equal(readProjectionRequests[0].state.catalog_status_input.schema_version, "model.mount.schema");
-  assert.equal(readProjectionRequests[0].state.catalog_status_input.providers[0].adapterPort, "ModelCatalogProviderPort");
-  assert.equal(readProjectionRequests[0].state.catalog_status_input.last_search.result_count, 1);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.catalog_status_input, "adapterBoundary"), false);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.catalog_status_input, "filters"), false);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.catalog_status_input, "schemaVersion"), false);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "catalog"), false);
+  assert.throws(
+    () => facade.catalogStatus(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_catalog_status_js_readback_retired");
+      assert.equal(error.details.operation_kind, "model_catalog.status");
+      assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_status_projection");
+      return true;
+    },
+  );
+  assert.deepEqual(readProjectionRequests, []);
 });
 
 test("read projection facade projects latest provider and vault health envelopes", () => {

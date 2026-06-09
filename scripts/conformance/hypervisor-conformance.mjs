@@ -668,6 +668,9 @@ function runDocs() {
       /Slice 836 retired public catalog-provider configuration list\/get projection\s+from JS/.test(guide) &&
       /`model_mount\.catalog_provider_configuration\.list`/.test(guide) &&
       /`catalogProviderConfigs` field/.test(guide) &&
+      /Slice 837 retired public catalog-status readback input composition from JS/.test(guide) &&
+      /`model_catalog_status_js_readback_retired`/.test(guide) &&
+      /`catalog_status_input`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -811,11 +814,15 @@ function runDocs() {
       /Slice 835 retired public model catalog search orchestration from JS/.test(matrix) &&
       /model_catalog_search_js_orchestrator_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 835 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 836/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 836/.test(matrix) &&
       /Slice 836 retired public catalog-provider configuration list\/get projection from\s+JS/.test(matrix) &&
       /model_mount\.catalog_provider_configuration\.list/.test(matrix) &&
       /catalogProviderConfigs/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 836/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 836 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 837/.test(matrix) &&
+      /Slice 837 retired public catalog-status readback input composition from JS/.test(matrix) &&
+      /model_catalog_status_js_readback_retired/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 837/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -835,6 +842,12 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /broad snapshot\/projection transport no longer sends `catalog_provider_configs` or emits `catalogProviderConfigs` compatibility fields/.test(
+        implementationMatrix,
+      ) &&
+      /public catalog-status readback now fails closed with `model_catalog_status_js_readback_retired`/.test(
+        implementationMatrix,
+      ) &&
+      /broad snapshot\/projection requests no longer send `catalog_status_input`/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -7974,9 +7987,11 @@ function runBridge() {
       /serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
       !/serverStatus as serverStatusInput/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "server_status"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
-      /catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
-      /catalogStatus\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"catalog_status"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "catalog_status"[\s\S]*?catalog_status_input:\s*catalogStatusProjectionInput\(state,\s*\{[\s\S]*?catalogProviderStatus[\s\S]*?schemaVersion:\s*modelMountSchemaVersion/.test(modelMountingReadProjectionFacade) &&
+      /retiredCatalogStatusReadback/.test(modelMountingReadProjectionFacade) &&
+      /catalogStatus\(state\)\s*\{[\s\S]*?retiredCatalogStatusReadback\(state\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "catalog_status"\) return \{\};/.test(modelMountingReadProjectionFacade) &&
+      !/catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
+      !/catalogProviderStatus/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "latest_provider_health"[\s\S]*?providers:\s*providerList\(state[\s\S]*?provider_health:\s*providerHealthList\(state[\s\S]*?receipts:\s*state\.listReceipts\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "authority_snapshot"[\s\S]*?server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)[\s\S]*?grants:\s*state\.listTokens\(\)[\s\S]*?vault_refs:\s*state\.listVaultRefs\(\)[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?wallet:\s*state\.walletAuthority\.adapterStatus\(\)[\s\S]*?vault:\s*state\.vaultStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "receipt_replay"[\s\S]*?receipts:\s*state\.listReceipts\(\)[\s\S]*?routes:\s*routeList\(state\)[\s\S]*?endpoints:\s*endpointList\(state\)[\s\S]*?instances:\s*instanceList\(state\)[\s\S]*?providers:\s*providerList\(state/.test(modelMountingReadProjectionFacade) &&
@@ -7993,7 +8008,8 @@ function runBridge() {
       /model_mount_vault_health_not_found/.test(modelMountingReadProjectionFacade) &&
       /runtime_survey_input:\s*latestRuntimeSurveyProjectionInput\(runtimeSurveyProjectionState\(state\),\s*\{ hardwareSnapshot \}\)/.test(modelMountingReadProjectionFacade) &&
       /server_status_input:\s*serverStatusProjectionInput\(state,\s*baseUrl,\s*\{ schema_version: modelMountSchemaVersion \}\)/.test(modelMountingReadProjectionFacade) &&
-      /catalog_status_input:\s*catalogStatusProjectionInput\(state,\s*\{[\s\S]*?catalogProviderStatus[\s\S]*?schemaVersion:\s*modelMountSchemaVersion/.test(modelMountingReadProjectionFacade) &&
+      !/catalog_status_input:\s*catalogStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
+      !/catalog_status_input:/.test(modelMountingReadProjectionFacade) &&
       !/catalog:\s*state\.catalogStatus\(\)/.test(modelMountingReadProjectionFacade) &&
       !/catalog_provider_configs:\s*state\.listCatalogProviderConfigs\(\)/.test(modelMountingReadProjectionFacade) &&
       /provider_id:\s*providerId/.test(modelMountingReadProjectionFacade) &&
@@ -8040,7 +8056,9 @@ function runBridge() {
       /read projection facade delegates product-safe lists and capabilities/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates runtime-engine reads through Rust projections/.test(modelMountingReadProjectionFacadeTest) &&
       /read projection facade delegates server status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
-      /read projection facade delegates catalog status through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
+      /read projection facade catalog status fails closed before JS catalog-status input/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /read projection facade delegates latest runtime survey through Rust projection/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\.map\(\(request\) => request\.projection_kind\)/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.provider_id/.test(modelMountingReadProjectionFacadeTest) &&
@@ -8058,13 +8076,16 @@ function runBridge() {
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["server_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.server_status_input,\s*"status"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /readProjectionRequests\[0\]\.base_url,\s*"http:\/\/127\.0\.0\.1:3200"/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["catalog_status_input"\]/.test(modelMountingReadProjectionFacadeTest) &&
-      /Object\.hasOwn\(readProjectionRequests\[0\]\.state\.catalog_status_input,\s*"adapterBoundary"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /Object\.hasOwn\(snapshotRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_status_input"\),\s*true/.test(modelMountingReadProjectionFacadeTest) &&
+      /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_status_input"\),\s*false/.test(
+        modelMountingReadProjectionFacadeTest,
+      ) &&
       /Object\.hasOwn\(projectionRequest\.state,\s*"catalog_provider_configs"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
@@ -13632,6 +13653,32 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
     ],
     "Phase 7/11 is pending: public catalog search orchestration must fail closed before JS provider iteration, entry enrichment, result aggregation, or last-search writes",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-status-js-readback-retired",
+    /model_catalog_status_js_readback_retired/.test(catalogOperations) &&
+      /model_catalog\.status/.test(catalogOperations) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_status_projection"/.test(catalogOperations) &&
+      /rust_daemon_core_catalog_status_projection_required/.test(catalogOperations) &&
+      /agentgres_catalog_projection_required/.test(catalogOperations) &&
+      /throwCatalogStatusReadbackRetired/.test(catalogOperations) &&
+      !/const providers = state\.catalogProviderPorts\(\)/.test(catalogOperations) &&
+      !/const lastSearch = state\.lastCatalogSearch/.test(catalogOperations) &&
+      !/storage:\s*state\.storageSummary\(\)/.test(catalogOperations) &&
+      /catalog status fails closed before JS status readback/.test(catalogOperationsTest) &&
+      /catalog status projection input fails closed before JS provider and storage materialization/.test(
+        catalogOperationsTest,
+      ) &&
+      /assert\.equal\(state\.catalogProviderPortCalls,\s*0\)/.test(catalogOperationsTest) &&
+      /assert\.equal\(state\.storageSummaryCalls,\s*0\)/.test(catalogOperationsTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs",
+    ],
+    "Phase 7/11 is pending: public catalog status readback must fail closed before JS provider iteration, storage summary, last-search reads, or catalog-status input transport",
   );
   assertCheck(
     result,

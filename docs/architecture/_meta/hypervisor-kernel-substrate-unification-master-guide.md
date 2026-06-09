@@ -1443,6 +1443,15 @@ compatibility `catalogProviderConfigs` field. Catalog-provider configuration
 readback is therefore blocked until direct Rust daemon-core catalog-provider
 control/projection APIs own the request.
 
+Slice 837 retired public catalog-status readback input composition from JS.
+`catalogStatus()` and `catalogStatusProjectionInput()` now fail closed with
+`model_catalog_status_js_readback_retired` before JS can iterate catalog provider
+ports, summarize storage, read `lastCatalogSearch`, or send `catalog_status_input`
+to Rust. Broad model-mount snapshot/projection transport also stops sending
+`catalog_status_input`; the remaining broad `catalog` envelope is a
+non-authoritative empty/default Rust projection until direct Rust daemon-core
+catalog status/projection APIs own the request.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -24,7 +24,7 @@ import {
   serverStatusProjectionInput,
 } from "./server-control.mjs";
 import {
-  catalogStatusProjectionInput,
+  catalogStatus as retiredCatalogStatusReadback,
 } from "./catalog-operations.mjs";
 
 export function createModelMountingReadProjectionFacade({
@@ -40,7 +40,6 @@ export function createModelMountingReadProjectionFacade({
   publicProvider,
   readJson,
   readProjectionPlanner = null,
-  catalogProviderStatus,
 } = {}) {
   function runtimeModelCatalogList(state) {
     return rustReadProjection(state, "runtime_model_catalog");
@@ -103,7 +102,7 @@ export function createModelMountingReadProjectionFacade({
   }
 
   function catalogStatus(state) {
-    return rustReadProjection(state, "catalog_status");
+    return retiredCatalogStatusReadback(state);
   }
 
   function authoritySnapshot(state, baseUrl) {
@@ -330,14 +329,7 @@ export function createModelMountingReadProjectionFacade({
         server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
       };
     }
-    if (projectionKind === "catalog_status") {
-      return {
-        catalog_status_input: catalogStatusProjectionInput(state, {
-          catalogProviderStatus,
-          schemaVersion: modelMountSchemaVersion,
-        }),
-      };
-    }
+    if (projectionKind === "catalog_status") return {};
     if (projectionKind === "receipt_replay") {
       return {
         receipts: state.listReceipts(),
@@ -429,10 +421,6 @@ export function createModelMountingReadProjectionFacade({
     }
     return {
       server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
-      catalog_status_input: catalogStatusProjectionInput(state, {
-        catalogProviderStatus,
-        schemaVersion: modelMountSchemaVersion,
-      }),
       oauth_sessions: oauthSessions,
       oauth_states: oauthStates,
       artifacts,

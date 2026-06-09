@@ -23,48 +23,13 @@ export function storageSummary(state, deps = {}) {
 }
 
 export function catalogStatus(state, deps = {}) {
-  const input = catalogStatusProjectionInput(state, deps);
-  return {
-    schemaVersion: input.schema_version,
-    checkedAt: input.checked_at,
-    providers: input.providers,
-    adapterBoundary: catalogAdapterBoundary(),
-    filters: catalogFilters(),
-    storage: input.storage,
-    lastSearch: input.last_search
-      ? {
-          searchedAt: input.last_search.searched_at,
-          query: input.last_search.query,
-          filters: input.last_search.filters,
-          resultCount: input.last_search.result_count,
-        }
-      : null,
-    results: input.results,
-  };
+  void state;
+  throwCatalogStatusReadbackRetired(deps);
 }
 
 export function catalogStatusProjectionInput(state, deps = {}) {
-  const {
-    catalogProviderStatus,
-    schemaVersion,
-  } = deps;
-  const lastSearch = state.lastCatalogSearch;
-  const providers = state.catalogProviderPorts().map((port) => catalogProviderStatus(port));
-  return {
-    schema_version: schemaVersion,
-    checked_at: state.nowIso(),
-    providers,
-    storage: state.storageSummary(),
-    last_search: lastSearch
-      ? {
-          searched_at: lastSearch.searchedAt,
-          query: lastSearch.query,
-          filters: lastSearch.filters,
-          result_count: lastSearch.results.length,
-        }
-      : null,
-    results: lastSearch?.results ?? [],
-  };
+  void state;
+  throwCatalogStatusReadbackRetired(deps);
 }
 
 export async function catalogSearch(state, query = {}, deps = {}) {
@@ -118,4 +83,22 @@ function catalogFilters() {
 
 function defaultRuntimeError({ code, message, details, status }) {
   return Object.assign(new Error(message), { code, details, status });
+}
+
+function throwCatalogStatusReadbackRetired(deps = {}) {
+  const { runtimeError = defaultRuntimeError } = deps;
+  throw runtimeError({
+    status: 501,
+    code: "model_catalog_status_js_readback_retired",
+    message: "Model catalog status readback is retired in JS; use Rust daemon-core catalog status/projection.",
+    details: {
+      operation_kind: "model_catalog.status",
+      rust_core_boundary: "model_mount.catalog_provider_status_projection",
+      evidence_refs: [
+        "model_catalog_status_js_readback_retired",
+        "rust_daemon_core_catalog_status_projection_required",
+        "agentgres_catalog_projection_required",
+      ],
+    },
+  });
 }

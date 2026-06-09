@@ -404,7 +404,6 @@ export class ModelMountingState {
       publicProvider,
       readJson,
       readProjectionPlanner: this.modelMountAdmissionRunner,
-      catalogProviderStatus,
     });
     this.ensureDirs();
     this.load();
