@@ -542,6 +542,7 @@ function runDocs() {
       /Slice 798 moved public model_mount adapter-boundary and workflow-node binding\s+reads through Rust projection fields/.test(guide) &&
       /`adapterBoundaries\(\)` now returns the\s+Rust-authored `adapterBoundaries` projection object/.test(guide) &&
       /`workflowNodeBindings\(\)` now returns the Rust-authored `workflowBindings`\s+projection list/.test(guide) &&
+      /Slice 816 later retired those dead helper exports/.test(guide) &&
       /Slice 799 moved successful latest model_mount provider-health and vault-health\s+read envelopes through Rust read-projection kinds/.test(guide) &&
       /`latestProviderHealth\(\)` now\s+preflights provider existence and health-record presence at the JS edge, then\s+returns the Rust-authored `latest_provider_health` projection/.test(guide) &&
       /`latestVaultHealth\(\)`\s+keeps its not-found edge check, then returns the Rust-authored\s+`latest_vault_health` projection/.test(guide) &&
@@ -597,6 +598,10 @@ function runDocs() {
       /The public `catalogStatus\(\)` now requests\s+`catalog_status` from `plan_model_mount_read_projection`/.test(guide) &&
       /the runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(guide) &&
       /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(guide) &&
+      /Slice 816 retired the remaining dead JS model_mount broad projection helper\s+exports/.test(guide) &&
+      /`modelMountingSnapshot\(\)` was removed from `read-model\.mjs`/.test(guide) &&
+      /`buildModelMountingProjection\(\)`,\s+`buildAuthoritySnapshot\(\)`, `buildProjectionSummary\(\)`,\s+`buildAdapterBoundaries\(\)`, and `buildReceiptReplay\(\)` were removed from\s+`projections\.mjs`/.test(guide) &&
+      /`projections\.mjs` now retains only the narrow\s+`buildModelRouteDecisions\(\)` admitted-receipt projection helper/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -630,11 +635,16 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 814/.test(matrix) &&
       /Slice 814 retired the JS-authored latest runtime-survey public envelope from\s+the model_mount read-projection path/.test(matrix) &&
       /Rust authors the\s+not-checked fallback, checked receipt projection, and nested snapshot\/projection\s+`runtimeSurvey` objects/.test(matrix) &&
-      /Implementation Slice Evidence: 815/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 815/.test(matrix) &&
       /Slice 815 retired the JS-authored catalog-status public envelope from the\s+model_mount read-projection path/.test(matrix) &&
       /public `catalogStatus\(\)` now requests\s+`catalog_status`/.test(matrix) &&
       /runtime-daemon\s+now sends only primitive `catalog_status_input` migration data/.test(matrix) &&
       /Rust authors\s+the public catalog-status projection plus nested snapshot\/projection `catalog`\s+objects/.test(matrix) &&
+      /Implementation Slice Evidence: 816/.test(matrix) &&
+      /Slice 816 retired the remaining dead JS model_mount broad projection helper\s+exports/.test(matrix) &&
+      /`workflowNodeBindings\(\)` was removed from that same legacy read helper module/.test(matrix) &&
+      /`buildModelMountingProjection\(\)`, `buildAuthoritySnapshot\(\)`,\s+`buildProjectionSummary\(\)`, `buildAdapterBoundaries\(\)`, and\s+`buildReceiptReplay\(\)` were removed from `projections\.mjs`/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 816 is pending/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -7265,8 +7275,8 @@ function runBridge() {
       !/modelRouteDecision(?:SchemaVersion|EventKind|Id)/.test(modelRoutes) &&
       /details\?\.model_route_decision/.test(modelRouteDecisionModule) &&
       !/details\?\.modelRouteDecision/.test(modelRouteDecisionModule) &&
-      /model_route_decision:\s*receipt\.details\?\.model_route_decision/.test(modelProjections) &&
-      !/modelRouteDecision:\s*receipt\.details/.test(modelProjections) &&
+      /"model_route_decision": details\.get\("model_route_decision"\)/.test(bridgeModule) &&
+      !/"modelRouteDecision": details\.get/.test(bridgeModule) &&
       /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(modelWorkflowNode) &&
       !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(modelWorkflowNode) &&
       /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(openAiCompatRoutes) &&
@@ -7792,6 +7802,13 @@ function runBridge() {
       /product_artifact_policy:\s*productArtifactPolicy/.test(modelMountingReadProjectionFacade) &&
       /snapshot\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"snapshot",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       !/modelMountingSnapshot\(state,\s*baseUrl/.test(modelMountingReadProjectionFacade) &&
+      !/export function modelMountingSnapshot/.test(modelMountingReadModel) &&
+      !/export function workflowNodeBindings/.test(modelMountingReadModel) &&
+      !/export function buildModelMountingProjection/.test(modelProjections) &&
+      !/export function buildAuthoritySnapshot/.test(modelProjections) &&
+      !/export function buildProjectionSummary/.test(modelProjections) &&
+      !/export function buildAdapterBoundaries/.test(modelProjections) &&
+      !/export function buildReceiptReplay/.test(modelProjections) &&
       /serverStatus\(state,\s*baseUrl\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"server_status",\s*\{ baseUrl \}\)/.test(modelMountingReadProjectionFacade) &&
       /adapterBoundaries\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"adapter_boundaries"\)/.test(modelMountingReadProjectionFacade) &&
       /workflowNodeBindings\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"workflow_bindings"\)/.test(modelMountingReadProjectionFacade) &&
@@ -8059,10 +8076,10 @@ function runBridge() {
       !/^ {6}(?:routeId|selectedModel|endpointId|providerId|policyHash|workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(
         modelRouteSelectionDetailsObject,
       ) &&
-      /receipt\.details\?\.route_id/.test(modelProjections) &&
-      /receipt\.details\?\.endpoint_id/.test(modelProjections) &&
-      /receipt\.details\?\.provider_id/.test(modelProjections) &&
-      !/receipt\.details\?\.(?:routeId|endpointId|providerId)/.test(modelProjections) &&
+      /details\.get\("route_id"\)/.test(bridgeModule) &&
+      /details\.get\("endpoint_id"\)/.test(bridgeModule) &&
+      /details\.get\("provider_id"\)/.test(bridgeModule) &&
+      !/details\.get\("(?:routeId|endpointId|providerId)"\)/.test(bridgeModule) &&
       /details:\s*\{\s*route_id:\s*route\.id,\s*capability,\s*policy,\s*evaluated_candidates:\s*evaluatedCandidates\s*\}/.test(
         modelRoutes,
       ) &&
@@ -8077,7 +8094,7 @@ function runBridge() {
       /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"policyHash"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
       /Object\.hasOwn\(created\[0\]\.details,\s*"workflowNodeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
-      /assert\.equal\(replay\.model_route_decision\.route_id/.test(modelProjectionsTest),
+      /assert\.equal\(replay\.model_route_decision\.selected_model/.test(modelMountingReadProjectionFacadeTest),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
@@ -8457,9 +8474,9 @@ function runBridge() {
       /model_mount_stream_completion_js_facade_retired/.test(modelConversationOps) &&
       !/const receiptDetails = \{[\s\S]*?model_invocation_stream_completed/.test(modelConversationOps) &&
       !/state\.receipt\("model_invocation_stream_completed"/.test(modelConversationOps) &&
-      /receipt\.details\?\.instance_id/.test(modelProjections) &&
-      /receipt\.details\?\.tool_receipt_ids/.test(modelProjections) &&
-      !/receipt\.details\?\.(?:instanceId|toolReceiptIds)/.test(modelProjections) &&
+      /details\.get\("instance_id"\)/.test(bridgeModule) &&
+      /details\.get\("tool_receipt_ids"\)/.test(bridgeModule) &&
+      !/details\.get\("(?:instanceId|toolReceiptIds)"\)/.test(bridgeModule) &&
       /receipt\.details\?\.backend_id/.test(modelWorkflowNode) &&
       /receipt\.details\?\.send_options/.test(modelWorkflowNode) &&
       /receipt\.details\?\.backend_id/.test(openAiCompatRoutes) &&
@@ -13935,7 +13952,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ) &&
       /const sequence = this\.listReceipts\(\)\.length/.test(read("packages/runtime-daemon/src/model-mounting.mjs")) &&
-      /watermark: receipts\.length/.test(read("packages/runtime-daemon/src/model-mounting/projections.mjs")),
+      /"watermark": receipts\.len\(\)/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",

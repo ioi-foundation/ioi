@@ -7,13 +7,11 @@ import {
   endpointList,
   instanceList,
   modelCapabilityList,
-  modelMountingSnapshot,
   openAiModelList,
   productArtifactList,
   providerList,
   routeList,
   runtimeModelCatalogList,
-  workflowNodeBindings,
 } from "./read-model.mjs";
 
 function fakeState() {
@@ -57,18 +55,6 @@ function fakeState() {
     listArtifacts() {
       return artifactList(this);
     },
-    listBackends() {
-      return [{ id: "backend.local" }];
-    },
-    listBackendProcesses() {
-      return [];
-    },
-    listCatalogProviderConfigs() {
-      return [];
-    },
-    listConversations() {
-      return [];
-    },
     listDownloads() {
       return downloadList(this);
     },
@@ -77,9 +63,6 @@ function fakeState() {
     },
     listInstances() {
       return instanceList(this);
-    },
-    listMcpServers() {
-      return [];
     },
     listModelCapabilities() {
       return [{ modelId: "model_a" }];
@@ -102,44 +85,8 @@ function fakeState() {
         publicProvider: (provider, vaultMetadata) => ({ id: provider.id, vaultMetadata }),
       });
     },
-    listReceipts() {
-      return Array.from({ length: 30 }, (_, index) => ({ id: `receipt_${index}` }));
-    },
     listRoutes() {
       return routeList(this);
-    },
-    listRuntimeEngineProfiles() {
-      return [];
-    },
-    listRuntimeEngines() {
-      return [];
-    },
-    listTokens() {
-      return [];
-    },
-    listVaultRefs() {
-      return [];
-    },
-    adapterBoundaries() {
-      return { vault: "ok" };
-    },
-    catalogStatus() {
-      return { status: "ready" };
-    },
-    latestRuntimeSurvey() {
-      return null;
-    },
-    projectionSummary() {
-      return { watermark: 1 };
-    },
-    runtimePreference() {
-      return { routeId: "route.local-first" };
-    },
-    serverStatus() {
-      return { status: "running" };
-    },
-    workflowNodeBindings() {
-      return [];
     },
     nowIso() {
       return "2026-06-03T00:00:00.000Z";
@@ -179,30 +126,6 @@ test("model mounting read model builds product and protocol model lists", () => 
   assert.equal(nativeModel.provider, "ioi-daemon-local");
 });
 
-test("model mounting read model builds workflow node bindings", () => {
-  const bindings = workflowNodeBindings({
-    capabilityForWorkflowNode(node) {
-      if (node === "Embedding") return "embeddings";
-      if (node === "Receipt Gate") return "receipt_gate";
-      return "chat";
-    },
-  });
-
-  assert.equal(bindings.length, 10);
-  assert.equal(bindings.find((binding) => binding.node === "Embedding").capability, "embeddings");
-  assert.equal(bindings.find((binding) => binding.node === "Receipt Gate").daemonApi, "/api/v1/workflows/receipt-gate");
-  assert.deepEqual(bindings.find((binding) => binding.node === "Model Call"), {
-    node: "Model Call",
-    modelId: null,
-    supportsExplicitModelId: true,
-    supportsModelPolicy: true,
-    capability: "chat",
-    receiptRequired: true,
-    routeId: "route.local-first",
-    daemonApi: "/api/v1/workflows/nodes/execute",
-  });
-});
-
 test("model mounting read model applies provider vault metadata and capabilities", () => {
   const state = fakeState();
   assert.deepEqual(providerList(state, {
@@ -217,15 +140,4 @@ test("model mounting read model applies provider vault metadata and capabilities
       return [{ routes: routes.length, endpoints: endpoints.length, providers: providers.length, artifacts: artifacts.length, instances: instances.length }];
     },
   }), [{ routes: 2, endpoints: 2, providers: 2, artifacts: 2, instances: 2 }]);
-});
-
-test("model mounting read model composes snapshot categories", () => {
-  const state = fakeState();
-  const snapshot = modelMountingSnapshot(state, "http://127.0.0.1:3200", { schemaVersion: "schema.v1" });
-  assert.equal(snapshot.schemaVersion, "schema.v1");
-  assert.equal(snapshot.server.status, "running");
-  assert.equal(snapshot.catalog.status, "ready");
-  assert.equal(snapshot.receipts.length, 25);
-  assert.equal(snapshot.projection.watermark, 1);
-  assert.deepEqual(snapshot.providers.map((provider) => provider.id), ["provider_a", "provider_b"]);
 });

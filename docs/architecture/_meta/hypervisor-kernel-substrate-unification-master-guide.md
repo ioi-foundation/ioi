@@ -964,12 +964,12 @@ Slice 798 moved public model_mount adapter-boundary and workflow-node binding
 reads through Rust projection fields. `adapterBoundaries()` now returns the
 Rust-authored `adapterBoundaries` projection object, and
 `workflowNodeBindings()` now returns the Rust-authored `workflowBindings`
-projection list. The JS `buildAdapterBoundaries()` and
-`workflowNodeBindingsProjection()` helpers remain only as current-state input
-materializers for the migration planner. This still does not claim terminal
-model_mount projection migration: JS still prepares current state input, and
-direct Rust daemon-core Agentgres projection APIs still need to replace command
-transport and local materialization.
+projection list. At this slice, the JS `buildAdapterBoundaries()` and
+workflow-binding helper remained only as current-state input materializers for
+the migration planner; Slice 816 later retired those dead helper exports. This
+still does not claim terminal model_mount projection migration: JS still
+prepares current state input, and direct Rust daemon-core Agentgres projection
+APIs still need to replace command transport and local materialization.
 
 Slice 799 moved successful latest model_mount provider-health and vault-health
 read envelopes through Rust read-projection kinds. `latestProviderHealth()` now
@@ -1173,6 +1173,19 @@ terminal catalog migration: direct Rust daemon-core catalog/provider/search,
 download, Agentgres admission, projection persistence, and command-transport
 retirement remain required before catalog control and readback reach terminal
 unification.
+
+Slice 816 retired the remaining dead JS model_mount broad projection helper
+exports after their public callers had moved to Rust read-projection kinds.
+`modelMountingSnapshot()` was removed from `read-model.mjs`; `workflowNodeBindings()`
+was removed from that same legacy read helper module; and `buildModelMountingProjection()`,
+`buildAuthoritySnapshot()`, `buildProjectionSummary()`,
+`buildAdapterBoundaries()`, and `buildReceiptReplay()` were removed from
+`projections.mjs`. `projections.mjs` now retains only the narrow
+`buildModelRouteDecisions()` admitted-receipt projection helper used by
+canonical route-decision checks. This still does not claim terminal model_mount
+projection migration: the daemon still prepares local current-state input for
+Rust projection transport until direct Rust daemon-core Agentgres projection APIs
+replace JS state materialization and command transport.
 
 ## Part II: Target Execution Model
 

@@ -16087,8 +16087,9 @@ reads out of direct JS helper return paths and through Rust-authored projection
 fields. `adapterBoundaries()` now returns the `adapterBoundaries` object from
 the Rust model_mount read projection, and `workflowNodeBindings()` now returns
 the `workflowBindings` list from that same projection. The JS
-`buildAdapterBoundaries()` and `workflowNodeBindingsProjection()` helpers remain
-only as current-state input materializers for the migration planner.
+`buildAdapterBoundaries()` and workflow-binding helper remained only as
+current-state input materializers for the migration planner at this slice; Slice
+816 later retired those dead helper exports.
 
 Focused evidence:
 
@@ -16586,7 +16587,7 @@ JS-facade retirement seam; schedule the next matrix-compaction pass only after
 that seam lands, and do not encode command transport, JS wrapper calls, or local
 map/projection materialization as terminal architecture.
 
-## Implementation Slice Evidence: 815
+## Compacted Implementation Slice Evidence: 815
 
 Slice 815 retired the JS-authored catalog-status public envelope from the
 model_mount read-projection path. The public `catalogStatus()` now requests
@@ -16607,10 +16608,44 @@ catalog/provider/search, download, Agentgres admission, projection persistence,
 and command-transport retirement remain required before catalog control and
 readback reach terminal unification.
 
-Scheduled matrix-compaction obligation from Slice 815 is pending after this
+Scheduled matrix-compaction obligation from Slice 815 is now satisfied.
+
+The next resume should continue with the next concrete Rust-core extraction or
+JS-facade retirement seam; schedule the next matrix-compaction pass only after
+that seam lands, and do not encode command transport, JS wrapper calls, or local
+map/projection materialization as terminal architecture.
+
+## Implementation Slice Evidence: 816
+
+Slice 816 retired the remaining dead JS model_mount broad projection helper
+exports after their public callers had moved to Rust read-projection kinds.
+`modelMountingSnapshot()` was removed from `read-model.mjs`;
+`workflowNodeBindings()` was removed from that same legacy read helper module;
+and `buildModelMountingProjection()`, `buildAuthoritySnapshot()`,
+`buildProjectionSummary()`, `buildAdapterBoundaries()`, and
+`buildReceiptReplay()` were removed from `projections.mjs`. `projections.mjs`
+now retains only the narrow `buildModelRouteDecisions()` admitted-receipt
+projection helper used by canonical route-decision checks.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-model.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This does not claim terminal model_mount projection migration: direct Rust
+daemon-core Agentgres projection APIs still need to replace JS state
+materialization, local map/projection-file materialization, command transport,
+and edge error-envelope translation.
+
+Scheduled matrix-compaction obligation from Slice 816 is pending after this
 verified slice.
 
-Next scheduled matrix-compaction pass: compact Slice 815 after the next
+Next scheduled matrix-compaction pass: compact Slice 816 after the next
 Rust-core extraction or facade-retirement seam lands. The next resume should
 either compact this evidence once that seam is clear or continue with the next
 seam while preserving the non-terminal status of command transport, JS wrapper
