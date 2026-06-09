@@ -1,5 +1,4 @@
 import {
-  artifactList,
   downloadList,
   endpointList,
   instanceList,
@@ -17,7 +16,6 @@ import {
 } from "./catalog-operations.mjs";
 
 export function createModelMountingReadProjectionFacade({
-  internalFixtureModelsEnabled,
   modelMountSchemaVersion,
   notFound: notFoundDep = notFound,
   readProjectionPlanner = null,
@@ -301,24 +299,12 @@ export function createModelMountingReadProjectionFacade({
       projectionKind === "instances" ||
       projectionKind === "routes" ||
       projectionKind === "model_capabilities" ||
-      projectionKind === "downloads"
-    ) {
-      return {};
-    }
-    const artifacts = artifactList(state);
-    const productArtifactPolicy = {
-      include_internal_fixtures: Boolean(internalFixtureModelsEnabled?.()),
-    };
-    if (
-      projectionKind === "artifacts" ||
+      projectionKind === "downloads" ||
       projectionKind === "product_artifacts" ||
       projectionKind === "runtime_model_catalog" ||
       projectionKind === "open_ai_model_list"
     ) {
-      return {
-        artifacts,
-        product_artifact_policy: productArtifactPolicy,
-      };
+      return {};
     }
     if (projectionKind === "oauth_sessions" || projectionKind === "oauth_states") return {};
     if (projectionKind === "provider_health") {

@@ -17842,7 +17842,7 @@ reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 860 is now satisfied.
 
-## Implementation Slice Evidence: 861
+## Compacted Implementation Slice Evidence: 861
 
 Slice 861 retired dedicated model-topology list JS read-projection input. The
 `artifacts`, `providers`, `endpoints`, `instances`, `routes`,
@@ -17865,10 +17865,36 @@ projection ownership, receipt-replay topology lookup, command-transport
 replacement, and local map/projection materialization retirement still remain
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 861 after the next direct
+Scheduled matrix-compaction obligation from Slice 861 is now satisfied.
+
+## Implementation Slice Evidence: 862
+
+Slice 862 retired dedicated product artifact/catalog JS read-projection input.
+The `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`
+read projections now send `{}` from the runtime-daemon facade. The Rust bridge
+direct arms for those projection kinds return empty/default product/catalog
+lists instead of filtering or translating caller-supplied artifact arrays, so
+direct bridge callers cannot promote local JS artifact maps or fixture policy
+into public product catalog or OpenAI-compatible model-list truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+
+This still does not claim terminal model catalog migration: direct Rust
+daemon-core Agentgres-backed catalog/topology projection APIs, broad
+snapshot/projection catalog ownership, receipt-replay topology lookup,
+command-transport replacement, and local map/projection materialization
+retirement still remain before this surface reaches the pure Rust substrate
+target.
+
+Next scheduled matrix-compaction pass: compact Slice 862 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider/MCP/conversation/authority/telemetry/runtime-engine transport
-facades, provider lifecycle/read adapters, product artifact/catalog projection
-input, receipt-replay topology input, local map/projection materialization, and
-Rust daemon-core catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.
+facades, provider lifecycle/read adapters, receipt-replay topology input, local
+map/projection materialization, and Rust daemon-core
+catalog/provider/OAuth/MCP/conversation/wallet/cTEE custody APIs.

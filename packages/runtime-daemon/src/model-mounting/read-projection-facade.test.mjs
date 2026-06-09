@@ -201,8 +201,6 @@ function createState() {
     },
   };
   const facade = createModelMountingReadProjectionFacade({
-    internalFixtureModelsEnabled: () => false,
-    isFixtureModelRecord: (artifact) => artifact.family === "fixture",
     listJson: () => ["/state/provider-health/provider.local.json"],
     modelMountSchemaVersion: "model.mount.schema",
     path: { join: (...parts) => parts.join("/") },
@@ -253,7 +251,7 @@ function rustProjectionFixture(request) {
   const state = request.state;
   const receipts = state.receipts ?? [];
   if (request.projection_kind === "artifacts") return [];
-  if (request.projection_kind === "product_artifacts") return productArtifactsFromRustState(state);
+  if (request.projection_kind === "product_artifacts") return [];
   if (request.projection_kind === "providers") return [];
   if (request.projection_kind === "endpoints") return [];
   if (request.projection_kind === "instances") return [];
@@ -281,8 +279,8 @@ function rustProjectionFixture(request) {
   }
   if (request.projection_kind === "latest_runtime_survey") return latestRuntimeSurveyFromRustState(state);
   if (request.projection_kind === "catalog_status") return catalogStatusFromRustState(state, request.schema_version);
-  if (request.projection_kind === "runtime_model_catalog") return runtimeModelCatalogFromRustState(state);
-  if (request.projection_kind === "open_ai_model_list") return openAiModelListFromRustState(state, request.generated_at);
+  if (request.projection_kind === "runtime_model_catalog") return [];
+  if (request.projection_kind === "open_ai_model_list") return { object: "list", data: [] };
   const projection = {
     schemaVersion: request.schema_version,
     source: "agentgres_model_mounting_projection",
@@ -836,9 +834,9 @@ function routeDecisionsFromReceipts(receipts) {
 test("read projection facade delegates product-safe lists and capabilities", () => {
   const { facade, state, readProjectionRequests } = createState();
 
-  assert.deepEqual(facade.runtimeModelCatalogList(state).map((model) => model.id), ["model.local"]);
-  assert.deepEqual(facade.openAiModelList(state).data.map((model) => model.id), ["model.local"]);
-  assert.deepEqual(facade.listProductArtifacts(state).map((artifact) => artifact.id), ["artifact.local"]);
+  assert.deepEqual(facade.runtimeModelCatalogList(state), []);
+  assert.deepEqual(facade.openAiModelList(state), { object: "list", data: [] });
+  assert.deepEqual(facade.listProductArtifacts(state), []);
   assert.deepEqual(facade.listArtifacts(state), []);
   assert.deepEqual(facade.listProviders(state), []);
   assert.deepEqual(facade.listEndpoints(state), []);
@@ -890,11 +888,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
       request.projection_kind,
     ));
   assert.equal(topologyRequests.every((request) => Object.keys(request.state).length === 0), true);
-  assert.equal(
-    readProjectionRequests.slice(0, 3).every((request) =>
-      request.state.product_artifact_policy.include_internal_fixtures === false),
-    true,
-  );
+  assert.equal(readProjectionRequests.slice(0, 3).every((request) => Object.keys(request.state).length === 0), true);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "adapter_boundaries")), false);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "workflow_bindings")), false);
   assert.equal(readProjectionRequests.some((request) => Object.hasOwn(request.state, "model_capabilities")), false);

@@ -2086,7 +2086,7 @@ fn model_mount_read_projection(
         "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
         "server_status" => Ok(model_mount_server_status(request)),
         "artifacts" => Ok(Value::Array(Vec::new())),
-        "product_artifacts" => Ok(Value::Array(model_mount_product_artifacts(&request.state))),
+        "product_artifacts" => Ok(Value::Array(Vec::new())),
         "providers" => Ok(Value::Array(Vec::new())),
         "endpoints" => Ok(Value::Array(Vec::new())),
         "instances" => Ok(Value::Array(Vec::new())),
@@ -2111,11 +2111,11 @@ fn model_mount_read_projection(
             Ok(object_or_null(request.state.get("default_load_options")))
         }
         "runtime_engine_detail" => model_mount_runtime_engine_detail(request),
-        "runtime_model_catalog" => Ok(model_mount_runtime_model_catalog(&request.state)),
-        "open_ai_model_list" => Ok(model_mount_open_ai_model_list(
-            &request.state,
-            model_mount_projection_generated_at(request),
-        )),
+        "runtime_model_catalog" => Ok(Value::Array(Vec::new())),
+        "open_ai_model_list" => Ok(json!({
+            "object": "list",
+            "data": [],
+        })),
         "latest_provider_health" => model_mount_latest_provider_health(request),
         "latest_vault_health" => model_mount_latest_vault_health(request),
         "latest_runtime_survey" => Ok(model_mount_latest_runtime_survey(request)),

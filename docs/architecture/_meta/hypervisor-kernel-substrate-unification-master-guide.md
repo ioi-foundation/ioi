@@ -1710,6 +1710,17 @@ surfaces still receive artifact/policy input, and receipt replay still receives
 the topology context it explicitly needs for replay until Rust-owned topology
 lookup can replace that context.
 
+Slice 862 retired dedicated product artifact/catalog JS read-projection input.
+The `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list`
+read projections now send empty state objects from the runtime-daemon facade,
+and the Rust bridge direct arms return empty/default product/catalog lists
+instead of filtering or translating caller-supplied artifact arrays. This
+prevents local JS artifact maps and fixture policy from becoming public product
+catalog or OpenAI-compatible model-list truth while direct Rust daemon-core
+Agentgres-backed catalog/topology projection APIs are still pending. Broad
+snapshot/projection catalog fields remain default/non-authoritative, and
+receipt replay remains a separate topology-lookup migration seam.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
