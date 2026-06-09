@@ -1911,6 +1911,19 @@ direct Rust daemon-core artifact and endpoint admission, filesystem custody,
 receipt/state-root binding, Agentgres truth, replay, command-transport
 retirement, and stable protocol APIs remain required.
 
+Slice 877 retired the fail-closed `catalog-download-operations.mjs` helper
+module after public catalog-import URL and direct model-download mutations had
+already been reduced to Rust-core-required catalog/download edge refusals. The
+mounted public `ModelMountingState` catalog/download methods now own canonical
+catalog import URL, download identity, download control, and download metadata
+request alias rejection plus operation-specific `model_mount.catalog_download`
+Rust-core-required errors directly, without importing a helper module or
+dependency-injecting JS transfer, fixture materialization, filesystem,
+artifact/download record-state, or receipt helpers. This does not claim terminal
+catalog/download migration: direct Rust daemon-core catalog/download admission,
+filesystem custody, receipt/state-root binding, Agentgres truth, replay,
+command-transport retirement, and stable protocol APIs remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

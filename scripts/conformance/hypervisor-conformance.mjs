@@ -993,7 +993,11 @@ function runDocs() {
       /Implementation Slice Evidence: 876/.test(matrix) &&
       /Slice 876 retired the fail-closed `artifact-endpoint-operations\.mjs` helper\s+module/.test(matrix) &&
       /`ModelMountingState` artifact\/endpoint methods now own canonical import,\s+endpoint mount, and endpoint unmount request alias rejection/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 876/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 876 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 877/.test(matrix) &&
+      /Slice 877 retired the fail-closed `catalog-download-operations\.mjs` helper\s+module/.test(matrix) &&
+      /`ModelMountingState` catalog\/download methods now own canonical\s+catalog import URL, download identity, download control, and download metadata\s+request alias rejection/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 877/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1148,7 +1152,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 875 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 876/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 876 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 877/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1159,6 +1164,8 @@ function runDocs() {
       /mounted public `ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `artifact-endpoint-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` artifact\/endpoint methods now own canonical import, endpoint mount, and endpoint unmount request alias rejection/.test(implementationMatrix) &&
+      /the fail-closed `catalog-download-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
+      /mounted public `ModelMountingState` catalog\/download methods now own canonical catalog import URL, download identity, download control, and download metadata request alias rejection/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
@@ -12071,9 +12078,6 @@ function runReceipts() {
     : "";
   const destructiveConfirmationStateBlock =
     catalogHelpers.match(/export function destructiveConfirmationState[\s\S]*?export function inferModelArchitecture/)?.[0] ?? "";
-  const catalogDownloadOperations = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs")
-    : "";
   const catalogDownloadOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
     : "";
@@ -12136,26 +12140,21 @@ function runReceipts() {
   const mcpToolReceiptDetailsObject =
     mcpWorkflowOperations.match(/details:\s*\{\n\s+server_id:\s*serverId,[\s\S]*?\n\s+\},/)?.[0] ?? "";
   const catalogImportUrlBlock =
-    catalogDownloadOperations.match(/export async function catalogImportUrl[\s\S]*?export async function downloadModel/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+async catalogImportUrl\(body = \{\}\) \{[\s\S]*?\n\s+importModel/)?.[0] ?? "";
   const downloadModelBlock =
-    catalogDownloadOperations.match(/export async function downloadModel[\s\S]*$/)?.[0] ?? "";
+    modelMountingState.match(/\n\s+async downloadModel\(body = \{\}\) \{[\s\S]*?\n\s+downloadStatus/)?.[0] ?? "";
   const catalogImportUrlReceiptDetailsObject =
-    catalogDownloadOperations.match(/state\.lifecycleReceipt\("model_catalog_import_url",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
+    modelMountingState.match(/state\.lifecycleReceipt\("model_catalog_import_url",\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
   const catalogDownloadReceiptBlocks = [
-    ...catalogDownloadOperations.matchAll(/state\.lifecycleReceipt\("model_download_(?:queued|failed|running|completed)",\s*\{[\s\S]*?\n\s+\}\);/g),
+    ...modelMountingState.matchAll(/state\.lifecycleReceipt\("model_download_(?:queued|failed|running|completed)",\s*\{[\s\S]*?\n\s+\}\);/g),
   ].map((match) => match[0]).join("\n");
   const catalogDownloadTransferReceiptObject =
-    catalogDownloadOperations.match(/state\.lifecycleReceipt\(operation,\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
-  const catalogDownloadErrorDetailsHelper =
-    catalogDownloadOperations.match(/function catalogDownloadErrorDetails\(sourceHash,\s*evidenceRefs\) \{[\s\S]*?\n\}/)?.[0] ?? "";
-  const catalogAuthReceiptDetailsHelper =
-    catalogDownloadOperations.match(/function catalogAuthReceiptDetails\(evidence\) \{[\s\S]*?\n\}/)?.[0] ?? "";
-  const catalogDownloadPolicyReceiptDetailsHelper =
-    catalogDownloadOperations.match(/function downloadPolicyReceiptDetails\(policy\) \{[\s\S]*?\n\}/)?.[0] ?? "";
-  const catalogDownloadTransferReceiptDetailsHelper =
-    catalogDownloadOperations.match(/function transferReceiptDetails\(transfer\) \{[\s\S]*?\n\}/)?.[0] ?? "";
-  const catalogDownloadTransferEventDetailsHelper =
-    catalogDownloadOperations.match(/function transferEventReceiptDetails\(details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+    modelMountingState.match(/state\.lifecycleReceipt\(operation,\s*\{[\s\S]*?\n\s+\}\);/)?.[0] ?? "";
+  const catalogDownloadErrorDetailsHelper = "";
+  const catalogAuthReceiptDetailsHelper = "";
+  const catalogDownloadPolicyReceiptDetailsHelper = "";
+  const catalogDownloadTransferReceiptDetailsHelper = "";
+  const catalogDownloadTransferEventDetailsHelper = "";
   const catalogApprovalDecisionBlock =
     catalogHelpers.match(/export function catalogApprovalDecision[\s\S]*?export function normalizeDownloadPolicy/)?.[0] ?? "";
   const normalizeDownloadPolicyBlock =
@@ -13292,9 +13291,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-import-url-request-aliases-retired",
-    /RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
-      /CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
-      /model_catalog_import_url_request_aliases_retired/.test(catalogDownloadOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs") &&
+      /RETIRED_CATALOG_IMPORT_URL_REQUEST_ALIASES/.test(modelMountingState) &&
+      /CANONICAL_CATALOG_IMPORT_URL_REQUEST_FIELDS/.test(modelMountingState) &&
+      /model_catalog_import_url_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalCatalogImportUrlRequestBody\(body\);[\s\S]*requiredString.*\(body\.source_url \?\? body\.url,\s*"source_url"\)/.test(
         catalogImportUrlBlock,
       ) &&
@@ -13315,7 +13315,7 @@ function runReceipts() {
       ) &&
       /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: catalog import URL request bodies must fail closed on retired camelCase source/provider/download aliases before receipt creation or download forwarding",
@@ -13323,9 +13323,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-download-identity-request-aliases-retired",
-    /RETIRED_MODEL_DOWNLOAD_IDENTITY_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
-      /CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
-      /model_download_identity_request_aliases_retired/.test(catalogDownloadOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs") &&
+      /RETIRED_MODEL_DOWNLOAD_IDENTITY_REQUEST_ALIASES/.test(modelMountingState) &&
+      /CANONICAL_MODEL_DOWNLOAD_IDENTITY_REQUEST_FIELDS/.test(modelMountingState) &&
+      /model_download_identity_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalModelDownloadIdentityRequestBody\(body\);[\s\S]*const modelId = .*requiredString.*\(body\.model_id,\s*"model_id"\);/.test(
         downloadModelBlock,
       ) &&
@@ -13346,7 +13347,7 @@ function runReceipts() {
       ) &&
       /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: direct model download request bodies must fail closed on retired camelCase identity/source aliases before timestamping or receipt creation",
@@ -13354,9 +13355,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-download-control-request-aliases-retired",
-    /RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
-      /CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
-      /model_download_control_request_aliases_retired/.test(catalogDownloadOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs") &&
+      /RETIRED_MODEL_DOWNLOAD_CONTROL_REQUEST_ALIASES/.test(modelMountingState) &&
+      /CANONICAL_MODEL_DOWNLOAD_CONTROL_REQUEST_FIELDS/.test(modelMountingState) &&
+      /model_download_control_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalModelDownloadControlRequestBody\(body\);[\s\S]*throwCatalogDownloadRustCoreRequired\(/.test(
         downloadModelBlock,
       ) &&
@@ -13374,7 +13376,7 @@ function runReceipts() {
       ) &&
       /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: direct model download request bodies must fail closed on retired camelCase control aliases before timestamping or receipt creation",
@@ -13382,9 +13384,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-download-metadata-request-aliases-retired",
-    /RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES/.test(catalogDownloadOperations) &&
-      /CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS/.test(catalogDownloadOperations) &&
-      /model_download_metadata_request_aliases_retired/.test(catalogDownloadOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs") &&
+      /RETIRED_MODEL_DOWNLOAD_METADATA_REQUEST_ALIASES/.test(modelMountingState) &&
+      /CANONICAL_MODEL_DOWNLOAD_METADATA_REQUEST_FIELDS/.test(modelMountingState) &&
+      /model_download_metadata_request_aliases_retired/.test(modelMountingState) &&
       /assertCanonicalModelDownloadMetadataRequestBody\(body\);[\s\S]*throwCatalogDownloadRustCoreRequired\(/.test(
         downloadModelBlock,
       ) &&
@@ -13400,7 +13403,7 @@ function runReceipts() {
       ) &&
       /assertNoCatalogDownloadMutation\(state\)/.test(catalogDownloadOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: direct model download request bodies must fail closed on retired camelCase metadata aliases before timestamping or receipt creation",
@@ -13408,22 +13411,24 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-download-js-facade-retired",
-    /throwCatalogDownloadRustCoreRequired/.test(catalogDownloadOperations) &&
-      /model_mount_catalog_download_rust_core_required/.test(catalogDownloadOperations) &&
-      /rust_core_boundary:\s*"model_mount\.catalog_download"/.test(catalogDownloadOperations) &&
-      /public_catalog_download_js_facade_retired/.test(catalogDownloadOperations) &&
-      /rust_daemon_core_catalog_download_required/.test(catalogDownloadOperations) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs") &&
+      !/catalogImportUrlState|downloadModelState/.test(modelMountingState) &&
+      /throwCatalogDownloadRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_catalog_download_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_download"/.test(modelMountingState) &&
+      /public_catalog_download_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_catalog_download_required/.test(modelMountingState) &&
       /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.catalog\.import_url"/.test(catalogImportUrlBlock) &&
       /throwCatalogDownloadRustCoreRequired\(\s*"model_mount\.download\.queue"/.test(downloadModelBlock) &&
       !/state\.lifecycleReceipt\("model_(?:catalog_import_url|download_(?:queued|failed|running|completed))"/.test(
-        catalogDownloadOperations,
+        `${catalogImportUrlBlock}\n${downloadModelBlock}`,
       ) &&
-      !/commitModelDownloadRecordState/.test(catalogDownloadOperations) &&
-      !/commitModelArtifactRecordState/.test(catalogDownloadOperations) &&
-      !/materialize(?:Fixture|Live)Download/.test(catalogDownloadOperations) &&
-      !/fs\.mkdirSync/.test(catalogDownloadOperations) &&
-      !/state\.downloads\.set/.test(catalogDownloadOperations) &&
-      !/state\.artifacts\.set/.test(catalogDownloadOperations) &&
+      !/commitModelDownloadRecordState/.test(`${catalogImportUrlBlock}\n${downloadModelBlock}`) &&
+      !/commitModelArtifactRecordState/.test(`${catalogImportUrlBlock}\n${downloadModelBlock}`) &&
+      !/materialize(?:Fixture|Live)Download/.test(`${catalogImportUrlBlock}\n${downloadModelBlock}`) &&
+      !/fs\.mkdirSync/.test(downloadModelBlock) &&
+      !/state\.downloads\.set/.test(downloadModelBlock) &&
+      !/state\.artifacts\.set/.test(downloadModelBlock) &&
       !/state\.writeMap\("model-downloads"/.test(downloadModelBlock) &&
       !/state\.writeMap\("model-artifacts"/.test(downloadModelBlock) &&
       !/\S/.test(catalogImportUrlReceiptDetailsObject) &&
@@ -13432,6 +13437,8 @@ function runReceipts() {
       /catalog import and download mutation facades fail closed until Rust core owns them/.test(
         catalogDownloadOperationsTest,
       ) &&
+      /ModelMountingState\.prototype\.catalogImportUrl\.call/.test(catalogDownloadOperationsTest) &&
+      /ModelMountingState\.prototype\.downloadModel\.call/.test(catalogDownloadOperationsTest) &&
       /model_mount_catalog_download_rust_core_required/.test(catalogDownloadOperationsTest) &&
       /model_mount\.catalog\.import_url/.test(catalogDownloadOperationsTest) &&
       /model_mount\.download\.queue/.test(catalogDownloadOperationsTest) &&
@@ -13446,7 +13453,7 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/catalog-download-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
     "Phase 9/11 is pending: catalog import/download mutation must fail closed until Rust daemon-core owns catalog/download, receipt, record-state, filesystem, artifact, and projection semantics",

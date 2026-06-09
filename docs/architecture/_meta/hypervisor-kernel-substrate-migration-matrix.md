@@ -18264,10 +18264,37 @@ receipt/state-root binding, Agentgres truth, replay, command-transport
 retirement, and stable protocol APIs remain required before artifact/endpoint
 control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 876 after the next direct
+Scheduled matrix-compaction obligation from Slice 876 is now satisfied.
+
+## Implementation Slice Evidence: 877
+
+Slice 877 retired the fail-closed `catalog-download-operations.mjs` helper
+module after public catalog-import URL and direct model-download mutations had
+already been reduced to Rust-core-required catalog/download edge refusals. The
+mounted public `ModelMountingState` catalog/download methods now own canonical
+catalog import URL, download identity, download control, and download metadata
+request alias rejection plus operation-specific `model_mount.catalog_download`
+Rust-core-required errors directly, without importing a helper module or
+dependency-injecting JS transfer, fixture materialization, filesystem,
+artifact/download record-state, or receipt helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+
+This still does not claim terminal catalog/download migration: direct Rust
+daemon-core catalog/download admission, filesystem custody, receipt/state-root
+binding, Agentgres truth, replay, command-transport retirement, and stable
+protocol APIs remain required before catalog/download control reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 877 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
-artifact/endpoint projection and receipt materialization, direct Rust
-daemon-core artifact/endpoint APIs, and Agentgres-backed replay. The
+catalog/download projection and receipt materialization, direct Rust
+daemon-core catalog/download APIs, and Agentgres-backed replay. The
 `ioi-step-module-bridge` command path is acceptable only as migration transport;
 it is not the terminal architecture.

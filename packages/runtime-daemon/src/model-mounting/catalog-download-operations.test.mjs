@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  catalogImportUrl,
-  downloadModel,
-} from "./catalog-download-operations.mjs";
+import { ModelMountingState } from "../model-mounting.mjs";
 
 function fakeState() {
   return {
@@ -43,22 +40,6 @@ function fakeState() {
   };
 }
 
-function deps(overrides = {}) {
-  return {
-    requiredString(value, field) {
-      if (typeof value !== "string" || !value.trim()) {
-        throw Object.assign(new Error(`${field} required`), { status: 400 });
-      }
-      return value;
-    },
-    runtimeError({ status, code, message, details }) {
-      return Object.assign(new Error(message), { status, code, details });
-    },
-    stableHash: (value) => `hash:${value}`,
-    ...overrides,
-  };
-}
-
 function assertNoCatalogDownloadMutation(state) {
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
@@ -75,7 +56,7 @@ test("catalog import and download mutation facades fail closed until Rust core o
 
   await assert.rejects(
     () =>
-      catalogImportUrl(
+      ModelMountingState.prototype.catalogImportUrl.call(
         importState,
         {
           source_url: "fixture://qwen/q4",
@@ -85,7 +66,6 @@ test("catalog import and download mutation facades fail closed until Rust core o
           fixture_content: "fixture bytes",
           transfer_approved: true,
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -96,7 +76,7 @@ test("catalog import and download mutation facades fail closed until Rust core o
         "public_catalog_download_js_facade_retired",
         "rust_daemon_core_catalog_download_required",
       ]);
-      assert.equal(error.details.source_url_hash, "hash:fixture://qwen/q4");
+      assert.equal(typeof error.details.source_url_hash, "string");
       assert.equal(error.details.model_id, "qwen-test");
       assert.equal(error.details.provider_id, "provider.local");
       assert.equal(Object.hasOwn(error.details, "operationKind"), false);
@@ -109,7 +89,7 @@ test("catalog import and download mutation facades fail closed until Rust core o
   const downloadState = fakeState();
   await assert.rejects(
     () =>
-      downloadModel(
+      ModelMountingState.prototype.downloadModel.call(
         downloadState,
         {
           model_id: "qwen-test",
@@ -127,7 +107,6 @@ test("catalog import and download mutation facades fail closed until Rust core o
           context_window: 32768,
           privacy_class: "local_private",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 501);
@@ -136,7 +115,7 @@ test("catalog import and download mutation facades fail closed until Rust core o
       assert.equal(error.details.rust_core_boundary, "model_mount.catalog_download");
       assert.equal(error.details.model_id, "qwen-test");
       assert.equal(error.details.provider_id, "provider.local");
-      assert.equal(error.details.source_url_hash, "hash:fixture://qwen/q4");
+      assert.equal(typeof error.details.source_url_hash, "string");
       assert.equal(Object.hasOwn(error.details, "operationKind"), false);
       assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
       return true;
@@ -150,7 +129,7 @@ test("catalogImportUrl rejects retired request aliases before Rust-core boundary
 
   await assert.rejects(
     () =>
-      catalogImportUrl(
+      ModelMountingState.prototype.catalogImportUrl.call(
         state,
         {
           sourceUrl: "fixture://qwen/q4",
@@ -160,7 +139,6 @@ test("catalogImportUrl rejects retired request aliases before Rust-core boundary
           fixtureContent: "fixture bytes",
           transferApproved: true,
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -192,7 +170,7 @@ test("downloadModel rejects retired identity request aliases before Rust-core bo
 
   await assert.rejects(
     () =>
-      downloadModel(
+      ModelMountingState.prototype.downloadModel.call(
         state,
         {
           modelId: "qwen-test",
@@ -203,7 +181,6 @@ test("downloadModel rejects retired identity request aliases before Rust-core bo
           fileName: "qwen.gguf",
           fixtureContent: "fixture bytes",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -237,7 +214,7 @@ test("downloadModel rejects retired control request aliases before Rust-core bou
 
   await assert.rejects(
     () =>
-      downloadModel(
+      ModelMountingState.prototype.downloadModel.call(
         state,
         {
           model_id: "qwen-test",
@@ -248,7 +225,6 @@ test("downloadModel rejects retired control request aliases before Rust-core bou
           queuedOnly: true,
           expectedChecksum: "sha256-test",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 400);
@@ -280,7 +256,7 @@ test("downloadModel rejects retired metadata request aliases before Rust-core bo
 
   await assert.rejects(
     () =>
-      downloadModel(
+      ModelMountingState.prototype.downloadModel.call(
         state,
         {
           model_id: "qwen-test",
@@ -288,7 +264,6 @@ test("downloadModel rejects retired metadata request aliases before Rust-core bo
           contextWindow: 32768,
           privacyClass: "local_private",
         },
-        deps(),
       ),
     (error) => {
       assert.equal(error.status, 400);
