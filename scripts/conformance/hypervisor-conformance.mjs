@@ -595,6 +595,9 @@ function runDocs() {
       /`publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`,\s+`oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(guide) &&
       /Slice 842 retired stale public catalog-search orchestration helper injection/.test(guide) &&
       /injecting `catalogProviderStatus\(\)` or `normalizeLimit\(\)`/.test(guide) &&
+      /Slice 843 retired cached catalog-provider runtime-material readback/.test(guide) &&
+      /`catalogProviderRuntimeMaterial\(\)` now fails\s+closed with `model_mount_catalog_provider_control_rust_core_required` even when/.test(guide) &&
+      /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
       /Slice 813 retired the JS-authored public server-status envelope from the\s+model_mount read-projection path/.test(guide) &&
       /runtime-daemon now sends only primitive\s+`server_status_input` migration data/.test(guide) &&
       /Rust authors the public\s+`server_status` projection plus nested snapshot and authority-snapshot `server`\s+objects/.test(guide) &&
@@ -691,6 +694,8 @@ function runDocs() {
       /`startCatalogProviderOAuth\(\)`,\s+`completeCatalogProviderOAuth\(\)`, `exchangeCatalogProviderOAuth\(\)`,\s+`refreshCatalogProviderOAuth\(\)`, and `revokeCatalogProviderOAuth\(\)` now pass only/.test(guide) &&
       /Slice 842 retired stale public catalog-search orchestration helper injection\s+from the mounted model_mount facade/.test(guide) &&
       /`catalogSearch\(\)` already fails closed with\s+`model_catalog_search_js_orchestrator_retired`/.test(guide) &&
+      /Slice 843 retired cached catalog-provider runtime-material readback from the JS\s+catalog-provider control surface/.test(guide) &&
+      /Catalog-provider port\s+health helpers also no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -860,16 +865,22 @@ function runDocs() {
       /Slice 841 retired stale catalog-provider OAuth compatibility helper injection/.test(matrix) &&
       /publicCatalogProviderConfig\(\)/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 841 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 842/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 842/.test(matrix) &&
       /Slice 842 retired stale public catalog-search orchestration helper injection/.test(matrix) &&
       /catalogProviderStatus\(\)/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 842/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 842 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 843/.test(matrix) &&
+      /Slice 843 retired cached catalog-provider runtime-material readback/.test(matrix) &&
+      /Catalog-provider port health helpers for\s+local-manifest, Hugging Face-compatible, and custom HTTP providers also no\s+longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 843/.test(matrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted/.test(implementationMatrix) &&
       /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
       /mounted OAuth start\/callback\/exchange\/refresh\/revoke facades no longer inject `publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`, `oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(implementationMatrix) &&
-      /configured catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /cached bound\/missing\/failed runtime-material readback/.test(implementationMatrix) &&
+      /catalog-provider port health helpers no longer call `state\.catalogProviderRuntimeMaterial\(\)`/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
         implementationMatrix,
@@ -1292,7 +1303,7 @@ function runDocs() {
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
       /the hidden `catalogProviderConfigUpdate` JS writer has been removed/.test(implementationMatrix) &&
       /source material parsing accepts only canonical `manifest_path` and `base_url`/.test(implementationMatrix) &&
-      /configured catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
+      /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /reject retired `bandwidth_limit_bps`, `resume_download`, `retries`, and\s+`destructive_confirmed` synonyms before policy evaluation/.test(implementationMatrix) &&
       /route selection now ignores retired `allowHostedFallback`, `denyFixtureModels`,\s+and `maxCostUsd` policy aliases/.test(implementationMatrix) &&
@@ -8544,8 +8555,25 @@ function runBridge() {
         catalogProviderConfigurationOperationsTest,
       ) &&
       /model_mount\.catalog_provider_runtime_material\.resolve/.test(catalogProviderConfigurationOperations) &&
-      /runtime_material_status:\s*existing\?\.runtimeMaterialStatus \?\? "requires_rust_core_custody"/.test(
+      /runtime_material_status:\s*existing\?\.runtimeMaterialStatus \?\? "rust_core_projection_required"/.test(
         catalogProviderConfigurationOperations,
+      ) &&
+      !/if\s*\(\s*catalogProviderHasSourceMaterialDep\(existing\)\s*\)\s*return existing/.test(
+        catalogProviderConfigurationOperations,
+      ) &&
+      !/return existing;/.test(catalogProviderConfigurationOperations) &&
+      !/state\?\.catalogProviderRuntimeMaterial/.test(catalogProviderPorts) &&
+      /catalogProviderHasSourceMaterial must not preserve JS runtime material/.test(
+        catalogProviderConfigurationOperationsTest,
+      ) &&
+      /catalogProviderRuntimeMaterial must not feed local manifest port health/.test(
+        catalogProviderPortsTest,
+      ) &&
+      /catalogProviderRuntimeMaterial must not feed Hugging Face port health/.test(
+        catalogProviderPortsTest,
+      ) &&
+      /catalogProviderRuntimeMaterial must not feed custom HTTP port health/.test(
+        catalogProviderPortsTest,
       ) &&
       /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigurationOperationsTest) &&
       /assert\.equal\(state\.catalogProviderRuntimeMaterials\.has\(providerId\),\s*false\)/.test(

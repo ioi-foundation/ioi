@@ -82,8 +82,7 @@ export function huggingFaceCatalogProviderPort(state) {
   const baseUrl = huggingFaceCatalogBaseUrl(state);
   const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in", "model_catalog_provider_port"];
   const config = state?.catalogProviderConfig?.("catalog.huggingface") ?? null;
-  const material = state?.catalogProviderRuntimeMaterial?.("catalog.huggingface") ?? null;
-  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", config, material);
+  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", config, null);
   return {
     id: "catalog.huggingface",
     label: "Hugging Face-compatible catalog",
@@ -95,11 +94,11 @@ export function huggingFaceCatalogProviderPort(state) {
       ...configFields,
       status: config?.enabled === false ? "disabled" : liveModelCatalogEnabled() ? "configured" : "gated",
       baseUrlHash: stableHash(baseUrl),
-      gate: material?.baseUrl ? "vault-backed Hugging Face-compatible catalog setup" : "IOI_MODEL_CATALOG_HF_BASE_URL",
-      materialConfigured: Boolean(material?.baseUrl || configFields.materialConfigured),
-      runtimeMaterialStatus: material?.baseUrl ? material.runtimeMaterialStatus ?? "bound_runtime_session" : configFields.runtimeMaterialStatus,
-      materialVaultRefHash: material?.materialVaultRefHash ?? configFields.materialVaultRefHash,
-      vaultMaterialSource: material?.materialSource ?? configFields.vaultMaterialSource,
+      gate: "IOI_MODEL_CATALOG_HF_BASE_URL",
+      materialConfigured: Boolean(configFields.materialConfigured),
+      runtimeMaterialStatus: configFields.runtimeMaterialStatus,
+      materialVaultRefHash: configFields.materialVaultRefHash,
+      vaultMaterialSource: configFields.vaultMaterialSource,
       liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
       evidenceRefs,
     }),
@@ -189,26 +188,25 @@ export function huggingFaceCatalogBaseUrl(state) {
   const fallback = process.env.IOI_MODEL_CATALOG_HF_BASE_URL ?? "https://huggingface.co";
   return state?.catalogProviderConfig?.("catalog.huggingface")?.enabled === false
     ? fallback
-    : state?.catalogProviderRuntimeMaterial?.("catalog.huggingface")?.baseUrl ?? fallback;
+    : fallback;
 }
 
 export function localManifestCatalogPath(state) {
   const config = state?.catalogProviderConfig?.("catalog.local_manifest") ?? null;
   if (config && config.enabled === false) return "";
-  return state?.catalogProviderRuntimeMaterial?.("catalog.local_manifest")?.manifestPath ?? process.env.IOI_MODEL_CATALOG_MANIFEST_PATH ?? "";
+  return process.env.IOI_MODEL_CATALOG_MANIFEST_PATH ?? "";
 }
 
 export function customHttpCatalogBaseUrl(state) {
   const config = state?.catalogProviderConfig?.("catalog.custom_http") ?? null;
   if (config && config.enabled === false) return "";
-  return state?.catalogProviderRuntimeMaterial?.("catalog.custom_http")?.baseUrl ?? process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
+  return process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL ?? "";
 }
 
 export function localManifestCatalogHealth(state, evidenceRefs) {
   const config = state?.catalogProviderConfig?.("catalog.local_manifest") ?? null;
-  const material = state?.catalogProviderRuntimeMaterial?.("catalog.local_manifest") ?? null;
   const manifestPath = localManifestCatalogPath(state);
-  const configFields = catalogProviderConfigHealthFields("catalog.local_manifest", config, material);
+  const configFields = catalogProviderConfigHealthFields("catalog.local_manifest", config, null);
   if (config?.enabled === false) {
     return { ...configFields, status: "disabled", gate: "catalog provider setup", evidenceRefs };
   }
@@ -223,21 +221,20 @@ export function localManifestCatalogHealth(state, evidenceRefs) {
   return {
     ...configFields,
     status: "configured",
-    gate: material?.manifestPath ? "vault-backed catalog provider setup" : "IOI_MODEL_CATALOG_MANIFEST_PATH",
+    gate: "IOI_MODEL_CATALOG_MANIFEST_PATH",
     manifestPathHash: stableHash(manifestPath),
     materialConfigured: true,
-    runtimeMaterialStatus: material?.manifestPath ? material.runtimeMaterialStatus ?? "bound_runtime_session" : "env_gate",
-    materialVaultRefHash: material?.materialVaultRefHash ?? configFields.materialVaultRefHash,
-    vaultMaterialSource: material?.materialSource ?? configFields.vaultMaterialSource,
+    runtimeMaterialStatus: "env_gate",
+    materialVaultRefHash: configFields.materialVaultRefHash,
+    vaultMaterialSource: configFields.vaultMaterialSource,
     evidenceRefs,
   };
 }
 
 export function customHttpCatalogHealth(state, evidenceRefs) {
   const config = state?.catalogProviderConfig?.("catalog.custom_http") ?? null;
-  const material = state?.catalogProviderRuntimeMaterial?.("catalog.custom_http") ?? null;
   const baseUrl = customHttpCatalogBaseUrl(state);
-  const configFields = catalogProviderConfigHealthFields("catalog.custom_http", config, material);
+  const configFields = catalogProviderConfigHealthFields("catalog.custom_http", config, null);
   if (config?.enabled === false) {
     return { ...configFields, status: "disabled", gate: "catalog provider setup", evidenceRefs };
   }
@@ -252,12 +249,12 @@ export function customHttpCatalogHealth(state, evidenceRefs) {
   return {
     ...configFields,
     status: "configured",
-    gate: material?.baseUrl ? "vault-backed catalog provider setup" : "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
+    gate: "IOI_MODEL_CATALOG_CUSTOM_BASE_URL",
     baseUrlHash: stableHash(baseUrl),
     materialConfigured: true,
-    runtimeMaterialStatus: material?.baseUrl ? material.runtimeMaterialStatus ?? "bound_runtime_session" : "env_gate",
-    materialVaultRefHash: material?.materialVaultRefHash ?? configFields.materialVaultRefHash,
-    vaultMaterialSource: material?.materialSource ?? configFields.vaultMaterialSource,
+    runtimeMaterialStatus: "env_gate",
+    materialVaultRefHash: configFields.materialVaultRefHash,
+    vaultMaterialSource: configFields.vaultMaterialSource,
     evidenceRefs,
   };
 }

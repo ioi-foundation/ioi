@@ -1506,6 +1506,19 @@ normalization, provider iteration, entry enrichment, result aggregation, or
 daemon-core catalog search/projection APIs still need to own the request before
 catalog search reaches terminal substrate unification.
 
+Slice 843 retired cached catalog-provider runtime-material readback from the JS
+catalog-provider control surface. `catalogProviderRuntimeMaterial()` now fails
+closed with `model_mount_catalog_provider_control_rust_core_required` even when
+`catalogProviderRuntimeMaterials` already contains a bound, missing, or failed
+runtime-material projection, so local JS cache entries can no longer stand in
+for Rust daemon-core wallet/cTEE custody projection. Catalog-provider port
+health helpers also no longer call `state.catalogProviderRuntimeMaterial()` for
+local-manifest, Hugging Face-compatible, or custom HTTP catalog provider health;
+they may report only env-gated metadata until direct Rust daemon-core catalog
+provider projection owns admitted provider material. This keeps the current
+bridge/facade path explicitly non-terminal and prevents context compaction from
+encoding cached JS material as the long-term substrate shape.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

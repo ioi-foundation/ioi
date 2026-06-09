@@ -190,6 +190,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
   const state = createState();
   const providerId = "catalog.custom_http";
   let resolveCount = 0;
+  let sourceMaterialProbeCount = 0;
   state.vault.resolveVaultRef = () => {
     resolveCount += 1;
     throw new Error("catalog source vault resolution should not run in JS");
@@ -209,7 +210,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
       assert.equal(error.details.provider_id, providerId);
       assert.equal(error.details.material_vault_ref_hash, "known-material-hash");
       assert.equal(error.details.material_configured, true);
-      assert.equal(error.details.runtime_material_status, "requires_rust_core_custody");
+      assert.equal(error.details.runtime_material_status, "rust_core_projection_required");
       assert.equal(error.details.rust_core_boundary, "model_mount.catalog_provider_control");
       assert.deepEqual(error.details.evidence_refs, [
         "public_catalog_provider_control_js_facade_retired",
@@ -222,6 +223,7 @@ test("catalog provider runtime material fails closed before JS vault resolution"
     },
   );
   assert.equal(resolveCount, 0);
+  assert.equal(sourceMaterialProbeCount, 0);
   assert.equal(state.catalogProviderRuntimeMaterials.has(providerId), false);
   assert.equal(state.calls.some((call) => call.name === "resolveVaultRef"), false);
   assert.equal(state.calls.some((call) => call.name === "writeMap"), false);
@@ -233,15 +235,38 @@ test("catalog provider runtime material fails closed before JS vault resolution"
   state.catalogProviderRuntimeMaterials.set(providerId, {
     baseUrl: "https://catalog.example.test",
     runtimeMaterialStatus: "bound_runtime_session",
+    materialVaultRefHash: "hash-materialized",
   });
-  const existing = catalogProviderRuntimeMaterial(state, providerId);
-  assert.equal(existing.baseUrl, "https://catalog.example.test");
-  assert.equal(existing.runtimeMaterialStatus, "bound_runtime_session");
+  assert.throws(
+    () =>
+      catalogProviderRuntimeMaterial(state, providerId, {
+        catalogProviderHasSourceMaterial() {
+          sourceMaterialProbeCount += 1;
+          throw new Error("catalogProviderHasSourceMaterial must not preserve JS runtime material");
+        },
+      }),
+    (error) => {
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.catalog_provider_runtime_material.resolve");
+      assert.equal(error.details.provider_id, providerId);
+      assert.equal(error.details.material_vault_ref_hash, "known-material-hash");
+      assert.equal(error.details.material_configured, true);
+      assert.equal(error.details.runtime_material_status, "bound_runtime_session");
+      return true;
+    },
+  );
+  assert.equal(sourceMaterialProbeCount, 0);
 
   state.catalogProviderRuntimeMaterials.set(providerId, {
     runtimeMaterialStatus: "missing_runtime_material",
   });
-  const missing = catalogProviderRuntimeMaterial(state, providerId);
-  assert.equal(missing.runtimeMaterialStatus, "missing_runtime_material");
+  assert.throws(
+    () => catalogProviderRuntimeMaterial(state, providerId),
+    (error) => {
+      assert.equal(error.code, "model_mount_catalog_provider_control_rust_core_required");
+      assert.equal(error.details.runtime_material_status, "missing_runtime_material");
+      return true;
+    },
+  );
   assert.equal(resolveCount, 0);
 });

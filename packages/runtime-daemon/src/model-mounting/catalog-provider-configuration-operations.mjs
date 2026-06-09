@@ -1,13 +1,8 @@
 import {
   MODEL_CATALOG_CONFIGURABLE_PROVIDER_IDS,
   assertConfigurableCatalogProvider,
-  catalogProviderHasSourceMaterial,
-  catalogProviderMaterialVaultRef,
   throwCatalogProviderControlRustCoreRequired,
 } from "./catalog-provider-config.mjs";
-import {
-  stableHash,
-} from "./io.mjs";
 
 export function listCatalogProviderConfigs(state, deps = {}) {
   void state;
@@ -49,29 +44,21 @@ export function catalogProviderConfig(state, providerId) {
 }
 
 export function catalogProviderRuntimeMaterial(state, providerId, deps = {}) {
-  const {
-    catalogProviderHasSourceMaterial: catalogProviderHasSourceMaterialDep = catalogProviderHasSourceMaterial,
-    catalogProviderMaterialVaultRef: catalogProviderMaterialVaultRefDep = catalogProviderMaterialVaultRef,
-    stableHash: stableHashDep = stableHash,
-  } = deps;
   const existing = state.catalogProviderRuntimeMaterials.get(providerId) ?? null;
-  if (catalogProviderHasSourceMaterialDep(existing)) return existing;
-  if (
-    existing?.runtimeMaterialStatus === "missing_runtime_material" ||
-    existing?.runtimeMaterialStatus === "vault_material_unavailable"
-  ) {
-    return existing;
-  }
   const config = state.catalogProviderConfigs.get(providerId) ?? null;
-  if (!config?.materialConfigured && !config?.materialVaultRefHash) return existing;
-  const vaultRef = catalogProviderMaterialVaultRefDep(providerId);
   throwCatalogProviderControlRustCoreRequired(
     "model_mount.catalog_provider_runtime_material.resolve",
     {
       provider_id: providerId,
-      material_vault_ref_hash: config.materialVaultRefHash ?? stableHashDep(vaultRef),
-      material_configured: Boolean(config.materialConfigured || config.materialVaultRefHash),
-      runtime_material_status: existing?.runtimeMaterialStatus ?? "requires_rust_core_custody",
+      material_vault_ref_hash: config?.materialVaultRefHash ?? existing?.materialVaultRefHash ?? null,
+      material_configured: Boolean(
+        config?.materialConfigured ||
+          config?.materialVaultRefHash ||
+          existing?.manifestPath ||
+          existing?.baseUrl ||
+          existing?.materialVaultRefHash,
+      ),
+      runtime_material_status: existing?.runtimeMaterialStatus ?? "rust_core_projection_required",
     },
     deps,
   );

@@ -17319,7 +17319,7 @@ pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 841 is now satisfied.
 
-## Implementation Slice Evidence: 842
+## Compacted Implementation Slice Evidence: 842
 
 Slice 842 retired stale public catalog-search orchestration helper injection
 from the mounted model_mount facade. `catalogSearch()` already fails closed with
@@ -17343,7 +17343,37 @@ truth, command-transport replacement, catalog-provider transport facades, and
 provider lifecycle/read adapters still remain before this surface reaches the
 pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 842 after the next direct
+Scheduled matrix-compaction obligation from Slice 842 is now satisfied.
+
+## Implementation Slice Evidence: 843
+
+Slice 843 retired cached catalog-provider runtime-material readback from the JS
+catalog-provider control surface. `catalogProviderRuntimeMaterial()` now fails
+closed with `model_mount_catalog_provider_control_rust_core_required` at
+`model_mount.catalog_provider_runtime_material.resolve` even when
+`state.catalogProviderRuntimeMaterials` already contains a bound, missing, or
+failed runtime-material projection. The operation no longer imports or calls
+source-material preservation helpers and cannot return cached JS runtime
+material as custody/projection truth. Catalog-provider port health helpers for
+local-manifest, Hugging Face-compatible, and custom HTTP providers also no
+longer call `state.catalogProviderRuntimeMaterial()`; focused tests install
+poisonous runtime-material accessors to prove port health remains env/config
+metadata only until direct Rust daemon-core catalog-provider projection owns
+admitted material.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` | passed |
+
+This still does not claim terminal catalog-provider migration: direct Rust
+daemon-core catalog-provider projection/control APIs, wallet/cTEE custody,
+Agentgres-backed provider material truth, command-transport replacement, and
+local map/projection materialization retirement still remain before this
+surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 843 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls,
 catalog/provider transport facades, provider lifecycle/read adapters, local
