@@ -1,17 +1,25 @@
-import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
-import {
-  chatCompletionRequestBody,
-  estimateTokens,
-  normalizeUsage,
-  outputTextFromChat,
-  outputTextFromResponse,
-} from "./provider-protocol.mjs";
-import {
-  fetchProviderJson,
-  fetchProviderStream,
-  providerHttpError,
-} from "./provider-transport.mjs";
-import { safeId, stableHash } from "./io.mjs";
+import { fetchProviderJson } from "./provider-transport.mjs";
+import { runtimeError, safeId } from "./io.mjs";
+
+export function retiredJsProviderInvocationError(provider = {}, { label = "openai_compatible", stream = false } = {}) {
+  return runtimeError({
+    status: 501,
+    code: "model_mount_provider_js_invocation_retired",
+    message: "Provider invocation must execute through Rust model_mount.",
+    details: {
+      provider_id: provider.id ?? null,
+      provider_kind: provider.kind ?? null,
+      provider_driver: provider.driver ?? label,
+      stream,
+      rust_core_boundary: "model_mount.provider_invocation",
+      evidence_refs: [
+        "model_mount_provider_js_invocation_retired",
+        "rust_daemon_core_provider_invocation_required",
+        "agentgres_provider_execution_truth_required",
+      ],
+    },
+  });
+}
 
 export class OpenAICompatibleModelProviderDriver {
   constructor({ label = "openai_compatible" } = {}) {
@@ -65,111 +73,14 @@ export class OpenAICompatibleModelProviderDriver {
   }
 
   supportsStream(kind) {
-    return kind === "chat.completions" || kind === "chat" || kind === "responses";
+    return false;
   }
 
-  async streamInvoke({ state, provider, endpoint, kind, body }) {
-    if (!this.supportsStream(kind)) return null;
-    if (kind === "responses") {
-      const responseBody = { ...body, model: body.model ?? endpoint.modelId, stream: true };
-      const result = await fetchProviderStream(provider, "/responses", {
-        method: "POST",
-        body: responseBody,
-        state,
-      });
-      return {
-        stream: result.stream,
-        abort: result.abort,
-        status: result.status,
-        providerResponseKind: "responses.stream",
-        backend: endpoint.apiFormat,
-        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-        authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
-        providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
-        providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
-        backendEvidenceRefs: [`${this.label}_responses_provider_native_stream`],
-      };
-    }
-    const requestBody = chatCompletionRequestBody({ ...body, stream: true }, endpoint.modelId);
-    const result = await fetchProviderStream(provider, "/chat/completions", {
-      method: "POST",
-      body: requestBody,
-      state,
-    });
-    return {
-      stream: result.stream,
-      abort: result.abort,
-      status: result.status,
-      providerResponseKind: "chat.completions.stream",
-      backend: endpoint.apiFormat,
-      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-      authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
-      providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
-      providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
-      backendEvidenceRefs: [`${this.label}_provider_native_stream`],
-    };
+  async streamInvoke({ provider } = {}) {
+    throw retiredJsProviderInvocationError(provider, { label: this.label, stream: true });
   }
 
-  async invoke({ state, provider, endpoint, kind, body, input }) {
-    if (kind === "embeddings") {
-      const requestBody = { ...body, model: body.model ?? endpoint.modelId };
-      const result = await fetchProviderJson(provider, "/embeddings", { method: "POST", body: requestBody, state });
-      const outputText = `embedding:${endpoint.modelId}:${stableHash(result.body?.data ?? input).slice(0, 12)}`;
-      return {
-        outputText,
-        tokenCount: normalizeUsage(result.body?.usage, estimateTokens(input, outputText)),
-        providerResponse: result.body,
-        providerResponseKind: "embeddings",
-        backend: endpoint.apiFormat,
-        backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-        authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
-        providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
-        providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
-      };
-    }
-
-    if (kind === "responses") {
-      const responseBody = { ...body, model: body.model ?? endpoint.modelId };
-      const result = await fetchProviderJson(provider, "/responses", {
-        method: "POST",
-        body: responseBody,
-        tolerateHttpError: true,
-        state,
-      });
-      if (result.ok) {
-        const outputText = outputTextFromResponse(result.body);
-        return {
-          outputText,
-          tokenCount: normalizeUsage(result.body?.usage, estimateTokens(input, outputText)),
-          providerResponse: result.body,
-          providerResponseKind: "responses",
-          backend: endpoint.apiFormat,
-          backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-          authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
-          providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
-          providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
-        };
-      }
-      throw providerHttpError(provider, "OpenAI-compatible responses call failed.", result);
-    }
-
-    const requestBody = chatCompletionRequestBody(body, endpoint.modelId);
-    const result = await fetchProviderJson(provider, "/chat/completions", {
-      method: "POST",
-      body: requestBody,
-      state,
-    });
-    const outputText = outputTextFromChat(result.body);
-    return {
-      outputText,
-      tokenCount: normalizeUsage(result.body?.usage, estimateTokens(input, outputText)),
-      providerResponse: result.body,
-      providerResponseKind: "chat.completions",
-      backend: endpoint.apiFormat,
-      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-      authVaultRefHash: result.authEvidence?.vaultRefHash ?? null,
-      providerAuthEvidenceRefs: result.authEvidence?.evidenceRefs ?? [],
-      providerAuthHeaderNames: result.authEvidence?.headerNames ?? [],
-    };
+  async invoke({ provider } = {}) {
+    throw retiredJsProviderInvocationError(provider, { label: this.label, stream: false });
   }
 }

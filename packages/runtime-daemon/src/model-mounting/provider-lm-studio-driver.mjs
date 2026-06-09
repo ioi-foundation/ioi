@@ -10,7 +10,10 @@ import {
 import { providerCommandError } from "./provider-transport.mjs";
 import { truncate } from "./provider-protocol.mjs";
 import { isExecutable, runtimeError, stableHash } from "./io.mjs";
-import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
+import {
+  OpenAICompatibleModelProviderDriver,
+  retiredJsProviderInvocationError,
+} from "./provider-openai-compatible-driver.mjs";
 
 export class LmStudioModelProviderDriver {
   constructor({ state }) {
@@ -117,26 +120,15 @@ export class LmStudioModelProviderDriver {
   }
 
   async invoke(args) {
-    const result = await this.openAi.invoke({ ...args, providerLabel: "lm_studio" });
-    return { ...result, backend: "lm_studio", backendId: args.endpoint?.backendId ?? "backend.lmstudio" };
+    throw retiredJsProviderInvocationError(args.provider, { label: "lm_studio", stream: false });
   }
 
   supportsStream(kind) {
-    return this.openAi.supportsStream(kind);
+    return false;
   }
 
   async streamInvoke(args) {
-    const result = await this.openAi.streamInvoke({ ...args, providerLabel: "lm_studio" });
-    if (!result) return null;
-    return {
-      ...result,
-      backend: "lm_studio",
-      backendId: args.endpoint?.backendId ?? "backend.lmstudio",
-      backendEvidenceRefs: [
-        "lm_studio_provider_native_stream",
-        ...(result.backendEvidenceRefs ?? []),
-      ],
-    };
+    throw retiredJsProviderInvocationError(args.provider, { label: "lm_studio", stream: true });
   }
 
   lmsPath(provider) {

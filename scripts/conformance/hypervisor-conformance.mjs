@@ -622,6 +622,9 @@ function runDocs() {
       /Slice 822 moved the provider-result backend invariant into the Rust\s+`model_mount` core/.test(guide) &&
       /`ModelMountProviderResultAdmissionRequest::validate\(\)` no\s+longer accepts `js_provider_driver_observation`/.test(guide) &&
       /`rust_model_mount_provider_result_backend_bound` evidence/.test(guide) &&
+      /Slice 823 retired the hosted\/OpenAI-compatible JS provider invocation and\s+stream-invocation bodies/.test(guide) &&
+      /`model_mount_provider_js_invocation_retired`/.test(guide) &&
+      /before backend-process staging or public-CLI transport/.test(guide) &&
       /Slice 793 moved canonical model_mount projection persistence behind Rust\s+projection-plan evidence/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 793/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 794/.test(matrix) &&
@@ -693,11 +696,16 @@ function runDocs() {
       /`modelMountProviderResultAdmissionRequestForExecution\(\)` now\s+derives the expected Rust provider invocation backend/.test(matrix) &&
       /`model_mount_provider_result_rust_backend_required`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 821 is now satisfied/.test(matrix) &&
-      /Implementation Slice Evidence: 822/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 822/.test(matrix) &&
       /Slice 822 moved the provider-result backend invariant into Rust\s+`model_mount`\s+core validation/.test(matrix) &&
       /`rust_model_mount_provider_result_backend_bound` evidence/.test(matrix) &&
       /`UnsupportedProviderResultBackend`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 822/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 822 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 823/.test(matrix) &&
+      /Slice 823 retired hosted\/OpenAI-compatible JS provider invocation/.test(matrix) &&
+      /`model_mount_provider_js_invocation_retired`/.test(matrix) &&
+      /before backend-process staging or public-CLI transport/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 823/.test(matrix) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
         guide,
       ) &&
@@ -2257,6 +2265,9 @@ function runBridge() {
     /(?:node:child_process|node:fs|node:path|node:crypto|computerUseProviderForLane|computerUseProviderRegistryReport|computerUseThreadToolNameForProvider)/;
   const openAiCompatibleDriver = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs")
+    : "";
+  const openAiCompatibleDriverTest = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs")
     : "";
   const providerLocalDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
@@ -9478,6 +9489,22 @@ function runBridge() {
       /model_mount_provider_invocation_js_false_predicate_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_js_observation_retired/.test(modelInvocationOps) &&
       /model_mount_provider_result_rust_backend_required/.test(modelInvocationOps) &&
+      /model_mount_provider_js_invocation_retired/.test(openAiCompatibleProviderDrivers) &&
+      /retiredJsProviderInvocationError/.test(openAiCompatibleDriver) &&
+      !/fetchProviderStream/.test(openAiCompatibleDriver) &&
+      !/chatCompletionRequestBody/.test(openAiCompatibleDriver) &&
+      !/outputTextFromChat/.test(openAiCompatibleDriver) &&
+      !/outputTextFromResponse/.test(openAiCompatibleDriver) &&
+      !/providerHttpError/.test(openAiCompatibleDriver) &&
+      !/this\.openAi\.(?:invoke|streamInvoke)/.test(openAiCompatibleProviderDrivers) &&
+      !/reason:\s*"(?:vllm|llama_cpp)_model_(?:invoke|stream)"/.test(openAiBackendDrivers) &&
+      /invocation fails closed before HTTP request shaping/.test(openAiCompatibleDriverTest) &&
+      /fails closed for retired JS invocation before process staging/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs"),
+      ) &&
+      /fails closed for retired JS invocation before CLI transport/.test(
+        read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs"),
+      ) &&
       /providerResult\.execution_backend/.test(modelInvocationOps) &&
       !/providerResult\.executionBackend/.test(modelInvocationOps) &&
       !/rejectUnmigratedProviderInvocationExecution/.test(modelInvocationOps) &&
@@ -9519,7 +9546,7 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-provider-responses-chat-fallback-retired",
-    /\/responses/.test(openAiCompatibleDriver) &&
+    /model_mount_provider_js_invocation_retired/.test(openAiCompatibleDriver) &&
       !/responsesFallbackStatus/.test(openAiCompatibleDriver) &&
       !/error\?\.details\?\.httpStatus/.test(openAiCompatibleDriver) &&
       !/allowResponsesFallback/.test(openAiCompatibleProviderDrivers) &&

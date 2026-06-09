@@ -97,6 +97,36 @@ test("vLLM backend driver promotes configured backend and records supervised loa
   assert.equal(unload.process.reason, "vllm_model_unload");
 });
 
+test("vLLM backend driver fails closed for retired JS invocation before process staging", async () => {
+  const state = fakeState({
+    "backend.vllm": {
+      id: "backend.vllm",
+      binaryPath: "/usr/bin/vllm",
+      baseUrl: "http://127.0.0.1:8000/v1",
+    },
+  });
+  const provider = { id: "provider.vllm", kind: "vllm", status: "blocked" };
+  const endpoint = { id: "endpoint.vllm", modelId: "repo/model", backendId: "backend.vllm" };
+  const driver = new VllmModelProviderDriver({ state });
+
+  await assert.rejects(
+    () => driver.invoke({ state, provider, endpoint, body: { input: "hello" }, input: "hello" }),
+    (error) =>
+      error.code === "model_mount_provider_js_invocation_retired" &&
+      error.details.provider_kind === "vllm" &&
+      error.details.stream === false,
+  );
+  await assert.rejects(
+    () => driver.streamInvoke({ state, provider, endpoint, body: { input: "hello" } }),
+    (error) =>
+      error.code === "model_mount_provider_js_invocation_retired" &&
+      error.details.provider_kind === "vllm" &&
+      error.details.stream === true,
+  );
+  assert.equal(driver.supportsStream("responses"), false);
+  assert.deepEqual(state.processes, []);
+});
+
 test("llama.cpp backend driver records supervised load/unload evidence", async () => {
   const state = fakeState({
     "backend.llama-cpp": {
@@ -136,4 +166,34 @@ test("llama.cpp backend driver records supervised load/unload evidence", async (
   assert.equal(unload.backendId, "backend.llama-cpp");
   assert.ok(unload.evidenceRefs.includes("clean_backend_stop"));
   assert.equal(unload.process.reason, "llama_cpp_model_unload");
+});
+
+test("llama.cpp backend driver fails closed for retired JS invocation before process staging", async () => {
+  const state = fakeState({
+    "backend.llama-cpp": {
+      id: "backend.llama-cpp",
+      binaryPath: "/usr/bin/llama-server",
+      baseUrl: "http://127.0.0.1:8080/v1",
+    },
+  });
+  const provider = { id: "provider.llama-cpp", kind: "llama_cpp", status: "configured" };
+  const endpoint = { id: "endpoint.llama", modelId: "repo/gguf", backendId: "backend.llama-cpp" };
+  const driver = new LlamaCppModelProviderDriver({ state });
+
+  await assert.rejects(
+    () => driver.invoke({ state, provider, endpoint, body: { input: "hello" }, input: "hello" }),
+    (error) =>
+      error.code === "model_mount_provider_js_invocation_retired" &&
+      error.details.provider_kind === "llama_cpp" &&
+      error.details.stream === false,
+  );
+  await assert.rejects(
+    () => driver.streamInvoke({ state, provider, endpoint, body: { input: "hello" } }),
+    (error) =>
+      error.code === "model_mount_provider_js_invocation_retired" &&
+      error.details.provider_kind === "llama_cpp" &&
+      error.details.stream === true,
+  );
+  assert.equal(driver.supportsStream("responses"), false);
+  assert.deepEqual(state.processes, []);
 });

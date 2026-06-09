@@ -16760,7 +16760,7 @@ before this surface reaches the pure Rust substrate target.
 
 Scheduled matrix-compaction obligation from Slice 821 is now satisfied.
 
-## Implementation Slice Evidence: 822
+## Compacted Implementation Slice Evidence: 822
 
 Slice 822 moved the provider-result backend invariant into Rust `model_mount`
 core validation. `ModelMountProviderResultAdmissionRequest::validate()` now
@@ -16776,15 +16776,39 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `cargo test -p ioi-services agentic::runtime::kernel::model_mount --lib` | passed |
-| `cargo test -p ioi-node --bin ioi-step-module-bridge bridge_admits_model_mount_provider_result_through_rust_core` | passed |
+| Rust model_mount core plus bridge provider-result focused tests and full `hypervisor-conformance` | passed before Slice 823 hosted/OpenAI-compatible JS provider invocation retirement |
 
 This still does not claim terminal provider migration: direct Rust daemon-core
 hosted/provider transports, provider request shaping, projection,
 Agentgres-backed read APIs, and command-transport retirement remain required
 before this surface reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 822 after the next direct
+Scheduled matrix-compaction obligation from Slice 822 is now satisfied.
+
+## Implementation Slice Evidence: 823
+
+Slice 823 retired hosted/OpenAI-compatible JS provider invocation and
+stream-invocation bodies. `OpenAICompatibleModelProviderDriver.invoke()` and
+`.streamInvoke()` now fail closed with
+`model_mount_provider_js_invocation_retired` before request-body shaping,
+provider HTTP calls, token/result normalization, or provider-result assembly.
+The vLLM, llama.cpp, and LM Studio wrappers also fail closed at their own
+invocation boundaries before backend-process staging or public-CLI transport.
+Catalog/health/lifecycle probes remain non-authoritative support surfaces, but
+no hosted/OpenAI-compatible JS provider driver remains as an execution fallback.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+hosted/provider transports, provider request shaping, projection,
+Agentgres-backed read APIs, and command-transport retirement remain required
+before this surface reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 823 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, JS wrapper calls, local
 map/projection materialization, and Rust daemon-core provider read/execution

@@ -1260,6 +1260,19 @@ terminal provider migration: direct Rust daemon-core hosted/provider transports,
 provider request shaping, projection, Agentgres-backed reads, and
 command-transport retirement remain required.
 
+Slice 823 retired the hosted/OpenAI-compatible JS provider invocation and
+stream-invocation bodies. `OpenAICompatibleModelProviderDriver.invoke()` and
+`.streamInvoke()` now fail closed with
+`model_mount_provider_js_invocation_retired` before request-body shaping,
+provider HTTP calls, token/result normalization, or provider-result assembly.
+The vLLM, llama.cpp, and LM Studio wrappers now fail closed at their own
+invocation boundaries before backend-process staging or public-CLI transport.
+Catalog/health/lifecycle probes remain non-authoritative support surfaces, but
+no hosted/OpenAI-compatible JS provider driver remains as an execution fallback.
+This still does not claim terminal provider migration: direct Rust daemon-core
+hosted/provider transports, provider request shaping, projection,
+Agentgres-backed reads, and command-transport retirement remain required.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -1,7 +1,10 @@
 import { defaultBackendForProvider } from "./provider-driver-helpers.mjs";
 import { canonicalLoadOptionsInput, normalizeLoadOptions } from "./load-policy.mjs";
 import { normalizeScopes, stableHash } from "./io.mjs";
-import { OpenAICompatibleModelProviderDriver } from "./provider-openai-compatible-driver.mjs";
+import {
+  OpenAICompatibleModelProviderDriver,
+  retiredJsProviderInvocationError,
+} from "./provider-openai-compatible-driver.mjs";
 
 export class VllmModelProviderDriver {
   constructor({ state }) {
@@ -96,62 +99,17 @@ export class VllmModelProviderDriver {
   }
 
   supportsStream(kind) {
-    return this.openAi.supportsStream(kind);
+    return false;
   }
 
   async streamInvoke(args) {
     const provider = this.providerWithBackendBaseUrl(args.provider);
-    const backendId = args.endpoint?.backendId ?? defaultBackendForProvider(provider);
-    const backend = args.state.backend(backendId);
-    const processRecord =
-      provider.id === "provider.vllm" && backend.binaryPath
-        ? args.state.ensureBackendProcess(backendId, {
-            endpoint: args.endpoint,
-            loadOptions: args.instance?.loadOptions ?? {},
-            reason: "vllm_model_stream",
-          })
-        : null;
-    const processSnapshot = args.state.backendProcessSnapshot(processRecord);
-    const result = await this.openAi.streamInvoke({ ...args, provider });
-    if (!result) return null;
-    return {
-      ...result,
-      backend: "vllm",
-      backendId,
-      backendProcess: processSnapshot,
-      backendEvidenceRefs: [
-        "vllm_openai_compatible_server",
-        ...(processRecord ? ["vllm_process_supervisor", ...normalizeScopes(processSnapshot.evidenceRefs, [])] : []),
-        ...(result.backendEvidenceRefs ?? []),
-      ],
-    };
+    throw retiredJsProviderInvocationError(provider, { label: "vllm", stream: true });
   }
 
   async invoke(args) {
     const provider = this.providerWithBackendBaseUrl(args.provider);
-    const backendId = args.endpoint?.backendId ?? defaultBackendForProvider(provider);
-    const backend = args.state.backend(backendId);
-    const processRecord =
-      provider.id === "provider.vllm" && backend.binaryPath
-        ? args.state.ensureBackendProcess(backendId, {
-            endpoint: args.endpoint,
-            loadOptions: args.instance?.loadOptions ?? {},
-            reason: "vllm_model_invoke",
-          })
-        : null;
-    const processSnapshot = args.state.backendProcessSnapshot(processRecord);
-    const result = await this.openAi.invoke({ ...args, provider });
-    return {
-      ...result,
-      backend: "vllm",
-      backendId,
-      backendProcess: processSnapshot,
-      backendEvidenceRefs: [
-        "vllm_openai_compatible_server",
-        ...(processRecord ? ["vllm_process_supervisor", ...normalizeScopes(processSnapshot.evidenceRefs, [])] : []),
-        ...(result.backendEvidenceRefs ?? []),
-      ],
-    };
+    throw retiredJsProviderInvocationError(provider, { label: "vllm", stream: false });
   }
 }
 
@@ -254,55 +212,16 @@ export class LlamaCppModelProviderDriver {
   }
 
   supportsStream(kind) {
-    return this.openAi.supportsStream(kind);
+    return false;
   }
 
   async streamInvoke(args) {
     const provider = this.providerWithBackendBaseUrl(args.provider);
-    const backendId = args.endpoint?.backendId ?? defaultBackendForProvider(provider);
-    const processRecord = args.state.ensureBackendProcess(backendId, {
-      endpoint: args.endpoint,
-      loadOptions: args.instance?.loadOptions ?? {},
-      reason: "llama_cpp_model_stream",
-    });
-    const processSnapshot = args.state.backendProcessSnapshot(processRecord);
-    const result = await this.openAi.streamInvoke({ ...args, provider });
-    if (!result) return null;
-    return {
-      ...result,
-      backend: "llama_cpp",
-      backendId,
-      backendProcess: processSnapshot,
-      backendEvidenceRefs: [
-        "llama_cpp_openai_compatible_server",
-        "llama_cpp_process_supervisor",
-        ...normalizeScopes(processSnapshot.evidenceRefs, []),
-        ...(result.backendEvidenceRefs ?? []),
-      ],
-    };
+    throw retiredJsProviderInvocationError(provider, { label: "llama_cpp", stream: true });
   }
 
   async invoke(args) {
     const provider = this.providerWithBackendBaseUrl(args.provider);
-    const backendId = args.endpoint?.backendId ?? defaultBackendForProvider(provider);
-    const processRecord = args.state.ensureBackendProcess(backendId, {
-      endpoint: args.endpoint,
-      loadOptions: args.instance?.loadOptions ?? {},
-      reason: "llama_cpp_model_invoke",
-    });
-    const processSnapshot = args.state.backendProcessSnapshot(processRecord);
-    const result = await this.openAi.invoke({ ...args, provider });
-    return {
-      ...result,
-      backend: "llama_cpp",
-      backendId,
-      backendProcess: processSnapshot,
-      backendEvidenceRefs: [
-        "llama_cpp_openai_compatible_server",
-        "llama_cpp_process_supervisor",
-        ...normalizeScopes(processSnapshot.evidenceRefs, []),
-        ...(result.backendEvidenceRefs ?? []),
-      ],
-    };
+    throw retiredJsProviderInvocationError(provider, { label: "llama_cpp", stream: false });
   }
 }

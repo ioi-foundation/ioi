@@ -114,3 +114,31 @@ test("LM Studio driver uses public CLI path for health and lifecycle commands", 
     assert.equal(stopped.status, "stopped");
   });
 });
+
+test("LM Studio driver fails closed for retired JS invocation before CLI transport", async () => {
+  await withFakeLms(async ({ dir, lmsPath }) => {
+    const driver = new LmStudioModelProviderDriver({ state: fakeState(dir) });
+    const selectedProvider = provider(lmsPath);
+    const endpoint = {
+      id: "endpoint.lmstudio",
+      modelId: "model-a",
+      backendId: "backend.lmstudio",
+    };
+
+    await assert.rejects(
+      () => driver.invoke({ provider: selectedProvider, endpoint, body: { input: "hello" }, input: "hello" }),
+      (error) =>
+        error.code === "model_mount_provider_js_invocation_retired" &&
+        error.details.provider_kind === "lm_studio" &&
+        error.details.stream === false,
+    );
+    await assert.rejects(
+      () => driver.streamInvoke({ provider: selectedProvider, endpoint, body: { input: "hello" } }),
+      (error) =>
+        error.code === "model_mount_provider_js_invocation_retired" &&
+        error.details.provider_kind === "lm_studio" &&
+        error.details.stream === true,
+    );
+    assert.equal(driver.supportsStream("responses"), false);
+  });
+});

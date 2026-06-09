@@ -70,7 +70,7 @@ function endpoint() {
   };
 }
 
-test("OpenAI-compatible driver lists and invokes chat completion models", async () => {
+test("OpenAI-compatible driver lists models without JS provider invocation", async () => {
   await withOpenAiCompatibleServer(async ({ baseUrl, requests }) => {
     const driver = new OpenAICompatibleModelProviderDriver({ label: "compat" });
     const models = await driver.listModels({ provider: provider(baseUrl), state: null });
@@ -78,26 +78,11 @@ test("OpenAI-compatible driver lists and invokes chat completion models", async 
     assert.equal(models.length, 1);
     assert.equal(models[0].id, "provider.compat.chat.a");
     assert.equal(models[0].family, "compat");
-
-    const result = await driver.invoke({
-      provider: provider(baseUrl),
-      endpoint: endpoint(),
-      kind: "chat.completions",
-      body: { messages: [{ role: "user", content: "hello" }] },
-      input: "hello",
-      state: null,
-    });
-
-    assert.equal(result.outputText, "hello from compatible chat");
-    assert.equal(result.providerResponseKind, "chat.completions");
-    assert.equal(result.backendId, "backend.openai-compatible");
-    assert.equal(result.tokenCount.totalTokens ?? result.tokenCount.total_tokens, 7);
     assert.ok(requests.some((request) => request.url === "/models"));
-    assert.ok(requests.some((request) => request.url === "/chat/completions"));
   });
 });
 
-test("OpenAI-compatible driver fails closed when responses endpoint is unavailable", async () => {
+test("OpenAI-compatible driver invocation fails closed before HTTP request shaping", async () => {
   await withOpenAiCompatibleServer(async ({ baseUrl, requests }) => {
     const driver = new OpenAICompatibleModelProviderDriver({ label: "compat" });
     await assert.rejects(
@@ -110,14 +95,18 @@ test("OpenAI-compatible driver fails closed when responses endpoint is unavailab
           input: "hello",
           state: null,
         }),
-      (error) => error.code === "external_blocker",
+      (error) =>
+        error.code === "model_mount_provider_js_invocation_retired" &&
+        error.status === 501 &&
+        error.details.provider_kind === "openai_compatible" &&
+        error.details.stream === false,
     );
 
-    assert.deepEqual(requests.map((request) => request.url), ["/responses"]);
+    assert.deepEqual(requests.map((request) => request.url), []);
   });
 });
 
-test("OpenAI-compatible driver stream responses fail closed without chat fallback", async () => {
+test("OpenAI-compatible driver stream invocation fails closed before HTTP request shaping", async () => {
   await withOpenAiCompatibleServer(async ({ baseUrl, requests }) => {
     const driver = new OpenAICompatibleModelProviderDriver({ label: "compat" });
     await assert.rejects(
@@ -130,11 +119,13 @@ test("OpenAI-compatible driver stream responses fail closed without chat fallbac
           state: null,
         }),
       (error) =>
-        error.code === "external_blocker" &&
-        error.details.http_status === 404 &&
-        Object.hasOwn(error.details, "httpStatus") === false,
+        error.code === "model_mount_provider_js_invocation_retired" &&
+        error.status === 501 &&
+        error.details.provider_kind === "openai_compatible" &&
+        error.details.stream === true,
     );
 
-    assert.deepEqual(requests.map((request) => request.url), ["/responses"]);
+    assert.equal(driver.supportsStream("responses"), false);
+    assert.deepEqual(requests.map((request) => request.url), []);
   });
 });
