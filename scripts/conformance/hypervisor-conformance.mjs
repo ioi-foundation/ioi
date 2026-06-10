@@ -313,7 +313,7 @@ function runDocs() {
   assertCheck(
     result,
     "guide-bridge-scaffolding-not-terminal",
-    /stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
+    (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
       guide,
     ) &&
       (/`ioi-step-module-bridge` command path is migration scaffolding/.test(guide) ||
@@ -1656,63 +1656,17 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /This pass compacted Slice 746\s+model-mount conversation-state write and stream-completion finalization\s+facade-retirement evidence/.test(
-        matrix,
-      ) &&
-      /then compacted Slice 747 model tokenizer\/context-fit\s+facade-retirement evidence/.test(
-        matrix,
-      ) &&
-      /then compacted Slice 748 direct model lifecycle\s+receipt helper facade-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 749 public\s+model invocation facade-retirement evidence/.test(matrix) &&
-      /then compacted Slice 750 runtime\s+model-route selection facade-retirement evidence/.test(matrix) &&
-      /then compacted Slice 751\s+stream-cancel receipt facade-retirement evidence, then compacted Slice 752\s+receipt-gate receipt facade-retirement evidence/.test(matrix) &&
-      /then compacted Slice 753\s+public model invocation dead JS body retirement evidence, then compacted Slice\s+754 model invocation migration-helper compatibility alias retirement evidence/.test(matrix) &&
-      /then\s+compacted Slice 756 backend-process plan and provider load-option compatibility\s+alias-retirement evidence from the Rust model_mount process-plan boundary/.test(matrix) &&
-      /then\s+compacted Slice 757 server-control local cache read-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 758 catalog-provider OAuth callback state\s+alias-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 759 catalog-provider runtime-material read-cache\s+retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 760 catalog download policy request-synonym\s+retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 761 model-mount route-selection policy alias\s+retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 762 catalog-provider config-update helper retirement\s+evidence/.test(matrix) &&
-      /This pass compacted Slice 763 direct conversation-artifact store writer\s+retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 764 direct `AgentMemoryStore` writer and run-memory\s+mutation path retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 765 backend registry local log writer retirement\s+evidence/.test(matrix) &&
-      /This pass compacted Slice 766 stale `ConversationArtifactStore` artifact-state\s+committer injection retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 767 MCP manager\/catalog\/helper config\/source handoff\s+alias-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 768 visual observation artifact materialization path\s+alias fallback metadata retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 769 MCP serve `tools\/call` `params\.args` fallback\s+retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 770 MCP manager `allowedTools` server config\/catalog\s+alias-retirement evidence/.test(
-        matrix,
-      ) &&
-      /This pass compacted Slice 771 MCP manager `allowedResources`\/`allowedPrompts`\s+server config\/catalog alias-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 772 MCP manager transport\/containment alias-retirement\s+evidence/.test(matrix) &&
-      /This pass compacted Slice 773 MCP manager validation `secretRefs`\s+alias-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 774 MCP server validation Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 775 MCP status validation Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 776 MCP status projection Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 777 agent-scoped MCP status Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 778 MCP status catalog-projection Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 779 MCP validation projection Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 780 MCP public catalog Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 781 MCP catalog summary Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 782 MCP helper summary-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 783 MCP helper mutation\/registry-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 784 MCP validation-input Rust-core evidence/.test(matrix) &&
-      /This pass compacted Slice 785 MCP JS validation helper-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 786 memory manager status\/validation Rust-core\s+projection evidence/.test(matrix) &&
-      /This pass compacted Slice 787 memory projection input alias-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 788 memory projection envelope alias-retirement\s+evidence/.test(matrix) &&
-      /This pass compacted Slice 789 SDK memory output alias-retirement evidence/.test(matrix) &&
-      /This pass compacted Slice 790 model-capability protocol output alias-retirement\s+evidence/.test(matrix) &&
-      /This pass compacted Slice 791 route-selection receipt Rust-authoring evidence/.test(matrix) &&
-      /This pass compacted Slice 792 model_mount read-projection Rust-authoring\s+evidence/.test(matrix) &&
-      /Slice 787 retired memory projection input compatibility aliases at the Rust\s+boundary/.test(matrix) &&
-      /Slice 788 retired memory projection envelope identity aliases at the\s+Rust-backed status\/validation wrapper boundary/.test(matrix) &&
-      /Slice 789 retired SDK memory output compatibility aliases for projection, path,\s+record, and policy response contracts/.test(matrix) &&
-      /Slice 790 retired public model-capability protocol output aliases/.test(matrix) &&
-      /Slice 791 moved route-selection receipt authoring to the Rust model_mount\s+route-decision admission boundary/.test(matrix) &&
-      /Slice 792 moved model_mount read-projection authoring to Rust daemon-core\s+projection planning/.test(matrix) &&
-      /Next resume instruction: continue the next Rust-core extraction or\s+facade-retirement implementation slice/.test(matrix) &&
+      /Last matrix compaction pass: 2026-06-10/.test(matrix) &&
+      /Expanded implementation evidence is compacted\s+through Slices 941-969/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
+      /Slices 941-969 are compacted into this preservation summary/.test(matrix) &&
+      /Moved workflow-edit admission-required refusal authoring into `WorkflowEditAdmissionRequiredCore`/.test(matrix) &&
+      /Moved coding-tool budget recovery admission-required refusal authoring into\s+`CodingToolBudgetRecoveryAdmissionRequiredCore`/.test(matrix) &&
+      /Moved diagnostics repair admission-required refusal authoring into\s+`DiagnosticsRepairAdmissionRequiredCore`/.test(matrix) &&
+      /Moved run-cancel admission-required refusal authoring into\s+`RunCancelAdmissionRequiredCore`/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(matrix) &&
+      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam lands/.test(matrix) &&
+      /encoding the command bridge as\s+terminal shape/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
       /catalogProviderConfigUpdate/.test(matrix) &&
@@ -2071,7 +2025,29 @@ function runDocs() {
       /`ModelInvocationControl`/.test(implementationMatrix) &&
       /encoding the command bridge as\s+terminal shape/.test(
         matrix,
-      ),
+      )) ||
+      (/stable daemon-to-kernel protocol surface, not a\s+permanent bridge binary/.test(
+        guide,
+      ) &&
+        /current `ioi-step-module-bridge` command path is migration scaffolding/.test(guide) &&
+        /must\s+not be treated as the terminal substrate/.test(guide) &&
+        /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
+          guide,
+        ) &&
+        /`ioi-step-module-bridge` command path is acceptable only as\s+migration transport/.test(
+          matrix,
+        ) &&
+        /not the terminal architecture/.test(matrix) &&
+        /Bridge scaffolding retirement/.test(matrix) &&
+        /Last matrix compaction pass: 2026-06-10/.test(matrix) &&
+        /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
+        /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(
+          matrix,
+        ) &&
+        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam lands/.test(
+          matrix,
+        ) &&
+        /encoding the command bridge as\s+terminal shape/.test(matrix)),
     [GUIDE, MATRIX],
     "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",
   );
