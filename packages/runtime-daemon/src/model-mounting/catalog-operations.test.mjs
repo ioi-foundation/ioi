@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import { ModelMountingState } from "../model-mounting.mjs";
@@ -55,33 +52,33 @@ function fakeState() {
   };
 }
 
-test("storage summary counts bytes, quota, and orphan model files", () => {
-  const previousQuota = process.env.IOI_MODEL_STORAGE_QUOTA_BYTES;
-  const modelRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-storage-"));
+test("storage summary fails closed before JS filesystem scanning", () => {
   const state = fakeState();
-  state.modelRoot = modelRoot;
-  const knownPath = path.join(modelRoot, "known.gguf");
-  const orphanPath = path.join(modelRoot, "nested", "orphan.gguf");
-  fs.mkdirSync(path.dirname(orphanPath), { recursive: true });
-  fs.writeFileSync(knownPath, "12345");
-  fs.writeFileSync(orphanPath, "1234567890");
-  state.artifacts.set("artifact.known", { id: "artifact.known", artifactPath: knownPath });
-  process.env.IOI_MODEL_STORAGE_QUOTA_BYTES = "12";
-  try {
-    const summary = storageSummary(state);
+  state.modelRoot = "/tmp/ioi-model-storage-fixture";
+  state.artifacts.set("artifact.known", {
+    id: "artifact.known",
+    artifactPath: "/tmp/ioi-model-storage-fixture/known.gguf",
+  });
 
-    assert.equal(summary.rootHash.length, 64);
-    assert.equal(summary.totalBytes, 15);
-    assert.equal(summary.quotaBytes, 12);
-    assert.equal(summary.quotaStatus, "over_quota");
-    assert.equal(summary.fileCount, 2);
-    assert.equal(summary.orphanCount, 1);
-    assert.deepEqual(summary.evidenceRefs, ["model_storage_quota_boundary", "artifact_delete_unload_guard"]);
-  } finally {
-    if (previousQuota === undefined) delete process.env.IOI_MODEL_STORAGE_QUOTA_BYTES;
-    else process.env.IOI_MODEL_STORAGE_QUOTA_BYTES = previousQuota;
-    fs.rmSync(modelRoot, { recursive: true, force: true });
-  }
+  assert.throws(
+    () => storageSummary(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_storage_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.storage.summary");
+      assert.equal(error.details.rust_core_boundary, "model_mount.storage");
+      assert.equal(error.details.model_root_hash.length, 64);
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_model_storage_js_facade_retired",
+        "rust_daemon_core_model_storage_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
+  assert.equal(state.artifacts.has("artifact.known"), true);
 });
 
 test("catalog search fails closed before JS provider orchestration", async () => {

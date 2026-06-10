@@ -2100,6 +2100,16 @@ visual GUI local capture/executor helpers no longer read
 execution are selected only by canonical request fields and fixture payloads,
 so visual GUI test providers cannot be toggled by hidden daemon env selectors
 while computer-use execution continues moving toward Rust daemon-core custody.
+Slice 941 retired JS storage-summary filesystem scanning. Public
+`ModelMountingState.storageSummary()` now fails closed at
+`model_mount.storage.summary` with Rust-core-required evidence instead of
+recursively listing model files, computing quota totals, or classifying
+orphans from JS maps and local filesystem state. `catalog-helpers.mjs` no
+longer exports `listModelFiles()`, `modelFileScore()`, or
+`parseModelQuantization()`; the remaining file scoring and quantization parsing
+are private to local artifact inspection only, so catalog/storage public truth
+cannot re-enter through a reusable JS helper while Rust/Agentgres storage
+projection is still pending.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been
@@ -2365,10 +2375,11 @@ Slice 908 deleted the dormant catalog import materializer helper tail.
 `catalog-helpers.mjs` no longer exports `normalizeImportMode()`,
 `importTargetPath()`, or `materializeImportArtifact()` as a local import
 filesystem execution path. The mounted artifact import facade already fails
-closed at the Rust daemon-core artifact/endpoint boundary, so JS keeps only
-read-only local model file scoring/listing and quantization helpers plus the
-destructive-confirmation alias guard needed by mounted fail-closed storage
-facades.
+closed at the Rust daemon-core artifact/endpoint boundary, and Slice 941 later
+removed the reusable local model file listing/scoring/quantization helper
+exports from `catalog-helpers.mjs`; JS keeps only the destructive-confirmation
+alias guard there while local artifact inspection keeps private file scoring
+for non-authoritative request inspection.
 
 Slice 909 removed the dormant catalog-provider port search surfaces.
 Catalog-provider ports no longer expose `search` closures or retired

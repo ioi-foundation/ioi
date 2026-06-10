@@ -20402,3 +20402,35 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of visual GUI local capture/execution JS
 helpers, command transport, Agentgres-backed replay, and stable protocol APIs
 without encoding fixture env selectors as terminal architecture.
+
+## Implementation Slice Evidence: 941
+
+Slice 941 retired JS storage-summary filesystem scanning. Public
+`ModelMountingState.storageSummary()` now fails closed at
+`model_mount.storage.summary` with `model_mount_storage_rust_core_required`
+instead of recursively listing model files, computing local quota totals, or
+classifying orphan files from JS artifact maps and filesystem state.
+`catalog-helpers.mjs` no longer exports `listModelFiles()`, `modelFileScore()`,
+or `parseModelQuantization()` as reusable catalog/storage helper truth; local
+artifact inspection keeps private file scoring and quantization parsing only
+for non-authoritative request inspection until direct Rust daemon-core storage
+projection owns the public summary path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs` | passed |
+
+This still does not claim terminal model storage migration. Direct Rust
+daemon-core storage summary/projection APIs, Agentgres-backed storage truth,
+receipt/state-root binding, replay, command-transport retirement, and stable
+SDK/IDE/CLI protocol APIs remain before terminal pure Rust substrate
+conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 941 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of storage summary/projection command
+transport, Agentgres-backed storage truth, and stable protocol APIs without
+encoding JS filesystem scanning as terminal architecture.

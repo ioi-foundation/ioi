@@ -12591,7 +12591,7 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs")
     : "";
   const destructiveConfirmationStateBlock =
-    catalogHelpers.match(/export function destructiveConfirmationState[\s\S]*?export function parseModelQuantization/)?.[0] ?? "";
+    catalogHelpers.match(/export function destructiveConfirmationState[\s\S]*?function assertCanonicalDestructiveConfirmationRequestBody/)?.[0] ?? "";
   const catalogDownloadOperationsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs")
     : "";
@@ -12655,6 +12655,8 @@ function runReceipts() {
     modelMountingState.match(/\n\s+deleteModelArtifact\(id, body = \{\}\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const cleanupModelStorageBlock =
     modelMountingState.match(/\n\s+cleanupModelStorage\(body = \{\}\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
+  const storageSummaryBlock =
+    modelMountingState.match(/\n\s+storageSummary\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "";
   const mcpServerReceiptDetailsHelper =
     mcpWorkflowOperations.match(/function mcpServerReceiptDetails\(server\) \{[\s\S]*?\n\}/)?.[0] ?? "";
   const mcpToolReceiptDetailsObject =
@@ -13578,6 +13580,15 @@ function runReceipts() {
       /throwModelStorageRustCoreRequired\("model_mount\.storage\.cleanup"\)/.test(
         modelMountingState,
       ) &&
+      /throwModelStorageRustCoreRequired\(\s*"model_mount\.storage\.summary",\s*\{[\s\S]*?model_root_hash:\s*stableHash\(this\.modelRoot\)/.test(
+        storageSummaryBlock,
+      ) &&
+      !/listModelFiles|fs\.readdirSync|fs\.statSync|orphanCount|quotaBytes|totalBytes/.test(
+        storageSummaryBlock,
+      ) &&
+      !/export function listModelFiles/.test(catalogHelpers) &&
+      !/export function modelFileScore/.test(catalogHelpers) &&
+      !/export function parseModelQuantization/.test(catalogHelpers) &&
       !/state\.lifecycleReceipt\("model_(?:download_canceled|artifact_delete|artifact_delete_dry_run|storage_cleanup)"/.test(storageOperations) &&
       !/commitModelDownloadRecordState/.test(storageOperations) &&
       !/commitModelArtifactRecordState/.test(storageOperations) &&
@@ -13597,6 +13608,10 @@ function runReceipts() {
       /ModelMountingState\.prototype\.deleteModelArtifact\.call/.test(storageOperationsTest) &&
       /ModelMountingState\.prototype\.cleanupModelStorage\.call/.test(storageOperationsTest) &&
       /ModelMountingState\.prototype\.downloadStatus\.call/.test(storageOperationsTest) &&
+      /storage summary fails closed before JS filesystem scanning/.test(catalogOperationsTest) &&
+      /ModelMountingState\.prototype\.storageSummary\.call/.test(catalogOperationsTest) &&
+      /model_mount\.storage\.summary/.test(catalogOperationsTest) &&
+      /model_root_hash/.test(catalogOperationsTest) &&
       /model_mount_storage_rust_core_required/.test(storageOperationsTest) &&
       /model_mount\.download\.cancel/.test(storageOperationsTest) &&
       /model_mount\.artifact\.delete/.test(storageOperationsTest) &&
@@ -13611,9 +13626,11 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(storageOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
-    "Phase 9/11 is pending: model storage mutation must fail closed until Rust daemon-core owns download cancel, artifact delete, cleanup, receipt, record-state, filesystem, and projection semantics",
+    "Phase 9/11 is pending: model storage mutation and summary readback must fail closed until Rust daemon-core owns download cancel, artifact delete, cleanup, summary, receipt, record-state, filesystem, and projection semantics",
   );
   assertCheck(
     result,

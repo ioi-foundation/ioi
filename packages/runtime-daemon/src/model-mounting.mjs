@@ -16,7 +16,6 @@ import {
 } from "./model-mounting/read-projection-facade.mjs";
 import {
   destructiveConfirmationState,
-  listModelFiles,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
   invokeModel as invokeModelState,
@@ -809,21 +808,12 @@ export class ModelMountingState {
   }
 
   storageSummary() {
-    const files = listModelFiles(this.modelRoot);
-    const totalBytes = files.reduce((total, filePath) => total + fs.statSync(filePath).size, 0);
-    const knownPaths = new Set([...this.artifacts.values()].map((artifact) => artifact.artifactPath).filter(Boolean));
-    const orphanCount = files.filter((filePath) => !knownPaths.has(filePath)).length;
-    const quotaBytes = Number(process.env.IOI_MODEL_STORAGE_QUOTA_BYTES ?? 0) || null;
-    return {
-      rootHash: stableHash(this.modelRoot),
-      totalBytes,
-      quotaBytes,
-      quotaStatus: quotaBytes && totalBytes > quotaBytes ? "over_quota" : "ok",
-      fileCount: files.length,
-      orphanCount,
-      destructiveActionsRequireUnload: true,
-      evidenceRefs: ["model_storage_quota_boundary", "artifact_delete_unload_guard"],
-    };
+    throwModelStorageRustCoreRequired(
+      "model_mount.storage.summary",
+      {
+        model_root_hash: stableHash(this.modelRoot),
+      },
+    );
   }
 
   async catalogSearch(query = {}) {
