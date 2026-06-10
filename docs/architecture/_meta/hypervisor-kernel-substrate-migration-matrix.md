@@ -265,7 +265,9 @@ Matrix compaction timing:
   provider-auth header materialization facade deletion.
 - Scheduled matrix-compaction obligation from Slice 918 is now satisfied by the
   provider-protocol fixture/tokenizer compatibility helper deletion.
-- Next scheduled matrix-compaction pass: compact Slice 919 after the next
+- Scheduled matrix-compaction obligation from Slice 919 is now satisfied by the
+  orphan model-instance lifecycle guard module deletion.
+- Next scheduled matrix-compaction pass: compact Slice 920 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19551,7 +19553,40 @@ Rust provider-result envelopes, token accounting, hosted/provider transports,
 stable protocol APIs, and command-transport retirement remain required before
 provider invocation/result reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 919 after the next direct
+At Slice 919 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 920 is that seam
+and satisfies the Slice 919 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 919 is now satisfied.
+
+## Implementation Slice Evidence: 920
+
+Slice 920 deleted the orphan JS model-instance lifecycle guard module.
+`model-instance-lifecycle.mjs` is absent, and the remaining receipt-binding
+issue detection for already admitted Rust-bound instance lifecycle evidence now
+lives inside `receipt-write-guards.mjs`, next to the receipt persistence guard
+that uses it. Rust `model_mount` still owns lifecycle planning through
+`plan_model_mount_instance_lifecycle` and
+`RustModelMountAdmissionRunner.planInstanceLifecycle()`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/store.test.mjs packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal instance-lifecycle migration: direct Rust
+daemon-core load/unload/evict/supersede APIs, Agentgres-backed topology and
+model-instance truth, receipt/state-root binding, replay, stable protocol APIs,
+and command-transport retirement remain required before instance lifecycle
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 920 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

@@ -2420,6 +2420,15 @@ carry explicit token counts. Direct Rust provider-result envelopes and token
 accounting still need to remove that final JS fallback before provider
 invocation/result reaches terminal pure Rust conformance.
 
+Slice 920 deleted the orphan JS model-instance lifecycle guard module.
+`model-instance-lifecycle.mjs` is absent, and the remaining receipt-binding
+issue detection for already admitted Rust-bound instance lifecycle evidence now
+lives inside `receipt-write-guards.mjs` beside the receipt persistence guard
+that uses it. Direct Rust daemon-core load/unload/evict/supersede APIs,
+Agentgres-backed topology and instance truth, replay, stable protocol APIs, and
+command-transport retirement remain required before instance lifecycle reaches
+terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

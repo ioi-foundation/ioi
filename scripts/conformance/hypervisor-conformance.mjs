@@ -839,6 +839,9 @@ function runDocs() {
       /it no longer\s+resolves provider vault material or assembles outbound provider auth headers/.test(guide) &&
       /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(guide) &&
       /`provider-protocol\.mjs` now exports only `estimateTokens\(\)`/.test(guide) &&
+      /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
+      /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
+      /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -1275,7 +1278,11 @@ function runDocs() {
       /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(matrix) &&
       /`provider-protocol\.mjs` now exports only `estimateTokens\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 919/.test(matrix) &&
+      /Implementation Slice Evidence: 920/.test(matrix) &&
+      /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(matrix) &&
+      /`model-instance-lifecycle\.mjs` is absent/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 919 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 920/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1473,7 +1480,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 916 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 917 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 919/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 919 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 920/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1963,7 +1971,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 919 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 920 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2265,6 +2273,9 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
   const modelMountReceiptOperationsBridge = modelMountingState;
+  const modelMountReceiptWriteGuardsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
+    : "";
   const modelLoadingOperations = [
     modelMountingState.match(/const RETIRED_MODEL_LOADING_REQUEST_ALIASES = \[[\s\S]*?\n\];\nconst CANONICAL_MODEL_LOADING_REQUEST_FIELDS = \[[\s\S]*?\n\];/)?.[0] ?? "",
     modelMountingState.match(/\n\s+async loadModel\(body = \{\}\) \{[\s\S]*?\n\s+async downloadModel\(body = \{\}\) \{/)?.[0] ?? "",
@@ -10527,36 +10538,23 @@ function runBridge() {
       /provider_lifecycle_hash/.test(bridgeModule) &&
       /response\.get\("providerLifecycleHash"\)\.is_none/.test(bridgeModule) &&
       !/planModelMountInstanceLifecycle/.test(modelMountingState) &&
-      !/planModelMountInstanceLifecycleForMigratedProvider/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
-      !/state\.planModelMountInstanceLifecycle/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
-      !/model_mount_instance_lifecycle_planning_required/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs") &&
+      !/planModelMountInstanceLifecycleForMigratedProvider/.test(modelMountReceiptWriteGuardsBridge) &&
+      !/state\.planModelMountInstanceLifecycle/.test(modelMountReceiptWriteGuardsBridge) &&
+      !/model_mount_instance_lifecycle_planning_required/.test(modelMountReceiptWriteGuardsBridge) &&
       /model_mount_instance_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuardsBridge,
       ) &&
       /model_mount_instance_lifecycle_action/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuardsBridge,
       ) &&
       /model_mount_provider_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuardsBridge,
       ) &&
-      !/modelMountInstanceLifecycleRequiresRust/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
-      !/modelMountInstanceLifecycleFields/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
-      !/providerLifecycleHash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
-      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
-      ) &&
+      !/modelMountInstanceLifecycleRequiresRust/.test(modelMountReceiptWriteGuardsBridge) &&
+      !/modelMountInstanceLifecycleFields/.test(modelMountReceiptWriteGuardsBridge) &&
+      !/providerLifecycleHash/.test(modelMountReceiptWriteGuardsBridge) &&
+      !/modelMountInstanceLifecycle(?:Action|Status|Hash|EvidenceRefs)/.test(modelMountReceiptWriteGuardsBridge) &&
       /model_mount_instance_lifecycle_rust_core_required/.test(loadedInstances) &&
       /model_mount_instance_lifecycle_js_maintenance_retired/.test(loadedInstances) &&
       /rust_daemon_core_instance_lifecycle_required/.test(loadedInstances) &&
@@ -10595,7 +10593,7 @@ function runBridge() {
       ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
@@ -12804,7 +12802,7 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own migrated local provider model-instance load/unload/evict/supersede transition backend, evidence, provider lifecycle hash binding, and transition hash planning without JS state/helper planning facades",
@@ -12833,17 +12831,18 @@ function runReceipts() {
       !/modelMountInstanceLifecycleRequiresRust/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs") &&
       /RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_instance_lifecycle_action/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_instance_lifecycle_status/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       /model_mount_provider_lifecycle_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+        modelMountReceiptWriteGuards,
       ) &&
       !/providerLifecycleHash/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
@@ -12929,7 +12928,7 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
