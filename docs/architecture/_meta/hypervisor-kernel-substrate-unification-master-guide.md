@@ -2072,6 +2072,11 @@ load-option normalizer now honors only canonical `context_length`, and
 `canonicalLoadOptionsInput()` strips `contextLength` before provider/runtime
 normalization, so context-window steering cannot bypass the Rust-authored
 backend process plan through a camelCase compatibility selector.
+Slice 936 retired the load-option `ttlSeconds` and `idleTtlSeconds` compatibility aliases. The
+load-option normalizer now honors only canonical `ttl_seconds`, `ttl`, or `idle_ttl_seconds`,
+and explicit TTL detection no longer treats camelCase TTL request fields as
+authoritative, so lifecycle TTL steering cannot survive as a JS compatibility
+selector before Rust-core load admission owns the direct path.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

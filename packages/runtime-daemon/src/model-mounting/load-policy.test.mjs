@@ -37,13 +37,13 @@ test("load policy normalization accepts snake and camel ttl aliases", () => {
   });
 });
 
-test("load option normalization keeps public route aliases stable", () => {
+test("load option normalization keeps canonical route fields stable", () => {
   assert.deepEqual(normalizeLoadOptions({
     estimate_only: "1",
     gpu_offload: "auto",
     context_length: "8192",
     parallelism: "2",
-    ttlSeconds: "30",
+    ttl_seconds: "30",
     instance_identifier: "chat-a",
     model_path: "/models/qwen.gguf",
     dtype: "q4",
@@ -107,11 +107,13 @@ test("canonical load option input strips retired request aliases before provider
   }), {});
 });
 
-test("load option normalization ignores retired estimateOnly, gpuOffload, and contextLength aliases", () => {
+test("load option normalization ignores retired estimateOnly, gpuOffload, contextLength, and ttlSeconds aliases", () => {
   assert.deepEqual(normalizeLoadOptions({
     estimateOnly: true,
     gpuOffload: "auto",
     contextLength: "8192",
+    ttlSeconds: "30",
+    idleTtlSeconds: "45",
   }), {
     estimateOnly: false,
     gpu: null,
@@ -154,7 +156,9 @@ test("runtime engine defaults include only explicit normalized values", () => {
 
 test("ttl helpers detect explicit ttl and calculate evict time", () => {
   assert.equal(hasExplicitTtlOption({ ttl_seconds: 60 }), true);
-  assert.equal(hasExplicitTtlOption({ idleTtlSeconds: 60 }), true);
+  assert.equal(hasExplicitTtlOption({ idle_ttl_seconds: 60 }), true);
+  assert.equal(hasExplicitTtlOption({ ttlSeconds: 60 }), false);
+  assert.equal(hasExplicitTtlOption({ idleTtlSeconds: 60 }), false);
   assert.equal(hasExplicitTtlOption({ gpu: "auto" }), false);
   assert.equal(
     expiresAt("2026-06-03T00:00:00.000Z", { mode: "on_demand", autoEvict: true, idleTtlSeconds: 60 }),

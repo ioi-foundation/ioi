@@ -15,7 +15,7 @@ export function normalizeLoadPolicy(value = {}) {
 
 export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
   const source = typeof value === "object" && value ? value : {};
-  const ttl = source.ttl_seconds ?? source.ttlSeconds ?? source.ttl ?? loadPolicy.idleTtlSeconds ?? null;
+  const ttl = source.ttl_seconds ?? source.ttl ?? loadPolicy.idleTtlSeconds ?? null;
   const gpu = source.gpu_offload ?? source.gpu ?? null;
   const contextLength = source.context_length ?? null;
   const parallel = source.parallelism ?? source.parallel ?? null;
@@ -107,10 +107,8 @@ export function hasExplicitTtlOption(value = {}) {
   if (!value || typeof value !== "object") return false;
   return (
     value.ttl_seconds !== undefined ||
-    value.ttlSeconds !== undefined ||
     value.ttl !== undefined ||
-    value.idle_ttl_seconds !== undefined ||
-    value.idleTtlSeconds !== undefined
+    value.idle_ttl_seconds !== undefined
   );
 }
 

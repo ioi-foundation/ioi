@@ -851,6 +851,8 @@ function runDocs() {
       /load-option normalizer now honors only canonical `gpu_offload` or `gpu`/.test(guide) &&
       /Slice 935 retired the load-option `contextLength` compatibility alias/.test(guide) &&
       /load-option normalizer now honors only canonical `context_length`/.test(guide) &&
+      /Slice 936 retired the load-option `ttlSeconds` and `idleTtlSeconds` compatibility aliases/.test(guide) &&
+      /load-option normalizer now honors only canonical `ttl_seconds`, `ttl`, or `idle_ttl_seconds`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -10554,6 +10556,10 @@ function runBridge() {
       const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
       const loadPolicy = read("packages/runtime-daemon/src/model-mounting/load-policy.mjs");
       const loadPolicyTest = read("packages/runtime-daemon/src/model-mounting/load-policy.test.mjs");
+      const normalizeLoadOptionsBlock =
+        loadPolicy.match(/export function normalizeLoadOptions\(value = \{\}, loadPolicy = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
+      const hasExplicitTtlOptionBlock =
+        loadPolicy.match(/export function hasExplicitTtlOption\(value = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
       const backendProcessPlanBlock =
         modelMountingState.match(/backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
       return /canonicalLoadOptionsInput/.test(loadPolicy) &&
@@ -10568,7 +10574,12 @@ function runBridge() {
         !/source\.estimateOnly/.test(loadPolicy) &&
         !/source\.gpuOffload/.test(loadPolicy) &&
         !/source\.contextLength/.test(loadPolicy) &&
-        /load option normalization ignores retired estimateOnly, gpuOffload, and contextLength aliases/.test(loadPolicyTest) &&
+        !/source\.ttlSeconds/.test(normalizeLoadOptionsBlock) &&
+        !/value\.ttlSeconds/.test(hasExplicitTtlOptionBlock) &&
+        !/value\.idleTtlSeconds/.test(hasExplicitTtlOptionBlock) &&
+        /load option normalization ignores retired estimateOnly, gpuOffload, contextLength, and ttlSeconds aliases/.test(loadPolicyTest) &&
+        /assert\.equal\(hasExplicitTtlOption\(\{ ttlSeconds: 60 \}\), false\)/.test(loadPolicyTest) &&
+        /assert\.equal\(hasExplicitTtlOption\(\{ idleTtlSeconds: 60 \}\), false\)/.test(loadPolicyTest) &&
         /context_length:\s*loadOptions\.context_length \?\? defaults\.context_length \?\? null/.test(
           backendProcessPlanBlock,
         ) &&

@@ -20205,3 +20205,45 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs.
+
+At Slice 935 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 936 is a
+load-option compatibility-alias retirement seam and satisfies the Slice 935
+scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 935 is now satisfied.
+
+## Implementation Slice Evidence: 936
+
+Slice 936 retired the `ttlSeconds` and `idleTtlSeconds` load-option
+compatibility aliases. The load-option normalizer no longer reads
+`source.ttlSeconds`, and explicit TTL detection no longer treats camelCase
+`ttlSeconds` or `idleTtlSeconds` as accepted request input. Canonical
+`ttl_seconds`, `ttl`, and `idle_ttl_seconds` remain the accepted request TTL
+inputs, so lifecycle TTL steering can no longer survive as a JS compatibility
+selector before Rust-core load admission owns the direct path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/load-policy.mjs packages/runtime-daemon/src/model-mounting/load-policy.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/load-policy.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal instance-lifecycle migration. Direct Rust
+daemon-core load/unload admission, provider lifecycle execution, receipt and
+state-root binding, Agentgres-backed replay/projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 936 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs without encoding the command
+bridge as terminal shape.
