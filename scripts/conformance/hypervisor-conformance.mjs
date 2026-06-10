@@ -855,6 +855,8 @@ function runDocs() {
       /load-option normalizer now honors only canonical `ttl_seconds`, `ttl`, or `idle_ttl_seconds`/.test(guide) &&
       /Slice 937 retired the remaining load-option camelCase compatibility selectors/.test(guide) &&
       /load-option normalizer now honors only canonical `instance_identifier`, `model_path`, `tensor_parallel_size`, `gpu_memory_utilization`, and `max_model_len`/.test(guide) &&
+      /Slice 938 retired load-policy camelCase compatibility selectors/.test(guide) &&
+      /load-policy normalizer now honors only canonical `ttl_seconds`, `ttl`, `idle_ttl_seconds`, `auto_evict`, and `memory_pressure_evict`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -10558,6 +10560,8 @@ function runBridge() {
       const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
       const loadPolicy = read("packages/runtime-daemon/src/model-mounting/load-policy.mjs");
       const loadPolicyTest = read("packages/runtime-daemon/src/model-mounting/load-policy.test.mjs");
+      const normalizeLoadPolicyBlock =
+        loadPolicy.match(/export function normalizeLoadPolicy\(value = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
       const normalizeLoadOptionsBlock =
         loadPolicy.match(/export function normalizeLoadOptions\(value = \{\}, loadPolicy = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "";
       const hasExplicitTtlOptionBlock =
@@ -10577,6 +10581,10 @@ function runBridge() {
         !/source\.gpuOffload/.test(loadPolicy) &&
         !/source\.contextLength/.test(loadPolicy) &&
         !/source\.ttlSeconds/.test(normalizeLoadOptionsBlock) &&
+        !/value\.ttlSeconds/.test(normalizeLoadPolicyBlock) &&
+        !/value\.idleTtlSeconds/.test(normalizeLoadPolicyBlock) &&
+        !/value\.autoEvict/.test(normalizeLoadPolicyBlock) &&
+        !/value\.memoryPressureEvict/.test(normalizeLoadPolicyBlock) &&
         !/source\.instanceIdentifier/.test(normalizeLoadOptionsBlock) &&
         !/source\.modelPath/.test(normalizeLoadOptionsBlock) &&
         !/source\.tensorParallelSize/.test(normalizeLoadOptionsBlock) &&
@@ -10584,6 +10592,7 @@ function runBridge() {
         !/source\.maxModelLen/.test(normalizeLoadOptionsBlock) &&
         !/value\.ttlSeconds/.test(hasExplicitTtlOptionBlock) &&
         !/value\.idleTtlSeconds/.test(hasExplicitTtlOptionBlock) &&
+        /load policy normalization accepts canonical policy fields and ignores retired camelCase aliases/.test(loadPolicyTest) &&
         /load option normalization ignores retired load-option camelCase aliases/.test(loadPolicyTest) &&
         /instanceIdentifier:\s*"instance\.retired"/.test(loadPolicyTest) &&
         /tensorParallelSize:\s*"8"/.test(loadPolicyTest) &&

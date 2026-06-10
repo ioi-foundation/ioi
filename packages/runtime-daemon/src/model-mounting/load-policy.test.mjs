@@ -23,12 +23,16 @@ test("load policy normalization preserves string idle eviction semantics", () =>
   });
 });
 
-test("load policy normalization accepts snake and camel ttl aliases", () => {
+test("load policy normalization accepts canonical policy fields and ignores retired camelCase aliases", () => {
   assert.deepEqual(normalizeLoadPolicy({
     mode: "on_demand",
     idle_ttl_seconds: "45",
     auto_evict: false,
-    memoryPressureEvict: false,
+    memory_pressure_evict: false,
+    ttlSeconds: "120",
+    idleTtlSeconds: "240",
+    autoEvict: true,
+    memoryPressureEvict: true,
   }), {
     mode: "on_demand",
     idleTtlSeconds: 45,

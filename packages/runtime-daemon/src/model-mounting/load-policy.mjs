@@ -4,12 +4,12 @@ export function normalizeLoadPolicy(value = {}) {
   if (typeof value === "string") {
     return { mode: value, idleTtlSeconds: 900, autoEvict: value === "idle_evict" };
   }
-  const ttlSeconds = value.ttl_seconds ?? value.ttlSeconds ?? value.ttl ?? value.idle_ttl_seconds ?? value.idleTtlSeconds ?? 900;
+  const ttlSeconds = value.ttl_seconds ?? value.ttl ?? value.idle_ttl_seconds ?? 900;
   return {
     mode: value.mode ?? "on_demand",
     idleTtlSeconds: Number(ttlSeconds),
-    autoEvict: value.auto_evict ?? value.autoEvict ?? true,
-    memoryPressureEvict: value.memory_pressure_evict ?? value.memoryPressureEvict ?? true,
+    autoEvict: value.auto_evict ?? true,
+    memoryPressureEvict: value.memory_pressure_evict ?? true,
   };
 }
 

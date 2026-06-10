@@ -2082,6 +2082,11 @@ load-option normalizer now honors only canonical `instance_identifier`, `model_p
 so instance identity, model-path, tensor-parallel, GPU-memory, and model-length
 steering cannot survive as JS compatibility selectors before Rust-core load
 admission owns the direct path.
+Slice 938 retired load-policy camelCase compatibility selectors. The
+load-policy normalizer now honors only canonical `ttl_seconds`, `ttl`, `idle_ttl_seconds`, `auto_evict`, and `memory_pressure_evict`,
+so lifecycle TTL, idle eviction, and memory-pressure eviction policy steering
+cannot survive as camelCase JS compatibility selectors before Rust-core load
+admission owns the direct path.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been
