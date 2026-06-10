@@ -787,6 +787,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.codingToolBudgetRecoverySurface = createRuntimeCodingToolBudgetRecoverySurface({
       approvalReasonForDecisionEvent,
+      codingToolBudgetRecoveryRunner: this.contextPolicyRunner,
       contextPolicyRunner: this.contextPolicyRunner,
       notFound,
       runtimeError,

@@ -2292,6 +2292,21 @@ approval authority, Agentgres expected-head/state-root binding,
 receipt/event materialization, replay, projection, command-transport
 retirement, and stable SDK/IDE/CLI protocol APIs remain required before
 terminal pure Rust substrate conformance.
+Slice 967 moved the coding-tool budget recovery Rust-core-required admission
+refusal into the Rust daemon-core policy bridge. `CodingToolBudgetRecoveryAdmissionRequiredCore`
+now emits the canonical fail-closed envelope and snake_case detail payload,
+`ioi_step_module_bridge` exposes
+`plan_coding_tool_budget_recovery_admission_required`, and the runtime daemon
+mounts that runner into the coding-tool budget recovery surface. JS still
+translates the Rust-authored refusal at the HTTP edge, but no longer acts as
+the canonical author for budget recovery admission-required control or
+blocked-event projection refusal when the daemon-core command is configured.
+This does not claim terminal coding-tool budget recovery migration: direct Rust
+daemon-core retry admission/projection, wallet.network approval authority,
+Agentgres expected-head/state-root binding, policy receipts, retry-event
+materialization, run persistence, replay, command-transport retirement, and
+stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
+substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

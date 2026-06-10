@@ -7,9 +7,40 @@ function defaultRuntimeError(payload = {}) {
 }
 
 export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
-  const { runtimeError = defaultRuntimeError } = deps;
+  const {
+    runtimeError = defaultRuntimeError,
+    codingToolBudgetRecoveryRunner = deps.contextPolicyRunner ?? null,
+  } = deps;
 
   function throwCodingToolBudgetRecoveryRustCoreRequired(operation, operationKind, details = {}) {
+    if (codingToolBudgetRecoveryRunner?.planCodingToolBudgetRecoveryAdmissionRequired) {
+      const record = codingToolBudgetRecoveryRunner.planCodingToolBudgetRecoveryAdmissionRequired({
+        operation,
+        operation_kind: operationKind,
+        run_id: details.run_id,
+        thread_id: details.thread_id,
+        action: details.action,
+        approval_id: details.approval_id,
+        source_event_id: details.source_event_id,
+        source: details.source,
+        evidence_refs: details.evidence_refs,
+      });
+      const planned = record?.record ?? record;
+      throw runtimeError({
+        status: Number(planned?.status_code ?? record?.status_code ?? 501),
+        code: optionalString(planned?.code ?? record?.code) ??
+          "runtime_coding_tool_budget_recovery_rust_core_required",
+        message:
+          optionalString(planned?.message ?? record?.message) ??
+          "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence.",
+        details: planned?.details ?? record?.details ?? {
+          rust_core_boundary: "runtime.coding_tool_budget_recovery",
+          operation,
+          operation_kind: operationKind,
+          ...details,
+        },
+      });
+    }
     throw runtimeError({
       status: 501,
       code: "runtime_coding_tool_budget_recovery_rust_core_required",

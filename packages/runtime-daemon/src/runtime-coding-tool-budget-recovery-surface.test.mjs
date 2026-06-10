@@ -67,7 +67,7 @@ function harness() {
   return { calls, store, surface };
 }
 
-test("coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence", () => {
+test("coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence", () => {
   const { calls, store, surface } = harness();
 
   assert.throws(
@@ -103,6 +103,97 @@ test("coding-tool budget recovery control facade fails closed before JS approval
     },
   );
 
+  assert.deepEqual(calls, []);
+});
+
+test("coding-tool budget recovery control uses Rust daemon-core admission-required planner when mounted", () => {
+  const calls = [];
+  const store = {
+    getRun(runId) {
+      calls.push({ name: "getRun", runId });
+      throw new Error("Budget recovery facade must not look up runs in JS.");
+    },
+    appendRuntimeEvent(event) {
+      calls.push({ name: "appendRuntimeEvent", event });
+      throw new Error("Budget recovery facade must not append JS runtime events.");
+    },
+    writeRun(run, operationKind) {
+      calls.push({ name: "writeRun", run, operationKind });
+      throw new Error("Budget recovery facade must not persist run state in JS.");
+    },
+  };
+  const runnerCalls = [];
+  const surface = createRuntimeCodingToolBudgetRecoverySurface({
+    runtimeError,
+    codingToolBudgetRecoveryRunner: {
+      planCodingToolBudgetRecoveryAdmissionRequired(request) {
+        runnerCalls.push(request);
+        return {
+          source: "rust_coding_tool_budget_recovery_admission_required_command",
+          backend: "rust_policy",
+          record: {
+            status_code: 501,
+            code: "runtime_coding_tool_budget_recovery_rust_core_required",
+            message:
+              "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence.",
+            details: {
+              rust_core_boundary: "runtime.coding_tool_budget_recovery",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              run_id: request.run_id,
+              thread_id: request.thread_id,
+              action: request.action,
+              approval_id: request.approval_id,
+              source_event_id: request.source_event_id,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.codingToolBudgetRecoveryForRun(store, "run_alpha", {
+        thread_id: "thread_alpha",
+        action: "retry_approved",
+        approval_id: "approval_alpha",
+        source_event_id: "event_budget",
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_budget_recovery_rust_core_required");
+      assert.equal(error.details.run_id, "run_alpha");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.action, "retry_approved");
+      assert.equal(error.details.approval_id, "approval_alpha");
+      assert.equal(error.details.source_event_id, "event_budget");
+      assert.deepEqual(error.details.evidence_refs, [
+        "coding_tool_budget_recovery_js_facade_retired",
+        "rust_daemon_core_budget_recovery_admission_required",
+        "agentgres_budget_recovery_state_truth_required",
+      ]);
+      assertNoRetiredBudgetRecoveryDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(runnerCalls, [{
+    operation: "coding_tool_budget_recovery_control",
+    operation_kind: "workflow.run.coding_tool_budget_recovery",
+    run_id: "run_alpha",
+    thread_id: "thread_alpha",
+    action: "retry_approved",
+    approval_id: "approval_alpha",
+    source_event_id: "event_budget",
+    source: undefined,
+    evidence_refs: [
+      "coding_tool_budget_recovery_js_facade_retired",
+      "rust_daemon_core_budget_recovery_admission_required",
+      "agentgres_budget_recovery_state_truth_required",
+    ],
+  }]);
   assert.deepEqual(calls, []);
 });
 

@@ -6474,7 +6474,7 @@ function runBridge() {
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       /workflow\.run\.coding_tool_budget_recovery/.test(runtimeCodingToolBudgetRecoverySurface) &&
-      /coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence/.test(
+      /coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /Budget recovery facade must not persist run state in JS/.test(
@@ -6503,7 +6503,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge while the public JS facade fails closed before planner invocation or JS persistence",
+    "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge while the public JS facade fails closed before JS state planning or JS persistence",
   );
   assertCheck(
     result,
@@ -6517,7 +6517,30 @@ function runBridge() {
       /coding_tool_budget_blocked_event_js_projection_retired/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence/.test(
+      /CodingToolBudgetRecoveryAdmissionRequiredCore/.test(policyCore) &&
+      /CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        policyCore,
+      ) &&
+      /rust_policy_plans_coding_tool_budget_recovery_admission_required/.test(
+        policyCore,
+      ) &&
+      /plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
+      /bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planCodingToolBudgetRecoveryAdmissionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /coding-tool budget recovery admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /codingToolBudgetRecoveryRunner:\s*this\.contextPolicyRunner/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /coding-tool budget recovery control uses Rust daemon-core admission-required planner when mounted/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /coding-tool budget blocked-event projection facade fails closed before JS projection reads/.test(
@@ -6555,7 +6578,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: coding-tool budget recovery control must fail closed before JS approval calls, accepted-event append, Rust planner invocation from the JS facade, projection reads, run mutation, or persistence",
+    "Phase 10/11 is pending: coding-tool budget recovery control must use the Rust daemon-core admission-required planner and fail closed before JS approval calls, accepted-event append, projection reads, run mutation, or persistence",
   );
   assertCheck(
     result,
@@ -20874,7 +20897,7 @@ function runCompositor() {
       /Object\.hasOwn\(result,\s*alias\),\s*false/.test(
         runtimeCodingToolBudgetRecoveryTest,
       ) &&
-      /coding-tool budget recovery control facade fails closed before JS approval, event append, planner, or run persistence/.test(
+      /coding-tool budget recovery control facade fails closed before JS approval, event append, or run persistence/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
       /schema_version:\s*(?:\n\s*policy\.schema_version\s*\?\?\s*)?WORKFLOW_CODING_TOOL_BUDGET_RECOVERY_POLICY_SCHEMA_VERSION/.test(

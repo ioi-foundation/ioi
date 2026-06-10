@@ -8,6 +8,8 @@ export const CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-policy-request.v1";
 export const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
+export const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1";
 export const WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.workflow-edit-admission-required-request.v1";
 export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -134,6 +136,14 @@ export class RustContextPolicyRunner {
       schemaVersion: CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
+  }
+
+  planCodingToolBudgetRecoveryAdmissionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_coding_tool_budget_recovery_admission_required",
+      schemaVersion: CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
   }
 
   planWorkflowEditAdmissionRequired(request = {}) {

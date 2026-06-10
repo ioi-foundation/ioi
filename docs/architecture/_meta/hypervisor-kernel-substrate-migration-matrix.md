@@ -21337,3 +21337,46 @@ should preserve that workflow-edit refusal envelopes are now Rust-authored
 fail-closed migration boundaries, while workflow-edit accepted truth,
 wallet.network authority, Agentgres-backed state, and command-transport
 retirement remain non-terminal.
+
+## Implementation Slice Evidence: 967
+
+Slice 967 moved the coding-tool budget recovery admission-required refusal
+envelope into the Rust daemon-core policy bridge. `CodingToolBudgetRecoveryAdmissionRequiredCore`
+now plans the canonical Rust-core-required response,
+`ioi_step_module_bridge` exposes
+`plan_coding_tool_budget_recovery_admission_required`, the JS daemon-core
+runner sends that command with
+`ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1`, and
+the runtime daemon mounts the runner into the coding-tool budget recovery
+surface so normal run-level budget recovery control enters a Rust-authored
+fail-closed boundary before JS approval calls, accepted-event append,
+projection reads, run-map mutation, or persistence.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo check -p ioi-services` | passed |
+| `cargo check -p ioi-node` | passed |
+| `cargo test -p ioi-services rust_policy_plans_coding_tool_budget_recovery_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+
+This still does not claim terminal coding-tool budget recovery migration.
+Direct Rust daemon-core retry admission/projection, wallet.network approval
+authority, Agentgres-backed expected-head/state-root truth, policy receipts,
+retry-event materialization, run persistence, replay, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-967 after the next
+larger Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve that workflow-edit and coding-tool budget recovery refusal
+envelopes are now Rust-authored fail-closed migration boundaries, while
+accepted truth, wallet.network authority, Agentgres-backed state, and
+command-transport retirement remain non-terminal.

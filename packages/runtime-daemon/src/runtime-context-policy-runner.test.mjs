@@ -5,6 +5,7 @@ import {
   AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
+  CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   COMPACTION_POLICY_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
@@ -469,6 +470,68 @@ test("coding tool budget recovery state update runner sends Rust state update br
     assert.equal(Object.hasOwn(result.operator_control, field), false);
   }
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_retry");
+});
+
+test("coding-tool budget recovery admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_coding_tool_budget_recovery_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_coding_tool_budget_recovery_rust_core_required",
+              message:
+                "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence.",
+              details: {
+                rust_core_boundary: "runtime.coding_tool_budget_recovery",
+                operation: "coding_tool_budget_recovery_control",
+                operation_kind: "workflow.run.coding_tool_budget_recovery",
+                run_id: "run_alpha",
+                thread_id: "thread_alpha",
+                approval_id: "approval_alpha",
+                evidence_refs: ["coding_tool_budget_recovery_js_facade_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planCodingToolBudgetRecoveryAdmissionRequired({
+    operation: "coding_tool_budget_recovery_control",
+    operation_kind: "workflow.run.coding_tool_budget_recovery",
+    run_id: "run_alpha",
+    thread_id: "thread_alpha",
+    approval_id: "approval_alpha",
+    evidence_refs: ["coding_tool_budget_recovery_js_facade_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_coding_tool_budget_recovery_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "coding_tool_budget_recovery_control");
+  assert.equal(
+    captured.request.operation_kind,
+    "workflow.run.coding_tool_budget_recovery",
+  );
+  assert.equal(result.source, "rust_coding_tool_budget_recovery_admission_required_command");
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.run_id, "run_alpha");
+  assert.equal(Object.hasOwn(result.record.details, "runId"), false);
 });
 
 test("workflow-edit admission-required runner sends Rust daemon-core request", () => {

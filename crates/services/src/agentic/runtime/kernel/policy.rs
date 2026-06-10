@@ -13,6 +13,10 @@ pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str 
     "ioi.runtime.coding-tool-budget-recovery-state-update-request.v1";
 pub const CODING_TOOL_BUDGET_RECOVERY_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.coding-tool-budget-recovery-state-update.v1";
+pub const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1";
+pub const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.coding-tool-budget-recovery-admission-required.v1";
 pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -186,6 +190,15 @@ pub enum ContextCompactionStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodingToolBudgetRecoveryStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CodingToolBudgetRecoveryAdmissionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -773,6 +786,53 @@ pub struct CodingToolBudgetRecoveryStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolBudgetRecoveryAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub run_id: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub action: Option<String>,
+    #[serde(default)]
+    pub approval_id: Option<String>,
+    #[serde(default)]
+    pub source_event_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CodingToolBudgetRecoveryAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub action: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
     pub generated_at: String,
 }
 
@@ -2018,6 +2078,74 @@ impl CodingToolBudgetRecoveryStateUpdateCore {
             updated_at: request.created_at.clone(),
             operator_control,
             run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct CodingToolBudgetRecoveryAdmissionRequiredCore;
+
+impl CodingToolBudgetRecoveryAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &CodingToolBudgetRecoveryAdmissionRequiredRequest,
+    ) -> Result<
+        CodingToolBudgetRecoveryAdmissionRequiredRecord,
+        CodingToolBudgetRecoveryAdmissionRequiredError,
+    > {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let run_id = optional_trimmed(Some(request.run_id.as_str())).unwrap();
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let action = optional_trimmed(request.action.as_deref());
+        let approval_id = optional_trimmed(request.approval_id.as_deref());
+        let source_event_id = optional_trimmed(request.source_event_id.as_deref());
+        let source = optional_trimmed(request.source.as_deref());
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                format!("{operation}_js_facade_retired"),
+                "rust_daemon_core_coding_tool_budget_recovery_admission_required".to_string(),
+                "agentgres_coding_tool_budget_recovery_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.coding_tool_budget_recovery",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "run_id": run_id,
+            "thread_id": thread_id,
+            "action": action,
+            "approval_id": approval_id,
+            "source_event_id": source_event_id,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(CodingToolBudgetRecoveryAdmissionRequiredRecord {
+            schema_version: CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_coding_tool_budget_recovery_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_coding_tool_budget_recovery_rust_core_required".to_string(),
+            message:
+                "Runtime coding-tool budget recovery requires direct Rust daemon-core admission and persistence."
+                    .to_string(),
+            rust_core_boundary: "runtime.coding_tool_budget_recovery".to_string(),
+            operation,
+            operation_kind,
+            run_id,
+            thread_id,
+            action,
+            approval_id,
+            source_event_id,
+            source,
+            evidence_refs,
+            details,
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -3858,6 +3986,33 @@ impl WorkflowEditAdmissionRequiredRequest {
             return Err(WorkflowEditAdmissionRequiredError::MissingField(
                 "thread_id",
             ));
+        }
+        Ok(())
+    }
+}
+
+impl CodingToolBudgetRecoveryAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), CodingToolBudgetRecoveryAdmissionRequiredError> {
+        if self.schema_version
+            != CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
+        {
+            return Err(
+                CodingToolBudgetRecoveryAdmissionRequiredError::InvalidSchemaVersion {
+                    expected: CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("operation"));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(
+                CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("operation_kind"),
+            );
+        }
+        if optional_trimmed(Some(self.run_id.as_str())).is_none() {
+            return Err(CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("run_id"));
         }
         Ok(())
     }
@@ -7008,6 +7163,55 @@ mod tests {
         assert_eq!(record.details["proposal_id"], "proposal_alpha");
         assert!(record.details.get("threadId").is_none());
         assert!(record.details.get("proposalId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_plans_coding_tool_budget_recovery_admission_required() {
+        let record = CodingToolBudgetRecoveryAdmissionRequiredCore
+            .plan(&CodingToolBudgetRecoveryAdmissionRequiredRequest {
+                schema_version:
+                    CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                operation: "coding_tool_budget_recovery_control".to_string(),
+                operation_kind: "workflow.run.coding_tool_budget_recovery".to_string(),
+                run_id: "run_alpha".to_string(),
+                thread_id: Some("thread_alpha".to_string()),
+                action: Some("retry_approved".to_string()),
+                approval_id: Some("approval_alpha".to_string()),
+                source_event_id: Some("event_budget".to_string()),
+                source: Some("agent_studio".to_string()),
+                evidence_refs: vec![
+                    "coding_tool_budget_recovery_js_facade_retired".to_string(),
+                    "rust_daemon_core_budget_recovery_admission_required".to_string(),
+                    "agentgres_budget_recovery_state_truth_required".to_string(),
+                ],
+            })
+            .expect("coding-tool budget recovery admission required");
+
+        assert_eq!(
+            record.schema_version,
+            CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(
+            record.code,
+            "runtime_coding_tool_budget_recovery_rust_core_required"
+        );
+        assert_eq!(
+            record.rust_core_boundary,
+            "runtime.coding_tool_budget_recovery"
+        );
+        assert_eq!(record.operation, "coding_tool_budget_recovery_control");
+        assert_eq!(
+            record.operation_kind,
+            "workflow.run.coding_tool_budget_recovery"
+        );
+        assert_eq!(record.details["run_id"], "run_alpha");
+        assert_eq!(record.details["thread_id"], "thread_alpha");
+        assert_eq!(record.details["approval_id"], "approval_alpha");
+        assert!(record.details.get("runId").is_none());
+        assert!(record.details.get("approvalId").is_none());
     }
 
     #[test]

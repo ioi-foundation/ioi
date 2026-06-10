@@ -33,7 +33,8 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
-    AgentStatusStateUpdateRequest, CodingToolBudgetRecoveryStateUpdateCore,
+    AgentStatusStateUpdateRequest, CodingToolBudgetRecoveryAdmissionRequiredCore,
+    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
     CodingToolBudgetRecoveryStateUpdateRequest, CompactionPolicyCore, CompactionPolicyRequest,
     ContextBudgetPolicyCore, ContextBudgetPolicyRequest, ContextCompactionPlanCore,
     ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
@@ -446,6 +447,16 @@ struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: CodingToolBudgetRecoveryStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: CodingToolBudgetRecoveryAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -996,6 +1007,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_coding_tool_budget_recovery_state_update(request)
         }
+        "plan_coding_tool_budget_recovery_admission_required" => {
+            let request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_coding_tool_budget_recovery_admission_required(request)
+        }
         "plan_workflow_edit_admission_required" => {
             let request: WorkflowEditAdmissionRequiredBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1228,6 +1245,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_context_compaction"
             | "plan_context_compaction_state_update"
             | "plan_coding_tool_budget_recovery_state_update"
+            | "plan_coding_tool_budget_recovery_admission_required"
             | "plan_diagnostics_operator_override_state_update"
             | "plan_operator_interrupt_state_update"
             | "plan_operator_steer_state_update"
@@ -4128,6 +4146,46 @@ fn plan_coding_tool_budget_recovery_state_update(
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
+    }))
+}
+
+fn plan_coding_tool_budget_recovery_admission_required(
+    request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_coding_tool_budget_recovery_admission_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = CodingToolBudgetRecoveryAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "coding_tool_budget_recovery_admission_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_budget_recovery_admission_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
     }))
 }
 
@@ -11184,6 +11242,64 @@ mod tests {
             response["details"]["evidence_refs"][0],
             "workflow_edit_proposal_js_facade_retired"
         );
+    }
+
+    #[test]
+    fn bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core() {
+        let request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_coding_tool_budget_recovery_admission_required",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1",
+                    "operation": "coding_tool_budget_recovery_control",
+                    "operation_kind": "workflow.run.coding_tool_budget_recovery",
+                    "run_id": "run_alpha",
+                    "thread_id": "thread_alpha",
+                    "action": "retry_approved",
+                    "approval_id": "approval_alpha",
+                    "source_event_id": "event_budget",
+                    "source": "agent_studio",
+                    "evidence_refs": [
+                        "coding_tool_budget_recovery_js_facade_retired",
+                        "rust_daemon_core_budget_recovery_admission_required",
+                        "agentgres_budget_recovery_state_truth_required"
+                    ]
+                }
+            }))
+            .expect("coding-tool budget recovery admission required bridge request");
+
+        let response = plan_coding_tool_budget_recovery_admission_required(request)
+            .expect("coding-tool budget recovery admission refusal planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_budget_recovery_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_coding_tool_budget_recovery_rust_core_required"
+        );
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.coding_tool_budget_recovery"
+        );
+        assert_eq!(
+            response["details"]["operation"],
+            "coding_tool_budget_recovery_control"
+        );
+        assert_eq!(
+            response["details"]["operation_kind"],
+            "workflow.run.coding_tool_budget_recovery"
+        );
+        assert_eq!(response["details"]["run_id"], "run_alpha");
+        assert_eq!(response["details"]["approval_id"], "approval_alpha");
+        assert!(response["details"].get("runId").is_none());
+        assert!(response["details"].get("approvalId").is_none());
     }
 
     #[test]

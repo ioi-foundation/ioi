@@ -84,12 +84,15 @@ use policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
     AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore, AgentStatusStateUpdateError,
     AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest,
-    CodingToolBudgetRecoveryStateUpdateCore, CodingToolBudgetRecoveryStateUpdateError,
-    CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateRequest,
-    CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
-    ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
-    ContextBudgetPolicyRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
-    ContextCompactionPlanRecord, ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
+    CodingToolBudgetRecoveryAdmissionRequiredCore, CodingToolBudgetRecoveryAdmissionRequiredError,
+    CodingToolBudgetRecoveryAdmissionRequiredRecord,
+    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
+    CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
+    CodingToolBudgetRecoveryStateUpdateRequest, CompactionPolicyCore, CompactionPolicyError,
+    CompactionPolicyRecord, CompactionPolicyRequest, ContextBudgetPolicyCore,
+    ContextBudgetPolicyError, ContextBudgetPolicyRecord, ContextBudgetPolicyRequest,
+    ContextCompactionPlanCore, ContextCompactionPlanError, ContextCompactionPlanRecord,
+    ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
@@ -243,6 +246,16 @@ impl RuntimeKernelService {
     ) -> Result<CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateError>
     {
         CodingToolBudgetRecoveryStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_coding_tool_budget_recovery_admission_required(
+        &self,
+        request: &CodingToolBudgetRecoveryAdmissionRequiredRequest,
+    ) -> Result<
+        CodingToolBudgetRecoveryAdmissionRequiredRecord,
+        CodingToolBudgetRecoveryAdmissionRequiredError,
+    > {
+        CodingToolBudgetRecoveryAdmissionRequiredCore.plan(request)
     }
 
     pub fn plan_workflow_edit_admission_required(
