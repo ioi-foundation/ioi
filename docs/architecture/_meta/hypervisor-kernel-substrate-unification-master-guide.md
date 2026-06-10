@@ -2263,6 +2263,20 @@ admission, wallet/cTEE/model-route authority, Agentgres expected-head/state-root
 binding, receipt/event materialization, replay, projection, command-transport
 retirement, and stable SDK/IDE/CLI protocol APIs remain required before
 terminal conformance.
+Slice 958 retired the daemon-store subagent route pass-through wrappers. The
+public subagent list/spawn/wait/input/cancel/resume/assign/result routes now
+call the fail-closed `RuntimeSubagentControl` surface directly, so JS no longer
+preserves `listSubagents()`, `spawnSubagent()`, `waitSubagent()`,
+`sendSubagentInput()`, `cancelSubagent()`,
+`propagateSubagentCancellation()`, `resumeSubagent()`, `assignSubagent()`,
+`getSubagentResult()`, `getSubagent()`, `subagentProjection()`, or
+`appendThreadSubagentControlEvent()` as daemon-store compatibility wrappers.
+This does not claim terminal subagent admission/projection: direct Rust
+daemon-core route admission, wallet delegation/cancellation authority,
+StepModuleRouter dispatch, Agentgres expected-head/state-root binding,
+receipt/event materialization, replay, projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain required before
+terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

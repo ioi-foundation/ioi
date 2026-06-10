@@ -1227,68 +1227,6 @@ export class AgentgresRuntimeStateStore {
     return threadForkState.forkThread(this, threadId, request);
   }
 
-  listSubagents(threadId, options = {}) {
-    return this.subagentSurface.listSubagents(this, threadId, options);
-  }
-
-  spawnSubagent(threadId, request = {}) {
-    return this.subagentSurface.spawnSubagent(this, threadId, request);
-  }
-
-  waitSubagent(threadId, subagentId, request = {}) {
-    return this.subagentSurface.waitSubagent(this, threadId, subagentId, request);
-  }
-
-  sendSubagentInput(threadId, subagentId, request = {}) {
-    return this.subagentSurface.sendSubagentInput(this, threadId, subagentId, request);
-  }
-
-  cancelSubagent(threadId, subagentId, request = {}) {
-    return this.subagentSurface.cancelSubagent(this, threadId, subagentId, request);
-  }
-
-  propagateSubagentCancellation(threadId, request = {}) {
-    return this.subagentSurface.propagateSubagentCancellation(this, threadId, request);
-  }
-
-  resumeSubagent(threadId, subagentId, request = {}) {
-    return this.subagentSurface.resumeSubagent(this, threadId, subagentId, request);
-  }
-
-  assignSubagent(threadId, subagentId, request = {}) {
-    return this.subagentSurface.assignSubagent(this, threadId, subagentId, request);
-  }
-
-  getSubagentResult(threadId, subagentId) {
-    return this.subagentSurface.getSubagentResult(this, threadId, subagentId);
-  }
-
-  getSubagent(threadId, subagentId) {
-    return this.subagentSurface.getSubagent(this, threadId, subagentId);
-  }
-
-  subagentProjection(record = {}) {
-    return this.subagentSurface.subagentProjection(record);
-  }
-
-  appendThreadSubagentControlEvent({
-    threadId,
-    parentAgent,
-    record,
-    request,
-    operation,
-    status,
-  }) {
-    return this.subagentSurface.appendThreadSubagentControlEvent(this, {
-      threadId,
-      parentAgent,
-      record,
-      request,
-      operation,
-      status,
-    });
-  }
-
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
     return assertRuntimeBridgeAvailableState(this.runtimeBridge, { runtimeProfile, operation }, {
       externalBlocker,

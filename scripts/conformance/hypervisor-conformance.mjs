@@ -21274,6 +21274,40 @@ function runCompositor() {
       /subagent control event append facade fails closed before JS runtime event append/.test(
         runtimeSubagentSurfaceTest,
       ) &&
+      /thread route sends subagent controls through subagent surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /store\.subagentSurface\.listSubagents\(store,\s*threadId,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.spawnSubagent\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.propagateSubagentCancellation\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.waitSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.sendSubagentInput\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.cancelSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.resumeSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.assignSubagent\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.subagentSurface\.getSubagentResult\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/^\s*(?:listSubagents|spawnSubagent|waitSubagent|sendSubagentInput|cancelSubagent|propagateSubagentCancellation|resumeSubagent|assignSubagent|getSubagentResult|getSubagent|subagentProjection)\(/m.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/^\s*appendThreadSubagentControlEvent\(\{/m.test(runtimeDaemonIndex) &&
       /assertRuntimeSubagentControlRustCoreRequired/.test(runtimeSubagentSurfaceTest) &&
       /assert\.equal\(store\.agents\.size,\s*baseline\.agents\)/.test(
         runtimeSubagentSurfaceTest,

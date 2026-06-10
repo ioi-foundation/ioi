@@ -26,6 +26,10 @@ function request({ method = "GET", url = "/", body = {} } = {}) {
   };
 }
 
+function retiredRouteWrapper() {
+  throw new Error("retired route wrapper must not be routed");
+}
+
 function routeHandlers() {
   return createRuntimeRouteHandlers({
     baseUrlForRequest: () => "http://daemon.test",
@@ -422,6 +426,157 @@ test("thread route sends workspace-trust acknowledgement through thread control 
     warning_id: "warning_1",
     requested_control_kind: "workspace_trust_acknowledgement",
   });
+});
+
+test("thread route sends subagent controls through subagent surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const body = { prompt: "coordinate the migration" };
+  const surfaceResult = (method, args) => ({
+    status: "blocked",
+    method,
+    args,
+  });
+  const store = {
+    subagentSurface: {
+      listSubagents(surfaceStore, threadId, options) {
+        calls.push({ method: "listSubagents", surfaceStore, args: [threadId, options] });
+        return surfaceResult("listSubagents", [threadId, options]);
+      },
+      spawnSubagent(surfaceStore, threadId, requestBody) {
+        calls.push({ method: "spawnSubagent", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("spawnSubagent", [threadId, requestBody]);
+      },
+      propagateSubagentCancellation(surfaceStore, threadId, requestBody) {
+        calls.push({ method: "propagateSubagentCancellation", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("propagateSubagentCancellation", [threadId, requestBody]);
+      },
+      waitSubagent(surfaceStore, threadId, subagentId, requestBody) {
+        calls.push({ method: "waitSubagent", surfaceStore, args: [threadId, subagentId, requestBody] });
+        return surfaceResult("waitSubagent", [threadId, subagentId, requestBody]);
+      },
+      sendSubagentInput(surfaceStore, threadId, subagentId, requestBody) {
+        calls.push({ method: "sendSubagentInput", surfaceStore, args: [threadId, subagentId, requestBody] });
+        return surfaceResult("sendSubagentInput", [threadId, subagentId, requestBody]);
+      },
+      cancelSubagent(surfaceStore, threadId, subagentId, requestBody) {
+        calls.push({ method: "cancelSubagent", surfaceStore, args: [threadId, subagentId, requestBody] });
+        return surfaceResult("cancelSubagent", [threadId, subagentId, requestBody]);
+      },
+      resumeSubagent(surfaceStore, threadId, subagentId, requestBody) {
+        calls.push({ method: "resumeSubagent", surfaceStore, args: [threadId, subagentId, requestBody] });
+        return surfaceResult("resumeSubagent", [threadId, subagentId, requestBody]);
+      },
+      assignSubagent(surfaceStore, threadId, subagentId, requestBody) {
+        calls.push({ method: "assignSubagent", surfaceStore, args: [threadId, subagentId, requestBody] });
+        return surfaceResult("assignSubagent", [threadId, subagentId, requestBody]);
+      },
+      getSubagentResult(surfaceStore, threadId, subagentId) {
+        calls.push({ method: "getSubagentResult", surfaceStore, args: [threadId, subagentId] });
+        return surfaceResult("getSubagentResult", [threadId, subagentId]);
+      },
+    },
+    listSubagents: retiredRouteWrapper,
+    spawnSubagent: retiredRouteWrapper,
+    propagateSubagentCancellation: retiredRouteWrapper,
+    waitSubagent: retiredRouteWrapper,
+    sendSubagentInput: retiredRouteWrapper,
+    cancelSubagent: retiredRouteWrapper,
+    resumeSubagent: retiredRouteWrapper,
+    assignSubagent: retiredRouteWrapper,
+    getSubagentResult: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/subagents?role=reviewer",
+      segments: ["v1", "threads", "thread_route", "subagents"],
+      surfaceMethod: "listSubagents",
+      expectedArgs: ["thread_route", { role: "reviewer" }],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents",
+      segments: ["v1", "threads", "thread_route", "subagents"],
+      surfaceMethod: "spawnSubagent",
+      expectedArgs: ["thread_route", body],
+      expectedStatus: 201,
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents/cancel",
+      segments: ["v1", "threads", "thread_route", "subagents", "cancel"],
+      surfaceMethod: "propagateSubagentCancellation",
+      expectedArgs: ["thread_route", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents/subagent_1/wait",
+      segments: ["v1", "threads", "thread_route", "subagents", "subagent_1", "wait"],
+      surfaceMethod: "waitSubagent",
+      expectedArgs: ["thread_route", "subagent_1", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents/subagent_1/input",
+      segments: ["v1", "threads", "thread_route", "subagents", "subagent_1", "input"],
+      surfaceMethod: "sendSubagentInput",
+      expectedArgs: ["thread_route", "subagent_1", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents/subagent_1/cancel",
+      segments: ["v1", "threads", "thread_route", "subagents", "subagent_1", "cancel"],
+      surfaceMethod: "cancelSubagent",
+      expectedArgs: ["thread_route", "subagent_1", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents/subagent_1/resume",
+      segments: ["v1", "threads", "thread_route", "subagents", "subagent_1", "resume"],
+      surfaceMethod: "resumeSubagent",
+      expectedArgs: ["thread_route", "subagent_1", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/subagents/subagent_1/assign",
+      segments: ["v1", "threads", "thread_route", "subagents", "subagent_1", "assign"],
+      surfaceMethod: "assignSubagent",
+      expectedArgs: ["thread_route", "subagent_1", body],
+    },
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/subagents/subagent_1/result",
+      segments: ["v1", "threads", "thread_route", "subagents", "subagent_1", "result"],
+      surfaceMethod: "getSubagentResult",
+      expectedArgs: ["thread_route", "subagent_1"],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: testCase.method,
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, testCase.expectedStatus ?? 200);
+    assert.equal(call.method, testCase.surfaceMethod);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.expectedArgs);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "blocked",
+      method: testCase.surfaceMethod,
+      args: testCase.expectedArgs,
+    });
+  }
 });
 
 test("model mounting native route does not expose retired estimate-load endpoint", async () => {
