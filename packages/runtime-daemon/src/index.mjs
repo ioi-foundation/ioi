@@ -674,12 +674,6 @@ const {
 
 const RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS = 8;
 
-const WORKSPACE_CHANGE_CONTROL_TOOL_IDS = new Set([
-  "workspace_change__accept",
-  "workspace_change__reject",
-  "workspace_change__rollback",
-]);
-
 function throwOperatorTurnControlRustCoreRequired(details = {}) {
   throw runtimeError({
     status: 501,
@@ -2995,32 +2989,6 @@ export class AgentgresRuntimeStateStore {
         this.removeQuiet(filePath);
       }
     }
-  }
-
-  async invokeThreadToolAsync(threadId, toolId, request = {}) {
-    const normalizedToolId = optionalString(toolId);
-    if (WORKSPACE_CHANGE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
-      return await this.controlWorkspaceChangeForThread(threadId, {
-        ...request,
-        tool_id: normalizedToolId,
-      });
-    }
-    if (COMPUTER_USE_CONTROL_TOOL_IDS.has(normalizedToolId)) {
-      return this.invokeComputerUseControlTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_NATIVE_BROWSER_TOOL_IDS.has(normalizedToolId)) {
-      return await this.invokeComputerUseNativeBrowserTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_VISUAL_GUI_TOOL_IDS.has(normalizedToolId)) {
-      return await this.invokeComputerUseVisualGuiTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_SANDBOXED_HOSTED_TOOL_IDS.has(normalizedToolId)) {
-      return await this.invokeComputerUseSandboxedHostedTool(threadId, normalizedToolId, request);
-    }
-    if (COMPUTER_USE_VISUAL_GUI_OBSERVE_TOOL_IDS.has(normalizedToolId)) {
-      return await this.invokeComputerUseVisualGuiObserveTool(threadId, normalizedToolId, request);
-    }
-    return this.invokeThreadTool(threadId, toolId, request);
   }
 
   invokeThreadTool(threadId, toolId, request = {}) {

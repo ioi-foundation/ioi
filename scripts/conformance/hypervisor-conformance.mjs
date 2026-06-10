@@ -2880,7 +2880,7 @@ function runBridge() {
     runtimeDaemonIndex.match(/async invokeComputerUseNativeBrowserTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseSandboxedHostedTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseSandboxedHostedTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiObserveTool/)?.[0] ?? "",
-    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeThreadToolAsync/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  invokeThreadTool/)?.[0] ?? "",
   ];
   const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
@@ -3421,7 +3421,15 @@ function runBridge() {
       !retiredCodingToolJsImportPattern.test(codingTools) &&
       /coding tool invocation surface rejects non-live coding-tool runners before JS execution/.test(
         runtimeCodingToolInvocationSurfaceTest,
-      ),
+      ) &&
+      /thread route invokes coding tools through canonical store surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /store\.invokeThreadTool\(threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/invokeThreadToolAsync/.test(runtimeDaemonIndex) &&
+      !/store\.invokeThreadToolAsync/.test(runtimeRouteHandlers),
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -23747,7 +23755,10 @@ function runCompositor() {
       /workspace_change_control_receipt_synthesis_js_retired/.test(workspaceChangeState) &&
       /rust_daemon_core_workspace_change_control_required/.test(workspaceChangeState) &&
       /agentgres_workspace_change_truth_required/.test(workspaceChangeState) &&
-      /tool_id:\s*normalizedToolId/.test(runtimeDaemonIndex) &&
+      !/WORKSPACE_CHANGE_CONTROL_TOOL_IDS/.test(runtimeDaemonIndex) &&
+      !/workspace_change__accept|workspace_change__reject|workspace_change__rollback/.test(
+        runtimeDaemonIndex,
+      ) &&
       !exists("packages/runtime-daemon/src/workspace-change-inspection.mjs") &&
       !exists("packages/runtime-daemon/src/workspace-change-inspection.test.mjs") &&
       /workspace change inspection fails closed for fixture threads before JS fallback projection/.test(

@@ -42,7 +42,7 @@ function harness() {
     agentForThread() {
       throw new Error("MCP serve tool-call facade must not resolve thread agents in JS.");
     },
-    async invokeThreadToolAsync(threadId, toolId, request) {
+    async invokeThreadTool(threadId, toolId, request) {
       invocations.push({ threadId, toolId, request });
       throw new Error("MCP serve tool-call facade must not invoke JS thread tools.");
     },

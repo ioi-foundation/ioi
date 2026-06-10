@@ -282,6 +282,52 @@ test("thread route admits L1 settlement attempts through store facade", async ()
   });
 });
 
+test("thread route invokes coding tools through canonical store surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const body = {
+    turn_id: "turn_route",
+    workflow_node_id: "node.route",
+    input: { include_stat: true },
+  };
+  const store = {
+    invokeThreadTool(threadId, toolId, requestBody) {
+      calls.push({ threadId, toolId, requestBody });
+      return {
+        status: "completed",
+        thread_id: threadId,
+        tool_id: toolId,
+        request: requestBody,
+      };
+    },
+    invokeThreadToolAsync() {
+      throw new Error("retired invokeThreadToolAsync wrapper must not be routed");
+    },
+  };
+
+  await handleThreadRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/tools/git.diff/invoke",
+      body,
+    }),
+    response,
+    store,
+    url: new URL("/v1/threads/thread_route/tools/git.diff/invoke", "http://daemon.test"),
+    segments: ["v1", "threads", "thread_route", "tools", "git.diff", "invoke"],
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [{ threadId: "thread_route", toolId: "git.diff", requestBody: body }]);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "completed",
+    thread_id: "thread_route",
+    tool_id: "git.diff",
+    request: body,
+  });
+});
+
 test("model mounting native route does not expose retired estimate-load endpoint", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const response = responseRecorder();

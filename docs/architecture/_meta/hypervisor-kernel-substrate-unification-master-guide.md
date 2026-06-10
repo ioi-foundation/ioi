@@ -2243,6 +2243,15 @@ daemon-core MCP serve admission, wallet authority, StepModuleRouter dispatch,
 receipt/state-root binding, Agentgres truth, replay, projection, and stable
 SDK/IDE/CLI protocol APIs remain required before terminal MCP serve
 conformance.
+Slice 956 retired the daemon-store `invokeThreadToolAsync()` compatibility
+wrapper. The public `/v1/threads/:thread_id/tools/:tool_id/invoke` route now
+calls the canonical `invokeThreadTool()` surface directly, preserving the
+current Rust workload live StepModule path while removing the duplicate
+route-level JS dispatch fanout. This does not claim terminal thread-tool
+admission: direct Rust daemon-core route admission, wallet authority,
+StepModuleRouter dispatch, receipt/state-root binding, Agentgres truth, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain required before terminal thread-tool conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

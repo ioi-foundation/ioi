@@ -20946,8 +20946,40 @@ dispatch, receipt/state-root binding, Agentgres-backed truth, replay,
 projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
 remain before terminal pure Rust substrate conformance.
 
-Next scheduled matrix-compaction pass: compact Slices 941-955 after the next
+Next scheduled matrix-compaction pass: compact Slices 941-956 after the next
 direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of MCP serve command transport,
 Agentgres-backed MCP tool-call truth, and stable protocol APIs without encoding
 JS `invokeThreadToolAsync()` as public MCP serve authority.
+
+## Implementation Slice Evidence: 956
+
+Slice 956 retired the daemon-store `invokeThreadToolAsync()` compatibility
+wrapper. The public `/v1/threads/:thread_id/tools/:tool_id/invoke` route now
+calls the canonical `invokeThreadTool()` surface directly instead of routing
+through a second JS dispatch fanout. This preserves the current Rust workload
+live StepModule path for migrated coding tools while removing a route-level
+compatibility wrapper that should not become terminal architecture.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal thread-tool migration. Direct Rust
+daemon-core thread-tool admission, wallet authority, StepModuleRouter dispatch,
+receipt/state-root binding, Agentgres-backed truth, replay, projection,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-956 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of thread-tool command transport,
+Agentgres-backed thread-tool truth, and stable protocol APIs without encoding
+JS route-level dispatch wrappers as public thread-tool authority.
