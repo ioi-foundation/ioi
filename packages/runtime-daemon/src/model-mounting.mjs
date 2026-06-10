@@ -1548,7 +1548,7 @@ export class ModelMountingState {
   }
 
   listBackends() {
-    return this.backendRegistry();
+    throwBackendProjectionRustCoreRequired("model_mount.backend.list");
   }
 
   listBackendProcesses() {
@@ -1764,6 +1764,23 @@ function throwBackendLifecycleRustCoreRequired(operation_kind, backend) {
       evidence_refs: [
         "public_backend_lifecycle_js_facade_retired",
         "rust_daemon_core_lifecycle_required",
+      ],
+    },
+  });
+}
+
+function throwBackendProjectionRustCoreRequired(operation_kind) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_backend_projection_rust_core_required",
+    message: "Backend projection readback requires Rust daemon-core model_mount projection ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.backend_projection",
+      evidence_refs: [
+        "public_backend_projection_js_facade_retired",
+        "rust_daemon_core_backend_projection_required",
+        "agentgres_backend_projection_truth_required",
       ],
     },
   });

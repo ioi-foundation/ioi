@@ -12342,6 +12342,9 @@ function runReceipts() {
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
     : "";
+  const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    : "";
   const modelMountAdmissionRunner = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs")
     : "";
@@ -12489,8 +12492,9 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     : "";
   const backendLifecycle = [
+    modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
-    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(operation_kind, backend\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(operation_kind, backend\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
   ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
@@ -15121,6 +15125,16 @@ function runReceipts() {
       !/providers\.get\("provider\.(?:lmstudio|openai-compatible|ollama|vllm)"\)/.test(defaultRecords) &&
       /backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
       /rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
+      /listBackends\(\)\s*\{[\s\S]*?throwBackendProjectionRustCoreRequired\("model_mount\.backend\.list"\)/.test(
+        backendLifecycle,
+      ) &&
+      /model_mount_backend_projection_rust_core_required/.test(backendLifecycle) &&
+      /rust_core_boundary:\s*"model_mount\.backend_projection"/.test(backendLifecycle) &&
+      /public_backend_projection_js_facade_retired/.test(backendLifecycle) &&
+      /agentgres_backend_projection_truth_required/.test(backendLifecycle) &&
+      !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
+      /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
+      /url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
       /default backend registry records ignore JS provider-map projection/.test(defaultRecordsTest) &&
       /backend registry records must not read JS provider inventory/.test(defaultRecordsTest) &&
       /deriveBackendRegistry uses environment override, discovery, executables, and hardware without provider inventory/.test(
@@ -15144,6 +15158,11 @@ function runReceipts() {
       /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
         backendLifecycleTest,
       ) &&
+      /public backend list facade fails closed before JS backend registry projection/.test(
+        backendLifecycleTest,
+      ) &&
+      /listBackends must not read JS backend registry/.test(backendLifecycleTest) &&
+      /model_mount\.backend\.list/.test(backendLifecycleTest) &&
       /blocked backend public lifecycle start still fails at Rust-core boundary before JS control/.test(
         backendLifecycleTest,
       ) &&

@@ -2119,6 +2119,16 @@ file, parses local model metadata, or emits `artifactPath` as storage truth.
 The native-local fixture record is now marked as a Rust-backed deterministic
 fixture (`source: rust_model_mount_native_local_fixture`) and depends on the
 Rust `model_mount` native-local backend for execution semantics.
+Slice 943 retired the public backend list JS projection. `/api/v1/backends`
+and `/api/v1/models/backends` remain mounted daemon protocol routes, but
+`ModelMountingState.listBackends()` now fails closed at
+`model_mount.backend.list` with
+`model_mount_backend_projection_rust_core_required` instead of returning
+`backendRegistry()` records derived from JS env, discovery, provider maps, or
+process maps. The remaining backend registry state is migration plumbing for
+backend process planning/default records only; terminal conformance still
+requires direct Rust daemon-core backend projection over Agentgres-admitted
+topology and lifecycle truth.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

@@ -20469,3 +20469,38 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of fixture inventory/projection command
 transport, Agentgres-backed topology truth, and stable protocol APIs without
 encoding JS fixture file materialization as terminal architecture.
+
+## Implementation Slice Evidence: 943
+
+Slice 943 retired public backend list JS projection. `/api/v1/backends` and
+`/api/v1/models/backends` remain mounted daemon protocol routes, but
+`ModelMountingState.listBackends()` now fails closed at
+`model_mount.backend.list` with
+`model_mount_backend_projection_rust_core_required` instead of returning
+`backendRegistry()` records derived from JS env, discovery, provider maps, or
+process maps. Backend lifecycle/control APIs and backend process supervision
+remain fail-closed unless Rust daemon-core ownership is present; backend
+process details continue to be verified through admitted load/chat receipts
+rather than public JS registry readback.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs scripts/lib/model-mounting-daemon-contract.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal backend migration. Direct Rust daemon-core
+backend projection, Agentgres-backed topology/lifecycle truth, command-transport
+retirement, replay, and stable SDK/IDE/CLI protocol APIs remain before terminal
+pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-943 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of backend projection command transport,
+Agentgres-backed backend truth, and stable protocol APIs without encoding the
+Node `listBackends()` refusal as terminal architecture.

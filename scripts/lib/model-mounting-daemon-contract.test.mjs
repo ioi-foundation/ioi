@@ -120,6 +120,17 @@ async function expectOk(endpoint, route, options) {
   return result.json;
 }
 
+async function expectBackendProjectionRustCoreRequired(endpoint, route) {
+  const result = await requestJson(endpoint, route);
+  assert.equal(result.response.status, 501);
+  assert.equal(result.json.error.code, "model_mount_backend_projection_rust_core_required");
+  assert.equal(result.json.error.details.operation_kind, "model_mount.backend.list");
+  assert.equal(result.json.error.details.rust_core_boundary, "model_mount.backend_projection");
+  assert.ok(result.json.error.details.evidence_refs.includes("public_backend_projection_js_facade_retired"));
+  assert.ok(result.json.error.details.evidence_refs.includes("agentgres_backend_projection_truth_required"));
+  return result.json;
+}
+
 test("model mounting daemon keeps Agentgres store adapter extracted from the facade", () => {
   const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
   const store = readRepoFile("packages/runtime-daemon/src/model-mounting/store.mjs");
@@ -458,9 +469,8 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.equal(snapshotAfterCatalogSearch.catalog.lastSearch.query, "autopilot");
     assert.ok(snapshotAfterCatalogSearch.catalog.results.some((entry) => entry.sourceUrl === "fixture://catalog/autopilot-native-3b-q4" && entry.recommendation?.primaryBackend));
 
-    const backends = await expectOk(daemon.endpoint, "/api/v1/backends");
-    assert.ok(backends.some((backend) => backend.id === "backend.autopilot.native-local.fixture"));
-    assert.ok(backends.some((backend) => backend.id === "backend.llama-cpp"));
+    await expectBackendProjectionRustCoreRequired(daemon.endpoint, "/api/v1/backends");
+    await expectBackendProjectionRustCoreRequired(daemon.endpoint, "/api/v1/models/backends");
     const runtimeEngines = await expectOk(daemon.endpoint, "/api/v1/runtime/engines");
     assert.ok(runtimeEngines.some((engine) => engine.id === "backend.autopilot.native-local.fixture"));
     assert.ok(runtimeEngines.some((engine) => engine.source === "autopilot_backend_registry"));
@@ -697,11 +707,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     assert.match(nativeLoaded.backendProcess.pidHash, /^[a-f0-9]{16}$/);
     assert.ok(nativeLoaded.backendProcess.argsHash);
     assert.ok(nativeLoaded.backendProcess.evidenceRefs.includes("ModelBackendDriver.process_supervision"));
-    const processBackends = await expectOk(daemon.endpoint, "/api/v1/backends");
-    const nativeProcessBackend = processBackends.find((backend) => backend.id === "backend.autopilot.native-local.fixture");
-    assert.equal(nativeProcessBackend.process.status, "started");
-    assert.equal(nativeProcessBackend.process.argsRedacted.includes("--context"), true);
-    assert.equal(nativeProcessBackend.process.argsRedacted.includes("4096"), true);
+    await expectBackendProjectionRustCoreRequired(daemon.endpoint, "/api/v1/backends");
     const nativeChat = await expectOk(daemon.endpoint, "/api/v1/chat", {
       method: "POST",
       token: grant.token,

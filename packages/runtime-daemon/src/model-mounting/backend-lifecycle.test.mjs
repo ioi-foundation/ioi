@@ -11,6 +11,10 @@ function backendLogs(state, backendId) {
   return ModelMountingState.prototype.backendLogs.call(state, backendId);
 }
 
+function listBackends(state) {
+  return ModelMountingState.prototype.listBackends.call(state);
+}
+
 function ensureBackendProcess(state, backendId, details = {}) {
   return ModelMountingState.prototype.ensureBackendProcess.call(state, backendId, details);
 }
@@ -231,6 +235,32 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.logs, []);
   assert.deepEqual(state.writes, []);
+});
+
+test("public backend list facade fails closed before JS backend registry projection", () => {
+  const state = fakeState();
+  state.backendRegistry = () => {
+    throw new Error("listBackends must not read JS backend registry");
+  };
+
+  assert.throws(
+    () => listBackends(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_backend_projection_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.backend.list");
+      assert.equal(error.details.rust_core_boundary, "model_mount.backend_projection");
+      assert.deepEqual(error.details.evidence_refs, [
+        "public_backend_projection_js_facade_retired",
+        "rust_daemon_core_backend_projection_required",
+        "agentgres_backend_projection_truth_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
 });
 
 test("blocked backend public lifecycle start still fails at Rust-core boundary before JS control", () => {
