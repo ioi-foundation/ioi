@@ -117,11 +117,12 @@ use policy::{
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
-    RunCancelStateUpdateCore, RunCancelStateUpdateError, RunCancelStateUpdateRecord,
-    RunCancelStateUpdateRequest, RunCreateStateUpdateCore, RunCreateStateUpdateError,
-    RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
-    RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateError,
-    RuntimeBridgeThreadStartAgentStateUpdateRecord,
+    RunCancelAdmissionRequiredCore, RunCancelAdmissionRequiredError,
+    RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore,
+    RunCancelStateUpdateError, RunCancelStateUpdateRecord, RunCancelStateUpdateRequest,
+    RunCreateStateUpdateCore, RunCreateStateUpdateError, RunCreateStateUpdateRecord,
+    RunCreateStateUpdateRequest, RuntimeBridgeThreadStartAgentStateUpdateCore,
+    RuntimeBridgeThreadStartAgentStateUpdateError, RuntimeBridgeThreadStartAgentStateUpdateRecord,
     RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
     RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
     RuntimeBridgeTurnRunStateUpdateRequest, SubagentRecordStateUpdateCore,
@@ -304,6 +305,13 @@ impl RuntimeKernelService {
         request: &RunCancelStateUpdateRequest,
     ) -> Result<RunCancelStateUpdateRecord, RunCancelStateUpdateError> {
         RunCancelStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_run_cancel_admission_required(
+        &self,
+        request: &RunCancelAdmissionRequiredRequest,
+    ) -> Result<RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredError> {
+        RunCancelAdmissionRequiredCore.plan(request)
     }
 
     pub fn plan_thread_control_agent_state_update(

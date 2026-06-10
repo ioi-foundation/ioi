@@ -21421,3 +21421,44 @@ should preserve that workflow-edit, coding-tool budget recovery, and
 diagnostics repair refusal envelopes are now Rust-authored fail-closed
 migration boundaries, while accepted truth, wallet.network authority,
 Agentgres-backed state, and command-transport retirement remain non-terminal.
+
+## Implementation Slice Evidence: 969
+
+Slice 969 moved the run-cancel admission-required refusal envelope into the
+Rust daemon-core policy bridge. `RunCancelAdmissionRequiredCore` now plans the
+canonical Rust-core-required response, `ioi_step_module_bridge` exposes
+`plan_run_cancel_admission_required`, the JS daemon-core runner sends that
+command with `ioi.runtime.run-cancel-admission-required-request.v1`, and the
+runtime run-cancel facade uses the mounted context-policy runner to enter a
+Rust-authored fail-closed boundary before JS state planning, run-map mutation,
+`writeRun` persistence, runtime task/job/checklist projection rewriting, or JS
+event/receipt/artifact materialization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-run-cancellation.mjs packages/runtime-daemon/src/runtime-run-cancellation.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-run-cancellation.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo check -p ioi-services` | passed |
+| `cargo check -p ioi-node` | passed |
+| `cargo test -p ioi-services rust_policy_plans_run_cancel_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_run_cancel_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+
+This still does not claim terminal run-cancel migration. Direct Rust
+daemon-core cancellation admission, Agentgres-backed expected-head/state-root
+truth, receipt/event materialization, run persistence, replay, projection,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-969 after the next
+larger Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve that workflow-edit, coding-tool budget recovery, diagnostics
+repair, and run-cancel refusal envelopes are now Rust-authored fail-closed
+migration boundaries, while accepted truth, wallet.network authority where
+applicable, Agentgres-backed state, and command-transport retirement remain
+non-terminal.

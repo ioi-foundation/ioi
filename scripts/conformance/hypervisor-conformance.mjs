@@ -6896,6 +6896,17 @@ function runBridge() {
       /run cancel state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /RunCancelAdmissionRequiredCore/.test(policyCore) &&
+      /RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_run_cancel_admission_required/.test(policyCore) &&
+      /plan_run_cancel_admission_required/.test(bridgeModule) &&
+      /bridge_plans_run_cancel_admission_required_through_rust_core/.test(bridgeModule) &&
+      /planRunCancelAdmissionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /run cancel admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /runtime_run_cancel_rust_core_required/.test(runtimeRunCancellation) &&
       /rust_core_boundary:\s*"runtime\.run_cancel"/.test(runtimeRunCancellation) &&
       /runtime_run_cancel_js_facade_retired/.test(runtimeRunCancellation) &&
@@ -6913,9 +6924,15 @@ function runBridge() {
       ) &&
       !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeRunCancellation) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.cancel"/.test(runtimeRunCancellation) &&
-      /cancelRun facade fails closed before Rust planning or JS persistence/.test(runtimeRunCancellationTest) &&
+      /cancelRun facade fails closed before JS state planning or JS persistence/.test(
+        runtimeRunCancellationTest,
+      ) &&
+      /cancelRun facade uses Rust daemon-core admission-required planner when mounted/.test(
+        runtimeRunCancellationTest,
+      ) &&
       /cancelRun missing-run failure remains canonical and does not write/.test(runtimeRunCancellationTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(runtimeRunCancellationTest) &&
+      /Run cancel facade must not invoke Rust state planning/.test(runtimeRunCancellationTest) &&
       !/plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
       /return cancelRunState\(this,\s*runId\);/.test(runtimeDaemonIndex) &&
@@ -6929,7 +6946,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 9/10 is pending: public run cancellation must fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
+    "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core admission-required planner and fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
   );
   assertCheck(
     result,

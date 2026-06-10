@@ -33,6 +33,10 @@ pub const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-state-update-request.v1";
 pub const RUN_CANCEL_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-state-update.v1";
+pub const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.run-cancel-admission-required-request.v1";
+pub const RUN_CANCEL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.run-cancel-admission-required.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -257,6 +261,15 @@ pub enum OperatorSteerStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunCancelStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RunCancelAdmissionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1092,6 +1105,41 @@ pub struct RunCancelStateUpdateRecord {
     pub runtime_job: Value,
     pub runtime_checklist: Value,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunCancelAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub run_id: String,
+    #[serde(default)]
+    pub run_status: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RunCancelAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub run_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub run_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
     pub generated_at: String,
 }
 
@@ -2907,6 +2955,61 @@ impl RunCancelStateUpdateCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct RunCancelAdmissionRequiredCore;
+
+impl RunCancelAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &RunCancelAdmissionRequiredRequest,
+    ) -> Result<RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredError> {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let run_id = optional_trimmed(Some(request.run_id.as_str())).unwrap();
+        let run_status = optional_trimmed(request.run_status.as_deref());
+        let source = optional_trimmed(request.source.as_deref());
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                "runtime_run_cancel_js_facade_retired".to_string(),
+                "rust_daemon_core_run_cancel_required".to_string(),
+                "agentgres_run_cancel_state_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.run_cancel",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "run_id": run_id,
+            "run_status": run_status,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(RunCancelAdmissionRequiredRecord {
+            schema_version: RUN_CANCEL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_run_cancel_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_run_cancel_rust_core_required".to_string(),
+            message:
+                "Run cancellation requires direct Rust daemon-core state admission and persistence."
+                    .to_string(),
+            rust_core_boundary: "runtime.run_cancel".to_string(),
+            operation,
+            operation_kind,
+            run_id,
+            run_status,
+            source,
+            evidence_refs,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
 
 impl ThreadControlAgentStateUpdateCore {
@@ -4272,6 +4375,29 @@ impl RunCancelStateUpdateRequest {
         }
         if optional_trimmed(Some(self.canceled_at.as_str())).is_none() {
             return Err(RunCancelStateUpdateError::MissingField("canceled_at"));
+        }
+        Ok(())
+    }
+}
+
+impl RunCancelAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), RunCancelAdmissionRequiredError> {
+        if self.schema_version != RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(RunCancelAdmissionRequiredError::InvalidSchemaVersion {
+                expected: RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(RunCancelAdmissionRequiredError::MissingField("operation"));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(RunCancelAdmissionRequiredError::MissingField(
+                "operation_kind",
+            ));
+        }
+        if optional_trimmed(Some(self.run_id.as_str())).is_none() {
+            return Err(RunCancelAdmissionRequiredError::MissingField("run_id"));
         }
         Ok(())
     }
@@ -7604,6 +7730,40 @@ mod tests {
                 .and_then(|artifact| artifact["content"]["status"].as_str()),
             Some("canceled")
         );
+    }
+
+    #[test]
+    fn rust_policy_plans_run_cancel_admission_required() {
+        let record = RunCancelAdmissionRequiredCore
+            .plan(&RunCancelAdmissionRequiredRequest {
+                schema_version: RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+                operation: "run_cancel".to_string(),
+                operation_kind: "run.cancel".to_string(),
+                run_id: "run_cancel_one".to_string(),
+                run_status: Some("running".to_string()),
+                source: Some("operator".to_string()),
+                evidence_refs: vec![
+                    "runtime_run_cancel_js_facade_retired".to_string(),
+                    "rust_daemon_core_run_cancel_required".to_string(),
+                    "agentgres_run_cancel_state_truth_required".to_string(),
+                ],
+            })
+            .expect("run cancel admission required");
+
+        assert_eq!(
+            record.schema_version,
+            RUN_CANCEL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "runtime_run_cancel_rust_core_required");
+        assert_eq!(record.rust_core_boundary, "runtime.run_cancel");
+        assert_eq!(record.operation, "run_cancel");
+        assert_eq!(record.operation_kind, "run.cancel");
+        assert_eq!(record.details["run_id"], "run_cancel_one");
+        assert_eq!(record.details["run_status"], "running");
+        assert!(record.details.get("runId").is_none());
+        assert!(record.details.get("runStatus").is_none());
     }
 
     #[test]

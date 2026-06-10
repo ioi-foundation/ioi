@@ -17,7 +17,7 @@ function fakeState(run) {
   };
 }
 
-test("cancelRun facade fails closed before Rust planning or JS persistence", () => {
+test("cancelRun facade fails closed before JS state planning or JS persistence", () => {
   const run = {
     id: "run_cancel_one",
     agentId: "agent_one",
@@ -54,6 +54,79 @@ test("cancelRun facade fails closed before Rust planning or JS persistence", () 
     },
   );
 
+  assert.equal(state.runs.get(run.id), run);
+  assert.deepEqual(state.writes, []);
+});
+
+test("cancelRun facade uses Rust daemon-core admission-required planner when mounted", () => {
+  const run = {
+    id: "run_cancel_one",
+    status: "running",
+  };
+  const runnerCalls = [];
+  const state = {
+    ...fakeState(run),
+    contextPolicyRunner: {
+      planRunCancelAdmissionRequired(request) {
+        runnerCalls.push(request);
+        return {
+          source: "rust_run_cancel_admission_required_command",
+          backend: "rust_policy",
+          record: {
+            status_code: 501,
+            code: "runtime_run_cancel_rust_core_required",
+            message:
+              "Run cancellation requires direct Rust daemon-core state admission and persistence.",
+            details: {
+              rust_core_boundary: "runtime.run_cancel",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              run_id: request.run_id,
+              run_status: request.run_status,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
+      planRunCancelStateUpdate() {
+        throw new Error("Run cancel facade must not invoke Rust state planning.");
+      },
+    },
+  };
+
+  assert.throws(
+    () => cancelRun(state, run.id),
+    (error) => {
+      assert.equal(error.code, "runtime_run_cancel_rust_core_required");
+      assert.equal(error.status, 501);
+      assert.equal(error.details.rust_core_boundary, "runtime.run_cancel");
+      assert.equal(error.details.operation, "run_cancel");
+      assert.equal(error.details.operation_kind, "run.cancel");
+      assert.equal(error.details.run_id, run.id);
+      assert.equal(error.details.run_status, "running");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_run_cancel_js_facade_retired",
+        "rust_daemon_core_run_cancel_required",
+        "agentgres_run_cancel_state_truth_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "runId"), false);
+      assert.equal(Object.hasOwn(error.details, "runStatus"), false);
+      return true;
+    },
+  );
+
+  assert.deepEqual(runnerCalls, [{
+    operation: "run_cancel",
+    operation_kind: "run.cancel",
+    run_id: run.id,
+    run_status: "running",
+    source: undefined,
+    evidence_refs: [
+      "runtime_run_cancel_js_facade_retired",
+      "rust_daemon_core_run_cancel_required",
+      "agentgres_run_cancel_state_truth_required",
+    ],
+  }]);
   assert.equal(state.runs.get(run.id), run);
   assert.deepEqual(state.writes, []);
 });

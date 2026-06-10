@@ -50,7 +50,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     MemoryManagerStatusProjectionRequest, MemoryManagerValidationProjectionCore,
     MemoryManagerValidationProjectionRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
-    OperatorSteerStateUpdateRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
+    OperatorSteerStateUpdateRequest, RunCancelAdmissionRequiredCore,
+    RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
@@ -518,6 +519,16 @@ struct RunCancelStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: RunCancelStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct RunCancelAdmissionRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RunCancelAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1059,6 +1070,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_run_cancel_state_update(request)
         }
+        "plan_run_cancel_admission_required" => {
+            let request: RunCancelAdmissionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_run_cancel_admission_required(request)
+        }
         "plan_thread_control_agent_state_update" => {
             let request: ThreadControlAgentStateUpdateBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1268,6 +1285,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_operator_interrupt_state_update"
             | "plan_operator_steer_state_update"
             | "plan_run_cancel_state_update"
+            | "plan_run_cancel_admission_required"
             | "plan_thread_control_agent_state_update"
             | "plan_mcp_control_agent_state_update"
             | "plan_thread_memory_agent_state_update"
@@ -4434,6 +4452,46 @@ fn plan_run_cancel_state_update(
         "runtime_job": record.runtime_job.clone(),
         "runtime_checklist": record.runtime_checklist.clone(),
         "run": record.run.clone(),
+    }))
+}
+
+fn plan_run_cancel_admission_required(
+    request: RunCancelAdmissionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_run_cancel_admission_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RunCancelAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "run_cancel_admission_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_run_cancel_admission_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
     }))
 }
 
@@ -11671,6 +11729,51 @@ mod tests {
         assert_eq!(response["run"]["events"][1]["type"], "runtime_task");
         assert_eq!(response["run"]["events"][3]["type"], "job_canceled");
         assert_eq!(response["runtime_job"]["status"], "canceled");
+    }
+
+    #[test]
+    fn bridge_plans_run_cancel_admission_required_through_rust_core() {
+        let request: RunCancelAdmissionRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_run_cancel_admission_required",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.run-cancel-admission-required-request.v1",
+                "operation": "run_cancel",
+                "operation_kind": "run.cancel",
+                "run_id": "run_cancel_bridge",
+                "run_status": "running",
+                "source": "operator",
+                "evidence_refs": [
+                    "runtime_run_cancel_js_facade_retired",
+                    "rust_daemon_core_run_cancel_required",
+                    "agentgres_run_cancel_state_truth_required"
+                ]
+            }
+        }))
+        .expect("run cancel admission required bridge request");
+
+        let response = plan_run_cancel_admission_required(request)
+            .expect("run cancel admission refusal planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_run_cancel_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(response["code"], "runtime_run_cancel_rust_core_required");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.run_cancel"
+        );
+        assert_eq!(response["details"]["operation"], "run_cancel");
+        assert_eq!(response["details"]["operation_kind"], "run.cancel");
+        assert_eq!(response["details"]["run_id"], "run_cancel_bridge");
+        assert_eq!(response["details"]["run_status"], "running");
+        assert!(response["details"].get("runId").is_none());
+        assert!(response["details"].get("runStatus").is_none());
     }
 
     #[test]

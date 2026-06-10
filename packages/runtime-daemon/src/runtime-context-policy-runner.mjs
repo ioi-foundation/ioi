@@ -22,6 +22,8 @@ export const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-steer-state-update-request.v1";
 export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
+export const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.run-cancel-admission-required-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -194,6 +196,14 @@ export class RustContextPolicyRunner {
       schemaVersion: RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
+  }
+
+  planRunCancelAdmissionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_run_cancel_admission_required",
+      schemaVersion: RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
   }
 
   planThreadControlAgentStateUpdate(request = {}) {

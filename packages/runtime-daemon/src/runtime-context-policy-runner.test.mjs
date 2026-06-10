@@ -30,6 +30,7 @@ import {
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -951,6 +952,64 @@ test("run cancel state update runner sends Rust state update bridge request", ()
   assert.equal(result.operation_kind, "run.cancel");
   assert.equal(result.runtime_job.status, "canceled");
   assert.equal(result.run.events.at(-1).type, "canceled");
+});
+
+test("run cancel admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_run_cancel_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_run_cancel_rust_core_required",
+              message:
+                "Run cancellation requires direct Rust daemon-core state admission and persistence.",
+              details: {
+                rust_core_boundary: "runtime.run_cancel",
+                operation: "run_cancel",
+                operation_kind: "run.cancel",
+                run_id: "run_cancel_one",
+                run_status: "running",
+                evidence_refs: ["runtime_run_cancel_js_facade_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRunCancelAdmissionRequired({
+    operation: "run_cancel",
+    operation_kind: "run.cancel",
+    run_id: "run_cancel_one",
+    run_status: "running",
+    evidence_refs: ["runtime_run_cancel_js_facade_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_run_cancel_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "run_cancel");
+  assert.equal(captured.request.operation_kind, "run.cancel");
+  assert.equal(result.source, "rust_run_cancel_admission_required_command");
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.run_id, "run_cancel_one");
+  assert.equal(Object.hasOwn(result.record.details, "runId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "runStatus"), false);
 });
 
 test("thread control agent state update runner sends Rust state update bridge request", () => {

@@ -2322,6 +2322,19 @@ wallet.network/operator authority, Agentgres expected-head/state-root binding,
 repair/operator receipts, retry-run admission, event materialization, replay,
 command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
 required before terminal pure Rust substrate conformance.
+Slice 969 moved the run-cancel Rust-core-required admission refusal into the
+Rust daemon-core policy bridge. `RunCancelAdmissionRequiredCore` now emits the
+canonical fail-closed envelope and snake_case detail payload,
+`ioi_step_module_bridge` exposes `plan_run_cancel_admission_required`, and the
+runtime daemon run-cancel facade uses the mounted context-policy runner to get
+the Rust-authored refusal. JS still translates that refusal at the edge and
+still fails closed before run-map mutation, run persistence, runtime
+task/job/checklist projection rewriting, or event/receipt/artifact
+materialization. This does not claim terminal run-cancel migration: direct Rust
+daemon-core cancellation admission, Agentgres expected-head/state-root binding,
+receipt/event materialization, persistence, replay, projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain required before
+terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail
