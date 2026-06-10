@@ -144,13 +144,6 @@ import {
   normalizeScopes,
 } from "./model-mounting/io.mjs";
 import {
-  materializeLiveDownloadAttempt,
-  writeDownloadResumeMetadata,
-  isRetriableDownloadFailure,
-  downloadRetryBackoffMs,
-  cleanupPartialDownload,
-} from "./model-mounting/download-helpers.mjs";
-import {
   modelCatalogProviderPorts as buildModelCatalogProviderPorts,
 } from "./model-mounting/catalog-registry.mjs";
 import {

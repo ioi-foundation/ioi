@@ -2266,6 +2266,13 @@ so JS keeps only the still-called local artifact/import metadata helpers until
 direct Rust daemon-core catalog/download admission owns transfer policy,
 receipts, record-state, and projection.
 
+Slice 907 deleted the orphan catalog download materializer module.
+`download-helpers.mjs` is absent rather than preserved as a dormant HTTP,
+partial-file, retry, checksum, or fixture-download execution path. The mounted
+catalog import/download facades no longer import the materializer helpers, so
+catalog/download filesystem and network transfer semantics remain unavailable
+from JS until direct Rust daemon-core catalog/download admission owns the path.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

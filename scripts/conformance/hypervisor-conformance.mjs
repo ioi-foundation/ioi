@@ -802,6 +802,9 @@ function runDocs() {
       !/export function catalogDownloadRisk/.test(catalogHelpers) &&
       !/export function normalizeDownloadPolicy/.test(catalogHelpers) &&
       !/export function catalogApprovalDecision/.test(catalogHelpers) &&
+      /Slice 907 deleted the orphan catalog download materializer module/.test(guide) &&
+      /`download-helpers\.mjs` is absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/download-helpers.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1177,7 +1180,11 @@ function runDocs() {
       /Implementation Slice Evidence: 906/.test(matrix) &&
       /Slice 906 deleted the dead catalog download policy helper cluster/.test(matrix) &&
       /`catalog-helpers\.mjs` no longer exports `catalogDownloadRisk\(\)`,\s+`normalizeDownloadPolicy\(\)`, or `catalogApprovalDecision\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 906/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 906 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 907/.test(matrix) &&
+      /Slice 907 deleted the orphan catalog download materializer module/.test(matrix) &&
+      /`download-helpers\.mjs` is absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 907/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1362,7 +1369,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 903 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 904 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 905 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 906/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 906 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 907/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1842,7 +1850,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 906 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 907 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -1853,6 +1861,7 @@ function runDocs() {
       /`recordServerOperation\(\)` fails closed instead of delegating to a missing helper export/.test(implementationMatrix) &&
       /the orphan `catalog-projections\.mjs` product\/config\/auth projection helper\/test module is deleted/.test(implementationMatrix) &&
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
+      /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -1888,6 +1897,7 @@ function runDocs() {
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
+      /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the direct JS route-selection policy engine, `model=auto` selector, and\s+explicit model endpoint resolver are retired/.test(implementationMatrix) &&
       /mounted `selectRoute\(\)` and `endpointIdsForExplicitModel\(\)` fail closed\s+before route-map reads, endpoint\/provider reads, endpoint mounting, JS policy\s+evaluation, or candidate scoring/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
@@ -13696,11 +13706,18 @@ function runReceipts() {
       !/export function catalogRecommendation/.test(catalogHelpers) &&
       !/export function catalogBackendCompatibility/.test(catalogHelpers) &&
       !/export function catalogBenchmarkReadiness/.test(catalogHelpers) &&
+      !exists("packages/runtime-daemon/src/model-mounting/download-helpers.mjs") &&
+      !/from "\.\/model-mounting\/download-helpers\.mjs"/.test(modelMountingState) &&
+      !/materializeLiveDownloadAttempt|writeDownloadResumeMetadata|cleanupPartialDownload|downloadRetryBackoffMs|isRetriableDownloadFailure/.test(
+        modelMountingState,
+      ) &&
       !/catalog download policy accepts canonical request fields/.test(catalogHelpersTest) &&
       !/catalog download policy rejects retired request aliases/.test(catalogHelpersTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/download-helpers.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 9/11 is pending: catalog download policy helpers must remain deleted until Rust daemon-core catalog/download admission owns transfer policy and receipt semantics",
   );
