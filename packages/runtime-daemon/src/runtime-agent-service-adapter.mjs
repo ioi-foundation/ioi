@@ -19,9 +19,8 @@ export function createRuntimeAgentServiceCommandAdapterFromEnv(env = process.env
     command,
     args:
       options.args ??
-      parseCommandArgs(
-        env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS ?? env.IOI_RUNTIME_BRIDGE_ARGS,
-      ),
+      env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS ??
+      env.IOI_RUNTIME_BRIDGE_ARGS,
     bridgeId:
       options.bridgeId ??
       env.IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ID ??
@@ -38,6 +37,7 @@ export function createRuntimeAgentServiceCommandAdapterFromEnv(env = process.env
 
 export class RuntimeAgentServiceCommandAdapter {
   constructor(options = {}) {
+    assertNoRuntimeAgentServiceBridgeArgs(options.args);
     const command = String(options.command ?? "").trim();
     if (!command) {
       throw new RuntimeAgentServiceCommandAdapterError(
@@ -46,7 +46,6 @@ export class RuntimeAgentServiceCommandAdapter {
       );
     }
     this.command = command;
-    this.args = normalizeArgs(options.args);
     this.cwd = options.cwd;
     this.env = { ...(options.env ?? {}) };
     this.timeoutMs = parsePositiveInteger(options.timeoutMs, DEFAULT_TIMEOUT_MS);
@@ -82,7 +81,6 @@ export class RuntimeAgentServiceCommandAdapter {
     };
     const response = await invokeJsonCommand({
       command: this.command,
-      args: this.args,
       cwd: this.cwd,
       env: { ...process.env, ...this.env },
       timeoutMs: this.timeoutMs,
@@ -129,7 +127,6 @@ export class RuntimeAgentServiceCommandAdapterError extends Error {
 
 function invokeJsonCommand({
   command,
-  args,
   cwd,
   env,
   timeoutMs,
@@ -138,7 +135,7 @@ function invokeJsonCommand({
   onRuntimeEvent,
 }) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
+    const child = spawn(command, [], {
       cwd,
       env,
       stdio: ["pipe", "pipe", "pipe"],
@@ -323,26 +320,18 @@ function parseJsonOutput(output, details) {
   );
 }
 
-function normalizeArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return value.map((item) => String(item));
-  return [String(value)];
-}
-
-function parseCommandArgs(value) {
-  const raw = String(value ?? "").trim();
-  if (!raw) return [];
-  if (raw.startsWith("[")) {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      throw new RuntimeAgentServiceCommandAdapterError(
-        "RuntimeAgentService bridge args env must be a JSON array.",
-        { operation: "configure" },
-      );
-    }
-    return normalizeArgs(parsed);
-  }
-  return raw.split(/\s+/).filter(Boolean);
+export function assertNoRuntimeAgentServiceBridgeArgs(value) {
+  if (value == null) return;
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  throw new RuntimeAgentServiceCommandAdapterError(
+    "RuntimeAgentService bridge argument selection is retired; runtime agent service command argv is fixed migration transport.",
+    {
+      code: "runtime_agent_service_bridge_args_retired",
+      operation: "configure",
+      retired_args: value,
+    },
+  );
 }
 
 function parsePositiveInteger(value, fallback) {

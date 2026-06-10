@@ -293,6 +293,12 @@ JS edge can no longer use `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS` or constructor
 receipt binding, or projection planning. This still leaves command transport as
 temporary migration scaffolding; the terminal target remains direct Rust
 daemon-core protocol/API ownership with no JS-authoritative model_mount hot path.
+Slice 928 extends the same fixed-argv retirement to the RuntimeAgentService
+command adapter. `IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS`,
+`IOI_RUNTIME_BRIDGE_ARGS`, and constructor `args` can no longer shape the
+runtime-agent service bridge command. The configured command must be executable
+as the transport endpoint itself until the temporary bridge collapses into the
+stable daemon protocol/API and Rust daemon-core ownership.
 
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement

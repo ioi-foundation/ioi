@@ -7684,6 +7684,12 @@ function runBridge() {
       /bridge_id:\s*canonicalResult\.bridge_id \?\? this\.bridgeId/.test(
         runtimeAgentServiceAdapter,
       ) &&
+      !/parseCommandArgs/.test(runtimeAgentServiceAdapter) &&
+      !/normalizeArgs/.test(runtimeAgentServiceAdapter) &&
+      !/this\.args/.test(runtimeAgentServiceAdapter) &&
+      /assertNoRuntimeAgentServiceBridgeArgs/.test(runtimeAgentServiceAdapter) &&
+      /runtime_agent_service_bridge_args_retired/.test(runtimeAgentServiceAdapter) &&
+      /spawn\(command,\s*\[\]/.test(runtimeAgentServiceAdapter) &&
       !/bridge_id:\s*result\.bridge_id \?\? result\.bridgeId/.test(
         runtimeAgentServiceAdapter,
       ) &&
@@ -7695,6 +7701,12 @@ function runBridge() {
         runtimeAgentServiceAdapterTest,
       ) &&
       /Object\.hasOwn\(result,\s*"bridgeId"\),\s*false/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
+      /RuntimeAgentService command adapter bridge args env fails closed/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
+      /RuntimeAgentService command adapter bridge args constructor option fails closed/.test(
         runtimeAgentServiceAdapterTest,
       ),
     [

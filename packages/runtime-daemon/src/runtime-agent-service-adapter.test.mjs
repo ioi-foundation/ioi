@@ -4,12 +4,21 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { createRuntimeAgentServiceCommandAdapter } from "./runtime-agent-service-adapter.mjs";
+import {
+  RuntimeAgentServiceCommandAdapterError,
+  createRuntimeAgentServiceCommandAdapter,
+  createRuntimeAgentServiceCommandAdapterFromEnv,
+} from "./runtime-agent-service-adapter.mjs";
+
+function writeExecutableBridgeScript(file, source) {
+  fs.writeFileSync(file, `#!/usr/bin/env node\n${source}`);
+  fs.chmodSync(file, 0o755);
+}
 
 test("RuntimeAgentService command adapter bridge calls inherit current process env", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-env-"));
   const bridgeScript = path.join(tempDir, "bridge-env-probe.mjs");
-  fs.writeFileSync(
+  writeExecutableBridgeScript(
     bridgeScript,
     `
 import fs from "node:fs";
@@ -29,8 +38,7 @@ console.log(JSON.stringify({
 
   const previous = process.env.IOI_RUNTIME_ADAPTER_DYNAMIC_ENV;
   const adapter = createRuntimeAgentServiceCommandAdapter({
-    command: process.execPath,
-    args: [bridgeScript],
+    command: bridgeScript,
     bridgeId: "dynamic-env-test",
   });
 
@@ -52,7 +60,7 @@ console.log(JSON.stringify({
 test("RuntimeAgentService command adapter projects streaming runtime event lines separately from final result", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-stream-"));
   const bridgeScript = path.join(tempDir, "bridge-stream-probe.mjs");
-  fs.writeFileSync(
+  writeExecutableBridgeScript(
     bridgeScript,
     `
 console.log(JSON.stringify({
@@ -78,8 +86,7 @@ console.log(JSON.stringify({
   );
 
   const adapter = createRuntimeAgentServiceCommandAdapter({
-    command: process.execPath,
-    args: [bridgeScript],
+    command: bridgeScript,
     bridgeId: "stream-test",
   });
   const events = [];
@@ -97,7 +104,7 @@ console.log(JSON.stringify({
 test("RuntimeAgentService command adapter ignores retired bridgeId result alias", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-bridge-alias-"));
   const bridgeScript = path.join(tempDir, "bridge-alias-probe.mjs");
-  fs.writeFileSync(
+  writeExecutableBridgeScript(
     bridgeScript,
     `
 console.log(JSON.stringify({
@@ -112,8 +119,7 @@ console.log(JSON.stringify({
   );
 
   const adapter = createRuntimeAgentServiceCommandAdapter({
-    command: process.execPath,
-    args: [bridgeScript],
+    command: bridgeScript,
     bridgeId: "canonical-adapter-bridge",
   });
   const result = await adapter.submitTurn({ thread_id: "thread_alias" });
@@ -126,7 +132,7 @@ console.log(JSON.stringify({
 test("RuntimeAgentService command adapter treats runtime event streaming as timeout activity", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-activity-"));
   const bridgeScript = path.join(tempDir, "bridge-activity-probe.mjs");
-  fs.writeFileSync(
+  writeExecutableBridgeScript(
     bridgeScript,
     `
 import { setTimeout as delay } from "node:timers/promises";
@@ -157,8 +163,7 @@ console.log(JSON.stringify({
   );
 
   const adapter = createRuntimeAgentServiceCommandAdapter({
-    command: process.execPath,
-    args: [bridgeScript],
+    command: bridgeScript,
     bridgeId: "activity-timeout-test",
     timeoutMs: 100,
   });
@@ -176,7 +181,7 @@ console.log(JSON.stringify({
 test("RuntimeAgentService command adapter supports managed session inspect and control operations", async () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-managed-session-"));
   const bridgeScript = path.join(tempDir, "bridge-managed-session-probe.mjs");
-  fs.writeFileSync(
+  writeExecutableBridgeScript(
     bridgeScript,
     `
 import fs from "node:fs";
@@ -195,8 +200,7 @@ console.log(JSON.stringify({
   );
 
   const adapter = createRuntimeAgentServiceCommandAdapter({
-    command: process.execPath,
-    args: [bridgeScript],
+    command: bridgeScript,
     bridgeId: "managed-session-test",
   });
 
@@ -216,4 +220,41 @@ console.log(JSON.stringify({
   assert.equal(control.operation, "control_thread");
   assert.equal(control.input.managedSessionId, "sandbox_browser:one");
   assert.equal(control.input.action, "take_over_session");
+});
+
+test("RuntimeAgentService command adapter bridge args env fails closed", () => {
+  assert.throws(
+    () =>
+      createRuntimeAgentServiceCommandAdapterFromEnv({
+        IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND: "ioi-runtime-bridge",
+        IOI_RUNTIME_AGENT_SERVICE_BRIDGE_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_args_retired",
+  );
+
+  assert.throws(
+    () =>
+      createRuntimeAgentServiceCommandAdapterFromEnv({
+        IOI_RUNTIME_BRIDGE_COMMAND: "ioi-runtime-bridge",
+        IOI_RUNTIME_BRIDGE_ARGS: '["--json"]',
+      }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_args_retired",
+  );
+});
+
+test("RuntimeAgentService command adapter bridge args constructor option fails closed", () => {
+  assert.throws(
+    () =>
+      createRuntimeAgentServiceCommandAdapter({
+        command: "ioi-runtime-bridge",
+        args: ["--json"],
+      }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_args_retired",
+  );
 });
