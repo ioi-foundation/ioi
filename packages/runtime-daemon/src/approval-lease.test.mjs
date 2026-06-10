@@ -29,17 +29,83 @@ function restoreEnv(name, value) {
   }
 }
 
+function modelMountAdmissionRunnerForApprovalLeaseTest() {
+  return {
+    planReadProjection(request) {
+      const projection = { source: "agentgres_model_mounting_projection" };
+      return {
+        source: "rust_model_mount_read_projection_command",
+        backend: "rust_model_mount_read_projection",
+        projection_kind: request.projection_kind,
+        projection,
+        evidence_refs: [
+          "rust_daemon_core_model_mount_projection",
+          "agentgres_model_mount_read_truth",
+          "model_mount_js_read_projection_authoring_retired",
+        ],
+      };
+    },
+  };
+}
+
+function runtimeAgentgresAdmissionRunnerForApprovalLeaseTest() {
+  function writeCommittedRecord(stateDir, recordPath, value) {
+    const targetPath = path.join(stateDir, recordPath);
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.writeFileSync(targetPath, `${JSON.stringify(value, null, 2)}\n`);
+  }
+
+  return {
+    commitRuntimeAgentState(stateDir, request) {
+      const recordPath = `agents/${request.agent_id}.json`;
+      writeCommittedRecord(stateDir, recordPath, request.agent ?? request);
+      return {
+        source: "rust_agentgres_runtime_agent_state_commit_command",
+        agent_id: request.agent_id,
+        object_ref: `agentgres://runtime-state/agents/${request.agent_id}/records/${recordPath}`,
+        content_hash: "sha256:approval-lease-agent-content",
+        admission_hash: "sha256:approval-lease-agent-admission",
+        commit_hash: "sha256:approval-lease-agent-commit",
+        written_record: { record_path: recordPath },
+        evidence_refs: ["rust_agentgres_runtime_agent_state_commit"],
+      };
+    },
+    commitRuntimeRunState(stateDir, request) {
+      const recordPath = `runs/${request.run_id}.json`;
+      writeCommittedRecord(stateDir, recordPath, request.run ?? request);
+      return {
+        source: "rust_agentgres_runtime_run_state_commit_command",
+        operation_ref: `agentgres://runtime-state/runs/${request.run_id}/operations/${request.operation_kind}_approval_lease_test`,
+        state_root_after: "sha256:approval-lease-state-root-after",
+        resulting_head: `agentgres://runtime-state/runs/${request.run_id}/head/approval-lease-test`,
+        transition_hash: "sha256:approval-lease-transition",
+        materialization_hash: "sha256:approval-lease-materialization",
+        write_set_hash: "sha256:approval-lease-write-set",
+        persistence_hash: "sha256:approval-lease-persistence",
+        commit_hash: "sha256:approval-lease-run-commit",
+        written_records: [recordPath],
+        evidence_refs: ["rust_agentgres_runtime_run_state_commit"],
+      };
+    },
+  };
+}
+
 test("coding tool approval leases stop satisfying retries after expiry", async () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-approval-lease-expiry-workspace-"));
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-approval-lease-expiry-state-"));
   const targetPath = path.join(cwd, "lease.txt");
   fs.writeFileSync(targetPath, "lease before\n", "utf8");
-  const previousFixtureEnv = process.env.IOI_ENABLE_INTERNAL_FIXTURE_MODELS;
-  process.env.IOI_ENABLE_INTERNAL_FIXTURE_MODELS = "1";
+  const previousFixtureEnv = process.env.IOI_EXPOSE_INTERNAL_FIXTURE_MODELS;
+  process.env.IOI_EXPOSE_INTERNAL_FIXTURE_MODELS = "1";
   let daemon;
 
   try {
-    daemon = await startRuntimeDaemonService({ cwd, stateDir });
+    daemon = await startRuntimeDaemonService({
+      cwd,
+      stateDir,
+      modelMountAdmissionRunner: modelMountAdmissionRunnerForApprovalLeaseTest(),
+      runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunnerForApprovalLeaseTest(),
+    });
     const now = new Date().toISOString();
     const agent = {
       id: "agent_approval_lease_expiry",
@@ -150,6 +216,6 @@ test("coding tool approval leases stop satisfying retries after expiry", async (
     assert.equal(fs.readFileSync(targetPath, "utf8"), "lease before\n");
   } finally {
     if (daemon) await daemon.close();
-    restoreEnv("IOI_ENABLE_INTERNAL_FIXTURE_MODELS", previousFixtureEnv);
+    restoreEnv("IOI_EXPOSE_INTERNAL_FIXTURE_MODELS", previousFixtureEnv);
   }
 });

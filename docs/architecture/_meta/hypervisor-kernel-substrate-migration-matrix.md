@@ -20333,3 +20333,38 @@ preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs without encoding the command
 bridge as terminal shape.
+
+## Implementation Slice Evidence: 939
+
+Slice 939 retired the internal fixture-model environment compatibility selector.
+The model-mounting environment adapter now honors only
+`IOI_EXPOSE_INTERNAL_FIXTURE_MODELS`; `IOI_ENABLE_INTERNAL_FIXTURE_MODELS` no
+longer enables fixture seeding, approval test setup, or hidden daemon-side
+fixture exposure. Fixture provider/projection migration can still use explicit
+fixtures, but the old enable alias cannot survive as an unreviewed selector
+beside Rust-owned provider and projection paths.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/environment.mjs packages/runtime-daemon/src/model-mounting/environment.test.mjs packages/runtime-daemon/src/approval-lease.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/environment.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal fixture/provider migration. Direct Rust
+daemon-core provider invocation/control APIs, Agentgres-backed topology
+projection, command-transport retirement, receipt/state-root binding, and stable
+SDK/IDE/CLI protocol APIs remain before terminal pure Rust substrate
+conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 939 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, explicit fixture
+exposure, direct Rust daemon-core route/provider/runtime-engine/catalog/workflow
+APIs, Agentgres-backed replay, and stable protocol APIs without encoding
+environment selectors as terminal architecture.

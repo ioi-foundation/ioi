@@ -2087,6 +2087,12 @@ load-policy normalizer now honors only canonical `ttl_seconds`, `ttl`, `idle_ttl
 so lifecycle TTL, idle eviction, and memory-pressure eviction policy steering
 cannot survive as camelCase JS compatibility selectors before Rust-core load
 admission owns the direct path.
+Slice 939 retired the internal fixture-model environment compatibility selector. The
+model-mounting environment adapter now honors only `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS`;
+`IOI_ENABLE_INTERNAL_FIXTURE_MODELS` no longer enables internal fixture seeding
+or approval/runtime test setup, so fixture exposure cannot survive as a hidden
+legacy env selector while Rust-owned provider and projection paths continue to
+replace daemon-side JS scaffolding.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

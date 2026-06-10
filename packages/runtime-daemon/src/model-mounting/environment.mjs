@@ -5,7 +5,7 @@ export function exposeInternalFixtureModels(env = process.env) {
 }
 
 export function internalFixtureModelsEnabled(env = process.env) {
-  return exposeInternalFixtureModels(env) || truthy(env.IOI_ENABLE_INTERNAL_FIXTURE_MODELS);
+  return exposeInternalFixtureModels(env);
 }
 
 export function liveModelCatalogEnabled(env = process.env) {

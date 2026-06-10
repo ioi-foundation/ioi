@@ -857,6 +857,8 @@ function runDocs() {
       /load-option normalizer now honors only canonical `instance_identifier`, `model_path`, `tensor_parallel_size`, `gpu_memory_utilization`, and `max_model_len`/.test(guide) &&
       /Slice 938 retired load-policy camelCase compatibility selectors/.test(guide) &&
       /load-policy normalizer now honors only canonical `ttl_seconds`, `ttl`, `idle_ttl_seconds`, `auto_evict`, and `memory_pressure_evict`/.test(guide) &&
+      /Slice 939 retired the internal fixture-model environment compatibility selector/.test(guide) &&
+      /model-mounting environment adapter now honors only `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -1579,6 +1581,9 @@ function runDocs() {
       /Rust bridge direct arms return empty\/default lists instead of caller-supplied topology arrays/.test(implementationMatrix) &&
       /dedicated `product_artifacts`, `runtime_model_catalog`, and `open_ai_model_list` read projections also send empty request state/.test(implementationMatrix) &&
       /JS artifact maps and fixture policy cannot become public product catalog or OpenAI-compatible model-list truth/.test(implementationMatrix) &&
+      /internal fixture seeding now honors only the explicit `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS` toggle and ignores the retired `IOI_ENABLE_INTERNAL_FIXTURE_MODELS` alias/.test(
+        implementationMatrix,
+      ) &&
       /broad Rust `snapshot` and `projection` envelopes now also return empty\/default topology, runtime-engine, MCP\/conversation, and product-catalog fields/.test(implementationMatrix) &&
       /dead Rust product-artifact\/runtime-catalog\/OpenAI-list\/fixture-filter\/model-capability helper tree plus the JS fixture mirror were deleted/.test(implementationMatrix) &&
       /receipt-replay now sends only admitted receipts plus receipt_id/.test(implementationMatrix) &&
@@ -14612,6 +14617,25 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/fixture-policy.mjs",
     ],
     "Phase 4/9 is pending: standalone JS fixture policy wrapper must not remain as a reusable inventory/projection compatibility surface",
+  );
+  assertCheck(
+    result,
+    "model-mount-internal-fixture-env-alias-retired",
+    /truthy\(env\.IOI_EXPOSE_INTERNAL_FIXTURE_MODELS\)/.test(modelMountingEnvironment) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountingEnvironment) &&
+      /internal fixture model exposure ignores retired enable env alias/.test(
+        read("packages/runtime-daemon/src/model-mounting/environment.test.mjs"),
+      ) &&
+      /IOI_EXPOSE_INTERNAL_FIXTURE_MODELS/.test(read("packages/runtime-daemon/src/approval-lease.test.mjs")) &&
+      !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(read("packages/runtime-daemon/src/approval-lease.test.mjs")) &&
+      /Slice 939 retired the internal fixture-model environment compatibility selector/.test(guide) &&
+      /`IOI_ENABLE_INTERNAL_FIXTURE_MODELS` no\s+longer enables fixture seeding/.test(matrix),
+    [
+      "packages/runtime-daemon/src/model-mounting/environment.mjs",
+      "packages/runtime-daemon/src/model-mounting/environment.test.mjs",
+      "packages/runtime-daemon/src/approval-lease.test.mjs",
+    ],
+    "Phase 4/9 is pending: internal fixture exposure must use the explicit canonical env selector and ignore the retired enable alias",
   );
   assertCheck(
     result,
