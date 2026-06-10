@@ -51,6 +51,24 @@ test("retired StepModule backend constructor option fails closed", () => {
   );
 });
 
+test("retired StepModule command args env fails closed", () => {
+  assert.throws(
+    () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_COMMAND_ARGS: "--legacy-flag value" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_command_args_retired",
+  );
+});
+
+test("retired StepModule command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustWorkloadStepModuleRunner({ args: ["--legacy-flag", "value"] }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_command_args_retired",
+  );
+});
+
 test("rust workload live runner produces workload invocation with mock bridge result", () => {
   const runner = new RustWorkloadStepModuleRunner({
     mockResult: {
@@ -139,6 +157,7 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-step-module-bridge");
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
   assert.equal(calls[0].request.workspace_root, "/tmp/workspace");
   assert.notEqual(calls[0].request.workspace_root, "/tmp/retired-workspace");

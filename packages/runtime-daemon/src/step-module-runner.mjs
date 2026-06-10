@@ -7,15 +7,14 @@ import {
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
 export const STEP_MODULE_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
-export const STEP_MODULE_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
 
 const COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   assertNoStepModuleBackendSelection(options.backend ?? env.IOI_STEP_MODULE_BACKEND);
+  assertNoStepModuleCommandArgs(options.args ?? env.IOI_STEP_MODULE_COMMAND_ARGS);
   return new RustWorkloadStepModuleRunner({
     command: options.command ?? env[STEP_MODULE_COMMAND_ENV] ?? null,
-    args: options.args ?? parseCommandArgs(env[STEP_MODULE_COMMAND_ARGS_ENV]),
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
     shmemId: options.shmemId ?? env[WORKLOAD_SHMEM_ID_ENV] ?? null,
     spawnSyncImpl: options.spawnSyncImpl,
@@ -29,6 +28,17 @@ export function assertNoStepModuleBackendSelection(value) {
     "StepModule backend selection is retired; runtime-daemon StepModule execution is rust_workload_live.",
     "step_module_backend_selection_retired",
     { retired_backend: value, backend: "rust_workload_live" },
+  );
+}
+
+export function assertNoStepModuleCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new StepModuleRunnerError(
+    "StepModule command argument selection is retired; command-bridge argv is fixed migration transport.",
+    "step_module_command_args_retired",
+    { retired_args: value },
   );
 }
 
@@ -53,9 +63,9 @@ export class StepModuleRunner {
 export class RustWorkloadStepModuleRunner extends StepModuleRunner {
   constructor(options = {}) {
     assertNoStepModuleBackendSelection(options.backend);
+    assertNoStepModuleCommandArgs(options.args);
     super();
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.grpcAddr = optionalString(options.grpcAddr);
     this.shmemId = optionalString(options.shmemId);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
@@ -120,7 +130,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -187,20 +197,6 @@ function normalizeBridgeResult(value, defaults = {}) {
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : [],
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function optionalString(value) {

@@ -3259,20 +3259,26 @@ function runBridge() {
   assertCheck(
     result,
     "rust-workload-step-module-runner",
-    /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
+      /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
       /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
+      /assertNoStepModuleCommandArgs/.test(stepModuleRunner) &&
       /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
       !/STEP_MODULE_BACKEND_ENV/.test(stepModuleRunner) &&
+      !/STEP_MODULE_COMMAND_ARGS_ENV/.test(stepModuleRunner) &&
       !/normalizeStepModuleBackend/.test(stepModuleRunner) &&
+      !/parseCommandArgs/.test(stepModuleRunner) &&
+      !/normalizeArgs/.test(stepModuleRunner) &&
       !/env\[STEP_MODULE_BACKEND_ENV\]/.test(stepModuleRunner) &&
       /options\.backend \?\? env\.IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
       /step_module_backend_selection_retired/.test(stepModuleRunner) &&
+      /step_module_command_args_retired/.test(stepModuleRunner) &&
       !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
       !/"daemon_js",/.test(stepModuleRunner) &&
       !/"rust_workload_shadow",/.test(stepModuleRunner) &&
       !/"rust_workload_gated",/.test(stepModuleRunner) &&
       /mode:\s*"live"/.test(stepModuleRunner) &&
       !/this\.backend\.replace\("rust_workload_"/.test(stepModuleRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(stepModuleRunner) &&
       /workspace_root:\s*context\.workspace_root \?\? null/.test(stepModuleRunner) &&
       !/context\.workspaceRoot/.test(stepModuleRunner) &&
       /workspaceRoot: "\/tmp\/retired-workspace"/.test(
@@ -3288,6 +3294,15 @@ function runBridge() {
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /retired StepModule backend constructor option fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /retired StepModule command args env fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /retired StepModule command args constructor option fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ),
     [

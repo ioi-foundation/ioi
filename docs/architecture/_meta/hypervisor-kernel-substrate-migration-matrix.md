@@ -1027,8 +1027,7 @@ ImplementationSlice:
   verification:
     commands:
       - cargo check -p ioi-node --bin ioi-step-module-bridge
-      - node runner smoke using IOI_STEP_MODULE_COMMAND=cargo and
-        IOI_STEP_MODULE_COMMAND_ARGS='run -q -p ioi-node --bin ioi-step-module-bridge'
+      - node runner smoke using IOI_STEP_MODULE_COMMAND=target/debug/ioi-step-module-bridge
       - npm run hypervisor-conformance:bridge
       - git diff --check
     replay_or_shadow_comparison: not_applicable
@@ -1042,6 +1041,10 @@ ImplementationSlice:
     commit: required
     push: required after verification
 ```
+
+Note: later facade-retirement slices retired daemon-side StepModule backend and
+command-argument selectors. The old `IOI_STEP_MODULE_COMMAND_ARGS` verification
+form is not a live command contract.
 
 ## Implementation Slice 4
 
@@ -19714,6 +19717,46 @@ stable protocol APIs, and command-transport retirement remain required before
 the StepModule substrate reaches the pure Rust target.
 
 Next scheduled matrix-compaction pass: compact Slice 923 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs. The
+`ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.
+
+At Slice 923 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 924 is that seam
+and satisfies the Slice 923 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 923 is now satisfied.
+
+## Implementation Slice Evidence: 924
+
+Slice 924 retired daemon-side StepModule command-argument selector
+configuration. `IOI_STEP_MODULE_COMMAND_ARGS`, constructor `args` options, and
+the `parseCommandArgs()`/`normalizeArgs()` helper paths are absent from the
+runtime-daemon runner. The command bridge remains available only as fixed
+migration transport; any attempt to shape its argv from the JS edge now fails
+closed with `step_module_command_args_retired`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs packages/runtime-daemon/src/step-module-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal StepModule migration: the
+`ioi-step-module-bridge` command path remains migration transport, and direct
+Rust daemon-core StepModuleRouter APIs, Agentgres admission, replay, projection,
+stable protocol APIs, and command-transport retirement remain required before
+the StepModule substrate reaches the pure Rust target.
+
+Next scheduled matrix-compaction pass: compact Slice 924 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

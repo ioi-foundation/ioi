@@ -272,6 +272,12 @@ execution authority, no compatibility-shim semantics, and no duplicate truth
 path. The target transport shape is a temporary transport to the Rust daemon core
 with no independent authority or compatibility-shim behavior.
 
+Current sprint note: Slice 924 retires the `IOI_STEP_MODULE_COMMAND_ARGS` and
+constructor-`args` selectors at the runtime-daemon StepModule runner. The bridge
+binary path may still exist as migration transport, but the JS edge may no
+longer shape argv or preserve compatibility argument semantics; any direct Rust
+daemon-core API that replaces this transport must keep that selector retired.
+
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement
 matrix-compaction pass is complete. The Slice 742 thread runtime-control
