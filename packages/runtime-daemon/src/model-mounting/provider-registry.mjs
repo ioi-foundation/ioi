@@ -1,5 +1,3 @@
-const SECRET_REDACTION = "[REDACTED]";
-
 export function hostedProvider(id, label, apiFormat, secret) {
   return {
     id,
@@ -17,44 +15,6 @@ export function hostedProvider(id, label, apiFormat, secret) {
     },
     secretRef: secret ? `vault://${id}/api-key` : null,
     estimatedCostUsd: 0.01,
-  };
-}
-
-export function publicProvider(provider, vaultMetadata = null, deps = {}) {
-  const {
-    providerHasVaultRef,
-    providerRequiresVaultSecret,
-    stableHash,
-  } = deps;
-  if (typeof providerHasVaultRef !== "function") {
-    throw new TypeError("publicProvider requires providerHasVaultRef.");
-  }
-  if (typeof providerRequiresVaultSecret !== "function") {
-    throw new TypeError("publicProvider requires providerRequiresVaultSecret.");
-  }
-  if (typeof stableHash !== "function") {
-    throw new TypeError("publicProvider requires stableHash.");
-  }
-  const hasVaultRef = providerHasVaultRef(provider);
-  const requiresVault = providerRequiresVaultSecret(provider);
-  const runtimeBound = Boolean(vaultMetadata?.resolvedMaterial);
-  const configured = hasVaultRef || Boolean(vaultMetadata?.configured);
-  return {
-    ...provider,
-    status: requiresVault && !hasVaultRef ? "blocked" : provider.status,
-    secretRef: hasVaultRef ? { redacted: true, hash: stableHash(provider.secretRef) } : provider.secretRef ? SECRET_REDACTION : null,
-    secretConfigured: configured,
-    authScheme: provider.authScheme ?? "bearer",
-    authHeaderName: provider.authHeaderName ?? "authorization",
-    vaultBoundary: {
-      required: requiresVault,
-      failClosed: requiresVault && !hasVaultRef,
-      configured,
-      resolvedMaterial: runtimeBound,
-      runtimeBound,
-      requiresRuntimeBinding: configured && !runtimeBound,
-      vaultRefHash: hasVaultRef ? stableHash(provider.secretRef) : vaultMetadata?.vaultRefHash ?? null,
-    },
   };
 }
 

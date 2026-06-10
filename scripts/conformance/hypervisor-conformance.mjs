@@ -758,6 +758,8 @@ function runDocs() {
       /`backend-processes\.mjs` and `backend-processes\.test\.mjs` are absent/.test(guide) &&
       /Slice 896 deleted the provider-registry dependency-injection binding wrapper/.test(guide) &&
       /`provider-registry-bindings\.mjs` and `provider-registry-bindings\.test\.mjs` are\s+absent/.test(guide) &&
+      /Slice 917 deleted the canonical provider-registry public-provider projection\s+helper/.test(guide) &&
+      /`provider-registry\.mjs` no longer exports `publicProvider\(\)`/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs") &&
       /Slice 897 deleted the retired LM Studio public-discovery helper tail/.test(guide) &&
@@ -830,6 +832,8 @@ function runDocs() {
       /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(guide) &&
       /Slice 916 retired the remaining JS route-control record and route-selection\s+receipt builder facades/.test(guide) &&
       /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(guide) &&
+      /Slice 917 deleted the canonical provider-registry public-provider projection\s+helper/.test(guide) &&
+      /`provider-registry\.mjs` no longer exports `publicProvider\(\)`/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -1254,7 +1258,11 @@ function runDocs() {
       /Slice 916 retired the remaining JS route-control record and route-selection\s+receipt builder facades/.test(matrix) &&
       /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 915 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 916/.test(matrix) &&
+      /Implementation Slice Evidence: 917/.test(matrix) &&
+      /Slice 917 deleted the canonical provider-registry public-provider projection\s+helper/.test(matrix) &&
+      /`provider-registry\.mjs` no longer exports `publicProvider\(\)`/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 916 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 917/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1449,7 +1457,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 913 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 914 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 915 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 916/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 916 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 917/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1469,7 +1478,8 @@ function runDocs() {
       /the fail-closed `provider-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` provider methods now own provider upsert alias rejection/.test(implementationMatrix) &&
       /the provider-registry dependency-injection binding wrapper and test are deleted/.test(implementationMatrix) &&
-      /mounted model_mount now imports canonical provider registry helpers directly/.test(implementationMatrix) &&
+      /the remaining provider-registry `publicProvider\(\)` projection helper\/test expectations are deleted/.test(implementationMatrix) &&
+      /mounted model_mount imports only the non-projection canonical provider registry helpers directly/.test(implementationMatrix) &&
       /the fail-closed `mcp-workflow-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` MCP methods now own MCP import aliases/.test(implementationMatrix) &&
       /the fail-closed `model-loading-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1932,7 +1942,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 916 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 917 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2214,6 +2224,15 @@ function runBridge() {
   );
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
     ? read("packages/runtime-daemon/src/model-mounting.mjs")
+    : "";
+  const modelMountProviderRegistry = exists("packages/runtime-daemon/src/model-mounting/provider-registry.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-registry.mjs")
+    : "";
+  const modelMountProviderRegistryTest = exists("packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs")
+    : "";
+  const modelMountProviderOperationsTest = exists("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
     : "";
   const modelMountIoBridge = exists("packages/runtime-daemon/src/model-mounting/io.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/io.mjs")
@@ -8662,6 +8681,10 @@ function runBridge() {
       !/catalogProviderStatus/.test(modelMountingReadProjectionFacade) &&
       !/state\.vault\.vaultRefMetadata/.test(modelMountingReadModel) &&
       !/publicProvider\(/.test(modelMountingReadModel) &&
+      !/export function publicProvider\b/.test(modelMountProviderRegistry) &&
+      !/publicProvider/.test(modelMountProviderRegistryTest) &&
+      !/publicProvider/.test(modelMountProviderOperationsTest) &&
+      !/publicProvider as publicProviderFromRegistry/.test(modelMountingState) &&
       !/providerHasVaultRef/.test(modelMountingReadProjectionFacade) &&
       !/publicProvider/.test(modelMountingReadProjectionFacade) &&
       !/providerHasVaultRef,\s*publicOAuthSession/.test(modelMountingState) &&

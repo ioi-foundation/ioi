@@ -118,9 +118,6 @@ const deps = {
   normalizeScopes(value, fallback = []) {
     return Array.isArray(value) ? value : fallback;
   },
-  providerHasVaultRef(provider) {
-    return typeof provider?.secretRef === "string" && provider.secretRef.startsWith("vault://");
-  },
   providerHealthFailureStatus(error) {
     return error.status === 403 ? "blocked" : "degraded";
   },
@@ -132,15 +129,6 @@ const deps = {
     if (Object.prototype.hasOwnProperty.call(body, "auth_vault_ref")) return body.auth_vault_ref;
     if (Object.prototype.hasOwnProperty.call(body, "secret_ref")) return body.secret_ref;
     return undefined;
-  },
-  publicProvider(provider, vaultMetadata = null) {
-    return {
-      id: provider.id,
-      kind: provider.kind,
-      status: provider.status,
-      secretRef: provider.secretRef ? { redacted: true, hash: `hash:${provider.secretRef}` } : null,
-      vaultBoundary: vaultMetadata ? { runtimeBound: true } : null,
-    };
   },
   safeFileName(value) {
     return String(value).replace(/[^a-z0-9._-]+/gi, "_");

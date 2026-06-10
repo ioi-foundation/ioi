@@ -259,7 +259,9 @@ Matrix compaction timing:
   model-instance lifecycle planning facade deletion.
 - Scheduled matrix-compaction obligation from Slice 915 is now satisfied by the
   route-control record and route-selection receipt builder retirement.
-- Next scheduled matrix-compaction pass: compact Slice 916 after the next
+- Scheduled matrix-compaction obligation from Slice 916 is now satisfied by the
+  provider-registry public-provider projection helper deletion.
+- Next scheduled matrix-compaction pass: compact Slice 917 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18808,9 +18810,10 @@ Slice 896 deleted the provider-registry dependency-injection binding wrapper.
 `provider-registry-bindings.mjs` and `provider-registry-bindings.test.mjs` are
 absent rather than preserved as a standalone compatibility layer over canonical
 provider registry helpers. The mounted model_mount facade now imports
-`hostedProvider()`, `optionalString()`, `requiredString()`, and
-`publicProvider()` from `provider-registry.mjs` directly, with vault authority
-dependencies supplied at the mounted boundary.
+`hostedProvider()`, `optionalString()`, and `requiredString()` from
+`provider-registry.mjs` directly. The later Slice 917 public-provider
+projection-helper deletion means provider public/vault envelope shaping is no
+longer a provider-registry responsibility.
 
 Focused evidence:
 
@@ -19444,7 +19447,40 @@ receipt/state-root binding, replay, stable protocol APIs, and
 command-transport retirement remain required before route control reaches the
 pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 916 after the next direct
+At Slice 916 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 917 is that seam
+and satisfies the Slice 916 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 916 is now satisfied.
+
+## Implementation Slice Evidence: 917
+
+Slice 917 deleted the canonical provider-registry public-provider projection
+helper. `provider-registry.mjs` no longer exports `publicProvider()`,
+`model-mounting.mjs` no longer imports `publicProvider as
+publicProviderFromRegistry`, and the provider-registry plus mounted
+provider-operation tests no longer preserve JS public-provider/vault-boundary
+redaction expectations. Public provider list/readback remains routed through
+Rust `plan_model_mount_read_projection` kinds rather than a JS provider
+projection helper.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/provider-registry.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal provider projection/control migration:
+direct Rust daemon-core provider projection over Agentgres/wallet/cTEE admitted
+truth, stable protocol APIs, and command-transport retirement remain required
+before provider projection/control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 917 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

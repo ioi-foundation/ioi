@@ -2160,12 +2160,13 @@ Slice 896 deleted the provider-registry dependency-injection binding wrapper.
 `provider-registry-bindings.mjs` and `provider-registry-bindings.test.mjs` are
 absent rather than preserved as a standalone compatibility layer over the
 canonical provider registry helpers. The mounted model_mount facade now imports
-`hostedProvider()`, `optionalString()`, `requiredString()`, and
-`publicProvider()` from the canonical provider registry directly, with vault
-authority dependencies supplied at the mounted boundary. Terminal provider
-control/projection migration still requires direct Rust daemon-core provider
-configuration, wallet/cTEE custody projection, Agentgres-backed replay, stable
-protocol APIs, and command-transport retirement.
+`hostedProvider()`, `optionalString()`, and `requiredString()` from the
+canonical provider registry directly. The later Slice 917 public-provider
+projection-helper deletion means provider public/vault envelope shaping is no
+longer a provider-registry responsibility. Terminal provider control/projection
+migration still requires direct Rust daemon-core provider configuration,
+wallet/cTEE custody projection, Agentgres-backed replay, stable protocol APIs,
+and command-transport retirement.
 
 Slice 897 deleted the retired LM Studio public-discovery helper tail. The
 default-discovery module no longer exports `discoverLmStudioProvider()`,
@@ -2384,6 +2385,17 @@ receipts. Direct Rust daemon-core route control/selection APIs,
 Agentgres-backed route truth, receipt/state-root binding, replay, stable
 protocol APIs, and command-transport retirement remain required before route
 control reaches terminal pure Rust conformance.
+
+Slice 917 deleted the canonical provider-registry public-provider projection
+helper. `provider-registry.mjs` no longer exports `publicProvider()`, and the
+dedicated provider-registry tests plus mounted provider-operation fixtures no
+longer preserve JS public-provider/vault-boundary redaction expectations.
+Public provider list/readback continues through Rust `plan_model_mount_read_projection`
+kinds, while mounted provider mutation facades remain fail-closed before JS
+provider-map writes or JS provider-control receipts. Direct Rust daemon-core
+provider projection over Agentgres/wallet/cTEE admitted truth, stable protocol
+APIs, and command-transport retirement remain required before provider
+projection/control reaches terminal pure Rust conformance.
 
 ## Part II: Target Execution Model
 
