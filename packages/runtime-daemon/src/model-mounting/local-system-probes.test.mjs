@@ -6,7 +6,6 @@ import path from "node:path";
 
 import {
   commandProbe,
-  estimateNativeLocalResources,
   findExecutable,
   hardwareSnapshot,
   inspectLocalArtifact,
@@ -56,7 +55,7 @@ test("local artifact inspection and metadata read stable model fields", () => {
   );
 });
 
-test("file helpers and resource estimates are deterministic", () => {
+test("file helpers are deterministic", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-local-probes-"));
   const first = path.join(tempDir, "a.jsonl");
   const second = path.join(tempDir, "b.txt");
@@ -65,13 +64,6 @@ test("file helpers and resource estimates are deterministic", () => {
 
   assert.deepEqual(listFiles(tempDir, ".jsonl"), [first]);
   assert.deepEqual(readLines(first), ["one", "two"]);
-  assert.deepEqual(estimateNativeLocalResources({ sizeBytes: 1234, contextWindow: 1024 }), {
-    sizeBytes: 1234,
-    contextWindow: 1024,
-    estimatedVramBytes: 64 * 1024 * 1024 + 1024 * 1024,
-    backend: "autopilot.native_local.fixture",
-    realInference: false,
-  });
 });
 
 test("public command probes do not leak command output", () => {

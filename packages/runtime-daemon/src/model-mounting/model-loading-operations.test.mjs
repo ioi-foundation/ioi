@@ -7,10 +7,6 @@ function loadModel(state, body = {}) {
   return ModelMountingState.prototype.loadModel.call(state, body);
 }
 
-function loadEstimate(state, endpoint, loadOptions = {}, runtimePreference = state.runtimePreference()) {
-  return ModelMountingState.prototype.loadEstimate.call(state, endpoint, loadOptions, runtimePreference);
-}
-
 function unloadModel(state, body = {}) {
   return ModelMountingState.prototype.unloadModel.call(state, body);
 }
@@ -108,9 +104,6 @@ function fakeState() {
         },
       };
     },
-    loadEstimate(endpointRecord, loadOptions, runtimePreference) {
-      return loadEstimate(this, endpointRecord, loadOptions, runtimePreference);
-    },
     loadedInstanceForEndpoint(endpointId) {
       return [...this.instances.values()].find((instance) => instance.endpointId === endpointId && instance.status === "loaded");
     },
@@ -151,14 +144,6 @@ function fakeState() {
 const deps = {
   defaultBackendForProvider(provider) {
     return provider.kind === "ioi_native_local" ? "backend.native" : "backend.remote";
-  },
-  estimateNativeLocalResources(artifact) {
-    return {
-      contextWindow: artifact.contextWindow ?? 2048,
-      estimatedVramBytes: 1024,
-      sizeBytes: artifact.sizeBytes ?? 0,
-      realInference: true,
-    };
   },
   expiresAt(now, loadPolicy) {
     return loadPolicy.idleTtlSeconds ? "2026-06-04T00:02:00.000Z" : null;
@@ -277,32 +262,43 @@ test("unloadModel rejects retired request aliases before instance lookup", async
   assert.equal(state.receipts.length, 0);
 });
 
-test("loadModel returns estimate-only envelope without invoking provider driver", async () => {
+test("loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write", async () => {
   const state = fakeState();
 
-  const result = await loadModel(
-    state,
-    { endpoint_id: "endpoint.local.llama", load_policy: "resident", load_options: { estimate_only: true, context_length: 2048 } },
-    deps,
+  await assert.rejects(
+    () =>
+      loadModel(
+        state,
+        {
+          endpoint_id: "endpoint.local.llama",
+          load_policy: "resident",
+          load_options: { estimate_only: true, context_length: 2048 },
+        },
+        deps,
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_model_loading_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.instance_lifecycle");
+      assert.equal(error.details.operation, "model_load_estimate");
+      assert.equal(error.details.operation_kind, "model_mount.instance.estimate");
+      assert.equal(error.details.endpoint_id, "endpoint.local.llama");
+      assert.equal(error.details.model_id, "llama-test");
+      assert.equal(error.details.backend_id, "backend.autopilot.native-local.fixture");
+      assert.equal(error.details.runtime_engine_id, "engine.native");
+      assert.equal(error.details.provider_id, "provider.local");
+      assert.equal(error.details.provider_kind, "ioi_native_local");
+      assert.equal(Object.hasOwn(error.details, "endpointId"), false);
+      assert.equal(Object.hasOwn(error.details, ["runtime", "Engine", "Id"].join("")), false);
+      return true;
+    },
   );
 
-  assert.equal(result.schemaVersion, "ioi.model-mounting.runtime.v1");
-  assert.equal(result.status, "estimate_only");
-  assert.equal(result.backend_id, "backend.autopilot.native-local.fixture");
-  assert.equal(result.provider_kind, "ioi_native_local");
-  assert.equal(result.runtime_engine_profile.id, "engine.native");
-  assert.equal(result.estimate.contextLength, 2048);
-  assert.equal(result.receipt_id, null);
-  assert.deepEqual(result.evidence_refs, [
-    "model_mount_model_loading_js_facade_retired",
-    "model_load_estimate_projection_only",
-  ]);
   assert.deepEqual(state.driverCalls, []);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
-  assert.equal(Object.hasOwn(result, "backendId"), false);
-  assert.equal(Object.hasOwn(result, "runtimeEngineProfile"), false);
-  assert.equal(Object.hasOwn(result, "receiptId"), false);
+  assert.deepEqual(state.writes, []);
+  assert.equal(state.instances.size, 0);
 });
 
 test("loadModel mutation facade fails closed before JS driver, receipt, or instance write", async () => {
@@ -339,25 +335,6 @@ test("loadModel mutation facade fails closed before JS driver, receipt, or insta
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.transitionRequests, []);
-});
-
-test("loadEstimate derives native resource estimate and backend defaults", () => {
-  const state = fakeState();
-
-  const estimate = loadEstimate(
-    state,
-    state.endpointRecord,
-    { contextLength: 2048, parallel: 4, gpu: "full", identifier: "llama" },
-    { selectedEngineId: "engine.native" },
-    deps,
-  );
-
-  assert.equal(estimate.backendId, "backend.autopilot.native-local.fixture");
-  assert.equal(estimate.contextLength, 2048);
-  assert.equal(estimate.parallelism, 4);
-  assert.equal(estimate.gpuOffload, "full");
-  assert.equal(estimate.realInference, false);
-  assert.deepEqual(estimate.evidenceRefs, ["model_load_option_estimate", "runtime_engine_preference"]);
 });
 
 test("loadModel fails closed for non-migrated provider before JS driver execution", async () => {

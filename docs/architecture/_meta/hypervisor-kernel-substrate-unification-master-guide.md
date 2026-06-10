@@ -2031,14 +2031,19 @@ Slice 883 retired the fail-closed `model-loading-operations.mjs` helper module
 after public load/unload mutation paths had already been reduced to
 Rust-core-required instance lifecycle edge refusals. The mounted public
 `ModelMountingState` model-loading methods now own canonical load request alias
-rejection, estimate-only projection shaping, load estimate derivation,
-endpoint/instance lookup, and `model_mount.instance_lifecycle`
+rejection, endpoint/instance lookup, and `model_mount.instance_lifecycle`
 Rust-core-required errors directly, without importing a model-loading helper or
 preserving a standalone JS load/unload mutation surface. This does not claim
 terminal instance lifecycle migration: direct Rust daemon-core load/unload
 admission, provider lifecycle execution, receipt/state-root binding,
 Agentgres truth, replay, projection, command-transport retirement, and stable
 protocol APIs remain required.
+Slice 930 retired the remaining JS estimate-only model-load projection path:
+`ModelMountingState.loadEstimate()` and `estimateNativeLocalResources()` are
+absent, and `load_options.estimate_only` now fails closed at
+`model_mount.instance.estimate` with the same Rust daemon-core instance
+lifecycle boundary before JS sizing, provider drivers, receipts, record-state
+commits, or instance-map writes.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

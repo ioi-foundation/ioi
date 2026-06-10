@@ -839,6 +839,8 @@ function runDocs() {
       /it no longer\s+resolves provider vault material or assembles outbound provider auth headers/.test(guide) &&
       /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(guide) &&
       /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(guide) &&
+      /Slice 930 retired the remaining JS estimate-only model-load projection path/.test(guide) &&
+      /`ModelMountingState\.loadEstimate\(\)` and `estimateNativeLocalResources\(\)` are\s+absent/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -1277,6 +1279,8 @@ function runDocs() {
       /Implementation Slice Evidence: 919/.test(matrix) &&
       /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(matrix) &&
       /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(matrix) &&
+      /Implementation Slice Evidence: 930/.test(matrix) &&
+      /Slice 930 retired the JS estimate-only model-load projection path/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 920/.test(matrix) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(matrix) &&
@@ -10682,6 +10686,10 @@ function runBridge() {
       /model_mount_model_loading_rust_core_required/.test(modelLoadingOperations) &&
       /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
       /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
+      /model_mount\.instance\.estimate/.test(modelLoadingOperations) &&
+      /model_load_estimate/.test(modelLoadingOperations) &&
+      !/loadEstimate\(/.test(modelLoadingOperations) &&
+      !/estimateNativeLocalResources/.test(modelLoadingOperations) &&
       !/commitModelInstanceRecordState/.test(modelLoadingOperations) &&
       !/state\.driverForProvider\(provider\)\.(?:load|unload)/.test(modelLoadingOperations) &&
       !/state\.lifecycleReceipt\("model_(?:load|unload)"/.test(modelLoadingOperations) &&
@@ -10699,6 +10707,9 @@ function runBridge() {
         read("packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs"),
       ) &&
       /loadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
+      ) &&
+      /loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
         read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs"),
       ) &&
       /unloadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
@@ -13042,6 +13053,10 @@ function runReceipts() {
       /model_mount_model_loading_js_facade_retired/.test(modelLoadingOperations) &&
       /rust_daemon_core_instance_lifecycle_required/.test(modelLoadingOperations) &&
       /agentgres_model_instance_record_truth_required/.test(modelLoadingOperations) &&
+      /model_mount\.instance\.estimate/.test(modelLoadingOperations) &&
+      /model_load_estimate/.test(modelLoadingOperations) &&
+      !/loadEstimate\(/.test(modelLoadingOperations) &&
+      !/estimateNativeLocalResources/.test(modelLoadingOperations) &&
       !/commitModelInstanceRecordState/.test(modelLoadingOperations) &&
       !/state\.driverForProvider\(provider\)\.load/.test(modelLoadingOperations) &&
       !/state\.driverForProvider\(provider\)\.unload/.test(modelLoadingOperations) &&
@@ -13064,9 +13079,15 @@ function runReceipts() {
       /loadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
         modelLoadingOperationsTest,
       ) &&
+      /loadModel estimate-only facade fails closed before JS sizing, driver, receipt, or instance write/.test(
+        modelLoadingOperationsTest,
+      ) &&
       /unloadModel mutation facade fails closed before JS driver, receipt, or instance write/.test(
         modelLoadingOperationsTest,
       ) &&
+      !/loadEstimate derives native resource estimate/.test(modelLoadingOperationsTest) &&
+      !/estimateNativeLocalResources/.test(localSystemProbes) &&
+      !/estimateNativeLocalResources/.test(localSystemProbesTest) &&
       /loadModel fails closed before Rust planning or Agentgres commit shims are used/.test(
         modelLoadingOperationsTest,
       ) &&

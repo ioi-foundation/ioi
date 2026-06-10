@@ -18460,10 +18460,10 @@ Slice 883 retired the fail-closed `model-loading-operations.mjs` helper module
 after public load/unload mutation paths had already been reduced to
 Rust-core-required instance lifecycle edge refusals. The mounted public
 `ModelMountingState` model-loading methods now own canonical load request alias
-rejection, estimate-only projection shaping, load estimate derivation,
-endpoint/instance lookup, and `model_mount.instance_lifecycle`
+rejection, endpoint/instance lookup, and `model_mount.instance_lifecycle`
 Rust-core-required errors directly, without importing a model-loading helper or
-preserving a standalone JS load/unload mutation surface.
+preserving a standalone JS load/unload mutation surface. Slice 930 later
+retired the remaining JS estimate-only projection path entirely.
 
 Focused evidence:
 
@@ -19959,6 +19959,45 @@ Agentgres-backed replay, and command-transport retirement remain before
 terminal pure Rust substrate conformance.
 
 Next scheduled matrix-compaction pass: compact Slice 929 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs.
+
+At Slice 929 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 930 is that seam
+and satisfies the Slice 929 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 929 is now satisfied.
+
+## Implementation Slice Evidence: 930
+
+Slice 930 retired the JS estimate-only model-load projection path. The mounted
+model-loading facade no longer exposes `ModelMountingState.loadEstimate()`, the
+local-system probe helper no longer exports `estimateNativeLocalResources()`,
+and `load_options.estimate_only` now fails closed at
+`model_mount.instance.estimate` with the Rust daemon-core instance-lifecycle
+boundary before JS sizing, provider driver execution, receipt creation,
+record-state commits, or instance-map writes.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal instance-lifecycle migration. Direct Rust
+daemon-core load/unload admission, provider lifecycle execution, receipt and
+state-root binding, Agentgres-backed replay/projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 930 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

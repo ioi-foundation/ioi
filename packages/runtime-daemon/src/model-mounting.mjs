@@ -58,7 +58,6 @@ import {
   throwCatalogProviderControlRustCoreRequired,
 } from "./model-mounting/catalog-provider-config.mjs";
 import {
-  estimateNativeLocalResources,
   findExecutable,
   hardwareSnapshot,
   parseLocalModelMetadata,
@@ -905,60 +904,24 @@ export class ModelMountingState {
       loadPolicy,
     );
     if (loadOptions.ttlSeconds !== null) loadPolicy.idleTtlSeconds = loadOptions.ttlSeconds;
-    const estimate = this.loadEstimate(endpoint, loadOptions, runtimePreference);
     const backendId = endpoint.backendId ?? defaultBackendForProvider(provider);
-    const runtimeEngineProfile = this.runtimeEngineProfile(runtimePreference.selectedEngineId) ?? null;
     if (loadOptions.estimateOnly) {
-      return {
-        schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
-        status: "estimate_only",
+      throwModelLoadingRustCoreRequired("model_load_estimate", provider, {
+        operation_kind: "model_mount.instance.estimate",
         endpoint_id: endpoint.id,
         model_id: endpoint.modelId,
-        provider_id: endpoint.providerId,
         provider_kind: provider.kind,
         backend_id: backendId,
         runtime_engine_id: runtimePreference.selectedEngineId,
-        runtime_engine_profile: runtimeEngineProfile,
-        load_policy: loadPolicy,
-        load_options: loadOptions,
-        estimate,
-        receipt_id: null,
-        evidence_refs: [
-          "model_mount_model_loading_js_facade_retired",
-          "model_load_estimate_projection_only",
-        ],
-      };
+      });
     }
     throwModelLoadingRustCoreRequired("model_load", provider, {
       operation_kind: "model_mount.instance.load",
       endpoint_id: endpoint.id,
       model_id: endpoint.modelId,
+      provider_kind: provider.kind,
       backend_id: backendId,
     });
-  }
-
-  loadEstimate(endpoint, loadOptions = {}, runtimePreference = this.runtimePreference()) {
-    const provider = this.provider(endpoint.providerId);
-    const artifact = this.getModel(endpoint.modelId);
-    const nativeEstimate = estimateNativeLocalResources({
-      ...artifact,
-      contextWindow: loadOptions.contextLength ?? artifact.contextWindow,
-    });
-    return {
-      endpointId: endpoint.id,
-      modelId: endpoint.modelId,
-      providerId: endpoint.providerId,
-      backendId: endpoint.backendId ?? defaultBackendForProvider(provider),
-      runtimeEngineId: runtimePreference.selectedEngineId,
-      contextLength: loadOptions.contextLength ?? nativeEstimate.contextWindow,
-      parallelism: loadOptions.parallel ?? 1,
-      gpuOffload: loadOptions.gpu ?? "auto",
-      identifier: loadOptions.identifier ?? null,
-      estimatedVramBytes: nativeEstimate.estimatedVramBytes,
-      estimatedSizeBytes: nativeEstimate.sizeBytes,
-      realInference: provider.kind !== "ioi_native_local" ? null : nativeEstimate.realInference,
-      evidenceRefs: ["model_load_option_estimate", "runtime_engine_preference"],
-    };
   }
 
   async unloadModel(body = {}) {

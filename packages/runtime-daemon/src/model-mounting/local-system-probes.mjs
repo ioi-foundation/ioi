@@ -153,15 +153,3 @@ export function readLines(filePath) {
   if (!fs.existsSync(filePath)) return [];
   return fs.readFileSync(filePath, "utf8").split(/\r?\n/).filter(Boolean);
 }
-
-export function estimateNativeLocalResources(artifact) {
-  const sizeBytes = Number(artifact.sizeBytes ?? 0);
-  const contextWindow = Number(artifact.contextWindow ?? 8192);
-  return {
-    sizeBytes,
-    contextWindow,
-    estimatedVramBytes: Math.max(sizeBytes, 64 * 1024 * 1024) + Math.min(contextWindow, 32768) * 1024,
-    backend: "autopilot.native_local.fixture",
-    realInference: false,
-  };
-}
