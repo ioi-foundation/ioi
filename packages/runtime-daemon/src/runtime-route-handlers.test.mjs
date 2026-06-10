@@ -165,6 +165,134 @@ test("thread route sends admission controls through mounted admission surfaces",
   }
 });
 
+test("thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const body = { request_id: "route-control-test" };
+  const surfaceResult = (surface, args) => ({
+    status: "rust_core_required",
+    surface,
+    args,
+    direct_truth_write_allowed: false,
+  });
+  const store = {
+    workflowEditSurface: {
+      applyWorkflowEditProposal(surfaceStore, threadId, proposalId, requestBody) {
+        calls.push({
+          surface: "workflowEditSurface",
+          surfaceStore,
+          args: [threadId, proposalId, requestBody],
+        });
+        return surfaceResult("workflowEditSurface", [threadId, proposalId, requestBody]);
+      },
+    },
+    diagnosticsRepairSurface: {
+      executeDiagnosticsRepairDecision(surfaceStore, threadId, decisionRef, requestBody) {
+        calls.push({
+          surface: "diagnosticsRepairSurface",
+          surfaceStore,
+          args: [threadId, decisionRef, requestBody],
+        });
+        return surfaceResult("diagnosticsRepairSurface", [threadId, decisionRef, requestBody]);
+      },
+    },
+    workspaceSnapshotSurface: {
+      listWorkspaceSnapshots(surfaceStore, threadId) {
+        calls.push({
+          surface: "workspaceSnapshotSurface",
+          surfaceStore,
+          args: [threadId],
+        });
+        return surfaceResult("workspaceSnapshotSurface", [threadId]);
+      },
+      previewWorkspaceSnapshotRestore(surfaceStore, threadId, snapshotId, requestBody) {
+        calls.push({
+          surface: "workspaceSnapshotSurface",
+          surfaceStore,
+          args: [threadId, snapshotId, requestBody],
+        });
+        return surfaceResult("workspaceSnapshotSurface", [threadId, snapshotId, requestBody]);
+      },
+      applyWorkspaceSnapshotRestore(surfaceStore, threadId, snapshotId, requestBody) {
+        calls.push({
+          surface: "workspaceSnapshotSurface",
+          surfaceStore,
+          args: [threadId, snapshotId, requestBody],
+        });
+        return surfaceResult("workspaceSnapshotSurface", [threadId, snapshotId, requestBody]);
+      },
+    },
+    applyWorkflowEditProposal: retiredRouteWrapper,
+    executeDiagnosticsRepairDecision: retiredRouteWrapper,
+    listWorkspaceSnapshots: retiredRouteWrapper,
+    previewWorkspaceSnapshotRestore: retiredRouteWrapper,
+    applyWorkspaceSnapshotRestore: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/workflow-edit-proposals/proposal_route/apply",
+      segments: ["v1", "threads", "thread_route", "workflow-edit-proposals", "proposal_route", "apply"],
+      surface: "workflowEditSurface",
+      args: ["thread_route", "proposal_route", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/diagnostics/repair-decisions/decision_route/execute",
+      segments: ["v1", "threads", "thread_route", "diagnostics", "repair-decisions", "decision_route", "execute"],
+      surface: "diagnosticsRepairSurface",
+      args: ["thread_route", "decision_route", body],
+    },
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/snapshots",
+      segments: ["v1", "threads", "thread_route", "snapshots"],
+      surface: "workspaceSnapshotSurface",
+      args: ["thread_route"],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/snapshots/snapshot_route/restore-preview",
+      segments: ["v1", "threads", "thread_route", "snapshots", "snapshot_route", "restore-preview"],
+      surface: "workspaceSnapshotSurface",
+      args: ["thread_route", "snapshot_route", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/snapshots/snapshot_route/restore-apply",
+      segments: ["v1", "threads", "thread_route", "snapshots", "snapshot_route", "restore-apply"],
+      surface: "workspaceSnapshotSurface",
+      args: ["thread_route", "snapshot_route", body],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: testCase.method,
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 200);
+    assert.equal(call.surface, testCase.surface);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.args);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "rust_core_required",
+      surface: testCase.surface,
+      args: testCase.args,
+      direct_truth_write_allowed: false,
+    });
+  }
+});
+
 test("thread route invokes coding tools through canonical store surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

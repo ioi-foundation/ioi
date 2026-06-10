@@ -998,7 +998,12 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        store.applyWorkflowEditProposal(threadId, decodeURIComponent(segments[4]), await readBody(request)),
+        store.workflowEditSurface.applyWorkflowEditProposal(
+          store,
+          threadId,
+          decodeURIComponent(segments[4]),
+          await readBody(request),
+        ),
       );
       return;
     }
@@ -1016,25 +1021,40 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        store.executeDiagnosticsRepairDecision(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+        store.diagnosticsRepairSurface.executeDiagnosticsRepairDecision(
+          store,
+          threadId,
+          decodeURIComponent(segments[5]),
+          await readBody(request),
+        ),
       );
       return;
     }
     if (request.method === "GET" && action === "snapshots" && !segments[4]) {
-      writeJsonResponse(response, store.listWorkspaceSnapshots(threadId));
+      writeJsonResponse(response, store.workspaceSnapshotSurface.listWorkspaceSnapshots(store, threadId));
       return;
     }
     if (request.method === "POST" && action === "snapshots" && segments[4] && segments[5] === "restore-preview" && !segments[6]) {
       writeJsonResponse(
         response,
-        store.previewWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
+        store.workspaceSnapshotSurface.previewWorkspaceSnapshotRestore(
+          store,
+          threadId,
+          decodeURIComponent(segments[4]),
+          await readBody(request),
+        ),
       );
       return;
     }
     if (request.method === "POST" && action === "snapshots" && segments[4] && segments[5] === "restore-apply" && !segments[6]) {
       writeJsonResponse(
         response,
-        store.applyWorkspaceSnapshotRestore(threadId, decodeURIComponent(segments[4]), await readBody(request)),
+        store.workspaceSnapshotSurface.applyWorkspaceSnapshotRestore(
+          store,
+          threadId,
+          decodeURIComponent(segments[4]),
+          await readBody(request),
+        ),
       );
       return;
     }

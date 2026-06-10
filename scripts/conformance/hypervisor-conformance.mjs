@@ -8254,6 +8254,15 @@ function runBridge() {
       /Object\.hasOwn\(surface,\s*"workflowEditApprovalSatisfaction"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
+      /store\.workflowEditSurface\.applyWorkflowEditProposal\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/^\s*applyWorkflowEditProposal\(threadId, proposalId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       !/latestWorkflowEditProposalEvent\(threadId, proposalId\)/.test(runtimeDaemonIndex) &&
       !/workflowEditApprovalSatisfaction\(\{ threadId, approvalId, proposalEvent \}\)/.test(runtimeDaemonIndex) &&
       !/function latestWorkflowEditProposalEvent/.test(runtimeWorkflowEditSurface) &&
@@ -23729,6 +23738,25 @@ function runCompositor() {
 	      !workspaceRestoreResultAliasPattern.test(applyWorkspaceSnapshotRestoreBody) &&
 	      !/\brestorePreviewEvent:\s*event\b/.test(previewWorkspaceSnapshotRestoreBody) &&
       !/\brestoreApplyEvent:\s*event\b/.test(applyWorkspaceSnapshotRestoreBody) &&
+      /store\.workspaceSnapshotSurface\.listWorkspaceSnapshots\(store,\s*threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.workspaceSnapshotSurface\.previewWorkspaceSnapshotRestore\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.workspaceSnapshotSurface\.applyWorkspaceSnapshotRestore\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/^\s*listWorkspaceSnapshots\(threadId\) \{/m.test(runtimeDaemonIndex) &&
+      !/^\s*previewWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/^\s*applyWorkspaceSnapshotRestore\(threadId, snapshotId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       !/\bpolicy:\s*\{[\s\S]*?\b(?:approvalRequired|approvalSatisfied|approvalSource|conflictPolicy)\s*:/.test(
         applyWorkspaceSnapshotRestoreBody,
       ),
@@ -24017,6 +24045,15 @@ function runCompositor() {
       ) &&
       /diagnostics repair decision resolver facade fails closed before JS projection reads/.test(
         runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /store\.diagnosticsRepairSurface\.executeDiagnosticsRepairDecision\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[5\]\),\s*await readBody\(request\),\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/^\s*executeDiagnosticsRepairDecision\(threadId, decisionRef, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       /Object\.hasOwn\(details \?\? \{\},\s*key\),\s*false/.test(
         runtimeDiagnosticsRepairSurfaceTest,

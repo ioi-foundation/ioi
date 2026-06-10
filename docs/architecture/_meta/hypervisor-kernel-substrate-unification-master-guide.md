@@ -2222,6 +2222,19 @@ cTEE custody enforcement, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
 projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
+Slice 961 retired the daemon-store route pass-through wrappers for workflow
+edit apply, diagnostics repair decision execution, workspace snapshot list, and
+workspace restore preview/apply. Those public thread routes now call the
+mounted fail-closed workflow-edit, diagnostics-repair, and workspace-snapshot
+surfaces directly, so JS no longer preserves `applyWorkflowEditProposal()`,
+`executeDiagnosticsRepairDecision()`, `listWorkspaceSnapshots()`,
+`previewWorkspaceSnapshotRestore()`, or `applyWorkspaceSnapshotRestore()` as
+daemon-store compatibility wrappers. This does not claim terminal workflow,
+diagnostics, or workspace-snapshot migration: direct Rust daemon-core route
+admission, wallet/cTEE authority where applicable, Agentgres
+expected-head/state-root binding, receipt/artifact materialization, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

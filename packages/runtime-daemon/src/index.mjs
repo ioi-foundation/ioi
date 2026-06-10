@@ -1503,10 +1503,6 @@ export class AgentgresRuntimeStateStore {
     return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
   }
 
-  applyWorkflowEditProposal(threadId, proposalId, request = {}) {
-    return this.workflowEditSurface.applyWorkflowEditProposal(this, threadId, proposalId, request);
-  }
-
   compactThread(threadId, request = {}) {
     return this.contextPolicySurface.compactThread(this, threadId, request);
   }
@@ -3037,22 +3033,6 @@ export class AgentgresRuntimeStateStore {
       snapshot,
       sourceToolEvent,
     });
-  }
-
-  listWorkspaceSnapshots(threadId) {
-    return this.workspaceSnapshotSurface.listWorkspaceSnapshots(this, threadId);
-  }
-
-  previewWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
-    return this.workspaceSnapshotSurface.previewWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
-  }
-
-  applyWorkspaceSnapshotRestore(threadId, snapshotId, request = {}) {
-    return this.workspaceSnapshotSurface.applyWorkspaceSnapshotRestore(this, threadId, snapshotId, request);
-  }
-
-  executeDiagnosticsRepairDecision(threadId, decisionRef, request = {}) {
-    return this.diagnosticsRepairSurface.executeDiagnosticsRepairDecision(this, threadId, decisionRef, request);
   }
 
   executeDiagnosticsOperatorOverride(threadId, {

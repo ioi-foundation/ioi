@@ -21124,3 +21124,41 @@ should preserve the non-terminal status of admission command transport,
 Agentgres-backed admission truth, wallet/cTEE authority, and stable protocol
 APIs without encoding daemon-store pass-through wrappers as public admission
 authority.
+
+## Implementation Slice Evidence: 961
+
+Slice 961 retired daemon-store route pass-through wrappers for workflow edit
+apply, diagnostics repair decision execution, workspace snapshot list, and
+workspace restore preview/apply. The public thread routes now call the mounted
+fail-closed workflow-edit, diagnostics-repair, and workspace-snapshot surfaces
+directly instead of preserving `applyWorkflowEditProposal()`,
+`executeDiagnosticsRepairDecision()`, `listWorkspaceSnapshots()`,
+`previewWorkspaceSnapshotRestore()`, or `applyWorkspaceSnapshotRestore()` on
+the daemon store as duplicate route-level compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal workflow, diagnostics, or workspace-snapshot
+migration. Direct Rust daemon-core route admission, wallet/cTEE authority where
+applicable, Agentgres-backed expected-head/state-root truth, receipt/artifact
+materialization, replay, projection, command-transport retirement, and stable
+SDK/IDE/CLI protocol APIs remain before terminal pure Rust substrate
+conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-961 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of workflow, diagnostics, and
+workspace-snapshot command transport, Agentgres-backed truth, and stable
+protocol APIs without encoding daemon-store pass-through wrappers as public
+route authority.
