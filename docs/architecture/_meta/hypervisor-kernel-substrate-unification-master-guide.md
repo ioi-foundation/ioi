@@ -2071,6 +2071,18 @@ direct Rust daemon-core LM Studio/provider transports, lifecycle, inventory,
 projection, Agentgres-backed replay, stable protocol APIs, and
 command-transport retirement.
 
+Slice 889 retired the vLLM and llama.cpp backend-driver provider projection
+shims. The fail-closed backend drivers no longer store `this.state`, expose
+`providerWithBackendBaseUrl()`, promote provider `baseUrl` or blocked/configured
+status from JS backend records, or project loaded-instance truth from
+`state.listInstances()`/backend-process snapshots. vLLM and llama.cpp
+`listLoaded()` now fail closed at the provider HTTP transport retirement
+boundary until direct Rust daemon-core provider inventory/projection APIs own
+Agentgres-backed loaded-instance truth. Terminal provider migration still
+requires direct Rust daemon-core provider transports, lifecycle, inventory,
+projection, Agentgres-backed replay, stable protocol APIs, and
+command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

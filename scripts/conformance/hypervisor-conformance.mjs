@@ -1043,7 +1043,11 @@ function runDocs() {
       /Implementation Slice Evidence: 888/.test(matrix) &&
       /Slice 888 retired the LM Studio driver's nested OpenAI-compatible adapter/.test(matrix) &&
       /no longer imports or constructs\s+`OpenAICompatibleModelProviderDriver`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 888/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 888 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 889/.test(matrix) &&
+      /Slice 889 retired the vLLM and llama\.cpp backend-driver provider projection\s+shims/.test(matrix) &&
+      /no longer store `this\.state`, expose\s+`providerWithBackendBaseUrl\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 889/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1210,7 +1214,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 885 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 886 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 887 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 888/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 888 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 889/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -14195,6 +14200,32 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",
     ],
     "Phase 5/11 is pending: LM Studio provider driver must fail closed before public CLI command transport and use canonical snake_case Rust-boundary metadata",
+  );
+  assertCheck(
+    result,
+    "model-mount-openai-backend-provider-projection-shims-retired",
+    (() => {
+      const providerOpenAiBackendDrivers = read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs");
+      const providerOpenAiBackendDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs");
+      return !/providerWithBackendBaseUrl/.test(providerOpenAiBackendDrivers) &&
+        !/this\.state/.test(providerOpenAiBackendDrivers) &&
+        !/backendProcessSnapshot|backendProcessForBackend|listInstances\(\)/.test(providerOpenAiBackendDrivers) &&
+        !/(?:vllm|llama_cpp)_agentgres_loaded_instance_projection/.test(providerOpenAiBackendDrivers) &&
+        !/baseUrl:\s*provider\.baseUrl \?\? backend\.baseUrl/.test(providerOpenAiBackendDrivers) &&
+        !/status:\s*provider\.status === "blocked"/.test(providerOpenAiBackendDrivers) &&
+        /model_mount\.provider_inventory\.vllm_loaded/.test(providerOpenAiBackendDrivers) &&
+        /model_mount\.provider_inventory\.llama_cpp_loaded/.test(providerOpenAiBackendDrivers) &&
+        /without provider projection shims/.test(providerOpenAiBackendDriversTest) &&
+        /Object\.hasOwn\(driver,\s*"state"\),\s*false/.test(providerOpenAiBackendDriversTest) &&
+        /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"providerWithBackendBaseUrl"\),\s*false/.test(
+          providerOpenAiBackendDriversTest,
+        );
+    })(),
+    [
+      "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs",
+      "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs",
+    ],
+    "Phase 5/11 is pending: vLLM and llama.cpp backend drivers must not synthesize provider/base-url status or loaded-instance projections from JS backend state",
   );
   assertCheck(
     result,

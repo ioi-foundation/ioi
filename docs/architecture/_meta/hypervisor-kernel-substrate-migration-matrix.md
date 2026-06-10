@@ -18596,7 +18596,35 @@ Agentgres-backed replay, stable protocol APIs, command-transport retirement,
 and removal of the remaining JS provider edge adapters remain required before
 provider execution reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 888 after the next direct
+Scheduled matrix-compaction obligation from Slice 888 is now satisfied.
+
+## Implementation Slice Evidence: 889
+
+Slice 889 retired the vLLM and llama.cpp backend-driver provider projection
+shims. The fail-closed backend drivers no longer store `this.state`, expose
+`providerWithBackendBaseUrl()`, promote provider `baseUrl` or
+blocked/configured status from JS backend records, or project loaded-instance
+truth from `state.listInstances()`/backend-process snapshots. vLLM and
+llama.cpp `listLoaded()` now fail closed at the provider HTTP transport
+retirement boundary until direct Rust daemon-core provider
+inventory/projection APIs own Agentgres-backed loaded-instance truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal vLLM/llama.cpp/provider migration: direct
+Rust daemon-core provider transports, lifecycle, inventory, projection,
+Agentgres-backed replay, stable protocol APIs, command-transport retirement,
+and removal of the remaining JS provider edge adapters remain required before
+provider execution reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 889 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, lower-level fail-closed
 JS driver modules, direct Rust daemon-core provider execution/control APIs,

@@ -32,26 +32,10 @@ function fakeState(backends = {}) {
         evidenceRefs: [`${backend.id}.stopped`],
       };
     },
-    backendProcessForBackend(backendId) {
-      return processes.find((process) => process.backendId === backendId) ?? null;
-    },
-    backendProcessSnapshot(record) {
-      return record ? { id: record.id, reason: record.reason, evidenceRefs: record.evidenceRefs } : null;
-    },
-    listInstances() {
-      return [
-        {
-          id: "instance.loaded",
-          providerId: "provider.vllm",
-          modelId: "repo/model",
-          status: "loaded",
-        },
-      ];
-    },
   };
 }
 
-test("vLLM backend driver promotes configured backend but fails before JS process supervision", async () => {
+test("vLLM backend driver fails before JS process supervision without provider projection shims", async () => {
   const state = fakeState({
     "backend.vllm": {
       id: "backend.vllm",
@@ -63,9 +47,8 @@ test("vLLM backend driver promotes configured backend but fails before JS proces
   const endpoint = { id: "endpoint.vllm", modelId: "repo/model", loadPolicy: { mode: "on_demand" } };
   const driver = new VllmModelProviderDriver({ state });
 
-  const effective = driver.providerWithBackendBaseUrl(provider);
-  assert.equal(effective.status, "configured");
-  assert.equal(effective.baseUrl, "http://127.0.0.1:8000/v1");
+  assert.equal(Object.hasOwn(driver, "state"), false);
+  assert.equal(Object.hasOwn(Object.getPrototypeOf(driver), "providerWithBackendBaseUrl"), false);
 
   await assert.rejects(
     () =>
@@ -87,10 +70,12 @@ test("vLLM backend driver promotes configured backend but fails before JS proces
   );
   assert.deepEqual(state.processes, []);
 
-  const loaded = await driver.listLoaded({ state, provider });
-  assert.equal(loaded.length, 1);
-  assert.equal(loaded[0].backend, "vllm");
-  assert.equal(loaded[0].backendProcess, null);
+  await assert.rejects(
+    () => driver.listLoaded({ state, provider }),
+    (error) =>
+      error.code === "model_mount_provider_http_transport_retired" &&
+      error.details.operation_kind === "model_mount.provider_inventory.vllm_loaded",
+  );
 
   await assert.rejects(
     () => driver.unload({ state, provider, endpoint }),
@@ -143,8 +128,8 @@ test("llama.cpp backend driver fails before JS process supervision", async () =>
   const endpoint = { id: "endpoint.llama", modelId: "repo/gguf", loadPolicy: { mode: "on_demand" } };
   const driver = new LlamaCppModelProviderDriver({ state });
 
-  const effective = driver.providerWithBackendBaseUrl(provider);
-  assert.equal(effective.baseUrl, "http://127.0.0.1:8080/v1");
+  assert.equal(Object.hasOwn(driver, "state"), false);
+  assert.equal(Object.hasOwn(Object.getPrototypeOf(driver), "providerWithBackendBaseUrl"), false);
 
   await assert.rejects(
     () =>
@@ -163,6 +148,12 @@ test("llama.cpp backend driver fails before JS process supervision", async () =>
       error.code === "model_mount_backend_process_supervisor_retired" &&
       error.details.operation_kind === "model_mount.provider_lifecycle.llama_cpp_load" &&
       error.details.provider_id === "provider.llama-cpp",
+  );
+  await assert.rejects(
+    () => driver.listLoaded({ state, provider }),
+    (error) =>
+      error.code === "model_mount_provider_http_transport_retired" &&
+      error.details.operation_kind === "model_mount.provider_inventory.llama_cpp_loaded",
   );
   await assert.rejects(
     () => driver.unload({ state, provider, endpoint }),
