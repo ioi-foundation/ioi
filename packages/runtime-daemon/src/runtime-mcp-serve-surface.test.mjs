@@ -4,7 +4,6 @@ import test from "node:test";
 import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 
 function harness() {
-  const agentChecks = [];
   const invocations = [];
   const tools = [
     { stable_tool_id: "workspace.status", display_name: "Workspace status", input_schema: { type: "object" } },
@@ -40,23 +39,15 @@ function harness() {
     },
   });
   const store = {
-    agentForThread(threadId) {
-      agentChecks.push(threadId);
-      return { id: "agent-one", thread_id: threadId };
+    agentForThread() {
+      throw new Error("MCP serve tool-call facade must not resolve thread agents in JS.");
     },
     async invokeThreadToolAsync(threadId, toolId, request) {
       invocations.push({ threadId, toolId, request });
-      return {
-        status: "completed",
-        tool_name: toolId,
-        thread_id: threadId,
-        workflow_graph_id: request.workflow_graph_id,
-        workflow_node_id: request.workflow_node_id,
-        input: request.input,
-      };
+      throw new Error("MCP serve tool-call facade must not invoke JS thread tools.");
     },
   };
-  return { agentChecks, invocations, store, surface };
+  return { invocations, store, surface };
 }
 
 test("runtime MCP serve surface projects status and allowed tool catalog", () => {
@@ -86,7 +77,7 @@ test("runtime MCP serve surface projects status and allowed tool catalog", () =>
 });
 
 test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notifications", async () => {
-  const { agentChecks, store, surface } = harness();
+  const { invocations, store, surface } = harness();
 
   const initialize = await surface.handleMcpServeJsonRpc(
     store,
@@ -125,10 +116,10 @@ test("runtime MCP serve surface handles JSON-RPC lifecycle and batch notificatio
   assert.equal(batch.length, 2);
   assert.deepEqual(batch.map((response) => response.id), [3, 4]);
   assert.deepEqual(batch[1].result.tools.map((tool) => tool.name), ["workspace.status", "git.diff"]);
-  assert.deepEqual(agentChecks, ["thread-one", "thread-one"]);
+  assert.deepEqual(invocations, []);
 });
 
-test("runtime MCP serve surface invokes allowed tools and rejects malformed requests", async () => {
+test("runtime MCP serve surface fails closed for allowed tool calls and rejects malformed requests", async () => {
   const { invocations, store, surface } = harness();
 
   const invalid = await surface.handleSingleMcpServeJsonRpc(store, "thread-one", []);
@@ -182,8 +173,17 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
     },
   );
   assert.equal(response.id, 7);
-  assert.equal(response.result.structuredContent.workflow_graph_id, "custom.graph");
-  assert.deepEqual(response.result.structuredContent.input, { includeStat: true });
+  assert.equal(response.error.code, -32000);
+  assert.equal(response.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.equal(response.error.data.details.rust_core_boundary, "runtime.mcp_serve");
+  assert.equal(response.error.data.details.operation_kind, "mcp.serve.tools.call");
+  assert.equal(response.error.data.details.thread_id, "thread-one");
+  assert.equal(response.error.data.details.tool_id, "git.diff");
+  assert.equal(response.error.data.details.tool_name, "git.diff");
+  assert.equal(
+    response.error.data.details.evidence_refs.includes("runtime_mcp_serve_tool_call_js_facade_retired"),
+    true,
+  );
 
   const retiredOnlyResponse = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -200,8 +200,8 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
       workflowNodeId: "retired.node",
     },
   );
-  assert.equal(retiredOnlyResponse.result.structuredContent.workflow_graph_id, "runtime.mcp-serve");
-  assert.equal(retiredOnlyResponse.result.structuredContent.workflow_node_id, "runtime.mcp-serve.git.diff");
+  assert.equal(retiredOnlyResponse.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.equal(retiredOnlyResponse.error.data.details.thread_id, "thread-one");
 
   const retiredArgsResponse = await surface.handleSingleMcpServeJsonRpc(
     store,
@@ -214,39 +214,6 @@ test("runtime MCP serve surface invokes allowed tools and rejects malformed requ
     },
     { onlyDiff: true },
   );
-  assert.equal(retiredArgsResponse.result.structuredContent.workflow_graph_id, "runtime.mcp-serve");
-  assert.deepEqual(retiredArgsResponse.result.structuredContent.input, {});
-
-  assert.deepEqual(invocations, [
-    {
-      threadId: "thread-one",
-      toolId: "git.diff",
-      request: {
-        source: "mcp_serve",
-        workflow_graph_id: "custom.graph",
-        workflow_node_id: "custom.node",
-        input: { includeStat: true },
-      },
-    },
-    {
-      threadId: "thread-one",
-      toolId: "git.diff",
-      request: {
-        source: "mcp_serve",
-        workflow_graph_id: "runtime.mcp-serve",
-        workflow_node_id: "runtime.mcp-serve.git.diff",
-        input: { summary: true },
-      },
-    },
-    {
-      threadId: "thread-one",
-      toolId: "git.diff",
-      request: {
-        source: "mcp_serve",
-        workflow_graph_id: "runtime.mcp-serve",
-        workflow_node_id: "runtime.mcp-serve.git.diff",
-        input: {},
-      },
-    },
-  ]);
+  assert.equal(retiredArgsResponse.error.data.code, "runtime_mcp_serve_tool_call_rust_core_required");
+  assert.deepEqual(invocations, []);
 });

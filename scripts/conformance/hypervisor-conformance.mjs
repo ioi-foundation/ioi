@@ -2043,7 +2043,9 @@ function runDocs() {
       /`allowedTools`, `allowedResources`, `allowedPrompts`, `serverUrl`,\s+`containmentMode`, `allowNetworkEgress`, `allowChildProcesses`, and\s+`secretRefs` aliases/.test(
         implementationMatrix,
       ) &&
-      /MCP serve `tools\/call` now consumes canonical `params\.arguments` only/.test(implementationMatrix) &&
+      /MCP serve `tools\/call` now fails closed with `runtime_mcp_serve_tool_call_rust_core_required`/.test(
+        implementationMatrix,
+      ) &&
       /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
       /visual GUI local fixture capture\/execution no longer reads `IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or `IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`/.test(
         implementationMatrix,
@@ -24976,25 +24978,37 @@ function runCompositor() {
     result,
     "runtime-mcp-serve-context-request-aliases-retired",
     /options\.thread_id/.test(runtimeMcpServeSurface) &&
-      /request\.workflow_graph_id/.test(runtimeMcpServeSurface) &&
-      /request\.workflow_node_id/.test(runtimeMcpServeSurface) &&
       /threadId: "thread-retired"/.test(runtimeMcpServeSurfaceTest) &&
       /workflowGraphId: "retired\.graph"/.test(runtimeMcpServeSurfaceTest) &&
       /workflowNodeId: "retired\.node"/.test(runtimeMcpServeSurfaceTest) &&
       /toolName: "git\.diff"/.test(runtimeMcpServeSurfaceTest) &&
       /args:\s*\{\s*includeStat:\s*"retired"\s*\}/.test(runtimeMcpServeSurfaceTest) &&
-      /structuredContent\.input,\s*\{\}/.test(runtimeMcpServeSurfaceTest) &&
-      /workflow_graph_id: "runtime\.mcp-serve"/.test(runtimeMcpServeSurfaceTest) &&
-      /params\.arguments/.test(runtimeMcpServeSurface) &&
+      /runtime_mcp_serve_tool_call_rust_core_required/.test(runtimeMcpServeSurface) &&
+      /runtime_mcp_serve_tool_call_js_facade_retired/.test(runtimeMcpServeSurface) &&
+      /rust_daemon_core_runtime_mcp_serve_tool_call_required/.test(runtimeMcpServeSurface) &&
+      /agentgres_runtime_mcp_serve_tool_call_truth_required/.test(runtimeMcpServeSurface) &&
+      /wallet_runtime_mcp_serve_authority_required/.test(runtimeMcpServeSurface) &&
+      /response\.error\.data\.code,\s*"runtime_mcp_serve_tool_call_rust_core_required"/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /response\.error\.data\.details\.operation_kind,\s*"mcp\.serve\.tools\.call"/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /response\.error\.data\.details\.evidence_refs\.includes\("runtime_mcp_serve_tool_call_js_facade_retired"\)/.test(
+        runtimeMcpServeSurfaceTest,
+      ) &&
+      /assert\.deepEqual\(invocations,\s*\[\]\)/.test(runtimeMcpServeSurfaceTest) &&
       !/(?:options|request)\.threadId\b/.test(runtimeMcpServeSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId)\b/.test(runtimeMcpServeSurface) &&
       !/params\.toolName\b/.test(runtimeMcpServeSurface) &&
-      !/params\.args\b/.test(runtimeMcpServeSurface),
+      !/params\.args\b/.test(runtimeMcpServeSurface) &&
+      !/store\.agentForThread/.test(runtimeMcpServeSurface) &&
+      !/store\.invokeThreadToolAsync/.test(runtimeMcpServeSurface),
     [
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs",
       "packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: MCP serve requests must use canonical thread_id/workflow_graph_id/workflow_node_id without retired camelCase context aliases",
+    "Phase 10/11 is pending: MCP serve tool-call requests must fail closed before JS thread lookup or JS tool invocation while using canonical thread_id context without retired camelCase aliases",
   );
   assertCheck(
     result,

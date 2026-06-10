@@ -8,14 +8,10 @@ import {
   mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult,
   mcpServeAllowedToolIds,
-  mcpServeToolCallResult,
   mcpServeToolDescriptor,
   mcpServeToolIdForName,
 } from "./runtime-mcp-helpers.mjs";
-import {
-  optionalString,
-  safeId,
-} from "./runtime-value-helpers.mjs";
+import { optionalString } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeMcpServeSurface({
   RUNTIME_MCP_SERVE_PROTOCOL_VERSION: protocolVersion = RUNTIME_MCP_SERVE_PROTOCOL_VERSION,
@@ -25,12 +21,30 @@ export function createRuntimeMcpServeSurface({
   mcpJsonRpcErrorCodeFor: mcpJsonRpcErrorCodeForDep = mcpJsonRpcErrorCodeFor,
   mcpJsonRpcResult: mcpJsonRpcResultDep = mcpJsonRpcResult,
   mcpServeAllowedToolIds: mcpServeAllowedToolIdsDep = mcpServeAllowedToolIds,
-  mcpServeToolCallResult: mcpServeToolCallResultDep = mcpServeToolCallResult,
   mcpServeToolDescriptor: mcpServeToolDescriptorDep = mcpServeToolDescriptor,
   mcpServeToolIdForName: mcpServeToolIdForNameDep = mcpServeToolIdForName,
   optionalString: optionalStringDep = optionalString,
-  safeId: safeIdDep = safeId,
 } = {}) {
+  function mcpServeRustCoreRequiredError(id, { threadId, toolId, toolName }) {
+    return mcpJsonRpcErrorDep(id ?? null, -32000, "MCP serve tool calls require direct Rust daemon-core admission.", {
+      code: "runtime_mcp_serve_tool_call_rust_core_required",
+      details: {
+        rust_core_boundary: "runtime.mcp_serve",
+        operation: "runtime_mcp_serve_tool_call",
+        operation_kind: "mcp.serve.tools.call",
+        thread_id: threadId,
+        tool_id: toolId ?? null,
+        tool_name: toolName ?? null,
+        evidence_refs: [
+          "runtime_mcp_serve_tool_call_js_facade_retired",
+          "rust_daemon_core_runtime_mcp_serve_tool_call_required",
+          "agentgres_runtime_mcp_serve_tool_call_truth_required",
+          "wallet_runtime_mcp_serve_authority_required",
+        ],
+      },
+    });
+  }
+
   return {
     mcpServeStatus(store, options = {}) {
       const allowedToolIds = mcpServeAllowedToolIdsDep(options);
@@ -59,7 +73,6 @@ export function createRuntimeMcpServeSurface({
         .map((tool) => mcpServeToolDescriptorDep(tool));
     },
     async handleMcpServeJsonRpc(store, threadId, message, request = {}) {
-      store.agentForThread(threadId);
       const context = {
         ...request,
         thread_id: threadId,
@@ -123,20 +136,11 @@ export function createRuntimeMcpServeSurface({
               allowed_tools: mcpServeAllowedToolIdsDep(request),
             });
           }
-          const input = params.arguments && typeof params.arguments === "object" && !Array.isArray(params.arguments)
-            ? params.arguments
-            : {};
-          const invocation = await store.invokeThreadToolAsync(threadId, toolId, {
-            source: "mcp_serve",
-            workflow_graph_id:
-              optionalStringDep(request.workflow_graph_id) ??
-              "runtime.mcp-serve",
-            workflow_node_id:
-              optionalStringDep(request.workflow_node_id) ??
-              `runtime.mcp-serve.${safeIdDep(toolId)}`,
-            input,
+          return mcpServeRustCoreRequiredError(id, {
+            threadId,
+            toolId,
+            toolName,
           });
-          return mcpJsonRpcResultDep(id, mcpServeToolCallResultDep(invocation));
         }
         return mcpJsonRpcErrorDep(id, -32601, `MCP method not found: ${method}.`, {
           supported_methods: [

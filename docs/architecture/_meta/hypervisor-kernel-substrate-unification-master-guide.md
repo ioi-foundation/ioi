@@ -573,16 +573,16 @@ The Slice 768 visual artifact path alias-retirement matrix-compaction pass is
 complete. No matrix-compaction pass is pending until the next Rust-core
 extraction or facade-retirement seam lands.
 Slice 769 retired the MCP serve `tools/call` `params.args` fallback before
-served runtime tool invocation input crosses into the daemon. The MCP serve
-surface now consumes canonical MCP `params.arguments` only; retired `params.args`
-can no longer populate runtime tool input, while canonical `params.arguments`
-continues to pass through the governed thread-tool invocation path. This does
-not claim terminal MCP serve migration: direct Rust daemon-core MCP
+served runtime tool invocation input crosses into the daemon: at that slice,
+the MCP serve surface consumes canonical MCP `params.arguments` only. Slice 955
+later retired the remaining MCP serve JS tool-call dispatch path entirely, so
+canonical `params.arguments` no longer crosses into JS `invokeThreadToolAsync`.
+This does not claim terminal MCP serve migration: direct Rust daemon-core MCP
 serve/control/admission/projection still needs to own wallet authority,
 transport containment, StepModuleRouter dispatch, receipt binding, Agentgres
 expected-head/state-root binding, projection, replay, SDK/IDE protocol coverage,
-and conformance. Do not encode the remaining JS MCP serve facade as terminal
-architecture. The Slice 769 MCP serve `params.args` alias-retirement
+and conformance. Do not encode the remaining JS MCP serve protocol facade as
+terminal architecture. The Slice 769 MCP serve `params.args` alias-retirement
 matrix-compaction pass is complete.
 Slice 770 retired the MCP manager `allowedTools` server config/catalog fallback
 before MCP manager records can expose tools. `mcp-manager.mjs` now derives
@@ -2234,6 +2234,15 @@ at `thread.runtime_bridge.control` with
 thread-control path. Direct Rust daemon-core admission, wallet/cTEE/session
 authority, Agentgres expected-head/state-root binding, replay, and projection
 remain required before terminal runtime bridge thread/turn/control conformance.
+Slice 955 retired the remaining MCP serve `tools/call` JS dispatch path.
+`RuntimeMcpControl.handleSingleMcpServeJsonRpc()` now returns a JSON-RPC
+`runtime_mcp_serve_tool_call_rust_core_required` error at
+`mcp.serve.tools.call`, so JS no longer resolves thread agents or calls
+`invokeThreadToolAsync()` as the served tool-call admission path. Direct Rust
+daemon-core MCP serve admission, wallet authority, StepModuleRouter dispatch,
+receipt/state-root binding, Agentgres truth, replay, projection, and stable
+SDK/IDE/CLI protocol APIs remain required before terminal MCP serve
+conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

@@ -14780,11 +14780,12 @@ above remain authoritative for current and target ownership.
 
 - Retired the MCP serve `tools/call` `params.args` fallback before served
   runtime tool invocation input crosses into the daemon.
-- `runtime-mcp-serve-surface.mjs` now consumes canonical MCP
-  `params.arguments` only; retired `params.args` cannot populate runtime tool
-  input.
-- Focused MCP serve tests prove canonical `params.arguments` still passes
-  through while alias-only `params.args` produces an empty tool input.
+- Slice 955 later retired the remaining MCP serve JS tool-call dispatch path,
+  so `runtime-mcp-serve-surface.mjs` now fails closed before thread-agent
+  lookup, `invokeThreadToolAsync`, or runtime tool input dispatch.
+- Focused MCP serve tests now prove allowed `tools/call` requests return the
+  Rust-core-required JSON-RPC error and alias-only `params.args` cannot steer
+  JS tool input.
 - Bridge/compositor conformance rejects reintroducing `params.args` fallback
   reads in the MCP serve surface.
 - This slice intentionally does not claim terminal MCP serve migration. Direct
@@ -20915,3 +20916,38 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of runtime bridge command transport,
 Agentgres-backed thread/turn/control truth, and stable protocol APIs without
 encoding `runtimeBridge.controlThread()` as public control authority.
+
+## Implementation Slice Evidence: 955
+
+Slice 955 retired the remaining runtime MCP serve `tools/call` JS dispatch
+path. `handleSingleMcpServeJsonRpc()` now returns a JSON-RPC
+`runtime_mcp_serve_tool_call_rust_core_required` error at
+`mcp.serve.tools.call` instead of resolving thread agents, calling
+`invokeThreadToolAsync()`, constructing JS invocation inputs from
+`params.arguments`, or allowing retired `params.args` to steer runtime tool
+input. The initialize/ping/tools-list protocol projection remains
+non-authoritative; tool-call admission must move to direct Rust daemon-core MCP
+serve admission.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-mcp-serve-surface.mjs packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal MCP serve migration. Direct Rust daemon-core
+MCP serve admission, wallet authority, transport containment, StepModuleRouter
+dispatch, receipt/state-root binding, Agentgres-backed truth, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-955 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of MCP serve command transport,
+Agentgres-backed MCP tool-call truth, and stable protocol APIs without encoding
+JS `invokeThreadToolAsync()` as public MCP serve authority.
