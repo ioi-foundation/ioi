@@ -701,7 +701,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "context-budget" && !segments[4]) {
       writeJsonResponse(
         response,
-        store.evaluateContextBudget({ threadId, request: await readBody(request) }),
+        store.contextPolicySurface.evaluateContextBudget(store, { threadId, request: await readBody(request) }),
       );
       return;
     }
@@ -716,7 +716,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "compaction-policy" && !segments[4]) {
       writeJsonResponse(
         response,
-        store.evaluateCompactionPolicy({ threadId, request: await readBody(request) }),
+        store.contextPolicySurface.evaluateCompactionPolicy(store, { threadId, request: await readBody(request) }),
       );
       return;
     }
@@ -729,7 +729,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "compact") {
-      writeJsonResponse(response, store.compactThread(threadId, await readBody(request)));
+      writeJsonResponse(response, store.contextPolicySurface.compactThread(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "mode" && !segments[4]) {
@@ -1140,7 +1140,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "context-budget" && !segments[4]) {
       writeJsonResponse(
         response,
-        store.evaluateContextBudget({ runId, request: await readBody(request) }),
+        store.contextPolicySurface.evaluateContextBudget(store, { runId, request: await readBody(request) }),
       );
       return;
     }

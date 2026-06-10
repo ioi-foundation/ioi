@@ -1491,10 +1491,6 @@ export class AgentgresRuntimeStateStore {
     return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
   }
 
-  compactThread(threadId, request = {}) {
-    return this.contextPolicySurface.compactThread(this, threadId, request);
-  }
-
   listMcpServers(options = {}) {
     return this.mcpCatalogSurface.listMcpServers(this, options);
   }
@@ -1716,14 +1712,6 @@ export class AgentgresRuntimeStateStore {
 
   authorityEvidenceSummary(options = {}) {
     return this.runReadSurface.authorityEvidenceSummary(this, options);
-  }
-
-  evaluateContextBudget({ threadId = null, runId = null, request = {} } = {}) {
-    return this.contextPolicySurface.evaluateContextBudget(this, { threadId, runId, request });
-  }
-
-  evaluateCompactionPolicy({ threadId, request = {} } = {}) {
-    return this.contextPolicySurface.evaluateCompactionPolicy(this, { threadId, request });
   }
 
   cancelRun(runId) {

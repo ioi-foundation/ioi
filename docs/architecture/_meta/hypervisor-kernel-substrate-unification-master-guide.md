@@ -2245,6 +2245,16 @@ admission, wallet.network grant/lease issuance, Agentgres expected-head and
 state-root binding, receipt/event materialization, replay, projection,
 command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
 required before terminal pure Rust substrate conformance.
+Slice 963 retired the daemon-store context-policy route pass-through wrappers.
+The public workflow-only context-budget, thread context-budget, thread
+compaction-policy, thread compact, and run context-budget routes now call the
+mounted fail-closed context-policy surface directly, so JS no longer preserves
+`evaluateContextBudget()`, `evaluateCompactionPolicy()`, or `compactThread()`
+as daemon-store compatibility wrappers. This does not claim terminal
+context-policy migration: direct Rust daemon-core route admission, Agentgres
+expected-head/state-root binding, policy receipt/event materialization, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

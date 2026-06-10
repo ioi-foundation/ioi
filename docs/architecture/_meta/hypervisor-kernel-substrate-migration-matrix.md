@@ -21196,3 +21196,36 @@ should preserve the non-terminal status of approval command transport,
 wallet.network authority, Agentgres-backed approval truth, and stable protocol
 APIs without encoding daemon-store pass-through wrappers as public approval
 authority.
+
+## Implementation Slice Evidence: 963
+
+Slice 963 retired daemon-store context-policy route pass-through wrappers. The
+public workflow-only context-budget, thread context-budget, thread
+compaction-policy, thread compact, and run context-budget routes now call the
+mounted fail-closed context-policy surface directly instead of preserving
+`evaluateContextBudget()`, `evaluateCompactionPolicy()`, or `compactThread()`
+on the daemon store as duplicate route-level compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-context-policy-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal context-policy migration. Direct Rust
+daemon-core route admission, Agentgres-backed expected-head/state-root truth,
+policy receipt/event materialization, replay, projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-963 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of context-policy command transport,
+Agentgres-backed context-policy truth, and stable protocol APIs without
+encoding daemon-store pass-through wrappers as public context-policy authority.

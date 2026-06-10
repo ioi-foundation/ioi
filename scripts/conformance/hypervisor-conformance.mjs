@@ -2800,6 +2800,12 @@ function runBridge() {
   const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
     : "";
+  const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    : "";
+  const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    : "";
   const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
     : "";
@@ -6319,6 +6325,21 @@ function runBridge() {
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /rust_core_boundary:\s*"runtime\.context_policy"/.test(runtimeContextPolicySurface) &&
       /context_budget_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
+      /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ request: await readBody\(request\) \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ threadId,\s*request: await readBody\(request\) \}\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.contextPolicySurface\.evaluateContextBudget\(store,\s*\{ runId,\s*request: await readBody\(request\) \}\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /public runtime context budget route uses context policy surface directly/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /thread and run routes send context policy controls through mounted context policy surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /workflow-only context budget remains projection-only and ignores retired request aliases/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
@@ -6333,6 +6354,9 @@ function runBridge() {
       ) &&
       !/\brequest\.(?:workflowNodeId|workflowGraphId|threadId|runId|turnId|eventKind)\b/.test(
         runtimeContextBudgetEvaluationBlock,
+      ) &&
+      !/^\s*evaluateContextBudget\(\{ threadId = null, runId = null, request = \{\} \} = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       /budgetRunner\.evaluateContextBudgetPolicy/.test(codingToolBudgetPolicySurface) &&
       /capturedRequest\.schema_version,\s*"ioi\.runtime\.context-budget-policy-request\.v1"/.test(
@@ -8082,6 +8106,12 @@ function runBridge() {
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /compaction_policy_evaluation_js_event_facade_retired/.test(runtimeContextPolicySurface) &&
+      /store\.contextPolicySurface\.evaluateCompactionPolicy\(store,\s*\{ threadId,\s*request: await readBody\(request\) \}\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread and run routes send context policy controls through mounted context policy surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /compaction policy facade fails closed before event append, compaction execution, or JS persistence/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
@@ -8094,6 +8124,9 @@ function runBridge() {
       ) &&
       !/compactionExecuted|compactionEventId|compactionSeq|approvalId/.test(
         `${codingToolBudgetPolicySurface}\n${runtimeContextPolicySurface}`,
+      ) &&
+      !/^\s*evaluateCompactionPolicy\(\{ threadId, request = \{\} \} = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -8334,9 +8367,16 @@ function runBridge() {
       ) &&
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /context_compaction_js_facade_retired/.test(runtimeContextPolicySurface) &&
+      /store\.contextPolicySurface\.compactThread\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread and run routes send context policy controls through mounted context policy surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
+      !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
       !/planContextCompaction|compactHash|createHash/.test(runtimeContextPolicySurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -8397,9 +8437,16 @@ function runBridge() {
       /runtime_context_policy_rust_core_required/.test(runtimeContextPolicySurface) &&
       /rust_daemon_core_context_compaction_required/.test(runtimeContextPolicySurface) &&
       /agentgres_context_compaction_state_truth_required/.test(runtimeContextPolicySurface) &&
+      /store\.contextPolicySurface\.compactThread\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread and run routes send context policy controls through mounted context policy surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /compactThread facade fails closed before event append, Rust planning, or JS persistence/.test(
         runtimeContextPolicySurfaceTest,
       ) &&
+      !/^\s*compactThread\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
       !/planContextCompactionStateUpdate|plannedContextCompactionRunRecord|plannedContextCompactionAgentRecord|plannedContextCompactionOperationKind/.test(
         runtimeContextPolicySurface,
       ) &&

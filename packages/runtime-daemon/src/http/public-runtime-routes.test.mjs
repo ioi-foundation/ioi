@@ -265,6 +265,42 @@ test("public runtime task and job routes use task job surface directly", async (
   }
 });
 
+test("public runtime context budget route uses context policy surface directly", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const body = { request_id: "public-context-budget-route-test" };
+  const store = {
+    contextPolicySurface: {
+      evaluateContextBudget(surfaceStore, input) {
+        calls.push({ surfaceStore, input });
+        return {
+          status: "rust_core_required",
+          input,
+          direct_truth_write_allowed: false,
+        };
+      },
+    },
+    evaluateContextBudget: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({ method: "POST", url: "/v1/context-budget", body }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].surfaceStore, store);
+  assert.deepEqual(calls[0].input, { request: body });
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "rust_core_required",
+    input: { request: body },
+    direct_truth_write_allowed: false,
+  });
+});
+
 test("public runtime routes preserve MCP serve thread requirement", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

@@ -390,6 +390,93 @@ test("thread route sends approvals through mounted approval surface", async () =
   }
 });
 
+test("thread and run routes send context policy controls through mounted context policy surface", async () => {
+  const { handleThreadRoute, handleRunRoute } = routeHandlers();
+  const calls = [];
+  const body = { request_id: "context-policy-route-test" };
+  const surfaceResult = (operation, args) => ({
+    status: "rust_core_required",
+    operation,
+    args,
+    direct_truth_write_allowed: false,
+  });
+  const store = {
+    contextPolicySurface: {
+      evaluateContextBudget(surfaceStore, input) {
+        calls.push({ operation: "evaluateContextBudget", surfaceStore, args: [input] });
+        return surfaceResult("evaluateContextBudget", [input]);
+      },
+      evaluateCompactionPolicy(surfaceStore, input) {
+        calls.push({ operation: "evaluateCompactionPolicy", surfaceStore, args: [input] });
+        return surfaceResult("evaluateCompactionPolicy", [input]);
+      },
+      compactThread(surfaceStore, threadId, requestBody) {
+        calls.push({ operation: "compactThread", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("compactThread", [threadId, requestBody]);
+      },
+    },
+    evaluateContextBudget: retiredRouteWrapper,
+    evaluateCompactionPolicy: retiredRouteWrapper,
+    compactThread: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      handler: handleThreadRoute,
+      path: "/v1/threads/thread_route/context-budget",
+      segments: ["v1", "threads", "thread_route", "context-budget"],
+      operation: "evaluateContextBudget",
+      args: [{ threadId: "thread_route", request: body }],
+    },
+    {
+      handler: handleThreadRoute,
+      path: "/v1/threads/thread_route/compaction-policy",
+      segments: ["v1", "threads", "thread_route", "compaction-policy"],
+      operation: "evaluateCompactionPolicy",
+      args: [{ threadId: "thread_route", request: body }],
+    },
+    {
+      handler: handleThreadRoute,
+      path: "/v1/threads/thread_route/compact",
+      segments: ["v1", "threads", "thread_route", "compact"],
+      operation: "compactThread",
+      args: ["thread_route", body],
+    },
+    {
+      handler: handleRunRoute,
+      path: "/v1/runs/run_route/context-budget",
+      segments: ["v1", "runs", "run_route", "context-budget"],
+      operation: "evaluateContextBudget",
+      args: [{ runId: "run_route", request: body }],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await testCase.handler({
+      request: request({
+        method: "POST",
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 200);
+    assert.equal(call.operation, testCase.operation);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.args);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "rust_core_required",
+      operation: testCase.operation,
+      args: testCase.args,
+      direct_truth_write_allowed: false,
+    });
+  }
+});
+
 test("thread route invokes coding tools through canonical store surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();
