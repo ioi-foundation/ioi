@@ -125,7 +125,9 @@ use policy::{
     RuntimeBridgeThreadStartAgentStateUpdateError, RuntimeBridgeThreadStartAgentStateUpdateRecord,
     RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
     RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
-    RuntimeBridgeTurnRunStateUpdateRequest, SubagentRecordStateUpdateCore,
+    RuntimeBridgeTurnRunStateUpdateRequest, SkillHookRegistryProjectionRequiredCore,
+    SkillHookRegistryProjectionRequiredError, SkillHookRegistryProjectionRequiredRecord,
+    SkillHookRegistryProjectionRequiredRequest, SubagentRecordStateUpdateCore,
     SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
     SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
@@ -312,6 +314,14 @@ impl RuntimeKernelService {
         request: &RunCancelAdmissionRequiredRequest,
     ) -> Result<RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredError> {
         RunCancelAdmissionRequiredCore.plan(request)
+    }
+
+    pub fn plan_skill_hook_registry_projection_required(
+        &self,
+        request: &SkillHookRegistryProjectionRequiredRequest,
+    ) -> Result<SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredError>
+    {
+        SkillHookRegistryProjectionRequiredCore.plan(request)
     }
 
     pub fn plan_thread_control_agent_state_update(

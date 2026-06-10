@@ -37,6 +37,10 @@ pub const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-admission-required-request.v1";
 pub const RUN_CANCEL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.run-cancel-admission-required.v1";
+pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.skill-hook-registry-projection-required-request.v1";
+pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.skill-hook-registry-projection-required.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -270,6 +274,15 @@ pub enum RunCancelStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RunCancelAdmissionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SkillHookRegistryProjectionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1136,6 +1149,43 @@ pub struct RunCancelAdmissionRequiredRecord {
     pub run_id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillHookRegistryProjectionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub registry_kind: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SkillHookRegistryProjectionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub registry_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_root: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     pub evidence_refs: Vec<String>,
@@ -3010,6 +3060,62 @@ impl RunCancelAdmissionRequiredCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct SkillHookRegistryProjectionRequiredCore;
+
+impl SkillHookRegistryProjectionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &SkillHookRegistryProjectionRequiredRequest,
+    ) -> Result<SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredError>
+    {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let registry_kind = optional_trimmed(request.registry_kind.as_deref());
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let source = optional_trimmed(request.source.as_deref())
+            .or_else(|| Some("rust_skill_hook_registry_projection_required_command".to_string()));
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                "runtime_skill_hook_registry_js_projection_retired".to_string(),
+                "rust_daemon_core_skill_hook_registry_required".to_string(),
+                "agentgres_skill_hook_registry_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.skill_hook_registry",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "registry_kind": registry_kind,
+            "workspace_root": workspace_root,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(SkillHookRegistryProjectionRequiredRecord {
+            schema_version: SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_skill_hook_registry_projection_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_skill_hook_registry_rust_core_required".to_string(),
+            message: "Skill and hook registry projection requires direct Rust daemon-core projection over admitted governance/catalog truth.".to_string(),
+            rust_core_boundary: "runtime.skill_hook_registry".to_string(),
+            operation,
+            operation_kind,
+            registry_kind,
+            workspace_root,
+            source,
+            evidence_refs,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
 
 impl ThreadControlAgentStateUpdateCore {
@@ -4398,6 +4504,30 @@ impl RunCancelAdmissionRequiredRequest {
         }
         if optional_trimmed(Some(self.run_id.as_str())).is_none() {
             return Err(RunCancelAdmissionRequiredError::MissingField("run_id"));
+        }
+        Ok(())
+    }
+}
+
+impl SkillHookRegistryProjectionRequiredRequest {
+    pub fn validate(&self) -> Result<(), SkillHookRegistryProjectionRequiredError> {
+        if self.schema_version != SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(
+                SkillHookRegistryProjectionRequiredError::InvalidSchemaVersion {
+                    expected: SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(SkillHookRegistryProjectionRequiredError::MissingField(
+                "operation",
+            ));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(SkillHookRegistryProjectionRequiredError::MissingField(
+                "operation_kind",
+            ));
         }
         Ok(())
     }
@@ -7764,6 +7894,44 @@ mod tests {
         assert_eq!(record.details["run_status"], "running");
         assert!(record.details.get("runId").is_none());
         assert!(record.details.get("runStatus").is_none());
+    }
+
+    #[test]
+    fn rust_policy_plans_skill_hook_registry_projection_required() {
+        let record = SkillHookRegistryProjectionRequiredCore
+            .plan(&SkillHookRegistryProjectionRequiredRequest {
+                schema_version: SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                operation: "skill_hook_registry_skills".to_string(),
+                operation_kind: "skill_hook.registry.skills".to_string(),
+                registry_kind: Some("skills".to_string()),
+                workspace_root: Some("/workspace/project".to_string()),
+                source: Some("runtime.skill_hook_surface".to_string()),
+                evidence_refs: vec![
+                    "runtime_skill_hook_registry_js_projection_retired".to_string(),
+                    "rust_daemon_core_skill_hook_registry_required".to_string(),
+                    "agentgres_skill_hook_registry_truth_required".to_string(),
+                ],
+            })
+            .expect("skill hook registry projection required");
+
+        assert_eq!(
+            record.schema_version,
+            SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(
+            record.code,
+            "runtime_skill_hook_registry_rust_core_required"
+        );
+        assert_eq!(record.rust_core_boundary, "runtime.skill_hook_registry");
+        assert_eq!(record.operation, "skill_hook_registry_skills");
+        assert_eq!(record.operation_kind, "skill_hook.registry.skills");
+        assert_eq!(record.details["registry_kind"], "skills");
+        assert_eq!(record.details["workspace_root"], "/workspace/project");
+        assert!(record.details.get("registryKind").is_none());
+        assert!(record.details.get("workspaceRoot").is_none());
     }
 
     #[test]

@@ -865,7 +865,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({
       defaultCwd: this.defaultCwd,
-      homeDir: this.homeDir,
+      skillHookRunner: this.contextPolicyRunner,
     });
     this.taskJobSurface = createRuntimeTaskJobSurface({
       notFound,

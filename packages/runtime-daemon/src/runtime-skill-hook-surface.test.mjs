@@ -3,81 +3,97 @@ import test from "node:test";
 
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 
-function catalog({ cwd, homeDir }) {
-  return {
-    generatedAt: "2026-06-04T00:00:00.000Z",
-    workspace: { root: cwd, homeDir },
-    skillStatus: "pass",
-    hookStatus: "degraded",
-    skillCount: 1,
-    hookCount: 2,
-    activeSkillSetHash: "skill-hash",
-    activeHookSetHash: "hook-hash",
-    sources: [
-      { id: "workspace.skills", kind: "skill_dir" },
-      { id: "workspace.hooks.file", kind: "hook_file" },
-      { id: "workspace.hooks.dir", kind: "hook_dir" },
-      { id: "ignored", kind: "other" },
-    ],
-    skills: [{ id: "skill.one" }],
-    hooks: [{ id: "hook.one" }, { id: "hook.two" }],
-    redaction: {
-      hookCommandsIncluded: false,
-      secretValuesIncluded: false,
-    },
-  };
-}
-
-test("runtime skill hook surface projects catalog, skills, and hooks from default cwd", () => {
-  const calls = [];
+test("runtime skill hook surface fails closed before JS catalog discovery", () => {
   const surface = createRuntimeSkillHookSurface({
     defaultCwd: "/workspace/project",
-    homeDir: "/home/operator",
-    discoverSkillHookCatalog(input) {
-      calls.push(input);
-      return catalog(input);
+    discoverSkillHookCatalog() {
+      throw new Error("JS skill hook discovery must not author public registry projection");
     },
   });
 
-  assert.equal(surface.skillHookCatalog().workspace.root, "/workspace/project");
-  assert.deepEqual(surface.listSkills(), {
-    schemaVersion: "ioi.agent-runtime.skills.v1",
-    object: "ioi.agent_skill_registry_projection",
-    generatedAt: "2026-06-04T00:00:00.000Z",
-    workspace: { root: "/workspace/project", homeDir: "/home/operator" },
-    status: "pass",
-    skillCount: 1,
-    activeSkillSetHash: "skill-hash",
-    sources: [{ id: "workspace.skills", kind: "skill_dir" }],
-    skills: [{ id: "skill.one" }],
-    redaction: {
-      hookCommandsIncluded: false,
-      secretValuesIncluded: false,
+  assert.throws(
+    () => surface.listSkills(),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(
+        error.code,
+        "runtime_skill_hook_registry_rust_core_required",
+      );
+      assert.equal(
+        error.details.rust_core_boundary,
+        "runtime.skill_hook_registry",
+      );
+      assert.equal(error.details.operation, "skill_hook_registry_skills");
+      assert.equal(error.details.operation_kind, "skill_hook.registry.skills");
+      assert.equal(error.details.registry_kind, "skills");
+      assert.equal(error.details.workspace_root, "/workspace/project");
+      assert.equal(Object.hasOwn(error.details, "registryKind"), false);
+      assert.equal(Object.hasOwn(error.details, "workspaceRoot"), false);
+      return true;
     },
-    evidenceRefs: ["runtime_skill_discovery", "SkillNode", "SkillPackNode"],
+  );
+});
+
+test("runtime skill hook surface translates mounted Rust projection-required record", () => {
+  let captured = null;
+  const surface = createRuntimeSkillHookSurface({
+    defaultCwd: "/workspace/project",
+    skillHookRunner: {
+      planSkillHookRegistryProjectionRequired(request) {
+        captured = request;
+        return {
+          record: {
+            status_code: 501,
+            code: "runtime_skill_hook_registry_rust_core_required",
+            message:
+              "Skill and hook registry projection requires direct Rust daemon-core projection over admitted governance/catalog truth.",
+            details: {
+              rust_core_boundary: "runtime.skill_hook_registry",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              registry_kind: request.registry_kind,
+              workspace_root: request.workspace_root,
+              source: request.source,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
+    },
   });
-  assert.deepEqual(surface.listHooks({ cwd: "/other/workspace" }), {
-    schemaVersion: "ioi.agent-runtime.hooks.v1",
-    object: "ioi.agent_hook_registry_projection",
-    generatedAt: "2026-06-04T00:00:00.000Z",
-    workspace: { root: "/other/workspace", homeDir: "/home/operator" },
-    status: "degraded",
-    hookCount: 2,
-    activeHookSetHash: "hook-hash",
-    sources: [
-      { id: "workspace.hooks.file", kind: "hook_file" },
-      { id: "workspace.hooks.dir", kind: "hook_dir" },
+
+  assert.throws(
+    () => surface.listHooks({ cwd: "/other/workspace" }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(
+        error.code,
+        "runtime_skill_hook_registry_rust_core_required",
+      );
+      assert.equal(error.details.operation, "skill_hook_registry_hooks");
+      assert.equal(error.details.operation_kind, "skill_hook.registry.hooks");
+      assert.equal(error.details.registry_kind, "hooks");
+      assert.equal(error.details.workspace_root, "/other/workspace");
+      assert.equal(error.details.source, "runtime.skill_hook_surface");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_skill_hook_registry_js_projection_retired",
+        "rust_daemon_core_skill_hook_registry_required",
+        "agentgres_skill_hook_registry_truth_required",
+      ]);
+      return true;
+    },
+  );
+
+  assert.deepEqual(captured, {
+    operation: "skill_hook_registry_hooks",
+    operation_kind: "skill_hook.registry.hooks",
+    registry_kind: "hooks",
+    workspace_root: "/other/workspace",
+    source: "runtime.skill_hook_surface",
+    evidence_refs: [
+      "runtime_skill_hook_registry_js_projection_retired",
+      "rust_daemon_core_skill_hook_registry_required",
+      "agentgres_skill_hook_registry_truth_required",
     ],
-    hooks: [{ id: "hook.one" }, { id: "hook.two" }],
-    redaction: {
-      hookCommandsIncluded: false,
-      secretValuesIncluded: false,
-    },
-    evidenceRefs: ["runtime_hook_discovery", "HookNode", "HookPolicyNode"],
   });
-  assert.deepEqual(calls, [
-    { cwd: "/workspace/project", homeDir: "/home/operator" },
-    { cwd: "/workspace/project", homeDir: "/home/operator" },
-    { cwd: "/other/workspace", homeDir: "/home/operator" },
-  ]);
 });

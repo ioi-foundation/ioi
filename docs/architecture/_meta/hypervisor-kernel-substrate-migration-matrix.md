@@ -20320,10 +20320,48 @@ Compacted evidence pointers:
 
 Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied. No
 matrix-compaction pass is pending until the next larger Rust-core extraction or
-facade-retirement seam lands. The next resume should preserve that JS bridges,
+facade-retirement seam after Slice 970 lands. The next resume should preserve that JS bridges,
 JS facades, readback projections, daemon-store pass-through wrappers, and
 command transports remain migration scaffolding only and must not be treated as
 terminal architecture; accepted truth,
 wallet.network authority where applicable, Agentgres-backed state,
 receipt/state-root binding, replay, and stable protocol APIs remain
 non-terminal until direct Rust daemon-core ownership is implemented and proven.
+
+## Implementation Slice Evidence: 970
+
+Slice 970 moved public skill/hook registry projection refusal authoring into
+`SkillHookRegistryProjectionRequiredCore` through
+`plan_skill_hook_registry_projection_required`. The runtime daemon skill/hook
+surface now fails closed before JS filesystem discovery can author `/v1/skills`,
+`/v1/hooks`, or skill-hook catalog projection truth, and translates the mounted
+Rust daemon-core required envelope when the context-policy runner is available.
+The doctor report degrades with the Rust-core-required details rather than
+rediscovering public registry truth. This is still non-terminal migration
+plumbing: direct Rust daemon-core registry projection over Agentgres-admitted
+governance/catalog truth, wallet authority where applicable, receipt/state-root
+binding, replay, command-transport retirement, and stable protocol APIs remain
+required before terminal conformance.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 970 | Moved skill/hook registry projection-required refusal authoring into `SkillHookRegistryProjectionRequiredCore` through `plan_skill_hook_registry_projection_required`; JS translates the Rust-authored fail-closed envelope before filesystem discovery or public registry projection construction. | Direct Rust daemon-core skill/hook registry projection over Agentgres/governance truth, wallet authority where applicable, receipt/state-root binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-skill-hook-surface.mjs packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-doctor-report.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-doctor-report.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo check -p ioi-services` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo test -p ioi-services rust_policy_plans_skill_hook_registry_projection_required` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo check -p ioi-node` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo test -p ioi-node bridge_plans_skill_hook_registry_projection_required_through_rust_core` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.

@@ -2335,6 +2335,20 @@ daemon-core cancellation admission, Agentgres expected-head/state-root binding,
 receipt/event materialization, persistence, replay, projection, command-transport
 retirement, and stable SDK/IDE/CLI protocol APIs remain required before
 terminal pure Rust substrate conformance.
+Slice 970 moved public skill/hook registry projection refusal authoring into the
+Rust daemon-core policy bridge. `SkillHookRegistryProjectionRequiredCore` now
+emits the canonical fail-closed envelope and snake_case detail payload,
+`ioi_step_module_bridge` exposes
+`plan_skill_hook_registry_projection_required`, and the runtime daemon
+skill/hook surface uses the mounted context-policy runner to get the
+Rust-authored refusal. JS no longer constructs `/v1/skills`, `/v1/hooks`, or
+skill-hook catalog projection truth from filesystem discovery at the public
+surface. The doctor route degrades with the Rust-core-required details rather
+than rediscovering registry truth. This does not claim terminal skill/hook
+registry migration: direct Rust daemon-core projection over Agentgres-admitted
+governance/catalog truth, wallet authority where applicable, receipt/state-root
+binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol
+APIs remain required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

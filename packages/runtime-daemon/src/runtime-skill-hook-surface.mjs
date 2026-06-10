@@ -1,49 +1,83 @@
-import { discoverSkillHookCatalog } from "./skill-hook-catalog.mjs";
+import { optionalString } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeSkillHookSurface({
-  discoverSkillHookCatalog: discoverSkillHookCatalogDep = discoverSkillHookCatalog,
   defaultCwd,
-  homeDir,
+  skillHookRunner = null,
 } = {}) {
   const cwdForRequest = (request = {}) => request.cwd ?? defaultCwd;
-  const skillHookCatalog = ({ cwd = defaultCwd } = {}) =>
-    discoverSkillHookCatalogDep({ cwd, homeDir });
 
   return {
     skillHookCatalog(request = {}) {
-      return skillHookCatalog({ cwd: cwdForRequest(request) });
+      throwSkillHookRegistryRustCoreRequired({
+        skillHookRunner,
+        operation: "skill_hook_registry_catalog",
+        operation_kind: "skill_hook.registry.catalog",
+        registry_kind: "catalog",
+        workspace_root: cwdForRequest(request),
+      });
     },
     listSkills(request = {}) {
-      const catalog = skillHookCatalog({ cwd: cwdForRequest(request) });
-      return {
-        schemaVersion: "ioi.agent-runtime.skills.v1",
-        object: "ioi.agent_skill_registry_projection",
-        generatedAt: catalog.generatedAt,
-        workspace: catalog.workspace,
-        status: catalog.skillStatus,
-        skillCount: catalog.skillCount,
-        activeSkillSetHash: catalog.activeSkillSetHash,
-        sources: catalog.sources.filter((source) => source.kind === "skill_dir"),
-        skills: catalog.skills,
-        redaction: catalog.redaction,
-        evidenceRefs: ["runtime_skill_discovery", "SkillNode", "SkillPackNode"],
-      };
+      throwSkillHookRegistryRustCoreRequired({
+        skillHookRunner,
+        operation: "skill_hook_registry_skills",
+        operation_kind: "skill_hook.registry.skills",
+        registry_kind: "skills",
+        workspace_root: cwdForRequest(request),
+      });
     },
     listHooks(request = {}) {
-      const catalog = skillHookCatalog({ cwd: cwdForRequest(request) });
-      return {
-        schemaVersion: "ioi.agent-runtime.hooks.v1",
-        object: "ioi.agent_hook_registry_projection",
-        generatedAt: catalog.generatedAt,
-        workspace: catalog.workspace,
-        status: catalog.hookStatus,
-        hookCount: catalog.hookCount,
-        activeHookSetHash: catalog.activeHookSetHash,
-        sources: catalog.sources.filter((source) => source.kind === "hook_file" || source.kind === "hook_dir"),
-        hooks: catalog.hooks,
-        redaction: catalog.redaction,
-        evidenceRefs: ["runtime_hook_discovery", "HookNode", "HookPolicyNode"],
-      };
+      throwSkillHookRegistryRustCoreRequired({
+        skillHookRunner,
+        operation: "skill_hook_registry_hooks",
+        operation_kind: "skill_hook.registry.hooks",
+        registry_kind: "hooks",
+        workspace_root: cwdForRequest(request),
+      });
     },
   };
+}
+
+function throwSkillHookRegistryRustCoreRequired(details = {}) {
+  const { skillHookRunner = null, ...errorDetails } = details;
+  const evidence_refs = [
+    "runtime_skill_hook_registry_js_projection_retired",
+    "rust_daemon_core_skill_hook_registry_required",
+    "agentgres_skill_hook_registry_truth_required",
+  ];
+
+  if (skillHookRunner?.planSkillHookRegistryProjectionRequired) {
+    const record = skillHookRunner.planSkillHookRegistryProjectionRequired({
+      ...errorDetails,
+      source: "runtime.skill_hook_surface",
+      evidence_refs,
+    });
+    const planned = record?.record ?? record;
+    throw createSkillHookRegistryProjectionError(planned ?? record, {
+      ...errorDetails,
+      source: "runtime.skill_hook_surface",
+      evidence_refs,
+    });
+  }
+
+  throw createSkillHookRegistryProjectionError(null, {
+    ...errorDetails,
+    source: "runtime.skill_hook_surface",
+    evidence_refs,
+  });
+}
+
+function createSkillHookRegistryProjectionError(record, fallbackDetails) {
+  const error = new Error(
+    optionalString(record?.message) ??
+      "Skill and hook registry projection requires direct Rust daemon-core projection over admitted governance/catalog truth.",
+  );
+  error.status = Number(record?.status_code ?? 501);
+  error.code =
+    optionalString(record?.code) ??
+    "runtime_skill_hook_registry_rust_core_required";
+  error.details = record?.details ?? {
+    rust_core_boundary: "runtime.skill_hook_registry",
+    ...fallbackDetails,
+  };
+  return error;
 }

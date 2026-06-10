@@ -55,6 +55,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
+    SkillHookRegistryProjectionRequiredCore, SkillHookRegistryProjectionRequiredRequest,
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateRequest,
@@ -529,6 +530,16 @@ struct RunCancelAdmissionRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: RunCancelAdmissionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct SkillHookRegistryProjectionRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: SkillHookRegistryProjectionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1076,6 +1087,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_run_cancel_admission_required(request)
         }
+        "plan_skill_hook_registry_projection_required" => {
+            let request: SkillHookRegistryProjectionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_skill_hook_registry_projection_required(request)
+        }
         "plan_thread_control_agent_state_update" => {
             let request: ThreadControlAgentStateUpdateBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1286,6 +1303,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_operator_steer_state_update"
             | "plan_run_cancel_state_update"
             | "plan_run_cancel_admission_required"
+            | "plan_skill_hook_registry_projection_required"
             | "plan_thread_control_agent_state_update"
             | "plan_mcp_control_agent_state_update"
             | "plan_thread_memory_agent_state_update"
@@ -4483,6 +4501,46 @@ fn plan_run_cancel_admission_required(
         })?;
     Ok(json!({
         "source": "rust_run_cancel_admission_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+fn plan_skill_hook_registry_projection_required(
+    request: SkillHookRegistryProjectionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_skill_hook_registry_projection_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = SkillHookRegistryProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "skill_hook_registry_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_skill_hook_registry_projection_required_command",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -11774,6 +11832,61 @@ mod tests {
         assert_eq!(response["details"]["run_status"], "running");
         assert!(response["details"].get("runId").is_none());
         assert!(response["details"].get("runStatus").is_none());
+    }
+
+    #[test]
+    fn bridge_plans_skill_hook_registry_projection_required_through_rust_core() {
+        let request: SkillHookRegistryProjectionRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_skill_hook_registry_projection_required",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.skill-hook-registry-projection-required-request.v1",
+                    "operation": "skill_hook_registry_hooks",
+                    "operation_kind": "skill_hook.registry.hooks",
+                    "registry_kind": "hooks",
+                    "workspace_root": "/workspace/project",
+                    "source": "runtime.skill_hook_surface",
+                    "evidence_refs": [
+                        "runtime_skill_hook_registry_js_projection_retired",
+                        "rust_daemon_core_skill_hook_registry_required",
+                        "agentgres_skill_hook_registry_truth_required"
+                    ]
+                }
+            }))
+            .expect("skill hook registry projection required bridge request");
+
+        let response = plan_skill_hook_registry_projection_required(request)
+            .expect("skill hook registry projection refusal planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_skill_hook_registry_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_skill_hook_registry_rust_core_required"
+        );
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.skill_hook_registry"
+        );
+        assert_eq!(
+            response["details"]["operation"],
+            "skill_hook_registry_hooks"
+        );
+        assert_eq!(
+            response["details"]["operation_kind"],
+            "skill_hook.registry.hooks"
+        );
+        assert_eq!(response["details"]["registry_kind"], "hooks");
+        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
+        assert!(response["details"].get("registryKind").is_none());
+        assert!(response["details"].get("workspaceRoot").is_none());
     }
 
     #[test]

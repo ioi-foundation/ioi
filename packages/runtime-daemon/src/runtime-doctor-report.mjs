@@ -11,7 +11,7 @@ export function createRuntimeDoctorReport({
   function doctorReport(store, { baseUrl = null } = {}) {
     const generatedAt = new Date().toISOString();
     const modelProjection = store.modelMounting.projection();
-    const skillHookCatalog = store.skillHookCatalog();
+    const skillHookCatalog = skillHookCatalogForDoctor(store);
     const memoryPaths = store.memory.pathProjection({
       threadId: null,
       workspace: store.defaultCwd,
@@ -171,6 +171,8 @@ export function createRuntimeDoctorReport({
         activeSkillSetHash: skillHookCatalog.activeSkillSetHash,
         activeHookSetHash: skillHookCatalog.activeHookSetHash,
         validationIssueCount: skillHookCatalog.validationIssueCount,
+        rustCoreRequired: skillHookCatalog.rustCoreRequired === true,
+        rustCoreDetails: skillHookCatalog.rustCoreDetails ?? null,
         discoveryEndpoints: ["/v1/skills", "/v1/hooks"],
       },
       memory: {
@@ -223,4 +225,25 @@ export function createRuntimeDoctorReport({
   return {
     doctorReport,
   };
+}
+
+function skillHookCatalogForDoctor(store) {
+  try {
+    return store.skillHookCatalog();
+  } catch (error) {
+    if (error?.code !== "runtime_skill_hook_registry_rust_core_required") {
+      throw error;
+    }
+    return {
+      status: "degraded",
+      skillCount: 0,
+      hookCount: 0,
+      sources: [],
+      activeSkillSetHash: null,
+      activeHookSetHash: null,
+      validationIssueCount: 1,
+      rustCoreRequired: true,
+      rustCoreDetails: error.details,
+    };
+  }
 }

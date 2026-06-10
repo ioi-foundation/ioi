@@ -33,6 +33,7 @@ import {
   RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RustContextPolicyRunner,
+  SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1010,6 +1011,72 @@ test("run cancel admission-required runner sends Rust daemon-core request", () =
   assert.equal(result.record.details.run_id, "run_cancel_one");
   assert.equal(Object.hasOwn(result.record.details, "runId"), false);
   assert.equal(Object.hasOwn(result.record.details, "runStatus"), false);
+});
+
+test("skill hook registry projection-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_skill_hook_registry_projection_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_skill_hook_registry_rust_core_required",
+              message:
+                "Skill and hook registry projection requires direct Rust daemon-core projection over admitted governance/catalog truth.",
+              details: {
+                rust_core_boundary: "runtime.skill_hook_registry",
+                operation: "skill_hook_registry_skills",
+                operation_kind: "skill_hook.registry.skills",
+                registry_kind: "skills",
+                workspace_root: "/workspace/project",
+                evidence_refs: [
+                  "runtime_skill_hook_registry_js_projection_retired",
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planSkillHookRegistryProjectionRequired({
+    operation: "skill_hook_registry_skills",
+    operation_kind: "skill_hook.registry.skills",
+    registry_kind: "skills",
+    workspace_root: "/workspace/project",
+    evidence_refs: ["runtime_skill_hook_registry_js_projection_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(
+    captured.operation,
+    "plan_skill_hook_registry_projection_required",
+  );
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "skill_hook_registry_skills");
+  assert.equal(captured.request.operation_kind, "skill_hook.registry.skills");
+  assert.equal(captured.request.registry_kind, "skills");
+  assert.equal(
+    result.source,
+    "rust_skill_hook_registry_projection_required_command",
+  );
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.workspace_root, "/workspace/project");
+  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
 });
 
 test("thread control agent state update runner sends Rust state update bridge request", () => {

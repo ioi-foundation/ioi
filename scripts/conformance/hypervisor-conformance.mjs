@@ -1665,7 +1665,10 @@ function runDocs() {
       /Moved diagnostics repair admission-required refusal authoring into\s+`DiagnosticsRepairAdmissionRequiredCore`/.test(matrix) &&
       /Moved run-cancel admission-required refusal authoring into\s+`RunCancelAdmissionRequiredCore`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(matrix) &&
-      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam lands/.test(matrix) &&
+      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 970 lands/.test(matrix) &&
+      /Implementation Slice Evidence: 970/.test(matrix) &&
+      /Moved skill\/hook registry projection-required refusal authoring into\s+`SkillHookRegistryProjectionRequiredCore`/.test(matrix) &&
+      /Schedule the next matrix-compaction pass only after the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
@@ -2044,7 +2047,11 @@ function runDocs() {
         /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(
           matrix,
         ) &&
-        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam lands/.test(
+        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 970 lands/.test(
+          matrix,
+        ) &&
+        /Implementation Slice Evidence: 970/.test(matrix) &&
+        /Moved skill\/hook registry projection-required refusal authoring into\s+`SkillHookRegistryProjectionRequiredCore`/.test(
           matrix,
         ) &&
         /encoding the command bridge as\s+terminal shape/.test(matrix)),
@@ -2869,6 +2876,12 @@ function runBridge() {
     : "";
   const runtimeRunCancellationTest = exists("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.test.mjs")
+    : "";
+  const runtimeSkillHookSurface = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.mjs")
+    : "";
+  const runtimeSkillHookSurfaceTest = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
     : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
@@ -6923,6 +6936,66 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core admission-required planner and fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
+  );
+  assertCheck(
+    result,
+    "skill-hook-registry-projection-rust-core-required",
+    /SkillHookRegistryProjectionRequiredCore/.test(policyCore) &&
+      /SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_skill_hook_registry_projection_required/.test(policyCore) &&
+      /plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
+      /SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      /rust_skill_hook_registry_projection_required_command/.test(bridgeModule) &&
+      /bridge_plans_skill_hook_registry_projection_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planSkillHookRegistryProjectionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /skill hook registry projection-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime_skill_hook_registry_rust_core_required/.test(runtimeSkillHookSurface) &&
+      /rust_core_boundary:\s*"runtime\.skill_hook_registry"/.test(
+        runtimeSkillHookSurface,
+      ) &&
+      /runtime_skill_hook_registry_js_projection_retired/.test(
+        runtimeSkillHookSurface,
+      ) &&
+      /rust_daemon_core_skill_hook_registry_required/.test(runtimeSkillHookSurface) &&
+      /agentgres_skill_hook_registry_truth_required/.test(runtimeSkillHookSurface) &&
+      /skillHookRunner\.planSkillHookRegistryProjectionRequired/.test(
+        runtimeSkillHookSurface,
+      ) &&
+      !/discoverSkillHookCatalog/.test(runtimeSkillHookSurface) &&
+      !/schemaVersion:\s*"ioi\.agent-runtime\.skills\.v1"/.test(
+        runtimeSkillHookSurface,
+      ) &&
+      !/schemaVersion:\s*"ioi\.agent-runtime\.hooks\.v1"/.test(
+        runtimeSkillHookSurface,
+      ) &&
+      /runtime skill hook surface fails closed before JS catalog discovery/.test(
+        runtimeSkillHookSurfaceTest,
+      ) &&
+      /runtime skill hook surface translates mounted Rust projection-required record/.test(
+        runtimeSkillHookSurfaceTest,
+      ) &&
+      /createRuntimeSkillHookSurface\(\{\s*defaultCwd:\s*this\.defaultCwd,\s*skillHookRunner:\s*this\.contextPolicyRunner,/s.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-skill-hook-surface.mjs",
+      "packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 6/10/11 is pending: public skill/hook registry projection must fail closed through Rust daemon-core until direct Rust projection over Agentgres/governance truth replaces the migration bridge",
   );
   assertCheck(
     result,

@@ -24,6 +24,8 @@ export const RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-state-update-request.v1";
 export const RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.run-cancel-admission-required-request.v1";
+export const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.skill-hook-registry-projection-required-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -202,6 +204,14 @@ export class RustContextPolicyRunner {
     return this.evaluateRawPolicy({
       operation: "plan_run_cancel_admission_required",
       schemaVersion: RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  planSkillHookRegistryProjectionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_skill_hook_registry_projection_required",
+      schemaVersion: SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
     });
   }
