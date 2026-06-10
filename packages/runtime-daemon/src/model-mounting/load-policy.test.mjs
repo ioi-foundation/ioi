@@ -77,7 +77,9 @@ test("canonical load option input strips retired request aliases before provider
   assert.deepEqual(canonicalLoadOptionsInput({
     loadOptions: {
       context_length: 9999,
+      estimateOnly: true,
     },
+    estimateOnly: true,
     contextLength: 8888,
     modelPath: "/retired/model.gguf",
     embedding: true,
@@ -96,9 +98,36 @@ test("canonical load option input strips retired request aliases before provider
     maxModelLen: 7777,
     tensorParallelSize: 8,
     gpuMemoryUtilization: 0.99,
+    estimateOnly: true,
     modelPath: "/retired/model.gguf",
     embedding: true,
   }), {});
+});
+
+test("load option normalization ignores retired estimateOnly alias", () => {
+  assert.deepEqual(normalizeLoadOptions({
+    estimateOnly: true,
+  }), {
+    estimateOnly: false,
+    gpu: null,
+    contextLength: null,
+    parallel: null,
+    ttlSeconds: null,
+    identifier: null,
+    modelPath: null,
+    model: null,
+    dtype: null,
+    tensorParallelSize: null,
+    gpuMemoryUtilization: null,
+    maxModelLen: null,
+    estimate_only: false,
+    context_length: null,
+    ttl_seconds: null,
+    model_path: null,
+    tensor_parallel_size: null,
+    gpu_memory_utilization: null,
+    max_model_len: null,
+  });
 });
 
 test("runtime engine defaults include only explicit normalized values", () => {

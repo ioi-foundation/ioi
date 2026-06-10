@@ -2056,6 +2056,12 @@ model-mounting route handler no longer routes
 so callers cannot preserve the retired estimate-only facade through a
 route-shaped compatibility wrapper after `load_options.estimate_only` was moved
 to the Rust-core-required `model_mount.instance.estimate` boundary.
+Slice 933 retired the load-option `estimateOnly` compatibility alias. The
+load-option normalizer now honors only canonical `estimate_only`, and
+`canonicalLoadOptionsInput()` strips `estimateOnly` before provider/runtime
+normalization, so the retired public estimate path cannot be steered through a
+camelCase request alias while canonical `estimate_only` still fails closed at
+the Rust-core-required `model_mount.instance.estimate` boundary.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

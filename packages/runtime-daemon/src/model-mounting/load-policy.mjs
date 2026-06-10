@@ -21,7 +21,7 @@ export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
   const parallel = source.parallelism ?? source.parallel ?? null;
   const identifier = source.identifier ?? source.instance_identifier ?? source.instanceIdentifier ?? null;
   const normalized = {
-    estimateOnly: truthy(source.estimate_only ?? source.estimateOnly ?? false),
+    estimateOnly: truthy(source.estimate_only ?? false),
     gpu: gpu === null || gpu === undefined || gpu === "" ? null : String(gpu),
     contextLength: contextLength === null || contextLength === undefined || contextLength === "" ? null : Number(contextLength),
     parallel: parallel === null || parallel === undefined || parallel === "" ? null : Number(parallel),

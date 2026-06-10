@@ -845,6 +845,8 @@ function runDocs() {
       /`model_mount\.provider_result\.embeddings` before JS can derive deterministic\s+vectors/.test(guide) &&
       /Slice 932 retired the public JS model-load estimate route/.test(guide) &&
       /`\/api\/v1\/models\/estimate-load` is no longer routed/.test(guide) &&
+      /Slice 933 retired the load-option `estimateOnly` compatibility alias/.test(guide) &&
+      /load-option normalizer now honors only canonical `estimate_only`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -10555,8 +10557,11 @@ function runBridge() {
         !/LM Studio load options produce stable public CLI args/.test(loadPolicyTest) &&
         /canonical load option input strips retired request aliases before provider normalization/.test(loadPolicyTest) &&
         /contextLength:\s*8888/.test(loadPolicyTest) &&
+        /estimateOnly:\s*true/.test(loadPolicyTest) &&
         /modelPath:\s*"\/retired\/model\.gguf"/.test(loadPolicyTest) &&
         /embedding:\s*true/.test(loadPolicyTest) &&
+        !/source\.estimateOnly/.test(loadPolicy) &&
+        /load option normalization ignores retired estimateOnly alias/.test(loadPolicyTest) &&
         /context_length:\s*loadOptions\.context_length \?\? defaults\.context_length \?\? null/.test(
           backendProcessPlanBlock,
         ) &&
