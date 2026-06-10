@@ -283,6 +283,10 @@ meta-improvement daemon-core runners by retiring `IOI_RUNTIME_DAEMON_CORE_COMMAN
 and constructor-`args` for those surfaces. This is still not the terminal
 transport shape: direct Rust daemon-core APIs must replace the command transport
 after the relevant admission/control APIs are verified.
+Slice 926 extends the fixed-argv rule to coding-tool approval, approval-state,
+context-policy/state-update, runtime Agentgres admission, and workspace-restore
+daemon-core runners. The remaining command-transport shape is still migration
+scaffolding, not the target Rust daemon-core API.
 
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement

@@ -1,27 +1,35 @@
 import { spawnSync } from "node:child_process";
 
 export const CODING_TOOL_APPROVAL_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.coding-tool-approval-request.v1";
 export const RUST_CODING_TOOL_APPROVAL_BACKEND = "rust_authority";
 
 export function createCodingToolApprovalRunnerFromEnv(env = process.env, options = {}) {
+  assertNoCodingToolApprovalCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustCodingToolApprovalRunner({
     command: options.command ?? env[CODING_TOOL_APPROVAL_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoCodingToolApprovalCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new CodingToolApprovalRunnerError(
+    "Coding-tool approval command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "coding_tool_approval_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustCodingToolApprovalRunner {
   constructor(options = {}) {
+    assertNoCodingToolApprovalCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -54,11 +62,10 @@ export class RustCodingToolApprovalRunner {
         "coding_tool_approval_bridge_unconfigured",
         {
           env: CODING_TOOL_APPROVAL_COMMAND_ENV,
-          argsEnv: CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -130,20 +137,6 @@ export function normalizeCodingToolApprovalBridgeResult(value = {}) {
     manifest,
     input_hash: optionalString(result.input_hash ?? plan.input_hash ?? manifest?.input_hash),
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function optionalString(value) {

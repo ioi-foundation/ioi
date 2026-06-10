@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV,
   CODING_TOOL_APPROVAL_COMMAND_ENV,
   CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION,
   CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION,
+  CodingToolApprovalRunnerError,
   RustCodingToolApprovalRunner,
   createCodingToolApprovalRunnerFromEnv,
 } from "./runtime-coding-tool-approval-runner.mjs";
@@ -13,21 +13,43 @@ import {
 test("coding tool approval runner env uses daemon-core command boundary", () => {
   const runner = createCodingToolApprovalRunnerFromEnv({
     [CODING_TOOL_APPROVAL_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV]: "--json",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("coding tool approval runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createCodingToolApprovalRunnerFromEnv({
+        [CODING_TOOL_APPROVAL_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof CodingToolApprovalRunnerError &&
+      error.code === "coding_tool_approval_command_args_retired",
+  );
+});
+
+test("coding tool approval runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustCodingToolApprovalRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof CodingToolApprovalRunnerError &&
+      error.code === "coding_tool_approval_command_args_retired",
+  );
 });
 
 test("coding tool approval runner sends Rust authority bridge request", () => {
   let captured = null;
+  let capturedArgs = null;
   const runner = new RustCodingToolApprovalRunner({
     command: "ioi-runtime-daemon-core",
     spawnSyncImpl(command, args, options) {
       captured = JSON.parse(options.input);
+      capturedArgs = args;
       return {
         status: 0,
         stdout: JSON.stringify({
@@ -64,6 +86,7 @@ test("coding tool approval runner sends Rust authority bridge request", () => {
     input: { path: "src/app.js" },
   });
 
+  assert.deepEqual(capturedArgs, []);
   assert.equal(captured.schema_version, CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION);
   assert.equal(captured.operation, "plan_coding_tool_approval_manifest");
   assert.equal(captured.backend, "rust_authority");

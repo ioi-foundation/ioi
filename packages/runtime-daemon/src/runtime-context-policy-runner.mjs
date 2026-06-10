@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 
 export const CONTEXT_POLICY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const CONTEXT_POLICY_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.context-budget-policy-request.v1";
@@ -60,20 +59,29 @@ export const CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
 export const RUST_CONTEXT_POLICY_BACKEND = "rust_policy";
 
 export function createContextPolicyRunnerFromEnv(env = process.env, options = {}) {
+  assertNoContextPolicyCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustContextPolicyRunner({
     command: options.command ?? env[CONTEXT_POLICY_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[CONTEXT_POLICY_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoContextPolicyCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new ContextPolicyRunnerError(
+    "Context policy command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "context_policy_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustContextPolicyRunner {
   constructor(options = {}) {
+    assertNoContextPolicyCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -330,11 +338,10 @@ export class RustContextPolicyRunner {
         "context_policy_bridge_unconfigured",
         {
           env: CONTEXT_POLICY_COMMAND_ENV,
-          argsEnv: CONTEXT_POLICY_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -1120,20 +1127,6 @@ export function normalizeAgentStatusStateUpdateBridgeResult(value = {}) {
     updated_at: optionalString(result.updated_at ?? record.updated_at) ?? null,
     agent: objectRecord(result.agent) ?? objectRecord(record.agent) ?? null,
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function optionalString(value) {

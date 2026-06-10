@@ -5,9 +5,9 @@ import {
   APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
-  APPROVAL_STATE_COMMAND_ARGS_ENV,
   APPROVAL_STATE_COMMAND_ENV,
   APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
+  RuntimeApprovalStateRunnerError,
   RustRuntimeApprovalStateRunner,
   createRuntimeApprovalStateRunnerFromEnv,
   normalizeApprovalDecisionStateUpdateBridgeResult,
@@ -18,21 +18,43 @@ import {
 test("approval state runner env uses daemon-core command boundary", () => {
   const runner = createRuntimeApprovalStateRunnerFromEnv({
     [APPROVAL_STATE_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [APPROVAL_STATE_COMMAND_ARGS_ENV]: "--json",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("approval state runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createRuntimeApprovalStateRunnerFromEnv({
+        [APPROVAL_STATE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof RuntimeApprovalStateRunnerError &&
+      error.code === "approval_state_command_args_retired",
+  );
+});
+
+test("approval state runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustRuntimeApprovalStateRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof RuntimeApprovalStateRunnerError &&
+      error.code === "approval_state_command_args_retired",
+  );
 });
 
 test("approval request state runner sends Rust authority bridge request", () => {
   let captured = null;
+  let capturedArgs = null;
   const runner = new RustRuntimeApprovalStateRunner({
     command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
+    spawnSyncImpl(_command, args, options) {
       captured = JSON.parse(options.input);
+      capturedArgs = args;
       return {
         status: 0,
         stdout: JSON.stringify({
@@ -83,6 +105,7 @@ test("approval request state runner sends Rust authority bridge request", () => 
     policy_decision_refs: ["policy_approval"],
   });
 
+  assert.deepEqual(capturedArgs, []);
   assert.equal(captured.schema_version, APPROVAL_STATE_COMMAND_SCHEMA_VERSION);
   assert.equal(captured.operation, "plan_approval_request_state_update");
   assert.equal(captured.backend, "rust_authority");

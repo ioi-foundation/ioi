@@ -19806,3 +19806,43 @@ preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs. Fixed argv on command
 transport is a migration constraint, not the terminal architecture.
+
+At Slice 925 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 926 is that seam
+and satisfies the Slice 925 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 925 is now satisfied.
+
+## Implementation Slice Evidence: 926
+
+Slice 926 retired the next family of daemon-core command-argument selectors.
+The coding-tool approval, approval-state, context-policy/state-update, runtime
+Agentgres admission, and workspace-restore runners no longer export per-runner
+`*_COMMAND_ARGS_ENV` constants, parse `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`,
+store constructor `args`, or spawn the daemon-core command with JS-shaped argv.
+Their command transport now uses fixed empty argv, and env/constructor attempts
+fail closed with surface-specific `*_command_args_retired` errors.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs packages/runtime-daemon/src/runtime-approval-state-runner.mjs packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal daemon-core transport migration. The fixed
+command transport remains migration scaffolding; direct Rust daemon-core
+protocol/API replacement, stable SDK/IDE/CLI protocol surfaces, Agentgres-backed
+replay, and remaining model_mount/agent-service command transport seams remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 926 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs.

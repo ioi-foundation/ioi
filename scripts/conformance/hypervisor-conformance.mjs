@@ -5467,10 +5467,25 @@ function runBridge() {
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeCodingToolApprovalRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
+      !/CODING_TOOL_APPROVAL_COMMAND_ARGS_ENV/.test(runtimeCodingToolApprovalRunner) &&
+      !/parseCommandArgs/.test(runtimeCodingToolApprovalRunner) &&
+      !/normalizeArgs/.test(runtimeCodingToolApprovalRunner) &&
+      !/this\.args/.test(runtimeCodingToolApprovalRunner) &&
+      !/argsEnv/.test(runtimeCodingToolApprovalRunner) &&
+      /assertNoCodingToolApprovalCommandArgs/.test(runtimeCodingToolApprovalRunner) &&
       /planApprovalManifest/.test(runtimeCodingToolApprovalRunner) &&
+      /coding_tool_approval_command_args_retired/.test(runtimeCodingToolApprovalRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeCodingToolApprovalRunner) &&
       /coding tool approval runner env uses daemon-core command boundary/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
+      /coding tool approval runner command args env fails closed/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /coding tool approval runner command args constructor option fails closed/.test(
+        runtimeCodingToolApprovalRunnerTest,
+      ) &&
+      /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeCodingToolApprovalRunnerTest) &&
       /coding tool approval runner sends Rust authority bridge request/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
@@ -5871,6 +5886,17 @@ function runBridge() {
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeApprovalStateRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeApprovalStateRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateRunner) &&
+      !/APPROVAL_STATE_COMMAND_ARGS_ENV/.test(runtimeApprovalStateRunner) &&
+      !/parseCommandArgs/.test(runtimeApprovalStateRunner) &&
+      !/normalizeArgs/.test(runtimeApprovalStateRunner) &&
+      !/this\.args/.test(runtimeApprovalStateRunner) &&
+      !/argsEnv/.test(runtimeApprovalStateRunner) &&
+      /assertNoApprovalStateCommandArgs/.test(runtimeApprovalStateRunner) &&
+      /approval_state_command_args_retired/.test(runtimeApprovalStateRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeApprovalStateRunner) &&
+      /approval state runner command args env fails closed/.test(runtimeApprovalStateRunnerTest) &&
+      /approval state runner command args constructor option fails closed/.test(runtimeApprovalStateRunnerTest) &&
+      /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeApprovalStateRunnerTest) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalStateRunner) &&
       /approval state runner env uses daemon-core command boundary/.test(
         runtimeApprovalStateRunnerTest,
@@ -6200,11 +6226,24 @@ function runBridge() {
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeContextPolicyRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeContextPolicyRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeContextPolicyRunner) &&
+      !/CONTEXT_POLICY_COMMAND_ARGS_ENV/.test(runtimeContextPolicyRunner) &&
+      !/parseCommandArgs/.test(runtimeContextPolicyRunner) &&
+      !/normalizeArgs/.test(runtimeContextPolicyRunner) &&
+      !/this\.args/.test(runtimeContextPolicyRunner) &&
+      !/argsEnv/.test(runtimeContextPolicyRunner) &&
+      /assertNoContextPolicyCommandArgs/.test(runtimeContextPolicyRunner) &&
       /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
+      /context_policy_command_args_retired/.test(runtimeContextPolicyRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeContextPolicyRunner) &&
       /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
       /context policy runner env uses daemon-core command boundary/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /context policy runner command args env fails closed/.test(runtimeContextPolicyRunnerTest) &&
+      /context policy runner command args constructor option fails closed/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeContextPolicyRunnerTest) &&
       /context budget policy runner sends generic Rust policy bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
@@ -11048,11 +11087,17 @@ function runBridge() {
 	    result,
 	    "workspace-restore-daemon-runner-migration-transport",
 	    /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
-	      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workspaceRestoreRunner) &&
-	      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workspaceRestoreRunner) &&
+      /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
       !/IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(workspaceRestoreRunner) &&
+      !/WORKSPACE_RESTORE_COMMAND_ARGS_ENV/.test(workspaceRestoreRunner) &&
+      !/parseCommandArgs/.test(workspaceRestoreRunner) &&
+      !/normalizeArgs/.test(workspaceRestoreRunner) &&
+      !/this\.args/.test(workspaceRestoreRunner) &&
+      !/argsEnv/.test(workspaceRestoreRunner) &&
       /RustWorkspaceRestoreRunner/.test(workspaceRestoreRunner) &&
+      /assertNoWorkspaceRestoreCommandArgs/.test(workspaceRestoreRunner) &&
       /createWorkspaceRestoreRunnerFromEnv/.test(workspaceRestoreRunner) &&
       /createWorkspaceRestoreRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
@@ -11066,9 +11111,12 @@ function runBridge() {
       /capture_workspace_snapshot_files/.test(workspaceRestoreRunner) &&
       /rust_workspace_restore/.test(workspaceRestoreRunner) &&
       /workspace_restore_bridge_unconfigured/.test(workspaceRestoreRunner) &&
+      /workspace_restore_command_args_retired/.test(workspaceRestoreRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(workspaceRestoreRunner) &&
       /workspace restore runner sends apply policy bridge request/.test(
         workspaceRestoreRunnerTest,
       ) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(workspaceRestoreRunnerTest) &&
       /workspace restore runner sends preview operations bridge request/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -11085,6 +11133,12 @@ function runBridge() {
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner env uses daemon-core command boundary/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner command args env fails closed/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner command args constructor option fails closed/.test(
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner fails closed without command/.test(
@@ -15327,6 +15381,23 @@ function runReceipts() {
       /bridge_commits_runtime_model_mount_receipt_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeModelMountReceiptState/.test(runtimeAgentgresRunner) &&
       /normalizeRuntimeModelMountReceiptStateCommitBridgeResult/.test(runtimeAgentgresRunner) &&
+      !/RUNTIME_AGENTGRES_COMMAND_ARGS_ENV/.test(runtimeAgentgresRunner) &&
+      !/parseCommandArgs/.test(runtimeAgentgresRunner) &&
+      !/normalizeArgs/.test(runtimeAgentgresRunner) &&
+      !/this\.args/.test(runtimeAgentgresRunner) &&
+      !/argsEnv/.test(runtimeAgentgresRunner) &&
+      /assertNoRuntimeAgentgresCommandArgs/.test(runtimeAgentgresRunner) &&
+      /runtime_agentgres_command_args_retired/.test(runtimeAgentgresRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeAgentgresRunner) &&
+      /runtime Agentgres runner command args env fails closed/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /runtime Agentgres runner command args constructor option fails closed/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(
+        read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
+      ) &&
       /runtime Agentgres runner sends runtime model-mount receipt-state commit bridge request/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&

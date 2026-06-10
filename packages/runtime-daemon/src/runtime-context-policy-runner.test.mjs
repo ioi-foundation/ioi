@@ -10,9 +10,9 @@ import {
   CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION,
   CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION,
-  CONTEXT_POLICY_COMMAND_ARGS_ENV,
   CONTEXT_POLICY_COMMAND_ENV,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
+  ContextPolicyRunnerError,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -50,21 +50,43 @@ function assertNoRetiredOperationKindDetailAliases(details) {
 test("context policy runner env uses daemon-core command boundary", () => {
   const runner = createContextPolicyRunnerFromEnv({
     [CONTEXT_POLICY_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [CONTEXT_POLICY_COMMAND_ARGS_ENV]: "--json",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired",
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("context policy runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createContextPolicyRunnerFromEnv({
+        [CONTEXT_POLICY_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof ContextPolicyRunnerError &&
+      error.code === "context_policy_command_args_retired",
+  );
+});
+
+test("context policy runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustContextPolicyRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof ContextPolicyRunnerError &&
+      error.code === "context_policy_command_args_retired",
+  );
 });
 
 test("context budget policy runner sends generic Rust policy bridge request", () => {
   let captured = null;
+  let capturedArgs = null;
   const runner = new RustContextPolicyRunner({
     command: "ioi-runtime-daemon-core",
-    spawnSyncImpl(_command, _args, options) {
+    spawnSyncImpl(_command, args, options) {
       captured = JSON.parse(options.input);
+      capturedArgs = args;
       return {
         status: 0,
         stdout: JSON.stringify({
@@ -104,6 +126,7 @@ test("context budget policy runner sends generic Rust policy bridge request", ()
     turn_id: "turn_1",
   });
 
+  assert.deepEqual(capturedArgs, []);
   assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
   assert.equal(captured.operation, "evaluate_context_budget_policy");
   assert.equal(captured.backend, "rust_policy");

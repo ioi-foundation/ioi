@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 
 export const WORKSPACE_RESTORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const WORKSPACE_RESTORE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_preview_operations_request.v1";
@@ -14,20 +13,29 @@ export const WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION =
 export const RUST_WORKSPACE_RESTORE_BACKEND = "rust_workspace_restore";
 
 export function createWorkspaceRestoreRunnerFromEnv(env = process.env, options = {}) {
+  assertNoWorkspaceRestoreCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustWorkspaceRestoreRunner({
     command: options.command ?? env[WORKSPACE_RESTORE_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[WORKSPACE_RESTORE_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoWorkspaceRestoreCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new WorkspaceRestoreRunnerError(
+    "Workspace restore command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "workspace_restore_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustWorkspaceRestoreRunner {
   constructor(options = {}) {
+    assertNoWorkspaceRestoreCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -103,11 +111,10 @@ export class RustWorkspaceRestoreRunner {
         "workspace_restore_bridge_unconfigured",
         {
           env: WORKSPACE_RESTORE_COMMAND_ENV,
-          argsEnv: WORKSPACE_RESTORE_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -361,20 +368,6 @@ function normalizeWorkspaceRestoreOperation(value) {
     normalized.error_message = errorMessage;
   }
   return normalized;
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function finiteNumber(value) {

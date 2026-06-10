@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  RUNTIME_AGENTGRES_COMMAND_ARGS_ENV,
   RUNTIME_AGENTGRES_COMMAND_ENV,
   RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION,
   RUST_AGENTGRES_STORAGE_BACKEND,
@@ -232,6 +231,7 @@ test("runtime Agentgres runner sends runtime run-state commit bridge request", (
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-runtime-agentgres-bridge");
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "commit_runtime_run_state");
   assert.equal(calls[0].request.backend, RUST_AGENTGRES_STORAGE_BACKEND);
@@ -660,7 +660,6 @@ test("runtime Agentgres runner sends runtime model-mount receipt-state commit br
 test("runtime Agentgres runner env uses daemon-core command boundary", () => {
   const runner = createRuntimeAgentgresAdmissionRunnerFromEnv({
     [RUNTIME_AGENTGRES_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [RUNTIME_AGENTGRES_COMMAND_ARGS_ENV]: "--json",
     IOI_RUNTIME_AGENTGRES_COMMAND: "retired-runtime-agentgres-bridge",
     IOI_RUNTIME_AGENTGRES_COMMAND_ARGS: "--retired-agentgres",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -668,7 +667,28 @@ test("runtime Agentgres runner env uses daemon-core command boundary", () => {
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("runtime Agentgres runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createRuntimeAgentgresAdmissionRunnerFromEnv({
+        [RUNTIME_AGENTGRES_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof RuntimeAgentgresAdmissionRunnerError &&
+      error.code === "runtime_agentgres_command_args_retired",
+  );
+});
+
+test("runtime Agentgres runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustRuntimeAgentgresAdmissionRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof RuntimeAgentgresAdmissionRunnerError &&
+      error.code === "runtime_agentgres_command_args_retired",
+  );
 });
 
 test("runtime Agentgres runner fails closed without command", () => {

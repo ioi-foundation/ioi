@@ -5,11 +5,11 @@ import {
   RustWorkspaceRestoreRunner,
   WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
   WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
-  WORKSPACE_RESTORE_COMMAND_ARGS_ENV,
   WORKSPACE_RESTORE_COMMAND_ENV,
   WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION,
   WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
   WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
+  WorkspaceRestoreRunnerError,
   createWorkspaceRestoreRunnerFromEnv,
 } from "./runtime-workspace-restore-runner.mjs";
 
@@ -56,7 +56,6 @@ test("workspace restore runner sends apply policy bridge request", () => {
   const calls = [];
   const runner = new RustWorkspaceRestoreRunner({
     command: "mock-workspace-restore-bridge",
-    args: ["--restore"],
     spawnSyncImpl(command, args, options) {
       const bridgeRequest = JSON.parse(options.input);
       calls.push({ command, args, bridgeRequest });
@@ -96,7 +95,7 @@ test("workspace restore runner sends apply policy bridge request", () => {
   const result = runner.planApplyPolicy(policyRequest());
 
   assert.equal(calls[0].command, "mock-workspace-restore-bridge");
-  assert.deepEqual(calls[0].args, ["--restore"]);
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].bridgeRequest.operation, "plan_workspace_restore_apply_policy");
   assert.equal(calls[0].bridgeRequest.backend, "rust_workspace_restore");
@@ -588,7 +587,6 @@ test("workspace restore runner ignores retired request aliases", () => {
 test("workspace restore runner env uses daemon-core command boundary", () => {
   const runner = createWorkspaceRestoreRunnerFromEnv({
     [WORKSPACE_RESTORE_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [WORKSPACE_RESTORE_COMMAND_ARGS_ENV]: "--json",
     IOI_WORKSPACE_RESTORE_COMMAND: "retired-workspace-restore-bridge",
     IOI_WORKSPACE_RESTORE_COMMAND_ARGS: "--retired-restore",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -596,7 +594,28 @@ test("workspace restore runner env uses daemon-core command boundary", () => {
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("workspace restore runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createWorkspaceRestoreRunnerFromEnv({
+        [WORKSPACE_RESTORE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--restore",
+      }),
+    (error) =>
+      error instanceof WorkspaceRestoreRunnerError &&
+      error.code === "workspace_restore_command_args_retired",
+  );
+});
+
+test("workspace restore runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustWorkspaceRestoreRunner({ args: ["--restore"] }),
+    (error) =>
+      error instanceof WorkspaceRestoreRunnerError &&
+      error.code === "workspace_restore_command_args_retired",
+  );
 });
 
 test("workspace restore runner fails closed without command", () => {
