@@ -752,6 +752,8 @@ function runDocs() {
       !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs") &&
       /Slice 897 deleted the retired LM Studio public-discovery helper tail/.test(guide) &&
       /default-discovery module no longer exports `discoverLmStudioProvider\(\)`,\s+`discoverLmStudioArtifacts\(\)`, or `pruneLmStudioPublicProjectionRecords\(\)`/.test(guide) &&
+      /Slice 898 deleted the final LM Studio load-option public-CLI argument helper/.test(guide) &&
+      /`lmStudioLoadOptionArgs\(\)` is no longer exported from `load-policy\.mjs`/.test(guide) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1091,7 +1093,11 @@ function runDocs() {
       /Implementation Slice Evidence: 897/.test(matrix) &&
       /Slice 897 deleted the retired LM Studio public-discovery helper tail/.test(matrix) &&
       /`default-discovery\.mjs` no\s+longer exports `discoverLmStudioProvider\(\)`, `discoverLmStudioArtifacts\(\)`, or\s+`pruneLmStudioPublicProjectionRecords\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 897/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 897 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 898/.test(matrix) &&
+      /Slice 898 deleted the final LM Studio load-option public-CLI argument helper/.test(matrix) &&
+      /`load-policy\.mjs` no longer exports `lmStudioLoadOptionArgs\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 898/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1267,7 +1273,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 894 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 895 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 896 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 897/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 897 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 898/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1294,6 +1301,7 @@ function runDocs() {
       /mounted public `ModelMountingState` model-loading methods now own canonical load request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `backend-lifecycle\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` backend methods now own backend health\/start\/stop\/log refusals/.test(implementationMatrix) &&
+      /the final LM Studio `lmStudioLoadOptionArgs\(\)` public-CLI argument helper is deleted/.test(implementationMatrix) &&
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted and its retired helper module is deleted/.test(implementationMatrix) &&
@@ -1746,7 +1754,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 897 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 898 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -10271,11 +10279,14 @@ function runBridge() {
     "model-mount-backend-process-load-option-aliases-retired",
     (() => {
       const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
+      const loadPolicy = read("packages/runtime-daemon/src/model-mounting/load-policy.mjs");
       const loadPolicyTest = read("packages/runtime-daemon/src/model-mounting/load-policy.test.mjs");
       const providerLocalDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs");
       const backendProcessPlanBlock =
         modelMountingState.match(/backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
-      return /canonicalLoadOptionsInput/.test(read("packages/runtime-daemon/src/model-mounting/load-policy.mjs")) &&
+      return /canonicalLoadOptionsInput/.test(loadPolicy) &&
+        !/lmStudioLoadOptionArgs/.test(loadPolicy) &&
+        !/LM Studio load options produce stable public CLI args/.test(loadPolicyTest) &&
         /canonical load option input strips retired request aliases before provider normalization/.test(loadPolicyTest) &&
         /contextLength:\s*8888/.test(loadPolicyTest) &&
         /modelPath:\s*"\/retired\/model\.gguf"/.test(loadPolicyTest) &&

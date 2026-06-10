@@ -5,7 +5,6 @@ import {
   canonicalLoadOptionsInput,
   expiresAt,
   hasExplicitTtlOption,
-  lmStudioLoadOptionArgs,
   normalizeLoadOptions,
   normalizeLoadPolicy,
   normalizeRuntimeEngineDefaultLoadOptions,
@@ -131,25 +130,4 @@ test("ttl helpers detect explicit ttl and calculate evict time", () => {
     expiresAt("2026-06-03T00:00:00.000Z", { mode: "always_loaded", autoEvict: false, idleTtlSeconds: 60 }),
     null,
   );
-});
-
-test("LM Studio load options produce stable public CLI args", () => {
-  assert.deepEqual(lmStudioLoadOptionArgs({
-    gpu: "auto",
-    contextLength: 8192,
-    parallel: 2,
-    ttlSeconds: 300,
-    identifier: "local-chat",
-  }), [
-    "--gpu",
-    "auto",
-    "--context-length",
-    "8192",
-    "--parallel",
-    "2",
-    "--ttl",
-    "300",
-    "--identifier",
-    "local-chat",
-  ]);
 });

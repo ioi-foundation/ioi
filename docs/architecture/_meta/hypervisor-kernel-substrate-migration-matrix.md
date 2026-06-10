@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 897 after the next
+- Next scheduled matrix-compaction pass: compact Slice 898 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18851,7 +18851,34 @@ provider and model topology reads, stable protocol APIs, command-transport
 retirement, and retirement of remaining provider state materialization remain
 required before provider inventory reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 897 after the next direct
+Scheduled matrix-compaction obligation from Slice 897 is now satisfied.
+
+## Implementation Slice Evidence: 898
+
+Slice 898 deleted the final LM Studio load-option public-CLI argument helper.
+`load-policy.mjs` no longer exports `lmStudioLoadOptionArgs()`, and
+`load-policy.test.mjs` no longer preserves a stable `lms` CLI argument contract
+for GPU, context-length, parallelism, TTL, or identifier options. Canonical load
+options remain available only as Rust-boundary request data for planning and
+admission; JS no longer keeps an LM Studio-specific CLI argument shaper for
+retired public CLI transport.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs packages/runtime-daemon/src/model-mounting/load-policy.mjs packages/runtime-daemon/src/model-mounting/load-policy.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/load-policy.test.mjs packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider lifecycle or backend process
+migration: direct Rust daemon-core lifecycle/control APIs, Agentgres-backed
+provider and backend state reads, stable protocol APIs, command-transport
+retirement, and retirement of remaining JS backend process materialization
+remain required before lifecycle control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 898 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

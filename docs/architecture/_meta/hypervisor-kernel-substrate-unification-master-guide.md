@@ -2179,6 +2179,13 @@ or public-CLI environment toggle. Terminal provider inventory/projection
 migration still requires direct Rust daemon-core inventory/projection APIs over
 Agentgres-admitted provider and model topology truth.
 
+Slice 898 deleted the final LM Studio load-option public-CLI argument helper.
+`lmStudioLoadOptionArgs()` is no longer exported from `load-policy.mjs`, and the
+test that preserved stable `lms` CLI flags for GPU/context/parallel/TTL/identifier
+options is removed. Canonical load options remain as Rust-boundary request data;
+JS no longer keeps an LM Studio-specific CLI argument shaper for retired public
+CLI transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

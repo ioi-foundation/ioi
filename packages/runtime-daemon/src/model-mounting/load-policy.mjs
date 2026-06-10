@@ -114,16 +114,6 @@ export function hasExplicitTtlOption(value = {}) {
   );
 }
 
-export function lmStudioLoadOptionArgs(loadOptions = {}) {
-  const args = [];
-  if (loadOptions.gpu !== null && loadOptions.gpu !== undefined) args.push("--gpu", String(loadOptions.gpu));
-  if (loadOptions.contextLength) args.push("--context-length", String(loadOptions.contextLength));
-  if (loadOptions.parallel) args.push("--parallel", String(loadOptions.parallel));
-  if (loadOptions.ttlSeconds) args.push("--ttl", String(loadOptions.ttlSeconds));
-  if (loadOptions.identifier) args.push("--identifier", String(loadOptions.identifier));
-  return args;
-}
-
 export function expiresAt(nowIso, loadPolicy) {
   if (!loadPolicy.autoEvict && loadPolicy.mode !== "idle_evict") return null;
   return new Date(Date.parse(nowIso) + Number(loadPolicy.idleTtlSeconds ?? 900) * 1000).toISOString();
