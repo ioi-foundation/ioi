@@ -264,7 +264,7 @@ Daemon ActionProposal
 ```
 
 The current `ioi-step-module-bridge` command path is migration scaffolding for
-the Node/JS facade while Rust ownership is being proven route by route. It must
+the Node/JS facade while Rust ownership is being proven route by route; it must
 not be treated as the terminal substrate. After parity is proven, the bridge
 surface should either collapse into the Rust daemon core API or be renamed and
 shrunk into a narrow daemon/kernel protocol transport with no independent
@@ -2298,6 +2298,21 @@ surfaces already fail closed or route to Rust read-projection boundaries, so JS
 no longer keeps local provider-port ordering, health-status merge, or
 `catalogProviderStatus()` compatibility helpers as a dormant catalog authority
 shape.
+
+Slice 911 deleted the remaining catalog-provider source/auth shaping and OAuth
+boundary helper surface from JS. `catalog-provider-config.mjs` now retains only
+the configurable-provider preflight and shared Rust-core-required error used by
+the mounted fail-closed facades; `catalog-provider-config.test.mjs`,
+`oauth-boundary.mjs`, and `oauth-boundary.test.mjs` are absent. JS no longer
+preserves `catalogProviderRuntimeMaterialFromBody()`,
+`catalogProviderAuthConfig()`, `catalogProviderAuthHeaders()`,
+`catalogAuthorizationHeaderValue()`, `fetchOAuthToken()`,
+`parseOAuthTokenResponse()`, `publicOAuthSession()`, `publicOAuthState()`,
+PKCE helpers, OAuth vault-ref helpers, or OAuth boundary projection helpers as
+compatibility scaffolding. Direct Rust daemon-core catalog-provider control,
+OAuth custody, auth-header resolution, Agentgres-backed truth, and stable
+protocol APIs still remain required before this surface reaches terminal pure
+Rust conformance.
 
 ## Part II: Target Execution Model
 

@@ -816,6 +816,12 @@ function runDocs() {
       /Slice 910 deleted the catalog-provider port and registry helper surface/.test(guide) &&
       /`catalog-provider-ports\.mjs`, `catalog-provider-ports\.test\.mjs`,\s+`catalog-registry\.mjs`, and `catalog-registry\.test\.mjs` are absent/.test(guide) &&
       /mounted `catalogProviderPorts\(\)` method is gone/.test(guide) &&
+      /Slice 911 deleted the remaining catalog-provider source\/auth shaping and OAuth\s+boundary helper surface from JS/.test(guide) &&
+      /`catalog-provider-config\.mjs` now retains only\s+the configurable-provider preflight and shared Rust-core-required error/.test(guide) &&
+      /`catalog-provider-config\.test\.mjs`,\s+`oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1207,7 +1213,11 @@ function runDocs() {
       /Implementation Slice Evidence: 910/.test(matrix) &&
       /Slice 910 deleted the catalog-provider port and registry helper surface/.test(matrix) &&
       /`catalog-provider-ports\.mjs`, `catalog-provider-ports\.test\.mjs`,\s+`catalog-registry\.mjs`, and `catalog-registry\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 910/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 910 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 911/.test(matrix) &&
+      /Slice 911 deleted the remaining catalog-provider source\/auth shaping and OAuth\s+boundary helper surface from JS/.test(matrix) &&
+      /`catalog-provider-config\.test\.mjs`,\s+`oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 911/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1396,7 +1406,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 907 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 908 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 909 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 910/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 910 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 911/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1427,15 +1438,17 @@ function runDocs() {
       /external Hugging Face-compatible and custom HTTP catalog searches now fail closed\s+with `model_catalog_live_http_search_retired`/.test(implementationMatrix) &&
       /dead Hugging Face JS search helper module is deleted/.test(implementationMatrix) &&
       /private `OAuthCredentialProvider` helper is no longer mounted and its retired helper module is deleted/.test(implementationMatrix) &&
-      /`fetchOAuthToken\(\)` fails closed with `model_mount_oauth_token_transport_retired`/.test(implementationMatrix) &&
       /mounted OAuth start\/callback\/exchange\/refresh\/revoke facades no longer inject `publicCatalogProviderConfig\(\)`, `catalogProviderStatus\(\)`, `oauthBoundaryForSession\(\)`, `publicOAuthSession\(\)`, or `stableHash\(\)`/.test(implementationMatrix) &&
       /the fail-closed `catalog-provider-oauth\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` OAuth methods now own provider configurability preflight/.test(implementationMatrix) &&
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /catalog-provider config-map reads/.test(implementationMatrix) &&
+      /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
+      /`catalog-provider-config\.mjs` now retains only the configurable-provider preflight and shared Rust-core-required error/.test(implementationMatrix) &&
+      /`catalog-provider-config\.test\.mjs`, `oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(implementationMatrix) &&
       /private catalog-provider config readback now fails closed at `model_mount\.catalog_provider_configuration\.read_private`/.test(implementationMatrix) &&
       /cached bound\/missing\/failed runtime-material readback/.test(implementationMatrix) &&
-      /the catalog-provider port\/registry helper surface is also deleted/.test(implementationMatrix) &&
+      /the catalog-provider port\/registry helper surface is deleted/.test(implementationMatrix) &&
       /mounted `catalogProviderPorts\(\)`, provider-port ordering, health-status merge/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
       /the retired LM Studio default-discovery exports, mounted pass-through methods, local-system public-CLI parsers\/artifact projector, and `lmStudioPublicCliEnabled\(\)` toggle are deleted/.test(implementationMatrix) &&
@@ -1475,12 +1488,12 @@ function runDocs() {
       /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
       /list\/detail\/default-load\/preference\/profile reads now route through Rust `plan_model_mount_read_projection` runtime-engine projection kinds with empty JS request state/.test(implementationMatrix) &&
       /empty list\/profile projections, null preference\/default-load projections, and fail-closed detail/.test(implementationMatrix) &&
-      /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
-      /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
-      /the catalog-provider port\/registry helper surface is also deleted/.test(
+      /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
+      /auth-header materialization, OAuth token transport, PKCE helpers, OAuth vault-ref helpers/.test(implementationMatrix) &&
+      /the catalog-provider port\/registry helper surface is deleted/.test(
         implementationMatrix,
       ) &&
-      /JS no longer preserves `catalog-provider-ports\.mjs`, `catalog-registry\.mjs`, mounted `catalogProviderPorts\(\)`/.test(
+      /`catalog-provider-config\.mjs` now retains only the configurable-provider preflight and shared Rust-core-required error/.test(
         implementationMatrix,
       ) &&
       /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
@@ -1875,7 +1888,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 910 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 911 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -1921,9 +1934,9 @@ function runDocs() {
       ) &&
       /OAuth callback preflight now accepts only `state`, not retired\s+`oauth_state`\/`oauthState` aliases/.test(implementationMatrix) &&
       /the hidden `catalogProviderConfigUpdate` JS writer has been removed/.test(implementationMatrix) &&
-      /source material parsing accepts only canonical `manifest_path` and `base_url`/.test(implementationMatrix) &&
+      /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
-      /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
+      /auth-header materialization, OAuth token transport, PKCE helpers, OAuth vault-ref helpers/.test(implementationMatrix) &&
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the dormant catalog import materializer helper tail is deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
@@ -9408,8 +9421,9 @@ function runBridge() {
       !/exchangeCatalogProviderOAuth\(providerId,\s*body = \{\}\)\s*\{(?:(?!\n  async refreshCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/refreshCatalogProviderOAuth\(providerId\)\s*\{(?:(?!\n  revokeCatalogProviderOAuth).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
       !/revokeCatalogProviderOAuth\(providerId\)\s*\{(?:(?!\n  catalogProviderConfig).)*(?:catalogProviderStatus|publicCatalogProviderConfig|publicOAuthSession|oauthBoundaryForSession|stableHash)/s.test(modelMountingState) &&
-      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
+      !/catalogProviderAuthHeaders/.test(catalogProviderConfig) &&
       !/model_mount\.oauth_session\.auth_header_refresh/.test(catalogProviderConfig) &&
       !/model_mount_catalog_provider_auth_header_state_commit_unconfigured/.test(
         catalogProviderConfig,
@@ -9446,20 +9460,7 @@ function runBridge() {
       /public_catalog_provider_control_js_facade_retired/.test(catalogProviderOAuthOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest) &&
-      /catalog provider OAuth auth-header refresh facade fails closed before JS config or credential reads/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /catalog provider auth headers fail closed before JS vault resolution/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfigTest) &&
       !/model_mount\.catalog_provider_auth_header\.refresh/.test(catalogProviderConfig) &&
-      /assert\.equal\(configReadCount,\s*0\)/.test(catalogProviderConfigTest) &&
-      /recordStateCommits/.test(catalogProviderConfigTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(resolveAccessHeaderCount,\s*0\)/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(catalogProviderOAuthOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
@@ -14552,110 +14553,66 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-catalog-provider-auth-error-detail-aliases-retired",
-    /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(catalogProviderConfig) &&
-      /details:\s*\{\s*auth_scheme:\s*scheme\s*\}/.test(catalogProviderConfig) &&
-      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig) &&
-      /provider_id:\s*providerId/.test(catalogProviderConfig) &&
-      /auth_configuration_status:\s*"rust_core_projection_required"/.test(catalogProviderConfig) &&
-      /resolved_material:\s*false/.test(catalogProviderConfig) &&
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
+      /details:\s*\{\s*provider_id:\s*providerId\s*\}/.test(catalogProviderConfig) &&
+      /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
+      /rust_core_boundary:\s*"model_mount\.catalog_provider_control"/.test(catalogProviderConfig) &&
+      !/catalogProviderAuthHeaders/.test(catalogProviderConfig) &&
       !/auth_vault_ref_hash:\s*config\.authVaultRefHash/.test(catalogProviderConfig) &&
       !/catalog_auth_scheme:\s*authScheme/.test(catalogProviderConfig) &&
       !/catalog_auth_header_name_hash:\s*stableHash\(headerName\)/.test(catalogProviderConfig) &&
       !/state\?\.catalogProviderConfig/.test(catalogProviderConfig) &&
       !/details:\s*\{[^}]*\b(?:providerId|authScheme|catalogProviderId|authVaultRefHash|resolvedMaterial|catalogAuthScheme|catalogAuthHeaderNameHash|evidenceRefs)\s*:/.test(
         catalogProviderConfig,
-      ) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"authScheme"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalogProviderId"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"authVaultRefHash"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"auth_vault_ref_hash"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"resolvedMaterial"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalogAuthScheme"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalog_auth_scheme"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalogAuthHeaderNameHash"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"catalog_auth_header_name_hash"\),\s*false/.test(catalogProviderConfigTest) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(catalogProviderConfigTest),
-    [
-      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
-      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
-    ],
-    "Phase 7/11 is pending: catalog provider auth/config fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
-  );
-  assertCheck(
-    result,
-    "model-mount-catalog-provider-source-request-aliases-retired",
-    /RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES/.test(catalogProviderConfig) &&
-      /CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS/.test(catalogProviderConfig) &&
-      /catalog_provider_source_request_aliases_retired/.test(catalogProviderConfig) &&
-      /assertCanonicalCatalogProviderSourceRequestBody\(body\);[\s\S]*body\.manifest_path \?\? null/.test(
-        catalogProviderRuntimeMaterialFromBodyBlock,
-      ) &&
-      /body\.base_url \?\? null/.test(catalogProviderRuntimeMaterialFromBodyBlock) &&
-      !/body\.(?:path|url|manifestPath|baseUrl)\b/.test(catalogProviderConfig) &&
-      /catalog provider source request aliases fail closed before vault binding/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /retired_aliases,\s*\[\s*"manifestPath"\s*\]/.test(catalogProviderConfigTest) &&
-      /retired_aliases,\s*\[\s*"baseUrl"\s*\]/.test(catalogProviderConfigTest) &&
-      /retired_aliases,\s*\[\s*"path"\s*\]/.test(catalogProviderConfigTest) &&
-      /retired_aliases,\s*\[\s*"url"\s*\]/.test(catalogProviderConfigTest) &&
-      /canonical_fields,\s*\[\s*"manifest_path",\s*"base_url"\s*\]/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(state\.bound\.length,\s*0\)/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
-      /catalogProviderRuntimeMaterialFromBody\("catalog\.local_manifest",\s*\{ manifest_path:/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /catalogProviderRuntimeMaterialFromBody\("catalog\.custom_http",\s*\{ base_url:/.test(
-        catalogProviderConfigTest,
       ),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
-    "Phase 7/11 is pending: catalog provider source request bodies must fail closed on retired source aliases before vault binding",
+    "Phase 7/11 is pending: catalog provider auth/config helper tests must be absent and the remaining facade must expose only canonical Rust-core-required metadata",
   );
   assertCheck(
     result,
-    "model-mount-catalog-provider-auth-request-aliases-retired",
-      /RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES/.test(catalogProviderConfig) &&
-      /CANONICAL_CATALOG_PROVIDER_AUTH_REQUEST_FIELDS/.test(catalogProviderConfig) &&
-      /catalog_provider_auth_request_aliases_retired/.test(catalogProviderConfig) &&
-      !/export function catalogProviderConfigUpdate\b/.test(catalogProviderConfig) &&
-      !/catalogProviderConfigUpdate/.test(runtimeDaemonIndex) &&
-      !/state\.vault\.bindVaultRef/.test(catalogProviderConfig) &&
-      /firstOwn\(body,\s*\["auth_vault_ref"\]\)/.test(catalogProviderAuthConfigBlock) &&
-      /body\.auth_scheme \?\? existing\?\.catalogAuthScheme \?\? "bearer"/.test(
-        catalogProviderAuthConfigBlock,
-      ) &&
-      /body\.auth_header_name \?\? existing\?\.catalogAuthHeaderName \?\? "authorization"/.test(
-        catalogProviderAuthConfigBlock,
-      ) &&
-      /firstOwn\(body,\s*\["oauth_session_id"\]\)/.test(catalogProviderAuthConfigBlock) &&
-      !/body\.(?:authVaultRef|vaultRef|apiKeyVaultRef|authScheme|authHeaderName|oauthSessionId)\b/.test(
-        catalogProviderAuthConfigBlock,
-      ) &&
-      !/firstOwn\(body,\s*\[[^\]]*(?:"vault_ref"|"api_key_vault_ref"|"authVaultRef"|"vaultRef"|"apiKeyVaultRef"|"oauthSessionId")/.test(
-        catalogProviderAuthConfigBlock,
-      ) &&
-      /catalog provider auth request aliases fail closed before source or auth binding/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /catalog provider auth config accepts canonical request fields/.test(catalogProviderConfigTest) &&
-      /"authVaultRef"[\s\S]*"vault_ref"[\s\S]*"vaultRef"[\s\S]*"api_key_vault_ref"[\s\S]*"apiKeyVaultRef"[\s\S]*"authScheme"[\s\S]*"authHeaderName"[\s\S]*"oauthSessionId"/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /canonical_fields,\s*\[\s*"auth_vault_ref"\s*,\s*"auth_scheme"\s*,\s*"auth_header_name"\s*,\s*"oauth_session_id"\s*,?\s*\]/.test(
-        catalogProviderConfigTest,
-      ) &&
-      /assert\.equal\(state\.bound\.length,\s*0\)/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(state\.writeVaultRefsCount\(\),\s*0\)/.test(catalogProviderConfigTest) &&
-      /assert\.equal\(authResolveCount,\s*0\)/.test(catalogProviderConfigTest),
+    "model-mount-catalog-provider-source-request-aliases-retired",
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
+      !/RETIRED_CATALOG_PROVIDER_SOURCE_REQUEST_ALIASES/.test(catalogProviderConfig) &&
+      !/CANONICAL_CATALOG_PROVIDER_SOURCE_REQUEST_FIELDS/.test(catalogProviderConfig) &&
+      !/catalog_provider_source_request_aliases_retired/.test(catalogProviderConfig) &&
+      !/catalogProviderRuntimeMaterialFromBody/.test(catalogProviderConfig) &&
+      !/catalogProviderRuntimeMaterialFromValue/.test(catalogProviderConfig) &&
+      !/catalogProviderHasSourceMaterial/.test(catalogProviderConfig) &&
+      !/catalogProviderMaterialVaultRef/.test(catalogProviderConfig) &&
+      !/catalogProviderMaterialPurpose/.test(catalogProviderConfig) &&
+      !/body\.(?:path|url|manifestPath|baseUrl)\b/.test(catalogProviderConfig) &&
+      !/manifest_path|base_url/.test(catalogProviderConfigTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
     ],
-    "Phase 7/11 is pending: catalog provider auth request bodies must fail closed on retired auth aliases before source vault binding or auth resolution",
+    "Phase 7/11 is pending: catalog provider source material parsing must be absent from the JS helper surface",
+  );
+  assertCheck(
+    result,
+    "model-mount-catalog-provider-auth-request-aliases-retired",
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
+      !/RETIRED_CATALOG_PROVIDER_AUTH_REQUEST_ALIASES/.test(catalogProviderConfig) &&
+      !/CANONICAL_CATALOG_PROVIDER_AUTH_REQUEST_FIELDS/.test(catalogProviderConfig) &&
+      !/catalog_provider_auth_request_aliases_retired/.test(catalogProviderConfig) &&
+      !/export function catalogProviderConfigUpdate\b/.test(catalogProviderConfig) &&
+      !/export function catalogProviderAuthConfig\b/.test(catalogProviderConfig) &&
+      !/export function normalizeCatalogAuthScheme\b/.test(catalogProviderConfig) &&
+      !/export function firstOwn\b/.test(catalogProviderConfig) &&
+      !/export function catalogAuthorizationHeaderValue\b/.test(catalogProviderConfig) &&
+      !/catalogProviderConfigUpdate/.test(runtimeDaemonIndex) &&
+      !/state\.vault\.bindVaultRef/.test(catalogProviderConfig) &&
+      !/body\.(?:authVaultRef|vaultRef|apiKeyVaultRef|authScheme|authHeaderName|oauthSessionId)\b/.test(
+        catalogProviderConfig,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
+    ],
+    "Phase 7/11 is pending: catalog provider auth request shaping must be absent from the JS helper surface",
   );
   assertCheck(
     result,
@@ -14675,8 +14632,10 @@ function runReceipts() {
     "model-mount-oauth-exchange-request-aliases-retired",
     !exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs") &&
-      /model_mount_oauth_token_transport_retired/.test(oauthBoundary) &&
-      /oauth_token_transport_js_retired/.test(oauthBoundary) &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
+      !/fetchOAuthToken/.test(modelMountingState) &&
+      !/parseOAuthTokenResponse/.test(modelMountingState) &&
       !/fetchWithTimeout/.test(oauthBoundary) &&
       !/new URLSearchParams\(payload\)/.test(oauthBoundary),
     [
@@ -14684,7 +14643,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs",
     ],
-    "Phase 7/11 is pending: OAuth authorization-code exchange must not retain the retired JS credential helper or token transport",
+    "Phase 7/11 is pending: OAuth authorization-code exchange must not retain the retired JS credential helper, boundary module, or token transport",
   );
   assertCheck(
     result,
@@ -14707,40 +14666,37 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs") &&
       /model_mount\.catalog_provider_oauth\.refresh/.test(modelMountingState) &&
       /model_mount\.catalog_provider_oauth\.revoke/.test(modelMountingState) &&
-      /model_mount\.catalog_provider_auth_header\.resolve/.test(catalogProviderConfig),
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
+      !/catalogProviderAuthHeaders/.test(catalogProviderConfig),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs",
     ],
-    "Phase 7/11 is pending: OAuth refresh, revoke, and access-header paths must not retain the retired credential helper",
+    "Phase 7/11 is pending: OAuth refresh, revoke, and access-header paths must not retain the retired credential or auth-header helper surfaces",
   );
   assertCheck(
     result,
     "model-mount-oauth-error-detail-aliases-retired",
     !exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs") &&
-      /token_endpoint_hash:\s*stableHash\(tokenEndpoint\)/.test(oauthBoundary) &&
-      /operation_kind:\s*"model_mount\.catalog_provider_oauth\.token_transport"/.test(oauthBoundary) &&
-      /rust_core_boundary:\s*"model_mount\.catalog_provider_oauth_custody"/.test(oauthBoundary) &&
-      /details:\s*\{\s*evidence_refs:\s*\["oauth_token_response_parser",\s*"oauth_access_token_required"\]\s*\}/.test(
-        oauthBoundary,
-      ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
+      !/token_endpoint_hash:\s*stableHash\(tokenEndpoint\)/.test(oauthBoundary) &&
+      !/operation_kind:\s*"model_mount\.catalog_provider_oauth\.token_transport"/.test(oauthBoundary) &&
+      !/rust_core_boundary:\s*"model_mount\.catalog_provider_oauth_custody"/.test(oauthBoundary) &&
+      !/oauth_token_response_parser/.test(oauthBoundary) &&
       !/details:\s*\{\s*(?:providerId|clientSecret|oauthSessionHash|tokenEndpointHash|operationKind|rustCoreBoundary|evidenceRefs)\b/.test(
         oauthBoundary,
-      ) &&
-      /Object\.hasOwn\(error\.details,\s*"tokenEndpointHash"\),\s*false/.test(oauthBoundaryTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(oauthBoundaryTest) &&
-      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(oauthBoundaryTest) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(oauthBoundaryTest),
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-credential-provider.test.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs",
       "packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs",
     ],
-    "Phase 7/11 is pending: OAuth credential and token-endpoint fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 7/11 is pending: OAuth credential and token-endpoint JS boundary modules must be absent instead of preserving fail-closed compatibility helpers",
   );
   assertCheck(
     result,

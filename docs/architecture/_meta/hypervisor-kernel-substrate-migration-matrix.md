@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 910 after the next
+- Next scheduled matrix-compaction pass: compact Slice 911 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19236,7 +19236,38 @@ Agentgres-backed truth, wallet/cTEE custody, receipt/state-root binding, replay,
 stable protocol APIs, and command-transport retirement remain required before
 catalog-provider control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 910 after the next direct
+Scheduled matrix-compaction obligation from Slice 910 is now satisfied.
+
+## Implementation Slice Evidence: 911
+
+Slice 911 deleted the remaining catalog-provider source/auth shaping and OAuth
+boundary helper surface from JS. `catalog-provider-config.mjs` now retains only
+the configurable-provider preflight and shared Rust-core-required error used by
+mounted fail-closed catalog-provider facades; `catalog-provider-config.test.mjs`,
+`oauth-boundary.mjs`, and `oauth-boundary.test.mjs` are absent. JS no longer
+preserves runtime-material parsing, source/auth request shaping,
+auth-header materialization, OAuth token transport, PKCE, OAuth vault-ref,
+public OAuth session/state projection, or OAuth boundary projection helpers as
+compatibility scaffolding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/catalog-provider-config.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal catalog-provider custody migration: direct
+Rust daemon-core catalog-provider control/search/status/custody APIs,
+Agentgres-backed truth, wallet/cTEE custody, receipt/state-root binding, replay,
+stable protocol APIs, and command-transport retirement remain required before
+catalog-provider control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 911 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,
