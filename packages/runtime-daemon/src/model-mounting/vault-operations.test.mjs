@@ -173,7 +173,7 @@ test("vault mutation and health receipt facades fail closed until Rust wallet/cT
   assertNoVaultMutation(state);
 });
 
-test("vault list, metadata, and status remain read-only projection adapters", () => {
+test("vault list, metadata, and status fail closed until Rust wallet/cTEE projection owns them", () => {
   const state = createState();
   state.vault.bindVaultRef({
     vaultRef: "vault://provider/custom/api-key",
@@ -183,23 +183,41 @@ test("vault list, metadata, and status remain read-only projection adapters", ()
   });
   state.calls.length = 0;
 
-  assert.deepEqual(ModelMountingState.prototype.listVaultRefs.call(state), [{
-    id: "vault_ref.hash:vault://provider/custom/api-key",
-    vaultRefHash: "hash:vault://provider/custom/api-key",
-    configured: true,
-    label: "Custom auth",
-    purpose: "provider.auth:custom",
-  }]);
-  assert.equal(
-    ModelMountingState.prototype.vaultRefMetadata.call(
-      state,
-      { vault_ref: "vault://provider/custom/api-key" },
-    ).label,
-    "Custom auth",
+  assert.throws(
+    () => ModelMountingState.prototype.listVaultRefs.call(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_vault_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.vault_ref.list");
+      assert.equal(error.details.rust_core_boundary, "model_mount.vault");
+      return true;
+    },
   );
-  const status = ModelMountingState.prototype.vaultStatus.call(state);
-  assert.equal(status.implementation, "runtime_memory_vault");
-  assert.equal(status.configured, true);
+  assert.throws(
+    () =>
+      ModelMountingState.prototype.vaultRefMetadata.call(
+        state,
+        { vault_ref: "vault://provider/custom/api-key" },
+      ),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_vault_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.vault_ref.metadata");
+      assert.equal(error.details.vault_ref_hash_required, true);
+      assert.equal(error.details.vault_ref_present, true);
+      return true;
+    },
+  );
+  assert.throws(
+    () => ModelMountingState.prototype.vaultStatus.call(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_vault_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.vault.status");
+      return true;
+    },
+  );
+  assert.deepEqual(state.calls, []);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.recordStateCommits, []);
 });

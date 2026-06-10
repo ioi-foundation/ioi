@@ -1909,15 +1909,20 @@ command-transport retirement, and stable protocol APIs remain required.
 
 Slice 874 retired the fail-closed `vault-operations.mjs` helper module after
 public vault bind/remove and vault-health receipt facades had already been
-reduced to Rust-core-required wallet/cTEE custody edge refusals. The mounted
-public `ModelMountingState` vault methods now own canonical vault request alias
-rejection, required `vault_ref`/`material` preflight, vault list/status/metadata
-read adapters, and `model_mount.vault` Rust-core-required errors directly,
-without importing a helper module or dependency-injecting wallet/cTEE custody
-helpers. This does not claim terminal vault custody migration: direct Rust
-daemon-core wallet.network/cTEE vault binding, removal, health receipts,
-Agentgres-admitted record-state truth, projection persistence, command-transport
-retirement, and stable protocol APIs remain required.
+reduced to Rust-core-required wallet/cTEE custody edge refusals. Slice 947 then
+retired the remaining public vault list/status/metadata JS readbacks:
+`ModelMountingState.listVaultRefs()`, `vaultRefMetadata()`, and `vaultStatus()`
+now fail closed at `model_mount.vault_ref.list`,
+`model_mount.vault_ref.metadata`, and `model_mount.vault.status`, and the
+orphaned `publicVaultRefs()` formatter is deleted. The mounted public
+`ModelMountingState` vault methods still own canonical vault request alias
+rejection, required `vault_ref`/`material` preflight, and `model_mount.vault`
+Rust-core-required errors directly, without importing a helper module or
+dependency-injecting wallet/cTEE custody helpers. This does not claim terminal
+vault custody migration: direct Rust daemon-core wallet.network/cTEE vault
+binding, removal, health receipts, Agentgres-admitted record-state truth,
+projection persistence, command-transport retirement, and stable protocol APIs
+remain required.
 
 Slice 875 retired the fail-closed `tokenizer-operations.mjs` helper module after
 public tokenize/count/context-fit utilities had already been reduced to
@@ -2157,6 +2162,16 @@ Slice 946 retired public capability-token JS projection readback. Public
 wallet grant records as a public read projection. `/api/v1/tokens` remains a
 mounted route only as a fail-closed protocol edge until Rust daemon-core
 wallet.network authority owns capability-token projection over admitted truth.
+Slice 947 retired public vault JS projection readback. Public
+`ModelMountingState.listVaultRefs()`, `vaultRefMetadata()`, and `vaultStatus()`
+now fail closed at `model_mount.vault_ref.list`,
+`model_mount.vault_ref.metadata`, and `model_mount.vault.status` with
+`model_mount_vault_rust_core_required`, and the orphaned `publicVaultRefs()`
+formatter is deleted so JS no longer returns vault metadata/status as a public
+read projection. `/api/v1/vault/refs`, `/api/v1/vault/refs/meta`, and
+`/api/v1/vault/status` remain mounted routes only as fail-closed protocol edges
+until Rust daemon-core wallet.network/cTEE custody projection owns admitted
+vault truth.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

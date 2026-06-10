@@ -199,18 +199,6 @@ export function hashToken(tokenValue) {
   return crypto.createHash("sha256").update(tokenValue).digest("hex");
 }
 
-export function publicVaultRefs(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value).map(([key, vaultRef]) => [
-      key,
-      typeof vaultRef === "string" && vaultRef.startsWith("vault://")
-        ? { redacted: true, hash: stableHash(vaultRef) }
-        : SECRET_REDACTION,
-    ]),
-  );
-}
-
 export function publicVaultRefMetadata(metadata) {
   return {
     vaultRef: { redacted: true, hash: metadata.vaultRefHash },

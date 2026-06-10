@@ -18213,12 +18213,16 @@ Scheduled matrix-compaction obligation from Slice 873 is now satisfied.
 
 Slice 874 retired the fail-closed `vault-operations.mjs` helper module after
 public vault bind/remove and vault-health receipt facades had already been
-reduced to Rust-core-required wallet/cTEE custody edge refusals. The mounted
-public `ModelMountingState` vault methods now own canonical vault request alias
-rejection, required `vault_ref`/`material` preflight, vault list/status/metadata
-read adapters, and `model_mount.vault` Rust-core-required errors directly,
-without importing a helper module or dependency-injecting wallet/cTEE custody
-helpers.
+reduced to Rust-core-required wallet/cTEE custody edge refusals. Slice 947 then
+retired the remaining public vault list/status/metadata JS readbacks, so
+`ModelMountingState.listVaultRefs()`, `vaultRefMetadata()`, and `vaultStatus()`
+now fail closed at `model_mount.vault_ref.list`,
+`model_mount.vault_ref.metadata`, and `model_mount.vault.status`. The orphaned
+`publicVaultRefs()` formatter is deleted rather than preserved as a
+compatibility readback shaper. Mounted public vault methods still own canonical
+vault request alias rejection, required `vault_ref`/`material` preflight, and
+`model_mount.vault` Rust-core-required errors directly, without importing a
+helper module or dependency-injecting wallet/cTEE custody helpers.
 
 Focused evidence:
 
@@ -20609,3 +20613,40 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of wallet authority projection command
 transport, Agentgres-backed grant truth, and stable protocol APIs without
 encoding JS token maps as public capability-token projection authority.
+
+## Implementation Slice Evidence: 947
+
+Slice 947 retired public vault JS projection readback. Public
+`ModelMountingState.listVaultRefs()`, `vaultRefMetadata()`, and `vaultStatus()`
+now fail closed at `model_mount.vault_ref.list`,
+`model_mount.vault_ref.metadata`, and `model_mount.vault.status` with
+`model_mount_vault_rust_core_required` instead of returning JS vault-port
+metadata/status readback. The orphaned `publicVaultRefs()` formatter was
+deleted, so JS no longer redacts, sorts, or returns vault-ref metadata as a
+public `/api/v1/vault/*` read projection while Rust daemon-core wallet/cTEE
+custody projection remains pending.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/io.mjs packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/vault-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal wallet/cTEE custody migration. Direct Rust
+daemon-core wallet.network/cTEE vault binding, removal, health, projection,
+Agentgres-admitted receipt and record-state truth, command-transport retirement,
+replay, and stable SDK/IDE/CLI protocol APIs remain before terminal pure Rust
+substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-947 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of wallet/cTEE custody projection
+command transport, Agentgres-backed vault-ref truth, and stable protocol APIs
+without encoding JS vault-port maps/status as public vault projection authority.

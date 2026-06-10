@@ -96,7 +96,6 @@ import {
   truthy,
   matchesAny,
   hashToken,
-  publicVaultRefs,
   normalizeScopes,
 } from "./model-mounting/io.mjs";
 import {
@@ -984,17 +983,23 @@ export class ModelMountingState {
   }
 
   listVaultRefs() {
-    return this.vault.listVaultRefs();
+    throwVaultRustCoreRequired("model_mount.vault_ref.list");
   }
 
   vaultRefMetadata(body = {}) {
     assertCanonicalVaultOperationRequestBody(body);
     const vaultRef = requiredString(body.vault_ref, "vault_ref");
-    return this.vault.vaultRefMetadata(vaultRef);
+    throwVaultRustCoreRequired(
+      "model_mount.vault_ref.metadata",
+      {
+        vault_ref_hash_required: true,
+        vault_ref_present: Boolean(vaultRef),
+      },
+    );
   }
 
   vaultStatus() {
-    return this.vault.adapterStatus();
+    throwVaultRustCoreRequired("model_mount.vault.status");
   }
 
   vaultHealth() {
@@ -1967,7 +1972,7 @@ function throwVaultRustCoreRequired(operation_kind, details = {}) {
     status: 501,
     code: "model_mount_vault_rust_core_required",
     message:
-      "Vault mutation and health receipt facades require Rust daemon-core wallet/cTEE custody ownership.",
+      "Vault mutation, health, and projection facades require Rust daemon-core wallet/cTEE custody ownership.",
     details: {
       operation_kind,
       rust_core_boundary: "model_mount.vault",

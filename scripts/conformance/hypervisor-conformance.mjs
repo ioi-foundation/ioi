@@ -1119,7 +1119,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 874/.test(matrix) &&
       /Slice 874 retired the fail-closed `vault-operations\.mjs` helper module/.test(matrix) &&
-      /`ModelMountingState` vault methods now own canonical vault request alias\s+rejection/.test(matrix) &&
+      /`ModelMountingState\.listVaultRefs\(\)`, `vaultRefMetadata\(\)`, and `vaultStatus\(\)`\s+now fail closed at `model_mount\.vault_ref\.list`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 874 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 875/.test(matrix) &&
       /Slice 875 retired the fail-closed `tokenizer-operations\.mjs` helper module/.test(matrix) &&
@@ -1517,7 +1517,7 @@ function runDocs() {
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /public capability-token create\/revoke, Bearer authorization, and token-list projection now fail closed/.test(implementationMatrix) &&
       /the fail-closed `vault-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /mounted public `ModelMountingState` vault methods now own canonical vault request alias rejection/.test(implementationMatrix) &&
+      /public vault bind\/remove, health-receipt mutation, and vault list\/status\/metadata projection facades now fail closed/.test(implementationMatrix) &&
       /the fail-closed `tokenizer-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `artifact-endpoint-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -15537,6 +15537,9 @@ function runReceipts() {
       /rust_daemon_core_wallet_vault_required/.test(modelMountingState) &&
       /rust_daemon_core_ctee_custody_required/.test(modelMountingState) &&
       /model_mount\.vault_ref\.bind/.test(modelMountingState) &&
+      /model_mount\.vault_ref\.list/.test(modelMountingState) &&
+      /model_mount\.vault_ref\.metadata/.test(modelMountingState) &&
+      /model_mount\.vault\.status/.test(modelMountingState) &&
       /model_mount\.vault\.health/.test(modelMountingState) &&
       /model_mount\.vault_ref\.remove/.test(modelMountingState) &&
       /assertCanonicalVaultOperationRequestBody\(body\);[\s\S]*const vaultRef = requiredString\(body\.vault_ref,\s*"vault_ref"\);[\s\S]*const material = requiredString\(body\.material,\s*"material"\);/.test(
@@ -15555,12 +15558,16 @@ function runReceipts() {
       !/state\.writeVaultRefs\(\)/.test(vaultOperations) &&
       !/state\.writeProjection\(\)/.test(vaultOperations) &&
       !/this\.vault\.bindVaultRef/.test(modelMountingState) &&
+      !/this\.vault\.listVaultRefs/.test(modelMountingState) &&
+      !/this\.vault\.vaultRefMetadata/.test(modelMountingState) &&
+      !/this\.vault\.adapterStatus/.test(modelMountingState) &&
       !/this\.vault\.removeVaultRef/.test(modelMountingState) &&
       !/this\.vault\.health/.test(modelMountingState) &&
+      !/export function publicVaultRefs/.test(modelMountingIo) &&
       /vault mutation and health receipt facades fail closed until Rust wallet\/cTEE custody owns them/.test(
         vaultOperationsTest,
       ) &&
-      /vault list, metadata, and status remain read-only projection adapters/.test(vaultOperationsTest) &&
+      /vault list, metadata, and status fail closed until Rust wallet\/cTEE projection owns them/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.bindVaultRef\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.vaultHealth\.call/.test(vaultOperationsTest) &&
       /ModelMountingState\.prototype\.removeVaultRef\.call/.test(vaultOperationsTest) &&
