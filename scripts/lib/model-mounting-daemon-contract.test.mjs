@@ -157,28 +157,22 @@ test("model mounting daemon keeps Agentgres store adapter extracted from the fac
   );
 });
 
-test("model routing parity keeps canonical route decisions modular and workflow-addressable", () => {
+test("model routing parity keeps canonical route decisions Rust-owned and workflow-addressable", () => {
   const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
-  const routeDecision = readRepoFile("packages/runtime-daemon/src/model-mounting/route-decision.mjs");
   const workflow = readRepoFile("packages/agent-ide/src/runtime/harness-workflow/core.ts");
-  const modelCapability = readRepoFile("packages/runtime-daemon/src/model-mounting/model-capability.mjs");
+  const sdkModelMounts = readRepoFile("packages/agent-sdk/src/model-mounts.ts");
+  const modelCapabilityContract =
+    sdkModelMounts.match(/export interface ModelCapabilityContract \{[\s\S]*?\n}\n\nexport interface ModelLifecycleEvent/)?.[0] ?? "";
 
-  assert.match(facade, /createModelRouteDecision/);
-  assert.match(facade, /routeDecisionProjectionFromReceipt/);
   assert.match(facade, /listModelCapabilities/);
-  assert.match(facade, /providerRequestBodyForRoute/);
-  assert.match(routeDecision, /MODEL_ROUTE_DECISION_SCHEMA_VERSION/);
-  assert.match(routeDecision, /MODEL_ROUTE_DECISION_EVENT_KIND/);
-  assert.match(routeDecision, /isAutoModelSelector/);
-  assert.match(routeDecision, /neverSendAutoUpstream/);
-  assert.match(routeDecision, /localRemotePlacement/);
-  assert.match(routeDecision, /privacyPosture/);
-  assert.match(routeDecision, /costEstimateUsd/);
-  assert.match(modelCapability, /MODEL_CAPABILITY_SCHEMA_VERSION/);
-  assert.match(modelCapability, /providerPriority/);
-  assert.match(modelCapability, /fallbackPolicy/);
-  assert.match(modelCapability, /costEstimateVisibility/);
-  assert.match(modelCapability, /credentialReadiness/);
+  assert.match(facade, /throwModelRouteControlRustCoreRequired\("model_mount\.route\.select"/);
+  assert.equal(fs.existsSync(path.join(repoRoot, "packages/runtime-daemon/src/model-mounting/route-decision.mjs")), false);
+  assert.equal(fs.existsSync(path.join(repoRoot, "packages/runtime-daemon/src/model-mounting/model-capability.mjs")), false);
+  assert.match(modelCapabilityContract, /schema_version: "ioi\.model-capability\.v1" \| string;/);
+  assert.match(modelCapabilityContract, /route_id: string;/);
+  assert.match(modelCapabilityContract, /fallback_policy: Record<string, unknown>;/);
+  assert.match(modelCapabilityContract, /credential_readiness: \{/);
+  assert.doesNotMatch(modelCapabilityContract, /schemaVersion|routeId|fallbackPolicy|credentialReadiness/);
   assert.match(workflow, /"ModelRouteDecision"/);
   assert.match(workflow, /"reasoning_effort"/);
   assert.match(workflow, /"privacy_posture"/);

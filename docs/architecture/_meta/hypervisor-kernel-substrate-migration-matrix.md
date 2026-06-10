@@ -253,7 +253,9 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 913 after the next
+- Scheduled matrix-compaction obligation from Slice 913 is now satisfied by the
+  orphan JS model-capability materializer deletion.
+- Next scheduled matrix-compaction pass: compact Slice 914 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19331,7 +19333,41 @@ provider transports, inventory, lifecycle control, Agentgres-backed truth,
 replay, stable protocol APIs, and command-transport retirement remain required
 before provider execution/control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 913 after the next direct
+Scheduled matrix-compaction obligation from Slice 913 is now satisfied.
+
+## Implementation Slice Evidence: 914
+
+Slice 914 deleted the orphan JS model-capability materializer.
+`model-capability.mjs` and `model-capability.test.mjs` are absent rather than
+preserved as a daemon-side fallback route/provider/artifact readiness builder.
+Public `listModelCapabilities()` and broad model_mount projection reads already
+route through Rust `plan_model_mount_read_projection`, and the Rust bridge
+continues to return the non-authoritative empty capability list until direct
+Rust daemon-core model-capability projection over Agentgres-backed topology owns
+that public truth. The SDK keeps the canonical snake_case
+`ModelCapabilityContract`, but daemon JS no longer carries a self-tested
+capability contract materializer that could be mistaken for a live authority
+path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs scripts/lib/model-mounting-daemon-contract.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `node --test --test-name-pattern "model routing parity keeps canonical route decisions Rust-owned and workflow-addressable" scripts/lib/model-mounting-daemon-contract.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal model-capability migration: direct Rust
+daemon-core capability projection, Agentgres-backed topology reads,
+receipt/state-root binding, replay, stable protocol APIs, and
+command-transport retirement remain required before model capability projection
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 914 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

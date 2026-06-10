@@ -824,6 +824,8 @@ function runDocs() {
       /`selectRuntimeEngine\(\)`, `updateRuntimeEngine\(\)`, and\s+`removeRuntimeEngineOverride\(\)` methods fail closed directly/.test(guide) &&
       /Slice 913 deleted the final local provider driver adapter module/.test(guide) &&
       /`provider-local-drivers\.mjs` and `provider-local-drivers\.test\.mjs` are absent/.test(guide) &&
+      /Slice 914 deleted the orphan JS model-capability materializer/.test(guide) &&
+      /`model-capability\.mjs` and `model-capability\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -831,6 +833,8 @@ function runDocs() {
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-capability.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-capability.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1234,7 +1238,11 @@ function runDocs() {
       /Implementation Slice Evidence: 913/.test(matrix) &&
       /Slice 913 deleted the final local provider driver adapter module/.test(matrix) &&
       /`provider-local-drivers\.mjs` and `provider-local-drivers\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 913/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 913 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 914/.test(matrix) &&
+      /Slice 914 deleted the orphan JS model-capability materializer/.test(matrix) &&
+      /`model-capability\.mjs` and `model-capability\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 914/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1426,7 +1434,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 910 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 911 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 912 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 913/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 913 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 914/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1909,7 +1918,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 913 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 914 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2869,12 +2878,6 @@ function runBridge() {
     agentSdkModelMounts.match(/export interface ModelInvocationReceipt \{[\s\S]*?\n}\n\nexport interface ModelConversationState/)?.[0] ?? "";
   const agentSdkModelConversationStateType =
     agentSdkModelMounts.match(/export interface ModelConversationState \{[\s\S]*?\n}\n\nexport interface TokenizerToken/)?.[0] ?? "";
-  const modelCapabilityProjection = exists("packages/runtime-daemon/src/model-mounting/model-capability.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-capability.mjs")
-    : "";
-  const modelCapabilityProjectionTest = exists("packages/runtime-daemon/src/model-mounting/model-capability.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-capability.test.mjs")
-    : "";
   const workflowStructuredPolicyComposer = exists(
     "packages/agent-ide/src/runtime/workflow-structured-policy-composer.ts",
   )
@@ -8309,42 +8312,8 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-capability-contract-output-aliases-retired",
-    /schema_version:\s*MODEL_CAPABILITY_SCHEMA_VERSION/.test(modelCapabilityProjection) &&
-      /route_id:\s*route\.id/.test(modelCapabilityProjection) &&
-      /model_role:\s*route\.role/.test(modelCapabilityProjection) &&
-      /primitive_capability:\s*`prim:model\.\$\{capability\}`/.test(modelCapabilityProjection) &&
-      /authority_scope_requirements:\s*\[`route\.use:\$\{route\.id\}`,\s*`model\.\$\{capability\}:\*`\]/.test(
-        modelCapabilityProjection,
-      ) &&
-      /policy_target:\s*modelPolicyTarget\(route\.id\)/.test(modelCapabilityProjection) &&
-      /privacy_tier:\s*route\.privacy/.test(modelCapabilityProjection) &&
-      /provider_priority:\s*route\.providerEligibility/.test(modelCapabilityProjection) &&
-      /fallback_policy:\s*\{/.test(modelCapabilityProjection) &&
-      /endpoint_ids:\s*route\.fallback/.test(modelCapabilityProjection) &&
-      /selected_endpoint_id:\s*selectedCandidate\?\.endpoint_id/.test(modelCapabilityProjection) &&
-      /fallback_evidence:\s*candidates\.map\(\(candidate\) => candidate\.evidence\)/.test(
-        modelCapabilityProjection,
-      ) &&
-      /cost_estimate_visibility:\s*\{/.test(modelCapabilityProjection) &&
-      /max_cost_usd:\s*route\.maxCostUsd/.test(modelCapabilityProjection) &&
-      /credential_readiness:\s*\{/.test(modelCapabilityProjection) &&
-      /evidence_refs:\s*compactEvidence\(candidates\.flatMap\(\(candidate\) => candidate\.evidence_refs\)\)/.test(
-        modelCapabilityProjection,
-      ) &&
-      /vault_readiness:\s*\{/.test(modelCapabilityProjection) &&
-      /byok_required:\s*candidates\.some\(\(candidate\) => candidate\.vault_required\)/.test(
-        modelCapabilityProjection,
-      ) &&
-      /receipt_behavior:\s*\{/.test(modelCapabilityProjection) &&
-      /receipt_required:\s*true/.test(modelCapabilityProjection) &&
-      /workflow_availability:\s*\{/.test(modelCapabilityProjection) &&
-      /config_fields:\s*\["model_ref",\s*"route_id",\s*"model_binding"\]/.test(
-        modelCapabilityProjection,
-      ) &&
-      /agent_availability:\s*\{/.test(modelCapabilityProjection) &&
-      /endpoint_id:\s*endpointId/.test(modelCapabilityProjection) &&
-      /provider_id:\s*provider\?\.id/.test(modelCapabilityProjection) &&
-      /vault_required:\s*vaultRequired/.test(modelCapabilityProjection) &&
+    !exists("packages/runtime-daemon/src/model-mounting/model-capability.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-capability.test.mjs") &&
       /^\s*schema_version: "ioi\.model-capability\.v1" \| string;/m.test(
         agentSdkModelCapabilityContractType,
       ) &&
@@ -8355,25 +8324,13 @@ function runBridge() {
       /^\s*receipt_behavior: \{/m.test(agentSdkModelCapabilityContractType) &&
       /^\s*workflow_availability: \{/m.test(agentSdkModelCapabilityContractType) &&
       /^\s*agent_availability: \{/m.test(agentSdkModelCapabilityContractType) &&
-      /Object\.hasOwn\(contract,\s*retiredField\),\s*false/.test(modelCapabilityProjectionTest) &&
-      /Object\.hasOwn\(contract\.candidates\[0\],\s*retiredField\),\s*false/.test(
-        modelCapabilityProjectionTest,
-      ) &&
-      !/^\s*(?:schemaVersion|routeId|modelRole|primitiveCapability|authorityScopeRequirements|policyTarget|privacyTier|providerPriority|fallbackPolicy|fallbackEvidence|costEstimateVisibility|credentialReadiness|vaultReadiness|byokRequired|receiptBehavior|workflowAvailability|agentAvailability)\s*:/m.test(
-        modelCapabilityProjection,
-      ) &&
-      !/^\s*(?:endpointId|modelId|providerId|providerKind|privacyTier|vaultRequired|vaultReady|evidenceRefs)\s*:/m.test(
-        modelCapabilityProjection,
-      ) &&
       !/^\s*(?:schemaVersion|routeId|modelRole|primitiveCapability|authorityScopeRequirements|policyTarget|privacyTier|providerPriority|fallbackPolicy|fallbackEvidence|costEstimateVisibility|credentialReadiness|vaultReadiness|byokRequired|receiptBehavior|workflowAvailability|agentAvailability)\s*[:?]/m.test(
         agentSdkModelCapabilityContractType,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/model-capability.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-capability.test.mjs",
       "packages/agent-sdk/src/model-mounts.ts",
     ],
-    "Phase 3/10 is pending: model capability contracts must use canonical snake_case protocol fields without duplicate SDK or daemon camelCase aliases",
+    "Phase 3/10 is pending: model capability contracts must stay Rust-projected without a JS daemon materializer or duplicate SDK camelCase aliases",
   );
   assertCheck(
     result,

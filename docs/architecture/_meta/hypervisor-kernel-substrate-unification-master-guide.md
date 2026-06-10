@@ -2343,6 +2343,18 @@ truth, replay, stable protocol APIs, and command-transport retirement remain
 required before provider execution/control reaches terminal pure Rust
 conformance.
 
+Slice 914 deleted the orphan JS model-capability materializer.
+`model-capability.mjs` and `model-capability.test.mjs` are absent instead of
+preserved as a daemon-side fallback capability builder after public
+`listModelCapabilities()` and broad model_mount projection reads moved through
+Rust `plan_model_mount_read_projection`. The SDK still declares the canonical
+snake_case protocol contract, but the daemon no longer carries a self-tested JS
+implementation that can reconstruct route/provider/artifact readiness as public
+truth. Direct Rust daemon-core model-capability projection over Agentgres-backed
+topology, receipt/state-root binding, replay, stable protocol APIs, and
+command-transport retirement remain required before capability projection
+reaches terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
