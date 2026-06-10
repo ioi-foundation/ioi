@@ -55,6 +55,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateRequest,
+    WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -445,6 +446,16 @@ struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: CodingToolBudgetRecoveryStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct WorkflowEditAdmissionRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: WorkflowEditAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -984,6 +995,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                 serde_json::from_value(raw_request)
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_coding_tool_budget_recovery_state_update(request)
+        }
+        "plan_workflow_edit_admission_required" => {
+            let request: WorkflowEditAdmissionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_workflow_edit_admission_required(request)
         }
         "plan_diagnostics_operator_override_state_update" => {
             let request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest =
@@ -2120,7 +2137,8 @@ fn model_mount_read_projection(
         "latest_runtime_survey" => Ok(model_mount_latest_runtime_survey(request)),
         "catalog_status" => Err(BridgeError::new(
             "model_catalog_status_js_readback_retired",
-            "Model catalog status readback requires Rust daemon-core catalog projection".to_string(),
+            "Model catalog status readback requires Rust daemon-core catalog projection"
+                .to_string(),
         )),
         other => Err(BridgeError::new(
             "model_mount_read_projection_kind_unsupported",
@@ -4110,6 +4128,46 @@ fn plan_coding_tool_budget_recovery_state_update(
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
+    }))
+}
+
+fn plan_workflow_edit_admission_required(
+    request: WorkflowEditAdmissionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_workflow_edit_admission_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = WorkflowEditAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "workflow_edit_admission_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_workflow_edit_admission_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
     }))
 }
 
@@ -8471,10 +8529,7 @@ mod tests {
             receipt_replay_response["projection"]["receipt"]["id"],
             "receipt-route"
         );
-        assert_eq!(
-            receipt_replay_response["projection"]["route"],
-            Value::Null
-        );
+        assert_eq!(receipt_replay_response["projection"]["route"], Value::Null);
         assert_eq!(
             receipt_replay_response["projection"]["endpoint"],
             Value::Null
@@ -8636,7 +8691,9 @@ mod tests {
             }))
             .expect("model_mount oauth sessions request");
         let oauth_sessions_error = plan_model_mount_read_projection(oauth_sessions_request)
-            .expect_err("oauth sessions fail closed until Rust wallet/cTEE projection owns readback");
+            .expect_err(
+                "oauth sessions fail closed until Rust wallet/cTEE projection owns readback",
+            );
         assert_eq!(
             oauth_sessions_error.code,
             "model_mount_oauth_read_projection_js_retired"
@@ -8749,10 +8806,7 @@ mod tests {
         let runtime_preference_response =
             plan_model_mount_read_projection(runtime_preference_request)
                 .expect("runtime preference projected in Rust");
-        assert_eq!(
-            runtime_preference_response["projection"],
-            Value::Null
-        );
+        assert_eq!(runtime_preference_response["projection"], Value::Null);
 
         let runtime_endpoint_preference_request: ModelMountReadProjectionBridgeRequest =
             serde_json::from_value(json!({
@@ -9071,7 +9125,9 @@ mod tests {
             }))
             .expect("missing provider latest health request");
         let missing_provider_error = plan_model_mount_read_projection(missing_provider_request)
-            .expect_err("latest provider health fails closed when provider health receipt is missing");
+            .expect_err(
+                "latest provider health fails closed when provider health receipt is missing",
+            );
         assert_eq!(
             missing_provider_error.code,
             "model_mount_provider_health_not_found"
@@ -11070,6 +11126,63 @@ mod tests {
         assert_eq!(
             response["run"]["trace"]["operatorControls"][0]["control"],
             "coding_tool_budget_recovery"
+        );
+    }
+
+    #[test]
+    fn bridge_plans_workflow_edit_admission_required_through_rust_core() {
+        let request: WorkflowEditAdmissionRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_workflow_edit_admission_required",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.workflow-edit-admission-required-request.v1",
+                "operation": "workflow_edit_proposal",
+                "operation_kind": "workflow.edit_proposed",
+                "thread_id": "thread_alpha",
+                "turn_id": "turn_alpha",
+                "proposal_id": "proposal_alpha",
+                "edit_intent_id": "intent_alpha",
+                "approval_id": "approval_alpha",
+                "workflow_graph_id": "graph_alpha",
+                "workflow_node_id": "node_alpha",
+                "workflow_path": "workflows/demo.json",
+                "source": "agent_studio",
+                "evidence_refs": [
+                    "workflow_edit_proposal_js_facade_retired",
+                    "rust_daemon_core_workflow_edit_proposal_required",
+                    "agentgres_workflow_edit_proposal_truth_required"
+                ]
+            }
+        }))
+        .expect("workflow edit admission required bridge request");
+
+        let response = plan_workflow_edit_admission_required(request)
+            .expect("workflow edit admission refusal planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_workflow_edit_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(response["code"], "runtime_workflow_edit_rust_core_required");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.workflow_edit"
+        );
+        assert_eq!(response["details"]["operation"], "workflow_edit_proposal");
+        assert_eq!(
+            response["details"]["operation_kind"],
+            "workflow.edit_proposed"
+        );
+        assert_eq!(response["details"]["thread_id"], "thread_alpha");
+        assert!(response["details"].get("threadId").is_none());
+        assert!(response["details"].get("proposalId").is_none());
+        assert_eq!(
+            response["details"]["evidence_refs"][0],
+            "workflow_edit_proposal_js_facade_retired"
         );
     }
 

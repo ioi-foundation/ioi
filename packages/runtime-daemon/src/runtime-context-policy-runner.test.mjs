@@ -33,6 +33,7 @@ import {
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createContextPolicyRunnerFromEnv,
   normalizeAgentCreateStateUpdateBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
@@ -468,6 +469,62 @@ test("coding tool budget recovery state update runner sends Rust state update br
     assert.equal(Object.hasOwn(result.operator_control, field), false);
   }
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_retry");
+});
+
+test("workflow-edit admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_workflow_edit_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_workflow_edit_rust_core_required",
+              message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+              details: {
+                rust_core_boundary: "runtime.workflow_edit",
+                operation: "workflow_edit_proposal",
+                operation_kind: "workflow.edit_proposed",
+                thread_id: "thread_alpha",
+                proposal_id: "proposal_alpha",
+                evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planWorkflowEditAdmissionRequired({
+    operation: "workflow_edit_proposal",
+    operation_kind: "workflow.edit_proposed",
+    thread_id: "thread_alpha",
+    proposal_id: "proposal_alpha",
+    evidence_refs: ["workflow_edit_proposal_js_facade_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_workflow_edit_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "workflow_edit_proposal");
+  assert.equal(captured.request.operation_kind, "workflow.edit_proposed");
+  assert.equal(result.source, "rust_workflow_edit_admission_required_command");
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.thread_id, "thread_alpha");
+  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
 });
 
 test("diagnostics operator override state update runner sends Rust state update bridge request", () => {

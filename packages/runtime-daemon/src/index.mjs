@@ -842,6 +842,7 @@ export class AgentgresRuntimeStateStore {
       notFound,
       policyError,
       runtimeError,
+      workflowEditRunner: this.contextPolicyRunner,
       writeJson,
     });
     this.mcpCatalogSurface = createRuntimeMcpCatalogSurface();

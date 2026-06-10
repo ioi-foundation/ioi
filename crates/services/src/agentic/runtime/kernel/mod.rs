@@ -125,7 +125,9 @@ use policy::{
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
     ThreadControlAgentStateUpdateRequest, ThreadMemoryAgentStateUpdateCore,
     ThreadMemoryAgentStateUpdateError, ThreadMemoryAgentStateUpdateRecord,
-    ThreadMemoryAgentStateUpdateRequest,
+    ThreadMemoryAgentStateUpdateRequest, WorkflowEditAdmissionRequiredCore,
+    WorkflowEditAdmissionRequiredError, WorkflowEditAdmissionRequiredRecord,
+    WorkflowEditAdmissionRequiredRequest,
 };
 use profile::{RuntimeProfileConfig, RuntimeProfileValidator, RuntimeProfileViolation};
 use projection::{ProjectionError, RustProjectionCore, StepModuleProjectionRecord};
@@ -241,6 +243,13 @@ impl RuntimeKernelService {
     ) -> Result<CodingToolBudgetRecoveryStateUpdateRecord, CodingToolBudgetRecoveryStateUpdateError>
     {
         CodingToolBudgetRecoveryStateUpdateCore.plan(request)
+    }
+
+    pub fn plan_workflow_edit_admission_required(
+        &self,
+        request: &WorkflowEditAdmissionRequiredRequest,
+    ) -> Result<WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredError> {
+        WorkflowEditAdmissionRequiredCore.plan(request)
     }
 
     pub fn plan_diagnostics_operator_override_state_update(

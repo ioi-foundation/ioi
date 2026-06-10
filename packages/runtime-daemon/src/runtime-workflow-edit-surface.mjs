@@ -4,9 +4,40 @@ import { optionalString } from "./runtime-value-helpers.mjs";
 export function createRuntimeWorkflowEditSurface(deps = {}) {
   const {
     runtimeError: runtimeErrorDep = runtimeError,
+    workflowEditRunner = null,
   } = deps;
 
   function throwWorkflowEditRustCoreRequired(operation, operationKind, details = {}) {
+    if (workflowEditRunner?.planWorkflowEditAdmissionRequired) {
+      const record = workflowEditRunner.planWorkflowEditAdmissionRequired({
+        operation,
+        operation_kind: operationKind,
+        thread_id: details.thread_id,
+        turn_id: details.turn_id,
+        proposal_id: details.proposal_id,
+        edit_intent_id: details.edit_intent_id,
+        approval_id: details.approval_id,
+        workflow_graph_id: details.workflow_graph_id,
+        workflow_node_id: details.workflow_node_id,
+        workflow_path: details.workflow_path,
+        source: details.source,
+        evidence_refs: details.evidence_refs,
+      });
+      const planned = record?.record ?? record;
+      throw runtimeErrorDep({
+        status: Number(planned?.status_code ?? record?.status_code ?? 501),
+        code: optionalString(planned?.code ?? record?.code) ?? "runtime_workflow_edit_rust_core_required",
+        message:
+          optionalString(planned?.message ?? record?.message) ??
+          "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+        details: planned?.details ?? record?.details ?? {
+          rust_core_boundary: "runtime.workflow_edit",
+          operation,
+          operation_kind: operationKind,
+          ...details,
+        },
+      });
+    }
     throw runtimeErrorDep({
       status: 501,
       code: "runtime_workflow_edit_rust_core_required",

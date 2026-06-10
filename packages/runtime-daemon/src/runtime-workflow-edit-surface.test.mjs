@@ -122,6 +122,76 @@ test("workflow-edit proposal facade fails closed before JS event append or appro
   assert.deepEqual(store.calls, []);
 });
 
+test("workflow-edit proposal uses Rust daemon-core admission-required planner when mounted", () => {
+  const store = createStore();
+  const runnerCalls = [];
+  const surface = createRuntimeWorkflowEditSurface({
+    runtimeError,
+    workflowEditRunner: {
+      planWorkflowEditAdmissionRequired(request) {
+        runnerCalls.push(request);
+        return {
+          source: "rust_workflow_edit_admission_required_command",
+          backend: "rust_policy",
+          record: {
+            status_code: 501,
+            code: "runtime_workflow_edit_rust_core_required",
+            message: "Runtime workflow edit control requires direct Rust daemon-core admission and persistence.",
+            details: {
+              rust_core_boundary: "runtime.workflow_edit",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              thread_id: request.thread_id,
+              proposal_id: request.proposal_id,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () => surface.proposeWorkflowEdit(store, "thread_alpha", {
+      proposal_id: "proposal_one",
+    }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_workflow_edit_rust_core_required");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.proposal_id, "proposal_one");
+      assert.deepEqual(error.details.evidence_refs, [
+        "workflow_edit_proposal_js_facade_retired",
+        "rust_daemon_core_workflow_edit_proposal_required",
+        "agentgres_workflow_edit_proposal_truth_required",
+      ]);
+      assertNoRetiredWorkflowEditDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.deepEqual(runnerCalls, [
+    {
+      operation: "workflow_edit_proposal",
+      operation_kind: "workflow.edit_proposed",
+      thread_id: "thread_alpha",
+      turn_id: null,
+      proposal_id: "proposal_one",
+      edit_intent_id: null,
+      approval_id: null,
+      workflow_graph_id: null,
+      workflow_node_id: null,
+      workflow_path: null,
+      source: null,
+      evidence_refs: [
+        "workflow_edit_proposal_js_facade_retired",
+        "rust_daemon_core_workflow_edit_proposal_required",
+        "agentgres_workflow_edit_proposal_truth_required",
+      ],
+    },
+  ]);
+  assert.deepEqual(store.calls, []);
+});
+
 test("workflow-edit apply facade fails closed before JS proposal lookup or mutation replay", () => {
   const store = createStore();
   const surface = createSurface();

@@ -21297,3 +21297,43 @@ should preserve the non-terminal status of workflow-edit and coding-tool budget
 recovery command/projection transport, wallet authority where applicable,
 Agentgres-backed truth, and stable protocol APIs without encoding daemon-store
 pass-through wrappers as public route authority.
+
+## Implementation Slice Evidence: 966
+
+Slice 966 moved the workflow-edit admission-required refusal envelope into the
+Rust daemon-core policy bridge. `WorkflowEditAdmissionRequiredCore` now plans
+the canonical Rust-core-required response, `ioi_step_module_bridge` exposes
+`plan_workflow_edit_admission_required`, the JS daemon-core runner sends that
+command with `ioi.runtime.workflow-edit-admission-required-request.v1`, and
+the runtime daemon mounts the runner into the workflow-edit surface so normal
+workflow-edit proposal/apply control enters a Rust-authored fail-closed
+boundary before any JS event append, approval persistence, or workflow mutation.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo check -p ioi-services` | passed |
+| `cargo check -p ioi-node` | passed |
+| `cargo test -p ioi-services rust_policy_plans_workflow_edit_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_workflow_edit_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal workflow-edit migration. Direct Rust
+daemon-core proposal/apply admission, wallet.network approval authority,
+Agentgres-backed expected-head/state-root truth, receipt/event materialization,
+replay, projection, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-966 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve that workflow-edit refusal envelopes are now Rust-authored
+fail-closed migration boundaries, while workflow-edit accepted truth,
+wallet.network authority, Agentgres-backed state, and command-transport
+retirement remain non-terminal.

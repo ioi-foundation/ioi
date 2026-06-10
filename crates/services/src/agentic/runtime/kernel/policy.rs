@@ -109,6 +109,10 @@ pub const CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
 pub const CONTEXT_COMPACTION_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.context-compaction-state-update.v1";
 pub const CONTEXT_COMPACTION_PAYLOAD_SCHEMA_VERSION: &str = "ioi.runtime.context-compaction.v1";
+pub const WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.workflow-edit-admission-required-request.v1";
+pub const WORKFLOW_EDIT_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.workflow-edit-admission-required.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyEvaluationRecord {
@@ -182,6 +186,15 @@ pub enum ContextCompactionStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CodingToolBudgetRecoveryStateUpdateError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum WorkflowEditAdmissionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -760,6 +773,65 @@ pub struct CodingToolBudgetRecoveryStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkflowEditAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub proposal_id: Option<String>,
+    #[serde(default)]
+    pub edit_intent_id: Option<String>,
+    #[serde(default)]
+    pub approval_id: Option<String>,
+    #[serde(default)]
+    pub workflow_graph_id: Option<String>,
+    #[serde(default)]
+    pub workflow_node_id: Option<String>,
+    #[serde(default)]
+    pub workflow_path: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WorkflowEditAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub thread_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub proposal_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edit_intent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_graph_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_node_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
     pub generated_at: String,
 }
 
@@ -1946,6 +2018,79 @@ impl CodingToolBudgetRecoveryStateUpdateCore {
             updated_at: request.created_at.clone(),
             operator_control,
             run: Value::Object(run),
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct WorkflowEditAdmissionRequiredCore;
+
+impl WorkflowEditAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &WorkflowEditAdmissionRequiredRequest,
+    ) -> Result<WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredError> {
+        request.validate()?;
+        let thread_id = optional_trimmed(Some(request.thread_id.as_str())).unwrap();
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let proposal_id = optional_trimmed(request.proposal_id.as_deref());
+        let edit_intent_id = optional_trimmed(request.edit_intent_id.as_deref());
+        let approval_id = optional_trimmed(request.approval_id.as_deref());
+        let workflow_graph_id = optional_trimmed(request.workflow_graph_id.as_deref());
+        let workflow_node_id = optional_trimmed(request.workflow_node_id.as_deref());
+        let workflow_path = optional_trimmed(request.workflow_path.as_deref());
+        let source = optional_trimmed(request.source.as_deref());
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                format!("{operation}_js_facade_retired"),
+                "rust_daemon_core_workflow_edit_admission_required".to_string(),
+                "agentgres_workflow_edit_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.workflow_edit",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "proposal_id": proposal_id,
+            "edit_intent_id": edit_intent_id,
+            "approval_id": approval_id,
+            "workflow_graph_id": workflow_graph_id,
+            "workflow_node_id": workflow_node_id,
+            "workflow_path": workflow_path,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(WorkflowEditAdmissionRequiredRecord {
+            schema_version: WORKFLOW_EDIT_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_workflow_edit_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_workflow_edit_rust_core_required".to_string(),
+            message:
+                "Runtime workflow edit control requires direct Rust daemon-core admission and persistence."
+                    .to_string(),
+            rust_core_boundary: "runtime.workflow_edit".to_string(),
+            operation,
+            operation_kind,
+            thread_id,
+            turn_id,
+            proposal_id,
+            edit_intent_id,
+            approval_id,
+            workflow_graph_id,
+            workflow_node_id,
+            workflow_path,
+            source,
+            evidence_refs,
+            details,
             generated_at: "rust_policy_core".to_string(),
         })
     }
@@ -3685,6 +3830,33 @@ impl CodingToolBudgetRecoveryStateUpdateRequest {
         if optional_trimmed(Some(self.approval_id.as_str())).is_none() {
             return Err(CodingToolBudgetRecoveryStateUpdateError::MissingField(
                 "approval_id",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl WorkflowEditAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), WorkflowEditAdmissionRequiredError> {
+        if self.schema_version != WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(WorkflowEditAdmissionRequiredError::InvalidSchemaVersion {
+                expected: WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(WorkflowEditAdmissionRequiredError::MissingField(
+                "operation",
+            ));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(WorkflowEditAdmissionRequiredError::MissingField(
+                "operation_kind",
+            ));
+        }
+        if optional_trimmed(Some(self.thread_id.as_str())).is_none() {
+            return Err(WorkflowEditAdmissionRequiredError::MissingField(
+                "thread_id",
             ));
         }
         Ok(())
@@ -6796,6 +6968,46 @@ mod tests {
             "coding_tool_budget_recovery"
         );
         assert_eq!(record.run["operatorControls"][0]["event_id"], "event_retry");
+    }
+
+    #[test]
+    fn rust_policy_plans_workflow_edit_admission_required() {
+        let record = WorkflowEditAdmissionRequiredCore
+            .plan(&WorkflowEditAdmissionRequiredRequest {
+                schema_version: WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+                operation: "workflow_edit_proposal".to_string(),
+                operation_kind: "workflow.edit_proposed".to_string(),
+                thread_id: "thread_alpha".to_string(),
+                turn_id: Some("turn_alpha".to_string()),
+                proposal_id: Some("proposal_alpha".to_string()),
+                edit_intent_id: Some("intent_alpha".to_string()),
+                approval_id: Some("approval_alpha".to_string()),
+                workflow_graph_id: Some("graph_alpha".to_string()),
+                workflow_node_id: Some("node_alpha".to_string()),
+                workflow_path: Some("workflows/demo.json".to_string()),
+                source: Some("agent_studio".to_string()),
+                evidence_refs: vec![
+                    "workflow_edit_proposal_js_facade_retired".to_string(),
+                    "rust_daemon_core_workflow_edit_proposal_required".to_string(),
+                    "agentgres_workflow_edit_proposal_truth_required".to_string(),
+                ],
+            })
+            .expect("workflow edit admission required");
+
+        assert_eq!(
+            record.schema_version,
+            WORKFLOW_EDIT_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "runtime_workflow_edit_rust_core_required");
+        assert_eq!(record.rust_core_boundary, "runtime.workflow_edit");
+        assert_eq!(record.operation, "workflow_edit_proposal");
+        assert_eq!(record.operation_kind, "workflow.edit_proposed");
+        assert_eq!(record.details["thread_id"], "thread_alpha");
+        assert_eq!(record.details["proposal_id"], "proposal_alpha");
+        assert!(record.details.get("threadId").is_none());
+        assert!(record.details.get("proposalId").is_none());
     }
 
     #[test]

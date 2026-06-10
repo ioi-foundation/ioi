@@ -8254,7 +8254,24 @@ function runBridge() {
       /workflow_edit_proposal_js_facade_retired/.test(runtimeWorkflowEditSurface) &&
       /rust_daemon_core_workflow_edit_proposal_required/.test(runtimeWorkflowEditSurface) &&
       /agentgres_workflow_edit_proposal_truth_required/.test(runtimeWorkflowEditSurface) &&
+      /WorkflowEditAdmissionRequiredCore/.test(policyCore) &&
+      /WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_workflow_edit_admission_required/.test(policyCore) &&
+      /plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      /bridge_plans_workflow_edit_admission_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planWorkflowEditAdmissionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /workflow-edit admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /workflowEditRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /workflow-edit proposal facade fails closed before JS event append or approval persistence/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /workflow-edit proposal uses Rust daemon-core admission-required planner when mounted/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /workflow-edit target\/context facades fail closed before JS agent or workspace resolution/.test(

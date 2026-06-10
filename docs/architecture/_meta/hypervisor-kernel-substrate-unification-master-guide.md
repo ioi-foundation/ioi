@@ -2279,6 +2279,19 @@ wallet.network approval authority where applicable, Agentgres expected-head and
 state-root binding, receipt/event materialization, replay, command-transport
 retirement, and stable SDK/IDE/CLI protocol APIs remain required before
 terminal pure Rust substrate conformance.
+Slice 966 moved the workflow-edit proposal/apply Rust-core-required admission
+refusal into the Rust daemon-core policy bridge. `WorkflowEditAdmissionRequiredCore`
+now emits the canonical fail-closed envelope and snake_case detail payload,
+`ioi_step_module_bridge` exposes `plan_workflow_edit_admission_required`, and
+the runtime daemon mounts that runner into the workflow-edit surface. JS still
+translates the Rust-authored refusal at the HTTP edge, but no longer has to be
+the canonical author for the workflow-edit admission-required envelope when the
+daemon-core command is configured. This does not claim terminal workflow-edit
+migration: direct Rust daemon-core proposal/apply admission, wallet.network
+approval authority, Agentgres expected-head/state-root binding,
+receipt/event materialization, replay, projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain required before
+terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail
