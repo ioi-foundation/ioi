@@ -65,10 +65,7 @@ test("internal fixture pruning removes fixture artifacts, endpoints, and depende
   state.instances.set("instance.fixture", { id: "instance.fixture", endpointId: "endpoint.fixture", modelId: "local:auto" });
   state.instances.set("instance.real", { id: "instance.real", endpointId: "endpoint.real", modelId: "real:model" });
 
-  pruneInternalFixtureProjectionRecords(state, {
-    isFixtureEndpointCandidate: (endpoint) => endpoint.providerId === "provider.fixture",
-    isFixtureModelRecord: (record) => record.family === "fixture",
-  });
+  pruneInternalFixtureProjectionRecords(state);
 
   assert.deepEqual([...state.artifacts.keys()], ["artifact.real"]);
   assert.deepEqual([...state.endpoints.keys()], ["endpoint.real"]);

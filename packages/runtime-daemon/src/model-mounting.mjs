@@ -15,10 +15,6 @@ import {
   createModelMountingReadProjectionFacade,
 } from "./model-mounting/read-projection-facade.mjs";
 import {
-  isFixtureEndpointCandidate,
-  isFixtureModelRecord,
-} from "./model-mounting/fixture-policy.mjs";
-import {
   destructiveConfirmationState,
   listModelFiles,
 } from "./model-mounting/catalog-helpers.mjs";
@@ -518,10 +514,7 @@ export class ModelMountingState {
   }
 
   pruneInternalFixtureProjectionRecords() {
-    return pruneInternalFixtureProjectionRecordsState(this, {
-      isFixtureEndpointCandidate,
-      isFixtureModelRecord,
-    });
+    return pruneInternalFixtureProjectionRecordsState(this);
   }
 
   writeAll() {

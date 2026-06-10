@@ -1282,7 +1282,11 @@ function runDocs() {
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(matrix) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 919 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 920/.test(matrix) &&
+      /Implementation Slice Evidence: 921/.test(matrix) &&
+      /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(matrix) &&
+      /`fixture-policy\.mjs` is absent/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 920 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 921/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -12141,6 +12145,12 @@ function runReceipts() {
   const modelMountingEnvironment = exists("packages/runtime-daemon/src/model-mounting/environment.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/environment.mjs")
     : "";
+  const guide = exists("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md")
+    ? read("docs/architecture/_meta/hypervisor-kernel-substrate-unification-master-guide.md")
+    : "";
+  const matrix = exists("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md")
+    ? read("docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md")
+    : "";
   const providerOperations = modelMountingRoot;
   const providerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs")
@@ -14318,6 +14328,25 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/default-records.test.mjs",
     ],
     "Phase 9/11 is pending: default LM Studio discovery must not execute public CLI probes, mint detected artifact truth, or prune projection maps from JS",
+  );
+  assertCheck(
+    result,
+    "model-mount-fixture-policy-wrapper-retired",
+    !exists("packages/runtime-daemon/src/model-mounting/fixture-policy.mjs") &&
+      !/from "\.\/model-mounting\/fixture-policy\.mjs"/.test(modelMountingRoot) &&
+      /function isFixtureEndpointCandidate/.test(defaultDiscovery) &&
+      /function isFixtureModelRecord/.test(defaultDiscovery) &&
+      /pruneInternalFixtureProjectionRecords\(state\)/.test(defaultDiscovery) &&
+      !/pruneInternalFixtureProjectionRecords\(state,\s*\{/.test(defaultDiscoveryTest) &&
+      /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(guide) &&
+      /`fixture-policy\.mjs` is absent/.test(guide) &&
+      /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(matrix),
+    [
+      "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
+      "packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/fixture-policy.mjs",
+    ],
+    "Phase 4/9 is pending: standalone JS fixture policy wrapper must not remain as a reusable inventory/projection compatibility surface",
   );
   assertCheck(
     result,

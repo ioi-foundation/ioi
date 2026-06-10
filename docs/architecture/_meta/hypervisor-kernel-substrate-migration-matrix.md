@@ -267,7 +267,9 @@ Matrix compaction timing:
   provider-protocol fixture/tokenizer compatibility helper deletion.
 - Scheduled matrix-compaction obligation from Slice 919 is now satisfied by the
   orphan model-instance lifecycle guard module deletion.
-- Next scheduled matrix-compaction pass: compact Slice 920 after the next
+- Scheduled matrix-compaction obligation from Slice 920 is now satisfied by the
+  fixture-policy compatibility wrapper deletion.
+- Next scheduled matrix-compaction pass: compact Slice 921 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19587,6 +19589,46 @@ and command-transport retirement remain required before instance lifecycle
 control reaches the pure Rust substrate target.
 
 Next scheduled matrix-compaction pass: compact Slice 920 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs. The
+`ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.
+
+At Slice 920 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 921 is that seam
+and satisfies the Slice 920 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 920 is now satisfied.
+
+## Implementation Slice Evidence: 921
+
+Slice 921 deleted the standalone JS fixture-policy compatibility wrapper.
+`fixture-policy.mjs` is absent, and its remaining internal fixture cleanup
+predicates now live privately inside `default-discovery.mjs`, so the daemon no
+longer exposes a separate dependency-injected fixture policy surface while
+default seeding still prunes disabled internal fixture records before they can
+become public projection truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/default-discovery.mjs packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal inventory/projection migration: direct Rust
+daemon-core provider inventory, catalog/default-discovery policy, Agentgres
+topology truth, stable protocol APIs, and command-transport retirement remain
+required before model-mount discovery and inventory reach the pure Rust
+substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 921 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

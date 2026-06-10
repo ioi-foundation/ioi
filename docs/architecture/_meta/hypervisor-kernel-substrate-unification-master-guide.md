@@ -2429,6 +2429,18 @@ Agentgres-backed topology and instance truth, replay, stable protocol APIs, and
 command-transport retirement remain required before instance lifecycle reaches
 terminal pure Rust conformance.
 
+Slice 921 deleted the standalone JS fixture-policy compatibility wrapper.
+`fixture-policy.mjs` is absent, and the remaining disabled-internal-fixture
+cleanup predicates now live privately inside `default-discovery.mjs`. Default
+seeding can still remove internal fixture artifacts/endpoints/instances when
+fixture defaults are disabled, but JS no longer exposes a separate reusable
+fixture policy module or dependency-injected predicate surface that could be
+mistaken for model-mount inventory/projection authority. Direct Rust
+daemon-core provider inventory, catalog/default-discovery policy, Agentgres
+topology truth, stable protocol APIs, and command-transport retirement remain
+required before model-mount discovery and inventory reach terminal pure Rust
+conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
