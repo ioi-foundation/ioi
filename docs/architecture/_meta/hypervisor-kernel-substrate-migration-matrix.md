@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 902 after the next
+- Next scheduled matrix-compaction pass: compact Slice 903 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -9134,14 +9134,14 @@ touched_files:
     - packages/runtime-daemon/src/model-mounting/routes.mjs
     - packages/runtime-daemon/src/model-mounting/route-decision.mjs
     - packages/runtime-daemon/src/model-mounting/projections.mjs
-    - packages/runtime-daemon/src/model-mounting/workflow-node.mjs
+    - packages/runtime-daemon/src/model-mounting/workflow-node.mjs (deleted by Slice 903)
     - packages/runtime-daemon/src/openai-compat-routes.mjs
   tests:
     - packages/runtime-daemon/src/model-mounting/routes.test.mjs
     - packages/runtime-daemon/src/model-mounting/route-decision.test.mjs
     - packages/runtime-daemon/src/model-mounting/projections.test.mjs
     - packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs
-    - packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs
+    - packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs (deleted by Slice 903)
     - packages/runtime-daemon/src/openai-compat-routes.test.mjs
     - scripts/conformance/hypervisor-conformance.mjs
 conformance_checks:
@@ -9155,8 +9155,8 @@ conformance_checks:
     longer project or populate native response shapes
 verification:
   commands:
-    - node --check packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/model-mounting/route-decision.mjs packages/runtime-daemon/src/model-mounting/projections.mjs packages/runtime-daemon/src/model-mounting/workflow-node.mjs packages/runtime-daemon/src/openai-compat-routes.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs scripts/conformance/hypervisor-conformance.mjs
-    - node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs
+    - node --check packages/runtime-daemon/src/model-mounting/routes.mjs packages/runtime-daemon/src/model-mounting/route-decision.mjs packages/runtime-daemon/src/model-mounting/projections.mjs packages/runtime-daemon/src/openai-compat-routes.mjs packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs scripts/conformance/hypervisor-conformance.mjs plus the then-live workflow-node focused check before Slice 903 deleted it
+    - node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/model-mounting/route-decision.test.mjs packages/runtime-daemon/src/model-mounting/projections.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs plus the then-live workflow-node focused test before Slice 903 deleted it
     - npm run hypervisor-conformance:bridge
     - npm run hypervisor-conformance:compositor
     - npm run hypervisor-conformance
@@ -18995,9 +18995,42 @@ read/projection APIs, Agentgres-backed catalog truth, stable protocol APIs, and
 command-transport retirement remain required before catalog control reaches the
 pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 902 after the next direct
+Scheduled matrix-compaction obligation from Slice 902 is now satisfied.
+
+## Implementation Slice Evidence: 903
+
+Slice 903 deleted the orphan workflow-node response helper module.
+`workflow-node.mjs` and `workflow-node.test.mjs` are absent rather than
+preserved as a standalone native-response compatibility surface for capability
+mapping, workflow-kind mapping, or route-decision envelope shaping. Mounted
+workflow-node execution still fails closed at
+`model_mount.workflow_node.execute` before JS route, MCP, receipt-gate, or model
+dispatch, and OpenAI-compatible response projection keeps the remaining
+canonical snake_case route-decision coverage without the separate model_mount
+workflow-node helper.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/openai-compat-routes.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/openai-compat-routes.test.mjs packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal workflow-node migration: direct Rust
+daemon-core workflow execution, StepModuleRouter dispatch, receipt/state-root
+binding, Agentgres-backed replay/projection, stable protocol APIs, and
+command-transport retirement remain required before workflow-node execution
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 903 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
-provider/runtime-engine/catalog execution-control APIs, Agentgres-backed replay,
-and stable protocol APIs. The `ioi-step-module-bridge` command path is
-acceptable only as migration transport; it is not the terminal architecture.
+provider/runtime-engine/catalog/workflow execution-control APIs,
+Agentgres-backed replay, and stable protocol APIs. The
+`ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.

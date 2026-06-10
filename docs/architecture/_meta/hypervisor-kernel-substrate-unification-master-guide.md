@@ -2228,6 +2228,16 @@ daemon-core catalog search/projection boundaries; JS no longer retains a
 standalone catalog entry materialization library for retired catalog surfaces to
 re-enter.
 
+Slice 903 deleted the orphan workflow-node response helper module.
+`workflow-node.mjs` and `workflow-node.test.mjs` are absent rather than
+preserved as a standalone native-response compatibility surface for capability
+mapping, workflow-kind mapping, or route-decision envelope shaping. Mounted
+workflow-node execution already fails closed at the Rust daemon-core
+`model_mount.workflow_node.execute` boundary before JS route, MCP, receipt-gate,
+or model dispatch; OpenAI-compatible response projection retains the remaining
+canonical snake_case route-decision coverage without a separate model_mount
+workflow-node helper.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

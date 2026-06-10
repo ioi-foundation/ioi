@@ -75,13 +75,6 @@ function fakeState() {
 }
 
 const deps = {
-  capabilityForWorkflowNode(node) {
-    if (node === "Embed") return "embeddings";
-    return "chat";
-  },
-  nativeInvocationResponseShape(invocation) {
-    return { outputText: invocation.outputText, kind: invocation.kind };
-  },
   normalizeScopes(value, fallback = []) {
     return Array.isArray(value) ? value : fallback;
   },
@@ -111,10 +104,6 @@ const deps = {
   secretRedaction: "[REDACTED]",
   stableHash(value) {
     return `hash:${JSON.stringify(value)}`;
-  },
-  workflowKindForNode(node) {
-    if (node === "Embed") return "embeddings";
-    return "chat";
   },
   workflowMemoryOptionsFromBody(body) {
     return body.memory ?? null;

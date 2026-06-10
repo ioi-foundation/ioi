@@ -782,6 +782,10 @@ function runDocs() {
       /`catalog-entries\.mjs` and `catalog-entries\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs") &&
+      /Slice 903 deleted the orphan workflow-node response helper module/.test(guide) &&
+      /`workflow-node\.mjs` and `workflow-node\.test\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1141,7 +1145,11 @@ function runDocs() {
       /Implementation Slice Evidence: 902/.test(matrix) &&
       /Slice 902 deleted the retired catalog-entry materializer module/.test(matrix) &&
       /`catalog-entries\.mjs` and `catalog-entries\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 902/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 902 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 903/.test(matrix) &&
+      /Slice 903 deleted the orphan workflow-node response helper module/.test(matrix) &&
+      /`workflow-node\.mjs` and `workflow-node\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 903/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1322,7 +1330,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 899 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 900 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 901 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 902/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 902 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 903/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1802,12 +1811,13 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 902 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 903 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
       /the local runtime-engine helper tail no longer exports `llamaCppGpuLayersArg\(\)` or `backendBindAddress\(\)`/.test(implementationMatrix) &&
+      /the orphan `workflow-node\.mjs` response helper\/test module is deleted/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -8090,8 +8100,9 @@ function runBridge() {
       !/details\?\.modelRouteDecision/.test(threadRuntimeControls) &&
       /"model_route_decision": details\.get\("model_route_decision"\)/.test(bridgeModule) &&
       !/"modelRouteDecision": details\.get/.test(bridgeModule) &&
-      /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(modelWorkflowNode) &&
-      !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(modelWorkflowNode) &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
+      !/from "\.\/model-mounting\/workflow-node\.mjs"/.test(modelMountingState) &&
       /route_decision:\s*invocation\.routeReceipt\?\.details\?\.model_route_decision/.test(openAiCompatRoutes) &&
       !/route_decision:\s*invocation\.routeReceipt\?\.details\?\.modelRouteDecision/.test(openAiCompatRoutes) &&
       !/export function isAutoModelSelector\b/.test(modelRoutes) &&
@@ -8131,15 +8142,10 @@ function runBridge() {
       /canonical route decision details/.test(
         read("packages/runtime-daemon/src/openai-compat-routes.test.mjs"),
       ) &&
-      /canonical route decision details/.test(
-        modelWorkflowNodeTest,
-      ) &&
       !/modelMountRouteDecisionRef/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
-      "packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
@@ -9419,19 +9425,17 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-response-route-decision-aliases-retired",
-    /model_route_decision:\s*\{\s*route_id:\s*"route\.local-first",\s*selected_model:\s*"model\.local"\s*\}/.test(
-      modelWorkflowNodeTest,
-    ) &&
+    !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
+      !/nativeInvocationResponseShape/.test(modelMountingState) &&
       /model_route_decision:\s*\{\s*route_id:\s*"route\.native",\s*selected_model:\s*"model\.native"\s*\}/.test(
         openAiCompatRoutesTest,
       ) &&
-      /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(modelWorkflowNodeTest) &&
-      /Object\.hasOwn\(response\.route_decision,\s*"selectedModel"\),\s*false/.test(modelWorkflowNodeTest) &&
       /Object\.hasOwn\(response\.route_decision,\s*"routeId"\),\s*false/.test(openAiCompatRoutesTest) &&
       /Object\.hasOwn\(response\.route_decision,\s*"selectedModel"\),\s*false/.test(openAiCompatRoutesTest) &&
-      !/model_route_decision:\s*\{\s*(?:routeId|selectedModel)/.test(modelWorkflowNodeTest) &&
       !/model_route_decision:\s*\{\s*(?:routeId|selectedModel)/.test(openAiCompatRoutesTest),
     [
+      "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.test.mjs",
     ],
@@ -9522,9 +9526,9 @@ function runBridge() {
       !/state\.receipt\("model_invocation_stream_completed"/.test(modelConversationOps) &&
       /details\.get\("tool_receipt_ids"\)/.test(bridgeModule) &&
       !/details\.get\("(?:instanceId|toolReceiptIds)"\)/.test(bridgeModule) &&
-      /receipt\.details\?\.backend_id/.test(modelWorkflowNode) &&
-      /receipt\.details\?\.send_options/.test(modelWorkflowNode) &&
       /receipt\.details\?\.backend_id/.test(openAiCompatRoutes) &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
       !/receipt\.details\?\.(?:backendId|sendOptions|selectedBackend|providerResponseKind|backendEvidenceRefs)/.test(
         modelWorkflowNode + openAiCompatRoutes,
       ) &&
@@ -9543,7 +9547,6 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/workflow-node.mjs",
       "packages/runtime-daemon/src/openai-compat-routes.mjs",
     ],
     "Phase 3/10 is pending: public model invocation facades must not retain JS receipt-detail construction while Rust-admission builders and projections keep canonical snake_case metadata",
