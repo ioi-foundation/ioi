@@ -22,7 +22,7 @@ function createSurface(overrides = {}) {
     },
     diagnosticsRepairContextForRequest: (request = {}) => request.diagnosticsRepairContext ?? null,
     diagnosticsRepairContextForToolPack: (_request, _input, toolId) => ({ source: "tool_pack", toolId }),
-    stepModuleRunner: createShadowStepModuleRunner(),
+    stepModuleRunner: createRetiredNonLiveStepModuleRunner(),
     ...overrides,
   });
 }
@@ -35,7 +35,7 @@ function assertNoRetiredInvocationErrorDetailAliases(details) {
   }
 }
 
-function createShadowStepModuleRunner() {
+function createRetiredNonLiveStepModuleRunner() {
   return {
     backend: "rust_workload_shadow",
     blocksDaemonJsExecution: false,

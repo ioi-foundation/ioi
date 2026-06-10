@@ -31,18 +31,20 @@ test("default StepModuleRunner is Rust workload live and fails closed without co
   );
 });
 
-test("daemon-js StepModule backend selection fails closed", () => {
-  assert.throws(
-    () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_BACKEND: "daemon_js" }),
-    (error) =>
-      error instanceof StepModuleRunnerError &&
-      error.code === "step_module_backend_invalid",
-  );
+test("retired StepModule backend selections fail closed", () => {
+  for (const backend of ["daemon_js", "rust_workload_shadow", "rust_workload_gated"]) {
+    assert.throws(
+      () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_BACKEND: backend }),
+      (error) =>
+        error instanceof StepModuleRunnerError &&
+        error.code === "step_module_backend_invalid",
+    );
+  }
 });
 
-test("rust workload shadow runner produces workload invocation with mock bridge result", () => {
+test("rust workload live runner produces workload invocation with mock bridge result", () => {
   const runner = new RustWorkloadStepModuleRunner({
-    backend: "rust_workload_shadow",
+    backend: "rust_workload_live",
     mockResult: {
       source: "rust_workload_mock",
       result: {
@@ -61,7 +63,7 @@ test("rust workload shadow runner produces workload invocation with mock bridge 
           workflow_graph_id: "workflow:test",
           workflow_node_id: "node:test",
           component_kind: "CodingToolNode",
-          status: "shadow",
+          status: "live",
           attempt_id: "attempt://mock",
           evidence_refs: [],
           receipt_refs: ["receipt://mock"],
@@ -86,17 +88,17 @@ test("rust workload shadow runner produces workload invocation with mock bridge 
     },
   });
 
-  assert.equal(projection.backend, "rust_workload_shadow");
+  assert.equal(projection.backend, "rust_workload_live");
   assert.equal(projection.invocation.module_ref.kind, "workload_job");
   assert.equal(projection.invocation.execution.backend, "workload_grpc");
-  assert.equal(projection.result.workflow_projection.status, "shadow");
-  assert.equal(projection.blocking, false);
+  assert.equal(projection.result.workflow_projection.status, "live");
+  assert.equal(projection.blocking, true);
 });
 
 test("rust workload command bridge sends StepModuleInvocation request", () => {
   const calls = [];
   const runner = new RustWorkloadStepModuleRunner({
-    backend: "rust_workload_shadow",
+    backend: "rust_workload_live",
     command: "mock-step-module-bridge",
     spawnSyncImpl(command, args, options) {
       calls.push({ command, args, request: JSON.parse(options.input) });
@@ -138,24 +140,5 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
   assert.equal(
     projection.bridge_result.receipt_binding.schema_version,
     "ioi.step_module_receipt_binding.v1",
-  );
-});
-
-test("gated/live Rust workload runner blocks daemon-js execution until implemented", () => {
-  const gated = createStepModuleRunnerFromEnv({
-    IOI_STEP_MODULE_BACKEND: "rust_workload_gated",
-  });
-  assert.equal(gated.blocksDaemonJsExecution, true);
-  assert.throws(
-    () =>
-      gated.runCodingTool({
-        contract: workspaceStatusContract,
-        toolId: "workspace.status",
-        input: {},
-        result: {},
-      }),
-    (error) =>
-      error instanceof StepModuleRunnerError &&
-      error.code === "rust_workload_bridge_unconfigured",
   );
 });

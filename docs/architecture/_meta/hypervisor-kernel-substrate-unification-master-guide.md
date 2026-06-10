@@ -2441,6 +2441,17 @@ topology truth, stable protocol APIs, and command-transport retirement remain
 required before model-mount discovery and inventory reach terminal pure Rust
 conformance.
 
+Slice 922 retired daemon-side StepModule shadow/gated backend selection.
+`createStepModuleRunnerFromEnv()` now accepts only `rust_workload_live`;
+explicit `daemon_js`, `rust_workload_shadow`, or `rust_workload_gated` selections
+fail closed. The daemon runner reports live mode and live workflow projection by
+default, so shadow/gated comparison modes cannot be selected from the JS runtime
+edge as split-brain execution fallbacks. The `ioi-step-module-bridge` command
+path remains migration transport only; direct Rust daemon-core StepModuleRouter
+APIs, Agentgres admission, replay, projection, stable protocol APIs, and
+command-transport retirement remain required before the StepModule substrate
+reaches terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
@@ -3499,10 +3510,15 @@ Implementation work:
 - Add configuration:
 
 ```text
-IOI_STEP_MODULE_BACKEND=daemon_js|rust_workload_shadow|rust_workload_gated|rust_workload_live
+IOI_STEP_MODULE_BACKEND=rust_workload_live
 IOI_WORKLOAD_GRPC_ADDR=...
 IOI_SHMEM_ID=...
 ```
+
+Retired backend selections (`daemon_js`, `rust_workload_shadow`, and
+`rust_workload_gated`) fail closed in the runtime-daemon StepModule runner.
+Historical shadow/gated bridge fixtures remain history only; the current daemon
+edge admits live Rust workload execution or no execution.
 
 Likely files/modules:
 

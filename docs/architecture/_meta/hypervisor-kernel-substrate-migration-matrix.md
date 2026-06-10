@@ -269,7 +269,9 @@ Matrix compaction timing:
   orphan model-instance lifecycle guard module deletion.
 - Scheduled matrix-compaction obligation from Slice 920 is now satisfied by the
   fixture-policy compatibility wrapper deletion.
-- Next scheduled matrix-compaction pass: compact Slice 921 after the next
+- Scheduled matrix-compaction obligation from Slice 921 is now satisfied by the
+  StepModule runner shadow/gated backend selection retirement.
+- Next scheduled matrix-compaction pass: compact Slice 922 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19629,6 +19631,47 @@ required before model-mount discovery and inventory reach the pure Rust
 substrate target.
 
 Next scheduled matrix-compaction pass: compact Slice 921 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs. The
+`ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.
+
+At Slice 921 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 922 is that seam
+and satisfies the Slice 921 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 921 is now satisfied.
+
+## Implementation Slice Evidence: 922
+
+Slice 922 retired daemon-side StepModule shadow/gated backend selection.
+`createStepModuleRunnerFromEnv()` now accepts only `rust_workload_live`; explicit
+`daemon_js`, `rust_workload_shadow`, or `rust_workload_gated` selections fail
+closed with `step_module_backend_invalid`. The daemon runner now reports live
+mode and live workflow projection by default, so old shadow/gated comparison
+modes cannot be selected from the JS runtime edge as split-brain execution
+fallbacks.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal StepModule migration: the
+`ioi-step-module-bridge` command path remains migration transport, and direct
+Rust daemon-core StepModuleRouter APIs, Agentgres admission, replay, projection,
+stable protocol APIs, and command-transport retirement remain required before
+the StepModule substrate reaches the pure Rust target.
+
+Next scheduled matrix-compaction pass: compact Slice 922 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

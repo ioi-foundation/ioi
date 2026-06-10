@@ -11,8 +11,6 @@ export const STEP_MODULE_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
 export const STEP_MODULE_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
 
 export const STEP_MODULE_BACKENDS = new Set([
-  "rust_workload_shadow",
-  "rust_workload_gated",
   "rust_workload_live",
 ]);
 
@@ -51,7 +49,7 @@ export class StepModuleRunner {
   }
 
   get blocksDaemonJsExecution() {
-    return false;
+    return true;
   }
 
   runCodingTool() {
@@ -65,7 +63,7 @@ export class StepModuleRunner {
 
 export class RustWorkloadStepModuleRunner extends StepModuleRunner {
   constructor(options = {}) {
-    super({ backend: options.backend ?? "rust_workload_shadow" });
+    super({ backend: options.backend ?? "rust_workload_live" });
     this.command = optionalString(options.command);
     this.args = normalizeArgs(options.args);
     this.grpcAddr = optionalString(options.grpcAddr);
@@ -75,7 +73,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
   }
 
   get blocksDaemonJsExecution() {
-    return this.backend === "rust_workload_gated" || this.backend === "rust_workload_live";
+    return true;
   }
 
   runCodingTool({ contract, toolId, input = {}, result = {}, context = {} } = {}) {
@@ -89,7 +87,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       execution_backend: "workload_grpc",
       workflow_projection_status:
         context.workflow_projection_status ??
-        (this.backend === "rust_workload_shadow" ? "shadow" : "gated"),
+        "live",
     });
     const request = {
       schema_version: COMMAND_SCHEMA_VERSION,
@@ -104,7 +102,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
     const bridgeResult = this.invokeBridge(request);
     return {
       backend: this.backend,
-      mode: this.backend.replace("rust_workload_", ""),
+      mode: "live",
       blocking: this.blocksDaemonJsExecution,
       source: bridgeResult.source,
       bridge_result: bridgeResult,
