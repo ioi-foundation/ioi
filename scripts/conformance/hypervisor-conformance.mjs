@@ -826,6 +826,8 @@ function runDocs() {
       /`provider-local-drivers\.mjs` and `provider-local-drivers\.test\.mjs` are absent/.test(guide) &&
       /Slice 914 deleted the orphan JS model-capability materializer/.test(guide) &&
       /`model-capability\.mjs` and `model-capability\.test\.mjs` are absent/.test(guide) &&
+      /Slice 915 deleted the orphan JS model-instance lifecycle planning facades/.test(guide) &&
+      /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -1242,7 +1244,11 @@ function runDocs() {
       /Implementation Slice Evidence: 914/.test(matrix) &&
       /Slice 914 deleted the orphan JS model-capability materializer/.test(matrix) &&
       /`model-capability\.mjs` and `model-capability\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 914/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 914 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 915/.test(matrix) &&
+      /Slice 915 deleted the orphan JS model-instance lifecycle planning facades/.test(matrix) &&
+      /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 915/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1435,7 +1441,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 911 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 912 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 913 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 914/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 914 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 915/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1918,7 +1925,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 914 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 915 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -10466,14 +10473,14 @@ function runBridge() {
       !/providerLifecycleHash/.test(modelMountAdmissionRunner) &&
       /provider_lifecycle_hash/.test(bridgeModule) &&
       /response\.get\("providerLifecycleHash"\)\.is_none/.test(bridgeModule) &&
-      /planModelMountInstanceLifecycle/.test(modelMountingState) &&
-      /planModelMountInstanceLifecycleForMigratedProvider/.test(
+      !/planModelMountInstanceLifecycle/.test(modelMountingState) &&
+      !/planModelMountInstanceLifecycleForMigratedProvider/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /state\.planModelMountInstanceLifecycle/.test(
+      !/state\.planModelMountInstanceLifecycle/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
-      /model_mount_instance_lifecycle_planning_required/.test(
+      !/model_mount_instance_lifecycle_planning_required/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       /model_mount_instance_lifecycle_hash/.test(
@@ -10483,6 +10490,12 @@ function runBridge() {
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       /model_mount_provider_lifecycle_hash/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycleRequiresRust/.test(
+        read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
+      ) &&
+      !/modelMountInstanceLifecycleFields/.test(
         read("packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs"),
       ) &&
       !/providerLifecycleHash/.test(
@@ -12738,8 +12751,10 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: Rust model_mount core must own migrated local provider model-instance load/unload/evict/supersede transition backend, evidence, provider lifecycle hash binding, and transition hash planning",
+    "Phase 9/10 is pending: Rust model_mount core must own migrated local provider model-instance load/unload/evict/supersede transition backend, evidence, provider lifecycle hash binding, and transition hash planning without JS state/helper planning facades",
   );
   assertCheck(
     result,

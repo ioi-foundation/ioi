@@ -255,7 +255,9 @@ Matrix compaction timing:
   command bridge remains explicitly non-terminal migration transport.
 - Scheduled matrix-compaction obligation from Slice 913 is now satisfied by the
   orphan JS model-capability materializer deletion.
-- Next scheduled matrix-compaction pass: compact Slice 914 after the next
+- Scheduled matrix-compaction obligation from Slice 914 is now satisfied by the
+  model-instance lifecycle planning facade deletion.
+- Next scheduled matrix-compaction pass: compact Slice 915 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19367,7 +19369,41 @@ receipt/state-root binding, replay, stable protocol APIs, and
 command-transport retirement remain required before model capability projection
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 914 after the next direct
+Scheduled matrix-compaction obligation from Slice 914 is now satisfied.
+
+## Implementation Slice Evidence: 915
+
+Slice 915 deleted the orphan JS model-instance lifecycle planning facades.
+`ModelMountingState.planModelMountInstanceLifecycle()` is absent, and
+`model-instance-lifecycle.mjs` no longer exports
+`planModelMountInstanceLifecycleForMigratedProvider()`,
+`modelMountInstanceLifecycleRequiresRust()`, or
+`modelMountInstanceLifecycleFields()`. Rust `model_mount` still owns the
+planning path through `plan_model_mount_instance_lifecycle` and
+`RustModelMountAdmissionRunner.planInstanceLifecycle()`, while the remaining JS
+helper surface is limited to receipt-binding issue detection for already
+admitted Rust-bound lifecycle evidence before store persistence. Public
+load/unload and loaded-instance maintenance facades still fail closed rather
+than creating JS lifecycle receipts or mutating `model-instances`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs packages/runtime-daemon/src/model-mounting/store.test.mjs packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal instance-lifecycle migration: direct Rust
+daemon-core load/unload/evict/supersede APIs, Agentgres-backed topology and
+model-instance truth, receipt/state-root binding, replay, stable protocol APIs,
+and command-transport retirement remain required before instance lifecycle
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 915 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

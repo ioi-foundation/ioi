@@ -93,23 +93,6 @@ function fakeState() {
       this.receipts.push(receipt);
       return receipt;
     },
-    planModelMountInstanceLifecycle(request) {
-      this.transitionRequests.push(request);
-      return {
-        action: request.action,
-        status: request.target_status,
-        backendId: request.backend_ref,
-        driver: request.driver,
-        executionBackend: request.execution_backend,
-        provider_lifecycle_hash: request.provider_lifecycle_hash,
-        instance_lifecycle_hash: `sha256:${request.action}:${request.instance_ref}`,
-        evidence_refs: [
-          "rust_model_mount_instance_lifecycle",
-          "rust_model_mount_provider_lifecycle_bound",
-          ...request.evidence_refs,
-        ],
-      };
-    },
     commitRuntimeModelMountRecordState(request) {
       this.recordStateCommits.push(JSON.parse(JSON.stringify(request)));
       return {
@@ -494,7 +477,6 @@ test("unloadModel mutation facade fails closed before JS driver, receipt, or ins
 
 test("loadModel fails closed before Rust planning or Agentgres commit shims are used", async () => {
   const state = fakeState();
-  state.planModelMountInstanceLifecycle = () => ({ status: "loaded" });
   delete state.commitRuntimeModelMountRecordState;
 
   await assert.rejects(
@@ -522,7 +504,6 @@ test("unloadModel fails closed before Rust planning or Agentgres commit shims ar
   state.instances.set("instance.loaded", {
     ...loaded,
   });
-  state.planModelMountInstanceLifecycle = () => ({ status: "unloaded" });
   delete state.commitRuntimeModelMountRecordState;
 
   await assert.rejects(

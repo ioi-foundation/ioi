@@ -2355,6 +2355,22 @@ topology, receipt/state-root binding, replay, stable protocol APIs, and
 command-transport retirement remain required before capability projection
 reaches terminal pure Rust conformance.
 
+Slice 915 deleted the orphan JS model-instance lifecycle planning facades while
+leaving the Rust bridge and receipt-binding guards in place.
+`ModelMountingState.planModelMountInstanceLifecycle()` is absent, and
+`model-instance-lifecycle.mjs` no longer exports
+`planModelMountInstanceLifecycleForMigratedProvider()`,
+`modelMountInstanceLifecycleRequiresRust()`, or
+`modelMountInstanceLifecycleFields()`. Direct instance lifecycle planning still
+belongs to Rust `model_mount` through `plan_model_mount_instance_lifecycle` and
+`RustModelMountAdmissionRunner.planInstanceLifecycle()`, while JS may only
+reject public load/unload/maintenance mutations or validate that already
+admitted lifecycle receipts carry Rust-bound hashes/evidence before store
+persistence. Direct Rust daemon-core load/unload/evict/supersede APIs,
+Agentgres-backed topology and instance truth, replay, stable protocol APIs, and
+command-transport retirement remain required before instance lifecycle reaches
+terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

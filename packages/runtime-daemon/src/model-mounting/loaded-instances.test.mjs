@@ -54,23 +54,6 @@ function fakeState({ now = "2026-06-03T12:00:00.000Z", instances = [] } = {}) {
         },
       };
     },
-    planModelMountInstanceLifecycle(request) {
-      this.transitionRequests.push(request);
-      return {
-        action: request.action,
-        status: request.target_status,
-        backendId: request.backend_ref,
-        driver: request.driver,
-        executionBackend: request.execution_backend,
-        provider_lifecycle_hash: request.provider_lifecycle_hash,
-        instance_lifecycle_hash: `sha256:${request.action}:${request.instance_ref}`,
-        evidence_refs: [
-          "rust_model_mount_instance_lifecycle",
-          "rust_model_mount_provider_lifecycle_bound",
-          ...request.evidence_refs,
-        ],
-      };
-    },
   };
 }
 
