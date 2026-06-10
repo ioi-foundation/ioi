@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 900 after the next
+- Next scheduled matrix-compaction pass: compact Slice 901 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18938,9 +18938,37 @@ provider replay/projection, stable protocol APIs, command-transport retirement,
 and removal of remaining JS state materialization remain required before
 provider execution reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 900 after the next direct
+Scheduled matrix-compaction obligation from Slice 900 is now satisfied.
+
+## Implementation Slice Evidence: 901
+
+Slice 901 deleted the unused local runtime-engine helper tail.
+`local-runtime-engines.mjs` no longer exports `llamaCppGpuLayersArg()` or
+`backendBindAddress()`, and `local-runtime-engines.test.mjs` no longer
+preserves a standalone product GPU-mode-to-llama.cpp flag contract. The
+remaining helper surface is limited to current migration-time binary discovery
+and library-path materialization for backend registry seeding until direct Rust
+daemon-core runtime-engine/process-planning APIs own local runtime
+materialization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal runtime-engine migration: direct Rust
+daemon-core runtime-engine preference/profile APIs, process planning, local
+runtime materialization, Agentgres-backed replay/projection, stable protocol
+APIs, and command-transport retirement remain required before runtime-engine
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 901 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
-provider execution/control APIs, Agentgres-backed replay, and stable protocol
-APIs. The `ioi-step-module-bridge` command path is acceptable only as migration
-transport; it is not the terminal architecture.
+provider/runtime-engine execution-control APIs, Agentgres-backed replay, and
+stable protocol APIs. The `ioi-step-module-bridge` command path is acceptable
+only as migration transport; it is not the terminal architecture.

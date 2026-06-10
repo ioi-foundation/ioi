@@ -2208,6 +2208,16 @@ provider/endpoint `driver` fields and no longer carries a reusable JS helper
 surface that could reintroduce hosted driver inference or retired camelCase
 coalescing behavior.
 
+Slice 901 deleted the unused local runtime-engine helper tail. The remaining
+`local-runtime-engines.mjs` module keeps only migration-time llama.cpp binary
+discovery and library-path materialization used by current backend registry
+seeding; it no longer exports `llamaCppGpuLayersArg()` or
+`backendBindAddress()`, and its focused test no longer preserves a public
+product GPU-mode-to-llama.cpp flag contract. Terminal runtime-engine migration
+still requires direct Rust daemon-core runtime-engine preference/profile,
+projection, process-planning, local runtime materialization, Agentgres replay,
+stable protocol APIs, and command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

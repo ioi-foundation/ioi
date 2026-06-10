@@ -172,6 +172,12 @@ function runDocs() {
   const guide = read(GUIDE);
   const matrix = read(MATRIX);
   const implementationMatrix = read(IMPLEMENTATION_MATRIX);
+  const localRuntimeEngines = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
+    : "";
+  const localRuntimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs")
+    : "";
   const sourceMap = read(SOURCE_OF_TRUTH);
   const startShim = read("docs/architecture/START_HERE.md");
   const fleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
@@ -767,6 +773,11 @@ function runDocs() {
       /`provider-driver-helpers\.mjs` and `provider-driver-helpers\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs") &&
+      /Slice 901 deleted the unused local runtime-engine helper tail/.test(guide) &&
+      /it no longer exports `llamaCppGpuLayersArg\(\)` or\s+`backendBindAddress\(\)`/.test(guide) &&
+      !/export function llamaCppGpuLayersArg/.test(localRuntimeEngines) &&
+      !/export function backendBindAddress/.test(localRuntimeEngines) &&
+      !/llamaCppGpuLayersArg|backendBindAddress/.test(localRuntimeEnginesTest) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1118,7 +1129,11 @@ function runDocs() {
       /Implementation Slice Evidence: 900/.test(matrix) &&
       /Slice 900 deleted the final standalone provider-driver helper module/.test(matrix) &&
       /`provider-driver-helpers\.mjs` and `provider-driver-helpers\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 900/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 900 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 901/.test(matrix) &&
+      /Slice 901 deleted the unused local runtime-engine helper tail/.test(matrix) &&
+      /`local-runtime-engines\.mjs` no longer exports `llamaCppGpuLayersArg\(\)` or\s+`backendBindAddress\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 901/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1297,7 +1312,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 897 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 898 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 899 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 900/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 900 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 901/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1777,11 +1793,12 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 900 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 901 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
+      /the local runtime-engine helper tail no longer exports `llamaCppGpuLayersArg\(\)` or `backendBindAddress\(\)`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -12226,6 +12243,12 @@ function runReceipts() {
   const runtimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     : "";
+  const localRuntimeEngines = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
+    : "";
+  const localRuntimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs")
+    : "";
   const runtimeSurveyModule = exists("packages/runtime-daemon/src/model-mounting/runtime-survey.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-survey.mjs")
     : "";
@@ -13744,6 +13767,21 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
     "Phase 9/11 is pending: runtime-engine mutation must fail closed until Rust daemon-core owns preference/profile receipts, record-state admission, and projections",
+  );
+  assertCheck(
+    result,
+    "model-mount-local-runtime-helper-tail-retired",
+    /export function discoverAutopilotLlamaServer/.test(localRuntimeEngines) &&
+      /export function llamaCppLibraryPathEnv/.test(localRuntimeEngines) &&
+      !/export function llamaCppGpuLayersArg/.test(localRuntimeEngines) &&
+      !/export function backendBindAddress/.test(localRuntimeEngines) &&
+      !/llamaCppGpuLayersArg|backendBindAddress/.test(localRuntimeEnginesTest) &&
+      /prefers accelerated native bundles/.test(localRuntimeEnginesTest),
+    [
+      "packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs",
+      "packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs",
+    ],
+    "Phase 9/11 is pending: local runtime-engine discovery must stay limited to migration-time binary/library materialization until Rust daemon-core owns runtime-engine process planning",
   );
   assertCheck(
     result,

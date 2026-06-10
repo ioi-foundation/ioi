@@ -19,27 +19,6 @@ export function llamaCppLibraryPathEnv(binaryPath, existing = "") {
     .join(path.delimiter);
 }
 
-export function llamaCppGpuLayersArg(gpu) {
-  const raw = String(gpu ?? "").trim();
-  const value = raw.toLowerCase();
-  if (!value) return null;
-  if (["auto", "max", "all", "gpu"].includes(value)) return "999";
-  if (["off", "cpu", "false", "none"].includes(value)) return "0";
-  return raw;
-}
-
-export function backendBindAddress(baseUrl) {
-  try {
-    const parsed = new URL(baseUrl ?? "http://127.0.0.1:8080/v1");
-    return {
-      host: parsed.hostname || "127.0.0.1",
-      port: parsed.port ? Number(parsed.port) : parsed.protocol === "https:" ? 443 : 80,
-    };
-  } catch {
-    return { host: null, port: null };
-  }
-}
-
 function findExecutableByName(root, name, maxDepth = 4) {
   if (!root || !fs.existsSync(root)) return [];
   const matches = [];
