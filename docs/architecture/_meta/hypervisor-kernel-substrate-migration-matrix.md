@@ -21162,3 +21162,37 @@ should preserve the non-terminal status of workflow, diagnostics, and
 workspace-snapshot command transport, Agentgres-backed truth, and stable
 protocol APIs without encoding daemon-store pass-through wrappers as public
 route authority.
+
+## Implementation Slice Evidence: 962
+
+Slice 962 retired daemon-store approval route pass-through wrappers. The public
+approval request, decision, approve/reject shortcut, and revoke routes now call
+the mounted fail-closed approval surface directly instead of preserving
+`requestThreadApproval()`, `decideThreadApproval()`, or
+`revokeThreadApproval()` on the daemon store as duplicate route-level
+compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-approval-surface.test.mjs packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal approval authority migration. Direct Rust
+daemon-core route admission, wallet.network grant and lease issuance,
+Agentgres-backed expected-head/state-root truth, receipt/event materialization,
+replay, projection, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-962 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of approval command transport,
+wallet.network authority, Agentgres-backed approval truth, and stable protocol
+APIs without encoding daemon-store pass-through wrappers as public approval
+authority.

@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
 
-import { AgentgresRuntimeStateStore } from "./index.mjs";
+import { createRuntimeApprovalSurface } from "./runtime-approval-surface.mjs";
 
 function assertNoRetiredApprovalControlDetailAliases(details) {
   for (const key of [
@@ -19,29 +16,42 @@ function assertNoRetiredApprovalControlDetailAliases(details) {
 }
 
 function createStore() {
-  const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-approval-control-facade-"));
-  const store = new AgentgresRuntimeStateStore(stateDir, {
-    cwd: stateDir,
-    approvalStateRunner: {
-      planApprovalRequestStateUpdate() {
-        throw new Error("JS approval request facade must not invoke the Rust planner bridge.");
-      },
-      planApprovalDecisionStateUpdate() {
-        throw new Error("JS approval decision facade must not invoke the Rust planner bridge.");
-      },
-      planApprovalRevokeStateUpdate() {
-        throw new Error("JS approval revoke facade must not invoke the Rust planner bridge.");
-      },
+  const store = {
+    runtimeEventStreams: new Map(),
+    agents: new Map(),
+    runs: new Map(),
+    agentForThread() {
+      throw new Error("approval surface must not look up agents in JS");
+    },
+    appendRuntimeEvent() {
+      throw new Error("approval surface must not append runtime events in JS");
+    },
+    writeAgent() {
+      throw new Error("approval surface must not persist agents in JS");
+    },
+    writeRun() {
+      throw new Error("approval surface must not persist runs in JS");
+    },
+  };
+  const surface = createRuntimeApprovalSurface({
+    approvalDecisionForRequest(value) {
+      return value === "reject" || value === "rejected" ? "reject" : "approve";
+    },
+    runtimeError({ status, code, message, details }) {
+      const error = new Error(message);
+      error.status = status;
+      error.code = code;
+      error.details = details;
+      return error;
     },
   });
-  return { stateDir, store };
+  return { store, surface };
 }
 
-test("requestThreadApproval facade fails closed before agent lookup, event append, Rust planning, or JS persistence", () => {
-  const { stateDir, store } = createStore();
-  try {
-    assert.throws(
-      () => store.requestThreadApproval("thread_one", {
+test("requestThreadApproval surface fails closed before agent lookup, event append, Rust planning, or JS persistence", () => {
+  const { store, surface } = createStore();
+  assert.throws(
+    () => surface.requestThreadApproval(store, "thread_one", {
         approval_id: "approval_one",
         approvalId: "approval_retired",
         workflowGraphId: "graph_retired",
@@ -66,20 +76,15 @@ test("requestThreadApproval facade fails closed before agent lookup, event appen
       },
     );
 
-    assert.equal(store.runtimeEventStreams.size, 0);
-    assert.equal(store.agents.size, 0);
-    assert.equal(store.runs.size, 0);
-  } finally {
-    store.close();
-    rmSync(stateDir, { recursive: true, force: true });
-  }
+  assert.equal(store.runtimeEventStreams.size, 0);
+  assert.equal(store.agents.size, 0);
+  assert.equal(store.runs.size, 0);
 });
 
-test("decideThreadApproval facade fails closed before lookup, event append, Rust planning, or JS persistence", () => {
-  const { stateDir, store } = createStore();
-  try {
-    assert.throws(
-      () => store.decideThreadApproval("thread_one", "approval_one", {
+test("decideThreadApproval surface fails closed before lookup, event append, Rust planning, or JS persistence", () => {
+  const { store, surface } = createStore();
+  assert.throws(
+    () => surface.decideThreadApproval(store, "thread_one", "approval_one", {
         decision: "approve",
         approvalId: "approval_retired",
         workflowGraphId: "graph_decision_retired",
@@ -105,20 +110,15 @@ test("decideThreadApproval facade fails closed before lookup, event append, Rust
       },
     );
 
-    assert.equal(store.runtimeEventStreams.size, 0);
-    assert.equal(store.agents.size, 0);
-    assert.equal(store.runs.size, 0);
-  } finally {
-    store.close();
-    rmSync(stateDir, { recursive: true, force: true });
-  }
+  assert.equal(store.runtimeEventStreams.size, 0);
+  assert.equal(store.agents.size, 0);
+  assert.equal(store.runs.size, 0);
 });
 
-test("revokeThreadApproval facade fails closed before request lookup, event append, Rust planning, or JS persistence", () => {
-  const { stateDir, store } = createStore();
-  try {
-    assert.throws(
-      () => store.revokeThreadApproval("thread_one", "approval_one", {
+test("revokeThreadApproval surface fails closed before request lookup, event append, Rust planning, or JS persistence", () => {
+  const { store, surface } = createStore();
+  assert.throws(
+    () => surface.revokeThreadApproval(store, "thread_one", "approval_one", {
         approvalId: "approval_retired",
         workflowGraphId: "graph_revoke_retired",
         workflowNodeId: "node_revoke_retired",
@@ -142,11 +142,7 @@ test("revokeThreadApproval facade fails closed before request lookup, event appe
       },
     );
 
-    assert.equal(store.runtimeEventStreams.size, 0);
-    assert.equal(store.agents.size, 0);
-    assert.equal(store.runs.size, 0);
-  } finally {
-    store.close();
-    rmSync(stateDir, { recursive: true, force: true });
-  }
+  assert.equal(store.runtimeEventStreams.size, 0);
+  assert.equal(store.agents.size, 0);
+  assert.equal(store.runs.size, 0);
 });

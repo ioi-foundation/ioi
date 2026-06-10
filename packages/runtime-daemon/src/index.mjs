@@ -1463,18 +1463,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  requestThreadApproval(threadId, request = {}) {
-    return this.approvalSurface.requestThreadApproval(this, threadId, request);
-  }
-
-  decideThreadApproval(threadId, approvalId, request = {}) {
-    return this.approvalSurface.decideThreadApproval(this, threadId, approvalId, request);
-  }
-
-  revokeThreadApproval(threadId, approvalId, request = {}) {
-    return this.approvalSurface.revokeThreadApproval(this, threadId, approvalId, request);
-  }
-
   latestApprovalDecisionEvent(threadId, approvalId) {
     return this.approvalSurface.latestApprovalDecisionEvent(this, threadId, approvalId);
   }

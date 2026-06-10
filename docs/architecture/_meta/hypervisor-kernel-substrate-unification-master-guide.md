@@ -2235,6 +2235,16 @@ admission, wallet/cTEE authority where applicable, Agentgres
 expected-head/state-root binding, receipt/artifact materialization, replay,
 projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
+Slice 962 retired the daemon-store approval route pass-through wrappers. The
+public approval request, decision, approve/reject shortcut, and revoke routes
+now call the mounted fail-closed approval surface directly, so JS no longer
+preserves `requestThreadApproval()`, `decideThreadApproval()`, or
+`revokeThreadApproval()` as daemon-store compatibility wrappers. This does not
+claim terminal approval authority migration: direct Rust daemon-core route
+admission, wallet.network grant/lease issuance, Agentgres expected-head and
+state-root binding, receipt/event materialization, replay, projection,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

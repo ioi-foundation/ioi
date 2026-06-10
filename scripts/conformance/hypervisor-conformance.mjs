@@ -5976,9 +5976,14 @@ function runBridge() {
       !/store\.agentForThread|resolveApprovalTarget|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
         approvalRequestFacadeBody,
       ) &&
-      /requestThreadApproval facade fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
+      /requestThreadApproval surface fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
         runtimeApprovalControlFacadeTest,
       ) &&
+      /store\.approvalSurface\.requestThreadApproval\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
+      !/^\s*requestThreadApproval\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
       /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&
       /workflowGraphId:\s*"graph_retired"/.test(runtimeApprovalControlFacadeTest) &&
       /idempotencyKey:\s*"approval_request_idempotency_retired"/.test(
@@ -6049,8 +6054,18 @@ function runBridge() {
       !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
         approvalDecisionFacadeBody,
       ) &&
-      /decideThreadApproval facade fails closed before lookup, event append, Rust planning, or JS persistence/.test(
+      /decideThreadApproval surface fails closed before lookup, event append, Rust planning, or JS persistence/.test(
         runtimeApprovalControlFacadeTest,
+      ) &&
+      /store\.approvalSurface\.decideThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.approvalSurface\.decideThreadApproval\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*\{\s*\.\.\.body,\s*decision: segments\[5\],\s*\}\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
+      !/^\s*decideThreadApproval\(threadId, approvalId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       /workflowGraphId:\s*"graph_decision_retired"/.test(
         runtimeApprovalControlFacadeTest,
@@ -6123,8 +6138,15 @@ function runBridge() {
       !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|runtimeEventStream|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
         approvalRevokeFacadeBody,
       ) &&
-      /revokeThreadApproval facade fails closed before request lookup, event append, Rust planning, or JS persistence/.test(
+      /revokeThreadApproval surface fails closed before request lookup, event append, Rust planning, or JS persistence/.test(
         runtimeApprovalControlFacadeTest,
+      ) &&
+      /store\.approvalSurface\.revokeThreadApproval\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends approvals through mounted approval surface/.test(runtimeRouteHandlersTest) &&
+      !/^\s*revokeThreadApproval\(threadId, approvalId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       /workflowGraphId:\s*"graph_revoke_retired"/.test(runtimeApprovalControlFacadeTest) &&
       /idempotencyKey:\s*"approval_revoke_idempotency_retired"/.test(
@@ -6151,7 +6173,7 @@ function runBridge() {
   assertCheck(
     result,
     "runtime-approval-request-aliases-retired",
-    /requestThreadApproval facade fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
+    /requestThreadApproval surface fails closed before agent lookup, event append, Rust planning, or JS persistence/.test(
       runtimeApprovalControlFacadeTest,
     ) &&
       /approvalId:\s*"approval_retired"/.test(runtimeApprovalControlFacadeTest) &&

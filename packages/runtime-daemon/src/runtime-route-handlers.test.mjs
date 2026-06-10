@@ -293,6 +293,103 @@ test("thread route sends workflow, diagnostics, and snapshot controls through mo
   }
 });
 
+test("thread route sends approvals through mounted approval surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const body = { request_id: "approval-route-test" };
+  const surfaceResult = (operation, args) => ({
+    status: "rust_core_required",
+    operation,
+    args,
+    direct_truth_write_allowed: false,
+  });
+  const store = {
+    approvalSurface: {
+      requestThreadApproval(surfaceStore, threadId, requestBody) {
+        calls.push({ operation: "requestThreadApproval", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("requestThreadApproval", [threadId, requestBody]);
+      },
+      decideThreadApproval(surfaceStore, threadId, approvalId, requestBody) {
+        calls.push({
+          operation: "decideThreadApproval",
+          surfaceStore,
+          args: [threadId, approvalId, requestBody],
+        });
+        return surfaceResult("decideThreadApproval", [threadId, approvalId, requestBody]);
+      },
+      revokeThreadApproval(surfaceStore, threadId, approvalId, requestBody) {
+        calls.push({
+          operation: "revokeThreadApproval",
+          surfaceStore,
+          args: [threadId, approvalId, requestBody],
+        });
+        return surfaceResult("revokeThreadApproval", [threadId, approvalId, requestBody]);
+      },
+    },
+    requestThreadApproval: retiredRouteWrapper,
+    decideThreadApproval: retiredRouteWrapper,
+    revokeThreadApproval: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      path: "/v1/threads/thread_route/approvals",
+      segments: ["v1", "threads", "thread_route", "approvals"],
+      operation: "requestThreadApproval",
+      args: ["thread_route", body],
+    },
+    {
+      path: "/v1/threads/thread_route/approvals/approval_route/decision",
+      segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "decision"],
+      operation: "decideThreadApproval",
+      args: ["thread_route", "approval_route", body],
+    },
+    {
+      path: "/v1/threads/thread_route/approvals/approval_route/approve",
+      segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "approve"],
+      operation: "decideThreadApproval",
+      args: ["thread_route", "approval_route", { ...body, decision: "approve" }],
+    },
+    {
+      path: "/v1/threads/thread_route/approvals/approval_route/reject",
+      segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "reject"],
+      operation: "decideThreadApproval",
+      args: ["thread_route", "approval_route", { ...body, decision: "reject" }],
+    },
+    {
+      path: "/v1/threads/thread_route/approvals/approval_route/revoke",
+      segments: ["v1", "threads", "thread_route", "approvals", "approval_route", "revoke"],
+      operation: "revokeThreadApproval",
+      args: ["thread_route", "approval_route", body],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 200);
+    assert.equal(call.operation, testCase.operation);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.args);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "rust_core_required",
+      operation: testCase.operation,
+      args: testCase.args,
+      direct_truth_write_allowed: false,
+    });
+  }
+});
+
 test("thread route invokes coding tools through canonical store surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

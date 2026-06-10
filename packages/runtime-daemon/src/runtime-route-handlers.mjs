@@ -946,23 +946,42 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "approvals" && !segments[4]) {
-      writeJsonResponse(response, store.requestThreadApproval(threadId, await readBody(request)));
+      writeJsonResponse(response, store.approvalSurface.requestThreadApproval(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "decision" && !segments[6]) {
-      writeJsonResponse(response, store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(
+        response,
+        store.approvalSurface.decideThreadApproval(
+          store,
+          threadId,
+          decodeURIComponent(segments[4]),
+          await readBody(request),
+        ),
+      );
       return;
     }
     if (request.method === "POST" && action === "approvals" && segments[4] && ["approve", "reject"].includes(segments[5]) && !segments[6]) {
       const body = await readBody(request);
-      writeJsonResponse(response, store.decideThreadApproval(threadId, decodeURIComponent(segments[4]), {
-        ...body,
-        decision: segments[5],
-      }));
+      writeJsonResponse(
+        response,
+        store.approvalSurface.decideThreadApproval(store, threadId, decodeURIComponent(segments[4]), {
+          ...body,
+          decision: segments[5],
+        }),
+      );
       return;
     }
     if (request.method === "POST" && action === "approvals" && segments[4] && segments[5] === "revoke" && !segments[6]) {
-      writeJsonResponse(response, store.revokeThreadApproval(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(
+        response,
+        store.approvalSurface.revokeThreadApproval(
+          store,
+          threadId,
+          decodeURIComponent(segments[4]),
+          await readBody(request),
+        ),
+      );
       return;
     }
     if (request.method === "POST" && action === "workflow-edit-proposals" && !segments[4]) {
