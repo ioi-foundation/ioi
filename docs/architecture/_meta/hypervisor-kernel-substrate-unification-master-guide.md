@@ -2077,6 +2077,11 @@ load-option normalizer now honors only canonical `ttl_seconds`, `ttl`, or `idle_
 and explicit TTL detection no longer treats camelCase TTL request fields as
 authoritative, so lifecycle TTL steering cannot survive as a JS compatibility
 selector before Rust-core load admission owns the direct path.
+Slice 937 retired the remaining load-option camelCase compatibility selectors. The
+load-option normalizer now honors only canonical `instance_identifier`, `model_path`, `tensor_parallel_size`, `gpu_memory_utilization`, and `max_model_len`,
+so instance identity, model-path, tensor-parallel, GPU-memory, and model-length
+steering cannot survive as JS compatibility selectors before Rust-core load
+admission owns the direct path.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

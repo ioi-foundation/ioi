@@ -19,7 +19,7 @@ export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
   const gpu = source.gpu_offload ?? source.gpu ?? null;
   const contextLength = source.context_length ?? null;
   const parallel = source.parallelism ?? source.parallel ?? null;
-  const identifier = source.identifier ?? source.instance_identifier ?? source.instanceIdentifier ?? null;
+  const identifier = source.identifier ?? source.instance_identifier ?? null;
   const normalized = {
     estimateOnly: truthy(source.estimate_only ?? false),
     gpu: gpu === null || gpu === undefined || gpu === "" ? null : String(gpu),
@@ -27,26 +27,20 @@ export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
     parallel: parallel === null || parallel === undefined || parallel === "" ? null : Number(parallel),
     ttlSeconds: ttl === null || ttl === undefined || ttl === "" ? null : Number(ttl),
     identifier: identifier === null || identifier === undefined || identifier === "" ? null : String(identifier),
-    modelPath: source.model_path ?? source.modelPath ?? null,
+    modelPath: source.model_path ?? null,
     model: source.model ?? null,
     dtype: source.dtype ?? null,
     tensorParallelSize:
       source.tensor_parallel_size === null || source.tensor_parallel_size === undefined || source.tensor_parallel_size === ""
-        ? source.tensorParallelSize === null || source.tensorParallelSize === undefined || source.tensorParallelSize === ""
-          ? null
-          : Number(source.tensorParallelSize)
+        ? null
         : Number(source.tensor_parallel_size),
     gpuMemoryUtilization:
       source.gpu_memory_utilization === null || source.gpu_memory_utilization === undefined || source.gpu_memory_utilization === ""
-        ? source.gpuMemoryUtilization === null || source.gpuMemoryUtilization === undefined || source.gpuMemoryUtilization === ""
-          ? null
-          : Number(source.gpuMemoryUtilization)
+        ? null
         : Number(source.gpu_memory_utilization),
     maxModelLen:
       source.max_model_len === null || source.max_model_len === undefined || source.max_model_len === ""
-        ? source.maxModelLen === null || source.maxModelLen === undefined || source.maxModelLen === ""
-          ? null
-          : Number(source.maxModelLen)
+        ? null
         : Number(source.max_model_len),
   };
   return {

@@ -853,6 +853,8 @@ function runDocs() {
       /load-option normalizer now honors only canonical `context_length`/.test(guide) &&
       /Slice 936 retired the load-option `ttlSeconds` and `idleTtlSeconds` compatibility aliases/.test(guide) &&
       /load-option normalizer now honors only canonical `ttl_seconds`, `ttl`, or `idle_ttl_seconds`/.test(guide) &&
+      /Slice 937 retired the remaining load-option camelCase compatibility selectors/.test(guide) &&
+      /load-option normalizer now honors only canonical `instance_identifier`, `model_path`, `tensor_parallel_size`, `gpu_memory_utilization`, and `max_model_len`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -10575,9 +10577,18 @@ function runBridge() {
         !/source\.gpuOffload/.test(loadPolicy) &&
         !/source\.contextLength/.test(loadPolicy) &&
         !/source\.ttlSeconds/.test(normalizeLoadOptionsBlock) &&
+        !/source\.instanceIdentifier/.test(normalizeLoadOptionsBlock) &&
+        !/source\.modelPath/.test(normalizeLoadOptionsBlock) &&
+        !/source\.tensorParallelSize/.test(normalizeLoadOptionsBlock) &&
+        !/source\.gpuMemoryUtilization/.test(normalizeLoadOptionsBlock) &&
+        !/source\.maxModelLen/.test(normalizeLoadOptionsBlock) &&
         !/value\.ttlSeconds/.test(hasExplicitTtlOptionBlock) &&
         !/value\.idleTtlSeconds/.test(hasExplicitTtlOptionBlock) &&
-        /load option normalization ignores retired estimateOnly, gpuOffload, contextLength, and ttlSeconds aliases/.test(loadPolicyTest) &&
+        /load option normalization ignores retired load-option camelCase aliases/.test(loadPolicyTest) &&
+        /instanceIdentifier:\s*"instance\.retired"/.test(loadPolicyTest) &&
+        /tensorParallelSize:\s*"8"/.test(loadPolicyTest) &&
+        /gpuMemoryUtilization:\s*"0\.99"/.test(loadPolicyTest) &&
+        /maxModelLen:\s*"7777"/.test(loadPolicyTest) &&
         /assert\.equal\(hasExplicitTtlOption\(\{ ttlSeconds: 60 \}\), false\)/.test(loadPolicyTest) &&
         /assert\.equal\(hasExplicitTtlOption\(\{ idleTtlSeconds: 60 \}\), false\)/.test(loadPolicyTest) &&
         /context_length:\s*loadOptions\.context_length \?\? defaults\.context_length \?\? null/.test(

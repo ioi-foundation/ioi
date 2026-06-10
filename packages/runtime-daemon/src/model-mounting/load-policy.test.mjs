@@ -48,7 +48,7 @@ test("load option normalization keeps canonical route fields stable", () => {
     model_path: "/models/qwen.gguf",
     dtype: "q4",
     tensor_parallel_size: "1",
-    gpuMemoryUtilization: "0.7",
+    gpu_memory_utilization: "0.7",
     max_model_len: "4096",
   }), {
     estimateOnly: true,
@@ -107,13 +107,18 @@ test("canonical load option input strips retired request aliases before provider
   }), {});
 });
 
-test("load option normalization ignores retired estimateOnly, gpuOffload, contextLength, and ttlSeconds aliases", () => {
+test("load option normalization ignores retired load-option camelCase aliases", () => {
   assert.deepEqual(normalizeLoadOptions({
     estimateOnly: true,
     gpuOffload: "auto",
     contextLength: "8192",
     ttlSeconds: "30",
     idleTtlSeconds: "45",
+    instanceIdentifier: "instance.retired",
+    modelPath: "/models/retired.gguf",
+    tensorParallelSize: "8",
+    gpuMemoryUtilization: "0.99",
+    maxModelLen: "7777",
   }), {
     estimateOnly: false,
     gpu: null,
