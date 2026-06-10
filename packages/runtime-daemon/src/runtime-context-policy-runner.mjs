@@ -12,6 +12,8 @@ export const CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSI
   "ioi.runtime.coding-tool-budget-recovery-admission-required-request.v1";
 export const WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.workflow-edit-admission-required-request.v1";
+export const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.diagnostics-repair-admission-required-request.v1";
 export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 export const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -150,6 +152,14 @@ export class RustContextPolicyRunner {
     return this.evaluateRawPolicy({
       operation: "plan_workflow_edit_admission_required",
       schemaVersion: WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  planDiagnosticsRepairAdmissionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_diagnostics_repair_admission_required",
+      schemaVersion: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
     });
   }

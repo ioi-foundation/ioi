@@ -2307,6 +2307,21 @@ Agentgres expected-head/state-root binding, policy receipts, retry-event
 materialization, run persistence, replay, command-transport retirement, and
 stable SDK/IDE/CLI protocol APIs remain required before terminal pure Rust
 substrate conformance.
+Slice 968 moved the diagnostics repair Rust-core-required admission refusal
+into the Rust daemon-core policy bridge. `DiagnosticsRepairAdmissionRequiredCore`
+now emits the canonical fail-closed envelope and snake_case detail payload,
+`ioi_step_module_bridge` exposes
+`plan_diagnostics_repair_admission_required`, and the runtime daemon mounts
+that runner into the diagnostics repair surface. JS still translates the
+Rust-authored refusal at the HTTP edge, but no longer acts as the canonical
+author for diagnostics repair decision execution, operator override, retry
+creation, repair decision resolution, or repair event append refusal when the
+daemon-core command is configured. This does not claim terminal diagnostics
+repair migration: direct Rust daemon-core repair admission/projection,
+wallet.network/operator authority, Agentgres expected-head/state-root binding,
+repair/operator receipts, retry-run admission, event materialization, replay,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

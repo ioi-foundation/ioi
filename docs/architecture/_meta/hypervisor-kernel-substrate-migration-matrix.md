@@ -21380,3 +21380,44 @@ should preserve that workflow-edit and coding-tool budget recovery refusal
 envelopes are now Rust-authored fail-closed migration boundaries, while
 accepted truth, wallet.network authority, Agentgres-backed state, and
 command-transport retirement remain non-terminal.
+
+## Implementation Slice Evidence: 968
+
+Slice 968 moved the diagnostics repair admission-required refusal envelope
+into the Rust daemon-core policy bridge. `DiagnosticsRepairAdmissionRequiredCore`
+now plans the canonical Rust-core-required response,
+`ioi_step_module_bridge` exposes
+`plan_diagnostics_repair_admission_required`, the JS daemon-core runner sends
+that command with
+`ioi.runtime.diagnostics-repair-admission-required-request.v1`, and the
+runtime daemon mounts the runner into the diagnostics repair surface so normal
+diagnostics repair control enters a Rust-authored fail-closed boundary before
+JS accepted-truth resolution, agent/run lookup, retry `createRun`,
+runtime-event append, run-map mutation, or persistence.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo check -p ioi-services` | passed |
+| `cargo check -p ioi-node` | passed |
+| `cargo test -p ioi-services rust_policy_plans_diagnostics_repair_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_diagnostics_repair_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+
+This still does not claim terminal diagnostics repair migration. Direct Rust
+daemon-core repair admission/projection, wallet.network/operator authority,
+Agentgres-backed expected-head/state-root truth, repair/operator receipts,
+retry-run admission, event materialization, run persistence, replay,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-968 after the next
+larger Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve that workflow-edit, coding-tool budget recovery, and
+diagnostics repair refusal envelopes are now Rust-authored fail-closed
+migration boundaries, while accepted truth, wallet.network authority,
+Agentgres-backed state, and command-transport retirement remain non-terminal.

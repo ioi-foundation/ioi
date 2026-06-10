@@ -6665,7 +6665,7 @@ function runBridge() {
       /diagnostics\.operator_override\.execute/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
-      /diagnostics operator override facade fails closed before Rust planner invocation or JS run writes/.test(
+      /diagnostics operator override facade fails closed before JS run writes/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /Diagnostics repair facade must not persist run state in JS/.test(
@@ -24152,6 +24152,22 @@ function runCompositor() {
       /diagnostics_repair_decision_event_js_append_retired/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
+      /DiagnosticsRepairAdmissionRequiredCore/.test(policyCore) &&
+      /DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        policyCore,
+      ) &&
+      /rust_policy_plans_diagnostics_repair_admission_required/.test(policyCore) &&
+      /plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      /bridge_plans_diagnostics_repair_admission_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planDiagnosticsRepairAdmissionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /diagnostics repair admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /diagnosticsRepairRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       !/store\.(?:agentForThread|getRun|createRun|appendRuntimeEvent|writeRun|runs\.set|resolveDiagnosticsRepairDecision|executeDiagnosticsOperatorOverride|createDiagnosticsRepairRetryTurn)\b/.test(
         runtimeDiagnosticsRepairSurface,
       ) &&
@@ -24161,7 +24177,10 @@ function runCompositor() {
       /diagnostics repair decision execution facade fails closed before JS lookup, event append, or persistence/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
-      /diagnostics operator override facade fails closed before Rust planner invocation or JS run writes/.test(
+      /diagnostics repair decision execution uses Rust daemon-core admission-required planner when mounted/.test(
+        runtimeDiagnosticsRepairSurfaceTest,
+      ) &&
+      /diagnostics operator override facade fails closed before JS run writes/.test(
         runtimeDiagnosticsRepairSurfaceTest,
       ) &&
       /diagnostics repair retry facade fails closed before JS createRun or retry event append/.test(
@@ -24188,8 +24207,12 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.mjs",
       "packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 is pending: diagnostics repair control must fail closed before JS lookup, retry-run creation, event append, Rust planner invocation from the JS facade, run mutation, or persistence",
+    "Phase 10/11 is pending: diagnostics repair control must use the Rust daemon-core admission-required planner and fail closed before JS lookup, retry-run creation, event append, run mutation, or persistence",
   );
   assertCheck(
     result,

@@ -117,6 +117,10 @@ pub const WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.workflow-edit-admission-required-request.v1";
 pub const WORKFLOW_EDIT_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.workflow-edit-admission-required.v1";
+pub const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.diagnostics-repair-admission-required-request.v1";
+pub const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.diagnostics-repair-admission-required.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PolicyEvaluationRecord {
@@ -208,6 +212,15 @@ pub enum CodingToolBudgetRecoveryAdmissionRequiredError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum WorkflowEditAdmissionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DiagnosticsRepairAdmissionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -888,6 +901,55 @@ pub struct WorkflowEditAdmissionRequiredRecord {
     pub workflow_node_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagnosticsRepairAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub decision_id: Option<String>,
+    #[serde(default)]
+    pub gate_event_id: Option<String>,
+    #[serde(default)]
+    pub gate_id: Option<String>,
+    #[serde(default)]
+    pub snapshot_id: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DiagnosticsRepairAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub snapshot_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     pub evidence_refs: Vec<String>,
@@ -3991,6 +4053,71 @@ impl WorkflowEditAdmissionRequiredRequest {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct DiagnosticsRepairAdmissionRequiredCore;
+
+impl DiagnosticsRepairAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &DiagnosticsRepairAdmissionRequiredRequest,
+    ) -> Result<DiagnosticsRepairAdmissionRequiredRecord, DiagnosticsRepairAdmissionRequiredError>
+    {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let decision_id = optional_trimmed(request.decision_id.as_deref());
+        let gate_event_id = optional_trimmed(request.gate_event_id.as_deref());
+        let gate_id = optional_trimmed(request.gate_id.as_deref());
+        let snapshot_id = optional_trimmed(request.snapshot_id.as_deref());
+        let source = optional_trimmed(request.source.as_deref());
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                format!("{operation}_js_facade_retired"),
+                "rust_daemon_core_diagnostics_repair_admission_required".to_string(),
+                "agentgres_diagnostics_repair_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.diagnostics_repair",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "thread_id": thread_id,
+            "decision_id": decision_id,
+            "gate_event_id": gate_event_id,
+            "gate_id": gate_id,
+            "snapshot_id": snapshot_id,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(DiagnosticsRepairAdmissionRequiredRecord {
+            schema_version: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_diagnostics_repair_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_diagnostics_repair_rust_core_required".to_string(),
+            message:
+                "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence."
+                    .to_string(),
+            rust_core_boundary: "runtime.diagnostics_repair".to_string(),
+            operation,
+            operation_kind,
+            thread_id,
+            decision_id,
+            gate_event_id,
+            gate_id,
+            snapshot_id,
+            source,
+            evidence_refs,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
 impl CodingToolBudgetRecoveryAdmissionRequiredRequest {
     pub fn validate(&self) -> Result<(), CodingToolBudgetRecoveryAdmissionRequiredError> {
         if self.schema_version
@@ -4013,6 +4140,30 @@ impl CodingToolBudgetRecoveryAdmissionRequiredRequest {
         }
         if optional_trimmed(Some(self.run_id.as_str())).is_none() {
             return Err(CodingToolBudgetRecoveryAdmissionRequiredError::MissingField("run_id"));
+        }
+        Ok(())
+    }
+}
+
+impl DiagnosticsRepairAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), DiagnosticsRepairAdmissionRequiredError> {
+        if self.schema_version != DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(
+                DiagnosticsRepairAdmissionRequiredError::InvalidSchemaVersion {
+                    expected: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(DiagnosticsRepairAdmissionRequiredError::MissingField(
+                "operation",
+            ));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(DiagnosticsRepairAdmissionRequiredError::MissingField(
+                "operation_kind",
+            ));
         }
         Ok(())
     }
@@ -7212,6 +7363,48 @@ mod tests {
         assert_eq!(record.details["approval_id"], "approval_alpha");
         assert!(record.details.get("runId").is_none());
         assert!(record.details.get("approvalId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_plans_diagnostics_repair_admission_required() {
+        let record = DiagnosticsRepairAdmissionRequiredCore
+            .plan(&DiagnosticsRepairAdmissionRequiredRequest {
+                schema_version: DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                operation: "diagnostics_repair_decision_execution".to_string(),
+                operation_kind: "diagnostics.repair_decision.execute".to_string(),
+                thread_id: Some("thread_alpha".to_string()),
+                decision_id: Some("decision_alpha".to_string()),
+                gate_event_id: Some("event_gate".to_string()),
+                gate_id: Some("gate_alpha".to_string()),
+                snapshot_id: Some("snapshot_alpha".to_string()),
+                source: Some("agent_studio".to_string()),
+                evidence_refs: vec![
+                    "diagnostics_repair_decision_execution_js_facade_retired".to_string(),
+                    "rust_daemon_core_diagnostics_repair_admission_required".to_string(),
+                    "agentgres_diagnostics_repair_state_truth_required".to_string(),
+                ],
+            })
+            .expect("diagnostics repair admission required");
+
+        assert_eq!(
+            record.schema_version,
+            DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "runtime_diagnostics_repair_rust_core_required");
+        assert_eq!(record.rust_core_boundary, "runtime.diagnostics_repair");
+        assert_eq!(record.operation, "diagnostics_repair_decision_execution");
+        assert_eq!(record.operation_kind, "diagnostics.repair_decision.execute");
+        assert_eq!(record.details["thread_id"], "thread_alpha");
+        assert_eq!(record.details["decision_id"], "decision_alpha");
+        assert_eq!(record.details["gate_event_id"], "event_gate");
+        assert_eq!(record.details["gate_id"], "gate_alpha");
+        assert_eq!(record.details["snapshot_id"], "snapshot_alpha");
+        assert!(record.details.get("threadId").is_none());
+        assert!(record.details.get("decisionId").is_none());
+        assert!(record.details.get("gateEventId").is_none());
     }
 
     #[test]

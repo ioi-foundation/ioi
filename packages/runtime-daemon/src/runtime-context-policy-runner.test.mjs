@@ -14,6 +14,7 @@ import {
   CONTEXT_POLICY_COMMAND_ENV,
   CONTEXT_POLICY_COMMAND_SCHEMA_VERSION,
   ContextPolicyRunnerError,
+  DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -588,6 +589,71 @@ test("workflow-edit admission-required runner sends Rust daemon-core request", (
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.thread_id, "thread_alpha");
   assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
+});
+
+test("diagnostics repair admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_diagnostics_repair_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_diagnostics_repair_rust_core_required",
+              message:
+                "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
+              details: {
+                rust_core_boundary: "runtime.diagnostics_repair",
+                operation: "diagnostics_repair_decision_execution",
+                operation_kind: "diagnostics.repair_decision.execute",
+                thread_id: "thread_alpha",
+                decision_id: "decision_alpha",
+                gate_event_id: "event_gate",
+                snapshot_id: "snapshot_alpha",
+                evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planDiagnosticsRepairAdmissionRequired({
+    operation: "diagnostics_repair_decision_execution",
+    operation_kind: "diagnostics.repair_decision.execute",
+    thread_id: "thread_alpha",
+    decision_id: "decision_alpha",
+    gate_event_id: "event_gate",
+    snapshot_id: "snapshot_alpha",
+    evidence_refs: ["diagnostics_repair_decision_execution_js_facade_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_diagnostics_repair_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "diagnostics_repair_decision_execution");
+  assert.equal(
+    captured.request.operation_kind,
+    "diagnostics.repair_decision.execute",
+  );
+  assert.equal(result.source, "rust_diagnostics_repair_admission_required_command");
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.thread_id, "thread_alpha");
+  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "gateEventId"), false);
 });
 
 test("diagnostics operator override state update runner sends Rust state update bridge request", () => {

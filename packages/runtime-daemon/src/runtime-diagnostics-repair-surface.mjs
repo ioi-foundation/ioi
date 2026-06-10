@@ -2,9 +2,40 @@ import { runtimeError as defaultRuntimeError } from "./runtime-http-utils.mjs";
 import { optionalString } from "./runtime-value-helpers.mjs";
 
 export function createRuntimeDiagnosticsRepairSurface(deps = {}) {
-  const { runtimeError = defaultRuntimeError } = deps;
+  const {
+    runtimeError = defaultRuntimeError,
+    diagnosticsRepairRunner = deps.contextPolicyRunner ?? null,
+  } = deps;
 
   function throwDiagnosticsRepairRustCoreRequired(operation, operationKind, details = {}) {
+    if (diagnosticsRepairRunner?.planDiagnosticsRepairAdmissionRequired) {
+      const record = diagnosticsRepairRunner.planDiagnosticsRepairAdmissionRequired({
+        operation,
+        operation_kind: operationKind,
+        thread_id: details.thread_id,
+        decision_id: details.decision_id,
+        gate_event_id: details.gate_event_id,
+        gate_id: details.gate_id,
+        snapshot_id: details.snapshot_id,
+        source: details.source,
+        evidence_refs: details.evidence_refs,
+      });
+      const planned = record?.record ?? record;
+      throw runtimeError({
+        status: Number(planned?.status_code ?? record?.status_code ?? 501),
+        code: optionalString(planned?.code ?? record?.code) ??
+          "runtime_diagnostics_repair_rust_core_required",
+        message:
+          optionalString(planned?.message ?? record?.message) ??
+          "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
+        details: planned?.details ?? record?.details ?? {
+          rust_core_boundary: "runtime.diagnostics_repair",
+          operation,
+          operation_kind: operationKind,
+          ...details,
+        },
+      });
+    }
     throw runtimeError({
       status: 501,
       code: "runtime_diagnostics_repair_rust_core_required",

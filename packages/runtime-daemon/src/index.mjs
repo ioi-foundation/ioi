@@ -820,6 +820,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.diagnosticsRepairSurface = createRuntimeDiagnosticsRepairSurface({
       contextPolicyRunner: this.contextPolicyRunner,
+      diagnosticsRepairRunner: this.contextPolicyRunner,
       diagnosticsOperatorOverrideApprovalForRequest,
       diagnosticsOperatorOverrideApprovalKey,
       diagnosticsOperatorOverrideResultFromEvent,

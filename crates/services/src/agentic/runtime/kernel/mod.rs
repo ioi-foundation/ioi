@@ -96,7 +96,9 @@ use policy::{
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateError, DiagnosticsOperatorOverrideStateUpdateRecord,
-    DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
+    DiagnosticsOperatorOverrideStateUpdateRequest, DiagnosticsRepairAdmissionRequiredCore,
+    DiagnosticsRepairAdmissionRequiredError, DiagnosticsRepairAdmissionRequiredRecord,
+    DiagnosticsRepairAdmissionRequiredRequest, McpControlAgentStateUpdateCore,
     McpControlAgentStateUpdateError, McpControlAgentStateUpdateRecord,
     McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionCore,
     McpManagerCatalogProjectionError, McpManagerCatalogProjectionRecord,
@@ -263,6 +265,14 @@ impl RuntimeKernelService {
         request: &WorkflowEditAdmissionRequiredRequest,
     ) -> Result<WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredError> {
         WorkflowEditAdmissionRequiredCore.plan(request)
+    }
+
+    pub fn plan_diagnostics_repair_admission_required(
+        &self,
+        request: &DiagnosticsRepairAdmissionRequiredRequest,
+    ) -> Result<DiagnosticsRepairAdmissionRequiredRecord, DiagnosticsRepairAdmissionRequiredError>
+    {
+        DiagnosticsRepairAdmissionRequiredCore.plan(request)
     }
 
     pub fn plan_diagnostics_operator_override_state_update(

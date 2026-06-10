@@ -101,7 +101,92 @@ test("diagnostics repair decision execution facade fails closed before JS lookup
   assert.deepEqual(calls, []);
 });
 
-test("diagnostics operator override facade fails closed before Rust planner invocation or JS run writes", () => {
+test("diagnostics repair decision execution uses Rust daemon-core admission-required planner when mounted", () => {
+  const calls = [];
+  const store = {
+    agentForThread(threadId) {
+      calls.push({ name: "agentForThread", threadId });
+      throw new Error("Diagnostics repair facade must not look up agents in JS.");
+    },
+    appendRuntimeEvent(event) {
+      calls.push({ name: "appendRuntimeEvent", event });
+      throw new Error("Diagnostics repair facade must not append JS runtime events.");
+    },
+    writeRun(run, reason) {
+      calls.push({ name: "writeRun", run, reason });
+      throw new Error("Diagnostics repair facade must not persist run state in JS.");
+    },
+  };
+  const runnerCalls = [];
+  const surface = createRuntimeDiagnosticsRepairSurface({
+    runtimeError,
+    diagnosticsRepairRunner: {
+      planDiagnosticsRepairAdmissionRequired(request) {
+        runnerCalls.push(request);
+        return {
+          source: "rust_diagnostics_repair_admission_required_command",
+          backend: "rust_policy",
+          record: {
+            status_code: 501,
+            code: "runtime_diagnostics_repair_rust_core_required",
+            message:
+              "Runtime diagnostics repair control requires direct Rust daemon-core admission and persistence.",
+            details: {
+              rust_core_boundary: "runtime.diagnostics_repair",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              thread_id: request.thread_id,
+              decision_id: request.decision_id,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
+    },
+  });
+
+  assert.throws(
+    () =>
+      surface.executeDiagnosticsRepairDecision(store, "thread_alpha", null, {
+        decision_id: "decision_alpha",
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_diagnostics_repair_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.diagnostics_repair");
+      assert.equal(error.details.operation, "diagnostics_repair_decision_execution");
+      assert.equal(error.details.operation_kind, "diagnostics.repair_decision.execute");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.decision_id, "decision_alpha");
+      assert.deepEqual(error.details.evidence_refs, [
+        "diagnostics_repair_decision_execution_js_facade_retired",
+        "rust_daemon_core_diagnostics_repair_admission_required",
+        "agentgres_diagnostics_repair_state_truth_required",
+      ]);
+      assertNoRetiredDiagnosticsRepairDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(runnerCalls, [{
+    operation: "diagnostics_repair_decision_execution",
+    operation_kind: "diagnostics.repair_decision.execute",
+    thread_id: "thread_alpha",
+    decision_id: "decision_alpha",
+    gate_event_id: undefined,
+    gate_id: undefined,
+    snapshot_id: undefined,
+    source: undefined,
+    evidence_refs: [
+      "diagnostics_repair_decision_execution_js_facade_retired",
+      "rust_daemon_core_diagnostics_repair_admission_required",
+      "agentgres_diagnostics_repair_state_truth_required",
+    ],
+  }]);
+  assert.deepEqual(calls, []);
+});
+
+test("diagnostics operator override facade fails closed before JS run writes", () => {
   const { calls, store, surface } = harness();
 
   assert.throws(
