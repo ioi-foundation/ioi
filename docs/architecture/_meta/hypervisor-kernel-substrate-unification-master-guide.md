@@ -2044,6 +2044,12 @@ absent, and `load_options.estimate_only` now fails closed at
 `model_mount.instance.estimate` with the same Rust daemon-core instance
 lifecycle boundary before JS sizing, provider drivers, receipts, record-state
 commits, or instance-map writes.
+Slice 931 retired the JS synthetic embedding-vector fallback. OpenAI-compatible
+and native embedding responses now require a Rust/provider-authored
+`providerResponseKind: "embeddings"` result with provider response vectors;
+otherwise `openAiEmbedding()` fails closed at
+`model_mount.provider_result.embeddings` before JS can derive deterministic
+vectors from request text.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

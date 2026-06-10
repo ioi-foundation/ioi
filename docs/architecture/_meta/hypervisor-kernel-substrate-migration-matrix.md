@@ -20002,3 +20002,44 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs.
+
+At Slice 930 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 931 is that seam
+and satisfies the Slice 930 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 930 is now satisfied.
+
+## Implementation Slice Evidence: 931
+
+Slice 931 retired the JS synthetic embedding-vector fallback. The protocol
+response helper no longer exports or uses `deterministicVector()`, and
+OpenAI-compatible plus native embedding responses now require a
+Rust/provider-authored `providerResponseKind: "embeddings"` result with
+provider response vectors. Missing provider-authored embedding vectors fail
+closed with `model_mount_embedding_provider_response_required` at
+`model_mount.provider_result.embeddings` before JS can derive vectors from
+request text.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/protocol-responses.mjs packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal provider transport migration. Direct Rust
+provider transports, provider-native embedding result envelopes for every
+supported backend, command-transport retirement, Agentgres-backed
+replay/projection, and stable SDK/IDE/CLI protocol APIs remain before terminal
+pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 931 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs.

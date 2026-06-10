@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   anthropicMessage,
-  deterministicVector,
   openAiChatCompletion,
   openAiEmbedding,
   openAiResponse,
@@ -56,14 +55,52 @@ test("OpenAI response and Anthropic message wrappers expose stable public metada
   });
 });
 
-test("OpenAI embeddings use deterministic vectors for each input", () => {
-  const response = openAiEmbedding(invocation(), { input: ["alpha", "beta"] });
+test("OpenAI embeddings preserve provider-authored vectors with receipt metadata", () => {
+  const response = openAiEmbedding(invocation({
+    providerResponseKind: "embeddings",
+    providerResponse: {
+      object: "list",
+      model: "embedding-model",
+      data: [
+        {
+          object: "embedding",
+          index: 0,
+          embedding: [0.1, -0.2],
+        },
+      ],
+      usage: { prompt_tokens: 1, total_tokens: 1 },
+    },
+  }), { input: ["alpha"] });
 
   assert.equal(response.object, "list");
-  assert.equal(response.data.length, 2);
-  assert.deepEqual(response.data[0].embedding, deterministicVector("alpha"));
-  assert.equal(response.data[0].embedding.length, 8);
+  assert.equal(response.model, "embedding-model");
+  assert.equal(response.data.length, 1);
+  assert.deepEqual(response.data[0].embedding, [0.1, -0.2]);
   assert.equal(response.receipt_id, "receipt-1");
+  assert.equal(response.route_id, "route-1");
+});
+
+test("OpenAI embeddings fail closed without Rust/provider-authored vectors", () => {
+  assert.throws(
+    () => openAiEmbedding(invocation(), { input: ["alpha", "beta"] }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_embedding_provider_response_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.provider_invocation");
+      assert.equal(error.details.operation_kind, "model_mount.provider_result.embeddings");
+      assert.equal(error.details.provider_response_kind, null);
+      assert.equal(error.details.receipt_id, "receipt-1");
+      assert.equal(error.details.route_id, "route-1");
+      assert.equal(error.details.response_id, "resp-1");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_mount_embedding_js_vector_fallback_retired",
+        "rust_daemon_core_provider_embedding_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "providerResponseKind"), false);
+      assert.equal(Object.hasOwn(error.details, "receiptId"), false);
+      return true;
+    },
+  );
 });
 
 test("model-mounting facade does not re-export protocol response helpers", () => {

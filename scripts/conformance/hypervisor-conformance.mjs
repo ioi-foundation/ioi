@@ -841,6 +841,8 @@ function runDocs() {
       /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(guide) &&
       /Slice 930 retired the remaining JS estimate-only model-load projection path/.test(guide) &&
       /`ModelMountingState\.loadEstimate\(\)` and `estimateNativeLocalResources\(\)` are\s+absent/.test(guide) &&
+      /Slice 931 retired the JS synthetic embedding-vector fallback/.test(guide) &&
+      /`model_mount\.provider_result\.embeddings` before JS can derive deterministic\s+vectors/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -1281,6 +1283,8 @@ function runDocs() {
       /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(matrix) &&
       /Implementation Slice Evidence: 930/.test(matrix) &&
       /Slice 930 retired the JS estimate-only model-load projection path/.test(matrix) &&
+      /Implementation Slice Evidence: 931/.test(matrix) &&
+      /Slice 931 retired the JS synthetic embedding-vector fallback/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 920/.test(matrix) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(matrix) &&
@@ -10871,6 +10875,27 @@ function runBridge() {
     "model-mount-protocol-response-facade-reexport-retired",
     /from "\.\/model-mounting\/protocol-responses\.mjs"/.test(openAiCompatRoutes) &&
       !/protocol-responses\.mjs/.test(modelMountingState) &&
+      /model_mount_embedding_provider_response_required/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs"),
+      ) &&
+      /model_mount\.provider_result\.embeddings/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs"),
+      ) &&
+      !/deterministicVector/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs"),
+      ) &&
+      !/crypto\.createHash\("sha256"\)\.update\(input\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.mjs"),
+      ) &&
+      /OpenAI embeddings preserve provider-authored vectors with receipt metadata/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs"),
+      ) &&
+      /OpenAI embeddings fail closed without Rust\/provider-authored vectors/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"providerResponseKind"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs"),
+      ) &&
       !/openAiChatCompletion as compatOpenAiChatCompletion/.test(
         read("packages/runtime-daemon/src/model-mounting/protocol-responses.test.mjs"),
       ),
