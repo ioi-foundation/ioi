@@ -2197,6 +2197,15 @@ now fail closed at `task.list`, `task.get`, `job.list`, and `job.get` with
 projection truth from `store.listRuns()`. Direct Rust daemon-core task/job
 projection over Agentgres-admitted run/task/job truth remains required before
 terminal conformance.
+Slice 951 retired runtime conversation-artifact public JS readback. Public
+`RuntimeConversationArtifactControl.listConversationArtifacts()`,
+`getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail
+closed at `artifact.conversation.list`, `artifact.conversation.get`, and
+`artifact.conversation.revision.list` with
+`runtime_conversation_artifact_control_rust_core_required`, so JS no longer
+returns `store.conversationArtifacts` data as conversation-artifact projection
+truth. Direct Rust daemon-core artifact projection over Agentgres-admitted
+ArtifactRef/PayloadRef truth remains required before terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

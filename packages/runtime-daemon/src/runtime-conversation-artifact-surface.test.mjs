@@ -8,13 +8,7 @@ function harness() {
   const artifacts = new Map([
     ["artifact-one", { artifact_id: "artifact-one", title: "One" }],
   ]);
-  const surface = createRuntimeConversationArtifactSurface({
-    notFound(message, details) {
-      const error = new Error(message);
-      error.details = details;
-      return error;
-    },
-  });
+  const surface = createRuntimeConversationArtifactSurface();
   const store = {
     conversationArtifacts: {
       action(artifactId, input) {
@@ -127,33 +121,34 @@ test("conversation artifact mutation facades fail closed before JS artifact muta
   assert.deepEqual(calls, []);
 });
 
-test("conversation artifact surface delegates list, get, and revisions as reads", () => {
+test("conversation artifact read projection facades fail closed before JS artifact reads", () => {
   const { calls, store, surface } = harness();
+  const cases = [
+    {
+      operation: "conversation_artifact_list",
+      operationKind: "artifact.conversation.list",
+      call: () => surface.listConversationArtifacts(store, { thread_id: "thread-one" }),
+    },
+    {
+      operation: "conversation_artifact_get",
+      operationKind: "artifact.conversation.get",
+      artifactId: "artifact-one",
+      call: () => surface.getConversationArtifact(store, "artifact-one"),
+    },
+    {
+      operation: "conversation_artifact_revision_list",
+      operationKind: "artifact.conversation.revision.list",
+      artifactId: "artifact-one",
+      call: () => surface.listConversationArtifactRevisions(store, "artifact-one"),
+    },
+  ];
 
-  assert.deepEqual(surface.listConversationArtifacts(store, { thread_id: "thread-one" }), [
-    { artifact_id: "artifact-one", title: "One" },
-  ]);
-  assert.deepEqual(surface.getConversationArtifact(store, "artifact-one"), {
-    artifact_id: "artifact-one",
-    title: "One",
-  });
-  assert.deepEqual(surface.listConversationArtifactRevisions(store, "artifact-one"), [
-    { revision_id: "revision-one" },
-  ]);
+  for (const testCase of cases) {
+    assert.throws(
+      testCase.call,
+      (error) => assertConversationArtifactRustCoreRequired(error, testCase),
+    );
+  }
 
-  assert.deepEqual(calls.map((call) => call.name), [
-    "list",
-    "get",
-    "get",
-    "revisions",
-  ]);
-});
-
-test("conversation artifact surface preserves read not-found behavior", () => {
-  const { store, surface } = harness();
-
-  assert.throws(
-    () => surface.getConversationArtifact(store, "missing"),
-    /Conversation artifact not found: missing/,
-  );
+  assert.deepEqual(calls, []);
 });

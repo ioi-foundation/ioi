@@ -17188,6 +17188,21 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs")
     : "";
+  const runtimeConversationArtifactListBlock = blockBetween(
+    runtimeConversationArtifactSurface,
+    "listConversationArtifacts(store, query = {})",
+    "getConversationArtifact(store",
+  );
+  const runtimeConversationArtifactGetBlock = blockBetween(
+    runtimeConversationArtifactSurface,
+    "getConversationArtifact(store",
+    "listConversationArtifactRevisions(store",
+  );
+  const runtimeConversationArtifactRevisionListBlock = blockBetween(
+    runtimeConversationArtifactSurface,
+    "listConversationArtifactRevisions(store",
+    "performConversationArtifactAction(store",
+  );
   const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
     : "";
@@ -18887,6 +18902,11 @@ function runCompositor() {
     /runtime_conversation_artifact_control_js_facade_retired/.test(
       runtimeConversationArtifactSurface,
     ) &&
+    /conversation_artifact_list_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_get_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_revision_list_js_facade_retired/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
     /conversation_artifact_create_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
     /conversation_artifact_action_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
     /conversation_artifact_export_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
@@ -18899,11 +18919,36 @@ function runCompositor() {
     !/store\.conversationArtifacts\.action\(/.test(runtimeConversationArtifactSurface) &&
     !/store\.conversationArtifacts\.exportArtifact\(/.test(runtimeConversationArtifactSurface) &&
     !/store\.conversationArtifacts\.promoteArtifact\(/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.list\(/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.get\(/.test(runtimeConversationArtifactSurface) &&
+    !/store\.conversationArtifacts\.revisions\(/.test(runtimeConversationArtifactSurface) &&
     /conversation artifact mutation facades fail closed before JS artifact mutation/.test(
+      runtimeConversationArtifactSurfaceTest,
+    ) &&
+    /conversation artifact read projection facades fail closed before JS artifact reads/.test(
       runtimeConversationArtifactSurfaceTest,
     ) &&
     /assertConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactSurfaceTest) &&
     /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeConversationArtifactSurfaceTest);
+  const runtimeConversationArtifactReadProjectionLegacyRemoved =
+    /conversation_artifact_list_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_get_js_facade_retired/.test(runtimeConversationArtifactSurface) &&
+    /conversation_artifact_revision_list_js_facade_retired/.test(
+      runtimeConversationArtifactSurface,
+    ) &&
+    /throwConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactListBlock) &&
+    /throwConversationArtifactRustCoreRequired/.test(runtimeConversationArtifactGetBlock) &&
+    /throwConversationArtifactRustCoreRequired/.test(
+      runtimeConversationArtifactRevisionListBlock,
+    ) &&
+    !/store\.conversationArtifacts\.list\(/.test(runtimeConversationArtifactListBlock) &&
+    !/store\.conversationArtifacts\.get\(/.test(runtimeConversationArtifactGetBlock) &&
+    !/store\.conversationArtifacts\.revisions\(/.test(
+      runtimeConversationArtifactRevisionListBlock,
+    ) &&
+    /conversation artifact read projection facades fail closed before JS artifact reads/.test(
+      runtimeConversationArtifactSurfaceTest,
+    );
   const conversationArtifactStoreJsWritersRetired =
     /runtime_conversation_artifact_store_rust_core_required/.test(conversationArtifacts) &&
     /runtime_conversation_artifact_store_js_writers_retired/.test(conversationArtifacts) &&
@@ -19023,9 +19068,10 @@ function runCompositor() {
       /Object\.hasOwn\(artifact,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(revision,\s*key\),\s*false/.test(conversationArtifactsTest) &&
       /Object\.hasOwn\(ref,\s*key\),\s*false/.test(conversationArtifactsTest) &&
-      /surface\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
-        runtimeConversationArtifactSurfaceTest,
-      ) &&
+      (runtimeConversationArtifactReadProjectionLegacyRemoved ||
+        /surface\.listConversationArtifacts\(store, \{ thread_id: "thread-one" \}\)/.test(
+          runtimeConversationArtifactSurfaceTest,
+        )) &&
       !/^\s*(?:fileName|mediaType|revisionId|artifactId|threadId|artifactClass|stateLabel|sourceRefs|originalRefs|projectionRefs|previewRefs|traceRefs|policyRefs|receiptRefs|latestRevisionId|exportRefs|promotionRefs|createdAt|updatedAt)\?:/m.test(
         conversationArtifactSdkTypesBlock,
       ) &&
@@ -19064,7 +19110,17 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: conversation artifact create/action/export/promote facades must stay retired before JS artifact mutation",
+    "Phase 10/11 is pending: conversation artifact create/action/export/promote and list/get/revision facades must stay retired before JS artifact mutation or projection",
+  );
+  assertCheck(
+    result,
+    "conversation-artifact-read-projection-js-facades-retired",
+    runtimeConversationArtifactReadProjectionLegacyRemoved,
+    [
+      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
+      "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: conversation artifact list/get/revision JS read projections must fail closed before JS artifact-store reads",
   );
   assertCheck(
     result,

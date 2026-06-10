@@ -1,12 +1,8 @@
-function defaultNotFound(message, details = {}) {
-  const error = new Error(message);
-  error.status = 404;
-  error.details = details;
-  return error;
-}
-
 const conversationArtifactControlFacadeRetirementEvidenceRefs = [
   "runtime_conversation_artifact_control_js_facade_retired",
+  "conversation_artifact_list_js_facade_retired",
+  "conversation_artifact_get_js_facade_retired",
+  "conversation_artifact_revision_list_js_facade_retired",
   "conversation_artifact_create_js_facade_retired",
   "conversation_artifact_action_js_facade_retired",
   "conversation_artifact_export_js_facade_retired",
@@ -16,18 +12,9 @@ const conversationArtifactControlFacadeRetirementEvidenceRefs = [
 ];
 
 export function createRuntimeConversationArtifactSurface({
-  notFound = defaultNotFound,
   runtimeError = ({ status = 500, code = "runtime_conversation_artifact_error", message, details }) =>
     Object.assign(new Error(message), { status, code, details }),
 } = {}) {
-  function requireArtifact(store, artifactId) {
-    const artifact = store.conversationArtifacts.get(artifactId);
-    if (!artifact) {
-      throw notFound(`Conversation artifact not found: ${artifactId}`, { artifactId });
-    }
-    return artifact;
-  }
-
   function throwConversationArtifactRustCoreRequired({
     operation,
     operationKind,
@@ -38,7 +25,7 @@ export function createRuntimeConversationArtifactSurface({
       status: 501,
       code: "runtime_conversation_artifact_control_rust_core_required",
       message:
-        "Runtime conversation artifact mutations require direct Rust daemon-core admission and persistence.",
+        "Runtime conversation artifact lifecycle and projection facades require direct Rust daemon-core admission, persistence, and projection.",
       details: {
         rust_core_boundary: "runtime.conversation_artifact_control",
         operation,
@@ -64,14 +51,28 @@ export function createRuntimeConversationArtifactSurface({
       });
     },
     listConversationArtifacts(store, query = {}) {
-      return store.conversationArtifacts.list(query);
+      void store;
+      void query;
+      throwConversationArtifactRustCoreRequired({
+        operation: "conversation_artifact_list",
+        operationKind: "artifact.conversation.list",
+      });
     },
     getConversationArtifact(store, artifactId) {
-      return requireArtifact(store, artifactId);
+      void store;
+      throwConversationArtifactRustCoreRequired({
+        operation: "conversation_artifact_get",
+        operationKind: "artifact.conversation.get",
+        artifactId,
+      });
     },
     listConversationArtifactRevisions(store, artifactId) {
-      requireArtifact(store, artifactId);
-      return store.conversationArtifacts.revisions(artifactId);
+      void store;
+      throwConversationArtifactRustCoreRequired({
+        operation: "conversation_artifact_revision_list",
+        operationKind: "artifact.conversation.revision.list",
+        artifactId,
+      });
     },
     performConversationArtifactAction(store, artifactId, input = {}) {
       void store;
