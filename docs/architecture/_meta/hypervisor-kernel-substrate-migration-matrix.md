@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 895 after the next
+- Next scheduled matrix-compaction pass: compact Slice 896 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18797,7 +18797,36 @@ backend lifecycle projection/replay, stable protocol APIs, command-transport
 retirement, and retirement of remaining backend state materialization remain
 required before backend lifecycle reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 895 after the next direct
+Scheduled matrix-compaction obligation from Slice 895 is now satisfied.
+
+## Implementation Slice Evidence: 896
+
+Slice 896 deleted the provider-registry dependency-injection binding wrapper.
+`provider-registry-bindings.mjs` and `provider-registry-bindings.test.mjs` are
+absent rather than preserved as a standalone compatibility layer over canonical
+provider registry helpers. The mounted model_mount facade now imports
+`hostedProvider()`, `optionalString()`, `requiredString()`, and
+`publicProvider()` from `provider-registry.mjs` directly, with vault authority
+dependencies supplied at the mounted boundary.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-registry.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider control/projection migration: direct
+Rust daemon-core provider configuration, wallet/cTEE custody projection,
+Agentgres-backed provider replay/projection, stable protocol APIs,
+command-transport retirement, and retirement of remaining provider state
+materialization remain required before provider control reaches the pure Rust
+substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 896 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

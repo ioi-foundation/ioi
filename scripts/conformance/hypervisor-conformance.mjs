@@ -746,6 +746,10 @@ function runDocs() {
       /`RustDaemonCore\.catalogProviderOAuth`/.test(guide) &&
       /Slice 895 deleted the leftover `backend-processes\.mjs` lookup\/snapshot wrapper/.test(guide) &&
       /`backend-processes\.mjs` and `backend-processes\.test\.mjs` are absent/.test(guide) &&
+      /Slice 896 deleted the provider-registry dependency-injection binding wrapper/.test(guide) &&
+      /`provider-registry-bindings\.mjs` and `provider-registry-bindings\.test\.mjs` are\s+absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1077,7 +1081,11 @@ function runDocs() {
       /Implementation Slice Evidence: 895/.test(matrix) &&
       /Slice 895 deleted the leftover backend-process lookup\/snapshot wrapper/.test(matrix) &&
       /`backend-processes\.mjs` and `backend-processes\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 895/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 895 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 896/.test(matrix) &&
+      /Slice 896 deleted the provider-registry dependency-injection binding wrapper/.test(matrix) &&
+      /`provider-registry-bindings\.mjs` and `provider-registry-bindings\.test\.mjs` are\s+absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 896/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1251,7 +1259,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 892 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 893 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 894 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 895/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 895 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 896/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1270,6 +1279,8 @@ function runDocs() {
       /mounted public `ModelMountingState` conversation methods now own response-id collision checks/.test(implementationMatrix) &&
       /the fail-closed `provider-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` provider methods now own provider upsert alias rejection/.test(implementationMatrix) &&
+      /the provider-registry dependency-injection binding wrapper and test are deleted/.test(implementationMatrix) &&
+      /mounted model_mount now imports canonical provider registry helpers directly/.test(implementationMatrix) &&
       /the fail-closed `mcp-workflow-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` MCP methods now own MCP import aliases/.test(implementationMatrix) &&
       /the fail-closed `model-loading-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1727,7 +1738,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 895 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 896 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&

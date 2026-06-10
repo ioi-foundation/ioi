@@ -56,7 +56,12 @@ import {
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
 import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
-import { createProviderRegistryBindings } from "./model-mounting/provider-registry-bindings.mjs";
+import {
+  hostedProvider,
+  optionalString,
+  publicProvider as publicProviderFromRegistry,
+  requiredString,
+} from "./model-mounting/provider-registry.mjs";
 import {
   assertNoPlaintextProviderSecret,
   assertProviderVaultBoundary,
@@ -449,17 +454,13 @@ const MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "rust_daemon_core_model_context_fit_required",
   "agentgres_model_tokenizer_truth_required",
 ];
-const {
-  hostedProvider,
-  optionalString,
-  publicProvider,
-  requiredString,
-} = createProviderRegistryBindings({
-  providerHasVaultRef,
-  providerRequiresVaultSecret,
-  runtimeError,
-  stableHash,
-});
+function publicProvider(provider, vaultMetadata = null) {
+  return publicProviderFromRegistry(provider, vaultMetadata, {
+    providerHasVaultRef,
+    providerRequiresVaultSecret,
+    stableHash,
+  });
+}
 
 export class ModelMountingState {
   constructor({

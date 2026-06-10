@@ -2157,6 +2157,17 @@ Terminal backend lifecycle migration still requires direct Rust daemon-core
 process control, Agentgres-backed backend lifecycle projection/replay, stable
 protocol APIs, and command-transport retirement.
 
+Slice 896 deleted the provider-registry dependency-injection binding wrapper.
+`provider-registry-bindings.mjs` and `provider-registry-bindings.test.mjs` are
+absent rather than preserved as a standalone compatibility layer over the
+canonical provider registry helpers. The mounted model_mount facade now imports
+`hostedProvider()`, `optionalString()`, `requiredString()`, and
+`publicProvider()` from the canonical provider registry directly, with vault
+authority dependencies supplied at the mounted boundary. Terminal provider
+control/projection migration still requires direct Rust daemon-core provider
+configuration, wallet/cTEE custody projection, Agentgres-backed replay, stable
+protocol APIs, and command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
