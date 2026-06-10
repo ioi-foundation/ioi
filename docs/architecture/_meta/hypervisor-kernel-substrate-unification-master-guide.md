@@ -2410,6 +2410,16 @@ Direct Rust daemon-core wallet/cTEE provider auth APIs, Agentgres-backed
 provider truth, stable protocol APIs, and command-transport retirement remain
 required before provider auth/control reaches terminal pure Rust conformance.
 
+Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,
+usage-normalization, JSON-parse, truncation, and limit-normalization helpers.
+`provider-protocol.mjs` now exports only `estimateTokens()`, and the mounted
+model_mount facade no longer imports the provider-protocol module at all. The
+remaining `estimateTokens()` fallback exists only inside provider-result
+admission-request assembly for Rust-executed provider outputs that do not yet
+carry explicit token counts. Direct Rust provider-result envelopes and token
+accounting still need to remove that final JS fallback before provider
+invocation/result reaches terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

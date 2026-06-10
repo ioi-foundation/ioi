@@ -263,7 +263,9 @@ Matrix compaction timing:
   provider-registry public-provider projection helper deletion.
 - Scheduled matrix-compaction obligation from Slice 917 is now satisfied by the
   provider-auth header materialization facade deletion.
-- Next scheduled matrix-compaction pass: compact Slice 918 after the next
+- Scheduled matrix-compaction obligation from Slice 918 is now satisfied by the
+  provider-protocol fixture/tokenizer compatibility helper deletion.
+- Next scheduled matrix-compaction pass: compact Slice 919 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19517,7 +19519,39 @@ daemon-core wallet/cTEE provider-auth APIs, Agentgres-backed provider truth,
 stable protocol APIs, and command-transport retirement remain required before
 provider auth/control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 918 after the next direct
+At Slice 918 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 919 is that seam
+and satisfies the Slice 918 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 918 is now satisfied.
+
+## Implementation Slice Evidence: 919
+
+Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,
+usage-normalization, JSON-parse, truncation, and limit-normalization helpers.
+`provider-protocol.mjs` now exports only `estimateTokens()`, and
+`model-mounting.mjs` no longer imports the provider-protocol module. The
+remaining `estimateTokens()` fallback is scoped to provider-result
+admission-request assembly for Rust-executed provider outputs that do not yet
+carry explicit token counts.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/provider-protocol.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-protocol.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal provider invocation/result migration: direct
+Rust provider-result envelopes, token accounting, hosted/provider transports,
+stable protocol APIs, and command-transport retirement remain required before
+provider invocation/result reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 919 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

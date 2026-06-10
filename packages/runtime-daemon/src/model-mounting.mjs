@@ -62,15 +62,6 @@ import {
   throwCatalogProviderControlRustCoreRequired,
 } from "./model-mounting/catalog-provider-config.mjs";
 import {
-  deterministicTokenizeText,
-  estimateTokens,
-  inputText,
-  normalizeUsage,
-  parseJsonMaybe,
-  truncate,
-  truncateToEstimatedTokens,
-} from "./model-mounting/provider-protocol.mjs";
-import {
   estimateNativeLocalResources,
   findExecutable,
   hardwareSnapshot,

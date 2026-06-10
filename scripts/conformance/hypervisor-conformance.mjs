@@ -837,6 +837,8 @@ function runDocs() {
       /Slice 918 retired the JS provider-auth header materialization facade/.test(guide) &&
       /`provider-auth\.mjs` no longer exports `providerAuthHeaders\(\)`,\s+`providerAuthorizationHeaderValue\(\)`, `assertProviderVaultBoundary\(\)`,\s+`providerHasVaultRef\(\)`, `normalizeProviderAuthScheme\(\)`, or\s+`normalizeProviderAuthHeaderName\(\)`/.test(guide) &&
       /it no longer\s+resolves provider vault material or assembles outbound provider auth headers/.test(guide) &&
+      /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(guide) &&
+      /`provider-protocol\.mjs` now exports only `estimateTokens\(\)`/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -1269,7 +1271,11 @@ function runDocs() {
       /Slice 918 retired the JS provider-auth header materialization facade/.test(matrix) &&
       /`provider-auth\.mjs` no longer exports `providerAuthHeaders\(\)`,\s+`providerAuthorizationHeaderValue\(\)`, `assertProviderVaultBoundary\(\)`,\s+`providerHasVaultRef\(\)`, `normalizeProviderAuthScheme\(\)`, or\s+`normalizeProviderAuthHeaderName\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 917 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 918/.test(matrix) &&
+      /Implementation Slice Evidence: 919/.test(matrix) &&
+      /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(matrix) &&
+      /`provider-protocol\.mjs` now exports only `estimateTokens\(\)`/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 919/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1466,7 +1472,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 915 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 916 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 917 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 918/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 919/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1956,7 +1963,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 918 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 919 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -14175,9 +14182,14 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-stream-request-shape-trace-helper-retired",
-    !/summarizeProviderRequestBodyForTrace/.test(providerProtocol),
+    !/summarizeProviderRequestBodyForTrace/.test(providerProtocol) &&
+      !/\b(?:deterministicOutput|deterministicTokenizeText|deterministicTokenId|truncateToEstimatedTokens|messageContentText|inputText|normalizeUsage|parseJsonMaybe|truncate|normalizeLimit)\b/.test(
+        providerProtocol,
+      ) &&
+      !/from "\.\/model-mounting\/provider-protocol\.mjs"/.test(modelMountingState) &&
+      /export function estimateTokens/.test(providerProtocol),
     ["packages/runtime-daemon/src/model-mounting/provider-protocol.mjs"],
-    "Phase 4/9 is pending: legacy stream request-shape trace helpers must not remain after Rust provider-result admission owns stream-start evidence",
+    "Phase 4/9 is pending: legacy stream request-shape, fixture, tokenizer, JSON, truncation, and usage helpers must not remain after Rust provider-result admission owns stream-start evidence",
   );
   assertCheck(
     result,
