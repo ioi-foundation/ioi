@@ -1182,6 +1182,7 @@ export class AgentgresRuntimeStateStore {
           "operator requested resume",
       }, {
         RuntimeApiBridgeUnavailableError,
+        runtimeError,
         runtimeSessionIdForAgent,
       });
     }

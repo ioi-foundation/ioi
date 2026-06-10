@@ -61,6 +61,9 @@ function assertRuntimeBridgeThreadRustCoreRequired(error, {
   operationKind,
   runtimeProfile,
   evidenceRef,
+  threadId,
+  agentId,
+  action,
 }) {
   assert.equal(error.status, 501);
   assert.equal(error.code, "runtime_bridge_thread_rust_core_required");
@@ -68,6 +71,9 @@ function assertRuntimeBridgeThreadRustCoreRequired(error, {
   assert.equal(error.details.operation, operation);
   assert.equal(error.details.operation_kind, operationKind);
   assert.equal(error.details.runtime_profile, runtimeProfile);
+  if (threadId) assert.equal(error.details.thread_id, threadId);
+  if (agentId) assert.equal(error.details.agent_id, agentId);
+  if (action) assert.equal(error.details.action, action);
   assert.equal(error.details.evidence_refs.includes(evidenceRef), true);
   assertNoRetiredRuntimeBridgeErrorDetailAliases(error.details);
   return true;
@@ -352,32 +358,7 @@ test("runtime bridge turn creation fails closed before JS bridge dispatch and ru
   assert.equal(store.calls.some((call) => call.operation === "append_operation"), false);
 });
 
-test("runtime bridge thread control sends action to bridge", async () => {
-  const store = fakeControlStore();
-  const agent = {
-    id: "agent_runtime",
-    cwd: "/workspace",
-    runtimeProfile: "runtime_service",
-    runtimeSessionId: "session_runtime",
-  };
-
-  const result = await controlRuntimeBridgeThread(store, {
-    agent,
-    threadId: "thread_agent_runtime",
-    action: "resume",
-    reason: "operator requested resume",
-  }, deps());
-
-  const control = store.calls.find((call) => call.operation === "control_thread");
-  assert.equal(control.input.sessionId, "session_runtime");
-  assert.equal(control.input.threadId, "thread_agent_runtime");
-  assert.equal(control.input.workspaceRoot, "/workspace");
-  assert.equal(control.input.action, "resume");
-  assert.equal(control.input.reason, "operator requested resume");
-  assert.equal(result.status, "accepted");
-});
-
-test("runtime bridge thread control maps bridge unavailable errors", async () => {
+test("runtime bridge thread control fails closed before JS bridge dispatch", async () => {
   const store = fakeControlStore({ bridgeError: new BridgeUnavailableError({ reason: "not configured" }) });
   const agent = {
     id: "agent_runtime",
@@ -390,15 +371,23 @@ test("runtime bridge thread control maps bridge unavailable errors", async () =>
     controlRuntimeBridgeThread(store, {
       agent,
       threadId: "thread_agent_runtime",
-      action: "stop",
-      reason: "operator requested interrupt",
+      action: "resume",
+      reason: "operator requested resume",
     }, deps()),
     (error) => {
-      assert.equal(error.input.operation, "control_thread");
-      assert.equal(error.input.details.reason, "not configured");
-      return true;
+      return assertRuntimeBridgeThreadRustCoreRequired(error, {
+        operation: "runtime_bridge_thread_control",
+        operationKind: "thread.runtime_bridge.control",
+        runtimeProfile: "runtime_service",
+        threadId: "thread_agent_runtime",
+        agentId: "agent_runtime",
+        action: "resume",
+        evidenceRef: "runtime_bridge_thread_control_js_facade_retired",
+      });
     },
   );
+  assert.equal(store.calls.some((call) => call.operation === "assert_bridge"), false);
+  assert.equal(store.calls.some((call) => call.operation === "control_thread"), false);
 });
 
 test("runtime bridge thread start normalization fills event defaults", () => {

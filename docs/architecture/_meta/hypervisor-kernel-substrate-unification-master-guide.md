@@ -2226,6 +2226,14 @@ previews, or managed-session snapshots as public projection truth. The orphaned
 JS inspection normalizer modules and tests were deleted. Direct Rust
 daemon-core workspace-change and managed-session projection over
 Agentgres-admitted truth remains required before terminal conformance.
+Slice 954 retired the remaining runtime bridge thread-control JS dispatch path.
+`RuntimeBridgeThreadTurnControl.controlRuntimeBridgeThread()` now fails closed
+at `thread.runtime_bridge.control` with
+`runtime_bridge_thread_rust_core_required`, so JS no longer calls
+`runtimeBridge.controlThread()` or bridge availability checks as an accepted
+thread-control path. Direct Rust daemon-core admission, wallet/cTEE/session
+authority, Agentgres expected-head/state-root binding, replay, and projection
+remain required before terminal runtime bridge thread/turn/control conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

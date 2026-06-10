@@ -20880,3 +20880,38 @@ should preserve the non-terminal status of workspace-change and managed-session
 command transport, Agentgres-backed projection truth, and stable protocol APIs
 without encoding runtime-bridge inspection envelopes, fixture fallback
 snapshots, or JS inspection normalizers as public projection authority.
+
+## Implementation Slice Evidence: 954
+
+Slice 954 retired the remaining runtime bridge thread-control JS dispatch path.
+`controlRuntimeBridgeThread()` now fails closed with
+`runtime_bridge_thread_rust_core_required` at
+`thread.runtime_bridge.control` instead of checking JS bridge availability,
+calling `runtimeBridge.controlThread()`, or mapping bridge-unavailable errors
+as accepted control behavior. Conformance now rejects reintroducing JS
+`controlThread` dispatch or bridge availability checks in the runtime bridge
+thread/turn/control surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal runtime bridge migration. Direct Rust
+daemon-core runtime bridge thread/turn/control admission, wallet/cTEE/session
+authority, Agentgres-backed truth, receipt/state-root binding, replay,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-954 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of runtime bridge command transport,
+Agentgres-backed thread/turn/control truth, and stable protocol APIs without
+encoding `runtimeBridge.controlThread()` as public control authority.

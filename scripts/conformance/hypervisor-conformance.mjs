@@ -7658,10 +7658,13 @@ function runBridge() {
       /runtime_bridge_thread_rust_core_required/.test(runtimeBridgeThread) &&
       /runtime_bridge_thread_start_js_facade_retired/.test(runtimeBridgeThread) &&
       /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeBridgeThread) &&
+      /runtime_bridge_thread_control_js_facade_retired/.test(runtimeBridgeThread) &&
       /rust_daemon_core_runtime_bridge_thread_start_required/.test(runtimeBridgeThread) &&
       /rust_daemon_core_runtime_bridge_turn_required/.test(runtimeBridgeThread) &&
+      /rust_daemon_core_runtime_bridge_thread_control_required/.test(runtimeBridgeThread) &&
       /agentgres_runtime_bridge_thread_start_truth_required/.test(runtimeBridgeThread) &&
       /agentgres_runtime_bridge_turn_truth_required/.test(runtimeBridgeThread) &&
+      /agentgres_runtime_bridge_thread_control_truth_required/.test(runtimeBridgeThread) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|sessionId|runtimeProfile|operationKind|expectedOperationKind)\s*:/.test(
         runtimeBridgeThread,
       ) &&
@@ -7672,6 +7675,8 @@ function runBridge() {
       !/requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
       !/store\.runtimeBridge\.startThread/.test(runtimeBridgeThread) &&
       !/store\.runtimeBridge\.submitTurn/.test(runtimeBridgeThread) &&
+      !/store\.runtimeBridge\.controlThread/.test(runtimeBridgeThread) &&
+      !/store\.assertRuntimeBridgeAvailable/.test(runtimeBridgeThread) &&
       !/store\.agents\.set|store\.runs\.set|store\.writeAgent|store\.writeRun|store\.appendRuntimeEvent|store\.registerInFlightRuntimeTurn/.test(
         runtimeBridgeThread,
       ) &&
@@ -7681,11 +7686,17 @@ function runBridge() {
       /runtime bridge turn creation fails closed before JS bridge dispatch and run persistence/.test(
         runtimeBridgeThreadTest,
       ) &&
+      /runtime bridge thread control fails closed before JS bridge dispatch/.test(
+        runtimeBridgeThreadTest,
+      ) &&
       /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeBridgeThreadTest) &&
       /store\.calls\.some\(\(call\) => call\.operation === "start_thread"\), false/.test(
         runtimeBridgeThreadTest,
       ) &&
       /store\.calls\.some\(\(call\) => call\.operation === "submit_turn"\), false/.test(
+        runtimeBridgeThreadTest,
+      ) &&
+      /store\.calls\.some\(\(call\) => call\.operation === "control_thread"\), false/.test(
         runtimeBridgeThreadTest,
       ) &&
       /store\.calls\.some\(\(call\) => call\.operation === "plan_runtime_bridge_thread_start_agent_state_update"\),\s*false/.test(
@@ -7716,7 +7727,7 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge thread start/turn creation JS facades must stay retired before bridge dispatch, Rust-planner calls from the facade, JS event append, or JS agent/run persistence while direct Rust daemon-core admission is extracted",
+    "Phase 10/11 is pending: runtime bridge thread start/turn/control JS facades must stay retired before bridge dispatch, Rust-planner calls from the facade, JS event append, or JS agent/run persistence while direct Rust daemon-core admission is extracted",
   );
   assertCheck(
     result,

@@ -54,33 +54,24 @@ function throwRuntimeBridgeThreadRustCoreRequired({ runtimeError, operation, ope
 }
 
 export async function controlRuntimeBridgeThread(store, { agent, threadId, action, reason }, deps = {}) {
-  const {
-    RuntimeApiBridgeUnavailableError,
-    runtimeSessionIdForAgent,
-  } = deps;
-  store.assertRuntimeBridgeAvailable({
-    runtimeProfile: agent.runtimeProfile,
-    operation: "control_thread",
+  void store;
+  void reason;
+  throwRuntimeBridgeThreadRustCoreRequired({
+    runtimeError: deps.runtimeError,
+    operation: "runtime_bridge_thread_control",
+    operationKind: "thread.runtime_bridge.control",
+    details: {
+      thread_id: threadId,
+      agent_id: agent?.id ?? null,
+      runtime_profile: agent?.runtimeProfile ?? null,
+      action: action ?? null,
+      evidence_refs: [
+        "runtime_bridge_thread_control_js_facade_retired",
+        "rust_daemon_core_runtime_bridge_thread_control_required",
+        "agentgres_runtime_bridge_thread_control_truth_required",
+      ],
+    },
   });
-  try {
-    return await store.runtimeBridge.controlThread({
-      sessionId: runtimeSessionIdForAgent(agent),
-      threadId,
-      workspaceRoot: agent.cwd,
-      action,
-      reason,
-      createdAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    if (RuntimeApiBridgeUnavailableError && error instanceof RuntimeApiBridgeUnavailableError) {
-      throw store.runtimeBridgeUnavailable({
-        runtimeProfile: agent.runtimeProfile,
-        operation: "control_thread",
-        details: error.details,
-      });
-    }
-    throw error;
-  }
 }
 
 export function normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }, deps = {}) {
