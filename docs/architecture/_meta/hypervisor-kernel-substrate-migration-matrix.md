@@ -13972,11 +13972,14 @@ target ownership.
   `controlManagedSessionForThread` now fail closed before JS agent lookup,
   runtime bridge availability checks, `runtimeBridge.controlThread`,
   request-hash synthesis, receipt/result envelope construction, or inspection
-  projection.
-- Workspace-change and managed-session inspection remain read/projection
-  adapters. Terminal control admission, wallet/cTEE/session authority,
-  receipt/state-root binding, replay, and projection must move into direct Rust
-  daemon-core APIs before these controls can execute again.
+  projection. Slice 953 later retired the remaining workspace-change and
+  managed-session inspection JS bridge-projection facades, so public inspection
+  now fails closed before JS agent lookup, runtime bridge inspection,
+  fixture fallback projection, hunk-preview construction, or managed-session
+  envelope normalization.
+- Terminal control admission, wallet/cTEE/session authority, receipt/state-root
+  binding, replay, and projection must move into direct Rust daemon-core APIs
+  before these controls or inspections can execute again.
 - Conformance anchors retained for this compacted slice include
   `workspace-change-review-aliases-retired`,
   `managed-session-envelope-aliases-retired`,
@@ -20836,3 +20839,44 @@ should preserve the non-terminal status of workspace snapshot/restore command
 transport, Agentgres-backed snapshot truth, and stable protocol APIs without
 encoding JS runtime-event streams or `codingArtifacts` maps as public
 workspace-snapshot projection authority.
+
+## Implementation Slice Evidence: 953
+
+Slice 953 retired runtime workspace-change and managed-session public JS
+inspection readback. Public `inspectWorkspaceChangeReviewsForThread()` now
+fails closed with `runtime_workspace_change_control_rust_core_required` at
+`workspace_change.inspect` instead of resolving agents, dispatching
+`runtimeBridge.inspectThread`, and constructing JS hunk-preview projection
+envelopes. Public `inspectManagedSessionsForThread()` now fails closed with
+`runtime_managed_session_control_rust_core_required` at
+`managed_session.inspect` instead of resolving agents, dispatching
+`runtimeBridge.inspectThread`, and constructing JS managed-session projection
+envelopes. The orphaned `workspace-change-inspection.mjs` and
+`managed-session-inspection.mjs` compatibility modules and tests were deleted,
+and conformance rejects reintroducing JS bridge projection in those state
+surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/threads/workspace-change-state.mjs packages/runtime-daemon/src/threads/workspace-change-state.test.mjs packages/runtime-daemon/src/threads/managed-session-state.mjs packages/runtime-daemon/src/threads/managed-session-state.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/threads/workspace-change-state.test.mjs packages/runtime-daemon/src/threads/managed-session-state.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal workspace-change or managed-session
+migration. Direct Rust daemon-core projection, wallet/cTEE/session authority,
+Agentgres-backed truth, receipt/state-root binding, replay, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-953 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of workspace-change and managed-session
+command transport, Agentgres-backed projection truth, and stable protocol APIs
+without encoding runtime-bridge inspection envelopes, fixture fallback
+snapshots, or JS inspection normalizers as public projection authority.

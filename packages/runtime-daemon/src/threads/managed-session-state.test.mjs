@@ -6,25 +6,8 @@ import {
   inspectManagedSessionsForThread,
 } from "./managed-session-state.mjs";
 
-class BridgeUnavailableError extends Error {
-  constructor(details = {}) {
-    super("bridge unavailable");
-    this.details = details;
-  }
-}
-
 function deps() {
-  return {
-    RuntimeApiBridgeUnavailableError: BridgeUnavailableError,
-    doctorHash: (value) => `hash-${String(value).length}`.padEnd(24, "0"),
-    isRuntimeBackedAgent: (agent) => agent.runtimeProfile === "runtime_service",
-    optionalString: (value) => {
-      if (value === undefined || value === null) return null;
-      const text = String(value).trim();
-      return text ? text : null;
-    },
-    runtimeSessionIdForAgent: (agent) => agent.runtimeSessionId ?? `session_${agent.id}`,
-  };
+  return {};
 }
 
 function fakeStore({ agent, runtimeBridge = {} }) {
@@ -47,13 +30,7 @@ function fakeStore({ agent, runtimeBridge = {} }) {
   };
 }
 
-function assertNoRetiredContractDetailAliases(details) {
-  for (const field of ["threadId"]) {
-    assert.equal(Object.hasOwn(details, field), false, `retired managed session detail alias ${field}`);
-  }
-}
-
-test("managed session thread inspection returns replay-safe empty snapshot for fixture threads", async () => {
+test("managed session thread inspection fails closed for fixture threads before JS fallback projection", async () => {
   const store = fakeStore({
     agent: {
       id: "agent_fixture",
@@ -62,19 +39,14 @@ test("managed session thread inspection returns replay-safe empty snapshot for f
     },
   });
 
-  const inspected = await inspectManagedSessionsForThread(store, "thread_fixture", {}, deps());
-
-  assert.equal(inspected.status, "not_runtime_backed");
-  assert.equal(inspected.session_id, "session_agent_fixture");
-  assert.equal(inspected.managed_sessions.thread_id, "thread_fixture");
-  assert.deepEqual(inspected.managed_sessions.sessions, []);
-  for (const field of ["threadId", "sessionId", "runtimeProfile", "managedSessions"]) {
-    assert.equal(Object.hasOwn(inspected, field), false, `retired managed session alias ${field}`);
-  }
+  await assert.rejects(
+    inspectManagedSessionsForThread(store, "thread_fixture", {}, deps()),
+    assertManagedSessionInspectionRustCoreRequired,
+  );
+  assert.deepEqual(store.calls, []);
 });
 
-test("managed session thread inspection calls runtime bridge and normalizes result", async () => {
-  const bridgeCalls = [];
+test("managed session thread inspection fails closed before JS bridge projection", async () => {
   const store = fakeStore({
     agent: {
       id: "agent_runtime",
@@ -84,34 +56,19 @@ test("managed session thread inspection calls runtime bridge and normalizes resu
     },
     runtimeBridge: {
       async inspectThread(input) {
-        bridgeCalls.push(input);
-        return {
-          bridge_id: "bridge_runtime",
-          managed_sessions: {
-            sessions: [{ id: "sandbox_browser:test", kind: "sandbox_browser" }],
-          },
-        };
+        assert.fail(`managed session JS inspection bridge dispatch must not run: ${JSON.stringify(input)}`);
       },
     },
   });
 
-  const inspected = await inspectManagedSessionsForThread(store, "thread_runtime", {}, deps());
-
-  assert.equal(bridgeCalls[0].projection, "managed_sessions");
-  assert.equal(bridgeCalls[0].managed_sessions_only, true);
-  assert.equal(bridgeCalls[0].session_id, "session_runtime");
-  assert.equal(bridgeCalls[0].thread_id, "thread_runtime");
-  assert.equal(bridgeCalls[0].workspace_root, "/workspace");
-  assert.equal(typeof bridgeCalls[0].requested_at, "string");
-  for (const field of ["sessionId", "threadId", "workspaceRoot", "managedSessionsOnly", "requestedAt"]) {
-    assert.equal(Object.hasOwn(bridgeCalls[0], field), false, `retired managed session bridge alias ${field}`);
-  }
-  assert.equal(inspected.bridge_id, "bridge_runtime");
-  assert.equal(inspected.managed_sessions.sessions[0].id, "sandbox_browser:test");
-  assert.equal(Object.hasOwn(inspected, "managedSessions"), false);
+  await assert.rejects(
+    inspectManagedSessionsForThread(store, "thread_runtime", {}, deps()),
+    assertManagedSessionInspectionRustCoreRequired,
+  );
+  assert.deepEqual(store.calls, []);
 });
 
-test("managed session thread inspection rejects retired bridge request aliases", async () => {
+test("managed session thread inspection fails closed before retired request alias handling", async () => {
   const store = fakeStore({
     agent: {
       id: "agent_runtime",
@@ -124,16 +81,30 @@ test("managed session thread inspection rejects retired bridge request aliases",
   for (const alias of ["sessionId", "threadId", "workspaceRoot", "managedSessionsOnly", "requestedAt"]) {
     await assert.rejects(
       inspectManagedSessionsForThread(store, "thread_runtime", { [alias]: "retired" }, deps()),
-      (error) => {
-        assert.equal(error.code, "managed_session_inspection_request_aliases_retired");
-        assert.equal(error.details.thread_id, "thread_runtime");
-        assert.deepEqual(error.details.retired_aliases, [alias]);
-        assertNoRetiredContractDetailAliases(error.details);
-        return true;
-      },
+      assertManagedSessionInspectionRustCoreRequired,
     );
   }
+  assert.deepEqual(store.calls, []);
 });
+
+function assertManagedSessionInspectionRustCoreRequired(error) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_managed_session_control_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.managed_session_control");
+  assert.equal(error.details.operation, "managed_session_inspection");
+  assert.equal(error.details.operation_kind, "managed_session.inspect");
+  assert.match(error.details.thread_id, /^thread_(fixture|runtime)$/);
+  assert.deepEqual(error.details.evidence_refs, [
+    "managed_session_inspection_js_facade_retired",
+    "managed_session_inspection_bridge_projection_retired",
+    "rust_daemon_core_managed_session_projection_required",
+    "agentgres_managed_session_truth_required",
+  ]);
+  for (const key of ["threadId", "operationKind", "rustCoreBoundary", "evidenceRefs", "retiredAliases"]) {
+    assert.equal(Object.hasOwn(error.details, key), false);
+  }
+  return true;
+}
 
 function assertManagedSessionControlRustCoreRequired(error) {
   assert.equal(error.status, 501);

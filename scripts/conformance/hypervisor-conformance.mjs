@@ -17254,23 +17254,15 @@ function runCompositor() {
   const runtimeWorkspaceSnapshotSurfaceTest = exists("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs")
     : "";
-  const workspaceChangeInspection = exists("packages/runtime-daemon/src/workspace-change-inspection.mjs")
-    ? read("packages/runtime-daemon/src/workspace-change-inspection.mjs")
-    : "";
-  const workspaceChangeInspectionTest = exists("packages/runtime-daemon/src/workspace-change-inspection.test.mjs")
-    ? read("packages/runtime-daemon/src/workspace-change-inspection.test.mjs")
-    : "";
   const workspaceChangeState = exists("packages/runtime-daemon/src/threads/workspace-change-state.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-change-state.mjs")
     : "";
+  const workspaceChangeInspectionStateBlock =
+    workspaceChangeState.match(
+      /export async function inspectWorkspaceChangeReviewsForThread[\s\S]*?\nexport async function controlWorkspaceChangeForThread/,
+    )?.[0] ?? workspaceChangeState;
   const workspaceChangeStateTest = exists("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
     ? read("packages/runtime-daemon/src/threads/workspace-change-state.test.mjs")
-    : "";
-  const managedSessionInspection = exists("packages/runtime-daemon/src/managed-session-inspection.mjs")
-    ? read("packages/runtime-daemon/src/managed-session-inspection.mjs")
-    : "";
-  const managedSessionInspectionTest = exists("packages/runtime-daemon/src/managed-session-inspection.test.mjs")
-    ? read("packages/runtime-daemon/src/managed-session-inspection.test.mjs")
     : "";
   const managedSessionState = exists("packages/runtime-daemon/src/threads/managed-session-state.mjs")
     ? read("packages/runtime-daemon/src/threads/managed-session-state.mjs")
@@ -23685,118 +23677,57 @@ function runCompositor() {
   assertCheck(
     result,
     "managed-session-envelope-aliases-retired",
-    /managed_session_inspection_request_aliases_retired/.test(
-      managedSessionInspectionStateBlock,
-    ) &&
-      /retiredManagedSessionInspectionAliases/.test(
-        managedSessionInspectionStateBlock,
-      ) &&
-      /session_id:\s*sessionId/.test(managedSessionInspectionStateBlock) &&
-      /thread_id:\s*threadId/.test(managedSessionInspectionStateBlock) &&
-      /workspace_root:\s*agent\.cwd/.test(managedSessionInspectionStateBlock) &&
-      /managed_sessions_only:\s*true/.test(managedSessionInspectionStateBlock) &&
-      /requested_at:\s*new Date\(\)\.toISOString\(\)/.test(
-        managedSessionInspectionStateBlock,
-      ) &&
-      /projection:\s*"managed_sessions"/.test(managedSessionInspectionStateBlock) &&
+    /runtime_managed_session_control_rust_core_required/.test(managedSessionInspectionStateBlock) &&
+      /managed_session_inspection_js_facade_retired/.test(managedSessionState) &&
+      /managed_session_inspection_bridge_projection_retired/.test(managedSessionState) &&
+      /rust_daemon_core_managed_session_projection_required/.test(managedSessionState) &&
+      /agentgres_managed_session_truth_required/.test(managedSessionState) &&
       /runtime_managed_session_control_rust_core_required/.test(managedSessionState) &&
       /managed_session_control_js_facade_retired/.test(managedSessionState) &&
       /managed_session_control_bridge_dispatch_retired/.test(managedSessionState) &&
       /managed_session_control_result_envelope_js_retired/.test(managedSessionState) &&
       /rust_daemon_core_managed_session_control_required/.test(managedSessionState) &&
       /agentgres_managed_session_truth_required/.test(managedSessionState) &&
-      /runtime_profile:\s*agent\.runtime_profile \?\? "fixture"/.test(managedSessionState) &&
-      /const managedSessions =\s*[\r\n\s]*bridgeResult\?\.managed_sessions \?\?/.test(
-        managedSessionInspection,
-      ) &&
-      /bridge_id:\s*bridgeResult\?\.bridge_id \?\? agent\.runtime_bridge_id \?\? null/.test(
-        managedSessionInspection,
-      ) &&
-      /thread_id:\s*bridgeResult\?\.thread_id \?\? threadId/.test(managedSessionInspection) &&
-      /session_id:\s*bridgeResult\?\.session_id \?\? sessionId/.test(managedSessionInspection) &&
-      /workspace_root:\s*bridgeResult\?\.workspace_root \?\? agent\.cwd/.test(
-        managedSessionInspection,
-      ) &&
-      /managed session inspection ignores retired bridge aliases/.test(
-        managedSessionInspectionTest,
-      ) &&
-      /Object\.hasOwn\(normalized,\s*field\),\s*false/.test(managedSessionInspectionTest) &&
-      /managed session thread inspection rejects retired bridge request aliases/.test(
+      !exists("packages/runtime-daemon/src/managed-session-inspection.mjs") &&
+      !exists("packages/runtime-daemon/src/managed-session-inspection.test.mjs") &&
+      /managed session thread inspection fails closed for fixture threads before JS fallback projection/.test(
         managedSessionStateTest,
       ) &&
-      /Object\.hasOwn\(bridgeCalls\[0\],\s*field\),\s*false/.test(
+      /managed session thread inspection fails closed before JS bridge projection/.test(
         managedSessionStateTest,
       ) &&
-      /bridgeCalls\[0\]\.managed_sessions_only,\s*true/.test(
+      /managed session thread inspection fails closed before retired request alias handling/.test(
         managedSessionStateTest,
       ) &&
-      /error\.details\.thread_id/.test(managedSessionStateTest) &&
+      /assertManagedSessionInspectionRustCoreRequired/.test(managedSessionStateTest) &&
       /assertManagedSessionControlRustCoreRequired/.test(managedSessionStateTest) &&
       /managed session control facade fails closed before JS bridge dispatch or result envelope/.test(
         managedSessionStateTest,
       ) &&
       /assert\.deepEqual\(store\.calls,\s*\[\]\)/.test(managedSessionStateTest) &&
       !/details:\s*\{\s*threadId\s*(?:,|:)/.test(managedSessionState) &&
-      !/^\s*(?:threadId|sessionId|productLane|bridgeId|workspaceRoot|managedSessions|managedSessionId|bridgeResult)\s*:/m.test(
-        managedSessionInspection,
-      ) &&
       !/^\s*(?:threadId|sessionId|managedSessions|managedSessionId)\s*:/m.test(
         managedSessionState,
       ) &&
-      !/^\s*(?:sessionId|threadId|workspaceRoot|managedSessionsOnly|requestedAt)\s*:/m.test(
-        managedSessionInspectionStateBlock,
-      ) &&
-      !/\bbridgeResult\?\.(?:bridgeId|threadId|sessionId|workspaceRoot|managedSessions)\b/.test(
-        managedSessionInspection,
-      ) &&
-      !/\brequest\.(?:sessionId|threadId|workspaceRoot|managedSessionsOnly|requestedAt)\b/.test(
-        managedSessionInspectionStateBlock,
-      ) &&
+      !/retiredManagedSessionInspectionAliases/.test(managedSessionState) &&
       !/retiredManagedSessionControlAliases/.test(managedSessionState) &&
-      !/store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|managed_session_id:\s*managedSessionId|schema_version:\s*"ioi\.runtime\.managed-session-control\.daemon\.v1"/.test(
+      !/store\.agentForThread|agentForThread\(|store\.assertRuntimeBridgeAvailable|runtimeBridge\.inspectThread|store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|managed_session_id:\s*managedSessionId|schema_version:\s*"ioi\.runtime\.managed-session-control\.daemon\.v1"/.test(
         managedSessionState,
       ),
     [
-      "packages/runtime-daemon/src/managed-session-inspection.mjs",
-      "packages/runtime-daemon/src/managed-session-inspection.test.mjs",
       "packages/runtime-daemon/src/threads/managed-session-state.mjs",
       "packages/runtime-daemon/src/threads/managed-session-state.test.mjs",
     ],
-    "Phase 10/11 is pending: managed-session inspection/control envelopes must use canonical snake_case fields and fail closed on retired request aliases",
+    "Phase 10/11 is pending: managed-session inspection/control facades must fail closed before JS bridge projection or control dispatch",
   );
   assertCheck(
     result,
     "workspace-change-review-aliases-retired",
-    /schema_version:\s*WORKSPACE_CHANGE_REVIEW_SCHEMA_VERSION/.test(
-      workspaceChangeInspection,
-    ) &&
-      /workspace_change_reviews:\s*\[\]/.test(workspaceChangeInspection) &&
-      /hunk_previews:\s*\[\]/.test(workspaceChangeInspection) &&
-      /const rawReviews = normalizeArray\(bridge_result\?\.workspace_change_reviews\)/.test(
-        workspaceChangeInspection,
-      ) &&
-      /bridge_result\?\.latest_trajectory\?\.workspace_changes/.test(
-        workspaceChangeInspection,
-      ) &&
-      /change_id:\s*optionalString\(review\.change_id\)/.test(
-        workspaceChangeInspection,
-      ) &&
-      /accept_available:\s*Boolean\(review\.accept_available\)/.test(
-        workspaceChangeInspection,
-      ) &&
-      /line_start:\s*nullableInteger\(hunk\?\.line_start\)/.test(
-        workspaceChangeInspection,
-      ) &&
-      /runtime_profile:\s*agent\?\.runtime_profile \?\? "unknown"/.test(
-        workspaceChangeInspection,
-      ) &&
-      /retiredWorkspaceChangeInspectionAliases/.test(workspaceChangeState) &&
-      /workspace_change_inspection_request_aliases_retired/.test(workspaceChangeState) &&
-      /session_id:\s*sessionId/.test(workspaceChangeState) &&
-      /thread_id:\s*threadId/.test(workspaceChangeState) &&
-      /workspace_root:\s*agent\.cwd/.test(workspaceChangeState) &&
-      /requested_at:\s*new Date\(\)\.toISOString\(\)/.test(workspaceChangeState) &&
-      /projection:\s*"workspace_change_reviews"/.test(workspaceChangeState) &&
+    /runtime_workspace_change_control_rust_core_required/.test(workspaceChangeInspectionStateBlock) &&
+      /workspace_change_inspection_js_facade_retired/.test(workspaceChangeState) &&
+      /workspace_change_inspection_bridge_projection_retired/.test(workspaceChangeState) &&
+      /rust_daemon_core_workspace_change_projection_required/.test(workspaceChangeState) &&
+      /agentgres_workspace_change_truth_required/.test(workspaceChangeState) &&
       /runtime_workspace_change_control_rust_core_required/.test(workspaceChangeState) &&
       /workspace_change_control_js_facade_retired/.test(workspaceChangeState) &&
       /workspace_change_control_bridge_dispatch_retired/.test(workspaceChangeState) &&
@@ -23804,37 +23735,18 @@ function runCompositor() {
       /rust_daemon_core_workspace_change_control_required/.test(workspaceChangeState) &&
       /agentgres_workspace_change_truth_required/.test(workspaceChangeState) &&
       /tool_id:\s*normalizedToolId/.test(runtimeDaemonIndex) &&
-      /Object\.hasOwn\(inspection,\s*"schemaVersion"\),\s*false/.test(
-        workspaceChangeInspectionTest,
-      ) &&
-      /Object\.hasOwn\(inspection\.hunk_previews\[0\],\s*"changeId"\),\s*false/.test(
-        workspaceChangeInspectionTest,
-      ) &&
-      /workspace change inspection ignores bridge top-level workspace change fallback/.test(
-        workspaceChangeInspectionTest,
-      ) &&
-      /workspace change inspection ignores retired runtime profile alias/.test(
-        workspaceChangeInspectionTest,
-      ) &&
-      /workspace change inspection rejects retired bridge request aliases/.test(
+      !exists("packages/runtime-daemon/src/workspace-change-inspection.mjs") &&
+      !exists("packages/runtime-daemon/src/workspace-change-inspection.test.mjs") &&
+      /workspace change inspection fails closed for fixture threads before JS fallback projection/.test(
         workspaceChangeStateTest,
       ) &&
-      /Object\.hasOwn\(bridgeCalls\[0\],\s*"sessionId"\),\s*false/.test(
+      /workspace change inspection fails closed before JS bridge projection/.test(
         workspaceChangeStateTest,
       ) &&
-      /Object\.hasOwn\(bridgeCalls\[0\],\s*"workspaceRoot"\),\s*false/.test(
+      /workspace change inspection fails closed before retired request alias handling/.test(
         workspaceChangeStateTest,
       ) &&
-      /Object\.hasOwn\(bridgeCalls\[0\],\s*"requestedAt"\),\s*false/.test(
-        workspaceChangeStateTest,
-      ) &&
-      /agent:\s*\{\s*runtimeProfile:\s*"runtime_alias"\s*\}/.test(
-        workspaceChangeInspectionTest,
-      ) &&
-      /inspection\.runtime_profile,\s*"unknown"/.test(
-        workspaceChangeInspectionTest,
-      ) &&
-      /inspection\.status,\s*"metadata_only"/.test(workspaceChangeInspectionTest) &&
+      /assertWorkspaceChangeInspectionRustCoreRequired/.test(workspaceChangeStateTest) &&
       /workspace change control facade fails closed before JS bridge dispatch or result envelope/.test(
         workspaceChangeStateTest,
       ) &&
@@ -23847,41 +23759,26 @@ function runCompositor() {
       /workspace_change_id:\s*"workspace_change:file:2"/.test(
         workspaceChangeStateTest,
       ) &&
-      !/^\s*(?:schemaVersion|threadId|sessionId|runtimeProfile|workspaceChangeReviews|hunkPreviews|changeId|hunkCount|acceptAvailable|rejectAvailable|rollbackAvailable|staleReason|hunkIndex|lineStart|lineEnd|beforeContent|afterContent)\s*:/m.test(
-        workspaceChangeInspection,
-      ) &&
-      !/\b(?:bridge_result|review|change|hunk|publicReview)\?\.(?:workspaceChangeReviews|latestTrajectory|workspaceChanges|changeId|hunkCount|acceptAvailable|rejectAvailable|rollbackAvailable|staleReason|hunkIndex|searchText|replaceText|contentText|lineStart|lineEnd)\b/.test(
-        workspaceChangeInspection,
-      ) &&
-      !/\bagent\?\.runtimeProfile\b/.test(workspaceChangeInspection) &&
-      !/bridge_result\?\.workspace_changes/.test(workspaceChangeInspection) &&
       !/^\s*(?:schemaVersion|threadId|sessionId|toolId|changeId|receiptRefs|bridgeResult)\s*:/m.test(
         workspaceChangeState,
       ) &&
+      !/retiredWorkspaceChangeInspectionAliases/.test(workspaceChangeState) &&
       !/retiredWorkspaceChangeControlAliases/.test(workspaceChangeState) &&
-      !/store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|receipt_workspace_change|schema_version:\s*"ioi\.runtime\.workspace-change-control\.daemon\.v1"/.test(
+      !/store\.agentForThread|agentForThread\(|store\.assertRuntimeBridgeAvailable|runtimeBridge\.inspectThread|store\.runtimeBridge\.controlThread|runtimeBridge\.controlThread|request_hash:|receipt_workspace_change|schema_version:\s*"ioi\.runtime\.workspace-change-control\.daemon\.v1"/.test(
         workspaceChangeState,
       ) &&
       !/\b(?:request|input)\.(?:toolId|createdAt|requestHash|workspaceChangeId)\b/.test(
-        workspaceChangeState,
-      ) &&
-      !/^\s*(?:sessionId|threadId|workspaceRoot|requestedAt)\s*:/m.test(
-        workspaceChangeState,
-      ) &&
-      !/request\.(?:sessionId|threadId|workspaceRoot|requestedAt)/.test(
         workspaceChangeState,
       ) &&
       !/input\.workspace_change_id/.test(
         workspaceChangeState,
       ),
     [
-      "packages/runtime-daemon/src/workspace-change-inspection.mjs",
-      "packages/runtime-daemon/src/workspace-change-inspection.test.mjs",
       "packages/runtime-daemon/src/threads/workspace-change-state.mjs",
       "packages/runtime-daemon/src/threads/workspace-change-state.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: workspace-change review/control daemon envelopes must use canonical snake_case fields and fail closed on retired request aliases",
+    "Phase 10/11 is pending: workspace-change review/control facades must fail closed before JS bridge projection or control dispatch",
   );
   assertCheck(
     result,

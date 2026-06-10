@@ -2215,6 +2215,17 @@ workspace-snapshot projection truth from runtime-event streams or
 `codingArtifacts` content packages. Direct Rust daemon-core workspace snapshot
 projection over Agentgres-admitted workspace-snapshot ArtifactRef/PayloadRef
 truth remains required before terminal conformance.
+Slice 953 retired runtime workspace-change and managed-session public JS
+inspection readback. Public
+`RuntimeWorkspaceChangeControl.inspectWorkspaceChangeReviewsForThread()` and
+`RuntimeManagedSessionControl.inspectManagedSessionsForThread()` now fail
+closed at `workspace_change.inspect` and `managed_session.inspect` with their
+Rust-core-required control errors, so JS no longer normalizes runtime-bridge
+inspection envelopes, fixture fallback snapshots, workspace-change hunk
+previews, or managed-session snapshots as public projection truth. The orphaned
+JS inspection normalizer modules and tests were deleted. Direct Rust
+daemon-core workspace-change and managed-session projection over
+Agentgres-admitted truth remains required before terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been
