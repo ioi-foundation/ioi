@@ -2198,6 +2198,16 @@ the remaining `record-state-commits.mjs` path is only the canonical Rust
 Agentgres commit transport used by verified projection persistence until direct
 Rust daemon-core APIs remove that transport layer too.
 
+Slice 900 deleted the final standalone provider-driver helper module.
+`provider-driver-helpers.mjs` and `provider-driver-helpers.test.mjs` are absent
+rather than preserved as compatibility scaffolding for coalescing, variance, or
+provider-kind driver/backend inference. The only still-live backend-id default
+used by load-estimate projection is now private owner-local code in
+`model-mounting.mjs`; provider invocation continues to require explicit
+provider/endpoint `driver` fields and no longer carries a reusable JS helper
+surface that could reintroduce hosted driver inference or retired camelCase
+coalescing behavior.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

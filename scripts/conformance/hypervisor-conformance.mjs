@@ -763,6 +763,10 @@ function runDocs() {
       !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs") &&
+      /Slice 900 deleted the final standalone provider-driver helper module/.test(guide) &&
+      /`provider-driver-helpers\.mjs` and `provider-driver-helpers\.test\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1110,7 +1114,11 @@ function runDocs() {
       /Implementation Slice Evidence: 899/.test(matrix) &&
       /Slice 899 deleted the orphan per-record model_mount record-state commit wrapper\s+family/.test(matrix) &&
       /`conversation-record-state\.mjs`, `mcp-server-record-state\.mjs`,\s+`model-artifact-record-state\.mjs`, `model-download-record-state\.mjs`,\s+`model-endpoint-record-state\.mjs`, `model-instance-record-state\.mjs`, and\s+`oauth-record-state\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 899/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 899 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 900/.test(matrix) &&
+      /Slice 900 deleted the final standalone provider-driver helper module/.test(matrix) &&
+      /`provider-driver-helpers\.mjs` and `provider-driver-helpers\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 900/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1288,7 +1296,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 896 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 897 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 898 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 899/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 899 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 900/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1768,7 +1777,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 899 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 900 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2156,12 +2165,6 @@ function runBridge() {
     : "";
   const catalogProviderPortsTest = exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs")
-    : "";
-  const providerDriverHelpers = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs")
-    : "";
-  const providerDriverHelpersTest = exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs")
     : "";
   const modelInvocationReceiptDetailsObject =
     modelInvocationOps.match(/const details = \{[\s\S]*?\n  \};/)?.[0] ?? "";
@@ -9543,32 +9546,37 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-invocation-coalesce-policy-alias-retired",
-    /policyHash:\s*stableHash\(body\.model_policy \?\? \{\}\)/.test(providerDriverHelpers) &&
-      !/body\.modelPolicy\b/.test(providerDriverHelpers) &&
-      /coalesce keys ignore retired modelPolicy policy alias/.test(providerDriverHelpersTest),
+    !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs") &&
+      !/modelInvocationCoalesceKey|modelInvocationIsLowVariance|providerBodyWithoutGeneratedResponseIds/.test(
+        modelMountingState,
+      ) &&
+      !/body\.modelPolicy\b/.test(modelMountingState),
     [
-      "packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 10/11 is pending: model invocation coalesce keys must hash canonical model_policy only and ignore retired modelPolicy request aliases",
+    "Phase 10/11 is pending: model invocation coalesce helper compatibility code must stay deleted rather than preserving retired modelPolicy request-alias behavior",
   );
   assertCheck(
     result,
     "model-mount-provider-driver-kind-inference-retired",
-    !/driverForProviderKind|driverNameForProvider/.test(providerDriverHelpers) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs") &&
+      !/from "\.\/model-mounting\/provider-driver-helpers\.mjs"/.test(modelMountingState) &&
+      /function defaultBackendForProvider\(provider = \{\}\)/.test(modelMountingState) &&
+      /return "backend\.openai-compatible"/.test(modelMountingState) &&
+      !/driverForProviderKind|driverNameForProvider/.test(modelMountingState) &&
       !/driverNameForProvider|provider\.driver \?\? driver|endpoint\.driver \?\? provider\.driver \?\?/.test(
         modelInvocationOps,
       ) &&
       /return optionalRef\(endpoint\.driver \?\? provider\.driver\)/.test(modelInvocationOps) &&
-      /error\.details\.provider_driver === null/.test(modelInvocationOpsTest) &&
-      /provider backend helper maps product providers to Rust backend ids/.test(providerDriverHelpersTest),
+      /error\.details\.provider_driver === null/.test(modelInvocationOpsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
     ],
-    "Phase 10/11 is pending: provider invocation helpers must not infer JS driver names from provider kind after hosted driver deletion",
+    "Phase 10/11 is pending: provider invocation helpers must not preserve standalone JS driver-helper compatibility or infer JS driver names from provider kind after hosted driver deletion",
   );
   assertCheck(
     result,

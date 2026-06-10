@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 899 after the next
+- Next scheduled matrix-compaction pass: compact Slice 900 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18668,7 +18668,7 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --check packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| provider-driver helper focused checks | passed before Slice 900 deleted the retired helper module |
 | `npm run hypervisor-conformance:bridge` | passed |
 | `npm run hypervisor-conformance:receipts` | passed |
 | `npm run hypervisor-conformance:docs` | passed |
@@ -18909,7 +18909,36 @@ stable protocol APIs, replay, and removal of the remaining shared
 `record-state-commits.mjs` transport adapter remain required before model_mount
 record-state persistence reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 899 after the next direct
+Scheduled matrix-compaction obligation from Slice 899 is now satisfied.
+
+## Implementation Slice Evidence: 900
+
+Slice 900 deleted the final standalone provider-driver helper module.
+`provider-driver-helpers.mjs` and `provider-driver-helpers.test.mjs` are absent
+rather than preserved as compatibility scaffolding for coalescing, low-variance
+request detection, generated response-id stripping, or provider-kind
+driver/backend inference. The only still-live backend-id default used by
+load-estimate projection is now private owner-local code in
+`model-mounting.mjs`; provider invocation continues to require explicit
+provider/endpoint `driver` fields, and hosted/non-migrated failures keep
+`provider_driver: null` when no explicit driver was admitted.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider execution migration: direct Rust
+daemon-core provider transports, lifecycle/control APIs, Agentgres-backed
+provider replay/projection, stable protocol APIs, command-transport retirement,
+and removal of remaining JS state materialization remain required before
+provider execution reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 900 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

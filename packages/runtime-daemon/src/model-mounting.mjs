@@ -99,9 +99,6 @@ import {
   hardwareSnapshot,
   parseLocalModelMetadata,
 } from "./model-mounting/local-system-probes.mjs";
-import {
-  defaultBackendForProvider,
-} from "./model-mounting/provider-driver-helpers.mjs";
 import * as serverControl from "./model-mounting/server-control.mjs";
 import {
   expiresAt,
@@ -2132,6 +2129,18 @@ function assertCanonicalModelLoadingRequestBody(body = {}) {
     canonical_fields: CANONICAL_MODEL_LOADING_REQUEST_FIELDS,
   };
   throw error;
+}
+
+function defaultBackendForProvider(provider = {}) {
+  if (provider.kind === "ioi_native_local") return "backend.autopilot.native-local.fixture";
+  if (provider.kind === "lm_studio") return "backend.lmstudio";
+  if (provider.kind === "ollama") return "backend.ollama";
+  if (provider.kind === "vllm") return "backend.vllm";
+  if (provider.kind === "llama_cpp") return "backend.llama-cpp";
+  if (["openai_compatible", "custom_http", "openai", "anthropic", "gemini"].includes(provider.kind)) {
+    return "backend.openai-compatible";
+  }
+  return "backend.fixture";
 }
 
 function throwModelLoadingRustCoreRequired(operation, provider = {}, details = {}) {
