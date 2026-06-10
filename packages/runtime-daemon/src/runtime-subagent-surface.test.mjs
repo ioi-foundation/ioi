@@ -431,151 +431,47 @@ const retiredSubagentErrorDetailAliasKeys = [
 
 const retiredSubagentLifecycleResultEnvelopeAliasKeys = ["receiptRefs"];
 
-test("subagent surface lists, filters, and projects thread subagents", () => {
+test("subagent read projection facades fail closed before JS subagent/run reads", () => {
   const store = createStore();
   const surface = createRuntimeSubagentSurface();
 
-  const listed = surface.listSubagents(store, "thread_1", { role: "reviewer" });
-  const canonicalAliasListed = surface.listSubagents(store, "thread_1", {
-    role: "reviewer",
-    subagent_role: "worker",
-  });
+  const baseline = {
+    agents: store.agents.size,
+    runs: store.runs.size,
+    events: store.events.length,
+    writes: store.writes.length,
+    stateUpdates: store.stateUpdates.length,
+  };
+  const cases = [
+    {
+      operation: "runtime_subagent_list",
+      operationKind: "subagent.list",
+      call: () => surface.listSubagents(store, "thread_1", { role: "reviewer" }),
+    },
+    {
+      operation: "runtime_subagent_get",
+      operationKind: "subagent.get",
+      subagentId: "subagent_1",
+      call: () => surface.getSubagent(store, "thread_1", "subagent_1"),
+    },
+    {
+      operation: "runtime_subagent_result",
+      operationKind: "subagent.result",
+      subagentId: "subagent_2",
+      call: () => surface.getSubagentResult(store, "thread_1", "subagent_2"),
+    },
+  ];
 
-  assert.equal(listed.schema_version, "ioi.runtime.subagent-manager.v1");
-  assert.equal(listed.parent_agent_id, "agent_parent");
-  assert.equal(listed.count, 2);
-  assert.equal(listed.active_count, 1);
-  assertNoOwnKeys(listed, retiredSubagentListEnvelopeAliasKeys);
-  assert.deepEqual(listed.subagents.map((record) => record.subagent_id), ["subagent_1", "subagent_2"]);
-  assert.equal(listed.subagents[0].output_contract_status, "passed");
-  assertCanonicalSubagentRecordOutput(listed.subagents[0]);
-  assertCanonicalSubagentRecordOutput(listed.subagents[1]);
-  assert.deepEqual(
-    canonicalAliasListed.subagents.map((record) => record.subagent_id),
-    ["subagent_1", "subagent_2"],
-  );
-});
+  for (const testCase of cases) {
+    assert.throws(
+      testCase.call,
+      (error) => assertRuntimeSubagentControlRustCoreRequired(error, testCase),
+    );
+  }
 
-test("subagent list ignores retired camelCase request aliases", () => {
-  const store = createStore();
-  const surface = createRuntimeSubagentSurface();
-
-  const listed = surface.listSubagents(store, "thread_1", {
-    subagentRole: "worker",
-  });
-  const canonicalWins = surface.listSubagents(store, "thread_1", {
-    role: "reviewer",
-    subagentRole: "worker",
-  });
-
-  assert.deepEqual(listed.subagents.map((record) => record.subagent_id), [
-    "subagent_1",
-    "subagent_2",
-    "subagent_worker",
-  ]);
-  assert.deepEqual(canonicalWins.subagents.map((record) => record.subagent_id), [
-    "subagent_1",
-    "subagent_2",
-  ]);
-});
-
-test("subagent list and lookup ignore retired camelCase record aliases", () => {
-  const store = createStore();
-  const surface = createRuntimeSubagentSurface();
-  store.subagents.set("subagent_alias_poison", {
-    subagent_id: "subagent_alias_poison",
-    agent_id: "agent_alias_poison",
-    run_id: "run_2",
-    parent_thread_id: "thread_other",
-    parentThreadId: "thread_1",
-    role: "reviewer",
-    lifecycle_status: "running",
-    created_at: "2026-06-04T12:00:04.000Z",
-    createdAt: "1999-01-01T00:00:00.000Z",
-  });
-  store.subagents.set("subagent_sort_poison", {
-    subagent_id: "subagent_sort_poison",
-    agent_id: "agent_sort_poison",
-    run_id: "run_2",
-    parent_thread_id: "thread_1",
-    parentThreadId: "thread_other",
-    role: "reviewer",
-    lifecycle_status: "running",
-    created_at: "2026-06-04T12:00:04.000Z",
-    createdAt: "1900-01-01T00:00:00.000Z",
-  });
-
-  const listed = surface.listSubagents(store, "thread_1", { role: "reviewer" });
-
-  assert.deepEqual(listed.subagents.map((record) => record.subagent_id), [
-    "subagent_1",
-    "subagent_2",
-    "subagent_sort_poison",
-  ]);
-  assert.equal(
-    listed.subagents.some((record) => record.subagent_id === "subagent_alias_poison"),
-    false,
-  );
-  assert.equal(
-    surface.getSubagent(store, "thread_1", "subagent_sort_poison").subagent_id,
-    "subagent_sort_poison",
-  );
-  assert.throws(
-    () => surface.getSubagent(store, "thread_1", "subagent_alias_poison"),
-    (error) =>
-      error.status === 404 &&
-      error.details.thread_id === "thread_1" &&
-      error.details.subagent_id === "subagent_alias_poison" &&
-      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
-  );
-});
-
-test("subagent surface gets records and preserves not-found details", () => {
-  const store = createStore();
-  const surface = createRuntimeSubagentSurface();
-
-  assert.equal(surface.getSubagent(store, "thread_1", "subagent_1").agent_id, "agent_child_1");
-  assert.throws(
-    () => surface.getSubagent(store, "thread_1", "subagent_other"),
-    (error) =>
-      error.status === 404 &&
-      error.code === "not_found" &&
-      error.details.thread_id === "thread_1" &&
-      error.details.subagent_id === "subagent_other" &&
-      (assertNoOwnKeys(error.details, retiredSubagentErrorDetailAliasKeys), true),
-  );
-});
-
-test("subagent surface reads result with validated output contract projection", () => {
-  const store = createStore();
-  const surface = createRuntimeSubagentSurface();
-  store.surface = surface;
-
-  const result = surface.getSubagentResult(store, "thread_1", "subagent_2");
-
-  assert.equal(result.schema_version, "ioi.runtime.subagent-result.v1");
-  assert.equal(result.result, "Subagent two completed.");
-  assert.equal(result.output_contract_status, "passed");
-  assert.equal(result.subagent.output_contract_status, "passed");
-  assertCanonicalSubagentRecordOutput(result.subagent);
-  assert.deepEqual(result.receipt_refs, ["receipt_run_2"]);
-});
-
-test("subagent result reads ignore retired camelCase record aliases", () => {
-  const store = createStore();
-  const surface = createRuntimeSubagentSurface();
-  store.surface = surface;
-  store.subagents.set("subagent_2", {
-    ...store.subagents.get("subagent_2"),
-    output_contract: ["SUMMARY"],
-    runId: "run_1",
-    outputContract: ["MISSING_SECTION"],
-  });
-
-  const read = surface.getSubagentResult(store, "thread_1", "subagent_2");
-
-  assert.equal(read.result, "Subagent two completed.");
-  assert.equal(read.output_contract_status, "passed");
-  assert.equal(read.subagent.output_contract_status, "passed");
-  assertCanonicalSubagentRecordOutput(read.subagent);
+  assert.equal(store.agents.size, baseline.agents);
+  assert.equal(store.runs.size, baseline.runs);
+  assert.equal(store.events.length, baseline.events);
+  assert.equal(store.writes.length, baseline.writes);
+  assert.equal(store.stateUpdates.length, baseline.stateUpdates);
 });

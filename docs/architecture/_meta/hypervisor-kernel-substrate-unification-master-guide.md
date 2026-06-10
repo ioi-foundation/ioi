@@ -2182,6 +2182,14 @@ Slice 948 retired model-mount conversation-state JS list readback. Public
 `this.conversations` sorted by `created_at` as a model conversation projection.
 Direct Rust daemon-core model conversation projection over Agentgres-admitted
 truth remains required before terminal conformance.
+Slice 949 retired runtime subagent public JS readback. Public
+`RuntimeSubagentControl.listSubagents()`, `getSubagent()`, and
+`getSubagentResult()` now fail closed at `subagent.list`, `subagent.get`, and
+`subagent.result` with `runtime_subagent_control_rust_core_required`, so JS no
+longer returns `store.subagents` or `store.getRun()` data as subagent
+projection truth. Direct Rust daemon-core subagent projection over
+Agentgres-admitted lifecycle truth remains required before terminal
+conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

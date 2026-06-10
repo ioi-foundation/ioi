@@ -17660,6 +17660,20 @@ function runCompositor() {
   const runtimeSubagentSavedRecordWriteCalls = (
     runtimeSubagentSurface.match(/store\.writeSubagent\(saved,\s*"subagent\./g) ?? []
   ).length;
+  const runtimeSubagentReadProjectionLegacyRemoved =
+    /runtime_subagent_list_js_facade_retired/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_get_js_facade_retired/.test(runtimeSubagentSurface) &&
+    /runtime_subagent_result_js_facade_retired/.test(runtimeSubagentSurface) &&
+    /throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentListEnvelopeBlock) &&
+    /throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentGetBlock) &&
+    /throwRuntimeSubagentRustCoreRequired/.test(runtimeSubagentWaitResultReadBlocks) &&
+    !/store\.subagents\.values\(/.test(runtimeSubagentListEnvelopeBlock) &&
+    !/store\.subagents\.get\(/.test(runtimeSubagentGetBlock) &&
+    !/store\.getSubagent\(/.test(runtimeSubagentWaitResultReadBlocks) &&
+    !/store\.getRun\(/.test(runtimeSubagentWaitResultReadBlocks) &&
+    /subagent read projection facades fail closed before JS subagent\/run reads/.test(
+      runtimeSubagentSurfaceTest,
+    );
   const runtimeSubagentLifecycleMutationLegacyRemoved =
     /runtime_subagent_control_rust_core_required/.test(runtimeSubagentSurface) &&
     /runtime_subagent_control_js_facade_retired/.test(runtimeSubagentSurface) &&
@@ -17682,12 +17696,7 @@ function runCompositor() {
     /subagent control event append facade fails closed before JS runtime event append/.test(
       runtimeSubagentSurfaceTest,
     ) &&
-    /subagent surface reads result with validated output contract projection/.test(
-      runtimeSubagentSurfaceTest,
-    ) &&
-    /subagent result reads ignore retired camelCase record aliases/.test(
-      runtimeSubagentSurfaceTest,
-    ) &&
+    runtimeSubagentReadProjectionLegacyRemoved &&
     !/subagent surface spawns subagents with source and context metadata/.test(
       runtimeSubagentSurfaceTest,
     ) &&
@@ -21386,7 +21395,18 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-subagent-read-projection-js-facades-retired",
+    runtimeSubagentReadProjectionLegacyRemoved,
+    [
+      "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
+      "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime subagent list/get/result JS read projections must fail closed before JS subagent map and run map reads",
+  );
+  assertCheck(
+    result,
     "runtime-subagent-list-propagation-envelope-aliases-retired",
+    runtimeSubagentReadProjectionLegacyRemoved ||
     runtimeSubagentListEnvelopeBlock.length > 0 &&
       !runtimeSubagentListEnvelopeAliasPattern.test(runtimeSubagentListEnvelopeBlock) &&
       /runtime_subagent_cancel_propagation_js_facade_retired/.test(
@@ -21406,11 +21426,12 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime subagent list envelopes must expose canonical snake_case fields while retired propagation mutation facades fail closed before returning JS-authored envelopes",
+    "Phase 10/11 is pending: runtime subagent list projection must either fail closed at the Rust daemon-core boundary or expose only canonical snake_case fields while propagation mutation facades stay retired",
   );
   assertCheck(
     result,
     "runtime-subagent-list-request-aliases-retired",
+    runtimeSubagentReadProjectionLegacyRemoved ||
     runtimeSubagentListEnvelopeBlock.length > 0 &&
       !runtimeSubagentListRequestAliasReadPattern.test(
         runtimeSubagentListEnvelopeBlock,
@@ -21423,11 +21444,12 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime subagent list filters must ignore retired camelCase request aliases",
+    "Phase 10/11 is pending: runtime subagent list filters must either fail closed at the Rust daemon-core boundary or ignore retired camelCase request aliases",
   );
   assertCheck(
     result,
     "runtime-subagent-list-lookup-record-aliases-retired",
+    runtimeSubagentReadProjectionLegacyRemoved ||
     runtimeSubagentListEnvelopeBlock.length > 0 &&
       runtimeSubagentGetBlock.length > 0 &&
       !runtimeSubagentListLookupRecordAliasReadPattern.test(
@@ -21447,7 +21469,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime subagent list/get read paths must ignore retired camelCase persisted record aliases",
+    "Phase 10/11 is pending: runtime subagent list/get read paths must either fail closed at the Rust daemon-core boundary or ignore retired camelCase persisted record aliases",
   );
   assertCheck(
     result,

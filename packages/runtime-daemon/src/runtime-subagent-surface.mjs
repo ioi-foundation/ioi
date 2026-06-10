@@ -1,11 +1,6 @@
-import { notFound, runtimeError } from "./runtime-http-utils.mjs";
-import { optionalString } from "./runtime-value-helpers.mjs";
+import { runtimeError } from "./runtime-http-utils.mjs";
 import {
   RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-  subagentContractOutputForRun,
-  subagentIsActive,
-  subagentResultForRun,
-  validateSubagentOutputContract,
 } from "./subagent-manager.mjs";
 
 const retiredSubagentRecordOutputAliasKeys = new Set([
@@ -89,6 +84,9 @@ const runtimeSubagentControlFacadeRetirementEvidenceRefs = [
   "runtime_subagent_cancel_js_facade_retired",
   "runtime_subagent_cancel_propagation_js_facade_retired",
   "runtime_subagent_control_event_js_facade_retired",
+  "runtime_subagent_list_js_facade_retired",
+  "runtime_subagent_get_js_facade_retired",
+  "runtime_subagent_result_js_facade_retired",
   "rust_daemon_core_runtime_subagent_control_required",
   "agentgres_runtime_subagent_truth_required",
 ];
@@ -100,14 +98,8 @@ function withoutRetiredSubagentRecordOutputAliases(record = {}) {
 }
 
 export function createRuntimeSubagentSurface({
-  notFound: notFoundDep = notFound,
-  optionalString: optionalStringDep = optionalString,
   runtimeError: runtimeErrorDep = runtimeError,
   schemaVersion = RUNTIME_SUBAGENT_MANAGER_SCHEMA_VERSION,
-  subagentContractOutputForRun: subagentContractOutputForRunDep = subagentContractOutputForRun,
-  subagentIsActive: subagentIsActiveDep = subagentIsActive,
-  subagentResultForRun: subagentResultForRunDep = subagentResultForRun,
-  validateSubagentOutputContract: validateSubagentOutputContractDep = validateSubagentOutputContract,
 } = {}) {
   function throwRuntimeSubagentRustCoreRequired({
     operation,
@@ -120,7 +112,7 @@ export function createRuntimeSubagentSurface({
       status: 501,
       code: "runtime_subagent_control_rust_core_required",
       message:
-        "Runtime subagent lifecycle mutations require direct Rust daemon-core admission and persistence.",
+        "Runtime subagent lifecycle and projection facades require direct Rust daemon-core admission, persistence, and projection.",
       details: {
         rust_core_boundary: "runtime.subagent_control",
         operation,
@@ -138,37 +130,22 @@ export function createRuntimeSubagentSurface({
 
   return {
     listSubagents(store, threadId, options = {}) {
-      const parentAgent = store.agentForThread(threadId);
-      const role = optionalStringDep(options.role);
-      const subagents = [...store.subagents.values()]
-        .filter((record) => record.parent_thread_id === threadId)
-        .filter((record) => !role || record.role === role)
-        .sort((left, right) =>
-          String(left.created_at ?? "").localeCompare(
-            String(right.created_at ?? ""),
-          ),
-        )
-        .map((record) => this.subagentProjection(record));
-      return {
-        schema_version: schemaVersion,
-        object: "ioi.runtime_subagent_list",
-        thread_id: threadId,
-        parent_agent_id: parentAgent.id,
-        status: "ready",
-        count: subagents.length,
-        active_count: subagents.filter((record) => subagentIsActiveDep(record)).length,
-        subagents,
-      };
+      void store;
+      void options;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_list",
+        operationKind: "subagent.list",
+        threadId,
+      });
     },
     getSubagent(store, threadId, subagentId) {
-      const record = store.subagents.get(subagentId);
-      if (!record || record.parent_thread_id !== threadId) {
-        throw notFoundDep(`Subagent not found: ${subagentId}`, {
-          thread_id: threadId,
-          subagent_id: subagentId,
-        });
-      }
-      return record;
+      void store;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_get",
+        operationKind: "subagent.get",
+        threadId,
+        subagentId,
+      });
     },
     spawnSubagent(store, threadId, request = {}) {
       void store;
@@ -190,20 +167,13 @@ export function createRuntimeSubagentSurface({
       });
     },
     getSubagentResult(store, threadId, subagentId) {
-      const record = store.getSubagent(threadId, subagentId);
-      const run = store.getRun(record.run_id);
-      const output = subagentContractOutputForRunDep(run, record.output_contract);
-      const outputContractStatus = validateSubagentOutputContractDep(
-        output,
-        record.output_contract,
-      );
-      return {
-        ...subagentResultForRunDep({ record, run, output, outputContractStatus }),
-        subagent: this.subagentProjection({
-          ...record,
-          output_contract_status: outputContractStatus.status,
-        }),
-      };
+      void store;
+      throwRuntimeSubagentRustCoreRequired({
+        operation: "runtime_subagent_result",
+        operationKind: "subagent.result",
+        threadId,
+        subagentId,
+      });
     },
     sendSubagentInput(store, threadId, subagentId, request = {}) {
       void store;

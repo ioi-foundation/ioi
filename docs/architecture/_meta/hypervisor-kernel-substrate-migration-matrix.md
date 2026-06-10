@@ -20687,3 +20687,39 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of model conversation projection command
 transport, Agentgres-backed conversation truth, and stable protocol APIs without
 encoding JS conversation maps as public model conversation projection authority.
+
+## Implementation Slice Evidence: 949
+
+Slice 949 retired runtime subagent public JS readback. Public
+`RuntimeSubagentControl.listSubagents()`, `getSubagent()`, and
+`getSubagentResult()` now fail closed with
+`runtime_subagent_control_rust_core_required` at `subagent.list`,
+`subagent.get`, and `subagent.result` instead of returning `store.subagents` or
+`store.getRun()` data as JS-authored subagent projection truth. The stale
+list/get/result success-path tests were replaced with fail-closed boundary
+tests, and conformance now rejects reintroducing JS subagent-map or run-map
+reads in those public facades.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-subagent-surface.mjs packages/runtime-daemon/src/runtime-subagent-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-subagent-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal subagent migration. Direct Rust daemon-core
+subagent projection, Agentgres-backed lifecycle truth, StepModuleRouter
+dispatch for admitted subagent work, wallet authority for delegation and
+cancellation, replay, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-949 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of subagent projection command
+transport, Agentgres-backed subagent truth, and stable protocol APIs without
+encoding JS subagent maps or run maps as public subagent projection authority.
