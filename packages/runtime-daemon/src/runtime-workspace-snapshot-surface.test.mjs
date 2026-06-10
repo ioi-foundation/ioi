@@ -33,14 +33,9 @@ function runtimeError({ status, code, message, details }) {
   return error;
 }
 
-function notFound(message, details) {
-  return runtimeError({ status: 404, code: "not_found", message, details });
-}
-
 function createSurface() {
   const writes = [];
   const surface = createRuntimeWorkspaceSnapshotSurface({
-    notFound,
     runtimeError,
     writeJson(filePath, value) {
       writes.push({ filePath, value });
@@ -120,7 +115,7 @@ test("workspace snapshot surface fails closed before JS patch snapshot capture",
   assert.equal(store.artifactCommits.length, 0);
 });
 
-test("workspace snapshot surface fails closed before JS snapshot event append and lists admitted projections", () => {
+test("workspace snapshot surface fails closed before JS snapshot event append and list projection reads", () => {
   const { surface } = createSurface();
   const store = createStore();
   const snapshot = {
@@ -155,57 +150,44 @@ test("workspace snapshot surface fails closed before JS snapshot event append an
     },
   );
   assert.equal(store.events.length, 0);
-  store.events.push({
-    event_kind: "workspace.snapshot.created",
-    payload_summary: { snapshot },
-  });
-  const list = surface.listWorkspaceSnapshots(store, "thread_alpha");
-  assert.equal(list.schema_version, "ioi.runtime.workspace-snapshot.v1");
-  assert.equal(list.thread_id, "thread_alpha");
-  assert.equal(list.snapshot_count, 1);
-  assert.equal(list.snapshots[0].snapshot_id, "workspace_snapshot_alpha");
-  assert.equal(Object.hasOwn(list.snapshots[0], "snapshotId"), false);
-  for (const field of ["schemaVersion", "threadId", "snapshotCount"]) {
-    assert.equal(Object.hasOwn(list, field), false);
-  }
+
+  assert.throws(
+    () => surface.listWorkspaceSnapshots(store, "thread_alpha"),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_snapshot.list");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.ok(error.details.evidence_refs.includes("workspace_snapshot_list_js_projection_retired"));
+      return true;
+    },
+  );
+  assert.equal(store.events.length, 0);
 });
 
-test("workspace snapshot surface reads content packages and fails closed when unavailable", () => {
+test("workspace snapshot content package projection fails closed before JS artifact reads", () => {
   const { surface } = createSurface();
-  const store = createStore();
-  store.codingArtifacts.set("artifact_snapshot", {
-    id: "artifact_snapshot",
-    thread_id: "thread_alpha",
-    channel: "workspace-snapshot",
-    content: JSON.stringify({
-      snapshot: {
-        snapshot_id: "workspace_snapshot_alpha",
-        restore: { preview_supported: true },
+  const calls = [];
+  const store = {
+    codingArtifacts: {
+      values() {
+        calls.push("codingArtifacts.values");
+        return [];
       },
-      files: [{ path: "src/app.js" }],
-    }),
-  });
+    },
+  };
 
-  const pkg = surface.workspaceSnapshotContentPackage(store, "thread_alpha", "workspace_snapshot_alpha");
-  assert.equal(pkg.artifactRecord.id, "artifact_snapshot");
-  assert.deepEqual(pkg.files, [{ path: "src/app.js" }]);
-
-  store.codingArtifacts.set("artifact_snapshot_blocked", {
-    id: "artifact_snapshot_blocked",
-    thread_id: "thread_alpha",
-    channel: "workspace-snapshot",
-    content: JSON.stringify({
-      snapshot: {
-        snapshot_id: "workspace_snapshot_blocked",
-        restore: { preview_supported: false, status: "partial_content" },
-      },
-      files: [],
-    }),
-  });
   assert.throws(
-    () => surface.workspaceSnapshotContentPackage(store, "thread_alpha", "workspace_snapshot_blocked"),
-    (error) => error.status === 409 && error.code === "workspace_restore_preview_unavailable",
+    () => surface.workspaceSnapshotContentPackage(store, "thread_alpha", "workspace_snapshot_alpha"),
+    (error) => {
+      assertWorkspaceSnapshotRustCoreRequired(error, "workspace_snapshot.content_package");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.snapshot_id, "workspace_snapshot_alpha");
+      assert.ok(
+        error.details.evidence_refs.includes("workspace_snapshot_content_package_js_projection_retired"),
+      );
+      return true;
+    },
   );
+  assert.deepEqual(calls, []);
 });
 
 test("workspace snapshot surface fails closed before JS restore artifact and event mutation", () => {
@@ -396,7 +378,6 @@ test("workspace snapshot restore fail-closed details use canonical fields", () =
 
 test("workspace restore policy bridge plumbing is not called by the retired JS facade", () => {
   const surface = createRuntimeWorkspaceSnapshotSurface({
-    notFound,
     runtimeError,
     workspaceRestoreRunner: {
       planApplyPolicy() {

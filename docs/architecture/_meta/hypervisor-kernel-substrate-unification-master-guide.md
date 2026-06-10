@@ -2206,6 +2206,15 @@ closed at `artifact.conversation.list`, `artifact.conversation.get`, and
 returns `store.conversationArtifacts` data as conversation-artifact projection
 truth. Direct Rust daemon-core artifact projection over Agentgres-admitted
 ArtifactRef/PayloadRef truth remains required before terminal conformance.
+Slice 952 retired runtime workspace-snapshot public JS readback. Public
+`RuntimeWorkspaceSnapshotRestoreControl.listWorkspaceSnapshots()` and
+`workspaceSnapshotContentPackage()` now fail closed at `workspace_snapshot.list`
+and `workspace_snapshot.content_package` with
+`runtime_workspace_snapshot_rust_core_required`, so JS no longer derives
+workspace-snapshot projection truth from runtime-event streams or
+`codingArtifacts` content packages. Direct Rust daemon-core workspace snapshot
+projection over Agentgres-admitted workspace-snapshot ArtifactRef/PayloadRef
+truth remains required before terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

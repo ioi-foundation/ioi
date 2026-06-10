@@ -23436,20 +23436,31 @@ function runCompositor() {
   );
   assertCheck(
     result,
-    "workspace-snapshot-list-output-aliases-retired",
+    "workspace-snapshot-list-js-projection-retired",
     /function listWorkspaceSnapshots\(store, threadId\)/.test(runtimeWorkspaceSnapshotSurface) &&
-      /schema_version:\s*WORKSPACE_SNAPSHOT_SCHEMA_VERSION/.test(runtimeWorkspaceSnapshotSurface) &&
-      /snapshot_count:\s*snapshots\.length/.test(runtimeWorkspaceSnapshotSurface) &&
-      /Object\.hasOwn\(list,\s*field\),\s*false/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      /"schemaVersion"[\s\S]*"threadId"[\s\S]*"snapshotCount"/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-      !/function listWorkspaceSnapshots\(store, threadId\)(?:(?!\n  function previewWorkspaceSnapshotRestore)[\s\S])*?\b(?:schemaVersion|threadId|snapshotCount)\s*:/.test(
+      /workspace_snapshot_list_js_projection_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+      /rust_daemon_core_workspace_snapshot_projection_required/.test(runtimeWorkspaceSnapshotSurface) &&
+      /agentgres_workspace_snapshot_projection_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace_snapshot_list/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace_snapshot\.list/.test(runtimeWorkspaceSnapshotSurface) &&
+      /workspace snapshot surface fails closed before JS snapshot event append and list projection reads/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      /assertWorkspaceSnapshotRustCoreRequired\(error,\s*"workspace_snapshot\.list"\)/.test(
+        runtimeWorkspaceSnapshotSurfaceTest,
+      ) &&
+      !/eventStreamIdForThread/.test(runtimeWorkspaceSnapshotSurface) &&
+      !/function listWorkspaceSnapshots\(store, threadId\)(?:(?!\n  function previewWorkspaceSnapshotRestore)[\s\S])*?\b(?:schema_version|object|snapshot_count|snapshots|schemaVersion|threadId|snapshotCount)\s*:/.test(
+        runtimeWorkspaceSnapshotSurface,
+      ) &&
+      !/function listWorkspaceSnapshots\(store, threadId\)(?:(?!\n  function previewWorkspaceSnapshotRestore)[\s\S])*?\b(?:agentForThread|runtimeEventStream|payload_summary|workspace\.snapshot\.created)\b/.test(
         runtimeWorkspaceSnapshotSurface,
       ),
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: workspace snapshot list output must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: workspace snapshot list projection must fail closed before JS runtime-event reads",
   );
 	  assertCheck(
 	    result,
@@ -23543,12 +23554,9 @@ function runCompositor() {
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
 	      /workspace_snapshot_event_js_append_retired/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface fails closed before JS snapshot event append and lists admitted projections/.test(
+	      /workspace snapshot surface fails closed before JS snapshot event append and list projection reads/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /Object\.hasOwn\(list\.snapshots\[0\],\s*"snapshotId"\),\s*false/.test(
-        runtimeWorkspaceSnapshotSurfaceTest,
-      ) &&
       !/function appendWorkspaceSnapshotEvent(?:(?!\n  function listWorkspaceSnapshots)[\s\S])*?\bsnapshot\.(?:snapshotId|snapshotHash|snapshotKind|fileCount|changedFileCount|createdFileCount|deletedFileCount|receiptRefs|artifactRefs)\b/.test(
         runtimeWorkspaceSnapshotSurface,
       ) &&
@@ -23620,21 +23628,29 @@ function runCompositor() {
   );
 	  assertCheck(
 	    result,
-	    "workspace-restore-snapshot-package-reader-aliases-retired",
-	    /parsed\?\.snapshot_id/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /parsed\?\.snapshot\?\.snapshot_id/.test(runtimeWorkspaceSnapshotSurface) &&
-	      /workspace snapshot surface reads content packages and fails closed when unavailable/.test(
+	    "workspace-snapshot-content-package-js-projection-retired",
+	    /workspace_snapshot_content_package_js_projection_retired/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /rust_daemon_core_workspace_snapshot_content_package_required/.test(
+	        runtimeWorkspaceSnapshotSurface,
+	      ) &&
+	      /agentgres_workspace_snapshot_artifact_truth_required/.test(runtimeWorkspaceSnapshotSurface) &&
+	      /workspace snapshot content package projection fails closed before JS artifact reads/.test(
 	        runtimeWorkspaceSnapshotSurfaceTest,
 	      ) &&
-	      /workspace_restore_preview_unavailable/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
-	      !/\bsnapshotPackage\.snapshot\?\.(?:turnId|snapshotHash)\b/.test(
+	      /assertWorkspaceSnapshotRustCoreRequired\(error,\s*"workspace_snapshot\.content_package"\)/.test(
+	        runtimeWorkspaceSnapshotSurfaceTest,
+	      ) &&
+	      /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeWorkspaceSnapshotSurfaceTest) &&
+	      !/parseJsonObject/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/workspace_restore_preview_unavailable/.test(runtimeWorkspaceSnapshotSurface) &&
+	      !/function workspaceSnapshotContentPackage\(store, threadId, snapshotId\)(?:(?!\n  function materializeWorkspaceRestorePreviewArtifact)[\s\S])*?\b(?:codingArtifacts|parsed|artifactRecord|files|preview_supported|restore_status)\b/.test(
 	        runtimeWorkspaceSnapshotSurface,
 	      ),
     [
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.mjs",
       "packages/runtime-daemon/src/runtime-workspace-snapshot-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: workspace restore preview/apply result assembly must read canonical snapshot package identity fields without retired camelCase fallbacks",
+    "Phase 10/11 is pending: workspace snapshot content-package projection must fail closed before JS coding-artifact reads",
   );
 	  assertCheck(
 	    result,

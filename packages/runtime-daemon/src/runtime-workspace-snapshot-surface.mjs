@@ -1,15 +1,9 @@
-import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
 import {
   WORKSPACE_RESTORE_PREVIEW_NODE_ID,
-  WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
 } from "./runtime-contract-constants.mjs";
 import {
-  notFound as defaultNotFound,
   runtimeError as defaultRuntimeError,
 } from "./runtime-http-utils.mjs";
-import {
-  parseJsonObject,
-} from "./workspace-restore.mjs";
 import { normalizeArray, optionalString } from "./runtime-value-helpers.mjs";
 
 const RETIRED_WORKSPACE_RESTORE_REQUEST_ALIASES = [
@@ -46,7 +40,6 @@ const CANONICAL_WORKSPACE_RESTORE_REQUEST_FIELDS = [
 
 export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   const {
-    notFound = defaultNotFound,
     runtimeError = defaultRuntimeError,
   } = deps;
 
@@ -54,7 +47,7 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
     throw runtimeError({
       status: 501,
       code: "runtime_workspace_snapshot_rust_core_required",
-      message: "Runtime workspace snapshot and restore mutation requires direct Rust daemon-core admission and persistence.",
+      message: "Runtime workspace snapshot and restore lifecycle/projection requires direct Rust daemon-core admission, persistence, and projection.",
       details: {
         rust_core_boundary: "runtime.workspace_snapshot",
         operation,
@@ -127,19 +120,15 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   }
 
   function listWorkspaceSnapshots(store, threadId) {
-    store.agentForThread(threadId);
-    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
-    const snapshots = stream.events
-      .filter((event) => event.event_kind === "workspace.snapshot.created")
-      .map((event) => event.payload_summary?.snapshot ?? event.payload_summary)
-      .filter((snapshot) => snapshot && typeof snapshot === "object" && !Array.isArray(snapshot));
-    return {
-      schema_version: WORKSPACE_SNAPSHOT_SCHEMA_VERSION,
-      object: "ioi.runtime_workspace_snapshot_list",
+    void store;
+    throwWorkspaceSnapshotRustCoreRequired("workspace_snapshot_list", "workspace_snapshot.list", {
       thread_id: threadId,
-      snapshot_count: snapshots.length,
-      snapshots,
-    };
+      evidence_refs: [
+        "workspace_snapshot_list_js_projection_retired",
+        "rust_daemon_core_workspace_snapshot_projection_required",
+        "agentgres_workspace_snapshot_projection_truth_required",
+      ],
+    });
   }
 
   function previewWorkspaceSnapshotRestore(_store, threadId, snapshotId, request = {}) {
@@ -217,41 +206,20 @@ export function createRuntimeWorkspaceSnapshotSurface(deps = {}) {
   }
 
   function workspaceSnapshotContentPackage(store, threadId, snapshotId) {
-    const matches = [...store.codingArtifacts.values()]
-      .filter((artifactRecord) => artifactRecord.thread_id === threadId && artifactRecord.channel === "workspace-snapshot")
-      .map((artifactRecord) => {
-        const parsed = parseJsonObject(artifactRecord.content);
-        const parsedSnapshotId =
-          parsed?.snapshot_id ??
-          parsed?.snapshot?.snapshot_id;
-        return parsedSnapshotId === snapshotId ? { artifactRecord, parsed } : null;
-      })
-      .filter(Boolean);
-    const match = matches[0];
-    if (!match) {
-      throw notFound(`Workspace snapshot not found: ${snapshotId}`, {
+    void store;
+    throwWorkspaceSnapshotRustCoreRequired(
+      "workspace_snapshot_content_package",
+      "workspace_snapshot.content_package",
+      {
         thread_id: threadId,
         snapshot_id: snapshotId,
-      });
-    }
-    const snapshot = match.parsed.snapshot ?? match.parsed;
-    if (!snapshot?.restore?.preview_supported) {
-      throw runtimeError({
-        status: 409,
-        code: "workspace_restore_preview_unavailable",
-        message: "Workspace snapshot does not contain enough captured content for restore preview.",
-        details: {
-          thread_id: threadId,
-          snapshot_id: snapshotId,
-          restore_status: snapshot?.restore?.status ?? "unknown",
-        },
-      });
-    }
-    return {
-      artifactRecord: match.artifactRecord,
-      snapshot,
-      files: normalizeArray(match.parsed.files),
-    };
+        evidence_refs: [
+          "workspace_snapshot_content_package_js_projection_retired",
+          "rust_daemon_core_workspace_snapshot_content_package_required",
+          "agentgres_workspace_snapshot_artifact_truth_required",
+        ],
+      },
+    );
   }
 
   function materializeWorkspaceRestorePreviewArtifact(
