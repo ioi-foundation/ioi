@@ -238,7 +238,25 @@ test("importMcpJson facade fails closed before JS receipts, record-state commits
 
   assertNoMcpWorkflowMutation(state);
   state.mcpServers.set("mcp.Projected", { id: "mcp.Projected", label: "Projected", status: "registered" });
-  assert.deepEqual(listMcpServers(state).map((server) => server.id), ["mcp.Projected"]);
+  assert.throws(
+    () => listMcpServers(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_mcp_projection_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.mcp_projection");
+      assert.equal(error.details.operation_kind, "model_mount.mcp_server.list");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_mount_mcp_server_js_projection_retired",
+        "model_mount_mcp_workflow_record_state_js_retired",
+        "rust_daemon_core_model_mount_mcp_projection_required",
+        "agentgres_mcp_projection_truth_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "rustCoreBoundary"), false);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "evidenceRefs"), false);
+      return true;
+    },
+  );
 });
 
 test("importMcpJson rejects retired request aliases before state mutation", () => {

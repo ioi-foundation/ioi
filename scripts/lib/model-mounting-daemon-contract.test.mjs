@@ -131,6 +131,17 @@ async function expectBackendProjectionRustCoreRequired(endpoint, route) {
   return result.json;
 }
 
+async function expectMcpProjectionRustCoreRequired(endpoint, route) {
+  const result = await requestJson(endpoint, route);
+  assert.equal(result.response.status, 501);
+  assert.equal(result.json.error.code, "model_mount_mcp_projection_rust_core_required");
+  assert.equal(result.json.error.details.operation_kind, "model_mount.mcp_server.list");
+  assert.equal(result.json.error.details.rust_core_boundary, "model_mount.mcp_projection");
+  assert.ok(result.json.error.details.evidence_refs.includes("model_mount_mcp_server_js_projection_retired"));
+  assert.ok(result.json.error.details.evidence_refs.includes("agentgres_mcp_projection_truth_required"));
+  return result.json;
+}
+
 test("model mounting daemon keeps Agentgres store adapter extracted from the facade", () => {
   const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
   const store = readRepoFile("packages/runtime-daemon/src/model-mounting/store.mjs");
@@ -1362,9 +1373,7 @@ test("model mounting daemon exercises registry, router, tokens, MCP, receipts, a
     });
     assert.equal(mcpImport.count, 1);
 
-    const mcpServers = await expectOk(daemon.endpoint, "/api/v1/mcp");
-    assert.equal(mcpServers[0].redactedHeaders.authorization, "[REDACTED]");
-    assert.equal(JSON.stringify(mcpServers).includes("vault://fixture/mcp/huggingface"), false);
+    await expectMcpProjectionRustCoreRequired(daemon.endpoint, "/api/v1/mcp");
 
     const tool = await expectOk(daemon.endpoint, "/api/v1/mcp/invoke", {
       method: "POST",

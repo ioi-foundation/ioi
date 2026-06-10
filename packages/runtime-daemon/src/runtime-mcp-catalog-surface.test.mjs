@@ -20,12 +20,6 @@ function harness() {
   const calls = [];
   const workspaceServer = server("mcp.workspace.docs", "workspace");
   const agentServer = server("mcp.agent.git", "thread", { tools: [{ name: "diff" }] });
-  const modelServer = server("mcp.model.search", "model_mounting", {
-    id: "model-search",
-    label: "Model Search",
-    source: "model_mounting",
-    tools: [{ name: "model_search" }],
-  });
   const surface = createRuntimeMcpCatalogSurface({
     agentIdForThread(threadId) {
       return threadId.replace(/^thread-/, "");
@@ -214,12 +208,11 @@ function harness() {
     },
     modelMounting: {
       listMcpServers() {
-        calls.push({ name: "modelMounting.listMcpServers" });
-        return [modelServer];
+        throw new Error("runtime MCP catalog must not read model-mounting MCP server maps");
       },
     },
   };
-  return { agentServer, calls, modelServer, store, surface, workspaceServer };
+  return { agentServer, calls, store, surface, workspaceServer };
 }
 
 test("runtime MCP catalog surface lists context servers and filters catalog rows", () => {
@@ -228,7 +221,6 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
   assert.deepEqual(surface.listMcpServers(store).map((item) => item.id), [
     "mcp.agent.git",
     "mcp.workspace.docs",
-    "model-search",
   ]);
   assert.deepEqual(
     surface
@@ -238,7 +230,7 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
         agentId: "retired-agent",
       })
       .map((item) => item.id),
-    ["mcp.agent.git", "model-search"],
+    ["mcp.agent.git"],
   );
   assert.deepEqual(
     surface
@@ -256,9 +248,9 @@ test("runtime MCP catalog surface lists context servers and filters catalog rows
       tool_name: "diff",
     },
   ]);
-  assert.equal(surface.listMcpResources(store).length, 3);
-  assert.equal(surface.listMcpPrompts(store).length, 3);
-  assert.equal(calls.some((call) => call.name === "normalizeMcpServerRecord"), true);
+  assert.equal(surface.listMcpResources(store).length, 2);
+  assert.equal(surface.listMcpPrompts(store).length, 2);
+  assert.equal(calls.some((call) => call.name === "normalizeMcpServerRecord"), false);
 });
 
 test("runtime MCP catalog surface projects status and validation envelopes", () => {
@@ -267,17 +259,17 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   const status = surface.mcpStatus(store);
   assert.equal(status.schema_version, "ioi.runtime.mcp-manager-status.v1");
   assert.equal(status.status, "ready");
-  assert.equal(status.server_count, 3);
-  assert.equal(status.tool_count, 3);
-  assert.equal(status.resource_count, 3);
-  assert.equal(status.prompt_count, 3);
-  assert.equal(status.enabled_server_count, 3);
+  assert.equal(status.server_count, 2);
+  assert.equal(status.tool_count, 2);
+  assert.equal(status.resource_count, 2);
+  assert.equal(status.prompt_count, 2);
+  assert.equal(status.enabled_server_count, 2);
   assert.equal(status.source, "rust_mcp_manager_status_projection_command");
   assert.equal(status.validation.source, "rust_mcp_server_validation_command");
-  assert.equal(status.validation.server_count, 3);
+  assert.equal(status.validation.server_count, 2);
   assert.equal(
     calls.find((call) => call.name === "planMcpManagerCatalogProjection")?.request.servers.length,
-    3,
+    2,
   );
   assert.equal(status.routes.search_tools, "/v1/mcp/tools/search");
   assert.equal(Object.hasOwn(status, "schemaVersion"), false);
@@ -320,11 +312,11 @@ test("runtime MCP catalog surface projects status and validation envelopes", () 
   );
   assert.deepEqual(
     calls.find((call) => call.name === "validateMcpServers")?.request.servers.map((item) => item.id),
-    ["mcp.agent.git", "mcp.workspace.docs", "model-search"],
+    ["mcp.agent.git", "mcp.workspace.docs"],
   );
   assert.deepEqual(
     calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.servers.map((item) => item.id),
-    ["mcp.agent.git", "mcp.workspace.docs", "model-search"],
+    ["mcp.agent.git", "mcp.workspace.docs"],
   );
   assert.equal(
     calls.find((call) => call.name === "planMcpManagerStatusProjection")?.request.tools[0].stable_tool_id,
@@ -362,7 +354,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
   });
   assert.equal(globalSearch.schema_version, "ioi.runtime.mcp-tool-search.v1");
   assert.equal(globalSearch.status, "completed");
-  assert.equal(globalSearch.server_count, 3);
+  assert.equal(globalSearch.server_count, 2);
   assert.deepEqual(globalSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(globalSearch.routes.get_tool, "/v1/mcp/tools/{tool_id}");
   assert.equal(
@@ -382,7 +374,7 @@ test("runtime MCP catalog surface searches and fetches tools through global and 
     live_discovery: false,
     liveDiscovery: true,
   });
-  assert.equal(threadSearch.server_count, 2);
+  assert.equal(threadSearch.server_count, 1);
   assert.deepEqual(threadSearch.tools.map((tool) => tool.stable_tool_id), ["mcp.agent.git.diff"]);
   assert.equal(calls.some((call) => call.name === "agentForThread"), true);
   assert.equal(

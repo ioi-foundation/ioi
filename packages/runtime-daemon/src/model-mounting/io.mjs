@@ -214,21 +214,6 @@ export function publicToken(token) {
   };
 }
 
-export function publicMcpServer(server) {
-  return {
-    ...server,
-    redactedHeaders: Object.fromEntries(Object.keys(server.redactedHeaders ?? {}).map((key) => [key, SECRET_REDACTION])),
-    secretRefs: Object.fromEntries(
-      Object.entries(server.secretRefs ?? {}).map(([key, vaultRef]) => [
-        key,
-        typeof vaultRef === "string" && vaultRef.startsWith("vault://")
-          ? { redacted: true, hash: stableHash(vaultRef) }
-          : SECRET_REDACTION,
-      ]),
-    ),
-  };
-}
-
 export function hashToken(tokenValue) {
   return crypto.createHash("sha256").update(tokenValue).digest("hex");
 }

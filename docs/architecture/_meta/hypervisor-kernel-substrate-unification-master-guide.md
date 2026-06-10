@@ -2136,6 +2136,16 @@ longer calls that JS registry read while creating the artifact/endpoint records.
 The records remain deterministic migration fixtures only; backend inventory,
 process state, and lifecycle projection must come from direct Rust daemon-core
 model_mount projection over Agentgres-admitted truth.
+Slice 945 retired model-mounting MCP server JS projection readback. Public
+`ModelMountingState.listMcpServers()` now fails closed at
+`model_mount.mcp_server.list` with
+`model_mount_mcp_projection_rust_core_required`, `publicMcpServer()` was deleted
+as an orphaned JS readback shaper, and the runtime MCP catalog no longer merges
+`store.modelMounting.listMcpServers()` into workspace/agent MCP catalog
+projection. Runtime MCP catalog status/list/search may still project
+workspace/agent MCP records through Rust planner commands; model-mounting MCP
+server projection remains pending until Rust daemon-core projection and
+Agentgres-backed MCP registry truth own that surface directly.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

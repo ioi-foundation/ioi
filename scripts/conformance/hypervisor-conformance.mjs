@@ -7258,6 +7258,13 @@ function runBridge() {
       /contextPolicyRunner\.planMcpManagerStatusProjection\(\{/.test(
         runtimeMcpCatalogSurface,
       ) &&
+      !/store\.modelMounting\.listMcpServers\(\)/.test(runtimeMcpCatalogSurface) &&
+      /runtime MCP catalog must not read model-mounting MCP server maps/.test(
+        runtimeMcpCatalogSurfaceTest,
+      ) &&
+      /assert\.equal\(calls\.some\(\(call\) => call\.name === "normalizeMcpServerRecord"\),\s*false\)/.test(
+        runtimeMcpCatalogSurfaceTest,
+      ) &&
       /mcpCatalogRowsForServers\(servers = \[\]\)/.test(runtimeMcpCatalogSurface) &&
       /const catalog = contextPolicyRunner\.planMcpManagerCatalogProjection\(\{ servers \}\)/.test(
         runtimeMcpCatalogSurface,
@@ -13652,6 +13659,18 @@ function runReceipts() {
       /model_mount_mcp_workflow_record_state_js_retired/.test(mcpWorkflowOperations) &&
       /rust_daemon_core_model_mount_mcp_workflow_required/.test(mcpWorkflowOperations) &&
       /agentgres_mcp_workflow_truth_required/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_projection_rust_core_required/.test(mcpWorkflowOperations) &&
+      /rust_core_boundary:\s*"model_mount\.mcp_projection"/.test(mcpWorkflowOperations) &&
+      /model_mount_mcp_server_js_projection_retired/.test(mcpWorkflowOperations) &&
+      /rust_daemon_core_model_mount_mcp_projection_required/.test(mcpWorkflowOperations) &&
+      /agentgres_mcp_projection_truth_required/.test(mcpWorkflowOperations) &&
+      /listMcpServers\(\)\s*\{[\s\S]*?throwMcpProjectionRustCoreRequired\("model_mount\.mcp_server\.list"\)/.test(
+        mcpWorkflowOperations,
+      ) &&
+      !/listMcpServers\(\)\s*\{[\s\S]*?return \[\.\.\.this\.mcpServers\.values\(\)\]/.test(
+        mcpWorkflowOperations,
+      ) &&
+      !/export function publicMcpServer/.test(modelMountIo) &&
       /model_mount\.mcp_server\.import/.test(mcpImportJsonBlock) &&
       /model_mount\.mcp_server\.ephemeral_register/.test(mcpCompileEphemeralBlock) &&
       /model_mount\.mcp_tool\.invoke/.test(mcpInvokeToolBlock) &&
@@ -13683,6 +13702,8 @@ function runReceipts() {
       /assertNoMcpWorkflowMutation\(state\)/.test(mcpWorkflowOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
+      /model_mount_mcp_projection_rust_core_required/.test(mcpWorkflowOperationsTest) &&
+      /model_mount\.mcp_server\.list/.test(mcpWorkflowOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(mcpWorkflowOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",

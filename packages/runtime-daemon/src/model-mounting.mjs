@@ -97,7 +97,6 @@ import {
   matchesAny,
   hashToken,
   publicToken,
-  publicMcpServer,
   publicVaultRefs,
   normalizeScopes,
 } from "./model-mounting/io.mjs";
@@ -159,6 +158,12 @@ const MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS = [
   "model_mount_mcp_workflow_record_state_js_retired",
   "rust_daemon_core_model_mount_mcp_workflow_required",
   "agentgres_mcp_workflow_truth_required",
+];
+const MCP_PROJECTION_RUST_CORE_EVIDENCE_REFS = [
+  "model_mount_mcp_server_js_projection_retired",
+  "model_mount_mcp_workflow_record_state_js_retired",
+  "rust_daemon_core_model_mount_mcp_projection_required",
+  "agentgres_mcp_projection_truth_required",
 ];
 const RETIRED_WORKFLOW_NODE_EXECUTION_REQUEST_ALIASES = [
   "nodeType",
@@ -1392,9 +1397,7 @@ export class ModelMountingState {
   }
 
   listMcpServers() {
-    return [...this.mcpServers.values()]
-      .map(publicMcpServer)
-      .sort((left, right) => left.id.localeCompare(right.id));
+    throwMcpProjectionRustCoreRequired("model_mount.mcp_server.list");
   }
 
   listConversations() {
@@ -2403,6 +2406,20 @@ function throwMcpWorkflowRustCoreRequired(operation_kind, details = {}) {
       operation_kind,
       ...details,
       evidence_refs: MCP_WORKFLOW_RUST_CORE_EVIDENCE_REFS,
+    },
+  });
+}
+
+function throwMcpProjectionRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_mcp_projection_rust_core_required",
+    message: "Model-mount MCP projection readback requires Rust daemon-core projection ownership.",
+    details: {
+      rust_core_boundary: "model_mount.mcp_projection",
+      operation_kind,
+      ...details,
+      evidence_refs: MCP_PROJECTION_RUST_CORE_EVIDENCE_REFS,
     },
   });
 }

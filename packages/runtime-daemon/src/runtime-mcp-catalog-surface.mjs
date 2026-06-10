@@ -343,17 +343,6 @@ export function createRuntimeMcpCatalogSurface({
           servers.push(...normalizeArrayDep(agent.mcpRegistry?.servers));
         }
       }
-      servers.push(
-        ...store.modelMounting.listMcpServers().map((server) =>
-          normalizeMcpServerRecordDep(server.label ?? server.id, server, {
-            workspace_root: store.defaultCwd,
-            source: server.source ?? "model_mounting",
-            source_scope: "model_mounting",
-            config_compatibility: "ioi_model_mounting",
-            status: server.status ?? "registered",
-          }),
-        ),
-      );
       const byId = new Map();
       for (const server of servers) {
         byId.set(server.id, server);

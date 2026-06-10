@@ -20536,3 +20536,38 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of backend projection command transport,
 Agentgres-backed backend truth, and stable protocol APIs without encoding
 deterministic fixture records as backend inventory authority.
+
+## Implementation Slice Evidence: 945
+
+Slice 945 retired model-mounting MCP server JS projection readback. Public
+`ModelMountingState.listMcpServers()` now fails closed at
+`model_mount.mcp_server.list` with
+`model_mount_mcp_projection_rust_core_required` instead of returning
+`this.mcpServers` through `publicMcpServer()`. The orphaned `publicMcpServer()`
+JS readback shaper was deleted, and runtime MCP catalog projection no longer
+merges `store.modelMounting.listMcpServers()` into workspace/agent MCP catalog
+status, list, search, or fetch projection.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/io.mjs packages/runtime-daemon/src/runtime-mcp-catalog-surface.mjs packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs scripts/lib/model-mounting-daemon-contract.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal MCP migration. Workspace/agent MCP catalog
+read projection still uses migration planner commands, and direct Rust
+daemon-core MCP projection, Agentgres-backed MCP registry truth, command
+transport retirement, replay, and stable SDK/IDE/CLI protocol APIs remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-945 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of MCP projection command transport,
+Agentgres-backed MCP registry truth, and stable protocol APIs without encoding
+JS model-mounting MCP maps as projection authority.
