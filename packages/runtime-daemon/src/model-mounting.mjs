@@ -96,7 +96,6 @@ import {
   truthy,
   matchesAny,
   hashToken,
-  publicToken,
   publicVaultRefs,
   normalizeScopes,
 } from "./model-mounting/io.mjs";
@@ -1026,9 +1025,7 @@ export class ModelMountingState {
   }
 
   listTokens() {
-    return [...this.tokens.values()]
-      .map(publicToken)
-      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+    throwCapabilityTokenRustCoreRequired("model_mount.capability_token.list");
   }
 
   revokeToken(tokenId) {

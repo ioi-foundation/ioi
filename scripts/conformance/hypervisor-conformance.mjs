@@ -1115,7 +1115,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 872 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 873/.test(matrix) &&
       /Slice 873 retired the fail-closed `capability-token-operations\.mjs` helper\s+module/.test(matrix) &&
-      /`ModelMountingState` capability-token methods now own token\s+redaction\/list sorting/.test(matrix) &&
+      /`ModelMountingState\.listTokens\(\)` now fails closed at\s+`model_mount\.capability_token\.list`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 873 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 874/.test(matrix) &&
       /Slice 874 retired the fail-closed `vault-operations\.mjs` helper module/.test(matrix) &&
@@ -1515,7 +1515,7 @@ function runDocs() {
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /mounted public `ModelMountingState` capability-token methods now own token redaction\/list sorting/.test(implementationMatrix) &&
+      /public capability-token create\/revoke, Bearer authorization, and token-list projection now fail closed/.test(implementationMatrix) &&
       /the fail-closed `vault-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` vault methods now own canonical vault request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `tokenizer-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -12524,6 +12524,9 @@ function runReceipts() {
   const capabilityTokenOperationsTest = exists("packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs")
     : "";
+  const modelMountingIo = exists("packages/runtime-daemon/src/model-mounting/io.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/io.mjs")
+    : "";
   const walletAuthority = exists("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/wallet-authority.mjs")
     : "";
@@ -15456,6 +15459,7 @@ function runReceipts() {
       /model_mount\.capability_token\.create/.test(modelMountingState) &&
       /model_mount\.capability_token\.authorize/.test(modelMountingState) &&
       /model_mount\.capability_token\.revoke/.test(modelMountingState) &&
+      /model_mount\.capability_token\.list/.test(modelMountingState) &&
       !/commitCapabilityTokenRecordState/.test(capabilityTokenOperations) &&
       !/commitModelMountRecordState/.test(capabilityTokenOperations) &&
       !/recordDir:\s*"tokens"/.test(capabilityTokenOperations) &&
@@ -15463,6 +15467,8 @@ function runReceipts() {
       !/this\.walletAuthority\.(?:createGrant|authorizeScope|revokeGrant)/.test(modelMountingState) &&
       !/state\.receipt\("permission_token/.test(capabilityTokenOperations) &&
       !/this\.tokens\.set/.test(modelMountingState) &&
+      !/\.map\(publicToken\)/.test(modelMountingState) &&
+      !/export function publicToken/.test(modelMountingIo) &&
       !/RUNTIME_MODEL_MOUNT_RECORD_STATE_COMMIT_SCHEMA_VERSION/.test(capabilityTokenOperations) &&
       !/normalizeCapabilityTokenRecordStateCommit/.test(capabilityTokenOperations) &&
       !/state\.writeMap\("tokens"/.test(capabilityTokenOperations) &&
@@ -15474,7 +15480,7 @@ function runReceipts() {
       /capability token mutation and authorization facades fail closed until Rust wallet authority owns them/.test(
         capabilityTokenOperationsTest,
       ) &&
-      /capability token list remains a read-only projection adapter/.test(capabilityTokenOperationsTest) &&
+      /capability token list facade fails closed until Rust wallet authority owns projection/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.createToken\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.revokeToken\.call/.test(capabilityTokenOperationsTest) &&
       /ModelMountingState\.prototype\.authorize\.call/.test(capabilityTokenOperationsTest) &&
@@ -15488,7 +15494,7 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs",
     ],
-    "Phase 7/11 is pending: capability token mutation/authorization must fail closed until Rust daemon-core wallet authority owns grant, revocation, authorization, receipt, record-state, and projection semantics",
+    "Phase 7/11 is pending: capability token mutation/authorization/list projection must fail closed until Rust daemon-core wallet authority owns grant, revocation, authorization, receipt, record-state, and projection semantics",
   );
   assertCheck(
     result,

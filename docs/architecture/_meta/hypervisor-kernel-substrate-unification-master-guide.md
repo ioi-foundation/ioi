@@ -1893,10 +1893,13 @@ stable protocol APIs remain required.
 
 Slice 873 retired the fail-closed `capability-token-operations.mjs` helper
 module after public capability-token create/revoke and Bearer authorization had
-already been reduced to Rust-core-required wallet-authority edge refusals. The
-mounted public `ModelMountingState` capability-token methods now own token
-redaction/list sorting, canonical `token_id` not-found details, Bearer
-authorization preflight, token-hash lookup, and
+already been reduced to Rust-core-required wallet-authority edge refusals. Slice
+946 then retired the remaining public token-list JS projection: mounted
+`ModelMountingState.listTokens()` now fails closed at
+`model_mount.capability_token.list`, and the orphaned `publicToken()` redaction
+helper is deleted rather than preserved as a compatibility formatter. Mounted
+public capability-token methods still own canonical `token_id` not-found
+details, Bearer authorization preflight, token-hash lookup, and
 `model_mount.capability_token` Rust-core-required errors directly, without
 importing a helper module or dependency-injecting wallet-authority helpers.
 This does not claim terminal wallet authority migration: direct Rust
@@ -2146,6 +2149,14 @@ projection. Runtime MCP catalog status/list/search may still project
 workspace/agent MCP records through Rust planner commands; model-mounting MCP
 server projection remains pending until Rust daemon-core projection and
 Agentgres-backed MCP registry truth own that surface directly.
+Slice 946 retired public capability-token JS projection readback. Public
+`ModelMountingState.listTokens()` now fails closed at
+`model_mount.capability_token.list` with
+`model_mount_capability_token_rust_core_required`, and the orphaned
+`publicToken()` formatter is deleted so JS no longer redacts, sorts, or returns
+wallet grant records as a public read projection. `/api/v1/tokens` remains a
+mounted route only as a fail-closed protocol edge until Rust daemon-core
+wallet.network authority owns capability-token projection over admitted truth.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

@@ -146,7 +146,7 @@ test("capability token mutation and authorization facades fail closed until Rust
   assert.equal(authorizeStateValue.tokens.get(token.id), token);
 });
 
-test("capability token list remains a read-only projection adapter", () => {
+test("capability token list facade fails closed until Rust wallet authority owns projection", () => {
   const state = createState();
   state.tokens.set("grant-b", {
     id: "grant-b",
@@ -159,12 +159,18 @@ test("capability token list remains a read-only projection adapter", () => {
     tokenHash: "hash:a",
   });
 
-  assert.deepEqual(ModelMountingState.prototype.listTokens.call(state).map((token) => token.id), ["grant-a", "grant-b"]);
-  assert.equal(
-    ModelMountingState.prototype.listTokens.call(state).some((token) => Object.hasOwn(token, "tokenHash")),
-    false,
+  assert.throws(
+    () => ModelMountingState.prototype.listTokens.call(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_capability_token_rust_core_required");
+      assert.equal(error.details.operation_kind, "model_mount.capability_token.list");
+      assert.equal(error.details.rust_core_boundary, "model_mount.capability_token");
+      return true;
+    },
   );
   assertNoCapabilityTokenMutation(state);
+  assert.equal(state.tokens.size, 2);
 });
 
 test("capability token authorization and revoke preserve auth and not-found errors", () => {

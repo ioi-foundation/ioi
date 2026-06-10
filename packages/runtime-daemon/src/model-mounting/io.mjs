@@ -195,25 +195,6 @@ export function matchesAny(scope, patterns) {
   });
 }
 
-export function publicToken(token) {
-  return {
-    id: token.id,
-    audience: token.audience,
-    allowed: token.allowed,
-    denied: token.denied,
-    expiresAt: token.expiresAt,
-    revocationEpoch: token.revocationEpoch,
-    grantId: token.grantId,
-    createdAt: token.createdAt,
-    revokedAt: token.revokedAt,
-    lastUsedAt: token.lastUsedAt ?? null,
-    lastUsedScope: token.lastUsedScope ?? null,
-    vaultRefs: publicVaultRefs(token.vaultRefs ?? {}),
-    auditReceiptIds: Array.isArray(token.auditReceiptIds) ? token.auditReceiptIds : [],
-    receiptId: token.receiptId,
-  };
-}
-
 export function hashToken(tokenValue) {
   return crypto.createHash("sha256").update(tokenValue).digest("hex");
 }

@@ -18184,10 +18184,13 @@ Scheduled matrix-compaction obligation from Slice 872 is now satisfied.
 
 Slice 873 retired the fail-closed `capability-token-operations.mjs` helper
 module after public capability-token create/revoke and Bearer authorization had
-already been reduced to Rust-core-required wallet-authority edge refusals. The
-mounted public `ModelMountingState` capability-token methods now own token
-redaction/list sorting, canonical `token_id` not-found details, Bearer
-authorization preflight, token-hash lookup, and
+already been reduced to Rust-core-required wallet-authority edge refusals. Slice
+946 then retired the remaining public token-list JS projection, so mounted
+`ModelMountingState.listTokens()` now fails closed at
+`model_mount.capability_token.list` and the orphaned `publicToken()` formatter is
+deleted rather than preserved as a compatibility readback shaper. Mounted public
+capability-token methods still own canonical `token_id` not-found details,
+Bearer authorization preflight, token-hash lookup, and
 `model_mount.capability_token` Rust-core-required errors directly, without
 importing a helper module or dependency-injecting wallet-authority helpers.
 
@@ -20571,3 +20574,38 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of MCP projection command transport,
 Agentgres-backed MCP registry truth, and stable protocol APIs without encoding
 JS model-mounting MCP maps as projection authority.
+
+## Implementation Slice Evidence: 946
+
+Slice 946 retired public capability-token JS projection readback. Public
+`ModelMountingState.listTokens()` now fails closed at
+`model_mount.capability_token.list` with
+`model_mount_capability_token_rust_core_required` instead of returning
+`this.tokens` through the JS `publicToken()` formatter. The orphaned
+`publicToken()` formatter was deleted, so JS no longer redacts, sorts, or
+returns wallet grant records as a public `/api/v1/tokens` read projection while
+Rust daemon-core wallet.network authority projection remains pending.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/io.mjs packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/capability-token-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal wallet authority migration. Direct Rust
+daemon-core wallet.network grant creation, revocation, authorization,
+projection, Agentgres-admitted receipt and record-state truth,
+command-transport retirement, replay, and stable SDK/IDE/CLI protocol APIs
+remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-946 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of wallet authority projection command
+transport, Agentgres-backed grant truth, and stable protocol APIs without
+encoding JS token maps as public capability-token projection authority.
