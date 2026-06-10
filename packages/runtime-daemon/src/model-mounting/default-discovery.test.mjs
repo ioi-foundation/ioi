@@ -1,7 +1,4 @@
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import test from "node:test";
 
 import {
@@ -13,7 +10,7 @@ import * as defaultDiscovery from "./default-discovery.mjs";
 function fakeState() {
   return {
     homeDir: "/home/ioi",
-    modelRoot: fs.mkdtempSync(path.join(os.tmpdir(), "ioi-model-root-")),
+    modelRoot: "/tmp/ioi-model-root",
     artifacts: new Map(),
     endpoints: new Map(),
     instances: new Map(),
@@ -27,27 +24,19 @@ function fakeState() {
   };
 }
 
-const deps = {
-  fileSha256: () => "sha256:test",
-  parseLocalModelMetadata: () => ({
-    family: "autopilot-native",
-    format: "gguf",
-    quantization: "Q4_K_M",
-    contextWindow: 8192,
-  }),
-};
-
-test("native local fixture artifact materializes deterministic metadata", () => {
+test("native local fixture artifact is a Rust-backed record without JS file materialization", () => {
   const state = fakeState();
 
-  const artifact = ensureNativeLocalFixtureArtifact(state, "2026-06-03T12:00:00.000Z", deps);
+  const artifact = ensureNativeLocalFixtureArtifact(state, "2026-06-03T12:00:00.000Z");
 
   assert.equal(artifact.id, "autopilot.native.fixture");
   assert.equal(artifact.modelId, "autopilot:native-fixture");
-  assert.equal(artifact.checksum, "sha256:test");
+  assert.equal(artifact.source, "rust_model_mount_native_local_fixture");
+  assert.equal(artifact.format, "rust_backed_fixture");
+  assert.equal(artifact.checksum, null);
   assert.equal(artifact.contextWindow, 8192);
   assert.deepEqual(artifact.backendRegistry, [{ id: "backend.native" }]);
-  assert.equal(fs.existsSync(artifact.artifactPath), true);
+  assert.equal(Object.hasOwn(artifact, "artifactPath"), false);
 });
 
 test("LM Studio default discovery helpers are deleted instead of inert compatibility exports", () => {

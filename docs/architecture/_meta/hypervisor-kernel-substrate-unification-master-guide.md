@@ -2110,6 +2110,15 @@ longer exports `listModelFiles()`, `modelFileScore()`, or
 are private to local artifact inspection only, so catalog/storage public truth
 cannot re-enter through a reusable JS helper while Rust/Agentgres storage
 projection is still pending.
+Slice 942 retired JS native fixture artifact file materialization. Internal
+fixture seeding may still create an explicit fixture artifact record when
+`IOI_EXPOSE_INTERNAL_FIXTURE_MODELS` is set, but
+`ensureNativeLocalFixtureArtifact()` no longer imports filesystem helpers,
+creates `native-fixture/autopilot-native-fixture.Q4_K_M.gguf`, hashes that
+file, parses local model metadata, or emits `artifactPath` as storage truth.
+The native-local fixture record is now marked as a Rust-backed deterministic
+fixture (`source: rust_model_mount_native_local_fixture`) and depends on the
+Rust `model_mount` native-local backend for execution semantics.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been
@@ -2543,11 +2552,13 @@ cleanup predicates now live privately inside `default-discovery.mjs`. Default
 seeding can still remove internal fixture artifacts/endpoints/instances when
 fixture defaults are disabled, but JS no longer exposes a separate reusable
 fixture policy module or dependency-injected predicate surface that could be
-mistaken for model-mount inventory/projection authority. Direct Rust
-daemon-core provider inventory, catalog/default-discovery policy, Agentgres
-topology truth, stable protocol APIs, and command-transport retirement remain
-required before model-mount discovery and inventory reach terminal pure Rust
-conformance.
+mistaken for model-mount inventory/projection authority. Slice 942 later
+removed native fixture artifact file materialization from the same module, so
+default discovery no longer writes fake native-local model files as storage
+truth. Direct Rust daemon-core provider inventory, catalog/default-discovery
+policy, Agentgres topology truth, stable protocol APIs, and command-transport
+retirement remain required before model-mount discovery and inventory reach
+terminal pure Rust conformance.
 
 Slice 922 retired daemon-side StepModule shadow/gated backend selection.
 `createStepModuleRunnerFromEnv()` now accepts only `rust_workload_live`;

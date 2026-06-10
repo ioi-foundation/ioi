@@ -1,6 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
-
 function isFixtureEndpointCandidate(endpoint = {}, provider = {}) {
   const haystack = [
     endpoint.id,
@@ -50,41 +47,22 @@ function isFixtureModelRecord(record = {}) {
   );
 }
 
-export function ensureNativeLocalFixtureArtifact(state, checkedAt, deps = {}) {
-  const { fileSha256, parseLocalModelMetadata } = deps;
-  const fixtureDir = path.join(state.modelRoot, "native-fixture");
-  const fixturePath = path.join(fixtureDir, "autopilot-native-fixture.Q4_K_M.gguf");
-  fs.mkdirSync(fixtureDir, { recursive: true });
-  if (!fs.existsSync(fixturePath)) {
-    fs.writeFileSync(
-      fixturePath,
-      [
-        "IOI deterministic native-local model fixture",
-        "format=gguf",
-        "family=autopilot-native",
-        "quantization=Q4_K_M",
-        "context=8192",
-      ].join("\n"),
-    );
-  }
-  const stats = fs.statSync(fixturePath);
-  const metadata = parseLocalModelMetadata(fixturePath);
+export function ensureNativeLocalFixtureArtifact(state, checkedAt) {
   return {
     id: "autopilot.native.fixture",
     providerId: "provider.autopilot.local",
     modelId: "autopilot:native-fixture",
     displayName: "Autopilot native local fixture",
-    family: metadata.family ?? "autopilot-native",
-    format: metadata.format ?? "gguf",
-    quantization: metadata.quantization ?? "Q4_K_M",
-    sizeBytes: stats.size,
-    checksum: fileSha256(fixturePath),
-    contextWindow: metadata.contextWindow ?? 8192,
+    family: "autopilot-native",
+    format: "rust_backed_fixture",
+    quantization: "deterministic",
+    sizeBytes: 0,
+    checksum: null,
+    contextWindow: 8192,
     capabilities: ["chat", "responses", "embeddings", "structured_output", "rerank"],
     privacyClass: "local_private",
-    source: "autopilot_native_local_fixture",
+    source: "rust_model_mount_native_local_fixture",
     state: "installed",
-    artifactPath: fixturePath,
     backendRegistry: state.backendRegistry(),
     discoveredAt: checkedAt,
   };

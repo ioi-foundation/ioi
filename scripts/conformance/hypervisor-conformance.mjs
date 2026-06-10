@@ -14633,7 +14633,15 @@ function runReceipts() {
       /function isFixtureEndpointCandidate/.test(defaultDiscovery) &&
       /function isFixtureModelRecord/.test(defaultDiscovery) &&
       /pruneInternalFixtureProjectionRecords\(state\)/.test(defaultDiscovery) &&
+      !/from "node:fs"|from "node:path"|fs\.(?:mkdirSync|writeFileSync|statSync|existsSync)/.test(defaultDiscovery) &&
+      !/artifactPath:\s*fixturePath|parseLocalModelMetadata|fileSha256|IOI deterministic native-local model fixture/.test(
+        defaultDiscovery,
+      ) &&
+      /source:\s*"rust_model_mount_native_local_fixture"/.test(defaultDiscovery) &&
+      /format:\s*"rust_backed_fixture"/.test(defaultDiscovery) &&
       !/pruneInternalFixtureProjectionRecords\(state,\s*\{/.test(defaultDiscoveryTest) &&
+      /native local fixture artifact is a Rust-backed record without JS file materialization/.test(defaultDiscoveryTest) &&
+      /Object\.hasOwn\(artifact,\s*"artifactPath"\),\s*false/.test(defaultDiscoveryTest) &&
       /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(guide) &&
       /`fixture-policy\.mjs` is absent/.test(guide) &&
       /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(matrix),

@@ -59,7 +59,6 @@ import {
 import {
   findExecutable,
   hardwareSnapshot,
-  parseLocalModelMetadata,
 } from "./model-mounting/local-system-probes.mjs";
 import {
   expiresAt,
@@ -91,7 +90,6 @@ import {
   redact,
   shouldRedactKey,
   emitRemoteBoundaryEvent,
-  fileSha256,
   sleep,
   fileSizeIfExists,
   normalizeNonNegativeInteger,
@@ -499,10 +497,7 @@ export class ModelMountingState {
   }
 
   ensureNativeLocalFixtureArtifact(checkedAt) {
-    return ensureNativeLocalFixtureArtifactState(this, checkedAt, {
-      fileSha256,
-      parseLocalModelMetadata,
-    });
+    return ensureNativeLocalFixtureArtifactState(this, checkedAt);
   }
 
   upsertDefault(map, record) {

@@ -20434,3 +20434,38 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of storage summary/projection command
 transport, Agentgres-backed storage truth, and stable protocol APIs without
 encoding JS filesystem scanning as terminal architecture.
+
+## Implementation Slice Evidence: 942
+
+Slice 942 retired JS native fixture artifact file materialization. Internal
+fixture seeding can still create an explicit native-local fixture artifact
+record when `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS` is set, but
+`ensureNativeLocalFixtureArtifact()` no longer imports filesystem helpers,
+creates `native-fixture/autopilot-native-fixture.Q4_K_M.gguf`, hashes the file,
+parses local model metadata, or exposes `artifactPath` as storage truth. The
+record is now marked as a Rust-backed deterministic fixture with
+`source: rust_model_mount_native_local_fixture`, `format: rust_backed_fixture`,
+`checksum: null`, and no artifact path; execution semantics remain in Rust
+`model_mount` native-local provider backends.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/default-discovery.mjs packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/default-records.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal fixture/provider inventory migration. Direct
+Rust daemon-core default-discovery/projection APIs, Agentgres-backed topology
+truth, command-transport retirement, replay, and stable SDK/IDE/CLI protocol
+APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 942 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of fixture inventory/projection command
+transport, Agentgres-backed topology truth, and stable protocol APIs without
+encoding JS fixture file materialization as terminal architecture.
