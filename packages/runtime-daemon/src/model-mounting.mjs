@@ -87,7 +87,6 @@ import {
   hasExplicitTtlOption,
   normalizeLoadOptions,
   normalizeLoadPolicy,
-  normalizeRuntimeEngineDefaultLoadOptions,
 } from "./model-mounting/load-policy.mjs";
 import {
   coalesceLoadedInstances as coalesceLoadedInstancesState,
@@ -95,12 +94,6 @@ import {
   loadedInstanceForEndpoint as loadedInstanceForEndpointState,
   supersedeLoadedInstances as supersedeLoadedInstancesState,
 } from "./model-mounting/loaded-instances.mjs";
-import {
-  applyRuntimeEngineProfile as applyRuntimeEngineProfileState,
-  removeRuntimeEngineOverride as removeRuntimeEngineOverrideState,
-  selectRuntimeEngine as selectRuntimeEngineState,
-  updateRuntimeEngine as updateRuntimeEngineState,
-} from "./model-mounting/runtime-engines.mjs";
 import { AgentgresWalletAuthority } from "./model-mounting/wallet-authority.mjs";
 import {
   AgentgresVaultPort,
@@ -1695,38 +1688,21 @@ export class ModelMountingState {
   }
 
   selectRuntimeEngine(body = {}) {
-    return selectRuntimeEngineState(this, body, {
-      notFound,
-      requiredString,
-      runtimeError,
-      schema_version: MODEL_MOUNT_SCHEMA_VERSION,
-    });
+    const engineId = requiredString(body.engine_id, "engine_id");
+    throwRuntimeEngineRustCoreRequired("model_mount.runtime_preference.write", { engine_id: engineId });
   }
 
   updateRuntimeEngine(engineId, body = {}) {
-    return updateRuntimeEngineState(this, engineId, body, {
-      normalizeRuntimeEngineDefaultLoadOptions,
-      notFound,
-      schema_version: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
-    });
+    void body;
+    throwRuntimeEngineRustCoreRequired("model_mount.runtime_engine_profile.write", { engine_id: engineId });
   }
 
   removeRuntimeEngineOverride(engineId) {
-    return removeRuntimeEngineOverrideState(this, engineId, {
-      notFound,
-      safeFileName,
-      schema_version: MODEL_MOUNT_SCHEMA_VERSION,
-      stableHash,
-    });
+    throwRuntimeEngineRustCoreRequired("model_mount.runtime_engine_profile.delete", { engine_id: engineId });
   }
 
   listRuntimeEngines() {
     return this.readProjectionFacade.runtimeEngineList(this);
-  }
-
-  applyRuntimeEngineProfile(engine) {
-    return applyRuntimeEngineProfileState(this, engine);
   }
 
   runtimeSurvey() {
@@ -1903,6 +1879,23 @@ function throwServerControlRustCoreRequired(operation_kind, details = {}) {
       evidence_refs: [
         "public_server_control_js_facade_retired",
         "rust_daemon_core_server_control_required",
+      ],
+      ...details,
+    },
+  });
+}
+
+function throwRuntimeEngineRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_runtime_engine_rust_core_required",
+    message: "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.runtime_engine",
+      evidence_refs: [
+        "public_runtime_engine_js_facade_retired",
+        "rust_daemon_core_runtime_engine_required",
       ],
       ...details,
     },

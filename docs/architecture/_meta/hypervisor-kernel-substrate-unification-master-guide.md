@@ -2314,6 +2314,21 @@ OAuth custody, auth-header resolution, Agentgres-backed truth, and stable
 protocol APIs still remain required before this surface reaches terminal pure
 Rust conformance.
 
+Slice 912 deleted the standalone runtime-engine compatibility helper and moved
+the public mutation refusal boundary onto `ModelMountingState` itself.
+`runtime-engines.mjs` and `runtime-engines.test.mjs` are absent; the mounted
+`selectRuntimeEngine()`, `updateRuntimeEngine()`, and
+`removeRuntimeEngineOverride()` methods fail closed directly with
+`model_mount_runtime_engine_rust_core_required` before JS can create
+runtime-engine receipts, mutate preference/profile maps, write projection state,
+or preserve helper-level readback builders. Public runtime-engine
+list/detail/default-load/preference/profile reads continue to call
+`plan_model_mount_read_projection` through `read-projection-facade.mjs` with
+narrow Rust-planned request state. Direct Rust daemon-core runtime-engine
+preference/profile/projection APIs, Agentgres-backed truth, receipt/state-root
+binding, replay, stable protocol APIs, and command-transport retirement remain
+required before runtime-engine control reaches terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

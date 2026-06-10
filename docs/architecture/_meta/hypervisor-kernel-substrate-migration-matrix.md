@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 911 after the next
+- Next scheduled matrix-compaction pass: compact Slice 912 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19267,7 +19267,40 @@ Agentgres-backed truth, wallet/cTEE custody, receipt/state-root binding, replay,
 stable protocol APIs, and command-transport retirement remain required before
 catalog-provider control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 911 after the next direct
+Scheduled matrix-compaction obligation from Slice 911 is now satisfied.
+
+## Implementation Slice Evidence: 912
+
+Slice 912 deleted the standalone runtime-engine compatibility helper and moved
+the public mutation refusal boundary onto `ModelMountingState` itself.
+`runtime-engines.mjs` and `runtime-engines.test.mjs` are absent; mounted
+`selectRuntimeEngine()`, `updateRuntimeEngine()`, and
+`removeRuntimeEngineOverride()` now fail closed directly with
+`model_mount_runtime_engine_rust_core_required` before JS can create
+runtime-engine receipts, mutate preference/profile maps, write projection
+state, or preserve helper-level runtime-engine readback builders. Public
+runtime-engine list/detail/default-load/preference/profile reads continue to
+call Rust `plan_model_mount_read_projection` through
+`read-projection-facade.mjs`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal runtime-engine migration: direct Rust
+daemon-core runtime-engine preference/profile/projection APIs,
+Agentgres-backed truth, receipt/state-root binding, replay, stable protocol
+APIs, and command-transport retirement remain required before runtime-engine
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 912 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

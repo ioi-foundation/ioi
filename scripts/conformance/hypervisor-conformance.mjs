@@ -819,9 +819,14 @@ function runDocs() {
       /Slice 911 deleted the remaining catalog-provider source\/auth shaping and OAuth\s+boundary helper surface from JS/.test(guide) &&
       /`catalog-provider-config\.mjs` now retains only\s+the configurable-provider preflight and shared Rust-core-required error/.test(guide) &&
       /`catalog-provider-config\.test\.mjs`,\s+`oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(guide) &&
+      /Slice 912 deleted the standalone runtime-engine compatibility helper/.test(guide) &&
+      /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are absent/.test(guide) &&
+      /`selectRuntimeEngine\(\)`, `updateRuntimeEngine\(\)`, and\s+`removeRuntimeEngineOverride\(\)` methods fail closed directly/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1217,7 +1222,11 @@ function runDocs() {
       /Implementation Slice Evidence: 911/.test(matrix) &&
       /Slice 911 deleted the remaining catalog-provider source\/auth shaping and OAuth\s+boundary helper surface from JS/.test(matrix) &&
       /`catalog-provider-config\.test\.mjs`,\s+`oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 911/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 911 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 912/.test(matrix) &&
+      /Slice 912 deleted the standalone runtime-engine compatibility helper/.test(matrix) &&
+      /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 912/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1407,7 +1416,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 908 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 909 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 910 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 911/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 911 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 912/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1486,7 +1496,9 @@ function runDocs() {
       /broad snapshot\/projection requests also no longer send `server_status_input: serverStatusProjectionInput\(\.\.\.\)`/.test(implementationMatrix) &&
       /public `adapterBoundaries\(\)` now calls dedicated Rust read-projection kind `adapter_boundaries` with empty request state/.test(implementationMatrix) &&
       /dedicated `authoritySnapshot\(\)` now sends only admitted receipts/.test(implementationMatrix) &&
-      /list\/detail\/default-load\/preference\/profile reads now route through Rust `plan_model_mount_read_projection` runtime-engine projection kinds with empty JS request state/.test(implementationMatrix) &&
+      /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are deleted/.test(implementationMatrix) &&
+      /mounted `ModelMountingState` methods/.test(implementationMatrix) &&
+      /list\/detail\/default-load\/preference\/profile reads (?:now|continue to) route through Rust `plan_model_mount_read_projection` runtime-engine projection kinds with empty JS request state/.test(implementationMatrix) &&
       /empty list\/profile projections, null preference\/default-load projections, and fail-closed detail/.test(implementationMatrix) &&
       /catalog-provider source\/auth shaping plus OAuth boundary helper surface is also deleted/.test(implementationMatrix) &&
       /auth-header materialization, OAuth token transport, PKCE helpers, OAuth vault-ref helpers/.test(implementationMatrix) &&
@@ -1888,7 +1900,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 911 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 912 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -12322,6 +12334,9 @@ function runReceipts() {
   const runtimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs")
     : "";
+  const runtimeEngineMountedTest = exists("packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs")
+    : "";
   const localRuntimeEngines = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.mjs")
     : "";
@@ -13768,70 +13783,59 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-runtime-engine-js-facade-retired",
-    /throwRuntimeEngineRustCoreRequired/.test(runtimeEngines) &&
-      /model_mount_runtime_engine_rust_core_required/.test(runtimeEngines) &&
-      /rust_core_boundary:\s*"model_mount\.runtime_engine"/.test(runtimeEngines) &&
-      /public_runtime_engine_js_facade_retired/.test(runtimeEngines) &&
-      /rust_daemon_core_runtime_engine_required/.test(runtimeEngines) &&
-      /throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_preference\.write",\s*\{ engine_id: engineId \},\s*deps\)/.test(runtimeEngines) &&
-      /throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.write",\s*\{ engine_id: engineId \},\s*deps\)/.test(runtimeEngines) &&
-      /throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.delete",\s*\{ engine_id: engineId \},\s*deps\)/.test(runtimeEngines) &&
-      !/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)"/.test(runtimeEngines) &&
-      !/commitRuntimeEngineRecordState/.test(runtimeEngines) &&
-      !/commitModelMountRecordState/.test(runtimeEngines) &&
-      !/runtime_engine_record_state_commit_unconfigured/.test(runtimeEngines) &&
-      !/runtime_engine_record_state_commit_invalid/.test(runtimeEngines) &&
-      !/fs\.rmSync/.test(runtimeEngines) &&
-      !/state\.writeMap\("runtime-preferences"/.test(runtimeEngines) &&
-      !/state\.writeMap\("runtime-engine-profiles"/.test(runtimeEngines) &&
-      !/state\.runtimeSelections\.set/.test(runtimeEngines) &&
-      !/state\.runtimeEngineProfiles\.set\(engineId/.test(runtimeEngines) &&
-      !/state\.runtimeEngineProfiles\.delete/.test(runtimeEngines) &&
-      /runtime engine mutation facade fails closed until Rust core owns it/.test(runtimeEnginesTest) &&
-      /model_mount_runtime_engine_rust_core_required/.test(runtimeEnginesTest) &&
-      /model_mount\.runtime_preference\.write/.test(runtimeEnginesTest) &&
-      /model_mount\.runtime_engine_profile\.write/.test(runtimeEnginesTest) &&
-      /model_mount\.runtime_engine_profile\.delete/.test(runtimeEnginesTest) &&
-      /public_runtime_engine_js_facade_retired/.test(runtimeEnginesTest) &&
-      /rust_daemon_core_runtime_engine_required/.test(runtimeEnginesTest) &&
-      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeEnginesTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEnginesTest) &&
-      /assert\.equal\(state\.projections,\s*0\)/.test(runtimeEnginesTest) &&
-      /runtime engine mutation facade does not delete projected profiles/.test(runtimeEnginesTest) &&
-      /runtime engine operations ignore retired schemaVersion deps alias/.test(runtimeEnginesTest) &&
-      /schemaVersion:\s*"schema\.retired"/.test(runtimeEnginesTest) &&
+    !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
+      !/from "\.\/model-mounting\/runtime-engines\.mjs"/.test(modelMountingState) &&
+      /throwRuntimeEngineRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_runtime_engine_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.runtime_engine"/.test(modelMountingState) &&
+      /public_runtime_engine_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_runtime_engine_required/.test(modelMountingState) &&
+      /selectRuntimeEngine\(body = \{\}\)\s*\{[\s\S]*?const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);[\s\S]*?throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_preference\.write",\s*\{ engine_id: engineId \}\)/.test(modelMountingState) &&
+      /updateRuntimeEngine\(engineId,\s*body = \{\}\)\s*\{[\s\S]*?void body;[\s\S]*?throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.write",\s*\{ engine_id: engineId \}\)/.test(modelMountingState) &&
+      /removeRuntimeEngineOverride\(engineId\)\s*\{[\s\S]*?throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.delete",\s*\{ engine_id: engineId \}\)/.test(modelMountingState) &&
+      !/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)"/.test(modelMountingState) &&
+      !/commitRuntimeEngineRecordState/.test(modelMountingState) &&
+      !/runtime_engine_record_state_commit_unconfigured/.test(modelMountingState) &&
+      !/runtime_engine_record_state_commit_invalid/.test(modelMountingState) &&
+      !/state\.writeMap\("runtime-preferences"/.test(modelMountingState) &&
+      !/state\.writeMap\("runtime-engine-profiles"/.test(modelMountingState) &&
+      !/state\.runtimeSelections\.set/.test(modelMountingState) &&
+      !/state\.runtimeEngineProfiles\.set\(engineId/.test(modelMountingState) &&
+      !/state\.runtimeEngineProfiles\.delete/.test(modelMountingState) &&
+      /mounted runtime-engine mutation facade fails closed until Rust core owns it/.test(runtimeEngineMountedTest) &&
+      /model_mount_runtime_engine_rust_core_required/.test(runtimeEngineMountedTest) &&
+      /model_mount\.runtime_preference\.write/.test(runtimeEngineMountedTest) &&
+      /model_mount\.runtime_engine_profile\.write/.test(runtimeEngineMountedTest) &&
+      /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngineMountedTest) &&
+      /public_runtime_engine_js_facade_retired/.test(runtimeEngineMountedTest) &&
+      /rust_daemon_core_runtime_engine_required/.test(runtimeEngineMountedTest) &&
+      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
+      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
+      /assert\.equal\(state\.projections,\s*0\)/.test(runtimeEngineMountedTest) &&
+      /mounted runtime-engine requests ignore retired camelCase aliases/.test(runtimeEngineMountedTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
       /record\?\.deleted === true/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.mjs"),
       ) &&
-      /notFound\(`Runtime engine not found: \$\{engineId\}`,\s*\{ engine_id: engineId \}\)/.test(runtimeEngines) &&
-      /const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);/.test(runtimeEngines) &&
-      !/body\.(?:engineId|defaultLoadOptions|loadOptions|operatorLabel)\b/.test(runtimeEngines) &&
-      /details\?\.runtime_engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
-      /details\?\.engine_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
-      /details\?\.backend_id === engineId/.test(runtimeEngineLatestReceiptFilter) &&
       runtimeEngineReceiptBlocks === "" &&
-      !/details:\s*\{\s*engineId\b/.test(runtimeEngines) &&
-      !/details\?\.(?:runtimeEngineId|engineId|backendId)\b/.test(runtimeEngineLatestReceiptFilter) &&
-      /Object\.hasOwn\(error\.details,\s*"engineId"\),\s*false/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(runtimeEnginesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(runtimeEnginesTest) &&
-      /runtime engine requests ignore retired camelCase aliases/.test(runtimeEnginesTest) &&
-      /selectRuntimeEngine\(state,\s*\{ engineId: "backend\.llama-cpp" \}/.test(runtimeEnginesTest) &&
-      /defaultLoadOptions: \{ gpu: "retired" \}/.test(runtimeEnginesTest) &&
-      /operatorLabel: "Retired label"/.test(runtimeEnginesTest) &&
-      /receipt_legacy/.test(runtimeEnginesTest) &&
-      /details:\s*\{ runtime_engine_id:\s*"backend\.llama-cpp" \}/.test(runtimeEnginesTest),
+      !/details:\s*\{\s*engineId\b/.test(modelMountingState) &&
+      /Object\.hasOwn\(error\.details,\s*"engineId"\),\s*false/.test(runtimeEngineMountedTest) &&
+      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(runtimeEngineMountedTest) &&
+      /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(runtimeEngineMountedTest) &&
+      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(runtimeEngineMountedTest) &&
+      /engineId: "backend\.llama-cpp"/.test(runtimeEngineMountedTest) &&
+      /defaultLoadOptions: \{ gpu: "retired" \}/.test(runtimeEngineMountedTest) &&
+      /operatorLabel: "Retired label"/.test(runtimeEngineMountedTest),
     [
-      "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
-      "packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
     ],
-    "Phase 9/11 is pending: runtime-engine mutation must fail closed until Rust daemon-core owns preference/profile receipts, record-state admission, and projections",
+    "Phase 9/11 is pending: runtime-engine mutation must fail closed from the mounted state until Rust daemon-core owns preference/profile receipts, record-state admission, and projections",
   );
   assertCheck(
     result,
@@ -13906,7 +13910,6 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/environment.mjs",
       "packages/runtime-daemon/src/model-mounting/local-system-probes.mjs",
       "packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/runtime-engines.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs",
     ],
     "Phase 9/11 is pending: runtime survey capture and helper-level LM Studio runtime probes must fail closed until Rust daemon-core owns survey receipts/projection, while readback uses canonical snake_case metadata without duplicate camelCase aliases",
