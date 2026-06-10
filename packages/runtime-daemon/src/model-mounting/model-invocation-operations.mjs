@@ -1,6 +1,3 @@
-import {
-  estimateTokens,
-} from "./provider-protocol.mjs";
 import { stableHash } from "./io.mjs";
 import {
   createModelMountStepModuleProjection,
@@ -351,7 +348,10 @@ export function modelMountProviderResultAdmissionRequestForExecution({
   const provider = selection?.provider ?? {};
   const endpoint = selection?.endpoint ?? {};
   const output_text = String(providerResult.output_text ?? "");
-  const token_count = providerResult.token_count ?? estimateTokens(input, output_text);
+  const token_count = requiredTokenCount(
+    providerResult.token_count,
+    "providerResult.token_count",
+  );
   return {
     schema_version: "ioi.model_mount.provider_result.v1",
     provider_execution_ref: requiredStringRef(
@@ -756,6 +756,50 @@ function collectRetiredModelInvocationHelperAliases(value, retiredAliases) {
     }
     collectRetiredModelInvocationHelperAliases(nested, retiredAliases);
   }
+}
+
+function requiredTokenCount(value, label) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw providerResultTokenCountRequired(label);
+  }
+  const tokenCount = {
+    prompt_tokens: requiredNonNegativeInteger(`${label}.prompt_tokens`, value.prompt_tokens),
+    completion_tokens: requiredNonNegativeInteger(`${label}.completion_tokens`, value.completion_tokens),
+    total_tokens: requiredNonNegativeInteger(`${label}.total_tokens`, value.total_tokens),
+  };
+  if (tokenCount.total_tokens !== tokenCount.prompt_tokens + tokenCount.completion_tokens) {
+    const error = new Error(
+      "Rust model_mount provider results must provide internally consistent token_count.",
+    );
+    error.status = 400;
+    error.code = "model_mount_provider_result_token_count_mismatch";
+    error.details = {
+      field: label,
+      token_count: tokenCount,
+    };
+    throw error;
+  }
+  return tokenCount;
+}
+
+function requiredNonNegativeInteger(label, value) {
+  if (!Number.isInteger(value) || value < 0) {
+    throw providerResultTokenCountRequired(label);
+  }
+  return value;
+}
+
+function providerResultTokenCountRequired(field) {
+  const error = new Error(
+    "Rust model_mount provider results must include token_count; JS token estimation fallback is retired.",
+  );
+  error.status = 400;
+  error.code = "model_mount_provider_result_token_count_required";
+  error.details = {
+    field,
+    rust_core_boundary: "model_mount.provider_result",
+  };
+  return error;
 }
 
 export function modelInvocationRustCoreRequiredError(operation_kind, details = {}) {

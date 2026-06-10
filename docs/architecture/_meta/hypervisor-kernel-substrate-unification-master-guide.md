@@ -2448,6 +2448,14 @@ carry explicit token counts. Direct Rust provider-result envelopes and token
 accounting still need to remove that final JS fallback before provider
 invocation/result reaches terminal pure Rust conformance.
 
+Slice 929 deleted the final `provider-protocol.mjs` token-count fallback.
+Provider-result admission-request assembly now requires Rust/provider result
+`token_count` and fails closed when it is missing or internally inconsistent, so
+the JS edge can no longer estimate usage as duplicate provider-result truth.
+Direct Rust provider transports, stable protocol APIs, and command-transport
+retirement remain required before provider invocation/result reaches terminal
+pure Rust conformance.
+
 Slice 920 deleted the orphan JS model-instance lifecycle guard module.
 `model-instance-lifecycle.mjs` is absent, and the remaining receipt-binding
 issue detection for already admitted Rust-bound instance lifecycle evidence now

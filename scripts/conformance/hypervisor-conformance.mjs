@@ -838,7 +838,7 @@ function runDocs() {
       /`provider-auth\.mjs` no longer exports `providerAuthHeaders\(\)`,\s+`providerAuthorizationHeaderValue\(\)`, `assertProviderVaultBoundary\(\)`,\s+`providerHasVaultRef\(\)`, `normalizeProviderAuthScheme\(\)`, or\s+`normalizeProviderAuthHeaderName\(\)`/.test(guide) &&
       /it no longer\s+resolves provider vault material or assembles outbound provider auth headers/.test(guide) &&
       /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(guide) &&
-      /`provider-protocol\.mjs` now exports only `estimateTokens\(\)`/.test(guide) &&
+      /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -1276,7 +1276,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 917 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 919/.test(matrix) &&
       /Slice 919 retired the dead JS provider-protocol fixture, tokenizer, request-text,\s+usage-normalization, JSON-parse, truncation, and limit-normalization helpers/.test(matrix) &&
-      /`provider-protocol\.mjs` now exports only `estimateTokens\(\)`/.test(matrix) &&
+      /Slice 929 deleted the final `provider-protocol\.mjs` token-count fallback/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 918 is now satisfied/.test(matrix) &&
       /Implementation Slice Evidence: 920/.test(matrix) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(matrix) &&
@@ -14317,7 +14317,6 @@ function runReceipts() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-protocol.mjs",
     ],
     "Phase 9/10 is pending: provider results must be Rust-backed observations bound to provider execution",
   );
@@ -14352,14 +14351,24 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-stream-request-shape-trace-helper-retired",
-    !/summarizeProviderRequestBodyForTrace/.test(providerProtocol) &&
-      !/\b(?:deterministicOutput|deterministicTokenizeText|deterministicTokenId|truncateToEstimatedTokens|messageContentText|inputText|normalizeUsage|parseJsonMaybe|truncate|normalizeLimit)\b/.test(
-        providerProtocol,
-      ) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-protocol.test.mjs") &&
       !/from "\.\/model-mounting\/provider-protocol\.mjs"/.test(modelMountingState) &&
-      /export function estimateTokens/.test(providerProtocol),
-    ["packages/runtime-daemon/src/model-mounting/provider-protocol.mjs"],
-    "Phase 4/9 is pending: legacy stream request-shape, fixture, tokenizer, JSON, truncation, and usage helpers must not remain after Rust provider-result admission owns stream-start evidence",
+      !/from "\.\/provider-protocol\.mjs"/.test(modelInvocationOps) &&
+      !/estimateTokens/.test(modelInvocationOps) &&
+      /model_mount_provider_result_token_count_required/.test(modelInvocationOps) &&
+      /model_mount_provider_result_token_count_mismatch/.test(modelInvocationOps) &&
+      /error\.code === "model_mount_provider_result_token_count_required"/.test(
+        modelInvocationOpsTest,
+      ) &&
+      /error\.code === "model_mount_provider_result_token_count_mismatch"/.test(
+        modelInvocationOpsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+    ],
+    "Phase 4/9 is pending: legacy stream request-shape, fixture, tokenizer, JSON, truncation, usage helpers, and JS token-count fallback must not remain after Rust provider-result admission owns stream-start evidence",
   );
   assertCheck(
     result,

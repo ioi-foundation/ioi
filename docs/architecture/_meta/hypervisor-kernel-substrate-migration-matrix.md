@@ -19924,3 +19924,42 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs.
+
+At Slice 928 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 929 is that seam
+and satisfies the Slice 928 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 928 is now satisfied.
+
+## Implementation Slice Evidence: 929
+
+Slice 929 deleted the final `provider-protocol.mjs` token-count fallback. The
+standalone module and its test are absent, and provider-result
+admission-request assembly now requires Rust/provider result `token_count`.
+Missing or internally inconsistent token counts fail closed with
+`model_mount_provider_result_token_count_required` or
+`model_mount_provider_result_token_count_mismatch`, so JS can no longer
+estimate provider-result usage as duplicate truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs packages/runtime-daemon/src/openai-compat-routes.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal provider invocation/result migration.
+Direct Rust provider transports, stable SDK/IDE/CLI protocol APIs,
+Agentgres-backed replay, and command-transport retirement remain before
+terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 929 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs.

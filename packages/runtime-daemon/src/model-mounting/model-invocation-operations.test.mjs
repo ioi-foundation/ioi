@@ -311,7 +311,6 @@ function selection(overrides = {}) {
 
 function deps(overrides = {}) {
   return {
-    estimateTokens: () => ({ prompt_tokens: 4, completion_tokens: 5, total_tokens: 9 }),
     inputText: () => "user: hello",
     modelInvocationCoalesceKey: () => null,
     optionalString: (value) => (typeof value === "string" && value ? value : null),
@@ -1211,6 +1210,63 @@ test("modelMountProviderResultAdmissionRequestForExecution binds Rust provider r
   assert.deepEqual(request.provider_auth_evidence_refs, []);
   assert.deepEqual(request.backend_evidence_refs, ["rust_model_mount_fixture_backend"]);
   assert.equal(request.admitted_provider_execution.provider_execution_hash, "sha256:provider-execution-test");
+  assert.throws(
+    () =>
+      modelMountProviderResultAdmissionRequestForExecution({
+        input: "user: hello",
+        instance: { backend_id: "backend.instance" },
+        kind: "chat.completions",
+        modelMountProviderExecutionAdmission: admission,
+        providerResult: {
+          output_text: "fixture provider answer",
+          provider_response_kind: "rust_model_mount.fixture",
+          execution_backend: "rust_model_mount_fixture",
+        },
+        selection: selection({
+          endpoint: {
+            api_format: "ioi_fixture",
+            driver: "fixture",
+            provider_id: "provider.fixture",
+            backend_id: "backend.fixture",
+          },
+          provider: {
+            id: "provider.fixture",
+            kind: "local_folder",
+            driver: "fixture",
+          },
+        }),
+      }),
+    (error) => error.code === "model_mount_provider_result_token_count_required",
+  );
+  assert.throws(
+    () =>
+      modelMountProviderResultAdmissionRequestForExecution({
+        input: "user: hello",
+        instance: { backend_id: "backend.instance" },
+        kind: "chat.completions",
+        modelMountProviderExecutionAdmission: admission,
+        providerResult: {
+          output_text: "fixture provider answer",
+          provider_response_kind: "rust_model_mount.fixture",
+          execution_backend: "rust_model_mount_fixture",
+          token_count: { prompt_tokens: 1, completion_tokens: 2, total_tokens: 4 },
+        },
+        selection: selection({
+          endpoint: {
+            api_format: "ioi_fixture",
+            driver: "fixture",
+            provider_id: "provider.fixture",
+            backend_id: "backend.fixture",
+          },
+          provider: {
+            id: "provider.fixture",
+            kind: "local_folder",
+            driver: "fixture",
+          },
+        }),
+      }),
+    (error) => error.code === "model_mount_provider_result_token_count_mismatch",
+  );
   assert.throws(
     () =>
       modelMountProviderResultAdmissionRequestForExecution({
