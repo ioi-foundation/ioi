@@ -786,6 +786,10 @@ function runDocs() {
       /`workflow-node\.mjs` and `workflow-node\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/workflow-node.test.mjs") &&
+      /Slice 904 deleted the standalone server-control facade helper module/.test(guide) &&
+      /`server-control\.mjs` and `server-control\.test\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/server-control.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/server-control.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1149,7 +1153,11 @@ function runDocs() {
       /Implementation Slice Evidence: 903/.test(matrix) &&
       /Slice 903 deleted the orphan workflow-node response helper module/.test(matrix) &&
       /`workflow-node\.mjs` and `workflow-node\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 903/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 903 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 904/.test(matrix) &&
+      /Slice 904 deleted the standalone server-control facade helper module/.test(matrix) &&
+      /`server-control\.mjs` and `server-control\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 904/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1331,7 +1339,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 900 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 901 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 902 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 903/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 903 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 904/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1811,13 +1820,15 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 903 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 904 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
       /derived backend registry records no longer read `state\.providers` or provider-map records\s+for LM Studio, OpenAI-compatible, Ollama, or vLLM status, base URL, or public-CLI binary path projection/.test(implementationMatrix) &&
       /the local runtime-engine helper tail no longer exports `llamaCppGpuLayersArg\(\)` or `backendBindAddress\(\)`/.test(implementationMatrix) &&
       /the orphan `workflow-node\.mjs` response helper\/test module is deleted/.test(implementationMatrix) &&
+      /the standalone `server-control\.mjs` helper\/test module is deleted/.test(implementationMatrix) &&
+      /`recordServerOperation\(\)` fails closed instead of delegating to a missing helper export/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -12267,11 +12278,8 @@ function runReceipts() {
   const runtimeSurveyTest = exists("packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/runtime-survey.test.mjs")
     : "";
-  const serverControl = exists("packages/runtime-daemon/src/model-mounting/server-control.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/server-control.mjs")
-    : "";
-  const serverControlTest = exists("packages/runtime-daemon/src/model-mounting/server-control.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/server-control.test.mjs")
+  const serverControlMountedTest = exists("packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs")
     : "";
   const stateAccessors = exists("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/state-accessors.mjs")
@@ -13861,68 +13869,45 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-server-control-record-state",
-    /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(serverControl) &&
-      /throwServerControlRustCoreRequired/.test(serverControl) &&
-      /model_mount_server_control_rust_core_required/.test(serverControl) &&
-      /rust_core_boundary:\s*"model_mount\.server_control"/.test(serverControl) &&
-      /public_server_control_js_facade_retired/.test(serverControl) &&
-      /rust_daemon_core_server_control_required/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.start"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.stop"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.restart"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.logs_read"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.events_read"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_projection"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_append"\)/.test(serverControl) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.write"/.test(serverControl) &&
-      !/commitModelMountRecordState/.test(serverControl) &&
-      !/from "node:fs"|from "node:path"|readJson|server-state\.json/.test(serverControl) &&
-      !/writeJson\(path\.join\(state\.stateDir,\s*"server-state\.json"\)/.test(serverControl) &&
-      !/fs\.existsSync\(statePath\)|readJson\(statePath\)/.test(serverControl) &&
-      !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(serverControl) &&
-      !/fs\.appendFileSync/.test(serverControl) &&
-      !/readLines\(filePath\)/.test(serverControl) &&
-      !/state\.providers\.values\(\)/.test(serverControl) &&
-      !/provider_statuses/.test(serverControl) &&
-      !/state\.listBackends\(\)/.test(serverControl) &&
-      !/backend_statuses/.test(serverControl) &&
-      /server control ignores retired schemaVersion option before record-state commit/.test(
-        serverControlTest,
-      ) &&
-      /schema_version:\s*SCHEMA/.test(serverControlTest) &&
-      /schemaVersion:\s*"schema\.retired"/.test(serverControlTest) &&
-      /server control facade operations fail closed until Rust core owns control/.test(
-        serverControlTest,
-      ) &&
-      /server control status ignores retired local server-state cache/.test(
-        serverControlTest,
-      ) &&
-      /receipt\.legacy\.server_stop/.test(serverControlTest) &&
-      /serverStatusProjectionInput/.test(serverControlTest) &&
-      /server-status projection input must not read JS provider statuses/.test(serverControlTest) &&
-      /server-status projection input must not read JS backend statuses/.test(serverControlTest) &&
-      /assert\.equal\(Object\.hasOwn\(input,\s*"provider_statuses"\),\s*false\)/.test(serverControlTest) &&
-      /assert\.equal\(Object\.hasOwn\(input,\s*"backend_statuses"\),\s*false\)/.test(serverControlTest) &&
-      /assert\.equal\(input\.control_state\.receipt_id,\s*null\)/.test(
-        serverControlTest,
-      ) &&
-      /assert\.equal\(Object\.hasOwn\(input,\s*"status"\),\s*false\)/.test(serverControlTest) &&
-      /server control state writes fail closed before Rust admission or local cache writes/.test(
-        serverControlTest,
-      ) &&
-      /server control logs and events fail closed before local ring-buffer reads or appends/.test(
-        serverControlTest,
-      ) &&
-      /recordStateCommits/.test(serverControlTest) &&
-      /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(serverControlTest) &&
-      /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(serverControlTest) &&
-      /existsSync\(join\(state\.stateDir,\s*"server-state\.json"\)\),\s*false/.test(serverControlTest) &&
-      /existsSync\(join\(state\.stateDir,\s*"server-logs",\s*"server\.jsonl"\)\),\s*false/.test(
-        serverControlTest,
-      ),
+    !exists("packages/runtime-daemon/src/model-mounting/server-control.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/server-control.test.mjs") &&
+      !/from "\.\/model-mounting\/server-control\.mjs"/.test(modelMountingState) &&
+      !/from "\.\/server-control\.mjs"/.test(modelMountingReadProjectionFacade) &&
+      /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired/.test(modelMountingState) &&
+      /model_mount_server_control_rust_core_required/.test(modelMountingState) &&
+      /rust_core_boundary:\s*"model_mount\.server_control"/.test(modelMountingState) &&
+      /public_server_control_js_facade_retired/.test(modelMountingState) &&
+      /rust_daemon_core_server_control_required/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.start"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.stop"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.restart"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.logs_read"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.events_read"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_projection"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_append"\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.write"/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\("model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
+      !/commitModelMountRecordState/.test(modelMountingState) &&
+      !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(modelMountingState) &&
+      /function serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
+      /function serverControlStateInput/.test(modelMountingReadProjectionFacade) &&
+      !/state\.providers\.values\(\)/.test(modelMountingReadProjectionFacade) &&
+      !/provider_statuses/.test(modelMountingReadProjectionFacade) &&
+      !/state\.listBackends\(\)/.test(modelMountingReadProjectionFacade) &&
+      !/backend_statuses/.test(modelMountingReadProjectionFacade) &&
+      /mounted server control state is volatile input only/.test(serverControlMountedTest) &&
+      /mounted server control mutation\/log facades fail closed before JS state or log writes/.test(serverControlMountedTest) &&
+      /mounted server control state writes and operation recording fail closed/.test(serverControlMountedTest) &&
+      /recordServerOperation/.test(serverControlMountedTest) &&
+      /model_mount\.server_control\.record_operation/.test(serverControlMountedTest) &&
+      /assert\.equal\(Object\.hasOwn\(controlState,\s*"schema_version"\),\s*false\)/.test(serverControlMountedTest),
     [
       "packages/runtime-daemon/src/model-mounting/server-control.mjs",
       "packages/runtime-daemon/src/model-mounting/server-control.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
     "Phase 9/11 is pending: public server-control facade must fail closed until Rust daemon-core model_mount owns server-control receipts, state, logs, events, and projection",

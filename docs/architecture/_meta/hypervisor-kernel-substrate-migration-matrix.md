@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 903 after the next
+- Next scheduled matrix-compaction pass: compact Slice 904 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19027,10 +19027,38 @@ binding, Agentgres-backed replay/projection, stable protocol APIs, and
 command-transport retirement remain required before workflow-node execution
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 903 after the next direct
+Scheduled matrix-compaction obligation from Slice 903 is now satisfied.
+
+## Implementation Slice Evidence: 904
+
+Slice 904 deleted the standalone server-control facade helper module.
+`server-control.mjs` and `server-control.test.mjs` are absent rather than
+preserved as a server-state/log compatibility wrapper. Mounted
+`ModelMountingState` server-control methods now own the Rust-core-required
+refusals directly, including the formerly dangling `recordServerOperation()`
+surface, while the dedicated `server_status` read projection keeps only its
+narrow primitive migration input in `read-projection-facade.mjs`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal server-control migration: direct Rust
+daemon-core server-control APIs, Agentgres-backed server-control replay,
+stable protocol APIs, and command-transport retirement remain required before
+server control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 904 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
-provider/runtime-engine/catalog/workflow execution-control APIs,
+provider/runtime-engine/catalog/workflow/server-control execution-control APIs,
 Agentgres-backed replay, and stable protocol APIs. The
 `ioi-step-module-bridge` command path is acceptable only as migration
 transport; it is not the terminal architecture.

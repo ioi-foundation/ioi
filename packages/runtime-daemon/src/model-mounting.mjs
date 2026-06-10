@@ -94,7 +94,6 @@ import {
   hardwareSnapshot,
   parseLocalModelMetadata,
 } from "./model-mounting/local-system-probes.mjs";
-import * as serverControl from "./model-mounting/server-control.mjs";
 import {
   expiresAt,
   hasExplicitTtlOption,
@@ -190,6 +189,7 @@ import {
 } from "./model-mounting/routes.mjs";
 
 const MODEL_MOUNT_SCHEMA_VERSION = "ioi.model-mounting.runtime.v1", SECRET_REDACTION = "[REDACTED]";
+const SERVER_CONTROL_RECORD_ID = "server-control.default";
 const MODEL_LIFECYCLE_RECEIPT_RUST_CORE_REQUIRED_EVIDENCE_REFS = [
   "model_mount_lifecycle_receipt_js_facade_retired",
   "rust_daemon_core_model_lifecycle_receipt_required",
@@ -594,43 +594,71 @@ export class ModelMountingState {
   }
 
   serverControlState() {
-    return serverControl.serverControlState(this, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    return {
+      id: SERVER_CONTROL_RECORD_ID,
+      schemaVersion: MODEL_MOUNT_SCHEMA_VERSION,
+      status: "running",
+      gatewayStatus: "running",
+      operation: "server_status",
+      updatedAt: null,
+      receiptId: null,
+      evidenceRefs: ["ioi_daemon_public_runtime_api"],
+    };
   }
 
-  writeServerControlState(state) {
-    return serverControl.writeServerControlState(this, state);
+  writeServerControlState(controlState) {
+    const record = {
+      id: SERVER_CONTROL_RECORD_ID,
+      ...controlState,
+    };
+    throwServerControlRustCoreRequired("model_mount.server_control.write", {
+      server_control_id: record.id,
+      receipt_id: record.receiptId ?? null,
+    });
   }
 
   serverStart(baseUrl) {
-    return serverControl.serverStart(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    void baseUrl;
+    throwServerControlRustCoreRequired("model_mount.server_control.start");
   }
 
   serverStop(baseUrl) {
-    return serverControl.serverStop(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    void baseUrl;
+    throwServerControlRustCoreRequired("model_mount.server_control.stop");
   }
 
   serverRestart(baseUrl) {
-    return serverControl.serverRestart(this, baseUrl, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    void baseUrl;
+    throwServerControlRustCoreRequired("model_mount.server_control.restart");
   }
 
   recordServerOperation(operation, status, baseUrl, details = {}) {
-    return serverControl.recordServerOperation(this, operation, status, baseUrl, details, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    throwServerControlRustCoreRequired("model_mount.server_control.record_operation", {
+      operation: operation ?? null,
+      status: status ?? null,
+      base_url: baseUrl ?? null,
+      ...details,
+    });
   }
 
   serverLogs(query = {}) {
-    return serverControl.serverLogs(this, query, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    void query;
+    throwServerControlRustCoreRequired("model_mount.server_control.logs_read");
   }
 
   serverEvents(query = {}) {
-    return serverControl.serverEvents(this, query, { schema_version: MODEL_MOUNT_SCHEMA_VERSION });
+    void query;
+    throwServerControlRustCoreRequired("model_mount.server_control.events_read");
   }
 
   serverLogRecords({ limit = 80 } = {}) {
-    return serverControl.serverLogRecords(this, { limit });
+    void limit;
+    throwServerControlRustCoreRequired("model_mount.server_control.log_projection");
   }
 
   writeServerLog(event) {
-    return serverControl.writeServerLog(this, event);
+    void event;
+    throwServerControlRustCoreRequired("model_mount.server_control.log_append");
   }
 
   runtimeModelCatalogList() {
@@ -1893,6 +1921,23 @@ function throwBackendLifecycleRustCoreRequired(operation_kind, backend) {
         "public_backend_lifecycle_js_facade_retired",
         "rust_daemon_core_lifecycle_required",
       ],
+    },
+  });
+}
+
+function throwServerControlRustCoreRequired(operation_kind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "model_mount_server_control_rust_core_required",
+    message: "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
+    details: {
+      operation_kind,
+      rust_core_boundary: "model_mount.server_control",
+      evidence_refs: [
+        "public_server_control_js_facade_retired",
+        "rust_daemon_core_server_control_required",
+      ],
+      ...details,
     },
   });
 }

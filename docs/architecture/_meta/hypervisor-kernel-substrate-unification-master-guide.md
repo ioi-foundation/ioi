@@ -2238,6 +2238,16 @@ or model dispatch; OpenAI-compatible response projection retains the remaining
 canonical snake_case route-decision coverage without a separate model_mount
 workflow-node helper.
 
+Slice 904 deleted the standalone server-control facade helper module.
+`server-control.mjs` and `server-control.test.mjs` are absent rather than
+preserved as a server-state/log compatibility wrapper. Mounted
+`ModelMountingState` methods now own server-control Rust-core-required
+refusals directly, including the formerly dangling `recordServerOperation()`
+surface, while the dedicated `server_status` read projection keeps only its
+narrow primitive migration input inside `read-projection-facade.mjs`. JS still
+does not write `server-state.json`, append local server logs, synthesize server
+control receipts, or project provider/backend status as server truth.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
