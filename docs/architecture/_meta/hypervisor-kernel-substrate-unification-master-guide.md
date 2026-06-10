@@ -1379,10 +1379,11 @@ materialization before the pure Rust substrate target is met.
 
 Slice 831 retired the private JS OAuth credential custody helper. The mounted
 model-mounting state no longer constructs `OAuthCredentialProvider`, and that
-helper now fails closed with `model_mount_oauth_credential_provider_js_retired`
-before JS vault binding, vault resolution, vault removal, authorization-code
-exchange, refresh, revoke, or access-header resolution can run. `fetchOAuthToken()`
-now fails closed with `model_mount_oauth_token_transport_retired` before
+helper was later deleted after failing closed with
+`model_mount_oauth_credential_provider_js_retired` before JS vault binding,
+vault resolution, vault removal, authorization-code exchange, refresh, revoke,
+or access-header resolution could run. `fetchOAuthToken()` now fails closed with
+`model_mount_oauth_token_transport_retired` before
 `fetchWithTimeout()`, form-body construction, timeout policy, or token endpoint
 transport can run in JS, and OAuth boundary projections identify
 `RustDaemonCore.catalogProviderOAuth` rather than the retired JS helper as the
@@ -2131,6 +2132,18 @@ APIs own the surface. Terminal provider migration still requires direct Rust
 daemon-core provider transports, lifecycle, inventory, projection,
 Agentgres-backed replay, stable protocol APIs, and command-transport
 retirement.
+
+Slice 894 deleted the retired private JS OAuth credential custody helper.
+`oauth-credential-provider.mjs` and `oauth-credential-provider.test.mjs` are
+absent rather than preserved as a fail-closed compatibility wrapper after the
+mounted OAuth facades moved to direct Rust-core-required refusals and
+`fetchOAuthToken()` moved to the Rust daemon-core OAuth custody boundary. OAuth
+start/callback/exchange/refresh/revoke and auth-header resolution can no longer
+re-enter a private JS credential helper for vault binding, token transport,
+refresh, revoke, or access-header shaping. Terminal catalog-provider custody
+migration still requires direct Rust daemon-core OAuth control, wallet/cTEE vault
+custody, Agentgres-backed OAuth/session projection, stable protocol APIs, and
+command-transport retirement.
 
 ## Part II: Target Execution Model
 
