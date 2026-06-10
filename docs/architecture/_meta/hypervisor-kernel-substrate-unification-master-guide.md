@@ -2273,6 +2273,15 @@ catalog import/download facades no longer import the materializer helpers, so
 catalog/download filesystem and network transfer semantics remain unavailable
 from JS until direct Rust daemon-core catalog/download admission owns the path.
 
+Slice 908 deleted the dormant catalog import materializer helper tail.
+`catalog-helpers.mjs` no longer exports `normalizeImportMode()`,
+`importTargetPath()`, or `materializeImportArtifact()` as a local import
+filesystem execution path. The mounted artifact import facade already fails
+closed at the Rust daemon-core artifact/endpoint boundary, so JS keeps only
+read-only local model file scoring/listing and quantization helpers plus the
+destructive-confirmation alias guard needed by mounted fail-closed storage
+facades.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

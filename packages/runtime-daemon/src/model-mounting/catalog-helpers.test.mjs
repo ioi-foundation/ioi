@@ -3,7 +3,6 @@ import test from "node:test";
 
 import {
   destructiveConfirmationState,
-  normalizeImportMode,
 } from "./catalog-helpers.mjs";
 
 test("destructive confirmation accepts canonical request fields", () => {
@@ -50,19 +49,6 @@ test("destructive confirmation rejects retired request aliases", () => {
       assert.deepEqual(error.details.canonical_fields, [
         "confirm_destructive",
       ]);
-      return true;
-    },
-  );
-});
-
-test("catalog import mode errors use canonical details", () => {
-  assert.throws(
-    () => normalizeImportMode("side-load"),
-    (error) => {
-      assert.equal(error.status, 400);
-      assert.equal(error.code, "bad_request");
-      assert.equal(error.details.import_mode, "side_load");
-      assert.equal(Object.hasOwn(error.details, "importMode"), false);
       return true;
     },
   );

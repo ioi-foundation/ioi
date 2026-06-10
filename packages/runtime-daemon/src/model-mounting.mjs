@@ -20,12 +20,7 @@ import {
 } from "./model-mounting/fixture-policy.mjs";
 import {
   destructiveConfirmationState,
-  inferModelArchitecture,
-  inferParameterCount,
-  importTargetPath,
   listModelFiles,
-  materializeImportArtifact,
-  normalizeImportMode,
 } from "./model-mounting/catalog-helpers.mjs";
 import {
   invokeModel as invokeModelState,

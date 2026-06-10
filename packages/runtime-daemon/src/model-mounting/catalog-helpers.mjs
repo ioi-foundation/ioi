@@ -3,7 +3,6 @@ import path from "node:path";
 
 import {
   runtimeError,
-  safeFileName,
 } from "./io.mjs";
 
 const RETIRED_DESTRUCTIVE_CONFIRMATION_REQUEST_ALIASES = [
@@ -51,55 +50,8 @@ function assertCanonicalDestructiveConfirmationRequestBody(body = {}) {
   });
 }
 
-export function inferModelArchitecture(value) {
-  const text = String(value ?? "").toLowerCase();
-  if (/qwen/.test(text)) return "qwen";
-  if (/llama|mistral|mixtral|vicuna|alpaca/.test(text)) return "llama";
-  if (/nomic/.test(text)) return "nomic";
-  if (/bge/.test(text)) return "bge";
-  if (/gemma/.test(text)) return "gemma";
-  if (/phi/.test(text)) return "phi";
-  if (/bert|e5/.test(text)) return "bert";
-  return "unknown";
-}
-
-export function inferParameterCount(value) {
-  const match = String(value ?? "").match(/(?:^|[^a-z0-9])(\d+(?:\.\d+)?)\s?([bBmMkK])(?:[^a-z0-9]|$)/);
-  if (!match) return null;
-  return `${match[1]}${match[2].toUpperCase()}`;
-}
-
 export function parseModelQuantization(value) {
   return String(value ?? "").match(/\b(Q[0-9]_[A-Za-z0-9_]+|Q[0-9]+|F16|BF16|IQ[0-9]_[A-Za-z0-9_]+)\b/i)?.[1] ?? null;
-}
-
-export function normalizeImportMode(value) {
-  const mode = String(value ?? "reference").toLowerCase().replaceAll("-", "_");
-  if (["reference", "operator"].includes(mode)) return mode;
-  if (["copy", "move", "hardlink", "symlink", "dry_run"].includes(mode)) return mode;
-  throw runtimeError({
-    status: 400,
-    code: "bad_request",
-    message: "Import mode must be copy, move, hardlink, symlink, dry_run, or reference.",
-    details: { import_mode: mode },
-  });
-}
-
-export function importTargetPath(modelRoot, modelId, sourcePath) {
-  const extension = path.extname(sourcePath) || ".gguf";
-  return path.join(modelRoot, "imports", safeFileName(modelId), `${safeFileName(modelId)}${extension}`);
-}
-
-export function materializeImportArtifact(modelRoot, modelId, sourcePath, importMode) {
-  if (["reference", "operator"].includes(importMode)) return sourcePath;
-  const targetPath = importTargetPath(modelRoot, modelId, sourcePath);
-  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
-  fs.rmSync(targetPath, { force: true });
-  if (importMode === "copy") fs.copyFileSync(sourcePath, targetPath);
-  if (importMode === "move") fs.renameSync(sourcePath, targetPath);
-  if (importMode === "hardlink") fs.linkSync(sourcePath, targetPath);
-  if (importMode === "symlink") fs.symlinkSync(sourcePath, targetPath);
-  return targetPath;
 }
 
 export function listModelFiles(root) {
