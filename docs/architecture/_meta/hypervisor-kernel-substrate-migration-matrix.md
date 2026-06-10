@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 912 after the next
+- Next scheduled matrix-compaction pass: compact Slice 913 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19300,7 +19300,38 @@ Agentgres-backed truth, receipt/state-root binding, replay, stable protocol
 APIs, and command-transport retirement remain required before runtime-engine
 control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 912 after the next direct
+Scheduled matrix-compaction obligation from Slice 912 is now satisfied.
+
+## Implementation Slice Evidence: 913
+
+Slice 913 deleted the final local provider driver adapter module.
+`provider-local-drivers.mjs` and `provider-local-drivers.test.mjs` are absent
+rather than preserved as Rust-planning wrapper classes for native-local or
+fixture health, inventory, lifecycle, direct invoke, or stream invoke. Mounted
+`driverForProvider()` remains fail-closed, local provider invocation and stream
+invocation continue through Rust `model_mount` admission/execution paths, and
+provider health/inventory/load/unload public facades remain mounted
+Rust-core-required boundaries until direct Rust daemon-core provider
+control/projection APIs own those surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, inventory, lifecycle control, Agentgres-backed truth,
+replay, stable protocol APIs, and command-transport retirement remain required
+before provider execution/control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 913 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

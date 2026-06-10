@@ -2329,6 +2329,20 @@ preference/profile/projection APIs, Agentgres-backed truth, receipt/state-root
 binding, replay, stable protocol APIs, and command-transport retirement remain
 required before runtime-engine control reaches terminal pure Rust conformance.
 
+Slice 913 deleted the final local provider driver adapter module.
+`provider-local-drivers.mjs` and `provider-local-drivers.test.mjs` are absent
+rather than preserved as Rust-planning wrapper classes for native-local or
+fixture health, inventory, lifecycle, direct invoke, or stream invoke. The
+mounted `driverForProvider()` factory remains fail-closed, local provider
+invocation and stream invocation continue through Rust `model_mount`
+admission/execution paths, and provider health/inventory/load/unload public
+facades remain mounted Rust-core-required boundaries until direct Rust
+daemon-core provider control/projection APIs own those surfaces. Direct Rust
+daemon-core provider transports, inventory, lifecycle control, Agentgres-backed
+truth, replay, stable protocol APIs, and command-transport retirement remain
+required before provider execution/control reaches terminal pure Rust
+conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

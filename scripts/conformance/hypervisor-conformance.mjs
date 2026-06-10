@@ -822,11 +822,15 @@ function runDocs() {
       /Slice 912 deleted the standalone runtime-engine compatibility helper/.test(guide) &&
       /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are absent/.test(guide) &&
       /`selectRuntimeEngine\(\)`, `updateRuntimeEngine\(\)`, and\s+`removeRuntimeEngineOverride\(\)` methods fail closed directly/.test(guide) &&
+      /Slice 913 deleted the final local provider driver adapter module/.test(guide) &&
+      /`provider-local-drivers\.mjs` and `provider-local-drivers\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1226,7 +1230,11 @@ function runDocs() {
       /Implementation Slice Evidence: 912/.test(matrix) &&
       /Slice 912 deleted the standalone runtime-engine compatibility helper/.test(matrix) &&
       /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 912/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 912 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 913/.test(matrix) &&
+      /Slice 913 deleted the final local provider driver adapter module/.test(matrix) &&
+      /`provider-local-drivers\.mjs` and `provider-local-drivers\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 913/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1417,7 +1425,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 909 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 910 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 911 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 912/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 912 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 913/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1900,7 +1909,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 912 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 913 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -10262,7 +10271,8 @@ function runBridge() {
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock) &&
       !/withTextChunksReadableStream/.test(modelInvocationOps) &&
       !/model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps) &&
-      /model_mount_local_provider_direct_stream_retired/.test(providerLocalDrivers) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/native-local-fixture.test.mjs") &&
       retiredNativeFixtureResponseFiles.every((file) => !exists(file)) &&
@@ -10276,7 +10286,6 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/native-local-fixture.mjs",
       ...retiredNativeFixtureResponseFiles,
     ],
@@ -10307,29 +10316,17 @@ function runBridge() {
       /rust_model_mount_provider_lifecycle_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(modelMountAdmissionRunner) &&
       /planModelMountProviderLifecycle/.test(modelMountingState) &&
-      /nativeLocalLifecycleRequest/.test(providerLocalDrivers) &&
-      /fixtureLifecycleRequest/.test(providerLocalDrivers) &&
-      /RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND/.test(providerLocalDrivers) &&
-      /RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND/.test(providerLocalDrivers) &&
-      /state\.planModelMountProviderLifecycle/.test(providerLocalDrivers) &&
-      /provider_status/.test(providerLocalDrivers) &&
-      /model_mount_provider_lifecycle/.test(providerLocalDrivers) &&
-      /lifecycle_hash/.test(providerLocalDrivers) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       !/modelMountProviderLifecycle/.test(providerLocalDrivers) &&
-      /model_mount_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
-      /model_mount_fixture_provider_lifecycle_planning_required/.test(providerLocalDrivers) &&
-      /plans health through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
-      /fixture provider driver plans health and lifecycle through Rust model_mount/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs")) &&
-      /rust_model_mount_provider_lifecycle/.test(read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"));
+      /driverForProvider\(provider\)\s*\{[\s\S]*?throwProviderDriverFactoryRetired\(provider\);[\s\S]*?\n\s+\}/.test(modelMountingState);
     })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: native-local health/load/unload lifecycle envelopes must be planned by Rust model_mount while JS only supervises process state",
+    "Phase 9/10 is pending: native-local health/load/unload lifecycle envelopes must be planned by Rust model_mount while lower-level JS provider driver adapters remain deleted",
   );
   assertCheck(
     result,
@@ -10400,7 +10397,6 @@ function runBridge() {
       const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
       const loadPolicy = read("packages/runtime-daemon/src/model-mounting/load-policy.mjs");
       const loadPolicyTest = read("packages/runtime-daemon/src/model-mounting/load-policy.test.mjs");
-      const providerLocalDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs");
       const backendProcessPlanBlock =
         modelMountingState.match(/backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
       return /canonicalLoadOptionsInput/.test(loadPolicy) &&
@@ -10428,9 +10424,8 @@ function runBridge() {
           backendProcessPlanBlock,
         ) &&
         !/defaults\.contextLength\b/.test(backendProcessPlanBlock) &&
-        /normalizeLoadOptions\(canonicalLoadOptionsInput\(body\),\s*endpoint\.loadPolicy\)/.test(
-          providerLocalDrivers,
-        ) &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
         !/body\.loadOptions\b/.test(providerLocalDrivers) &&
         !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs") &&
         !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs") &&
@@ -10444,19 +10439,14 @@ function runBridge() {
         ) &&
         /assert\.equal\(aliasOnlyCall\.load_options\.embeddings,\s*false\)/.test(
           productDefaultsTest,
-        ) &&
-        /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLocalDriversTest) &&
-        /native-local provider driver plans lifecycle through Rust without JS process supervision/.test(providerLocalDriversTest) &&
-        /assert\.deepEqual\(state\.lifecycleRequests\.at\(-1\)\.process_evidence_refs,\s*\[\]\)/.test(providerLocalDriversTest) &&
-        /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(providerLocalDriversTest);
+        );
     })(),
     [
       "packages/runtime-daemon/src/model-mounting/load-policy.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
     ],
-    "Phase 9/10 is pending: backend process planning and provider load paths must not let retired camelCase load-option aliases steer Rust model_mount requests",
+    "Phase 9/10 is pending: backend process planning and provider load paths must not let retired camelCase load-option aliases steer Rust model_mount requests or resurrect JS local provider drivers",
   );
   assertCheck(
     result,
@@ -10491,34 +10481,20 @@ function runBridge() {
       /rust_model_mount_provider_inventory_command/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(modelMountAdmissionRunner) &&
       /planModelMountProviderInventory/.test(modelMountingState) &&
-      /nativeLocalInventoryRequest/.test(providerLocalDrivers) &&
-      /fixtureInventoryRequest/.test(providerLocalDrivers) &&
-      /RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND/.test(providerLocalDrivers) &&
-      /RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND/.test(providerLocalDrivers) &&
-      /state\??\.planModelMountProviderInventory/.test(providerLocalDrivers) &&
-      /model_mount_provider_inventory/.test(providerLocalDrivers) &&
-      /inventory_hash/.test(providerLocalDrivers) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       !/modelMountProviderInventory/.test(providerLocalDrivers) &&
       !/\binventoryHash\b/.test(providerLocalDrivers) &&
       !/\binventoryEvidenceRefs\b/.test(providerLocalDrivers) &&
       !/\binventoryItemCount\b/.test(providerLocalDrivers) &&
-      /model_mount_provider_inventory_planning_required/.test(providerLocalDrivers) &&
-      /model_mount_fixture_provider_inventory_planning_required/.test(providerLocalDrivers) &&
-      /plan model and loaded inventory through Rust model_mount/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"),
-      ) &&
-      /rust_model_mount_provider_inventory/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs"),
-      );
+      /driverForProvider\(provider\)\s*\{[\s\S]*?throwProviderDriverFactoryRetired\(provider\);[\s\S]*?\n\s+\}/.test(modelMountingState);
     })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: local provider model/list-loaded inventory envelopes must be planned and hash-bound by Rust model_mount while JS still reads daemon state records",
+    "Phase 9/10 is pending: local provider model/list-loaded inventory envelopes must be planned and hash-bound by Rust model_mount while lower-level JS provider driver adapters remain deleted",
   );
   assertCheck(
     result,
@@ -10608,15 +10584,15 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-local-provider-direct-invoke-retired",
-    /model_mount_local_provider_direct_invoke_retired/.test(providerLocalDrivers) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       !/deterministicOutput/.test(providerLocalDrivers) &&
       !/reason:\s*"model_invoke"/.test(providerLocalDrivers) &&
       !/event:\s*"invoke"/.test(providerLocalDrivers),
     [
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 9/10 is pending: migrated local provider non-stream execution must fail closed if called through JS provider drivers",
+    "Phase 9/10 is pending: migrated local provider non-stream execution must not retain lower-level JS provider drivers",
   );
   assertCheck(
     result,
@@ -13963,18 +13939,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-inventory-receipt-direct-write-guard",
-    /model_mount_provider_inventory/.test(
-      read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
-    ) &&
-      /inventory_hash/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
-      ) &&
-      !/modelMountProviderInventory/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
-      ) &&
-      !/\binventoryHash\b/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs"),
-      ) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs") &&
       /model_mount_provider_inventory_rust_core_required/.test(providerOperations) &&
       /rust_core_boundary:\s*"model_mount\.provider_inventory"/.test(providerOperations) &&
       /model_mount_provider_inventory_js_facade_retired/.test(providerOperations) &&
@@ -14019,7 +13985,6 @@ function runReceipts() {
         read("packages/runtime-daemon/src/model-mounting/store.test.mjs"),
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/store.mjs",
