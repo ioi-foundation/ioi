@@ -744,6 +744,8 @@ function runDocs() {
       /`model_mount_oauth_credential_provider_js_retired`/.test(guide) &&
       /`model_mount_oauth_token_transport_retired`/.test(guide) &&
       /`RustDaemonCore\.catalogProviderOAuth`/.test(guide) &&
+      /Slice 895 deleted the leftover `backend-processes\.mjs` lookup\/snapshot wrapper/.test(guide) &&
+      /`backend-processes\.mjs` and `backend-processes\.test\.mjs` are absent/.test(guide) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1071,7 +1073,11 @@ function runDocs() {
       /Implementation Slice Evidence: 894/.test(matrix) &&
       /Slice 894 deleted the retired private JS OAuth credential custody helper/.test(matrix) &&
       /`oauth-credential-provider\.mjs` and `oauth-credential-provider\.test\.mjs` are\s+absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 894/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 894 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 895/.test(matrix) &&
+      /Slice 895 deleted the leftover backend-process lookup\/snapshot wrapper/.test(matrix) &&
+      /`backend-processes\.mjs` and `backend-processes\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 895/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1244,7 +1250,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 891 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 892 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 893 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 894/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 894 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 895/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1285,6 +1292,8 @@ function runDocs() {
       /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
       /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
+      /the leftover `backend-processes\.mjs` lookup\/snapshot helper module and test are deleted/.test(implementationMatrix) &&
+      /mounted `ModelMountingState` now owns missing-backend lookup metadata plus backend-process snapshot normalization directly/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `backends: state\.listBackends\(\)` or `backend_processes: state\.listBackendProcesses\(\)`/.test(implementationMatrix) &&
       /broad snapshot\/projection requests also no longer send `runtime_engines: state\.listRuntimeEngines\(\)`, `runtime_engine_profiles: state\.listRuntimeEngineProfiles\(\)`, or `runtime_preference: state\.runtimePreference\(\)`/.test(implementationMatrix) &&
       /Rust bridge direct arms ignore caller-supplied runtime-engine arrays, profiles, preferences, default-load options, and detail objects/.test(implementationMatrix) &&
@@ -1718,7 +1727,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 894 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 895 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -10214,10 +10223,8 @@ function runBridge() {
         /return this\.backendProcessPlan\(backend, options\)\.public_args/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend, options\)\.spawn_args/.test(modelMountingState) &&
         /return this\.backendProcessPlan\(backend\)\.supports_supervision/.test(modelMountingState) &&
-        !/export function backendProcess(?:Args|SpawnArgs)|export function backendSupportsSupervision/.test(
-          backendProcesses,
-        ) &&
-        !/backendProcess(?:Args|SpawnArgs)|backendSupportsSupervision/.test(backendProcessesTest) &&
+        !exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs") &&
         /Rust model_mount admission runner sends backend process plan request/.test(
           read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs"),
         ) &&
@@ -14813,17 +14820,26 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-backend-process-error-aliases-retired",
-    /notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backend_id: backendId \}\)/.test(
-      backendProcesses,
-    ) &&
-      !/notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backendId \}\)/.test(backendProcesses) &&
-      /assert\.equal\(error\.details\.backend_id,\s*"backend\.missing"\)/.test(backendProcessesTest) &&
-      /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(backendProcessesTest),
+    !exists("packages/runtime-daemon/src/model-mounting/backend-processes.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs") &&
+      /backend\(backendId\)\s*\{[\s\S]*?notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backend_id: backendId \}\)/.test(
+        modelMountingState,
+      ) &&
+      !/notFound\(`Model backend not found: \$\{backendId\}`,\s*\{ backendId \}\)/.test(modelMountingState) &&
+      /backend process facade owns missing lookup and snapshot normalization without helper module/.test(
+        read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+      ) &&
+      /assert\.equal\(error\.details\.backend_id,\s*"backend\.missing"\)/.test(
+        read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+      ) &&
+      /Object\.hasOwn\(error\.details,\s*"backendId"\),\s*false/.test(
+        read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs"),
+      ),
     [
-      "packages/runtime-daemon/src/model-mounting/backend-processes.mjs",
-      "packages/runtime-daemon/src/model-mounting/backend-processes.test.mjs",
+      "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
     ],
-    "Phase 10/11 is pending: backend process lookup fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 10/11 is pending: backend process lookup fail-closed errors must stay owned by the mounted facade with canonical snake_case metadata and no helper module",
   );
   assertCheck(
     result,

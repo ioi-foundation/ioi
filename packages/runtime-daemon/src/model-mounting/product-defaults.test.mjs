@@ -6,11 +6,46 @@ import test from "node:test";
 
 import { ModelMountingState } from "../model-mounting.mjs";
 
+function projectionForKind(projectionKind) {
+  if (projectionKind === "open_ai_model_list") return { data: [] };
+  if (
+    projectionKind === "artifacts" ||
+    projectionKind === "product_artifacts" ||
+    projectionKind === "endpoints" ||
+    projectionKind === "runtime_model_catalog"
+  ) {
+    return [];
+  }
+  if (projectionKind === "runtime_default_load_options") return {};
+  if (projectionKind === "projection") return { source: "agentgres_model_mounting_projection" };
+  return null;
+}
+
+function testModelMountAdmissionRunner(overrides = {}) {
+  return {
+    planReadProjection(request) {
+      return {
+        source: "rust_model_mount_read_projection_command",
+        backend: "rust_model_mount_read_projection",
+        projection_kind: request.projection_kind,
+        projection: projectionForKind(request.projection_kind),
+        evidence_refs: [
+          "rust_daemon_core_model_mount_projection",
+          "agentgres_model_mount_read_truth",
+          "model_mount_js_read_projection_authoring_retired",
+        ],
+      };
+    },
+    ...overrides,
+  };
+}
+
 function withModelState(fn) {
   const state = new ModelMountingState({
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
+    modelMountAdmissionRunner: testModelMountAdmissionRunner(),
   });
   try {
     return fn(state);
@@ -41,7 +76,7 @@ test("backend process planning is delegated to Rust model_mount", () => {
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountAdmissionRunner: {
+    modelMountAdmissionRunner: testModelMountAdmissionRunner({
       planBackendProcess(request) {
         calls.push(request);
         return {
@@ -51,7 +86,7 @@ test("backend process planning is delegated to Rust model_mount", () => {
           spawn_status: "spawn_ready",
         };
       },
-    },
+    }),
   });
 
   try {
@@ -126,13 +161,50 @@ test("backend process planning is delegated to Rust model_mount", () => {
   }
 });
 
+test("backend process facade owns missing lookup and snapshot normalization without helper module", () => {
+  withModelState((state) => {
+    assert.throws(
+      () => state.backend("backend.missing"),
+      (error) => {
+        assert.equal(error.status, 404);
+        assert.equal(error.details.backend_id, "backend.missing");
+        assert.equal(Object.hasOwn(error.details, "backendId"), false);
+        return true;
+      },
+    );
+
+    assert.deepEqual(state.backendProcessSnapshot(null), {
+      status: "not_started",
+      processStatus: "not_started",
+      evidenceRefs: ["supervisor_process_not_started"],
+    });
+
+    const snapshot = state.backendProcessSnapshot({
+      id: "process_a",
+      backendId: "backend.llama",
+      backendKind: "llama_cpp",
+      status: "started",
+      spawned: true,
+      stale: true,
+      evidenceRefs: ["started"],
+    });
+
+    assert.equal(snapshot.processStatus, "started");
+    assert.equal(snapshot.pidTracked, "process_ref_hash");
+    assert.equal(snapshot.spawned, true);
+    assert.equal(snapshot.stale, true);
+    assert.deepEqual(snapshot.argsRedacted, []);
+    assert.deepEqual(snapshot.evidenceRefs, ["started"]);
+  });
+});
+
 test("accepted receipt head planning is delegated to Rust model_mount", () => {
   const calls = [];
   const state = new ModelMountingState({
     stateDir: mkdtempSync(join(tmpdir(), "ioi-model-state-")),
     cwd: process.cwd(),
     homeDir: process.env.HOME,
-    modelMountAdmissionRunner: {
+    modelMountAdmissionRunner: testModelMountAdmissionRunner({
       planAcceptedReceiptHead(request) {
         calls.push(request);
         return {
@@ -144,7 +216,7 @@ test("accepted receipt head planning is delegated to Rust model_mount", () => {
           evidence_refs: ["rust_model_mount_accepted_receipt_head"],
         };
       },
-    },
+    }),
   });
 
   try {

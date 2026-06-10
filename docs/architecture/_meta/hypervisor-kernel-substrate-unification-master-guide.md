@@ -2145,6 +2145,18 @@ migration still requires direct Rust daemon-core OAuth control, wallet/cTEE vaul
 custody, Agentgres-backed OAuth/session projection, stable protocol APIs, and
 command-transport retirement.
 
+Slice 895 deleted the leftover `backend-processes.mjs` lookup/snapshot wrapper.
+`backend-processes.mjs` and `backend-processes.test.mjs` are absent rather than
+kept as a standalone compatibility module after backend process supervision had
+already moved to mounted Rust-core-required lifecycle refusals and Rust
+`model_mount` backend-process planning. The mounted model_mount facade now owns
+missing-backend lookup metadata and process-snapshot normalization directly, so
+backend process lookup, snapshot shaping, lifecycle refusal, and Rust planner
+transport no longer have a reusable JS backend-process helper to re-enter.
+Terminal backend lifecycle migration still requires direct Rust daemon-core
+process control, Agentgres-backed backend lifecycle projection/replay, stable
+protocol APIs, and command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

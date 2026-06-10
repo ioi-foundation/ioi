@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 894 after the next
+- Next scheduled matrix-compaction pass: compact Slice 895 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18768,7 +18768,36 @@ and retirement of remaining catalog-provider state materialization remain
 required before OAuth-backed catalog/provider auth reaches the pure Rust
 substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 894 after the next direct
+Scheduled matrix-compaction obligation from Slice 894 is now satisfied.
+
+## Implementation Slice Evidence: 895
+
+Slice 895 deleted the leftover backend-process lookup/snapshot wrapper.
+`backend-processes.mjs` and `backend-processes.test.mjs` are absent rather than
+preserved as a standalone compatibility module after backend process supervision
+moved to mounted Rust-core-required lifecycle refusals and Rust `model_mount`
+backend-process planning. The mounted model_mount facade now owns
+missing-backend lookup metadata and process-snapshot normalization directly, so
+backend process lookup, snapshot shaping, lifecycle refusal, and Rust planner
+transport cannot re-enter a reusable JS backend-process helper.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal backend lifecycle migration: direct Rust
+daemon-core process control, provider lifecycle execution, Agentgres-backed
+backend lifecycle projection/replay, stable protocol APIs, command-transport
+retirement, and retirement of remaining backend state materialization remain
+required before backend lifecycle reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 895 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

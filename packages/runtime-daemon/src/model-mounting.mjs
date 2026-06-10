@@ -124,10 +124,6 @@ import {
   selectRuntimeEngine as selectRuntimeEngineState,
   updateRuntimeEngine as updateRuntimeEngineState,
 } from "./model-mounting/runtime-engines.mjs";
-import {
-  backend as backendState,
-  backendProcessSnapshot as backendProcessSnapshotState,
-} from "./model-mounting/backend-processes.mjs";
 import { AgentgresWalletAuthority } from "./model-mounting/wallet-authority.mjs";
 import {
   AgentgresVaultPort,
@@ -1791,11 +1787,13 @@ export class ModelMountingState {
   }
 
   backend(backendId) {
-    return backendState(this, backendId, { notFound });
+    const record = this.backendRegistry().find((item) => item.id === backendId);
+    if (!record) throw notFound(`Model backend not found: ${backendId}`, { backend_id: backendId });
+    return record;
   }
 
   backendProcessSnapshot(processRecord) {
-    return backendProcessSnapshotState(processRecord);
+    return backendProcessSnapshot(processRecord);
   }
 
   backendProcessPlan(backend, { endpoint = null, loadOptions = {} } = {}) {
@@ -1961,6 +1959,38 @@ function backendProcessSupervisorRetiredError(operation_kind, backend = {}, deta
 
 function throwBackendProcessSupervisorRetired(operation_kind, backend, details = {}) {
   throw backendProcessSupervisorRetiredError(operation_kind, backend, details);
+}
+
+function backendProcessSnapshot(processRecord) {
+  if (!processRecord) {
+    return {
+      status: "not_started",
+      processStatus: "not_started",
+      evidenceRefs: ["supervisor_process_not_started"],
+    };
+  }
+  return {
+    id: processRecord.id,
+    backendId: processRecord.backendId,
+    backendKind: processRecord.backendKind,
+    status: processRecord.status,
+    processStatus: processRecord.processStatus ?? processRecord.status,
+    pidHash: processRecord.pidHash ?? null,
+    pidTracked: processRecord.pidTracked ?? "process_ref_hash",
+    supervisorKind: processRecord.supervisorKind ?? null,
+    spawned: Boolean(processRecord.spawned),
+    spawnStatus: processRecord.spawnStatus ?? null,
+    startedAt: processRecord.startedAt ?? null,
+    stoppedAt: processRecord.stoppedAt ?? null,
+    lastHealthAt: processRecord.lastHealthAt ?? null,
+    argsHash: processRecord.argsHash ?? null,
+    argsRedacted: processRecord.argsRedacted ?? [],
+    startupTimeoutMs: processRecord.startupTimeoutMs ?? null,
+    healthProbe: processRecord.healthProbe ?? null,
+    stale: Boolean(processRecord.stale),
+    staleReason: processRecord.staleReason ?? null,
+    evidenceRefs: processRecord.evidenceRefs ?? [],
+  };
 }
 
 function throwProviderDriverFactoryRetired(provider = {}) {
