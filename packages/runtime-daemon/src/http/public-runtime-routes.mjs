@@ -205,31 +205,31 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/tasks") {
-        writeJsonResponse(response, store.createTask(await readBody(request)));
+        writeJsonResponse(response, store.taskJobSurface.createTask(store, await readBody(request)));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/tasks") {
-        writeJsonResponse(response, store.listTasks(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.taskJobSurface.listTasks(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (segments[0] === "v1" && segments[1] === "tasks" && segments[2] && request.method === "POST" && segments[3] === "cancel") {
-        writeJsonResponse(response, store.cancelTask(decodeURIComponent(segments[2])));
+        writeJsonResponse(response, store.taskJobSurface.cancelTask(store, decodeURIComponent(segments[2])));
         return;
       }
       if (segments[0] === "v1" && segments[1] === "tasks" && segments[2] && !segments[3] && request.method === "GET") {
-        writeJsonResponse(response, store.getTask(decodeURIComponent(segments[2])));
+        writeJsonResponse(response, store.taskJobSurface.getTask(store, decodeURIComponent(segments[2])));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/jobs") {
-        writeJsonResponse(response, store.listJobs(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.taskJobSurface.listJobs(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (segments[0] === "v1" && segments[1] === "jobs" && segments[2] && request.method === "POST" && segments[3] === "cancel") {
-        writeJsonResponse(response, store.cancelJob(decodeURIComponent(segments[2])));
+        writeJsonResponse(response, store.taskJobSurface.cancelJob(store, decodeURIComponent(segments[2])));
         return;
       }
       if (segments[0] === "v1" && segments[1] === "jobs" && segments[2]) {
-        writeJsonResponse(response, store.getJob(decodeURIComponent(segments[2])));
+        writeJsonResponse(response, store.taskJobSurface.getJob(store, decodeURIComponent(segments[2])));
         return;
       }
       if (segments[0] === "v1" && segments[1] === "runs" && segments[2]) {

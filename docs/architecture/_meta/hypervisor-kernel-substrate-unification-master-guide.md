@@ -2197,6 +2197,16 @@ now fail closed at `task.list`, `task.get`, `job.list`, and `job.get` with
 projection truth from `store.listRuns()`. Direct Rust daemon-core task/job
 projection over Agentgres-admitted run/task/job truth remains required before
 terminal conformance.
+Slice 959 retired the daemon-store task/job route pass-through wrappers. The
+public task/job create/list/get/cancel routes now call the fail-closed
+`RuntimeTaskJobControl` surface directly, so JS no longer preserves
+`createTask()`, `listTasks()`, `getTask()`, `cancelTask()`, `listJobs()`,
+`getJob()`, or `cancelJob()` as daemon-store compatibility wrappers. This does
+not claim terminal task/job admission/projection: direct Rust daemon-core route
+admission, wallet lifecycle authority, StepModuleRouter dispatch, Agentgres
+expected-head/state-root binding, receipt/event materialization, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain required before terminal conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

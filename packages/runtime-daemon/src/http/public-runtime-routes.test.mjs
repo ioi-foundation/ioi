@@ -28,6 +28,10 @@ function request({ method = "GET", url = "/", body = {} } = {}) {
   };
 }
 
+function retiredRouteWrapper() {
+  throw new Error("retired public runtime route wrapper must not be routed");
+}
+
 function routeHarness(overrides = {}) {
   const calls = [];
   const deps = {
@@ -142,6 +146,123 @@ test("public runtime run list route ignores retired agentId query alias", async 
 
   assert.deepEqual(calls.at(-1), { agentId: undefined });
   assert.deepEqual(JSON.parse(retiredOnlyResponse.body), [{ id: "all-runs" }]);
+});
+
+test("public runtime task and job routes use task job surface directly", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const body = { prompt: "plan the cutover" };
+  const surfaceResult = (method, args) => ({
+    status: "blocked",
+    method,
+    args,
+  });
+  const store = {
+    taskJobSurface: {
+      createTask(surfaceStore, requestBody) {
+        calls.push({ method: "createTask", surfaceStore, args: [requestBody] });
+        return surfaceResult("createTask", [requestBody]);
+      },
+      listTasks(surfaceStore, options) {
+        calls.push({ method: "listTasks", surfaceStore, args: [options] });
+        return surfaceResult("listTasks", [options]);
+      },
+      getTask(surfaceStore, taskId) {
+        calls.push({ method: "getTask", surfaceStore, args: [taskId] });
+        return surfaceResult("getTask", [taskId]);
+      },
+      cancelTask(surfaceStore, taskId) {
+        calls.push({ method: "cancelTask", surfaceStore, args: [taskId] });
+        return surfaceResult("cancelTask", [taskId]);
+      },
+      listJobs(surfaceStore, options) {
+        calls.push({ method: "listJobs", surfaceStore, args: [options] });
+        return surfaceResult("listJobs", [options]);
+      },
+      getJob(surfaceStore, jobId) {
+        calls.push({ method: "getJob", surfaceStore, args: [jobId] });
+        return surfaceResult("getJob", [jobId]);
+      },
+      cancelJob(surfaceStore, jobId) {
+        calls.push({ method: "cancelJob", surfaceStore, args: [jobId] });
+        return surfaceResult("cancelJob", [jobId]);
+      },
+    },
+    createTask: retiredRouteWrapper,
+    listTasks: retiredRouteWrapper,
+    getTask: retiredRouteWrapper,
+    cancelTask: retiredRouteWrapper,
+    listJobs: retiredRouteWrapper,
+    getJob: retiredRouteWrapper,
+    cancelJob: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      method: "POST",
+      path: "/v1/tasks",
+      surfaceMethod: "createTask",
+      expectedArgs: [body],
+    },
+    {
+      method: "GET",
+      path: "/v1/tasks?agent_id=agent-canonical",
+      surfaceMethod: "listTasks",
+      expectedArgs: [{ agent_id: "agent-canonical" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/tasks/task_1",
+      surfaceMethod: "getTask",
+      expectedArgs: ["task_1"],
+    },
+    {
+      method: "POST",
+      path: "/v1/tasks/task_1/cancel",
+      surfaceMethod: "cancelTask",
+      expectedArgs: ["task_1"],
+    },
+    {
+      method: "GET",
+      path: "/v1/jobs?agent_id=agent-canonical",
+      surfaceMethod: "listJobs",
+      expectedArgs: [{ agent_id: "agent-canonical" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/jobs/job_1",
+      surfaceMethod: "getJob",
+      expectedArgs: ["job_1"],
+    },
+    {
+      method: "POST",
+      path: "/v1/jobs/job_1/cancel",
+      surfaceMethod: "cancelJob",
+      expectedArgs: ["job_1"],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleRequest({
+      request: request({
+        method: testCase.method,
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 200);
+    assert.equal(call.method, testCase.surfaceMethod);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.expectedArgs);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "blocked",
+      method: testCase.surfaceMethod,
+      args: testCase.expectedArgs,
+    });
+  }
 });
 
 test("public runtime routes preserve MCP serve thread requirement", async () => {

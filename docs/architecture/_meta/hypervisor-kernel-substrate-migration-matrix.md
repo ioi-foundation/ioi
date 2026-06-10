@@ -21052,3 +21052,35 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of subagent command transport,
 Agentgres-backed subagent truth, and stable protocol APIs without encoding
 daemon-store pass-through wrappers as public subagent authority.
+
+## Implementation Slice Evidence: 959
+
+Slice 959 retired the daemon-store task/job route pass-through wrappers. The
+public task/job create/list/get/cancel routes now call the fail-closed
+`RuntimeTaskJobControl` surface directly instead of preserving `createTask()`,
+`listTasks()`, `getTask()`, `cancelTask()`, `listJobs()`, `getJob()`, or
+`cancelJob()` on the daemon store as duplicate route-level compatibility
+wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-task-job-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal task/job migration. Direct Rust daemon-core
+route admission, wallet lifecycle authority, StepModuleRouter dispatch,
+Agentgres-backed expected-head/state-root truth, receipt/event materialization,
+replay, projection, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-959 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of task/job command transport,
+Agentgres-backed task/job truth, and stable protocol APIs without encoding
+daemon-store pass-through wrappers as public task/job authority.

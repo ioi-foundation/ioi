@@ -1531,34 +1531,6 @@ export class AgentgresRuntimeStateStore {
     return this.contextPolicySurface.compactThread(this, threadId, request);
   }
 
-  listJobs(options = {}) {
-    return this.taskJobSurface.listJobs(this, options);
-  }
-
-  createTask(body = {}) {
-    return this.taskJobSurface.createTask(this, body);
-  }
-
-  listTasks(options = {}) {
-    return this.taskJobSurface.listTasks(this, options);
-  }
-
-  getTask(taskId) {
-    return this.taskJobSurface.getTask(this, taskId);
-  }
-
-  cancelTask(taskId) {
-    return this.taskJobSurface.cancelTask(this, taskId);
-  }
-
-  getJob(jobId) {
-    return this.taskJobSurface.getJob(this, jobId);
-  }
-
-  cancelJob(jobId) {
-    return this.taskJobSurface.cancelJob(this, jobId);
-  }
-
   listMcpServers(options = {}) {
     return this.mcpCatalogSurface.listMcpServers(this, options);
   }

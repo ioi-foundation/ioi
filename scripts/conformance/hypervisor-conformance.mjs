@@ -22689,6 +22689,9 @@ function runCompositor() {
       /public runtime run list route ignores retired agentId query alias/.test(
         publicRuntimeRoutesTest,
       ) &&
+      /public runtime task and job routes use task job surface directly/.test(
+        publicRuntimeRoutesTest,
+      ) &&
       /url: "\/v1\/runs\?agentId=agent-retired&agent_id=agent-canonical"/.test(
         publicRuntimeRoutesTest,
       ) &&
@@ -22754,10 +22757,39 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-task-job-control-js-facade-retired",
-    runtimeTaskJobControlFacadeRetired,
+    runtimeTaskJobControlFacadeRetired &&
+      /store\.taskJobSurface\.createTask\(store,\s*await readBody\(request\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.taskJobSurface\.listTasks\(store,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.taskJobSurface\.cancelTask\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.taskJobSurface\.getTask\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.taskJobSurface\.listJobs\(store,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.taskJobSurface\.cancelJob\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.taskJobSurface\.getJob\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /public runtime task and job routes use task job surface directly/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      !/^\s*(?:listJobs|createTask|listTasks|getTask|cancelTask|getJob|cancelJob)\(/m.test(
+        runtimeDaemonIndex,
+      ),
     [
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
     "Phase 10/11 is pending: runtime task/job create and cancel mutation facades must stay retired before JS agent/run creation or run cancellation",
   );
