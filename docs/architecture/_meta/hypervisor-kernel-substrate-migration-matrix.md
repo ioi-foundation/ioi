@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 908 after the next
+- Next scheduled matrix-compaction pass: compact Slice 909 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19173,7 +19173,39 @@ receipt/state-root binding, Agentgres-backed replay/projection, stable protocol
 APIs, and command-transport retirement remain required before artifact/endpoint
 control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 908 after the next direct
+Scheduled matrix-compaction obligation from Slice 908 is now satisfied.
+
+## Implementation Slice Evidence: 909
+
+Slice 909 removed the dormant catalog-provider port search surfaces.
+`catalog-provider-ports.mjs` no longer exposes port-local `search` closures for
+fixture, local-manifest, Ollama, Hugging Face-compatible, or custom HTTP catalog
+providers, and it no longer exports retired search-result builders such as
+`retiredLiveCatalogSearchResult()`,
+`retiredLocalManifestCatalogSearchResult()`, or
+`retiredFixtureCatalogSearchResult()`. Public catalog search already fails
+closed before JS provider iteration, so catalog-provider ports retain only
+health/gating metadata until direct Rust daemon-core catalog search/projection
+APIs own external, local-manifest, fixture, and Ollama catalog search.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal catalog-provider search migration: direct
+Rust daemon-core catalog search/projection APIs, Agentgres-backed catalog truth,
+receipt/state-root binding, replay, stable protocol APIs, and command-transport
+retirement remain required before catalog-provider search reaches the pure Rust
+substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 909 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

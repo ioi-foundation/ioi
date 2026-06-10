@@ -11,27 +11,15 @@ import {
   ollamaCatalogProviderPort,
 } from "./catalog-provider-ports.mjs";
 
-test("fixture catalog provider retires JS fixture search materialization", async () => {
+test("fixture catalog provider exposes no JS fixture search surface", () => {
   const port = fixtureCatalogProviderPort();
-  const result = await port.search({
-    query: "native",
-    format: "gguf",
-    quantization: "q4",
-    searchedAt: "2026-06-03T12:00:00.000Z",
-  });
 
   assert.equal(port.id, "catalog.fixture");
   assert.equal(port.health().status, "available");
-  assert.equal(result.status, "configured");
-  assert.equal(result.code, "model_catalog_fixture_search_retired");
-  assert.equal(result.providerId, "catalog.fixture");
-  assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
-  assert.equal(result.evidenceRefs.includes("fixture_catalog_search_js_retired"), true);
-  assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
-  assert.deepEqual(result.results, []);
+  assert.equal(Object.hasOwn(port, "search"), false);
 });
 
-test("local manifest catalog projects metadata and retires JS manifest search", async () => {
+test("local manifest catalog projects metadata with no JS manifest search surface", () => {
   const previousManifestPath = process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
   process.env.IOI_MODEL_CATALOG_MANIFEST_PATH = "/models/catalog.json";
   const state = {
@@ -56,20 +44,7 @@ test("local manifest catalog projects metadata and retires JS manifest search", 
     assert.equal(health.oauthSessionHash, null);
     assert.equal(health.oauthBoundary, null);
 
-    const result = await localManifestCatalogProviderPort(state).search({
-      query: "demo",
-      format: "gguf",
-      quantization: "q4",
-      searchedAt: "2026-06-03T12:00:00.000Z",
-    });
-
-    assert.equal(result.status, "configured");
-    assert.equal(result.code, "model_catalog_local_manifest_search_retired");
-    assert.equal(result.providerId, "catalog.local_manifest");
-    assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
-    assert.equal(result.evidenceRefs.includes("local_manifest_catalog_search_js_retired"), true);
-    assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
-    assert.deepEqual(result.results, []);
+    assert.equal(Object.hasOwn(localManifestCatalogProviderPort(state), "search"), false);
   } finally {
     if (previousManifestPath === undefined) {
       delete process.env.IOI_MODEL_CATALOG_MANIFEST_PATH;
@@ -79,7 +54,7 @@ test("local manifest catalog projects metadata and retires JS manifest search", 
   }
 });
 
-test("ollama catalog provider ignores JS provider map and retires bridge search", async () => {
+test("ollama catalog provider ignores JS provider map and exposes no JS search surface", () => {
   const providerMap = {
     get() {
       throw new Error("Ollama catalog provider port must not read JS provider inventory");
@@ -99,17 +74,11 @@ test("ollama catalog provider ignores JS provider map and retires bridge search"
   assert.equal(health.baseUrlHash, null);
   assert.equal(health.rustCoreBoundary, "model_mount.catalog_provider_projection");
 
-  const result = await port.search({ query: "llama", format: "ollama", searchedAt: "2026-06-03T12:00:00.000Z" });
-  assert.equal(result.status, "gated");
-  assert.equal(result.baseUrlHash, null);
-  assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
-  assert.deepEqual(result.results, []);
-  assert.equal(result.evidenceRefs.includes("ollama_catalog_js_driver_bridge_retired"), true);
-  assert.equal(result.evidenceRefs.includes("ollama_catalog_provider_map_readback_retired"), true);
+  assert.equal(Object.hasOwn(port, "search"), false);
   assert.equal(driverCalled, false);
 });
 
-test("Hugging Face catalog provider projects material-backed health and retires live JS search", async () => {
+test("Hugging Face catalog provider projects material-backed health with no JS search surface", () => {
   const previousBaseUrl = process.env.IOI_MODEL_CATALOG_HF_BASE_URL;
   process.env.IOI_MODEL_CATALOG_HF_BASE_URL = "https://hf.example.test";
   const state = {
@@ -132,20 +101,7 @@ test("Hugging Face catalog provider projects material-backed health and retires 
     assert.equal(health.materialVaultRefHash, null);
     assert.equal(health.catalogAuthConfigured, false);
 
-    const result = await port.search({
-      query: "llama",
-      format: "gguf",
-      quantization: "q4",
-      limit: 5,
-      searchedAt: "2026-06-09T12:00:00.000Z",
-    });
-    assert.equal(result.status, "gated");
-    assert.equal(result.code, "model_catalog_live_http_search_retired");
-    assert.equal(result.providerId, "catalog.huggingface");
-    assert.equal(result.rustCoreBoundary, "model_mount.catalog_provider_search");
-    assert.equal(result.evidenceRefs.includes("catalog_live_http_search_js_retired"), true);
-    assert.equal(result.evidenceRefs.includes("rust_daemon_core_catalog_search_required"), true);
-    assert.deepEqual(result.results, []);
+    assert.equal(Object.hasOwn(port, "search"), false);
   } finally {
     if (previousBaseUrl === undefined) {
       delete process.env.IOI_MODEL_CATALOG_HF_BASE_URL;
@@ -155,7 +111,7 @@ test("Hugging Face catalog provider projects material-backed health and retires 
   }
 });
 
-test("custom HTTP catalog provider retires live JS auth and HTTP search", async () => {
+test("custom HTTP catalog provider exposes no JS auth or HTTP search surface", () => {
   const previousBaseUrl = process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL;
   process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL = "https://catalog.example.test";
   const state = {
@@ -171,26 +127,14 @@ test("custom HTTP catalog provider retires live JS auth and HTTP search", async 
   try {
     const port = customHttpCatalogProviderPort(state);
 
-    const result = await port.search({
-      query: "llama",
-      format: "gguf",
-      quantization: "q4",
-      limit: 5,
-      searchedAt: "2026-06-09T12:00:00.000Z",
-    });
-
-    assert.equal(result.status, "configured");
-    assert.equal(result.code, "model_catalog_live_http_search_retired");
-    assert.equal(result.providerId, "catalog.custom_http");
-    assert.match(result.baseUrlHash, /^[0-9a-f]{64}$/);
-    assert.equal(result.materialVaultRefHash, null);
-    assert.equal(result.runtimeMaterialStatus, "env_gate");
-    assert.equal(result.materialPersistence, "metadata_only");
-    assert.equal(result.catalogAuthConfigured, false);
-    assert.equal(result.catalogAuthScheme, "bearer");
-    assert.equal(result.evidenceRefs.includes("catalog_live_http_search_js_retired"), true);
-    assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
-    assert.deepEqual(result.results, []);
+    const health = port.health();
+    assert.match(health.baseUrlHash, /^[0-9a-f]{64}$/);
+    assert.equal(health.materialVaultRefHash, null);
+    assert.equal(health.runtimeMaterialStatus, "env_gate");
+    assert.equal(health.materialPersistence, "metadata_only");
+    assert.equal(health.catalogAuthConfigured, false);
+    assert.equal(health.catalogAuthScheme, "bearer");
+    assert.equal(Object.hasOwn(port, "search"), false);
   } finally {
     if (previousBaseUrl === undefined) {
       delete process.env.IOI_MODEL_CATALOG_CUSTOM_BASE_URL;

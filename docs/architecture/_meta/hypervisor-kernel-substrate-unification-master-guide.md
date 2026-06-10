@@ -2282,6 +2282,15 @@ read-only local model file scoring/listing and quantization helpers plus the
 destructive-confirmation alias guard needed by mounted fail-closed storage
 facades.
 
+Slice 909 removed the dormant catalog-provider port search surfaces.
+Catalog-provider ports no longer expose `search` closures or retired
+search-result builders such as `retiredLiveCatalogSearchResult()`,
+`retiredLocalManifestCatalogSearchResult()`, or
+`retiredFixtureCatalogSearchResult()`. Public catalog search already fails
+closed before JS provider iteration, so provider ports now retain only
+health/gating metadata until direct Rust daemon-core catalog search/projection
+APIs own external, local-manifest, fixture, and Ollama catalog search.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

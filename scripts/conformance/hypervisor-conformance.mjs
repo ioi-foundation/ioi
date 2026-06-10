@@ -810,6 +810,8 @@ function runDocs() {
       !/export function normalizeImportMode/.test(catalogHelpers) &&
       !/export function importTargetPath/.test(catalogHelpers) &&
       !/export function materializeImportArtifact/.test(catalogHelpers) &&
+      /Slice 909 removed the dormant catalog-provider port search surfaces/.test(guide) &&
+      /Catalog-provider ports no longer expose `search` closures or retired\s+search-result builders/.test(guide) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1193,7 +1195,11 @@ function runDocs() {
       /Implementation Slice Evidence: 908/.test(matrix) &&
       /Slice 908 deleted the dormant catalog import materializer helper tail/.test(matrix) &&
       /`catalog-helpers\.mjs` no longer exports `normalizeImportMode\(\)`,\s+`importTargetPath\(\)`, or `materializeImportArtifact\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 908/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 908 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 909/.test(matrix) &&
+      /Slice 909 removed the dormant catalog-provider port search surfaces/.test(matrix) &&
+      /`catalog-provider-ports\.mjs` no longer exposes port-local `search` closures/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 909/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1380,7 +1386,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 905 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 906 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 907 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 908/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 908 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 909/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1860,7 +1867,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 908 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 909 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -1873,6 +1880,7 @@ function runDocs() {
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the dormant catalog import materializer helper tail is deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
+      /catalog-provider ports no longer expose JS `search` closures or retired search-result builders/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -9319,14 +9327,17 @@ function runBridge() {
       !/state\?\.catalogProviderRuntimeMaterial/.test(catalogProviderPorts) &&
       !/state\.providers\.get\("provider\.ollama"\)/.test(catalogProviderPorts) &&
       !/catalogProviderStatus/.test(catalogProviderPorts) &&
-      /ollama_catalog_provider_map_readback_retired/.test(catalogProviderPorts) &&
       /rustCoreBoundary:\s*"model_mount\.catalog_provider_projection"/.test(catalogProviderPorts) &&
+      !/ollama_catalog_provider_map_readback_retired/.test(catalogProviderPorts) &&
+      !/ollama_catalog_js_driver_bridge_retired/.test(catalogProviderPorts) &&
+      !/ollamaCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
       /Ollama catalog provider port must not read JS provider inventory/.test(
         catalogProviderPortsTest,
       ) &&
-      /ollama catalog provider ignores JS provider map and retires bridge search/.test(
+      /ollama catalog provider ignores JS provider map and exposes no JS search surface/.test(
         catalogProviderPortsTest,
       ) &&
+      /Object\.hasOwn\(port,\s*"search"\)/.test(catalogProviderPortsTest) &&
       /private catalog provider config readback fails closed before JS map projection/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
@@ -9350,7 +9361,7 @@ function runBridge() {
       !/from "\.\/catalog-projections\.mjs"/.test(catalogProviderPorts) &&
       /function catalogProviderPortHealthDefaults/.test(catalogProviderPorts) &&
       /assert\.equal\(health\.materialPersistence,\s*"metadata_only"\)/.test(catalogProviderPortsTest) &&
-      /assert\.equal\(result\.catalogAuthConfigured,\s*false\)/.test(catalogProviderPortsTest) &&
+      /assert\.equal\(health\.catalogAuthConfigured,\s*false\)/.test(catalogProviderPortsTest) &&
       /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigurationOperationsTest) &&
       /assert\.equal\(state\.catalogProviderRuntimeMaterials\.has\(providerId\),\s*false\)/.test(
         catalogProviderConfigurationOperationsTest,
@@ -14394,83 +14405,84 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-live-catalog-http-search-js-retired",
+    "model-mount-live-catalog-provider-search-surface-retired",
     !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.test.mjs") &&
-      /retiredLiveCatalogSearchResult/.test(catalogProviderPorts) &&
-      /model_catalog_live_http_search_retired/.test(catalogProviderPorts) &&
-      /catalog_live_http_search_js_retired/.test(catalogProviderPorts) &&
-      /rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
-      /agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
-      /model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
-      /huggingFaceCatalogProviderPort\(state\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
-      /customHttpCatalogProviderPort\(state\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+      !/retiredLiveCatalogSearchResult/.test(catalogProviderPorts) &&
+      !/model_catalog_live_http_search_retired/.test(catalogProviderPorts) &&
+      !/catalog_live_http_search_js_retired/.test(catalogProviderPorts) &&
+      !/rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
+      !/agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
+      !/model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
+      !/huggingFaceCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
+      !/customHttpCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
       !/searchHuggingFaceCatalog/.test(modelMountingRoot) &&
       !/new URL\("\/api\/models"/.test(catalogProviderPorts) &&
       !/new URL\("\/catalog\/search"/.test(catalogProviderPorts) &&
       !/fetchWithTimeout/.test(catalogProviderPorts) &&
       !/catalogProviderAuthHeaders/.test(catalogProviderPorts) &&
       !/huggingface_catalog_search|custom_http_catalog_search/.test(catalogProviderPorts) &&
-      /Hugging Face catalog provider projects material-backed health and retires live JS search/.test(
+      /Hugging Face catalog provider projects material-backed health with no JS search surface/.test(
         catalogProviderPortsTest,
       ) &&
-      /custom HTTP catalog provider retires live JS auth and HTTP search/.test(catalogProviderPortsTest) &&
-      /model_catalog_live_http_search_retired/.test(catalogProviderPortsTest),
+      /custom HTTP catalog provider exposes no JS auth or HTTP search surface/.test(catalogProviderPortsTest) &&
+      /Object\.hasOwn\(port,\s*"search"\)/.test(catalogProviderPortsTest) &&
+      !/await port\.search/.test(catalogProviderPortsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
     ],
-    "Phase 7/11 is pending: external model catalog search must fail closed before JS auth, URL shaping, or HTTP transport",
+    "Phase 7/11 is pending: external model catalog provider ports must not expose JS search surfaces",
   );
   assertCheck(
     result,
-    "model-mount-local-manifest-catalog-search-js-retired",
-    /retiredLocalManifestCatalogSearchResult/.test(catalogProviderPorts) &&
-      /model_catalog_local_manifest_search_retired/.test(catalogProviderPorts) &&
-      /local_manifest_catalog_search_js_retired/.test(catalogProviderPorts) &&
-      /rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
-      /agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
-      /model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
-      /localManifestCatalogProviderPort\(state\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+    "model-mount-local-manifest-catalog-search-surface-retired",
+    !/retiredLocalManifestCatalogSearchResult/.test(catalogProviderPorts) &&
+      !/model_catalog_local_manifest_search_retired/.test(catalogProviderPorts) &&
+      !/local_manifest_catalog_search_js_retired/.test(catalogProviderPorts) &&
+      !/rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
+      !/agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
+      !/model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
+      !/localManifestCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
       !/from "node:fs"/.test(catalogProviderPorts) &&
       !/from "node:path"/.test(catalogProviderPorts) &&
       !/localManifestCatalogEntries/.test(catalogProviderPorts) &&
       !/fs\.existsSync/.test(catalogProviderPorts) &&
       !/path\.resolve/.test(catalogProviderPorts) &&
-      /local manifest catalog projects metadata and retires JS manifest search/.test(
+      /local manifest catalog projects metadata with no JS manifest search surface/.test(
         catalogProviderPortsTest,
       ) &&
-      /model_catalog_local_manifest_search_retired/.test(catalogProviderPortsTest) &&
-      /local_manifest_catalog_search_js_retired/.test(catalogProviderPortsTest),
+      /Object\.hasOwn\(localManifestCatalogProviderPort\(state\),\s*"search"\)/.test(catalogProviderPortsTest) &&
+      !/localManifestCatalogProviderPort\(state\)\.search/.test(catalogProviderPortsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
     ],
-    "Phase 7/11 is pending: local manifest catalog search must fail closed before JS filesystem checks, manifest parsing, or entry materialization",
+    "Phase 7/11 is pending: local manifest catalog provider port must not expose a JS search surface",
   );
   assertCheck(
     result,
-    "model-mount-fixture-catalog-search-js-retired",
-    /retiredFixtureCatalogSearchResult/.test(catalogProviderPorts) &&
-      /model_catalog_fixture_search_retired/.test(catalogProviderPorts) &&
-      /fixture_catalog_search_js_retired/.test(catalogProviderPorts) &&
-      /rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
-      /agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
-      /model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
-      /fixtureCatalogProviderPort\(\)[\s\S]*?search:\s*async \(\) =>/.test(catalogProviderPorts) &&
+    "model-mount-fixture-catalog-search-surface-retired",
+    !/retiredFixtureCatalogSearchResult/.test(catalogProviderPorts) &&
+      !/model_catalog_fixture_search_retired/.test(catalogProviderPorts) &&
+      !/fixture_catalog_search_js_retired/.test(catalogProviderPorts) &&
+      !/rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
+      !/agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
+      !/model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
+      !/fixtureCatalogProviderPort\(\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
       !/fixtureModelCatalog/.test(catalogProviderPorts) &&
       !/catalogEntryMatches/.test(catalogProviderPorts) &&
-      /fixture catalog provider retires JS fixture search materialization/.test(
+      /fixture catalog provider exposes no JS fixture search surface/.test(
         catalogProviderPortsTest,
       ) &&
-      /model_catalog_fixture_search_retired/.test(catalogProviderPortsTest) &&
-      /fixture_catalog_search_js_retired/.test(catalogProviderPortsTest),
+      /Object\.hasOwn\(port,\s*"search"\)/.test(catalogProviderPortsTest) &&
+      !/await port\.search/.test(catalogProviderPortsTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
     ],
-    "Phase 7/11 is pending: fixture catalog search must fail closed before JS fixture entry filtering or materialization",
+    "Phase 7/11 is pending: fixture catalog provider port must not expose a JS search surface",
   );
   assertCheck(
     result,

@@ -15,7 +15,6 @@ export function fixtureCatalogProviderPort() {
     formats: ["gguf"],
     evidenceRefs,
     health: () => ({ status: "available", evidenceRefs }),
-    search: async () => retiredFixtureCatalogSearchResult(evidenceRefs),
   };
 }
 
@@ -28,10 +27,6 @@ export function localManifestCatalogProviderPort(state) {
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
     health: () => localManifestCatalogHealth(state, evidenceRefs),
-    search: async () => {
-      const health = localManifestCatalogHealth(state, evidenceRefs);
-      return retiredLocalManifestCatalogSearchResult(health, evidenceRefs);
-    },
   };
 }
 
@@ -51,24 +46,6 @@ export function ollamaCatalogProviderPort(state) {
       rustCoreBoundary: "model_mount.catalog_provider_projection",
       evidenceRefs,
     }),
-    search: async ({ query, format, quantization, searchedAt }) => {
-      void query;
-      void quantization;
-      void searchedAt;
-      void format;
-      return {
-        status: "gated",
-        baseUrlHash: null,
-        rustCoreBoundary: "model_mount.catalog_provider_search",
-        evidenceRefs: [
-          ...evidenceRefs,
-          "ollama_catalog_js_driver_bridge_retired",
-          "ollama_catalog_provider_map_readback_retired",
-          "rust_daemon_core_provider_inventory_required",
-        ],
-        results: [],
-      };
-    },
   };
 }
 
@@ -96,10 +73,6 @@ export function huggingFaceCatalogProviderPort(state) {
       liveDownloadStatus: liveModelDownloadEnabled() ? "configured" : "gated",
       evidenceRefs,
     }),
-    search: async () => {
-      const health = huggingFaceCatalogProviderPort(state).health();
-      return retiredLiveCatalogSearchResult("catalog.huggingface", health, evidenceRefs);
-    },
   };
 }
 
@@ -112,69 +85,6 @@ export function customHttpCatalogProviderPort(state) {
     formats: ["gguf", "mlx", "safetensors"],
     evidenceRefs,
     health: () => customHttpCatalogHealth(state, evidenceRefs),
-    search: async () => {
-      const health = customHttpCatalogHealth(state, evidenceRefs);
-      return retiredLiveCatalogSearchResult("catalog.custom_http", health, evidenceRefs);
-    },
-  };
-}
-
-export function retiredLiveCatalogSearchResult(providerId, health = {}, evidenceRefs = []) {
-  const status = health.status === "disabled" || health.status === "gated" || health.status === "unconfigured"
-    ? health.status
-    : "configured";
-  return {
-    ...health,
-    status,
-    code: "model_catalog_live_http_search_retired",
-    operationKind: "model_catalog.live_http_search",
-    providerId,
-    rustCoreBoundary: "model_mount.catalog_provider_search",
-    evidenceRefs: [
-      ...evidenceRefs,
-      "catalog_live_http_search_js_retired",
-      "rust_daemon_core_catalog_search_required",
-      "agentgres_catalog_projection_required",
-    ],
-    results: [],
-  };
-}
-
-export function retiredLocalManifestCatalogSearchResult(health = {}, evidenceRefs = []) {
-  const status = health.status === "disabled" || health.status === "unconfigured"
-    ? health.status
-    : "configured";
-  return {
-    ...health,
-    status,
-    code: "model_catalog_local_manifest_search_retired",
-    operationKind: "model_catalog.local_manifest_search",
-    providerId: "catalog.local_manifest",
-    rustCoreBoundary: "model_mount.catalog_provider_search",
-    evidenceRefs: [
-      ...evidenceRefs,
-      "local_manifest_catalog_search_js_retired",
-      "rust_daemon_core_catalog_search_required",
-      "agentgres_catalog_projection_required",
-    ],
-    results: [],
-  };
-}
-
-export function retiredFixtureCatalogSearchResult(evidenceRefs = []) {
-  return {
-    status: "configured",
-    code: "model_catalog_fixture_search_retired",
-    operationKind: "model_catalog.fixture_search",
-    providerId: "catalog.fixture",
-    rustCoreBoundary: "model_mount.catalog_provider_search",
-    evidenceRefs: [
-      ...evidenceRefs,
-      "fixture_catalog_search_js_retired",
-      "rust_daemon_core_catalog_search_required",
-      "agentgres_catalog_projection_required",
-    ],
-    results: [],
   };
 }
 
