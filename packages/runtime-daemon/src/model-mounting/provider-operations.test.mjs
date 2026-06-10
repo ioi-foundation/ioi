@@ -109,12 +109,6 @@ const deps = {
   assertNoPlaintextProviderSecret(body) {
     if (body.api_key || body.apiKey) throw new Error("plaintext provider secret");
   },
-  normalizeProviderAuthHeaderName(value) {
-    return String(value ?? "authorization").toLowerCase();
-  },
-  normalizeProviderAuthScheme(value) {
-    return String(value ?? "bearer").toLowerCase().replace(/[-\s]+/g, "_");
-  },
   normalizeScopes(value, fallback = []) {
     return Array.isArray(value) ? value : fallback;
   },

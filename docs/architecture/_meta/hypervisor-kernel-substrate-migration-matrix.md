@@ -261,7 +261,9 @@ Matrix compaction timing:
   route-control record and route-selection receipt builder retirement.
 - Scheduled matrix-compaction obligation from Slice 916 is now satisfied by the
   provider-registry public-provider projection helper deletion.
-- Next scheduled matrix-compaction pass: compact Slice 917 after the next
+- Scheduled matrix-compaction obligation from Slice 917 is now satisfied by the
+  provider-auth header materialization facade deletion.
+- Next scheduled matrix-compaction pass: compact Slice 918 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19480,7 +19482,42 @@ direct Rust daemon-core provider projection over Agentgres/wallet/cTEE admitted
 truth, stable protocol APIs, and command-transport retirement remain required
 before provider projection/control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 917 after the next direct
+At Slice 917 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 918 is that seam
+and satisfies the Slice 917 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 917 is now satisfied.
+
+## Implementation Slice Evidence: 918
+
+Slice 918 retired the JS provider-auth header materialization facade.
+`provider-auth.mjs` no longer exports `providerAuthHeaders()`,
+`providerAuthorizationHeaderValue()`, `assertProviderVaultBoundary()`,
+`providerHasVaultRef()`, `normalizeProviderAuthScheme()`, or
+`normalizeProviderAuthHeaderName()`, and `model-mounting.mjs` no longer imports
+those helpers. JS still rejects plaintext provider secrets, enforces canonical
+vault-ref request fields, and performs provider-kind vault-ref preflight before
+the fail-closed provider-control boundary, but it no longer resolves provider
+vault material or assembles outbound provider auth headers. That work belongs
+to direct Rust daemon-core wallet/cTEE provider auth APIs.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/provider-auth.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal provider auth/control migration: direct Rust
+daemon-core wallet/cTEE provider-auth APIs, Agentgres-backed provider truth,
+stable protocol APIs, and command-transport retirement remain required before
+provider auth/control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 918 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

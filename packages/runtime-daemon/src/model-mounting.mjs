@@ -53,10 +53,6 @@ import {
 } from "./model-mounting/provider-registry.mjs";
 import {
   assertNoPlaintextProviderSecret,
-  assertProviderVaultBoundary,
-  normalizeProviderAuthHeaderName,
-  normalizeProviderAuthScheme,
-  providerAuthHeaders,
   providerRequiresVaultSecret,
   providerSecretInput,
 } from "./model-mounting/provider-auth.mjs";

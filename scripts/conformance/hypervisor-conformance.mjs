@@ -834,6 +834,9 @@ function runDocs() {
       /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(guide) &&
       /Slice 917 deleted the canonical provider-registry public-provider projection\s+helper/.test(guide) &&
       /`provider-registry\.mjs` no longer exports `publicProvider\(\)`/.test(guide) &&
+      /Slice 918 retired the JS provider-auth header materialization facade/.test(guide) &&
+      /`provider-auth\.mjs` no longer exports `providerAuthHeaders\(\)`,\s+`providerAuthorizationHeaderValue\(\)`, `assertProviderVaultBoundary\(\)`,\s+`providerHasVaultRef\(\)`, `normalizeProviderAuthScheme\(\)`, or\s+`normalizeProviderAuthHeaderName\(\)`/.test(guide) &&
+      /it no longer\s+resolves provider vault material or assembles outbound provider auth headers/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -1262,7 +1265,11 @@ function runDocs() {
       /Slice 917 deleted the canonical provider-registry public-provider projection\s+helper/.test(matrix) &&
       /`provider-registry\.mjs` no longer exports `publicProvider\(\)`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 916 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 917/.test(matrix) &&
+      /Implementation Slice Evidence: 918/.test(matrix) &&
+      /Slice 918 retired the JS provider-auth header materialization facade/.test(matrix) &&
+      /`provider-auth\.mjs` no longer exports `providerAuthHeaders\(\)`,\s+`providerAuthorizationHeaderValue\(\)`, `assertProviderVaultBoundary\(\)`,\s+`providerHasVaultRef\(\)`, `normalizeProviderAuthScheme\(\)`, or\s+`normalizeProviderAuthHeaderName\(\)`/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 917 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 918/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1458,7 +1465,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 914 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 915 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 916 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 917/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 917 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 918/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1584,6 +1592,12 @@ function runDocs() {
         implementationMatrix,
       ) &&
       /provider read-projection input no longer calls JS `publicProvider\(\)`, `providerHasVaultRef\(\)`, or `state\.vault\.vaultRefMetadata\(\)`/.test(
+        implementationMatrix,
+      ) &&
+      /JS provider auth header materialization is also retired/.test(
+        implementationMatrix,
+      ) &&
+      /Rust daemon-core provider-control object for provider configuration, wallet\/cTEE vault authority, lifecycle control, record-state admission, projection, and outbound provider auth materialization/.test(
         implementationMatrix,
       ) &&
       /temporary transport to the Rust daemon core with no\s+independent authority or compatibility-shim behavior/.test(
@@ -1942,7 +1956,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 917 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 918 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -14183,30 +14197,30 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-provider-transport-auth-error-aliases-retired",
+    "model-mount-provider-auth-header-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs") &&
-      /provider_id:\s*provider\.id/.test(providerAuth) &&
-      /provider_kind:\s*provider\.kind/.test(providerAuth) &&
-      /vault_ref_configured:\s*false/.test(providerAuth) &&
-      /vault_ref_hash:\s*stableHash/.test(providerAuth) &&
-      /resolved_material:\s*false/.test(providerAuth) &&
-      /auth_scheme:\s*scheme/.test(providerAuth) &&
-      /auth_header_name:\s*SECRET_REDACTION/.test(providerAuth) &&
-      /auth_header_name:\s*headerName/.test(providerAuth) &&
-      !/(?:providerId:\s*provider\.id|providerKind:\s*provider\.kind|vaultRefConfigured:\s*false|vaultRefHash:\s*stableHash|resolvedMaterial:\s*false|authScheme:\s*scheme|authHeaderName:\s*(?:SECRET_REDACTION|headerName))/.test(
+      !/\b(?:providerAuthHeaders|providerAuthorizationHeaderValue|assertProviderVaultBoundary|providerHasVaultRef|normalizeProviderAuthScheme|normalizeProviderAuthHeaderName)\b/.test(
         providerAuth,
       ) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerAuthTest) &&
-      /Object\.hasOwn\(error\.details,\s*"vaultRefHash"\),\s*false/.test(providerAuthTest) &&
-      /Object\.hasOwn\(error\.details,\s*"authHeaderName"\),\s*false/.test(providerAuthTest),
+      !/\b(?:providerAuthHeaders|providerAuthorizationHeaderValue|assertProviderVaultBoundary|providerHasVaultRef|normalizeProviderAuthScheme|normalizeProviderAuthHeaderName)\b/.test(
+        providerAuthTest,
+      ) &&
+      !/\b(?:providerAuthHeaders|assertProviderVaultBoundary|normalizeProviderAuthScheme|normalizeProviderAuthHeaderName)\b/.test(
+        modelMountingState,
+      ) &&
+      !/\bstate\?\.vault\?\.resolveVaultRef\(provider\.secretRef/.test(providerAuth) &&
+      !/provider\.auth:\$\{provider\.id\}/.test(providerAuth) &&
+      !/(?:providerId:\s*provider\.id|providerKind:\s*provider\.kind|vaultRefConfigured:\s*false|vaultRefHash:\s*stableHash|resolvedMaterial:\s*false|authScheme:\s*scheme|authHeaderName:\s*(?:SECRET_REDACTION|headerName))/.test(
+        providerAuth,
+      ),
     [
       "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-auth.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs",
     ],
-    "Phase 5/11 is pending: provider transport and auth fail-closed errors must use canonical snake_case metadata without duplicate camelCase aliases",
+    "Phase 5/11 is pending: JS provider auth header materialization and vault-material resolution facades must be absent",
   );
   assertCheck(
     result,
