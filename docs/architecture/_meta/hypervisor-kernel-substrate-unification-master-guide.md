@@ -287,6 +287,12 @@ Slice 926 extends the fixed-argv rule to coding-tool approval, approval-state,
 context-policy/state-update, runtime Agentgres admission, and workspace-restore
 daemon-core runners. The remaining command-transport shape is still migration
 scaffolding, not the target Rust daemon-core API.
+Slice 927 extends the fixed-argv rule to the model_mount admission runner. The
+JS edge can no longer use `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS` or constructor
+`args` to shape daemon-core argv for model_mount admission, provider execution,
+receipt binding, or projection planning. This still leaves command transport as
+temporary migration scaffolding; the terminal target remains direct Rust
+daemon-core protocol/API ownership with no JS-authoritative model_mount hot path.
 
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement

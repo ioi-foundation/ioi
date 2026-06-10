@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 
 export const MODEL_MOUNT_ADMISSION_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_MODEL_MOUNT_ADMISSION_BACKEND = "rust_model_mount_live";
 export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
@@ -16,18 +15,29 @@ export const RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND = "rust_model_mount
 export const RUST_MODEL_MOUNT_NATIVE_LOCAL_LIFECYCLE_BACKEND = "rust_model_mount_native_local_lifecycle";
 
 export function createModelMountAdmissionRunnerFromEnv(env = process.env, options = {}) {
+  assertNoModelMountAdmissionCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustModelMountAdmissionRunner({
     command: options.command ?? env[MODEL_MOUNT_ADMISSION_COMMAND_ENV] ?? null,
-    args: options.args ?? parseCommandArgs(env[MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoModelMountAdmissionCommandArgs(value) {
+  if (value == null) return;
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  throw new ModelMountAdmissionRunnerError(
+    "Model-mount admission command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "model_mount_admission_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustModelMountAdmissionRunner {
   constructor(options = {}) {
+    assertNoModelMountAdmissionCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -203,11 +213,10 @@ export class RustModelMountAdmissionRunner {
         "model_mount_admission_bridge_unconfigured",
         {
           env: MODEL_MOUNT_ADMISSION_COMMAND_ENV,
-          argsEnv: MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -503,20 +512,6 @@ function normalizeInvocationReceiptBindingBridgeResult(value = {}) {
     receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : [],
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function normalizeReadProjectionBridgeResult(value = {}) {

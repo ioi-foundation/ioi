@@ -8321,6 +8321,14 @@ function runBridge() {
       /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(modelMountAdmissionRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(modelMountAdmissionRunner) &&
+      !/MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV/.test(modelMountAdmissionRunner) &&
+      !/parseCommandArgs/.test(modelMountAdmissionRunner) &&
+      !/normalizeArgs/.test(modelMountAdmissionRunner) &&
+      !/this\.args/.test(modelMountAdmissionRunner) &&
+      !/argsEnv/.test(modelMountAdmissionRunner) &&
+      /assertNoModelMountAdmissionCommandArgs/.test(modelMountAdmissionRunner) &&
+      /model_mount_admission_command_args_retired/.test(modelMountAdmissionRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(modelMountAdmissionRunner) &&
       !/IOI_MODEL_MOUNT_ADMISSION_COMMAND/.test(modelMountAdmissionRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(modelMountAdmissionRunner) &&
       !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
@@ -8328,6 +8336,13 @@ function runBridge() {
       /Rust model_mount admission runner env uses daemon-core command boundary/.test(
         modelMountAdmissionRunnerTest,
       ) &&
+      /Rust model_mount admission runner command args env fails closed/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /Rust model_mount admission runner command args constructor option fails closed/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(modelMountAdmissionRunnerTest) &&
       !/IOI_ENABLE_INTERNAL_FIXTURE_MODELS/.test(modelMountAdmissionRunner) &&
       !/mockFixtureResponse/.test(modelMountAdmissionRunner) &&
       !/isFixtureRequest/.test(modelMountAdmissionRunner) &&

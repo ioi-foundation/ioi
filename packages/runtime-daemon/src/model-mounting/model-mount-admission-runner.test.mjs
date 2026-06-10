@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV,
   MODEL_MOUNT_ADMISSION_COMMAND_ENV,
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
@@ -272,6 +271,7 @@ test("Rust model_mount admission runner sends route-decision bridge request", ()
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-model-mount-bridge");
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_model_mount_route_decision");
   assert.equal(calls[0].request.backend, "rust_model_mount_live");
@@ -1039,7 +1039,6 @@ test("Rust model_mount admission runner sends read projection plan request", () 
 test("Rust model_mount admission runner env uses daemon-core command boundary", () => {
   const runner = createModelMountAdmissionRunnerFromEnv({
     [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [MODEL_MOUNT_ADMISSION_COMMAND_ARGS_ENV]: "--json",
     IOI_MODEL_MOUNT_ADMISSION_COMMAND: "retired-model-mount-bridge",
     IOI_MODEL_MOUNT_ADMISSION_COMMAND_ARGS: "--retired-model-mount",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -1047,7 +1046,32 @@ test("Rust model_mount admission runner env uses daemon-core command boundary", 
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("Rust model_mount admission runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createModelMountAdmissionRunnerFromEnv({
+        [MODEL_MOUNT_ADMISSION_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof ModelMountAdmissionRunnerError &&
+      error.code === "model_mount_admission_command_args_retired",
+  );
+});
+
+test("Rust model_mount admission runner command args constructor option fails closed", () => {
+  assert.throws(
+    () =>
+      new RustModelMountAdmissionRunner({
+        command: "ioi-runtime-daemon-core",
+        args: ["--json"],
+      }),
+    (error) =>
+      error instanceof ModelMountAdmissionRunnerError &&
+      error.code === "model_mount_admission_command_args_retired",
+  );
 });
 
 test("Rust model_mount admission runner fails closed without command", () => {
