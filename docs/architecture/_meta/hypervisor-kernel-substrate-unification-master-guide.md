@@ -1297,12 +1297,13 @@ Slice 825 retired the default LM Studio public-discovery projection fallback.
 Default seeding no longer runs the LM Studio public CLI to infer provider
 status, no longer runs `lms ls` to mint artifact records, no longer creates the
 legacy `lmstudio.detected` artifact fallback, and no longer prunes
-LM Studio artifact/endpoint/instance projection maps from JS. `discoverLmStudioProvider()`
-now only records inert absent/configured provider metadata with
-`lm_studio_public_discovery_retired` evidence, `discoverLmStudioArtifacts()`
-returns an empty list before public-CLI execution, and
-`pruneLmStudioPublicProjectionRecords()` returns a retired Rust-required
-projection result without touching maps. This still does not claim terminal
+LM Studio artifact/endpoint/instance projection maps from JS. Slice 897 then
+deleted the retired `discoverLmStudioProvider()`, `discoverLmStudioArtifacts()`,
+and `pruneLmStudioPublicProjectionRecords()` helpers, removed the mounted
+`ModelMountingState` pass-through methods, removed the dead LM Studio list and
+process parsers plus artifact projection helper from local-system probes, and
+removed the unused `lmStudioPublicCliEnabled()` environment toggle. This still
+does not claim terminal
 provider inventory/projection migration: direct Rust daemon-core provider
 inventory, lifecycle, Agentgres-backed projection reads, and command-transport
 retirement remain required.
@@ -2167,6 +2168,16 @@ authority dependencies supplied at the mounted boundary. Terminal provider
 control/projection migration still requires direct Rust daemon-core provider
 configuration, wallet/cTEE custody projection, Agentgres-backed replay, stable
 protocol APIs, and command-transport retirement.
+
+Slice 897 deleted the retired LM Studio public-discovery helper tail. The
+default-discovery module no longer exports `discoverLmStudioProvider()`,
+`discoverLmStudioArtifacts()`, or `pruneLmStudioPublicProjectionRecords()`;
+mounted model_mount no longer exposes matching pass-through methods; default
+seeding no longer calls the retired prune no-op; and local-system probes no
+longer retain the dead LM Studio list parser, process parser, artifact projector,
+or public-CLI environment toggle. Terminal provider inventory/projection
+migration still requires direct Rust daemon-core inventory/projection APIs over
+Agentgres-admitted provider and model topology truth.
 
 ## Part II: Target Execution Model
 

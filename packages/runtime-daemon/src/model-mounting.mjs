@@ -97,14 +97,7 @@ import {
   estimateNativeLocalResources,
   findExecutable,
   hardwareSnapshot,
-  inspectLocalArtifact,
-  listFiles,
-  lmStudioArtifact,
-  parseLmStudioList,
-  parseLmStudioProcessList,
   parseLocalModelMetadata,
-  readLines,
-  runPublicCommand,
 } from "./model-mounting/local-system-probes.mjs";
 import {
   defaultBackendForProvider,
@@ -171,7 +164,6 @@ import {
 } from "./model-mounting/catalog-registry.mjs";
 import {
   internalFixtureModelsEnabled,
-  lmStudioPublicCliEnabled,
 } from "./model-mounting/environment.mjs";
 import {
   backendRegistryRecords,
@@ -184,11 +176,8 @@ import {
   runtimeProviderRecords,
 } from "./model-mounting/default-records.mjs";
 import {
-  discoverLmStudioArtifacts as discoverLmStudioArtifactsState,
-  discoverLmStudioProvider as discoverLmStudioProviderState,
   ensureNativeLocalFixtureArtifact as ensureNativeLocalFixtureArtifactState,
   pruneInternalFixtureProjectionRecords as pruneInternalFixtureProjectionRecordsState,
-  pruneLmStudioPublicProjectionRecords as pruneLmStudioPublicProjectionRecordsState,
 } from "./model-mounting/default-discovery.mjs";
 import { seedModelMountingDefaults } from "./model-mounting/state-seeding.mjs";
 import {
@@ -587,29 +576,6 @@ export class ModelMountingState {
     if (!map.has(record.id)) {
       map.set(record.id, record);
     }
-  }
-
-  discoverLmStudioProvider(checkedAt) {
-    return discoverLmStudioProviderState(this, checkedAt, {
-      env: process.env,
-      isExecutable,
-      lmStudioPublicCliEnabled,
-      runPublicCommand,
-      truncate,
-    });
-  }
-
-  discoverLmStudioArtifacts(provider, checkedAt) {
-    return discoverLmStudioArtifactsState(this, provider, checkedAt, {
-      lmStudioArtifact,
-      lmStudioPublicCliEnabled,
-      parseLmStudioList,
-      runPublicCommand,
-    });
-  }
-
-  pruneLmStudioPublicProjectionRecords() {
-    return pruneLmStudioPublicProjectionRecordsState(this);
   }
 
   pruneInternalFixtureProjectionRecords() {

@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 896 after the next
+- Next scheduled matrix-compaction pass: compact Slice 897 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -16846,15 +16846,11 @@ Scheduled matrix-compaction obligation from Slice 824 is now satisfied.
 
 Slice 825 retired the default LM Studio public-discovery projection fallback.
 `discoverLmStudioProvider()` no longer runs the public `lms` CLI to infer
-runtime status; it records inert absent/configured provider metadata with
-`lm_studio_public_discovery_retired` evidence until Rust provider inventory owns
-probing. `discoverLmStudioArtifacts()` now returns an empty list before `lms ls`
-or `parseLmStudioList()` can mint artifact records. The legacy
-`lmstudio.detected` fallback artifact helper is removed, and
+runtime status, `discoverLmStudioArtifacts()` no longer mints artifact records,
+the legacy `lmstudio.detected` fallback artifact helper is removed, and
 `seedModelMountingDefaults()` no longer discovers or inserts LM Studio
-artifact truth from JS. `pruneLmStudioPublicProjectionRecords()` now returns a
-Rust-required retired projection result instead of deleting artifact, endpoint,
-or instance map entries.
+artifact truth from JS. Slice 897 followed through by deleting the retired
+default-discovery exports instead of preserving inert metadata helpers.
 
 Focused evidence:
 
@@ -18826,7 +18822,36 @@ command-transport retirement, and retirement of remaining provider state
 materialization remain required before provider control reaches the pure Rust
 substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 896 after the next direct
+Scheduled matrix-compaction obligation from Slice 896 is now satisfied.
+
+## Implementation Slice Evidence: 897
+
+Slice 897 deleted the retired LM Studio public-discovery helper tail rather
+than preserving inert JS compatibility exports. `default-discovery.mjs` no
+longer exports `discoverLmStudioProvider()`, `discoverLmStudioArtifacts()`, or
+`pruneLmStudioPublicProjectionRecords()`. Mounted model_mount no longer exposes
+matching pass-through methods, `seedModelMountingDefaults()` no longer calls the
+retired prune no-op, local-system probes no longer retain LM Studio public-CLI
+list/process parsers or artifact projection helpers, and
+`lmStudioPublicCliEnabled()` is no longer exposed as a live model_mount
+environment toggle.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/default-discovery.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.mjs packages/runtime-daemon/src/model-mounting/state-seeding.mjs packages/runtime-daemon/src/model-mounting/environment.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs packages/runtime-daemon/src/model-mounting/local-system-probes.test.mjs packages/runtime-daemon/src/model-mounting/default-records.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider inventory/projection migration:
+direct Rust daemon-core provider inventory/projection APIs, Agentgres-backed
+provider and model topology reads, stable protocol APIs, command-transport
+retirement, and retirement of remaining provider state materialization remain
+required before provider inventory reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 897 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

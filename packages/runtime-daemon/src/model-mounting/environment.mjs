@@ -1,9 +1,5 @@
 import { truthy } from "./io.mjs";
 
-export function lmStudioPublicCliEnabled(env = process.env) {
-  return truthy(env.IOI_ENABLE_LM_STUDIO_PUBLIC_CLI) || truthy(env.IOI_ENABLE_LM_STUDIO_REFERENCE_PROVIDER);
-}
-
 export function exposeInternalFixtureModels(env = process.env) {
   return truthy(env.IOI_EXPOSE_INTERNAL_FIXTURE_MODELS);
 }

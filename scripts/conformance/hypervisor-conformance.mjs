@@ -750,6 +750,8 @@ function runDocs() {
       /`provider-registry-bindings\.mjs` and `provider-registry-bindings\.test\.mjs` are\s+absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-registry-bindings.test.mjs") &&
+      /Slice 897 deleted the retired LM Studio public-discovery helper tail/.test(guide) &&
+      /default-discovery module no longer exports `discoverLmStudioProvider\(\)`,\s+`discoverLmStudioArtifacts\(\)`, or `pruneLmStudioPublicProjectionRecords\(\)`/.test(guide) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -901,7 +903,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 824 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 825/.test(matrix) &&
       /Slice 825 retired the default LM Studio public-discovery projection fallback/.test(matrix) &&
-      /`discoverLmStudioArtifacts\(\)` now returns an empty list before `lms ls`/.test(matrix) &&
+      /Slice 897 followed through by deleting the retired\s+default-discovery exports/.test(matrix) &&
       /`lmstudio\.detected` fallback artifact helper is removed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 825 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 826/.test(matrix) &&
@@ -1085,7 +1087,11 @@ function runDocs() {
       /Implementation Slice Evidence: 896/.test(matrix) &&
       /Slice 896 deleted the provider-registry dependency-injection binding wrapper/.test(matrix) &&
       /`provider-registry-bindings\.mjs` and `provider-registry-bindings\.test\.mjs` are\s+absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 896/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 896 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 897/.test(matrix) &&
+      /Slice 897 deleted the retired LM Studio public-discovery helper tail/.test(matrix) &&
+      /`default-discovery\.mjs` no\s+longer exports `discoverLmStudioProvider\(\)`, `discoverLmStudioArtifacts\(\)`, or\s+`pruneLmStudioPublicProjectionRecords\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 897/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1260,7 +1266,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 893 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 894 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 895 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 896/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 896 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 897/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1302,6 +1309,7 @@ function runDocs() {
       /the Ollama catalog-provider port no longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(implementationMatrix) &&
       /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
+      /the retired LM Studio default-discovery exports, mounted pass-through methods, local-system public-CLI parsers\/artifact projector, and `lmStudioPublicCliEnabled\(\)` toggle are deleted/.test(implementationMatrix) &&
       /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
       /the leftover `backend-processes\.mjs` lookup\/snapshot helper module and test are deleted/.test(implementationMatrix) &&
       /mounted `ModelMountingState` now owns missing-backend lookup metadata plus backend-process snapshot normalization directly/.test(implementationMatrix) &&
@@ -1738,7 +1746,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 896 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 897 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -14198,29 +14206,30 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-lm-studio-default-discovery-retired",
-    /lm_studio_public_discovery_retired/.test(defaultDiscovery) &&
-      /rustCoreBoundary:\s*"model_mount\.provider_inventory"/.test(defaultDiscovery) &&
-      /rust_core_boundary:\s*"model_mount\.provider_inventory_projection"/.test(defaultDiscovery) &&
-      /discoverLmStudioArtifacts\([^)]*\)\s*\{[\s\S]*?return \[\];[\s\S]*?\n\}/.test(defaultDiscovery) &&
+    !/discoverLmStudioProvider/.test(defaultDiscovery) &&
+      !/discoverLmStudioArtifacts/.test(defaultDiscovery) &&
+      !/pruneLmStudioPublicProjectionRecords/.test(defaultDiscovery) &&
+      !/discoverLmStudioProvider/.test(modelMountingRoot) &&
+      !/discoverLmStudioArtifacts/.test(modelMountingRoot) &&
+      !/pruneLmStudioPublicProjectionRecords/.test(modelMountingRoot) &&
       !/runPublicCommand\(lmsPath/.test(defaultDiscovery) &&
+      !/parseLmStudioList/.test(localSystemProbes) &&
+      !/parseLmStudioProcessList/.test(localSystemProbes) &&
+      !/lmStudioArtifact/.test(localSystemProbes) &&
+      !/lmStudioPublicCliEnabled/.test(modelMountingEnvironment) &&
       !/parseLmStudioList\(result\.stdout\)/.test(defaultDiscovery) &&
       !/executableCandidates|foundExecutables|serverStatus/.test(defaultDiscovery) &&
-      !/state\.(?:artifacts|endpoints|instances)\.delete/.test(
-        defaultDiscovery.match(/export function pruneLmStudioPublicProjectionRecords[\s\S]*?(?=\n\nexport function pruneInternalFixtureProjectionRecords)/)?.[0] ?? "",
-      ) &&
       !/lmStudioDetectedArtifactRecord/.test(defaultRecords) &&
       !/lmStudioDetectedArtifactRecord/.test(defaultRecordsTest) &&
       !/lmStudioDetectedArtifactRecord/.test(stateSeeding) &&
       !/discoverLmStudioProvider\(checkedAt\)/.test(stateSeeding) &&
       !/discoverLmStudioArtifacts\(lmStudioProvider/.test(stateSeeding) &&
+      !/pruneLmStudioPublicProjectionRecords/.test(stateSeeding) &&
       !/state\.providers\.set\(lmStudioProvider\.id/.test(stateSeeding) &&
       !/state\.providers\.get\(lmStudioProvider\.id\)/.test(stateSeeding) &&
-      /LM Studio provider discovery is inert until Rust provider inventory owns probing/.test(defaultDiscoveryTest) &&
-      /LM Studio artifact discovery is retired before public CLI list execution/.test(defaultDiscoveryTest) &&
-      /LM Studio public projection pruning is retired before JS map mutation/.test(defaultDiscoveryTest) &&
-      /JS LM Studio provider discovery must stay retired during default seeding/.test(stateSeedingTest) &&
+      /LM Studio default discovery helpers are deleted instead of inert compatibility exports/.test(defaultDiscoveryTest) &&
       /state seeding prunes disabled fixtures without JS LM Studio artifact fallback/.test(stateSeedingTest) &&
-      /state seeding ignores JS-discovered LM Studio artifacts/.test(stateSeedingTest),
+      /state seeding has no JS LM Studio discovery or projection-prune hooks/.test(stateSeedingTest),
     [
       "packages/runtime-daemon/src/model-mounting/default-discovery.mjs",
       "packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs",

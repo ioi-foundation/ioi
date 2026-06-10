@@ -11,7 +11,6 @@ import {
   fileSha256,
   isExecutable,
   notFound,
-  safeId,
   stableHash,
 } from "./io.mjs";
 
@@ -38,68 +37,6 @@ export function runPublicCommand(command, args, options = {}) {
       error: String(error?.message ?? error),
     };
   }
-}
-
-export function parseLmStudioList(text) {
-  const models = [];
-  let section = null;
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    if (/^LLM\s+/i.test(line)) {
-      section = "llm";
-      continue;
-    }
-    if (/^EMBEDDING\s+/i.test(line)) {
-      section = "embedding";
-      continue;
-    }
-    if (!section || /^You have /i.test(line) || /^PARAMS\s+/i.test(line)) continue;
-    const columns = line.split(/\s{2,}/).map((item) => item.trim()).filter(Boolean);
-    if (columns.length < 2) continue;
-    const displayName = columns[0];
-    const modelId = displayName.replace(/\s+\(\d+\s+variants?\)$/i, "");
-    models.push({
-      kind: section,
-      modelId,
-      displayName,
-      params: columns[1] ?? null,
-      arch: columns[2] ?? null,
-      size: columns[3] ?? null,
-    });
-  }
-  return models;
-}
-
-export function parseLmStudioProcessList(text) {
-  const models = [];
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || /^MODEL\b/i.test(line) || /^No loaded/i.test(line)) continue;
-    const columns = line.split(/\s{2,}|\t+/).map((item) => item.trim()).filter(Boolean);
-    const modelId = columns[0] ?? line.split(/\s+/)[0];
-    if (!modelId || /^(pid|port|identifier)$/i.test(modelId)) continue;
-    models.push({ modelId, raw: line });
-  }
-  return models;
-}
-
-export function lmStudioArtifact(provider, model, checkedAt) {
-  return {
-    id: `lmstudio.${safeId(model.modelId)}`,
-    providerId: provider.id,
-    modelId: model.modelId,
-    displayName: model.displayName,
-    family: model.kind === "embedding" ? "embedding" : "lm-studio",
-    quantization: model.arch,
-    sizeBytes: null,
-    contextWindow: null,
-    capabilities: model.kind === "embedding" ? ["embeddings"] : ["chat", "responses"],
-    privacyClass: "local_private",
-    source: "lm_studio_public_lms_ls",
-    state: provider.status === "running" ? "available" : "installed",
-    discoveredAt: checkedAt,
-  };
 }
 
 export function inspectLocalArtifact(sourcePath) {

@@ -41,66 +41,6 @@ export function ensureNativeLocalFixtureArtifact(state, checkedAt, deps = {}) {
   };
 }
 
-export function discoverLmStudioProvider(state, checkedAt, deps = {}) {
-  const {
-    env = process.env,
-  } = deps;
-  if (!env.LM_STUDIO_BASE_URL && !env.LM_STUDIO_URL) {
-    return {
-      id: "provider.lmstudio",
-      kind: "lm_studio",
-      label: "LM Studio",
-      apiFormat: "openai_compatible",
-      driver: "lm_studio",
-      baseUrl: "http://127.0.0.1:1234/v1",
-      status: "absent",
-      privacyClass: "local_private",
-      capabilities: ["chat", "responses", "embeddings"],
-      discovery: {
-        checkedAt,
-        evidenceRefs: ["lm_studio_public_discovery_retired"],
-        publicCli: null,
-        disabledByDefault: true,
-        rustCoreBoundary: "model_mount.provider_inventory",
-      },
-    };
-  }
-  const baseUrl = env.LM_STUDIO_BASE_URL ?? env.LM_STUDIO_URL ?? "http://127.0.0.1:1234/v1";
-  return {
-    id: "provider.lmstudio",
-    kind: "lm_studio",
-    label: "LM Studio",
-    apiFormat: "openai_compatible",
-    driver: "lm_studio",
-    baseUrl,
-    status: "configured",
-    privacyClass: "local_private",
-    capabilities: ["chat", "responses", "embeddings"],
-    discovery: {
-      checkedAt,
-      evidenceRefs: ["lm_studio_base_url_configured", "lm_studio_public_discovery_retired"],
-      publicCli: null,
-      rustCoreBoundary: "model_mount.provider_inventory",
-    },
-  };
-}
-
-export function discoverLmStudioArtifacts(_state, provider, checkedAt, deps = {}) {
-  return [];
-}
-
-export function pruneLmStudioPublicProjectionRecords(state) {
-  return {
-    status: "retired",
-    rust_core_boundary: "model_mount.provider_inventory_projection",
-    evidence_refs: [
-      "lm_studio_public_projection_prune_retired",
-      "rust_daemon_core_provider_inventory_required",
-      "agentgres_provider_inventory_projection_required",
-    ],
-  };
-}
-
 export function pruneInternalFixtureProjectionRecords(state, deps = {}) {
   const { isFixtureEndpointCandidate, isFixtureModelRecord } = deps;
   const removedEndpointIds = new Set();

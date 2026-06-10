@@ -22,7 +22,6 @@ export function seedModelMountingDefaults(state, deps = {}) {
   const nativeLocalProvider = nativeLocalProviderRecord(checkedAt);
   state.upsertDefault(state.providers, nativeLocalProvider);
 
-  state.pruneLmStudioPublicProjectionRecords();
   if (!internalFixtureModelsEnabled()) {
     state.pruneInternalFixtureProjectionRecords();
   }
