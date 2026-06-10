@@ -2095,6 +2095,18 @@ Terminal provider migration still requires direct Rust daemon-core provider
 transports, lifecycle, inventory, projection, Agentgres-backed replay, stable
 protocol APIs, and command-transport retirement.
 
+Slice 891 retired provider driver-kind inference from the JS model_mount
+facade. The JS helper layer no longer exports a kind-to-driver mapper or
+driver-name fallback helper, provider invocation requests carry only explicit
+provider or endpoint `driver` fields, and hosted/non-migrated provider failure
+details report `provider_driver: null` when no explicit driver was admitted.
+This prevents deleted hosted driver modules from being reintroduced as implicit
+compatibility semantics and keeps provider execution/control pointed at direct
+Rust daemon-core model_mount/provider APIs. Terminal provider migration still
+requires direct Rust daemon-core provider transports, lifecycle, inventory,
+projection, Agentgres-backed replay, stable protocol APIs, and
+command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -3,22 +3,6 @@ import {
   stableStringify,
 } from "./io.mjs";
 
-export function driverForProviderKind(kind) {
-  if (kind === "ioi_native_local") return "native_local";
-  if (kind === "lm_studio") return "lm_studio";
-  if (kind === "llama_cpp") return "llama_cpp";
-  if (kind === "ollama") return "ollama";
-  if (kind === "vllm") return "vllm";
-  if (["openai_compatible", "custom_http", "openai", "anthropic", "gemini"].includes(kind)) {
-    return "openai_compatible";
-  }
-  return "fixture";
-}
-
-export function driverNameForProvider(provider) {
-  return provider.driver ?? driverForProviderKind(provider.kind);
-}
-
 export function defaultBackendForProvider(provider) {
   if (provider.kind === "ioi_native_local") return "backend.autopilot.native-local.fixture";
   if (provider.kind === "lm_studio") return "backend.lmstudio";

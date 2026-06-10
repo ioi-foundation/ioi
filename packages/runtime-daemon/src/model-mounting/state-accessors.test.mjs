@@ -95,9 +95,6 @@ const deps = {
     error.details = details;
     return error;
   },
-  driverNameForProvider(providerRecord) {
-    return providerRecord.driver ?? "openai_compatible";
-  },
   normalizeScopes(scopes, fallback) {
     return scopes ?? fallback;
   },

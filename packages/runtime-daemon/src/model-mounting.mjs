@@ -106,8 +106,6 @@ import {
 } from "./model-mounting/local-system-probes.mjs";
 import {
   defaultBackendForProvider,
-  driverForProviderKind,
-  driverNameForProvider,
 } from "./model-mounting/provider-driver-helpers.mjs";
 import * as serverControl from "./model-mounting/server-control.mjs";
 import {
@@ -794,7 +792,6 @@ export class ModelMountingState {
 
   modelForProviderMount(modelId, provider, body = {}, now = this.nowIso()) {
     return modelForProviderMountState(this, modelId, provider, body, now, {
-      driverNameForProvider,
       normalizeScopes,
       safeId,
     });

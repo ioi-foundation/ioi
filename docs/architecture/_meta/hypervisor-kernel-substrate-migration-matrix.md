@@ -250,7 +250,10 @@ Matrix compaction timing:
   resume-goal obligation once that seam identifies which rows can be collapsed
   without obscuring remaining terminal blockers or encoding the command bridge as
   terminal shape.
-- Next scheduled matrix-compaction pass: compact Slice 805 after the next
+- Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
+  provider-driver deletion and driver-inference retirement lane, while the
+  command bridge remains explicitly non-terminal migration transport.
+- Next scheduled matrix-compaction pass: compact Slice 891 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18652,7 +18655,34 @@ stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
 protocol surfaces remain required before provider execution reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 890 after the next direct
+Scheduled matrix-compaction obligation from Slice 890 is now satisfied.
+
+## Implementation Slice Evidence: 891
+
+Slice 891 retired provider driver-kind inference from the JS model_mount
+facade. The helper layer no longer exports a kind-to-driver mapper or
+driver-name fallback helper, provider invocation requests carry only explicit
+provider or endpoint `driver` fields, and hosted/non-migrated provider failure
+details report `provider_driver: null` when no explicit driver was admitted.
+This keeps deleted hosted/nonlocal driver modules from returning as implicit
+compatibility semantics.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/provider-driver-helpers.mjs packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-driver-helpers.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
+stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
+protocol surfaces remain required before provider execution reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 891 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

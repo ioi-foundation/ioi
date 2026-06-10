@@ -1040,13 +1040,14 @@ test("modelMountProviderInvocationRequestForExecution binds fixture execution to
           provider_execution_hash: admission.provider_execution_hash,
         },
         selection: selection({
-          endpoint: { api_format: "openai", driver: "openai_compatible" },
-          provider: { id: "provider.openai", kind: "openai", driver: "openai_compatible" },
+          endpoint: { api_format: "openai" },
+          provider: { id: "provider.openai", kind: "openai" },
         }),
       }),
     (error) =>
       error.code === "model_mount_provider_invocation_rust_backend_required" &&
       error.details.provider_kind === "openai" &&
+      error.details.provider_driver === null &&
       error.details.stream === false,
   );
 });

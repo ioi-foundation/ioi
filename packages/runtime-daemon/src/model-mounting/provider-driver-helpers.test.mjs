@@ -3,8 +3,6 @@ import assert from "node:assert/strict";
 
 import {
   defaultBackendForProvider,
-  driverForProviderKind,
-  driverNameForProvider,
   firstFiniteNumber,
   modelInvocationCoalesceKey,
   modelInvocationIsLowVariance,
@@ -12,16 +10,7 @@ import {
   supportsResponseState,
 } from "./provider-driver-helpers.mjs";
 
-test("provider kind helpers map product providers to drivers and backends", () => {
-  assert.equal(driverForProviderKind("ioi_native_local"), "native_local");
-  assert.equal(driverForProviderKind("lm_studio"), "lm_studio");
-  assert.equal(driverForProviderKind("openai"), "openai_compatible");
-  assert.equal(driverForProviderKind("custom_http"), "openai_compatible");
-  assert.equal(driverForProviderKind("unknown"), "fixture");
-
-  assert.equal(driverNameForProvider({ kind: "openai", driver: "fixture" }), "fixture");
-  assert.equal(driverNameForProvider({ kind: "anthropic" }), "openai_compatible");
-
+test("provider backend helper maps product providers to Rust backend ids", () => {
   assert.equal(defaultBackendForProvider({ kind: "ioi_native_local" }), "backend.autopilot.native-local.fixture");
   assert.equal(defaultBackendForProvider({ kind: "llama_cpp" }), "backend.llama-cpp");
   assert.equal(defaultBackendForProvider({ kind: "gemini" }), "backend.openai-compatible");

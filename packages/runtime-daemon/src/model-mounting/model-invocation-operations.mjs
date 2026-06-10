@@ -1,9 +1,6 @@
 import {
   estimateTokens,
 } from "./provider-protocol.mjs";
-import {
-  driverNameForProvider,
-} from "./provider-driver-helpers.mjs";
 import { stableHash } from "./io.mjs";
 import {
   createModelMountStepModuleProjection,
@@ -270,7 +267,7 @@ export function modelMountProviderInvocationRequestForExecution({
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
     execution_backend: modelMountProviderInvocationExecutionBackend(selection),
     api_format: optionalRef(endpoint.api_format ?? provider.api_format),
-    driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
+    driver: explicitProviderDriver(selection),
     backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
     stream_status: optionalRef(record.stream_status),
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
@@ -316,7 +313,7 @@ export function modelMountProviderStreamInvocationRequestForExecution({
     request_hash: requiredStringRef("providerExecution.request_hash", record.request_hash),
     execution_backend: modelMountProviderStreamInvocationExecutionBackend(selection),
     api_format: optionalRef(endpoint.api_format ?? provider.api_format),
-    driver: optionalRef(endpoint.driver ?? provider.driver ?? driverNameForProvider(provider)),
+    driver: explicitProviderDriver(selection),
     backend_ref: optionalRef(instance.backend_id ?? endpoint.backend_id),
     stream_status: optionalRef(record.stream_status) ?? "started",
     receipt_refs: modelMountProviderExecutionAdmission.receipt_refs ?? record.receipt_refs ?? [],
@@ -577,21 +574,21 @@ function modelMountProviderStreamInvocationExecutionBackend(selection = {}) {
 function fixtureProviderInvocationSelected(selection = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
-  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const driver = explicitProviderDriver(selection);
   return provider.kind === "local_folder" || driver === "fixture" || endpoint.api_format === "ioi_fixture";
 }
 
 function nativeLocalProviderInvocationSelected(selection = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
-  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const driver = explicitProviderDriver(selection);
   return provider.kind === "ioi_native_local" || driver === "native_local" || endpoint.api_format === "ioi_native";
 }
 
 function unsupportedProviderInvocationRustBackend(selection = {}, { stream = false } = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
-  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const driver = explicitProviderDriver(selection);
   const error = new Error("Provider invocation requires a Rust model_mount execution backend.");
   error.status = 501;
   error.code = "model_mount_provider_invocation_rust_backend_required";
@@ -613,7 +610,7 @@ function unsupportedProviderInvocationRustBackend(selection = {}, { stream = fal
 function providerResultRustBackendMismatch(selection = {}, { actual, expected, stream = false } = {}) {
   const provider = selection.provider ?? {};
   const endpoint = selection.endpoint ?? {};
-  const driver = endpoint.driver ?? provider.driver ?? driverNameForProvider(provider);
+  const driver = explicitProviderDriver(selection);
   const error = new Error("Provider result admission requires a Rust-owned provider invocation backend.");
   error.status = 501;
   error.code = "model_mount_provider_result_rust_backend_required";
@@ -632,6 +629,12 @@ function providerResultRustBackendMismatch(selection = {}, { actual, expected, s
     ],
   };
   return error;
+}
+
+function explicitProviderDriver(selection = {}) {
+  const provider = selection.provider ?? {};
+  const endpoint = selection.endpoint ?? {};
+  return optionalRef(endpoint.driver ?? provider.driver);
 }
 
 function expectedProviderResultExecutionBackend(selection = {}, { stream = false } = {}) {

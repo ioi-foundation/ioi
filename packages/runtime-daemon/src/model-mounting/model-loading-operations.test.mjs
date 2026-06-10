@@ -169,9 +169,6 @@ const deps = {
   defaultBackendForProvider(provider) {
     return provider.kind === "ioi_native_local" ? "backend.native" : "backend.remote";
   },
-  driverNameForProvider(provider) {
-    return provider.driver ?? "fixture";
-  },
   estimateNativeLocalResources(artifact) {
     return {
       contextWindow: artifact.contextWindow ?? 2048,

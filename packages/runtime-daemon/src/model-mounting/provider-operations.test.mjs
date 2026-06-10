@@ -109,9 +109,6 @@ const deps = {
   assertNoPlaintextProviderSecret(body) {
     if (body.api_key || body.apiKey) throw new Error("plaintext provider secret");
   },
-  driverForProviderKind(kind) {
-    return `driver.${kind}`;
-  },
   normalizeProviderAuthHeaderName(value) {
     return String(value ?? "authorization").toLowerCase();
   },
