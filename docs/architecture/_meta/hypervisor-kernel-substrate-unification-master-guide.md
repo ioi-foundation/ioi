@@ -2083,6 +2083,18 @@ requires direct Rust daemon-core provider transports, lifecycle, inventory,
 projection, Agentgres-backed replay, stable protocol APIs, and
 command-transport retirement.
 
+Slice 890 deleted the remaining hosted/nonlocal JS provider-driver modules.
+`provider-openai-compatible-driver.mjs`, `provider-openai-backend-drivers.mjs`,
+`provider-ollama-driver.mjs`, and `provider-lm-studio-driver.mjs` are absent
+along with their focused tests, rather than preserved as fail-closed
+compatibility surfaces. The mounted provider-driver factory already fails
+closed before driver allocation, and hosted/nonlocal provider execution,
+inventory, lifecycle, and stream/invoke behavior must now re-enter only through
+direct Rust daemon-core model_mount/provider APIs when those APIs are verified.
+Terminal provider migration still requires direct Rust daemon-core provider
+transports, lifecycle, inventory, projection, Agentgres-backed replay, stable
+protocol APIs, and command-transport retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

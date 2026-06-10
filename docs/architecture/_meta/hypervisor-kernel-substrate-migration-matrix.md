@@ -18624,10 +18624,37 @@ Agentgres-backed replay, stable protocol APIs, command-transport retirement,
 and removal of the remaining JS provider edge adapters remain required before
 provider execution reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 889 after the next direct
+Scheduled matrix-compaction obligation from Slice 889 is now satisfied.
+
+## Implementation Slice Evidence: 890
+
+Slice 890 deleted the remaining hosted/nonlocal JS provider-driver modules.
+`provider-openai-compatible-driver.mjs`, `provider-openai-backend-drivers.mjs`,
+`provider-ollama-driver.mjs`, and `provider-lm-studio-driver.mjs` are absent
+along with their focused tests, rather than preserved as fail-closed
+compatibility surfaces. The mounted provider-driver factory already fails
+closed before driver allocation, and hosted/nonlocal provider execution,
+inventory, lifecycle, and stream/invoke behavior must now re-enter only through
+direct Rust daemon-core model_mount/provider APIs when those APIs are verified.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs && node --input-type=module -e 'import fs from "node:fs"; const files=["provider-openai-compatible-driver.mjs","provider-openai-compatible-driver.test.mjs","provider-openai-backend-drivers.mjs","provider-openai-backend-drivers.test.mjs","provider-ollama-driver.mjs","provider-ollama-driver.test.mjs","provider-lm-studio-driver.mjs","provider-lm-studio-driver.test.mjs"].map((file)=>"packages/runtime-daemon/src/model-mounting/"+file); const present=files.filter((file)=>fs.existsSync(file)); if (present.length) throw new Error("deleted hosted provider drivers still present: "+present.join(", "));'` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
+stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
+protocol surfaces remain required before provider execution reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 890 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
-preserve the non-terminal status of command transport, lower-level fail-closed
-JS driver modules, direct Rust daemon-core provider execution/control APIs,
-Agentgres-backed replay, and stable protocol APIs. The `ioi-step-module-bridge`
-command path is acceptable only as migration transport; it is not the terminal
-architecture.
+preserve the non-terminal status of command transport, direct Rust daemon-core
+provider execution/control APIs, Agentgres-backed replay, and stable protocol
+APIs. The `ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.

@@ -1047,7 +1047,11 @@ function runDocs() {
       /Implementation Slice Evidence: 889/.test(matrix) &&
       /Slice 889 retired the vLLM and llama\.cpp backend-driver provider projection\s+shims/.test(matrix) &&
       /no longer store `this\.state`, expose\s+`providerWithBackendBaseUrl\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 889/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 889 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 890/.test(matrix) &&
+      /Slice 890 deleted the remaining hosted\/nonlocal JS provider-driver modules/.test(matrix) &&
+      /provider-openai-compatible-driver\.mjs`, `provider-openai-backend-drivers\.mjs`,\s+`provider-ollama-driver\.mjs`, and `provider-lm-studio-driver\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 890/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1215,7 +1219,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 886 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 887 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 888 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 889/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 889 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 890/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -10209,15 +10214,6 @@ function runBridge() {
       const productDefaultsTest = read("packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs");
       const loadPolicyTest = read("packages/runtime-daemon/src/model-mounting/load-policy.test.mjs");
       const providerLocalDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.test.mjs");
-      const providerOpenAiBackendDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs");
-      const providerOllamaDriverTest = read("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs");
-      const providerLmStudioDriverTest = read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs");
-      const providerLoadDrivers = [
-        providerLocalDrivers,
-        openAiBackendDrivers,
-        ollamaDriver,
-        lmStudioDriver,
-      ].join("\n");
       const backendProcessPlanBlock =
         modelMountingState.match(/backendProcessPlan\(backend,\s*\{ endpoint = null, loadOptions = \{\} \} = \{\}\) \{[\s\S]*?\n  \}/)?.[0] ?? "";
       return /canonicalLoadOptionsInput/.test(read("packages/runtime-daemon/src/model-mounting/load-policy.mjs")) &&
@@ -10244,9 +10240,15 @@ function runBridge() {
         ) &&
         !/defaults\.contextLength\b/.test(backendProcessPlanBlock) &&
         /normalizeLoadOptions\(canonicalLoadOptionsInput\(body\),\s*endpoint\.loadPolicy\)/.test(
-          providerLoadDrivers,
+          providerLocalDrivers,
         ) &&
-        !/body\.loadOptions\b/.test(providerLoadDrivers) &&
+        !/body\.loadOptions\b/.test(providerLocalDrivers) &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
+        !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs") &&
         /contextLength:\s*1234/.test(productDefaultsTest) &&
         /assert\.equal\(aliasOnlyCall\.load_options\.context_length,\s*null\)/.test(
           productDefaultsTest,
@@ -10257,25 +10259,12 @@ function runBridge() {
         /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLocalDriversTest) &&
         /native-local provider driver plans lifecycle through Rust without JS process supervision/.test(providerLocalDriversTest) &&
         /assert\.deepEqual\(state\.lifecycleRequests\.at\(-1\)\.process_evidence_refs,\s*\[\]\)/.test(providerLocalDriversTest) &&
-        /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(providerLocalDriversTest) &&
-        /loadOptions:\s*\{\s*context_length:\s*9999\s*\}/.test(providerOpenAiBackendDriversTest) &&
-        /fails before JS process supervision/.test(providerOpenAiBackendDriversTest) &&
-        /model_mount_backend_process_supervisor_retired/.test(providerOpenAiBackendDriversTest) &&
-        /assert\.deepEqual\(state\.processes,\s*\[\]\)/.test(providerOpenAiBackendDriversTest) &&
-        /Ollama lifecycle without binary fails before HTTP keep-alive request shaping/.test(providerOllamaDriverTest) &&
-        /model_mount_provider_http_transport_retired/.test(providerOllamaDriverTest) &&
-        /model_mount\.provider_lifecycle\.ollama_load/.test(providerOllamaDriverTest) &&
-        /Ollama lifecycle with binary still fails before JS process staging/.test(providerOllamaDriverTest) &&
-        /load_options:\s*\{\s*context_length:\s*9999\s*\}/.test(providerLmStudioDriverTest) &&
-        /model_mount_lm_studio_public_cli_retired/.test(providerLmStudioDriverTest);
+        /assert\.deepEqual\(state\.logs,\s*\[\]\)/.test(providerLocalDriversTest);
     })(),
     [
       "packages/runtime-daemon/src/model-mounting/load-policy.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
       "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",
     ],
     "Phase 9/10 is pending: backend process planning and provider load paths must not let retired camelCase load-option aliases steer Rust model_mount requests",
@@ -10465,36 +10454,19 @@ function runBridge() {
       /js_provider_driver_factory_retired/.test(modelMountingState) &&
       /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
       /rust_core_boundary:\s*"model_mount\.provider_invocation"/.test(providerInvocationRetirement) &&
-      /retiredJsProviderInvocationError/.test(retiredProviderInvocationDrivers) &&
-      /retiredJsProviderInvocationError/.test(openAiCompatibleDriver) &&
-      /retiredJsProviderInvocationError/.test(ollamaDriver) &&
-      !/fetchProviderStream/.test(openAiCompatibleDriver) &&
-      !/chatCompletionRequestBody/.test(openAiCompatibleDriver) &&
-      !/outputTextFromChat/.test(openAiCompatibleDriver) &&
-      !/outputTextFromResponse/.test(openAiCompatibleDriver) &&
-      !/providerHttpError/.test(openAiCompatibleDriver) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs") &&
       !/fetchProviderStream/.test(providerTransport) &&
       !/providerStreamRequestTimeoutMs/.test(providerTransportPolicy) &&
       !/chatCompletionRequestBody/.test(providerProtocol) &&
       !/outputTextFromChat/.test(providerProtocol) &&
       !/outputTextFromResponse/.test(providerProtocol) &&
-      !/fetchProviderStream/.test(ollamaDriver) &&
-      !/chatCompletionRequestBody/.test(ollamaDriver) &&
-      !/estimateTokens/.test(ollamaDriver) &&
-      !/stableHash/.test(ollamaDriver) &&
-      !/\/api\/(?:chat|embeddings)/.test(ollamaDriver) &&
-      !/this\.openAi\.(?:invoke|streamInvoke)/.test(openAiCompatibleProviderDrivers) &&
-      !/reason:\s*"(?:vllm|llama_cpp)_model_(?:invoke|stream)"/.test(openAiBackendDrivers) &&
-      /invocation fails closed before HTTP request shaping/.test(openAiCompatibleDriverTest) &&
-      /Ollama driver fails closed for retired JS invocation before HTTP request shaping/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs"),
-      ) &&
-      /fails closed for retired JS invocation before process staging/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs"),
-      ) &&
-      /fails closed for retired JS invocation before CLI transport/.test(
-        read("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs"),
-      ) &&
       /mounted provider driver factory fails closed before JS driver allocation/.test(
         read("packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs"),
       ) &&
@@ -10544,11 +10516,10 @@ function runBridge() {
     result,
     "model-mount-provider-responses-chat-fallback-retired",
     /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
-      !/responsesFallbackStatus/.test(openAiCompatibleDriver) &&
-      !/error\?\.details\?\.httpStatus/.test(openAiCompatibleDriver) &&
-      !/allowResponsesFallback/.test(openAiCompatibleProviderDrivers) &&
-      !/compatTranslation:\s*"chat_completions"/.test(openAiCompatibleProviderDrivers) &&
-      !/kind:\s*"chat\.completions"[\s\S]*body:\s*responseBody/.test(openAiCompatibleDriver),
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs"),
     [
       "packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs",
@@ -14176,25 +14147,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-lm-studio-provider-error-aliases-retired",
-    /model_mount_lm_studio_public_cli_retired/.test(lmStudioProviderDriver) &&
-      /rust_core_boundary:\s*"model_mount\.provider_lm_studio"/.test(lmStudioProviderDriver) &&
-      /lm_studio_public_cli_driver_retired/.test(lmStudioProviderDriver) &&
-      !/OpenAICompatibleModelProviderDriver/.test(lmStudioProviderDriver) &&
-      !/this\.openAi|this\.state/.test(lmStudioProviderDriver) &&
-      !/runPublicCommand/.test(lmStudioProviderDriver) &&
-      !/lmsPath|requireLmsPath/.test(lmStudioProviderDriver) &&
-      !/providerCommandError|parseLmStudioList|parseLmStudioProcessList|lmStudioArtifact/.test(lmStudioProviderDriver) &&
-      !/lm_studio_public_lms_(?:server_status|server_start|server_stop|ps|load|unload)/.test(lmStudioProviderDriver) &&
-      !/commandExitCode|commandArgsHash/.test(lmStudioProviderDriver) &&
-      /LM Studio driver control and inventory fail closed before public CLI transport/.test(lmStudioProviderDriverTest) &&
-      /assert\.equal\(error\.details\.provider_id,\s*"provider\.lmstudio"\)/.test(lmStudioProviderDriverTest) &&
-      /assert\.equal\(error\.details\.rust_core_boundary,\s*"model_mount\.provider_lm_studio"\)/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"lmsPath"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"requireLmsPath"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(driver,\s*"openAi"\),\s*false/.test(lmStudioProviderDriverTest) &&
-      /Object\.hasOwn\(driver,\s*"state"\),\s*false/.test(lmStudioProviderDriverTest),
+    !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs"),
     [
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs",
@@ -14204,23 +14158,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-openai-backend-provider-projection-shims-retired",
-    (() => {
-      const providerOpenAiBackendDrivers = read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs");
-      const providerOpenAiBackendDriversTest = read("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs");
-      return !/providerWithBackendBaseUrl/.test(providerOpenAiBackendDrivers) &&
-        !/this\.state/.test(providerOpenAiBackendDrivers) &&
-        !/backendProcessSnapshot|backendProcessForBackend|listInstances\(\)/.test(providerOpenAiBackendDrivers) &&
-        !/(?:vllm|llama_cpp)_agentgres_loaded_instance_projection/.test(providerOpenAiBackendDrivers) &&
-        !/baseUrl:\s*provider\.baseUrl \?\? backend\.baseUrl/.test(providerOpenAiBackendDrivers) &&
-        !/status:\s*provider\.status === "blocked"/.test(providerOpenAiBackendDrivers) &&
-        /model_mount\.provider_inventory\.vllm_loaded/.test(providerOpenAiBackendDrivers) &&
-        /model_mount\.provider_inventory\.llama_cpp_loaded/.test(providerOpenAiBackendDrivers) &&
-        /without provider projection shims/.test(providerOpenAiBackendDriversTest) &&
-        /Object\.hasOwn\(driver,\s*"state"\),\s*false/.test(providerOpenAiBackendDriversTest) &&
-        /Object\.hasOwn\(Object\.getPrototypeOf\(driver\),\s*"providerWithBackendBaseUrl"\),\s*false/.test(
-          providerOpenAiBackendDriversTest,
-        );
-    })(),
+    !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs"),
     [
       "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.test.mjs",
