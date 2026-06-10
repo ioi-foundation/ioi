@@ -1403,9 +1403,9 @@ export class ModelMountingState {
   }
 
   listConversations() {
-    return [...this.conversations.values()].sort((left, right) =>
-      String(left.created_at ?? "").localeCompare(String(right.created_at ?? "")),
-    );
+    throw modelConversationRustCoreRequiredError({
+      operation: "model_conversation_state_list",
+    });
   }
 
   invokeMcpTool({ authorization, body = {} }) {

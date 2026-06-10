@@ -1999,13 +1999,16 @@ Slice 880 retired the fail-closed `conversation-operations.mjs` helper module
 after model conversation-state writes and stream-completion finalization had
 already been reduced to Rust-core-required conversation admission/projection edge
 refusals. The mounted public `ModelMountingState` conversation methods now own
-response-id collision checks, previous-response read adapters, conversation
-list sorting, `model_mount.conversation` Rust-core-required errors, stream
-completion refusal details, and conversation-state write refusal details
-directly, without importing a helper module or preserving a standalone JS
-conversation mutation surface. This does not claim terminal conversation
-migration: direct Rust daemon-core conversation admission/projection,
-receipt/state-root binding, Agentgres truth, replay, command-transport
+response-id collision checks, previous-response read adapters,
+`model_mount.conversation` Rust-core-required errors, stream-completion refusal
+details, and conversation-state write refusal details directly, without
+importing a helper module or preserving a standalone JS conversation mutation
+surface. Slice 948 then retired the remaining `listConversations` JS map
+readback: conversation-state list projection now fails closed at
+`model_conversation_state_list` until direct Rust daemon-core projection owns
+that surface. This does not claim terminal conversation migration: direct Rust
+daemon-core conversation admission/projection, receipt/state-root binding,
+Agentgres truth, replay, command-transport
 retirement, and stable protocol APIs remain required.
 
 Slice 881 retired the fail-closed `provider-operations.mjs` helper module after
@@ -2172,6 +2175,13 @@ read projection. `/api/v1/vault/refs`, `/api/v1/vault/refs/meta`, and
 `/api/v1/vault/status` remain mounted routes only as fail-closed protocol edges
 until Rust daemon-core wallet.network/cTEE custody projection owns admitted
 vault truth.
+Slice 948 retired model-mount conversation-state JS list readback. Public
+`ModelMountingState.listConversations()` now fails closed at
+`model_conversation_state_list` with
+`model_mount_conversation_rust_core_required`, so JS no longer returns
+`this.conversations` sorted by `created_at` as a model conversation projection.
+Direct Rust daemon-core model conversation projection over Agentgres-admitted
+truth remains required before terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

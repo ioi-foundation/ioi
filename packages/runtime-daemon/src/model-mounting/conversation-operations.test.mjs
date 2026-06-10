@@ -328,10 +328,21 @@ test("recordModelStreamCompleted fails closed before JS stream receipt or conver
   assert.equal(Object.hasOwn(invocation, "conversationState"), false);
 });
 
-test("listConversations sorts by created_at", () => {
+test("listConversations fails closed until Rust projection owns model conversations", () => {
   const state = fakeState();
   state.conversations.set("late", { id: "late", created_at: "2026-06-04T03:00:02.000Z" });
   state.conversations.set("early", { id: "early", created_at: "2026-06-04T03:00:01.000Z" });
 
-  assert.deepEqual(ModelMountingState.prototype.listConversations.call(state).map((record) => record.id), ["early", "late"]);
+  assert.throws(
+    () => ModelMountingState.prototype.listConversations.call(state),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_conversation_rust_core_required");
+      assert.equal(error.details.operation, "model_conversation_state_list");
+      assert.equal(error.details.rust_core_boundary, "model_mount.conversation");
+      assert.ok(error.details.evidence_refs.includes("rust_daemon_core_model_conversation_required"));
+      return true;
+    },
+  );
+  assert.equal(state.conversations.size, 2);
 });

@@ -10374,7 +10374,11 @@ function runBridge() {
       /agentgres_model_conversation_truth_required/.test(modelConversationOps) &&
       /model_mount_conversation_rust_core_required/.test(modelConversationOps) &&
       /model_conversation_state_write/.test(modelConversationOps) &&
+      /model_conversation_state_list/.test(modelConversationOps) &&
       /recordConversationState fails closed before JS conversation projection mutation/.test(
+        modelConversationOpsTest,
+      ) &&
+      /listConversations fails closed until Rust projection owns model conversations/.test(
         modelConversationOpsTest,
       ) &&
       /public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
@@ -10384,7 +10388,8 @@ function runBridge() {
       !/commitConversationRecordState/.test(modelConversationOps) &&
       !/state\.conversations\.set/.test(modelConversationOps) &&
       !/state\.writeMap\("model-conversations"/.test(modelConversationOps) &&
-      /left\.created_at/.test(modelConversationOps) &&
+      !/left\.created_at/.test(modelConversationOps) &&
+      !/this\.conversations\.values\(\)/.test(modelConversationOps) &&
       /previousState\.route_id/.test(modelMountingValidation) &&
       /previousState\.endpoint_id/.test(modelMountingValidation) &&
       /previousState\.selected_model/.test(modelMountingValidation) &&
@@ -10405,7 +10410,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
       "packages/runtime-daemon/src/model-mounting/schema-relations.mjs",
     ],
-    "Phase 10/11 is pending: model-mount conversation-state writes must fail closed until direct Rust daemon-core projection/admission owns them",
+    "Phase 10/11 is pending: model-mount conversation-state writes and list projection must fail closed until direct Rust daemon-core projection/admission owns them",
   );
   assertCheck(
     result,

@@ -14045,9 +14045,9 @@ target ownership.
   `model_invocation_stream_completed` receipt synthesis, receipt-binding
   request construction, Agentgres transition planning, or projection writes.
 - Normal model invocation no longer backfills JS conversation projections after
-  Rust-bound invocation receipt creation. `conversationState` and
-  `listConversations` remain read/projection adapters over already-admitted
-  state only until direct Rust daemon-core projection APIs replace them.
+  Rust-bound invocation receipt creation. Slice 948 retires the remaining
+  `listConversations` JS map readback; conversation-state list projection now
+  fails closed until direct Rust daemon-core projection APIs replace it.
 - Conformance anchors include
   `model_mount_conversation_state_js_facade_retired`,
   `model_mount_stream_completion_js_facade_retired`,
@@ -18384,11 +18384,14 @@ Slice 880 retired the fail-closed `conversation-operations.mjs` helper module
 after model conversation-state writes and stream-completion finalization had
 already been reduced to Rust-core-required conversation admission/projection edge
 refusals. The mounted public `ModelMountingState` conversation methods now own
-response-id collision checks, previous-response read adapters, conversation
-list sorting, `model_mount.conversation` Rust-core-required errors, stream
-completion refusal details, and conversation-state write refusal details
-directly, without importing a helper module or preserving a standalone JS
-conversation mutation surface.
+response-id collision checks, previous-response read adapters,
+`model_mount.conversation` Rust-core-required errors, stream-completion refusal
+details, and conversation-state write refusal details directly, without
+importing a helper module or preserving a standalone JS conversation mutation
+surface. Slice 948 then retired the remaining `listConversations` JS map
+readback: conversation-state list projection now fails closed at
+`model_conversation_state_list` until direct Rust daemon-core projection owns
+that surface.
 
 Focused evidence:
 
@@ -20650,3 +20653,37 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of wallet/cTEE custody projection
 command transport, Agentgres-backed vault-ref truth, and stable protocol APIs
 without encoding JS vault-port maps/status as public vault projection authority.
+
+## Implementation Slice Evidence: 948
+
+Slice 948 retired model-mount conversation-state JS list readback. Public
+`ModelMountingState.listConversations()` now fails closed with
+`model_mount_conversation_rust_core_required` at
+`model_conversation_state_list` instead of returning `this.conversations`
+sorted by `created_at`. Broad snapshot/projection input had already stopped
+sending `conversation_states`; this slice removes the remaining mounted list
+facade so JS conversation maps cannot survive as public model conversation
+projection authority.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal model conversation migration. Direct Rust
+daemon-core model conversation admission/projection, receipt/state-root binding,
+Agentgres truth, replay, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-948 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of model conversation projection command
+transport, Agentgres-backed conversation truth, and stable protocol APIs without
+encoding JS conversation maps as public model conversation projection authority.
