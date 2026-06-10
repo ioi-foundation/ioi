@@ -1665,9 +1665,11 @@ function runDocs() {
       /Moved diagnostics repair admission-required refusal authoring into\s+`DiagnosticsRepairAdmissionRequiredCore`/.test(matrix) &&
       /Moved run-cancel admission-required refusal authoring into\s+`RunCancelAdmissionRequiredCore`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(matrix) &&
-      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 970 lands/.test(matrix) &&
+      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 971 lands/.test(matrix) &&
       /Implementation Slice Evidence: 970/.test(matrix) &&
       /Moved skill\/hook registry projection-required refusal authoring into\s+`SkillHookRegistryProjectionRequiredCore`/.test(matrix) &&
+      /Implementation Slice Evidence: 971/.test(matrix) &&
+      /Moved repository workflow projection-required refusal authoring into\s+`RepositoryWorkflowProjectionRequiredCore`/.test(matrix) &&
       /Schedule the next matrix-compaction pass only after the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
@@ -2047,11 +2049,15 @@ function runDocs() {
         /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(
           matrix,
         ) &&
-        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 970 lands/.test(
+        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 971 lands/.test(
           matrix,
         ) &&
         /Implementation Slice Evidence: 970/.test(matrix) &&
         /Moved skill\/hook registry projection-required refusal authoring into\s+`SkillHookRegistryProjectionRequiredCore`/.test(
+          matrix,
+        ) &&
+        /Implementation Slice Evidence: 971/.test(matrix) &&
+        /Moved repository workflow projection-required refusal authoring into\s+`RepositoryWorkflowProjectionRequiredCore`/.test(
           matrix,
         ) &&
         /encoding the command bridge as\s+terminal shape/.test(matrix)),
@@ -2882,6 +2888,12 @@ function runBridge() {
     : "";
   const runtimeSkillHookSurfaceTest = exists("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs")
+    : "";
+  const runtimeRepositorySurface = exists("packages/runtime-daemon/src/runtime-repository-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-repository-surface.mjs")
+    : "";
+  const runtimeRepositorySurfaceTest = exists("packages/runtime-daemon/src/runtime-repository-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-repository-surface.test.mjs")
     : "";
   const runtimeAgentRunLifecycle = exists("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs")
@@ -6996,6 +7008,72 @@ function runBridge() {
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 6/10/11 is pending: public skill/hook registry projection must fail closed through Rust daemon-core until direct Rust projection over Agentgres/governance truth replaces the migration bridge",
+  );
+  assertCheck(
+    result,
+    "repository-workflow-projection-rust-core-required",
+    /RepositoryWorkflowProjectionRequiredCore/.test(policyCore) &&
+      /REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_repository_workflow_projection_required/.test(policyCore) &&
+      /plan_repository_workflow_projection_required/.test(bridgeModule) &&
+      /RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      /rust_repository_workflow_projection_required_command/.test(bridgeModule) &&
+      /bridge_plans_repository_workflow_projection_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /planRepositoryWorkflowProjectionRequired\(request = \{\}\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /repository workflow projection-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime_repository_workflow_projection_rust_core_required/.test(
+        runtimeRepositorySurface,
+      ) &&
+      /rust_core_boundary:\s*"runtime\.repository_workflow_projection"/.test(
+        runtimeRepositorySurface,
+      ) &&
+      /runtime_repository_workflow_js_projection_retired/.test(
+        runtimeRepositorySurface,
+      ) &&
+      /rust_daemon_core_repository_workflow_projection_required/.test(
+        runtimeRepositorySurface,
+      ) &&
+      /agentgres_repository_workflow_truth_required/.test(
+        runtimeRepositorySurface,
+      ) &&
+      /repositoryRunner\.planRepositoryWorkflowProjectionRequired/.test(
+        runtimeRepositorySurface,
+      ) &&
+      !/repositoryContextProjection|repositoryListProjection|prAttemptsProjection|issueContextProjection|reviewGateProjection|githubPrCreatePlanProjection/.test(
+        runtimeRepositorySurface,
+      ) &&
+      !/createRepositoryWorkflowProjections/.test(runtimeRepositorySurface) &&
+      !/schemaVersion:\s*"ioi\.agent-runtime\.(?:repository-context|issue-context|pr-attempt|review-gate|github-pr-create-plan)\.v1"/.test(
+        runtimeRepositorySurface,
+      ) &&
+      /runtime repository surface fails closed before JS public projection builders/.test(
+        runtimeRepositorySurfaceTest,
+      ) &&
+      /runtime repository surface translates mounted Rust projection-required record/.test(
+        runtimeRepositorySurfaceTest,
+      ) &&
+      /createRuntimeRepositorySurface\(\{\s*repositoryRunner:\s*this\.contextPolicyRunner,/s.test(
+        runtimeDaemonIndex,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-repository-surface.mjs",
+      "packages/runtime-daemon/src/runtime-repository-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 6/10/11 is pending: public repository workflow projections must fail closed through Rust daemon-core until direct Rust projection over Agentgres-admitted repository workflow truth replaces the migration bridge",
   );
   assertCheck(
     result,

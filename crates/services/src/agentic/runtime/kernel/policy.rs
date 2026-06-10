@@ -41,6 +41,10 @@ pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.skill-hook-registry-projection-required-request.v1";
 pub const SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.skill-hook-registry-projection-required.v1";
+pub const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.repository-workflow-projection-required-request.v1";
+pub const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.repository-workflow-projection-required.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -283,6 +287,15 @@ pub enum RunCancelAdmissionRequiredError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SkillHookRegistryProjectionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RepositoryWorkflowProjectionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1184,6 +1197,43 @@ pub struct SkillHookRegistryProjectionRequiredRecord {
     pub operation_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub registry_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RepositoryWorkflowProjectionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub projection_kind: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RepositoryWorkflowProjectionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projection_kind: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_root: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3116,6 +3166,62 @@ impl SkillHookRegistryProjectionRequiredCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct RepositoryWorkflowProjectionRequiredCore;
+
+impl RepositoryWorkflowProjectionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &RepositoryWorkflowProjectionRequiredRequest,
+    ) -> Result<RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredError>
+    {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let projection_kind = optional_trimmed(request.projection_kind.as_deref());
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let source = optional_trimmed(request.source.as_deref())
+            .or_else(|| Some("rust_repository_workflow_projection_required_command".to_string()));
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                "runtime_repository_workflow_js_projection_retired".to_string(),
+                "rust_daemon_core_repository_workflow_projection_required".to_string(),
+                "agentgres_repository_workflow_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.repository_workflow_projection",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "projection_kind": projection_kind,
+            "workspace_root": workspace_root,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(RepositoryWorkflowProjectionRequiredRecord {
+            schema_version: REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_repository_workflow_projection_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_repository_workflow_projection_rust_core_required".to_string(),
+            message: "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.".to_string(),
+            rust_core_boundary: "runtime.repository_workflow_projection".to_string(),
+            operation,
+            operation_kind,
+            projection_kind,
+            workspace_root,
+            source,
+            evidence_refs,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
 
 impl ThreadControlAgentStateUpdateCore {
@@ -4526,6 +4632,30 @@ impl SkillHookRegistryProjectionRequiredRequest {
         }
         if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
             return Err(SkillHookRegistryProjectionRequiredError::MissingField(
+                "operation_kind",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RepositoryWorkflowProjectionRequiredRequest {
+    pub fn validate(&self) -> Result<(), RepositoryWorkflowProjectionRequiredError> {
+        if self.schema_version != REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(
+                RepositoryWorkflowProjectionRequiredError::InvalidSchemaVersion {
+                    expected: REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(RepositoryWorkflowProjectionRequiredError::MissingField(
+                "operation",
+            ));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(RepositoryWorkflowProjectionRequiredError::MissingField(
                 "operation_kind",
             ));
         }
@@ -7931,6 +8061,50 @@ mod tests {
         assert_eq!(record.details["registry_kind"], "skills");
         assert_eq!(record.details["workspace_root"], "/workspace/project");
         assert!(record.details.get("registryKind").is_none());
+        assert!(record.details.get("workspaceRoot").is_none());
+    }
+
+    #[test]
+    fn rust_policy_plans_repository_workflow_projection_required() {
+        let record = RepositoryWorkflowProjectionRequiredCore
+            .plan(&RepositoryWorkflowProjectionRequiredRequest {
+                schema_version: REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                operation: "repository_workflow_pr_attempts".to_string(),
+                operation_kind: "repository_workflow.projection.pr_attempts".to_string(),
+                projection_kind: Some("pr_attempts".to_string()),
+                workspace_root: Some("/workspace/project".to_string()),
+                source: Some("runtime.repository_surface".to_string()),
+                evidence_refs: vec![
+                    "runtime_repository_workflow_js_projection_retired".to_string(),
+                    "rust_daemon_core_repository_workflow_projection_required".to_string(),
+                    "agentgres_repository_workflow_truth_required".to_string(),
+                ],
+            })
+            .expect("repository workflow projection required");
+
+        assert_eq!(
+            record.schema_version,
+            REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(
+            record.code,
+            "runtime_repository_workflow_projection_rust_core_required"
+        );
+        assert_eq!(
+            record.rust_core_boundary,
+            "runtime.repository_workflow_projection"
+        );
+        assert_eq!(record.operation, "repository_workflow_pr_attempts");
+        assert_eq!(
+            record.operation_kind,
+            "repository_workflow.projection.pr_attempts"
+        );
+        assert_eq!(record.details["projection_kind"], "pr_attempts");
+        assert_eq!(record.details["workspace_root"], "/workspace/project");
+        assert!(record.details.get("projectionKind").is_none());
         assert!(record.details.get("workspaceRoot").is_none());
     }
 

@@ -852,7 +852,9 @@ export class AgentgresRuntimeStateStore {
       contextPolicyRunner: this.contextPolicyRunner,
     });
     this.mcpServeSurface = createRuntimeMcpServeSurface();
-    this.repositorySurface = createRuntimeRepositorySurface();
+    this.repositorySurface = createRuntimeRepositorySurface({
+      repositoryRunner: this.contextPolicyRunner,
+    });
     this.runReadSurface = createRuntimeRunReadSurface({
       authorityEvidenceSummaryForEvents,
       notFound,

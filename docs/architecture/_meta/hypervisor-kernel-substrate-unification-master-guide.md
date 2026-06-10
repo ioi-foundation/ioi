@@ -2349,6 +2349,21 @@ registry migration: direct Rust daemon-core projection over Agentgres-admitted
 governance/catalog truth, wallet authority where applicable, receipt/state-root
 binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol
 APIs remain required before terminal pure Rust substrate conformance.
+Slice 971 moved public repository workflow projection refusal authoring into the
+Rust daemon-core policy bridge. `RepositoryWorkflowProjectionRequiredCore` now
+emits the canonical fail-closed envelope and snake_case detail payload,
+`ioi_step_module_bridge` exposes
+`plan_repository_workflow_projection_required`, and the runtime daemon
+repository surface uses the mounted context-policy runner to get the
+Rust-authored refusal. JS no longer constructs public repository workflow
+projection truth for `/v1/repositories`, `/v1/repository-context`,
+`/v1/branch-policy`, `/v1/github-context`, `/v1/pr-attempts`,
+`/v1/issue-context`, `/v1/review-gate`, or `/v1/github-pr-create-plan`.
+This does not claim terminal repository workflow migration: direct Rust
+daemon-core projection over Agentgres-admitted repository workflow truth,
+wallet.network authority for external capability exits, receipt/state-root
+binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol
+APIs remain required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

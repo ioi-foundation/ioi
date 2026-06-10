@@ -27,6 +27,7 @@ import {
   MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1073,6 +1074,75 @@ test("skill hook registry projection-required runner sends Rust daemon-core requ
   assert.equal(
     result.source,
     "rust_skill_hook_registry_projection_required_command",
+  );
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.workspace_root, "/workspace/project");
+  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
+});
+
+test("repository workflow projection-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_repository_workflow_projection_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_repository_workflow_projection_rust_core_required",
+              message:
+                "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
+              details: {
+                rust_core_boundary: "runtime.repository_workflow_projection",
+                operation: "repository_workflow_issue_context",
+                operation_kind: "repository_workflow.projection.issue_context",
+                projection_kind: "issue_context",
+                workspace_root: "/workspace/project",
+                evidence_refs: [
+                  "runtime_repository_workflow_js_projection_retired",
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRepositoryWorkflowProjectionRequired({
+    operation: "repository_workflow_issue_context",
+    operation_kind: "repository_workflow.projection.issue_context",
+    projection_kind: "issue_context",
+    workspace_root: "/workspace/project",
+    evidence_refs: ["runtime_repository_workflow_js_projection_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(
+    captured.operation,
+    "plan_repository_workflow_projection_required",
+  );
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "repository_workflow_issue_context");
+  assert.equal(
+    captured.request.operation_kind,
+    "repository_workflow.projection.issue_context",
+  );
+  assert.equal(captured.request.projection_kind, "issue_context");
+  assert.equal(
+    result.source,
+    "rust_repository_workflow_projection_required_command",
   );
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.workspace_root, "/workspace/project");

@@ -1,113 +1,127 @@
-import {
-  branchPolicyProjection,
-  githubContextProjection,
-  githubPrCreatePlanProjection,
-  issueContextProjection,
-  prAttemptsProjection,
-  repositoryContextProjection,
-  repositoryListProjection,
-  reviewGateProjection,
-} from "./repository-projections.mjs";
-import {
-  branchPolicyForRepositoryContext,
-  emptyToNull,
-  githubContextForRepository,
-  gitOutput,
-  repositoryContextForWorkspace,
-} from "./repository-context.mjs";
-import { createRepositoryWorkflowProjections } from "./repository-workflow-projections.mjs";
-import {
-  doctorHash,
-  normalizeArray,
-  uniqueStrings,
-} from "./runtime-value-helpers.mjs";
+import { optionalString } from "./runtime-value-helpers.mjs";
+
+const REPOSITORY_PROJECTIONS = {
+  listRepositories: {
+    operation: "repository_workflow_repository_list",
+    operation_kind: "repository_workflow.projection.repository_list",
+    projection_kind: "repository_list",
+  },
+  repositoryContext: {
+    operation: "repository_workflow_repository_context",
+    operation_kind: "repository_workflow.projection.repository_context",
+    projection_kind: "repository_context",
+  },
+  branchPolicy: {
+    operation: "repository_workflow_branch_policy",
+    operation_kind: "repository_workflow.projection.branch_policy",
+    projection_kind: "branch_policy",
+  },
+  githubContext: {
+    operation: "repository_workflow_github_context",
+    operation_kind: "repository_workflow.projection.github_context",
+    projection_kind: "github_context",
+  },
+  prAttempts: {
+    operation: "repository_workflow_pr_attempts",
+    operation_kind: "repository_workflow.projection.pr_attempts",
+    projection_kind: "pr_attempts",
+  },
+  issueContext: {
+    operation: "repository_workflow_issue_context",
+    operation_kind: "repository_workflow.projection.issue_context",
+    projection_kind: "issue_context",
+  },
+  reviewGate: {
+    operation: "repository_workflow_review_gate",
+    operation_kind: "repository_workflow.projection.review_gate",
+    projection_kind: "review_gate",
+  },
+  githubPrCreatePlan: {
+    operation: "repository_workflow_github_pr_create_plan",
+    operation_kind: "repository_workflow.projection.github_pr_create_plan",
+    projection_kind: "github_pr_create_plan",
+  },
+};
 
 export function createRuntimeRepositorySurface({
-  branchPolicyForRepositoryContext: branchPolicyForRepositoryContextDep = branchPolicyForRepositoryContext,
-  branchPolicyProjection: branchPolicyProjectionDep = branchPolicyProjection,
-  createRepositoryWorkflowProjections: createRepositoryWorkflowProjectionsDep = createRepositoryWorkflowProjections,
-  doctorHash: doctorHashDep = doctorHash,
-  emptyToNull: emptyToNullDep = emptyToNull,
-  githubContextForRepository: githubContextForRepositoryDep = githubContextForRepository,
-  githubContextProjection: githubContextProjectionDep = githubContextProjection,
-  githubPrCreatePlanProjection: githubPrCreatePlanProjectionDep = githubPrCreatePlanProjection,
-  issueContextProjection: issueContextProjectionDep = issueContextProjection,
-  gitOutput: gitOutputDep = gitOutput,
-  normalizeArray: normalizeArrayDep = normalizeArray,
-  prAttemptsProjection: prAttemptsProjectionDep = prAttemptsProjection,
-  repositoryContextForWorkspace: repositoryContextForWorkspaceDep = repositoryContextForWorkspace,
-  repositoryContextProjection: repositoryContextProjectionDep = repositoryContextProjection,
-  repositoryListProjection: repositoryListProjectionDep = repositoryListProjection,
-  reviewGateProjection: reviewGateProjectionDep = reviewGateProjection,
-  uniqueStrings: uniqueStringsDep = uniqueStrings,
+  repositoryRunner = null,
 } = {}) {
-  const workflowProjections = createRepositoryWorkflowProjectionsDep({
-    branchPolicyForRepositoryContext: branchPolicyForRepositoryContextDep,
-    doctorHash: doctorHashDep,
-    emptyToNull: emptyToNullDep,
-    githubContextForRepository: githubContextForRepositoryDep,
-    gitOutput: gitOutputDep,
-    normalizeArray: normalizeArrayDep,
-    repositoryContextForWorkspace: repositoryContextForWorkspaceDep,
-    uniqueStrings: uniqueStringsDep,
-  });
-  const {
-    githubPrCreatePlanForReviewGate,
-    issueContextForGithub,
-    prAttemptForRepository,
-    reviewGateForPrAttempt,
-  } = workflowProjections;
-  const baseDeps = {
-    doctorHash: doctorHashDep,
-    repositoryContextForWorkspace: repositoryContextForWorkspaceDep,
-  };
-  const branchDeps = {
-    ...baseDeps,
-    branchPolicyForRepositoryContext: branchPolicyForRepositoryContextDep,
-  };
-  const githubDeps = {
-    ...branchDeps,
-    githubContextForRepository: githubContextForRepositoryDep,
-  };
-  const prDeps = {
-    ...githubDeps,
-    prAttemptForRepository,
-  };
-  const reviewDeps = {
-    ...prDeps,
-    reviewGateForPrAttempt,
-  };
+  const fail = (store, projection) =>
+    throwRepositoryWorkflowProjectionRustCoreRequired({
+      repositoryRunner,
+      workspace_root: store?.defaultCwd,
+      ...projection,
+    });
+
   return {
     listRepositories(store) {
-      return repositoryListProjectionDep({ cwd: store.defaultCwd }, baseDeps);
+      fail(store, REPOSITORY_PROJECTIONS.listRepositories);
     },
     repositoryContext(store) {
-      return repositoryContextProjectionDep({ cwd: store.defaultCwd }, baseDeps);
+      fail(store, REPOSITORY_PROJECTIONS.repositoryContext);
     },
     branchPolicy(store) {
-      return branchPolicyProjectionDep({ cwd: store.defaultCwd }, branchDeps);
+      fail(store, REPOSITORY_PROJECTIONS.branchPolicy);
     },
     githubContext(store) {
-      return githubContextProjectionDep({ cwd: store.defaultCwd }, githubDeps);
+      fail(store, REPOSITORY_PROJECTIONS.githubContext);
     },
     prAttempts(store) {
-      return prAttemptsProjectionDep({ cwd: store.defaultCwd }, prDeps);
+      fail(store, REPOSITORY_PROJECTIONS.prAttempts);
     },
     issueContext(store) {
-      return issueContextProjectionDep({ cwd: store.defaultCwd }, {
-        ...reviewDeps,
-        issueContextForGithub,
-      });
+      fail(store, REPOSITORY_PROJECTIONS.issueContext);
     },
     reviewGate(store) {
-      return reviewGateProjectionDep({ cwd: store.defaultCwd }, reviewDeps);
+      fail(store, REPOSITORY_PROJECTIONS.reviewGate);
     },
     githubPrCreatePlan(store) {
-      return githubPrCreatePlanProjectionDep({ cwd: store.defaultCwd }, {
-        ...reviewDeps,
-        githubPrCreatePlanForReviewGate,
-        issueContextForGithub,
-      });
+      fail(store, REPOSITORY_PROJECTIONS.githubPrCreatePlan);
     },
   };
+}
+
+function throwRepositoryWorkflowProjectionRustCoreRequired(details = {}) {
+  const { repositoryRunner = null, ...errorDetails } = details;
+  const evidence_refs = [
+    "runtime_repository_workflow_js_projection_retired",
+    "rust_daemon_core_repository_workflow_projection_required",
+    "agentgres_repository_workflow_truth_required",
+  ];
+
+  if (repositoryRunner?.planRepositoryWorkflowProjectionRequired) {
+    const record = repositoryRunner.planRepositoryWorkflowProjectionRequired({
+      ...errorDetails,
+      source: "runtime.repository_surface",
+      evidence_refs,
+    });
+    const planned = record?.record ?? record;
+    throw createRepositoryWorkflowProjectionError(planned ?? record, {
+      ...errorDetails,
+      source: "runtime.repository_surface",
+      evidence_refs,
+    });
+  }
+
+  throw createRepositoryWorkflowProjectionError(null, {
+    ...errorDetails,
+    source: "runtime.repository_surface",
+    evidence_refs,
+  });
+}
+
+function createRepositoryWorkflowProjectionError(record, fallbackDetails) {
+  const error = new Error(
+    optionalString(record?.message) ??
+      "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
+  );
+  error.status = Number(record?.status_code ?? 501);
+  error.code =
+    optionalString(record?.code) ??
+    "runtime_repository_workflow_projection_rust_core_required";
+  error.details = record?.details ?? {
+    rust_core_boundary: "runtime.repository_workflow_projection",
+    ...fallbackDetails,
+  };
+  return error;
 }

@@ -50,7 +50,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     MemoryManagerStatusProjectionRequest, MemoryManagerValidationProjectionCore,
     MemoryManagerValidationProjectionRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
-    OperatorSteerStateUpdateRequest, RunCancelAdmissionRequiredCore,
+    OperatorSteerStateUpdateRequest, RepositoryWorkflowProjectionRequiredCore,
+    RepositoryWorkflowProjectionRequiredRequest, RunCancelAdmissionRequiredCore,
     RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
@@ -540,6 +541,16 @@ struct SkillHookRegistryProjectionRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: SkillHookRegistryProjectionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct RepositoryWorkflowProjectionRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RepositoryWorkflowProjectionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1093,6 +1104,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_skill_hook_registry_projection_required(request)
         }
+        "plan_repository_workflow_projection_required" => {
+            let request: RepositoryWorkflowProjectionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_repository_workflow_projection_required(request)
+        }
         "plan_thread_control_agent_state_update" => {
             let request: ThreadControlAgentStateUpdateBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1304,6 +1321,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_run_cancel_state_update"
             | "plan_run_cancel_admission_required"
             | "plan_skill_hook_registry_projection_required"
+            | "plan_repository_workflow_projection_required"
             | "plan_thread_control_agent_state_update"
             | "plan_mcp_control_agent_state_update"
             | "plan_thread_memory_agent_state_update"
@@ -4541,6 +4559,46 @@ fn plan_skill_hook_registry_projection_required(
         })?;
     Ok(json!({
         "source": "rust_skill_hook_registry_projection_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+fn plan_repository_workflow_projection_required(
+    request: RepositoryWorkflowProjectionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_repository_workflow_projection_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RepositoryWorkflowProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "repository_workflow_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_repository_workflow_projection_required_command",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -11886,6 +11944,61 @@ mod tests {
         assert_eq!(response["details"]["registry_kind"], "hooks");
         assert_eq!(response["details"]["workspace_root"], "/workspace/project");
         assert!(response["details"].get("registryKind").is_none());
+        assert!(response["details"].get("workspaceRoot").is_none());
+    }
+
+    #[test]
+    fn bridge_plans_repository_workflow_projection_required_through_rust_core() {
+        let request: RepositoryWorkflowProjectionRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_repository_workflow_projection_required",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.repository-workflow-projection-required-request.v1",
+                    "operation": "repository_workflow_review_gate",
+                    "operation_kind": "repository_workflow.projection.review_gate",
+                    "projection_kind": "review_gate",
+                    "workspace_root": "/workspace/project",
+                    "source": "runtime.repository_surface",
+                    "evidence_refs": [
+                        "runtime_repository_workflow_js_projection_retired",
+                        "rust_daemon_core_repository_workflow_projection_required",
+                        "agentgres_repository_workflow_truth_required"
+                    ]
+                }
+            }))
+            .expect("repository workflow projection required bridge request");
+
+        let response = plan_repository_workflow_projection_required(request)
+            .expect("repository workflow projection refusal planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_repository_workflow_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_repository_workflow_projection_rust_core_required"
+        );
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.repository_workflow_projection"
+        );
+        assert_eq!(
+            response["details"]["operation"],
+            "repository_workflow_review_gate"
+        );
+        assert_eq!(
+            response["details"]["operation_kind"],
+            "repository_workflow.projection.review_gate"
+        );
+        assert_eq!(response["details"]["projection_kind"], "review_gate");
+        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
+        assert!(response["details"].get("projectionKind").is_none());
         assert!(response["details"].get("workspaceRoot").is_none());
     }
 

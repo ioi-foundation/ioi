@@ -117,6 +117,8 @@ use policy::{
     OperatorInterruptStateUpdateError, OperatorInterruptStateUpdateRecord,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
     OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
+    RepositoryWorkflowProjectionRequiredCore, RepositoryWorkflowProjectionRequiredError,
+    RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredRequest,
     RunCancelAdmissionRequiredCore, RunCancelAdmissionRequiredError,
     RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore,
     RunCancelStateUpdateError, RunCancelStateUpdateRecord, RunCancelStateUpdateRequest,
@@ -322,6 +324,14 @@ impl RuntimeKernelService {
     ) -> Result<SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredError>
     {
         SkillHookRegistryProjectionRequiredCore.plan(request)
+    }
+
+    pub fn plan_repository_workflow_projection_required(
+        &self,
+        request: &RepositoryWorkflowProjectionRequiredRequest,
+    ) -> Result<RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredError>
+    {
+        RepositoryWorkflowProjectionRequiredCore.plan(request)
     }
 
     pub fn plan_thread_control_agent_state_update(

@@ -20320,7 +20320,7 @@ Compacted evidence pointers:
 
 Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied. No
 matrix-compaction pass is pending until the next larger Rust-core extraction or
-facade-retirement seam after Slice 970 lands. The next resume should preserve that JS bridges,
+facade-retirement seam after Slice 971 lands. The next resume should preserve that JS bridges,
 JS facades, readback projections, daemon-store pass-through wrappers, and
 command transports remain migration scaffolding only and must not be treated as
 terminal architecture; accepted truth,
@@ -20358,6 +20358,46 @@ Verification commands for this slice:
 | `cargo test -p ioi-services rust_policy_plans_skill_hook_registry_projection_required` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
 | `cargo check -p ioi-node` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
 | `cargo test -p ioi-node bridge_plans_skill_hook_registry_projection_required_through_rust_core` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
+## Implementation Slice Evidence: 971
+
+Slice 971 moved public repository workflow projection refusal authoring into
+`RepositoryWorkflowProjectionRequiredCore` through
+`plan_repository_workflow_projection_required`. The runtime daemon repository
+surface now fails closed before JS projection builders can author public
+repository workflow truth for `/v1/repositories`, `/v1/repository-context`,
+`/v1/branch-policy`, `/v1/github-context`, `/v1/pr-attempts`,
+`/v1/issue-context`, `/v1/review-gate`, or `/v1/github-pr-create-plan`, and
+translates the mounted Rust daemon-core required envelope when the
+context-policy runner is available. This is still non-terminal migration
+plumbing: direct Rust daemon-core repository workflow projection over
+Agentgres-admitted repository truth, wallet.network authority for external
+capability exits, receipt/state-root binding, replay, command-transport
+retirement, and stable protocol APIs remain required before terminal
+conformance.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 971 | Moved repository workflow projection-required refusal authoring into `RepositoryWorkflowProjectionRequiredCore` through `plan_repository_workflow_projection_required`; JS translates the Rust-authored fail-closed envelope before public repository workflow projection construction. | Direct Rust daemon-core repository workflow projection over Agentgres-admitted repository truth, wallet.network authority for external capability exits, receipt/state-root binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-repository-surface.mjs packages/runtime-daemon/src/runtime-repository-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-repository-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo check -p ioi-services` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo test -p ioi-services rust_policy_plans_repository_workflow_projection_required` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo check -p ioi-node` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo test -p ioi-node bridge_plans_repository_workflow_projection_required_through_rust_core` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
 | `npm run hypervisor-conformance:bridge` | passed |
 | `npm run hypervisor-conformance:docs` | passed |
 | `npm run hypervisor-conformance` | passed |

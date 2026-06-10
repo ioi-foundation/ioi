@@ -3,120 +3,106 @@ import test from "node:test";
 
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 
-function helper(name) {
-  return (...args) => ({ name, args });
-}
-
-test("runtime repository surface delegates public projections with store cwd", () => {
-  const calls = [];
-  const projection = (name) => (input, deps) => {
-    calls.push({ name, input, depKeys: Object.keys(deps).sort() });
-    return { name, cwd: input.cwd };
-  };
-  const workflowCalls = [];
+test("runtime repository surface fails closed before JS public projection builders", () => {
   const surface = createRuntimeRepositorySurface({
-    branchPolicyForRepositoryContext: helper("branchPolicyForRepositoryContext"),
-    branchPolicyProjection: projection("branchPolicy"),
-    createRepositoryWorkflowProjections(deps) {
-      workflowCalls.push(Object.keys(deps).sort());
-      return {
-        githubPrCreatePlanForReviewGate: helper("githubPrCreatePlanForReviewGate"),
-        issueContextForGithub: helper("issueContextForGithub"),
-        prAttemptForRepository: helper("prAttemptForRepository"),
-        reviewGateForPrAttempt: helper("reviewGateForPrAttempt"),
-      };
+    repositoryContextProjection() {
+      throw new Error("JS repository projection must not author public truth");
     },
-    doctorHash: helper("doctorHash"),
-    githubContextForRepository: helper("githubContextForRepository"),
-    githubContextProjection: projection("githubContext"),
-    githubPrCreatePlanProjection: projection("githubPrCreatePlan"),
-    issueContextProjection: projection("issueContext"),
-    prAttemptsProjection: projection("prAttempts"),
-    repositoryContextForWorkspace: helper("repositoryContextForWorkspace"),
-    repositoryContextProjection: projection("repositoryContext"),
-    repositoryListProjection: projection("listRepositories"),
-    reviewGateProjection: projection("reviewGate"),
   });
   const store = { defaultCwd: "/workspace/project" };
 
-  assert.equal(surface.listRepositories(store).cwd, "/workspace/project");
-  assert.equal(surface.repositoryContext(store).cwd, "/workspace/project");
-  assert.equal(surface.branchPolicy(store).cwd, "/workspace/project");
-  assert.equal(surface.githubContext(store).cwd, "/workspace/project");
-  assert.equal(surface.prAttempts(store).cwd, "/workspace/project");
-  assert.equal(surface.issueContext(store).cwd, "/workspace/project");
-  assert.equal(surface.reviewGate(store).cwd, "/workspace/project");
-  assert.equal(surface.githubPrCreatePlan(store).cwd, "/workspace/project");
+  assert.throws(
+    () => surface.repositoryContext(store),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(
+        error.code,
+        "runtime_repository_workflow_projection_rust_core_required",
+      );
+      assert.equal(
+        error.details.rust_core_boundary,
+        "runtime.repository_workflow_projection",
+      );
+      assert.equal(
+        error.details.operation,
+        "repository_workflow_repository_context",
+      );
+      assert.equal(
+        error.details.operation_kind,
+        "repository_workflow.projection.repository_context",
+      );
+      assert.equal(error.details.projection_kind, "repository_context");
+      assert.equal(error.details.workspace_root, "/workspace/project");
+      assert.equal(Object.hasOwn(error.details, "projectionKind"), false);
+      assert.equal(Object.hasOwn(error.details, "workspaceRoot"), false);
+      return true;
+    },
+  );
+});
 
-  assert.deepEqual(calls.map((call) => call.name), [
-    "listRepositories",
-    "repositoryContext",
-    "branchPolicy",
-    "githubContext",
-    "prAttempts",
-    "issueContext",
-    "reviewGate",
-    "githubPrCreatePlan",
-  ]);
-  assert.deepEqual(Object.fromEntries(calls.map((call) => [call.name, call.depKeys])), {
-    listRepositories: ["doctorHash", "repositoryContextForWorkspace"],
-    repositoryContext: ["doctorHash", "repositoryContextForWorkspace"],
-    branchPolicy: [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "repositoryContextForWorkspace",
-    ],
-    githubContext: [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "githubContextForRepository",
-      "repositoryContextForWorkspace",
-    ],
-    prAttempts: [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "githubContextForRepository",
-      "prAttemptForRepository",
-      "repositoryContextForWorkspace",
-    ],
-    issueContext: [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "githubContextForRepository",
-      "issueContextForGithub",
-      "prAttemptForRepository",
-      "repositoryContextForWorkspace",
-      "reviewGateForPrAttempt",
-    ],
-    reviewGate: [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "githubContextForRepository",
-      "prAttemptForRepository",
-      "repositoryContextForWorkspace",
-      "reviewGateForPrAttempt",
-    ],
-    githubPrCreatePlan: [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "githubContextForRepository",
-      "githubPrCreatePlanForReviewGate",
-      "issueContextForGithub",
-      "prAttemptForRepository",
-      "repositoryContextForWorkspace",
-      "reviewGateForPrAttempt",
+test("runtime repository surface translates mounted Rust projection-required record", () => {
+  let captured = null;
+  const surface = createRuntimeRepositorySurface({
+    repositoryRunner: {
+      planRepositoryWorkflowProjectionRequired(request) {
+        captured = request;
+        return {
+          record: {
+            status_code: 501,
+            code: "runtime_repository_workflow_projection_rust_core_required",
+            message:
+              "Repository workflow projection requires direct Rust daemon-core projection over Agentgres-admitted repository workflow truth.",
+            details: {
+              rust_core_boundary: "runtime.repository_workflow_projection",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              projection_kind: request.projection_kind,
+              workspace_root: request.workspace_root,
+              source: request.source,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
+    },
+  });
+  const store = { defaultCwd: "/workspace/project" };
+
+  assert.throws(
+    () => surface.prAttempts(store),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(
+        error.code,
+        "runtime_repository_workflow_projection_rust_core_required",
+      );
+      assert.equal(error.details.operation, "repository_workflow_pr_attempts");
+      assert.equal(
+        error.details.operation_kind,
+        "repository_workflow.projection.pr_attempts",
+      );
+      assert.equal(error.details.projection_kind, "pr_attempts");
+      assert.equal(error.details.workspace_root, "/workspace/project");
+      assert.equal(error.details.source, "runtime.repository_surface");
+      assert.deepEqual(error.details.evidence_refs, [
+        "runtime_repository_workflow_js_projection_retired",
+        "rust_daemon_core_repository_workflow_projection_required",
+        "agentgres_repository_workflow_truth_required",
+      ]);
+      return true;
+    },
+  );
+
+  assert.deepEqual(captured, {
+    operation: "repository_workflow_pr_attempts",
+    operation_kind: "repository_workflow.projection.pr_attempts",
+    projection_kind: "pr_attempts",
+    workspace_root: "/workspace/project",
+    source: "runtime.repository_surface",
+    evidence_refs: [
+      "runtime_repository_workflow_js_projection_retired",
+      "rust_daemon_core_repository_workflow_projection_required",
+      "agentgres_repository_workflow_truth_required",
     ],
   });
-  assert.deepEqual(workflowCalls, [
-    [
-      "branchPolicyForRepositoryContext",
-      "doctorHash",
-      "emptyToNull",
-      "gitOutput",
-      "githubContextForRepository",
-      "normalizeArray",
-      "repositoryContextForWorkspace",
-      "uniqueStrings",
-    ],
-  ]);
 });
