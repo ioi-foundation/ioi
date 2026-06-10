@@ -1475,20 +1475,12 @@ export class AgentgresRuntimeStateStore {
     );
   }
 
-  codingToolBudgetRecoveryForRun(runId, request = {}) {
-    return this.codingToolBudgetRecoverySurface.codingToolBudgetRecoveryForRun(this, runId, request);
-  }
-
   workflowEditThreadContext(threadId, request = {}) {
     return this.workflowEditSurface.workflowEditThreadContext(this, threadId, request);
   }
 
   resolveWorkflowEditTarget(agent, request = {}) {
     return this.workflowEditSurface.resolveWorkflowEditTarget(agent, request);
-  }
-
-  proposeWorkflowEdit(threadId, request = {}) {
-    return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
   }
 
   applyThreadMcpServerMutation({

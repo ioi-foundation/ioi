@@ -2266,6 +2266,19 @@ external-exit authority, Agentgres expected-head/state-root binding, MCP
 receipt/event materialization, replay, command-transport retirement, and stable
 SDK/IDE/CLI protocol APIs remain required before terminal pure Rust substrate
 conformance.
+Slice 965 retired the remaining route-facing daemon-store pass-through
+wrappers for workflow-edit proposal admission and run-level coding-tool budget
+recovery. The thread workflow-edit proposal route now calls the mounted
+fail-closed workflow-edit surface directly, and the run coding-tool budget
+recovery route now calls the mounted fail-closed budget-recovery surface
+directly. JS no longer preserves `proposeWorkflowEdit()` or
+`codingToolBudgetRecoveryForRun()` as daemon-store route compatibility
+wrappers. This does not claim terminal workflow-edit or coding-tool budget
+recovery migration: direct Rust daemon-core admission/projection,
+wallet.network approval authority where applicable, Agentgres expected-head and
+state-root binding, receipt/event materialization, replay, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain required before
+terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

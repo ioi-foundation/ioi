@@ -6526,6 +6526,12 @@ function runBridge() {
       /coding-tool budget recovery defaults action canonically while ignoring retired aliases/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
+      /store\.codingToolBudgetRecoverySurface\.codingToolBudgetRecoveryForRun\(\s*store,\s*runId,\s*await readBody\(request\)\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /run route sends coding-tool budget recovery through mounted surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /threadId: "thread_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /recoveryAction: "retry_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
       /sourceEventId: "event_retired"/.test(runtimeCodingToolBudgetRecoverySurfaceTest) &&
@@ -6537,6 +6543,9 @@ function runBridge() {
       /optionalString\(request\.workflow_node_id\)/.test(runtimeCodingToolBudgetRecovery) &&
       !/request\.(?:threadId|workflowNodeId|workflowGraphId|recoveryAction|requestedBy|sourceEventId|approvalId|receiptRefs|policyDecisionRefs|idempotencyKey)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
+      ) &&
+      !/^\s+codingToolBudgetRecoveryForRun\(runId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       !/request\.(?:targetNodeIds|workflowNodeId|recoveryPolicy|retryLimit)\b/.test(
         runtimeCodingToolBudgetRecovery,
@@ -8260,6 +8269,12 @@ function runBridge() {
       /agentForThread must not be called by the retired workflow-edit JS facade/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
+      /store\.workflowEditSurface\.proposeWorkflowEdit\(\s*store,\s*threadId,\s*await readBody\(request\)\s*\)/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends workflow, diagnostics, and snapshot controls through mounted surfaces/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /error\.details\.thread_id, "thread_alpha"/.test(runtimeWorkflowEditSurfaceTest) &&
       /Object\.hasOwn\(error\.details,\s*"threadId"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
@@ -8270,6 +8285,9 @@ function runBridge() {
       !/store\.appendRuntimeEvent\(/.test(runtimeWorkflowEditSurface) &&
       !/store\.requestThreadApproval\(/.test(runtimeWorkflowEditSurface) &&
       !/store\.agentForThread\(/.test(runtimeWorkflowEditSurface) &&
+      !/^\s+proposeWorkflowEdit\(threadId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       !/details:\s*\{ threadId/.test(runtimeWorkflowEditSurface) &&
       !/request\.(?:turn_id|workflow_node_id|workflow_graph_id|requested_by|workflow_path|workflow_patch|code_diff|edit_intent_id|proposal_id|approval_id|receipt_refs|policy_decision_refs|target_workflow_node_ids|bounded_targets|idempotency_key)\s*\?\?\s*request\./.test(
         runtimeWorkflowEditSurface,

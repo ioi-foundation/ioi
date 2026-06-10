@@ -996,7 +996,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "workflow-edit-proposals" && !segments[4]) {
-      writeJsonResponse(response, store.proposeWorkflowEdit(threadId, await readBody(request)));
+      writeJsonResponse(response, store.workflowEditSurface.proposeWorkflowEdit(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "governed-improvement-proposals" && !segments[4]) {
@@ -1158,7 +1158,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "coding-tool-budget-recovery" && !segments[4]) {
       writeJsonResponse(
         response,
-        store.codingToolBudgetRecoveryForRun(runId, await readBody(request)),
+        store.codingToolBudgetRecoverySurface.codingToolBudgetRecoveryForRun(store, runId, await readBody(request)),
       );
       return;
     }

@@ -177,6 +177,14 @@ test("thread route sends workflow, diagnostics, and snapshot controls through mo
   });
   const store = {
     workflowEditSurface: {
+      proposeWorkflowEdit(surfaceStore, threadId, requestBody) {
+        calls.push({
+          surface: "workflowEditSurface",
+          surfaceStore,
+          args: [threadId, requestBody],
+        });
+        return surfaceResult("workflowEditSurface", [threadId, requestBody]);
+      },
       applyWorkflowEditProposal(surfaceStore, threadId, proposalId, requestBody) {
         calls.push({
           surface: "workflowEditSurface",
@@ -223,12 +231,20 @@ test("thread route sends workflow, diagnostics, and snapshot controls through mo
       },
     },
     applyWorkflowEditProposal: retiredRouteWrapper,
+    proposeWorkflowEdit: retiredRouteWrapper,
     executeDiagnosticsRepairDecision: retiredRouteWrapper,
     listWorkspaceSnapshots: retiredRouteWrapper,
     previewWorkspaceSnapshotRestore: retiredRouteWrapper,
     applyWorkspaceSnapshotRestore: retiredRouteWrapper,
   };
   const cases = [
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/workflow-edit-proposals",
+      segments: ["v1", "threads", "thread_route", "workflow-edit-proposals"],
+      surface: "workflowEditSurface",
+      args: ["thread_route", body],
+    },
     {
       method: "POST",
       path: "/v1/threads/thread_route/workflow-edit-proposals/proposal_route/apply",
@@ -475,6 +491,48 @@ test("thread and run routes send context policy controls through mounted context
       direct_truth_write_allowed: false,
     });
   }
+});
+
+test("run route sends coding-tool budget recovery through mounted surface", async () => {
+  const { handleRunRoute } = routeHandlers();
+  const calls = [];
+  const body = { request_id: "coding-tool-budget-recovery-route-test" };
+  const store = {
+    codingToolBudgetRecoverySurface: {
+      codingToolBudgetRecoveryForRun(surfaceStore, runId, requestBody) {
+        calls.push({ surfaceStore, args: [runId, requestBody] });
+        return {
+          status: "rust_core_required",
+          args: [runId, requestBody],
+          direct_truth_write_allowed: false,
+        };
+      },
+    },
+    codingToolBudgetRecoveryForRun: retiredRouteWrapper,
+  };
+  const response = responseRecorder();
+
+  await handleRunRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/runs/run_route/coding-tool-budget-recovery",
+      body,
+    }),
+    response,
+    store,
+    url: new URL("/v1/runs/run_route/coding-tool-budget-recovery", "http://daemon.test"),
+    segments: ["v1", "runs", "run_route", "coding-tool-budget-recovery"],
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].surfaceStore, store);
+  assert.deepEqual(calls[0].args, ["run_route", body]);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "rust_core_required",
+    args: ["run_route", body],
+    direct_truth_write_allowed: false,
+  });
 });
 
 test("thread route sends MCP controls through mounted MCP surfaces", async () => {

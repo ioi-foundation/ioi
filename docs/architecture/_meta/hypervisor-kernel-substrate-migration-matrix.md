@@ -21261,3 +21261,39 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of MCP command/projection transport,
 wallet.network authority, Agentgres-backed MCP truth, and stable protocol APIs
 without encoding daemon-store pass-through wrappers as public MCP authority.
+
+## Implementation Slice Evidence: 965
+
+Slice 965 retired the route-facing daemon-store pass-through wrappers for
+workflow-edit proposal admission and run-level coding-tool budget recovery. The
+thread workflow-edit proposal route now calls the mounted fail-closed
+workflow-edit surface directly, and the run coding-tool budget recovery route
+now calls the mounted fail-closed budget-recovery surface directly instead of
+preserving `proposeWorkflowEdit()` or `codingToolBudgetRecoveryForRun()` on the
+daemon store as duplicate route-level compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal workflow-edit or coding-tool budget recovery
+migration. Direct Rust daemon-core admission/projection, wallet.network
+approval authority where applicable, Agentgres-backed expected-head/state-root
+truth, receipt/event materialization, replay, command-transport retirement, and
+stable SDK/IDE/CLI protocol APIs remain before terminal pure Rust substrate
+conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-965 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of workflow-edit and coding-tool budget
+recovery command/projection transport, wallet authority where applicable,
+Agentgres-backed truth, and stable protocol APIs without encoding daemon-store
+pass-through wrappers as public route authority.
