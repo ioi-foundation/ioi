@@ -2050,6 +2050,12 @@ and native embedding responses now require a Rust/provider-authored
 otherwise `openAiEmbedding()` fails closed at
 `model_mount.provider_result.embeddings` before JS can derive deterministic
 vectors from request text.
+Slice 932 retired the public JS model-load estimate route. The native
+model-mounting route handler no longer routes
+`/api/v1/models/estimate-load`; `/api/v1/models/estimate-load` is no longer routed,
+so callers cannot preserve the retired estimate-only facade through a
+route-shaped compatibility wrapper after `load_options.estimate_only` was moved
+to the Rust-core-required `model_mount.instance.estimate` boundary.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

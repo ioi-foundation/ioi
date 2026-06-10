@@ -260,11 +260,6 @@ export function createRuntimeRouteHandlers(deps) {
       writeJsonResponse(response, mounts.projection().lifecycleEvents);
       return;
     }
-    if (request.method === "POST" && url.pathname === "/api/v1/models/estimate-load") {
-      mounts.authorize(authorization, "model.load:*");
-      writeJsonResponse(response, await mounts.loadModel({ ...(await readBody(request)), estimate_only: true }));
-      return;
-    }
     if (request.method === "POST" && url.pathname === "/api/v1/models/mounts") {
       mounts.authorize(authorization, "model.mount:*");
       writeJsonResponse(response, mounts.mountEndpoint(await readBody(request)), 201);

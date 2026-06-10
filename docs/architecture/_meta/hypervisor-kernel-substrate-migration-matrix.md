@@ -20043,3 +20043,43 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs.
+
+At Slice 931 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 932 is a facade
+retirement seam and satisfies the Slice 931 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 931 is now satisfied.
+
+## Implementation Slice Evidence: 932
+
+Slice 932 retired the public JS model-load estimate route. The native
+model-mounting route handler no longer exposes `/api/v1/models/estimate-load`,
+and focused route coverage proves the retired endpoint fails closed without
+authorizing `model.load:*` or calling `ModelMountingState.loadModel()` with
+`estimate_only: true`. This prevents the already-retired estimate-only facade
+from surviving as a public compatibility endpoint after
+`load_options.estimate_only` moved to the Rust-core-required
+`model_mount.instance.estimate` boundary.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal instance-lifecycle migration. Direct Rust
+daemon-core load/unload admission, provider lifecycle execution, receipt and
+state-root binding, Agentgres-backed replay/projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 932 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs.

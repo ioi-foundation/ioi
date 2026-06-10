@@ -282,6 +282,42 @@ test("thread route admits L1 settlement attempts through store facade", async ()
   });
 });
 
+test("model mounting native route does not expose retired estimate-load endpoint", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const store = {
+    modelMounting: {
+      authorize(...args) {
+        calls.push(["authorize", ...args]);
+      },
+      loadModel(...args) {
+        calls.push(["loadModel", ...args]);
+        return { status: "legacy_estimate" };
+      },
+    },
+  };
+
+  await assert.rejects(
+    () => handleModelMountingNativeRoute({
+      request: request({
+        method: "POST",
+        url: "/api/v1/models/estimate-load",
+        body: { model_id: "model://legacy-estimate" },
+      }),
+      response,
+      store,
+      url: new URL("/api/v1/models/estimate-load", "http://daemon.test"),
+      segments: ["api", "v1", "models", "estimate-load"],
+    }),
+    (error) =>
+      error.code === "not_found" &&
+      error.details.path === "/api/v1/models/estimate-load",
+  );
+
+  assert.deepEqual(calls, []);
+});
+
 test("thread route does not expose governed improvement apply shortcut", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

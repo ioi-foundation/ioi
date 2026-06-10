@@ -843,6 +843,8 @@ function runDocs() {
       /`ModelMountingState\.loadEstimate\(\)` and `estimateNativeLocalResources\(\)` are\s+absent/.test(guide) &&
       /Slice 931 retired the JS synthetic embedding-vector fallback/.test(guide) &&
       /`model_mount\.provider_result\.embeddings` before JS can derive deterministic\s+vectors/.test(guide) &&
+      /Slice 932 retired the public JS model-load estimate route/.test(guide) &&
+      /`\/api\/v1\/models\/estimate-load` is no longer routed/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -10692,6 +10694,8 @@ function runBridge() {
       /rust_core_boundary:\s*"model_mount\.instance_lifecycle"/.test(modelLoadingOperations) &&
       /model_mount\.instance\.estimate/.test(modelLoadingOperations) &&
       /model_load_estimate/.test(modelLoadingOperations) &&
+      !/\/api\/v1\/models\/estimate-load/.test(runtimeRouteHandlers) &&
+      /model mounting native route does not expose retired estimate-load endpoint/.test(runtimeRouteHandlersTest) &&
       !/loadEstimate\(/.test(modelLoadingOperations) &&
       !/estimateNativeLocalResources/.test(modelLoadingOperations) &&
       !/commitModelInstanceRecordState/.test(modelLoadingOperations) &&
@@ -10727,6 +10731,8 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 9/10 is pending: migrated local provider model load/unload/evict/supersede JS mutation facades must stay retired while Rust model_mount owns direct instance lifecycle transition planning/admission/projection",
   );
