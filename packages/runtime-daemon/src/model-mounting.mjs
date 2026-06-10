@@ -153,7 +153,6 @@ import {
   validateReceiptGate as validateReceiptGateRule,
 } from "./model-mounting/validation.mjs";
 import {
-  routeSelectionReceiptForState,
   throwModelRouteControlRustCoreRequired,
   testRoute as testRouteState,
   upsertRoute as upsertRouteState,
@@ -1201,18 +1200,6 @@ export class ModelMountingState {
 
   upsertRoute(body = {}) {
     return upsertRouteState(this, body, { normalizeScopes, safeId });
-  }
-
-  routeSelectionReceipt(selection, { body = {}, capability = "chat", responseId = null, previousResponseId = null, evidenceRefs = [] } = {}) {
-    return routeSelectionReceiptForState(this, selection, {
-      body,
-      capability,
-      evidenceRefs,
-      previousResponseId,
-      responseId,
-    }, {
-      stableHash,
-    });
   }
 
   nextReceiptId(kind) {

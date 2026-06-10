@@ -828,6 +828,8 @@ function runDocs() {
       /`model-capability\.mjs` and `model-capability\.test\.mjs` are absent/.test(guide) &&
       /Slice 915 deleted the orphan JS model-instance lifecycle planning facades/.test(guide) &&
       /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(guide) &&
+      /Slice 916 retired the remaining JS route-control record and route-selection\s+receipt builder facades/.test(guide) &&
+      /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/oauth-boundary.test.mjs") &&
@@ -1248,7 +1250,11 @@ function runDocs() {
       /Implementation Slice Evidence: 915/.test(matrix) &&
       /Slice 915 deleted the orphan JS model-instance lifecycle planning facades/.test(matrix) &&
       /`ModelMountingState\.planModelMountInstanceLifecycle\(\)` is absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 915/.test(matrix) &&
+      /Implementation Slice Evidence: 916/.test(matrix) &&
+      /Slice 916 retired the remaining JS route-control record and route-selection\s+receipt builder facades/.test(matrix) &&
+      /`routes\.mjs` no longer exports `upsertRouteRecord\(\)`,\s+`routeSelectionReceipt\(\)`, `routeSelectionReceiptForState\(\)`,\s+`modelMountRouteDecisionRequestForSelection\(\)`, or\s+`persistModelRouteSelectionState\(\)`/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 915 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 916/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1442,7 +1448,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 912 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 913 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 914 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 915/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 915 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 916/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1925,7 +1932,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 915 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 916 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -8193,19 +8200,21 @@ function runBridge() {
       !/fallback:\s*isFixtureEnabled/.test(modelMountDefaultRecords) &&
       /admitModelMountRouteDecision/.test(modelMountingState) &&
       /createModelMountAdmissionRunnerFromEnv/.test(modelMountingState) &&
-      /modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
-      /model_mount_route_decision_admission_required/.test(modelRoutes) &&
-      /model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
-      /model_mount_route_selection_rust_receipt_required/.test(modelRoutes) &&
-      /model_mount_route_decision_ref/.test(modelRoutes) &&
+      !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
+      !/routeSelectionReceipt(?:ForState)?/.test(modelRoutes) &&
+      !/upsertRouteRecord/.test(modelRoutes) &&
+      !/persistModelRouteSelectionState/.test(modelRoutes) &&
+      !/model_mount_route_decision_admission_required/.test(modelRoutes) &&
+      !/model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
+      !/model_mount_route_selection_rust_receipt_required/.test(modelRoutes) &&
+      /throwModelRouteSelectionRustCoreRequired/.test(modelRoutes) &&
+      /route_selection_boundary:\s*"model_mount\.route_selection"/.test(modelRoutes) &&
       /rust_authored_route_selection_receipt/.test(bridgeModule) &&
       /accepted_receipt_record/.test(bridgeModule) &&
       /accepted_receipt_record/.test(modelMountAdmissionRunner) &&
-      /persistRustAuthoredReceipt/.test(modelRoutes) &&
       /persistRustAuthoredReceipt/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperationsBridge) &&
-      /rust_daemon_core_model_route_selection_receipt_required/.test(modelRoutes) &&
       !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
       /model_route_decision_schema_version/.test(modelRoutes + bridgeModule) &&
       /model_route_decision_event_kind/.test(modelRoutes + bridgeModule) &&
@@ -8244,17 +8253,14 @@ function runBridge() {
       !/policy\?\.maxCostUsd/.test(modelRoutesTest) &&
       !/export function createModelRouteDecision/.test(modelRouteDecisionModule) &&
       !/createModelRouteDecision/.test(modelRoutes) &&
-      /idempotency_key:\s*`model_route_decision:\$\{requiredRef\("receipt_id", receiptId\)\}`/.test(modelRoutes) &&
-      /assert\.equal\(request\.idempotency_key,\s*"model_route_decision:receipt-route"\)/.test(modelRoutesTest) &&
       !/request\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/request\.thinkingEffort/.test(modelRouteDecisionModule) &&
       !/policy\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/originalBody\.reasoningEffort/.test(modelRouteDecisionModule) &&
       !/originalBody\.thinkingEffort/.test(modelRouteDecisionModule) &&
-      /rejects Rust admission results without Rust-authored receipt record/.test(modelRoutesTest) &&
-      /receipt operations reject JS receipt creation after Rust receipt authoring cut/.test(
-        read("packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs"),
-      ) &&
+      /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
+      !/routeSelectionReceipt(?:ForState)?/.test(modelRoutes) &&
+      !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       !exists(modelProjectionsPath) &&
       !exists(modelProjectionsTestPath) &&
       /canonical route decision details/.test(
@@ -8307,8 +8313,9 @@ function runBridge() {
       /previous_response_id:\s*string \| null/.test(agentSdkModelRouteDecisionType) &&
       !/responseId/.test(agentSdkModelRouteDecisionType) &&
       !/previousResponseId/.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"responseId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"previousResponseId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
+      !/responseId/.test(modelRoutes) &&
+      !/previousResponseId/.test(modelRoutes) &&
+      /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
@@ -8359,14 +8366,14 @@ function runBridge() {
       !/eventKind/.test(agentSdkModelRouteDecisionType) &&
       !/decisionId/.test(agentSdkModelRouteDecisionType) &&
       /"model_route_decision_id": record\.idempotency_key/.test(bridgeModule) &&
-      /idempotency_key:\s*`model_route_decision:\$\{requiredRef\("receipt_id", receiptId\)\}`/.test(modelRoutes) &&
       /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
       /modelRouteDecision\?\.decision_id/.test(threadTurnProjection) &&
       !/formatModelRouteDecision/.test(threadTurnProjection) &&
       !/^\s*(?:schemaVersion|eventKind|decisionId)\s*:/m.test(threadTurnProjection) &&
       /json_path_string\(value,\s*"\/decision_id"\)/.test(agentTuiCli) &&
       /json_string\(value,\s*"decision_id"\)/.test(agentgresAdmissionCoreForBridge) &&
-      /Object\.hasOwn\(created\[0\]\.details\.model_route_decision,\s*"decisionId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
+      !/decisionId/.test(modelRoutes) &&
+      /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
@@ -8401,8 +8408,7 @@ function runBridge() {
       /^\s*provider_label:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /rejected_candidates:\s*Array<\{\s*endpoint_id:\s*string;\s*provider_id:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
       !/^\s*(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:?]/m.test(agentSdkModelRouteDecisionType) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"selectedModel"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")),
+      /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
@@ -8507,9 +8513,10 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-workflow-request-aliases-retired",
-    /workflow_graph_id:\s*optionalString\(body\.workflow_graph_id\)/.test(modelRoutes) &&
-      /workflow_node_id:\s*optionalString\(body\.workflow_node_id\)/.test(modelRoutes) &&
-      /workflow_node_type:\s*optionalString\(body\.workflow_node_type\)/.test(modelRoutes) &&
+    !/workflow_graph_id:\s*optionalString\(body\.workflow_graph_id\)/.test(modelRoutes) &&
+      !/workflow_node_id:\s*optionalString\(body\.workflow_node_id\)/.test(modelRoutes) &&
+      !/workflow_node_type:\s*optionalString\(body\.workflow_node_type\)/.test(modelRoutes) &&
+      !/workflowContextFromRouteSelectionRequest/.test(modelRoutes) &&
       !/body\.(?:workflowGraphId|workflowNodeId|node_id|nodeId|workflowNodeType|node)\b/.test(
         modelRoutes,
       ) &&
@@ -9086,14 +9093,14 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-selection-detail-aliases-retired",
-      /(?:^ {6}route_id:\s*selection\.route\.id|"route_id": record\.route_ref)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}selected_model:\s*selection\.endpoint\.modelId|"selected_model": record\.model_ref)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}endpoint_id:\s*selection\.endpoint\.id|"endpoint_id": record\.endpoint_ref)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}provider_id:\s*selection\.endpoint\.providerId|"provider_id": record\.provider_ref)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}policy_hash:\s*policyHash|"policy_hash": record\.policy_hash)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}workflow_graph_id:\s*workflow\.workflowGraphId|"workflow_graph_id": record\.workflow_graph_ref)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}workflow_node_id:\s*workflow\.workflowNodeId|"workflow_node_id": record\.workflow_node_ref)/m.test(modelRouteSelectionDetailsObject) &&
-      /(?:^ {6}workflow_node_type:\s*workflow\.workflowNodeType|"workflow_node_type": null)/m.test(modelRouteSelectionDetailsObject) &&
+      /"route_id": record\.route_ref/.test(bridgeModule) &&
+      /"selected_model": record\.model_ref/.test(bridgeModule) &&
+      /"endpoint_id": record\.endpoint_ref/.test(bridgeModule) &&
+      /"provider_id": record\.provider_ref/.test(bridgeModule) &&
+      /"policy_hash": record\.policy_hash/.test(bridgeModule) &&
+      /"workflow_graph_id": record\.workflow_graph_ref/.test(bridgeModule) &&
+      /"workflow_node_id": record\.workflow_node_ref/.test(bridgeModule) &&
+      /"workflow_node_type": null/.test(bridgeModule) &&
       !/^ {6}(?:routeId|selectedModel|endpointId|providerId|policyHash|workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(
         modelRouteSelectionDetailsObject,
       ) &&
@@ -9111,9 +9118,7 @@ function runBridge() {
       /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
       /operation_kind,\s*"model_mount\.route\.select"/.test(modelRoutesTest) &&
       /operation_kind,\s*"model_mount\.route\.explicit_model_endpoints"/.test(modelRoutesTest) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"routeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"policyHash"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
-      /Object\.hasOwn\(created\[0\]\.details,\s*"workflowNodeId"\),\s*false/.test(read("packages/runtime-daemon/src/model-mounting/routes.test.mjs")) &&
+      /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /assert\.equal\(replay\.model_route_decision\.selected_model/.test(modelMountingReadProjectionFacadeTest),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
@@ -9129,13 +9134,14 @@ function runBridge() {
     /RETIRED_ROUTE_SELECTION_REQUEST_ALIASES/.test(modelRoutes) &&
       /model_mount_route_selection_request_aliases_retired/.test(modelRoutes) &&
       (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 2 &&
-      /const policy = body\.model_policy \?\? \{\};/.test(modelRoutes) &&
-      /const requestedModel = body\.model \?\? body\.model_id \?\? null;/.test(modelRoutes) &&
+      /export function assertCanonicalRouteSelectionRequest\(body = \{\}\)/.test(modelRoutes) &&
       /throwModelRouteControlRustCoreRequired\("model_mount\.route\.test"/.test(modelRoutes) &&
+      !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
+      !/routeSelectionReceipt(?:ForState)?/.test(modelRoutes) &&
       !/modelId:\s*body\.model \?\? body\.model_id/.test(modelRoutes) &&
       !/policy:\s*body\.model_policy \?\? \{\}/.test(modelRoutes) &&
       !/body\.(?:modelId|modelPolicy|workflowGraphId|workflowNodeId|nodeId|node_id|workflowNodeType)\b/.test(modelRoutes) &&
-      /route receipt rejects retired request aliases before receipt allocation/.test(modelRoutesTest) &&
+      /route selection rejects retired request aliases before Rust boundary/.test(modelRoutesTest) &&
       /test route rejects retired request aliases before route lookup/.test(modelRoutesTest) &&
       /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
       /retired_aliases/.test(modelRoutesTest) &&
@@ -9149,24 +9155,24 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-selection-authority-request-aliases-retired",
-    (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 3 &&
+    (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 2 &&
       /"authorityGrantRefs"/.test(modelRoutes) &&
       /"authorityReceiptRefs"/.test(modelRoutes) &&
       /"custodyRef"/.test(modelRoutes) &&
       /"privacyProfile"/.test(modelRoutes) &&
       /"nodePlaintextAllowed"/.test(modelRoutes) &&
-      /authority_grant_refs:\s*normalizeRefs\(body\.authority_grant_refs\)/.test(modelRoutes) &&
-      /authority_receipt_refs:\s*normalizeRefs\(body\.authority_receipt_refs\)/.test(modelRoutes) &&
-      /body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custodyRef/.test(modelRoutes) &&
-      /body\.privacy_profile \?\?\s*policy\.privacy_profile/.test(modelRoutes) &&
-      /body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.nodePlaintextAllowed/.test(modelRoutes) &&
+      !/authority_grant_refs:\s*normalizeRefs\(body\.authority_grant_refs\)/.test(modelRoutes) &&
+      !/authority_receipt_refs:\s*normalizeRefs\(body\.authority_receipt_refs\)/.test(modelRoutes) &&
+      !/body\.custody_ref \?\?\s*selection\?\.endpoint\?\.custodyRef/.test(modelRoutes) &&
+      !/body\.privacy_profile \?\?\s*policy\.privacy_profile/.test(modelRoutes) &&
+      !/body\.node_plaintext_allowed \?\?\s*selection\?\.endpoint\?\.nodePlaintextAllowed/.test(modelRoutes) &&
       !/body\.(?:authorityGrantRefs|authorityReceiptRefs|custodyRef|privacyProfile|nodePlaintextAllowed)\b/.test(
         modelRoutes,
       ) &&
       !/policy\.privacyProfile\b/.test(modelRoutes) &&
-      /route receipt rejects retired authority request aliases before receipt allocation/.test(modelRoutesTest) &&
-      /route request rejects retired authority aliases before Rust admission request build/.test(modelRoutesTest) &&
-      /route request ignores retired policy privacy profile alias/.test(modelRoutesTest),
+      /route selection rejects retired request aliases before Rust boundary/.test(modelRoutesTest) &&
+      !/route request rejects retired authority aliases before Rust admission request build/.test(modelRoutesTest) &&
+      !/route request ignores retired policy privacy profile alias/.test(modelRoutesTest),
     [
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
@@ -9179,12 +9185,13 @@ function runBridge() {
     /RETIRED_ROUTE_UPSERT_REQUEST_ALIASES/.test(modelRoutes) &&
       /model_mount_route_upsert_request_aliases_retired/.test(modelRoutes) &&
       /assertCanonicalRouteUpsertRequestBody\(body\);/.test(modelRoutes) &&
-      /maxCostUsd:\s*Number\(body\.max_cost_usd \?\? 0\.25\)/.test(modelRoutes) &&
-      /maxLatencyMs:\s*Number\(body\.max_latency_ms \?\? 30000\)/.test(modelRoutes) &&
-      /providerEligibility:\s*normalizeScopes\(body\.provider_eligibility,\s*\[\]\)/.test(modelRoutes) &&
-      /deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
-      /lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
-      /lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
+      !/upsertRouteRecord/.test(modelRoutes) &&
+      !/maxCostUsd:\s*Number\(body\.max_cost_usd \?\? 0\.25\)/.test(modelRoutes) &&
+      !/maxLatencyMs:\s*Number\(body\.max_latency_ms \?\? 30000\)/.test(modelRoutes) &&
+      !/providerEligibility:\s*normalizeScopes\(body\.provider_eligibility,\s*\[\]\)/.test(modelRoutes) &&
+      !/deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
+      !/lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
+      !/lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
       /throwModelRouteControlRustCoreRequired/.test(modelRoutes) &&
       /model_mount_route_control_rust_core_required/.test(modelRoutes) &&
       /rust_core_boundary:\s*"model_mount\.route_control"/.test(modelRoutes) &&
@@ -9193,8 +9200,9 @@ function runBridge() {
       /agentgres_route_truth_required/.test(modelRoutes) &&
       /model_mount\.route\.write/.test(modelRoutes) &&
       /model_mount\.route\.test/.test(modelRoutes) &&
-      /persistModelRouteSelectionState/.test(modelRoutes) &&
-      /model_mount\.route\.selection_update/.test(modelRoutes) &&
+      !/persistModelRouteSelectionState/.test(modelRoutes) &&
+      /throwModelRouteSelectionRustCoreRequired/.test(modelRoutes) &&
+      /model_mount\.route\.selection_update/.test(modelRoutesTest) &&
       !/commitModelRouteRecordState/.test(modelRoutes) &&
       !/commitModelMountRecordState/.test(modelRoutes) &&
       !/recordDir:\s*"model-routes"/.test(modelRoutes) &&
@@ -9213,9 +9221,10 @@ function runBridge() {
       !/body\.(?:maxCostUsd|maxLatencyMs|providerEligibility|deniedProviders|lastSelectedModel|lastReceiptId)\b/.test(
         modelRoutes,
       ) &&
-      /route upsert rejects retired request aliases before state write/.test(modelRoutesTest) &&
+      /route upsert rejects retired request aliases before Rust-required boundary/.test(modelRoutesTest) &&
+      /route upsert fails closed without JS route-record normalization/.test(modelRoutesTest) &&
       /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
-      /route selection state persistence fails closed before JS route map mutation/.test(modelRoutesTest) &&
+      /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
       /does not fall back to JS route record-state commit/.test(modelTokenizerOperationsTest) &&
       /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
         modelInvocationOpsTest,

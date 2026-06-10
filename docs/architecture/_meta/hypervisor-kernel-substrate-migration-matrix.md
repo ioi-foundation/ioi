@@ -257,7 +257,9 @@ Matrix compaction timing:
   orphan JS model-capability materializer deletion.
 - Scheduled matrix-compaction obligation from Slice 914 is now satisfied by the
   model-instance lifecycle planning facade deletion.
-- Next scheduled matrix-compaction pass: compact Slice 915 after the next
+- Scheduled matrix-compaction obligation from Slice 915 is now satisfied by the
+  route-control record and route-selection receipt builder retirement.
+- Next scheduled matrix-compaction pass: compact Slice 916 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19403,10 +19405,49 @@ model-instance truth, receipt/state-root binding, replay, stable protocol APIs,
 and command-transport retirement remain required before instance lifecycle
 control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 915 after the next direct
+At Slice 915 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 916 is that seam
+and satisfies the Slice 915 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 915 is now satisfied.
+
+## Implementation Slice Evidence: 916
+
+Slice 916 retired the remaining JS route-control record and route-selection
+receipt builder facades. `routes.mjs` no longer exports `upsertRouteRecord()`,
+`routeSelectionReceipt()`, `routeSelectionReceiptForState()`,
+`modelMountRouteDecisionRequestForSelection()`, or
+`persistModelRouteSelectionState()`. Public route upsert/test and mounted
+route-selection methods still reject retired compatibility request aliases and
+fail closed at `model_mount.route_control`, but JS no longer normalizes route
+records, allocates route-selection receipt ids, constructs route-decision
+admission requests, or persists accepted route-selection receipts. The Rust
+bridge still admits model-route decisions through `admit_model_mount_route_decision`;
+direct Rust daemon-core route-control/selection APIs remain required before
+terminal conformance.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/routes.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/routes.test.mjs packages/runtime-daemon/src/threads/model-route-selection.test.mjs packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal route-control migration: direct Rust
+daemon-core route control/selection APIs, Agentgres-backed route truth,
+receipt/state-root binding, replay, stable protocol APIs, and
+command-transport retirement remain required before route control reaches the
+pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 916 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
-provider/runtime-engine/catalog/workflow/server-control execution-control APIs,
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs. The
 `ioi-step-module-bridge` command path is acceptable only as migration
 transport; it is not the terminal architecture.

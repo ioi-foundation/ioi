@@ -45,204 +45,32 @@ const CANONICAL_ROUTE_UPSERT_REQUEST_FIELDS = [
   "last_receipt_id",
 ];
 
-export function upsertRouteRecord(body = {}, { normalizeScopes, safeId } = {}) {
-  assertCanonicalRouteUpsertRequestBody(body);
-  const id = body.id ?? `route.${safeId(body.role ?? "custom")}`;
-  return {
-    id,
-    role: body.role ?? "custom",
-    description: body.description ?? "Operator-defined model route.",
-    privacy: body.privacy ?? "local_or_enterprise",
-    quality: body.quality ?? "adaptive",
-    maxCostUsd: Number(body.max_cost_usd ?? 0.25),
-    maxLatencyMs: Number(body.max_latency_ms ?? 30000),
-    providerEligibility: normalizeScopes(body.provider_eligibility, []),
-    fallback: normalizeScopes(body.fallback, []),
-    deniedProviders: normalizeScopes(body.denied_providers, []),
-    status: body.status ?? "active",
-    lastSelectedModel: body.last_selected_model ?? null,
-    lastReceiptId: body.last_receipt_id ?? null,
-  };
-}
-
 export function upsertRoute(state, body = {}, deps = {}) {
-  const { normalizeScopes, safeId } = deps;
-  const route = upsertRouteRecord(body, { normalizeScopes, safeId });
+  void state;
+  void deps;
+  assertCanonicalRouteUpsertRequestBody(body);
   throwModelRouteControlRustCoreRequired("model_mount.route.write", {
-    route_id: route.id,
-  });
-}
-
-export function routeSelectionReceipt({
-  body = {},
-  capability = "chat",
-  evidenceRefs = [],
-  admitModelMountRouteDecision,
-  nextReceiptId,
-  persistRustAuthoredReceipt,
-  previousResponseId = null,
-  responseId = null,
-  selection,
-  stableHash,
-} = {}) {
-  assertCanonicalRouteSelectionRequestBody(body);
-  const policy = body.model_policy ?? {};
-  const requestedModel = body.model ?? body.model_id ?? null;
-  const workflow = workflowContextFromRouteSelectionRequest(body);
-  const policyHash = stableHash(policy);
-  if (typeof nextReceiptId !== "function") {
-    throw routeDecisionReceiptIdRequiredError();
-  }
-  const receiptId = nextReceiptId("model_route_selection");
-  if (typeof admitModelMountRouteDecision !== "function") {
-    throw routeDecisionRustAdmissionRequiredError();
-  }
-  const modelMountRouteDecision = admitModelMountRouteDecision(
-    modelMountRouteDecisionRequestForSelection({
-      body,
-      capability,
-      policy,
-      policyHash,
-      previousResponseId,
-      receiptId,
-      responseId,
-      selection,
-      workflow,
-    }),
-  );
-  void evidenceRefs;
-  void requestedModel;
-  void responseId;
-  void previousResponseId;
-  if (typeof persistRustAuthoredReceipt !== "function") {
-    throw routeDecisionAcceptedReceiptRequiredError("persist_rust_authored_receipt");
-  }
-  if (!modelMountRouteDecision.accepted_receipt_record) {
-    throw routeDecisionAcceptedReceiptRequiredError("accepted_receipt_record");
-  }
-  return persistRustAuthoredReceipt(modelMountRouteDecision.accepted_receipt_record);
-}
-
-export function routeSelectionReceiptForState(state, selection, options = {}, deps = {}) {
-  const {
-    stableHash,
-  } = deps;
-  return routeSelectionReceipt({
-    admitModelMountRouteDecision: (request) => state.admitModelMountRouteDecision(request),
-    ...options,
-    nextReceiptId: (kind) => state.nextReceiptId(kind),
-    persistRustAuthoredReceipt: (record) => state.persistRustAuthoredReceipt(record),
-    selection,
-    stableHash,
+    route_id: routeIdFromUpsertBody(body),
   });
 }
 
 export function testRoute(state, routeId, body = {}) {
+  void state;
   assertCanonicalRouteSelectionRequestBody(body);
   throwModelRouteControlRustCoreRequired("model_mount.route.test", {
     route_id: routeId,
   });
 }
 
-export function persistModelRouteSelectionState(
-  state,
-  routeRecord,
-  selectedModel,
-  receiptId,
-  operation_kind = "model_mount.route.selection_update",
-) {
+export function throwModelRouteSelectionRustCoreRequired(operation_kind, details = {}) {
   throwModelRouteControlRustCoreRequired(operation_kind, {
-    route_id: routeRecord?.id ?? null,
-    selected_model: selectedModel ?? null,
-    receipt_id: receiptId ?? null,
+    route_selection_boundary: "model_mount.route_selection",
+    ...details,
   });
 }
 
-export function modelMountRouteDecisionRequestForSelection({
-  body = {},
-  capability = "chat",
-  policy = {},
-  policyHash,
-  previousResponseId = null,
-  receiptId = null,
-  responseId = null,
-  selection,
-  workflow = {},
-} = {}) {
+export function assertCanonicalRouteSelectionRequest(body = {}) {
   assertCanonicalRouteSelectionRequestBody(body);
-  return {
-    schema_version: "ioi.model_mount.route_decision.v1",
-    route_ref: requiredRef("route_ref", selection?.route?.id),
-    provider_ref: requiredRef("provider_ref", selection?.provider?.id ?? selection?.endpoint?.providerId),
-    endpoint_ref: requiredRef("endpoint_ref", selection?.endpoint?.id),
-    model_ref: requiredRef("model_ref", selection?.endpoint?.modelId),
-    capability: requiredRef("capability", capability),
-    policy_hash: policyHashRef(policyHash),
-    idempotency_key: `model_route_decision:${requiredRef("receipt_id", receiptId)}`,
-    receipt_refs: [`receipt://${requiredRef("receiptId", receiptId)}`],
-    authority_grant_refs: normalizeRefs(body.authority_grant_refs),
-    authority_receipt_refs: normalizeRefs(body.authority_receipt_refs),
-    custody_ref: optionalRef(
-      body.custody_ref ??
-        selection?.endpoint?.custodyRef ??
-        selection?.endpoint?.custody_ref ??
-        selection?.provider?.custodyRef ??
-        selection?.provider?.custody_ref,
-    ),
-    privacy_profile: optionalRef(
-      body.privacy_profile ??
-        policy.privacy_profile ??
-        policy.privacy ??
-        selection?.route?.privacy ??
-        selection?.provider?.privacyClass,
-    ),
-    node_plaintext_allowed: Boolean(
-      body.node_plaintext_allowed ??
-        selection?.endpoint?.nodePlaintextAllowed ??
-        selection?.provider?.nodePlaintextAllowed ??
-        false,
-    ),
-    workflow_graph_ref: optionalRef(workflow.workflow_graph_id),
-    workflow_node_ref: optionalRef(workflow.workflow_node_id),
-  };
-}
-
-export function workflowContextFromRouteSelectionRequest(body = {}) {
-  return {
-    workflow_graph_id: optionalString(body.workflow_graph_id),
-    workflow_node_id: optionalString(body.workflow_node_id),
-    workflow_node_type: optionalString(body.workflow_node_type),
-  };
-}
-
-function routeDecisionRustAdmissionRequiredError() {
-  const error = new Error("Model route decisions require Rust model_mount admission before receipt creation.");
-  error.status = 502;
-  error.code = "model_mount_route_decision_admission_required";
-  return error;
-}
-
-function routeDecisionReceiptIdRequiredError() {
-  const error = new Error("Model route decisions require a precomputed receipt id before Rust admission.");
-  error.status = 500;
-  error.code = "model_mount_route_decision_receipt_id_required";
-  return error;
-}
-
-function routeDecisionAcceptedReceiptRequiredError(field) {
-  const error = new Error("Model route selection receipts must be authored by Rust daemon core.");
-  error.status = 502;
-  error.code = "model_mount_route_selection_rust_receipt_required";
-  error.details = {
-    missing: field,
-    rust_core_boundary: "model_mount.route_selection_receipt",
-    evidence_refs: [
-      "model_mount_route_selection_js_receipt_creation_retired",
-      "rust_daemon_core_model_route_selection_receipt_required",
-      "agentgres_model_route_selection_truth_required",
-    ],
-  };
-  return error;
 }
 
 export function throwModelRouteControlRustCoreRequired(operation_kind, details = {}) {
@@ -260,6 +88,12 @@ export function throwModelRouteControlRustCoreRequired(operation_kind, details =
     ],
   };
   throw error;
+}
+
+function routeIdFromUpsertBody(body = {}) {
+  if (typeof body.id === "string" && body.id.trim()) return body.id.trim();
+  if (typeof body.role === "string" && body.role.trim()) return `route:${body.role.trim()}`;
+  return null;
 }
 
 function assertCanonicalRouteSelectionRequestBody(body = {}) {
@@ -292,48 +126,4 @@ function assertCanonicalRouteUpsertRequestBody(body = {}) {
     canonical_fields: CANONICAL_ROUTE_UPSERT_REQUEST_FIELDS,
   };
   throw error;
-}
-
-function requiredRef(field, value) {
-  const normalized = optionalRef(value);
-  if (!normalized) {
-    const error = new Error(`Model route decision missing ${field}.`);
-    error.status = 500;
-    error.code = "model_mount_route_decision_ref_missing";
-    error.details = { field };
-    throw error;
-  }
-  return normalized;
-}
-
-function optionalRef(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-function optionalString(value) {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-function normalizeRefs(value) {
-  return Array.isArray(value)
-    ? value.map(optionalRef).filter(Boolean)
-    : [];
-}
-
-function uniqueRefs(values) {
-  const refs = [];
-  for (const value of values) {
-    const ref = optionalRef(value);
-    if (ref && !refs.includes(ref)) refs.push(ref);
-  }
-  return refs;
-}
-
-function policyHashRef(value) {
-  const normalized = requiredRef("policy_hash", value);
-  return normalized.startsWith("sha256:") ? normalized : `sha256:${normalized}`;
 }

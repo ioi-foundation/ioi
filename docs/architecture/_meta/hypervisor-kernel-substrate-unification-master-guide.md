@@ -2371,6 +2371,20 @@ Agentgres-backed topology and instance truth, replay, stable protocol APIs, and
 command-transport retirement remain required before instance lifecycle reaches
 terminal pure Rust conformance.
 
+Slice 916 retired the remaining JS route-control record and route-selection
+receipt builder facades. `routes.mjs` no longer exports `upsertRouteRecord()`,
+`routeSelectionReceipt()`, `routeSelectionReceiptForState()`,
+`modelMountRouteDecisionRequestForSelection()`, or
+`persistModelRouteSelectionState()`. Public route upsert/test and mounted
+route-selection methods still reject retired request aliases and then fail
+closed at the Rust daemon-core route-control boundary, but JS no longer
+normalizes route records, allocates route-selection receipt ids, constructs
+`ModelMountRouteDecisionRequest` payloads, or persists accepted route-selection
+receipts. Direct Rust daemon-core route control/selection APIs,
+Agentgres-backed route truth, receipt/state-root binding, replay, stable
+protocol APIs, and command-transport retirement remain required before route
+control reaches terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
