@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 898 after the next
+- Next scheduled matrix-compaction pass: compact Slice 899 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18878,7 +18878,38 @@ provider and backend state reads, stable protocol APIs, command-transport
 retirement, and retirement of remaining JS backend process materialization
 remain required before lifecycle control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 898 after the next direct
+Scheduled matrix-compaction obligation from Slice 898 is now satisfied.
+
+## Implementation Slice Evidence: 899
+
+Slice 899 deleted the orphan per-record model_mount record-state commit wrapper
+family. `conversation-record-state.mjs`, `mcp-server-record-state.mjs`,
+`model-artifact-record-state.mjs`, `model-download-record-state.mjs`,
+`model-endpoint-record-state.mjs`, `model-instance-record-state.mjs`, and
+`oauth-record-state.mjs` are absent rather than preserved as standalone JS
+compatibility modules over the shared Rust Agentgres commit gate. The live
+model_mount facades still fail closed before JS conversation, MCP, artifact,
+endpoint, download, instance, or OAuth record-state mutation, while
+`record-state-commits.mjs` remains only as the canonical Rust Agentgres
+commit-transport adapter used by verified projection persistence during
+migration.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs packages/runtime-daemon/src/model-mounting/record-state-commits.mjs packages/runtime-daemon/src/model-mounting/state-persistence.mjs packages/runtime-daemon/src/model-mounting.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/record-state-commits.test.mjs packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal record-state migration: direct Rust
+daemon-core Agentgres projection/write APIs, command-transport retirement,
+stable protocol APIs, replay, and removal of the remaining shared
+`record-state-commits.mjs` transport adapter remain required before model_mount
+record-state persistence reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 899 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

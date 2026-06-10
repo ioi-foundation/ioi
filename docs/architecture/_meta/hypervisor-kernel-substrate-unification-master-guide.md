@@ -2186,6 +2186,18 @@ options is removed. Canonical load options remain as Rust-boundary request data;
 JS no longer keeps an LM Studio-specific CLI argument shaper for retired public
 CLI transport.
 
+Slice 899 deleted the orphan per-record model_mount record-state commit
+wrappers. `conversation-record-state.mjs`, `mcp-server-record-state.mjs`,
+`model-artifact-record-state.mjs`, `model-download-record-state.mjs`,
+`model-endpoint-record-state.mjs`, `model-instance-record-state.mjs`, and
+`oauth-record-state.mjs` are absent rather than preserved as standalone
+compatibility modules over the shared Rust Agentgres commit gate. The live
+facades still fail closed before JS receipt, map, filesystem, OAuth, MCP,
+conversation, artifact, endpoint, download, or instance record-state mutation;
+the remaining `record-state-commits.mjs` path is only the canonical Rust
+Agentgres commit transport used by verified projection persistence until direct
+Rust daemon-core APIs remove that transport layer too.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

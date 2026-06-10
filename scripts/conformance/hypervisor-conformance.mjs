@@ -754,6 +754,15 @@ function runDocs() {
       /default-discovery module no longer exports `discoverLmStudioProvider\(\)`,\s+`discoverLmStudioArtifacts\(\)`, or `pruneLmStudioPublicProjectionRecords\(\)`/.test(guide) &&
       /Slice 898 deleted the final LM Studio load-option public-CLI argument helper/.test(guide) &&
       /`lmStudioLoadOptionArgs\(\)` is no longer exported from `load-policy\.mjs`/.test(guide) &&
+      /Slice 899 deleted the orphan per-record model_mount record-state commit\s+wrappers/.test(guide) &&
+      /`conversation-record-state\.mjs`, `mcp-server-record-state\.mjs`,\s+`model-artifact-record-state\.mjs`, `model-download-record-state\.mjs`,\s+`model-endpoint-record-state\.mjs`, `model-instance-record-state\.mjs`, and\s+`oauth-record-state\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1097,7 +1106,11 @@ function runDocs() {
       /Implementation Slice Evidence: 898/.test(matrix) &&
       /Slice 898 deleted the final LM Studio load-option public-CLI argument helper/.test(matrix) &&
       /`load-policy\.mjs` no longer exports `lmStudioLoadOptionArgs\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 898/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 898 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 899/.test(matrix) &&
+      /Slice 899 deleted the orphan per-record model_mount record-state commit wrapper\s+family/.test(matrix) &&
+      /`conversation-record-state\.mjs`, `mcp-server-record-state\.mjs`,\s+`model-artifact-record-state\.mjs`, `model-download-record-state\.mjs`,\s+`model-endpoint-record-state\.mjs`, `model-instance-record-state\.mjs`, and\s+`oauth-record-state\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 899/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1274,7 +1287,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 895 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 896 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 897 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 898/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 898 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 899/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1754,7 +1768,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 898 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 899 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2103,9 +2117,6 @@ function runBridge() {
   const modelMountRecordStateCommits = exists("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/record-state-commits.mjs")
     : "";
-  const oauthRecordState = exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs")
-    : "";
   const catalogProviderListBlock =
     modelMountingState.match(/\n\s+listCatalogProviderConfigs\(\) \{[\s\S]*?\n\s+getCatalogProviderConfig/)?.[0] ??
     "";
@@ -2173,9 +2184,6 @@ function runBridge() {
         )
       : "";
   const modelConversationOps = modelMountingState;
-  const modelConversationRecordState = exists("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs")
-    : "";
   const modelConversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")
     : "";
@@ -9267,10 +9275,7 @@ function runBridge() {
     !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.mjs") &&
       /throwCatalogProviderControlRustCoreRequired/.test(modelMountingState) &&
       /model_mount_catalog_provider_control_rust_core_required/.test(catalogProviderConfig) &&
-      /recordDir:\s*"oauth-states"/.test(oauthRecordState) &&
-      /recordDir:\s*"oauth-sessions"/.test(oauthRecordState) &&
-      /model_mount_oauth_state_commit_unconfigured/.test(oauthRecordState) &&
-      /model_mount_oauth_session_commit_unconfigured/.test(oauthRecordState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs") &&
       /model_mount\.catalog_provider_oauth\.start/.test(modelMountingState) &&
       /model_mount\.catalog_provider_oauth\.callback/.test(modelMountingState) &&
       /model_mount\.catalog_provider_oauth\.exchange/.test(modelMountingState) &&
@@ -9360,7 +9365,6 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-config.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/oauth-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
     ],
     "Phase 9/10 is pending: public catalog provider OAuth mutations must fail closed until Rust daemon-core catalog provider control owns OAuth state/session receipts, wallet/cTEE custody, record-state, and projection semantics",
@@ -10083,11 +10087,10 @@ function runBridge() {
       /"input_hash"/.test(modelConversationSchemaRelations) &&
       /"output_hash"/.test(modelConversationSchemaRelations) &&
       !/"(?:routeId|endpointId|selectedModel|receiptId|inputHash|outputHash)"/.test(modelConversationSchemaRelations) &&
-      /recordDir:\s*"model-conversations"/.test(modelConversationRecordState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs") &&
       /assert\.deepEqual\(state\.writes,\s*\[\]\)/.test(modelConversationOpsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
-      "packages/runtime-daemon/src/model-mounting/conversation-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.mjs",
       "packages/runtime-daemon/src/model-mounting/validation.test.mjs",
@@ -12162,9 +12165,6 @@ function runReceipts() {
     modelMountingState.match(/\n\s+async loadModel\(body = \{\}\) \{[\s\S]*?\n\s+async downloadModel\(body = \{\}\) \{/)?.[0] ?? "",
     modelMountingState.match(/function assertCanonicalModelLoadingRequestBody\(body = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwModelLoadingRustCoreRequired\(operation, provider = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwArtifactEndpointRustCoreRequired/)?.[0] ?? "",
   ].join("\n");
-  const modelInstanceRecordState = exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs")
-    : "";
   const modelLoadingOperationsTest = exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs")
     : "";
@@ -12176,15 +12176,6 @@ function runReceipts() {
     : "";
   const storageOperations = exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.mjs")
-    : "";
-  const modelDownloadRecordState = exists("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs")
-    : "";
-  const modelArtifactRecordState = exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs")
-    : "";
-  const modelEndpointRecordState = exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs")
     : "";
   const storageOperationsTest = exists("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs")
@@ -12199,9 +12190,6 @@ function runReceipts() {
   const artifactEndpointUnmountBlock =
     modelMountingState.match(/\n\s+unmountEndpoint\(body = \{\}\) \{[\s\S]*?\n\s+async loadModel/)?.[0] ?? "";
   const mcpWorkflowOperations = modelMountingState;
-  const mcpServerRecordState = exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs")
-    : "";
   const mcpWorkflowOperationsTest = exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs")
     : "";
@@ -12756,8 +12744,7 @@ function runReceipts() {
       /model instance map writes reject Rust-bound records through the retired per-map persistence path/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
-      /commitModelInstanceRecordState/.test(modelInstanceRecordState) &&
-      /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs") &&
       /model_mount\.instance\.load/.test(modelLoadingOperations) &&
       !exists("packages/runtime-daemon/src/model-mounting/model-loading-operations.mjs") &&
       /model_mount\.instance\.unload/.test(modelLoadingOperations) &&
@@ -12781,7 +12768,6 @@ function runReceipts() {
       !/state\.lifecycleReceipt\("model_idle_evict"/.test(loadedInstances) &&
       !/state\.lifecycleReceipt\("model_supersede"/.test(loadedInstances) &&
       !/state\.instances\.set/.test(loadedInstances) &&
-      /model_mount_instance_state_commit_unconfigured/.test(modelInstanceRecordState) &&
       !/state\.writeMap\("model-instances"/.test(modelLoadingOperations) &&
       !/state\.writeMap\("model-instances"/.test(loadedInstances) &&
       /recordStateCommits/.test(modelLoadingOperationsTest) &&
@@ -12825,7 +12811,6 @@ function runReceipts() {
       ),
     [
       "packages/runtime-daemon/src/model-mounting/model-instance-lifecycle.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.mjs",
       "packages/runtime-daemon/src/model-mounting/loaded-instances.test.mjs",
@@ -13041,6 +13026,8 @@ function runReceipts() {
     result,
     "model-mount-artifact-endpoint-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
       !/importModelState|mountEndpointState|unmountEndpointState/.test(modelMountingState) &&
       /throwArtifactEndpointRustCoreRequired/.test(modelMountingState) &&
       /model_mount_artifact_endpoint_rust_core_required/.test(modelMountingState) &&
@@ -13083,8 +13070,6 @@ function runReceipts() {
         artifactEndpointOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/artifact-endpoint-operations.test.mjs",
     ],
@@ -13177,6 +13162,9 @@ function runReceipts() {
     result,
     "model-mount-storage-js-facade-retired",
     !exists("packages/runtime-daemon/src/model-mounting/storage-operations.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs") &&
       !/cancelDownloadState|downloadStatusState|deleteModelArtifactState|cleanupModelStorageState/.test(modelMountingState) &&
       /throwModelStorageRustCoreRequired/.test(modelMountingState) &&
       /model_mount_storage_rust_core_required/.test(modelMountingState) &&
@@ -13224,9 +13212,6 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(storageOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(storageOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-endpoint-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/storage-operations.test.mjs",
     ],
@@ -13236,6 +13221,7 @@ function runReceipts() {
     result,
     "model-mount-mcp-receipt-detail-aliases-retired",
     !exists("packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs") &&
       /model_mount_mcp_workflow_rust_core_required/.test(mcpWorkflowOperations) &&
       /rust_core_boundary:\s*"model_mount\.mcp_workflow"/.test(mcpWorkflowOperations) &&
       /model_mount_mcp_workflow_js_facade_retired/.test(mcpWorkflowOperations) &&
@@ -13280,7 +13266,6 @@ function runReceipts() {
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(mcpWorkflowOperationsTest) &&
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(mcpWorkflowOperationsTest),
     [
-      "packages/runtime-daemon/src/model-mounting/mcp-server-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/mcp-workflow-operations.test.mjs",
     ],
@@ -13599,8 +13584,6 @@ function runReceipts() {
         catalogDownloadOperationsTest,
       ),
     [
-      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-download-record-state.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-download-operations.test.mjs",
     ],
@@ -14304,8 +14287,8 @@ function runReceipts() {
       !/state\.evictExpiredInstances\(\)/.test(stateAccessors) &&
       !/state\.writeMap\("model-artifacts"/.test(stateAccessors) &&
       !/state\.writeMap\("model-instances"/.test(stateAccessors) &&
-      /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
-      /recordDir:\s*"model-instances"/.test(modelInstanceRecordState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs") &&
       /fail closed before provider-direct artifact mutation/.test(
         stateAccessorsTest,
       ) &&
@@ -14318,8 +14301,6 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/state-accessors.mjs",
       "packages/runtime-daemon/src/model-mounting/state-accessors.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-instance-record-state.mjs",
     ],
     "Phase 9/10 is pending: model-mount state accessor mutation facades must fail closed or reuse projections without JS artifact/instance writes",
   );
@@ -14969,8 +14950,7 @@ function runReceipts() {
     !exists("packages/runtime-daemon/src/model-mounting/provider-operations.mjs") &&
       !/commitModelArtifactRecordState/.test(providerOperations) &&
       !/model_mount\.artifact\.provider_inventory/.test(providerOperations) &&
-      /recordDir:\s*"model-artifacts"/.test(modelArtifactRecordState) &&
-      /model_mount_artifact_state_commit_unconfigured/.test(modelArtifactRecordState) &&
+      !exists("packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs") &&
       !/state\.artifacts\.set/.test(providerOperations) &&
       !/state\.writeMap\("model-artifacts"/.test(providerOperations) &&
       /provider inventory facade does not depend on retired JS artifact record-state commit/.test(
@@ -14983,7 +14963,6 @@ function runReceipts() {
     [
       "packages/runtime-daemon/src/model-mounting/provider-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs",
-      "packages/runtime-daemon/src/model-mounting/model-artifact-record-state.mjs",
     ],
     "Phase 9/10 is pending: provider-discovered model inventory must not materialize JS artifact truth; Rust daemon-core projection/admission owns provider inventory artifacts",
   );
