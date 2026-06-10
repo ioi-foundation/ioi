@@ -68,13 +68,6 @@ import {
   throwCatalogProviderControlRustCoreRequired,
 } from "./model-mounting/catalog-provider-config.mjs";
 import {
-  customHttpCatalogProviderPort,
-  fixtureCatalogProviderPort,
-  huggingFaceCatalogProviderPort,
-  localManifestCatalogProviderPort,
-  ollamaCatalogProviderPort,
-} from "./model-mounting/catalog-provider-ports.mjs";
-import {
   deterministicTokenizeText,
   estimateTokens,
   inputText,
@@ -138,9 +131,6 @@ import {
   publicVaultRefs,
   normalizeScopes,
 } from "./model-mounting/io.mjs";
-import {
-  modelCatalogProviderPorts as buildModelCatalogProviderPorts,
-} from "./model-mounting/catalog-registry.mjs";
 import {
   internalFixtureModelsEnabled,
 } from "./model-mounting/environment.mjs";
@@ -767,17 +757,6 @@ export class ModelMountingState {
 
   catalogStatus() {
     return this.readProjectionFacade.catalogStatus(this);
-  }
-
-  catalogProviderPorts() {
-    return buildModelCatalogProviderPorts({
-      state: this,
-      fixtureCatalogProviderPort,
-      localManifestCatalogProviderPort,
-      ollamaCatalogProviderPort,
-      huggingFaceCatalogProviderPort,
-      customHttpCatalogProviderPort,
-    });
   }
 
   listCatalogProviderConfigs() {

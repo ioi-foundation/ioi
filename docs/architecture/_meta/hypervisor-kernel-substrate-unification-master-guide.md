@@ -1572,13 +1572,11 @@ Slice 845 retired the remaining Ollama catalog-provider JS provider-map
 readback from the catalog-provider port. `ollamaCatalogProviderPort()` no longer
 reads `state.providers.get("provider.ollama")`, calls `catalogProviderStatus()`,
 hashes JS `provider.baseUrl`, or reports configured provider truth from the JS
-inventory map. Its health and search surfaces now expose only gated
-Rust-core-required projection/search metadata with
-`ollama_catalog_provider_map_readback_retired` evidence until direct Rust
-daemon-core provider inventory and catalog-provider projection APIs own admitted
-Ollama provider truth. This keeps the Ollama bridge explicitly non-terminal:
-the long-term shape is direct Rust daemon-core model_mount/catalog-provider
-projection, not JS provider-map status readback or bridge-owned authority.
+inventory map. At that slice, its port-local health/search metadata was only a
+gated Rust-core-required migration placeholder. Slice 910 later deleted that
+port helper surface entirely, so the long-term shape remains direct Rust
+daemon-core model_mount/catalog-provider projection, not JS provider-map status
+readback, JS port health metadata, or bridge-owned authority.
 
 Slice 846 retired backend-registry provider-map readback from derived backend
 records. `deriveBackendRegistry()` no longer passes `state.providers` into
@@ -2290,6 +2288,16 @@ search-result builders such as `retiredLiveCatalogSearchResult()`,
 closed before JS provider iteration, so provider ports now retain only
 health/gating metadata until direct Rust daemon-core catalog search/projection
 APIs own external, local-manifest, fixture, and Ollama catalog search.
+
+Slice 910 deleted the catalog-provider port and registry helper surface.
+`catalog-provider-ports.mjs`, `catalog-provider-ports.test.mjs`,
+`catalog-registry.mjs`, and `catalog-registry.test.mjs` are absent, and the
+mounted `catalogProviderPorts()` method is gone from `ModelMountingState`.
+Catalog-provider configuration, OAuth, catalog status, and catalog search
+surfaces already fail closed or route to Rust read-projection boundaries, so JS
+no longer keeps local provider-port ordering, health-status merge, or
+`catalogProviderStatus()` compatibility helpers as a dormant catalog authority
+shape.
 
 ## Part II: Target Execution Model
 

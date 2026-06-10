@@ -616,7 +616,8 @@ function runDocs() {
       /Catalog-provider\s+auth-header resolution now fails closed before calling\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
       /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback/.test(guide) &&
       /`ollamaCatalogProviderPort\(\)` no longer\s+reads `state\.providers\.get\("provider\.ollama"\)`/.test(guide) &&
-      /`ollama_catalog_provider_map_readback_retired` evidence/.test(guide) &&
+      /At that slice, its port-local health\/search metadata was only a\s+gated Rust-core-required migration placeholder/.test(guide) &&
+      /Slice 910 later deleted that\s+port helper surface entirely/.test(guide) &&
       /Slice 846 retired backend-registry provider-map readback/.test(guide) &&
       /`deriveBackendRegistry\(\)` no longer passes `state\.providers` into\s+`backendRegistryRecords\(\)`/.test(guide) &&
       /provider-map records can no longer\s+become backend lifecycle\/projection truth/.test(guide) &&
@@ -812,6 +813,9 @@ function runDocs() {
       !/export function materializeImportArtifact/.test(catalogHelpers) &&
       /Slice 909 removed the dormant catalog-provider port search surfaces/.test(guide) &&
       /Catalog-provider ports no longer expose `search` closures or retired\s+search-result builders/.test(guide) &&
+      /Slice 910 deleted the catalog-provider port and registry helper surface/.test(guide) &&
+      /`catalog-provider-ports\.mjs`, `catalog-provider-ports\.test\.mjs`,\s+`catalog-registry\.mjs`, and `catalog-registry\.test\.mjs` are absent/.test(guide) &&
+      /mounted `catalogProviderPorts\(\)` method is gone/.test(guide) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -852,8 +856,8 @@ function runDocs() {
       /Slice 844 retired private catalog-provider configuration readback and\s+config-derived auth-header projection from JS/.test(guide) &&
       /Catalog-provider port health helpers also no longer call\s+`state\.catalogProviderConfig\(\)`/.test(guide) &&
       /Slice 845 retired the remaining Ollama catalog-provider JS provider-map\s+readback from the catalog-provider port/.test(guide) &&
-      /Its health and search surfaces now expose only gated\s+Rust-core-required projection\/search metadata/.test(guide) &&
-      /the long-term shape is direct Rust daemon-core model_mount\/catalog-provider\s+projection/.test(guide) &&
+      /Slice 910 later deleted that\s+port helper surface entirely/.test(guide) &&
+      /not JS provider-map status\s+readback, JS port health metadata, or bridge-owned authority/.test(guide) &&
       /Slice 846 retired backend-registry provider-map readback from derived backend\s+records/.test(guide) &&
       /the default backend registry no longer reads\s+LM Studio, OpenAI-compatible, Ollama, or vLLM provider records/.test(guide) &&
       /direct Rust daemon-core backend and\s+provider projection APIs must own admitted backend\/provider truth/.test(guide) &&
@@ -1199,7 +1203,11 @@ function runDocs() {
       /Implementation Slice Evidence: 909/.test(matrix) &&
       /Slice 909 removed the dormant catalog-provider port search surfaces/.test(matrix) &&
       /`catalog-provider-ports\.mjs` no longer exposes port-local `search` closures/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 909/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 909 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 910/.test(matrix) &&
+      /Slice 910 deleted the catalog-provider port and registry helper surface/.test(matrix) &&
+      /`catalog-provider-ports\.mjs`, `catalog-provider-ports\.test\.mjs`,\s+`catalog-registry\.mjs`, and `catalog-registry\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 910/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1387,7 +1395,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 906 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 907 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 908 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 909/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 909 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 910/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1426,9 +1435,8 @@ function runDocs() {
       /catalog-provider config-map reads/.test(implementationMatrix) &&
       /private catalog-provider config readback now fails closed at `model_mount\.catalog_provider_configuration\.read_private`/.test(implementationMatrix) &&
       /cached bound\/missing\/failed runtime-material readback/.test(implementationMatrix) &&
-      /catalog-provider port health helpers no longer call `state\.catalogProviderConfig\(\)` or `state\.catalogProviderRuntimeMaterial\(\)`/.test(implementationMatrix) &&
-      /the Ollama catalog-provider port no longer reads `state\.providers\.get\("provider\.ollama"\)`/.test(implementationMatrix) &&
-      /calls `catalogProviderStatus\(\)`, hashes JS provider base URLs, or reports configured provider truth from JS inventory/.test(implementationMatrix) &&
+      /the catalog-provider port\/registry helper surface is also deleted/.test(implementationMatrix) &&
+      /mounted `catalogProviderPorts\(\)`, provider-port ordering, health-status merge/.test(implementationMatrix) &&
       /default seeding no longer calls `state\.discoverLmStudioProvider\(checkedAt\)` or inserts `provider\.lmstudio` into `state\.providers`/.test(implementationMatrix) &&
       /the retired LM Studio default-discovery exports, mounted pass-through methods, local-system public-CLI parsers\/artifact projector, and `lmStudioPublicCliEnabled\(\)` toggle are deleted/.test(implementationMatrix) &&
       /backend-status summaries from `state\.listBackends\(\)`\/`backend_statuses`/.test(implementationMatrix) &&
@@ -1469,10 +1477,10 @@ function runDocs() {
       /empty list\/profile projections, null preference\/default-load projections, and fail-closed detail/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
       /before JS config reads, auth vault hash\/scheme\/header projection, OAuth session hash projection/.test(implementationMatrix) &&
-      /local-manifest catalog search now fails closed with `model_catalog_local_manifest_search_retired`/.test(
+      /the catalog-provider port\/registry helper surface is also deleted/.test(
         implementationMatrix,
       ) &&
-      /fixture catalog search now fails closed with `model_catalog_fixture_search_retired`/.test(
+      /JS no longer preserves `catalog-provider-ports\.mjs`, `catalog-registry\.mjs`, mounted `catalogProviderPorts\(\)`/.test(
         implementationMatrix,
       ) &&
       /public catalog search orchestration now fails closed with `model_catalog_search_js_orchestrator_retired`/.test(
@@ -1867,7 +1875,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 909 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 910 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -1880,7 +1888,8 @@ function runDocs() {
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the dormant catalog import materializer helper tail is deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
-      /catalog-provider ports no longer expose JS `search` closures or retired search-result builders/.test(implementationMatrix) &&
+      /the catalog-provider port and registry helper surface is deleted/.test(implementationMatrix) &&
+      /mounted `catalogProviderPorts\(\)`, provider-port ordering, health-status merge/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -9323,45 +9332,22 @@ function runBridge() {
         catalogProviderRuntimeMaterialBlock,
       ) &&
       !/return existing;/.test(catalogProviderRuntimeMaterialBlock) &&
-      !/state\?\.catalogProviderConfig/.test(catalogProviderPorts) &&
-      !/state\?\.catalogProviderRuntimeMaterial/.test(catalogProviderPorts) &&
-      !/state\.providers\.get\("provider\.ollama"\)/.test(catalogProviderPorts) &&
-      !/catalogProviderStatus/.test(catalogProviderPorts) &&
-      /rustCoreBoundary:\s*"model_mount\.catalog_provider_projection"/.test(catalogProviderPorts) &&
-      !/ollama_catalog_provider_map_readback_retired/.test(catalogProviderPorts) &&
-      !/ollama_catalog_js_driver_bridge_retired/.test(catalogProviderPorts) &&
-      !/ollamaCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
-      /Ollama catalog provider port must not read JS provider inventory/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /ollama catalog provider ignores JS provider map and exposes no JS search surface/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /Object\.hasOwn\(port,\s*"search"\)/.test(catalogProviderPortsTest) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-registry.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs") &&
+      !/catalogProviderPorts\(\)\s*\{/.test(modelMountingState) &&
+      !/catalog-provider-ports\.mjs/.test(modelMountingState) &&
+      !/catalog-registry\.mjs/.test(modelMountingState) &&
+      !/buildModelCatalogProviderPorts|modelCatalogProviderPorts|catalogProviderStatus/.test(modelMountingState) &&
       /private catalog provider config readback fails closed before JS map projection/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
-      /catalogProviderConfig must not feed local manifest port health/.test(catalogProviderPortsTest) &&
-      /catalogProviderConfig must not feed Hugging Face port health/.test(catalogProviderPortsTest) &&
-      /catalogProviderConfig must not feed custom HTTP port health/.test(catalogProviderPortsTest) &&
       /ModelMountingState\.prototype\.catalogProviderRuntimeMaterial\.call/.test(
         catalogProviderConfigurationOperationsTest,
       ) &&
-      /catalogProviderRuntimeMaterial must not feed local manifest port health/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /catalogProviderRuntimeMaterial must not feed Hugging Face port health/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /catalogProviderRuntimeMaterial must not feed custom HTTP port health/.test(
-        catalogProviderPortsTest,
-      ) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs") &&
-      !/from "\.\/catalog-projections\.mjs"/.test(catalogProviderPorts) &&
-      /function catalogProviderPortHealthDefaults/.test(catalogProviderPorts) &&
-      /assert\.equal\(health\.materialPersistence,\s*"metadata_only"\)/.test(catalogProviderPortsTest) &&
-      /assert\.equal\(health\.catalogAuthConfigured,\s*false\)/.test(catalogProviderPortsTest) &&
       /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigurationOperationsTest) &&
       /assert\.equal\(state\.catalogProviderRuntimeMaterials\.has\(providerId\),\s*false\)/.test(
         catalogProviderConfigurationOperationsTest,
@@ -9377,6 +9363,8 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-registry.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-projections.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs",
     ],
@@ -14408,26 +14396,18 @@ function runReceipts() {
     "model-mount-live-catalog-provider-search-surface-retired",
     !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/huggingface-catalog-search.test.mjs") &&
-      !/retiredLiveCatalogSearchResult/.test(catalogProviderPorts) &&
-      !/model_catalog_live_http_search_retired/.test(catalogProviderPorts) &&
-      !/catalog_live_http_search_js_retired/.test(catalogProviderPorts) &&
-      !/rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
-      !/agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
-      !/model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
-      !/huggingFaceCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
-      !/customHttpCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-registry.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs") &&
+      !/catalogProviderPorts\(\)\s*\{/.test(modelMountingState) &&
+      !/catalog-provider-ports\.mjs|catalog-registry\.mjs/.test(modelMountingState) &&
+      !/buildModelCatalogProviderPorts|modelCatalogProviderPorts|catalogProviderStatus/.test(modelMountingState) &&
       !/searchHuggingFaceCatalog/.test(modelMountingRoot) &&
-      !/new URL\("\/api\/models"/.test(catalogProviderPorts) &&
-      !/new URL\("\/catalog\/search"/.test(catalogProviderPorts) &&
-      !/fetchWithTimeout/.test(catalogProviderPorts) &&
-      !/catalogProviderAuthHeaders/.test(catalogProviderPorts) &&
-      !/huggingface_catalog_search|custom_http_catalog_search/.test(catalogProviderPorts) &&
-      /Hugging Face catalog provider projects material-backed health with no JS search surface/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /custom HTTP catalog provider exposes no JS auth or HTTP search surface/.test(catalogProviderPortsTest) &&
-      /Object\.hasOwn\(port,\s*"search"\)/.test(catalogProviderPortsTest) &&
-      !/await port\.search/.test(catalogProviderPortsTest),
+      !/new URL\("\/api\/models"/.test(modelMountingState) &&
+      !/new URL\("\/catalog\/search"/.test(modelMountingState) &&
+      !/fetchWithTimeout/.test(modelMountingState) &&
+      !/catalogProviderAuthHeaders/.test(modelMountingState),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
@@ -14438,23 +14418,10 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-local-manifest-catalog-search-surface-retired",
-    !/retiredLocalManifestCatalogSearchResult/.test(catalogProviderPorts) &&
-      !/model_catalog_local_manifest_search_retired/.test(catalogProviderPorts) &&
-      !/local_manifest_catalog_search_js_retired/.test(catalogProviderPorts) &&
-      !/rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
-      !/agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
-      !/model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
-      !/localManifestCatalogProviderPort\(state\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
-      !/from "node:fs"/.test(catalogProviderPorts) &&
-      !/from "node:path"/.test(catalogProviderPorts) &&
-      !/localManifestCatalogEntries/.test(catalogProviderPorts) &&
-      !/fs\.existsSync/.test(catalogProviderPorts) &&
-      !/path\.resolve/.test(catalogProviderPorts) &&
-      /local manifest catalog projects metadata with no JS manifest search surface/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /Object\.hasOwn\(localManifestCatalogProviderPort\(state\),\s*"search"\)/.test(catalogProviderPortsTest) &&
-      !/localManifestCatalogProviderPort\(state\)\.search/.test(catalogProviderPortsTest),
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs") &&
+      !/localManifestCatalogProviderPort/.test(modelMountingState) &&
+      !/localManifestCatalogEntries/.test(modelMountingRoot),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
@@ -14464,20 +14431,11 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-fixture-catalog-search-surface-retired",
-    !/retiredFixtureCatalogSearchResult/.test(catalogProviderPorts) &&
-      !/model_catalog_fixture_search_retired/.test(catalogProviderPorts) &&
-      !/fixture_catalog_search_js_retired/.test(catalogProviderPorts) &&
-      !/rust_daemon_core_catalog_search_required/.test(catalogProviderPorts) &&
-      !/agentgres_catalog_projection_required/.test(catalogProviderPorts) &&
-      !/model_mount\.catalog_provider_search/.test(catalogProviderPorts) &&
-      !/fixtureCatalogProviderPort\(\)[\s\S]*?search:\s*async/.test(catalogProviderPorts) &&
-      !/fixtureModelCatalog/.test(catalogProviderPorts) &&
-      !/catalogEntryMatches/.test(catalogProviderPorts) &&
-      /fixture catalog provider exposes no JS fixture search surface/.test(
-        catalogProviderPortsTest,
-      ) &&
-      /Object\.hasOwn\(port,\s*"search"\)/.test(catalogProviderPortsTest) &&
-      !/await port\.search/.test(catalogProviderPortsTest),
+    !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs") &&
+      !/fixtureCatalogProviderPort/.test(modelMountingState) &&
+      !/fixtureModelCatalog/.test(modelMountingRoot) &&
+      !/catalogEntryMatches/.test(modelMountingRoot),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
