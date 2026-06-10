@@ -49,6 +49,12 @@ test("local manifest catalog projects metadata and retires JS manifest search", 
     assert.equal(health.materialConfigured, true);
     assert.equal(health.runtimeMaterialStatus, "env_gate");
     assert.equal(health.materialVaultRefHash, null);
+    assert.equal(health.materialPersistence, "metadata_only");
+    assert.equal(health.catalogAuthConfigured, false);
+    assert.equal(health.catalogAuthScheme, "bearer");
+    assert.equal(health.catalogAuthHeaderNameHash, null);
+    assert.equal(health.oauthSessionHash, null);
+    assert.equal(health.oauthBoundary, null);
 
     const result = await localManifestCatalogProviderPort(state).search({
       query: "demo",
@@ -121,7 +127,10 @@ test("Hugging Face catalog provider projects material-backed health and retires 
     const health = port.health();
     assert.equal(health.gate, "IOI_MODEL_CATALOG_HF_BASE_URL");
     assert.equal(health.materialConfigured, false);
+    assert.equal(health.materialPersistence, "metadata_only");
+    assert.equal(health.runtimeMaterialStatus, "unconfigured");
     assert.equal(health.materialVaultRefHash, null);
+    assert.equal(health.catalogAuthConfigured, false);
 
     const result = await port.search({
       query: "llama",
@@ -176,6 +185,9 @@ test("custom HTTP catalog provider retires live JS auth and HTTP search", async 
     assert.match(result.baseUrlHash, /^[0-9a-f]{64}$/);
     assert.equal(result.materialVaultRefHash, null);
     assert.equal(result.runtimeMaterialStatus, "env_gate");
+    assert.equal(result.materialPersistence, "metadata_only");
+    assert.equal(result.catalogAuthConfigured, false);
+    assert.equal(result.catalogAuthScheme, "bearer");
     assert.equal(result.evidenceRefs.includes("catalog_live_http_search_js_retired"), true);
     assert.equal(result.evidenceRefs.includes("agentgres_catalog_projection_required"), true);
     assert.deepEqual(result.results, []);

@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 904 after the next
+- Next scheduled matrix-compaction pass: compact Slice 905 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19055,7 +19055,34 @@ daemon-core server-control APIs, Agentgres-backed server-control replay,
 stable protocol APIs, and command-transport retirement remain required before
 server control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 904 after the next direct
+Scheduled matrix-compaction obligation from Slice 904 is now satisfied.
+
+## Implementation Slice Evidence: 905
+
+Slice 905 deleted the orphan catalog-provider projection helper module.
+`catalog-projections.mjs` and `catalog-projections.test.mjs` are absent rather
+than preserved as product/config/auth projection compatibility builders.
+Catalog-provider ports keep only private port-local product-safe health defaults
+for gated/retired search status.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal catalog-provider migration: direct Rust
+daemon-core catalog-provider configuration, auth-header, OAuth, search, status,
+variant projection, Agentgres-backed replay, stable protocol APIs, and
+command-transport retirement remain required before catalog-provider control
+reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 905 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

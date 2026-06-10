@@ -790,6 +790,10 @@ function runDocs() {
       /`server-control\.mjs` and `server-control\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/server-control.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/server-control.test.mjs") &&
+      /Slice 905 deleted the orphan catalog-provider projection helper module/.test(guide) &&
+      /`catalog-projections\.mjs` and `catalog-projections\.test\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1157,7 +1161,11 @@ function runDocs() {
       /Implementation Slice Evidence: 904/.test(matrix) &&
       /Slice 904 deleted the standalone server-control facade helper module/.test(matrix) &&
       /`server-control\.mjs` and `server-control\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 904/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 904 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 905/.test(matrix) &&
+      /Slice 905 deleted the orphan catalog-provider projection helper module/.test(matrix) &&
+      /`catalog-projections\.mjs` and `catalog-projections\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 905/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1340,7 +1348,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 901 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 902 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 903 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 904/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 904 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 905/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1820,7 +1829,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 904 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 905 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -1829,6 +1838,7 @@ function runDocs() {
       /the orphan `workflow-node\.mjs` response helper\/test module is deleted/.test(implementationMatrix) &&
       /the standalone `server-control\.mjs` helper\/test module is deleted/.test(implementationMatrix) &&
       /`recordServerOperation\(\)` fails closed instead of delegating to a missing helper export/.test(implementationMatrix) &&
+      /the orphan `catalog-projections\.mjs` product\/config\/auth projection helper\/test module is deleted/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -9299,6 +9309,12 @@ function runBridge() {
       /catalogProviderRuntimeMaterial must not feed custom HTTP port health/.test(
         catalogProviderPortsTest,
       ) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs") &&
+      !/from "\.\/catalog-projections\.mjs"/.test(catalogProviderPorts) &&
+      /function catalogProviderPortHealthDefaults/.test(catalogProviderPorts) &&
+      /assert\.equal\(health\.materialPersistence,\s*"metadata_only"\)/.test(catalogProviderPortsTest) &&
+      /assert\.equal\(result\.catalogAuthConfigured,\s*false\)/.test(catalogProviderPortsTest) &&
       /assert\.equal\(resolveCount,\s*0\)/.test(catalogProviderConfigurationOperationsTest) &&
       /assert\.equal\(state\.catalogProviderRuntimeMaterials\.has\(providerId\),\s*false\)/.test(
         catalogProviderConfigurationOperationsTest,
@@ -9312,6 +9328,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-provider-configuration-operations.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-projections.mjs",
+      "packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs",
     ],
     "Phase 9/10 is pending: public catalog provider configuration mutations must fail closed until Rust daemon-core catalog provider control owns receipts, wallet/cTEE custody, record-state, and projection semantics",
   );

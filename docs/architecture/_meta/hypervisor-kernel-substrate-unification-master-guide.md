@@ -2248,6 +2248,15 @@ narrow primitive migration input inside `read-projection-facade.mjs`. JS still
 does not write `server-state.json`, append local server logs, synthesize server
 control receipts, or project provider/backend status as server truth.
 
+Slice 905 deleted the orphan catalog-provider projection helper module.
+`catalog-projections.mjs` and `catalog-projections.test.mjs` are absent rather
+than preserved as product/config/auth projection compatibility builders.
+Catalog-provider ports keep only private port-local product-safe health defaults
+for gated/retired search status, while public catalog-provider configuration,
+auth-header, OAuth, search, status, and variant projection truth remains
+fail-closed or Rust-planned until direct Rust daemon-core catalog-provider APIs
+replace the migration transport.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

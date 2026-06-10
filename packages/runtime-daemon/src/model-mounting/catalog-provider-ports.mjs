@@ -1,7 +1,4 @@
 import {
-  catalogProviderConfigHealthFields,
-} from "./catalog-projections.mjs";
-import {
   liveModelCatalogEnabled,
   liveModelDownloadEnabled,
 } from "./environment.mjs";
@@ -79,7 +76,7 @@ export function huggingFaceCatalogProviderPort(state) {
   const baseUrl = huggingFaceCatalogBaseUrl(state);
   const evidenceRefs = ["huggingface_catalog_adapter_boundary", "network_access_opt_in", "model_catalog_provider_port"];
   void state;
-  const configFields = catalogProviderConfigHealthFields("catalog.huggingface", null, null);
+  const configFields = catalogProviderPortHealthDefaults(null, null);
   return {
     id: "catalog.huggingface",
     label: "Hugging Face-compatible catalog",
@@ -200,7 +197,7 @@ export function customHttpCatalogBaseUrl(state) {
 export function localManifestCatalogHealth(state, evidenceRefs) {
   void state;
   const manifestPath = localManifestCatalogPath(state);
-  const configFields = catalogProviderConfigHealthFields("catalog.local_manifest", null, null);
+  const configFields = catalogProviderPortHealthDefaults(null, null);
   if (!manifestPath) {
     return {
       ...configFields,
@@ -225,7 +222,7 @@ export function localManifestCatalogHealth(state, evidenceRefs) {
 export function customHttpCatalogHealth(state, evidenceRefs) {
   void state;
   const baseUrl = customHttpCatalogBaseUrl(state);
-  const configFields = catalogProviderConfigHealthFields("catalog.custom_http", null, null);
+  const configFields = catalogProviderPortHealthDefaults(null, null);
   if (!baseUrl) {
     return {
       ...configFields,
@@ -244,5 +241,33 @@ export function customHttpCatalogHealth(state, evidenceRefs) {
     materialVaultRefHash: configFields.materialVaultRefHash,
     vaultMaterialSource: configFields.vaultMaterialSource,
     evidenceRefs,
+  };
+}
+
+function catalogProviderPortHealthDefaults(config = null, material = null) {
+  const materialConfigured = Boolean(config?.materialConfigured ?? material?.manifestPath ?? material?.baseUrl);
+  return {
+    enabled: config?.enabled ?? true,
+    configHash: config?.configHash ?? null,
+    manifestPathHash: config?.manifestPathHash ?? null,
+    baseUrlHash: config?.baseUrlHash ?? null,
+    authVaultRefHash: config?.authVaultRefHash ?? material?.authVaultRefHash ?? null,
+    catalogAuthConfigured: Boolean(config?.catalogAuthConfigured ?? config?.authVaultRefHash ?? false),
+    catalogAuthScheme: config?.catalogAuthScheme ?? "bearer",
+    catalogAuthHeaderNameHash: config?.catalogAuthHeaderNameHash ?? null,
+    oauthSessionHash: config?.oauthSessionHash ?? null,
+    oauthBoundary: config?.oauthBoundary ?? null,
+    materialVaultRefHash: config?.materialVaultRefHash ?? material?.materialVaultRefHash ?? null,
+    materialConfigured,
+    materialPersistence: config?.materialPersistence ?? "metadata_only",
+    runtimeMaterialStatus: materialConfigured
+      ? material?.runtimeMaterialStatus
+        ? material.runtimeMaterialStatus
+        : material?.manifestPath || material?.baseUrl
+          ? "bound_runtime_session"
+          : config?.runtimeMaterialStatus ?? "missing_runtime_material"
+      : "unconfigured",
+    vaultMaterialSource: material?.materialSource ?? config?.vaultMaterialSource ?? null,
+    errorHash: material?.errorHash ?? config?.errorHash ?? null,
   };
 }
