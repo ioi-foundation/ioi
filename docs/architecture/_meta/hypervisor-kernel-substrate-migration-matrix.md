@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 905 after the next
+- Next scheduled matrix-compaction pass: compact Slice 906 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -14461,10 +14461,11 @@ target ownership.
 - `destructive_confirmed` now fails closed with
   `destructive_confirmation_request_aliases_retired`.
 - Existing camelCase policy aliases remain retired.
-- Conformance anchors
-  `model-mount-catalog-download-policy-request-aliases-retired` and
-  `model-mount-destructive-confirmation-request-aliases-retired` guard this
-  slice.
+- The former conformance anchor
+  `model-mount-catalog-download-policy-request-aliases-retired` was superseded
+  by Slice 906, which deletes the dead policy helper cluster rather than
+  preserving it as retired JS policy code. The destructive-confirmation alias
+  guard remains live for mounted fail-closed facades.
 - This slice intentionally does not claim terminal catalog/download admission
   migration. Direct Rust daemon-core catalog/download still needs to own
   transfer policy, destructive action authority, receipt/state-root binding,
@@ -19082,7 +19083,38 @@ variant projection, Agentgres-backed replay, stable protocol APIs, and
 command-transport retirement remain required before catalog-provider control
 reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 905 after the next direct
+Scheduled matrix-compaction obligation from Slice 905 is now satisfied.
+
+## Implementation Slice Evidence: 906
+
+Slice 906 deleted the dead catalog download policy helper cluster.
+`catalog-helpers.mjs` no longer exports `catalogDownloadRisk()`,
+`normalizeDownloadPolicy()`, or `catalogApprovalDecision()`. It also no longer
+exports `assertDownloadPolicyAllowed()`, catalog compatibility/risk/recommendation
+builders, Hugging Face URL shaping, or source-label helpers as a parallel JS
+catalog/download policy layer. The helper module retains only still-called local
+artifact/import metadata helpers and destructive-confirmation alias rejection
+for mounted fail-closed facades.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs scripts/lib/model-mounting-daemon-contract.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs` | passed |
+| `node --test --test-name-pattern "model mounting daemon keeps Agentgres store adapter extracted from the facade" scripts/lib/model-mounting-daemon-contract.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal catalog/download migration: direct Rust
+daemon-core catalog/download admission, transfer policy, filesystem custody,
+receipt/state-root binding, Agentgres-backed replay/projection, stable protocol
+APIs, and command-transport retirement remain required before catalog/download
+control reaches the pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 906 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider/runtime-engine/catalog/workflow/server-control execution-control APIs,

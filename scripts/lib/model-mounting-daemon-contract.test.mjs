@@ -124,26 +124,32 @@ test("model mounting daemon keeps Agentgres store adapter extracted from the fac
   const facade = readRepoFile("packages/runtime-daemon/src/model-mounting.mjs");
   const store = readRepoFile("packages/runtime-daemon/src/model-mounting/store.mjs");
   const catalogHelpers = readRepoFile("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs");
+  const backendRegistryState = readRepoFile("packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs");
 
   assert.match(
     facade,
     /import \{ AgentgresModelMountingStore \} from "\.\/model-mounting\/store\.mjs";/,
   );
   assert.match(facade, /from "\.\/model-mounting\/catalog-helpers\.mjs";/);
-  assert.match(facade, /const previous = this\.backends\.get\(backend\.id\);/);
+  assert.doesNotMatch(facade, /const previous = this\.backends\.get\(backend\.id\);/);
   assert.match(
-    facade,
-    /this\.backends\.set\(backend\.id, previous \? \{ \.\.\.previous, \.\.\.backend \} : backend\);/,
+    backendRegistryState,
+    /const previous = state\.backends\.get\(backend\.id\);/,
+  );
+  assert.match(
+    backendRegistryState,
+    /state\.backends\.set\(backend\.id, previous \? \{ \.\.\.previous, \.\.\.backend \} : backend\);/,
   );
   assert.doesNotMatch(facade, /class AgentgresModelMountingStore/);
   assert.doesNotMatch(facade, /function catalogDownloadRisk/);
+  assert.doesNotMatch(catalogHelpers, /export function catalogDownloadRisk/);
+  assert.doesNotMatch(catalogHelpers, /export function normalizeDownloadPolicy/);
   assert.ok(
     lineCount(facade) <= 10_300,
     "model-mounting.mjs exceeded its extraction checkpoint; move new store behavior into model-mounting modules",
   );
   assert.match(store, /export class AgentgresModelMountingStore/);
   assert.match(store, /AgentgresModelMountingStorePort/);
-  assert.match(catalogHelpers, /export function catalogDownloadRisk/);
   assert.match(catalogHelpers, /export function listModelFiles/);
   assert.ok(
     lineCount(store) >= 120,

@@ -2257,6 +2257,15 @@ auth-header, OAuth, search, status, and variant projection truth remains
 fail-closed or Rust-planned until direct Rust daemon-core catalog-provider APIs
 replace the migration transport.
 
+Slice 906 deleted the dead catalog download policy helper cluster.
+`catalog-helpers.mjs` no longer exports `catalogDownloadRisk()`,
+`normalizeDownloadPolicy()`, or `catalogApprovalDecision()` as a parallel JS
+transfer-policy/risk/recommendation layer. The mounted catalog import/download
+facades already fail closed at the Rust daemon-core catalog/download boundary,
+so JS keeps only the still-called local artifact/import metadata helpers until
+direct Rust daemon-core catalog/download admission owns transfer policy,
+receipts, record-state, and projection.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

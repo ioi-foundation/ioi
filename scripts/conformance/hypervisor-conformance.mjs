@@ -178,6 +178,9 @@ function runDocs() {
   const localRuntimeEnginesTest = exists("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/local-runtime-engines.test.mjs")
     : "";
+  const catalogHelpers = exists("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
+    ? read("packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs")
+    : "";
   const sourceMap = read(SOURCE_OF_TRUTH);
   const startShim = read("docs/architecture/START_HERE.md");
   const fleetDoc = read("docs/architecture/components/hypervisor/fleet.md");
@@ -794,6 +797,11 @@ function runDocs() {
       /`catalog-projections\.mjs` and `catalog-projections\.test\.mjs` are absent/.test(guide) &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/catalog-projections.test.mjs") &&
+      /Slice 906 deleted the dead catalog download policy helper cluster/.test(guide) &&
+      /`catalog-helpers\.mjs` no longer exports `catalogDownloadRisk\(\)`,\s+`normalizeDownloadPolicy\(\)`, or `catalogApprovalDecision\(\)`/.test(guide) &&
+      !/export function catalogDownloadRisk/.test(catalogHelpers) &&
+      !/export function normalizeDownloadPolicy/.test(catalogHelpers) &&
+      !/export function catalogApprovalDecision/.test(catalogHelpers) &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1165,7 +1173,11 @@ function runDocs() {
       /Implementation Slice Evidence: 905/.test(matrix) &&
       /Slice 905 deleted the orphan catalog-provider projection helper module/.test(matrix) &&
       /`catalog-projections\.mjs` and `catalog-projections\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 905/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 905 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 906/.test(matrix) &&
+      /Slice 906 deleted the dead catalog download policy helper cluster/.test(matrix) &&
+      /`catalog-helpers\.mjs` no longer exports `catalogDownloadRisk\(\)`,\s+`normalizeDownloadPolicy\(\)`, or `catalogApprovalDecision\(\)`/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 906/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1349,7 +1361,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 902 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 903 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 904 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 905/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 905 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 906/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1829,7 +1842,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 905 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 906 after the next\s+(?:direct\s+)?Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -1839,6 +1852,7 @@ function runDocs() {
       /the standalone `server-control\.mjs` helper\/test module is deleted/.test(implementationMatrix) &&
       /`recordServerOperation\(\)` fails closed instead of delegating to a missing helper export/.test(implementationMatrix) &&
       /the orphan `catalog-projections\.mjs` product\/config\/auth projection helper\/test module is deleted/.test(implementationMatrix) &&
+      /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /runtime store no longer injects `commitRuntimeArtifactState` into `ConversationArtifactStore`/.test(implementationMatrix) &&
       /helper-level `validateMcpServerRecords` JS validation decision code is retired/.test(implementationMatrix) &&
       /canonical memory projection envelope\/policy\/path\/record fields\s+\(`schema_version`, `thread_id`, `agent_id`, `total_matches`,/.test(
@@ -1873,7 +1887,7 @@ function runDocs() {
       /source material parsing accepts only canonical `manifest_path` and `base_url`/.test(implementationMatrix) &&
       /catalog source runtime-material lookup now fails closed/.test(implementationMatrix) &&
       /non-OAuth auth-header reads now fail closed/.test(implementationMatrix) &&
-      /reject retired `bandwidth_limit_bps`, `resume_download`, `retries`, and\s+`destructive_confirmed` synonyms before policy evaluation/.test(implementationMatrix) &&
+      /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the direct JS route-selection policy engine, `model=auto` selector, and\s+explicit model endpoint resolver are retired/.test(implementationMatrix) &&
       /mounted `selectRoute\(\)` and `endpointIdsForExplicitModel\(\)` fail closed\s+before route-map reads, endpoint\/provider reads, endpoint mounting, JS policy\s+evaluation, or candidate scoring/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
@@ -12357,10 +12371,6 @@ function runReceipts() {
   const catalogDownloadPolicyReceiptDetailsHelper = "";
   const catalogDownloadTransferReceiptDetailsHelper = "";
   const catalogDownloadTransferEventDetailsHelper = "";
-  const catalogApprovalDecisionBlock =
-    catalogHelpers.match(/export function catalogApprovalDecision[\s\S]*?export function normalizeDownloadPolicy/)?.[0] ?? "";
-  const normalizeDownloadPolicyBlock =
-    catalogHelpers.match(/export function normalizeDownloadPolicy[\s\S]*?export function assertDownloadPolicyAllowed/)?.[0] ?? "";
   const runtimeEngineReceiptBlocks = [
     ...runtimeEngines.matchAll(/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)",\s*\{[\s\S]*?\n\s+\}\);/g),
   ].map((match) => match[0]).join("\n");
@@ -13675,44 +13685,24 @@ function runReceipts() {
   );
   assertCheck(
     result,
-    "model-mount-catalog-download-policy-request-aliases-retired",
-    /RETIRED_CATALOG_DOWNLOAD_POLICY_REQUEST_ALIASES/.test(catalogHelpers) &&
-      /CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS/.test(catalogHelpers) &&
-      /catalog_download_policy_request_aliases_retired/.test(catalogHelpers) &&
-      /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*const approved = Boolean\(body\.transfer_approved \?\? isFixture\);/.test(
-        catalogApprovalDecisionBlock,
-      ) &&
-      /assertCanonicalCatalogDownloadPolicyRequestBody\(body\);[\s\S]*body\.bandwidth_bps \?\? process\.env\.IOI_MODEL_DOWNLOAD_BANDWIDTH_BPS/.test(
-        normalizeDownloadPolicyBlock,
-      ) &&
-      /const retryLimit = normalizeNonNegativeInteger\(body\.retry_limit \?\? 0,\s*0\);/.test(
-        normalizeDownloadPolicyBlock,
-      ) &&
-      /const resume = truthy\(body\.resume \?\? true\);/.test(
-        normalizeDownloadPolicyBlock,
-      ) &&
-      /const cleanupPartialOnCancel = truthy\(body\.cleanup_partial \?\? true\);/.test(
-        normalizeDownloadPolicyBlock,
-      ) &&
-      !/body\.(?:transferApproved|bandwidthBps|bandwidthLimitBps|retryLimit|resumeDownload|cleanupPartial|bandwidth_limit_bps|resume_download|retries)\b/.test(
-        `${catalogApprovalDecisionBlock}\n${normalizeDownloadPolicyBlock}`,
-      ) &&
-      /catalog download policy accepts canonical request fields/.test(catalogHelpersTest) &&
-      /catalog download policy rejects retired request aliases/.test(catalogHelpersTest) &&
-      /retired_aliases,\s*\[\s*"transferApproved",\s*"bandwidthBps",\s*"bandwidthLimitBps",\s*"retryLimit",\s*"resumeDownload",\s*"cleanupPartial",\s*"bandwidth_limit_bps",\s*"resume_download",\s*"retries",\s*\]/.test(
-        catalogHelpersTest,
-      ) &&
-      /canonical_fields,\s*\[\s*"transfer_approved",\s*"bandwidth_bps",\s*"retry_limit",\s*"resume",\s*"cleanup_partial",\s*\]/.test(
-        catalogHelpersTest,
-      ) &&
-      /catalogApprovalDecision\(\{ isFixture: false,\s*body: \{ transferApproved: true \} \}\)/.test(
-        catalogHelpersTest,
-      ),
+    "model-mount-catalog-download-policy-helper-retired",
+    !/RETIRED_CATALOG_DOWNLOAD_POLICY_REQUEST_ALIASES/.test(catalogHelpers) &&
+      !/CANONICAL_CATALOG_DOWNLOAD_POLICY_REQUEST_FIELDS/.test(catalogHelpers) &&
+      !/catalog_download_policy_request_aliases_retired/.test(catalogHelpers) &&
+      !/export function catalogApprovalDecision/.test(catalogHelpers) &&
+      !/export function normalizeDownloadPolicy/.test(catalogHelpers) &&
+      !/export function assertDownloadPolicyAllowed/.test(catalogHelpers) &&
+      !/export function catalogDownloadRisk/.test(catalogHelpers) &&
+      !/export function catalogRecommendation/.test(catalogHelpers) &&
+      !/export function catalogBackendCompatibility/.test(catalogHelpers) &&
+      !/export function catalogBenchmarkReadiness/.test(catalogHelpers) &&
+      !/catalog download policy accepts canonical request fields/.test(catalogHelpersTest) &&
+      !/catalog download policy rejects retired request aliases/.test(catalogHelpersTest),
     [
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-helpers.test.mjs",
     ],
-    "Phase 9/11 is pending: catalog download policy helpers must fail closed on retired policy aliases before approval or transfer policy evaluation",
+    "Phase 9/11 is pending: catalog download policy helpers must remain deleted until Rust daemon-core catalog/download admission owns transfer policy and receipt semantics",
   );
   assertCheck(
     result,
