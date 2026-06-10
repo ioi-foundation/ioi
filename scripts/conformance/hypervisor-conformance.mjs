@@ -18671,9 +18671,38 @@ function runCompositor() {
     "listTasks(store, options = {})",
     "getTask(store",
   );
+  const runtimeTaskJobGetTaskBlock = blockBetween(
+    runtimeTaskJobSurface,
+    "getTask(store",
+    "cancelTask(store",
+  );
+  const runtimeTaskJobGetJobBlock = blockBetween(
+    runtimeTaskJobSurface,
+    "getJob(store",
+    "cancelJob(store",
+  );
+  const runtimeTaskJobReadProjectionLegacyRemoved =
+    /runtime_task_list_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_task_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_job_list_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_job_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobListTasksBlock) &&
+    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobListJobsBlock) &&
+    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobGetTaskBlock) &&
+    /throwRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobGetJobBlock) &&
+    !/store\.listRuns\(/.test(runtimeTaskJobSurface) &&
+    !/runtimeTaskRecordForRun/.test(runtimeTaskJobSurface) &&
+    !/runtimeJobRecordForRun/.test(runtimeTaskJobSurface) &&
+    /runtime task job read projection facades fail closed before JS run reads/.test(
+      runtimeTaskJobSurfaceTest,
+    );
   const runtimeTaskJobControlFacadeRetired =
     /runtime_task_job_control_rust_core_required/.test(runtimeTaskJobSurface) &&
     /runtime_task_job_control_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_task_list_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_task_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_job_list_js_facade_retired/.test(runtimeTaskJobSurface) &&
+    /runtime_job_get_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /runtime_task_create_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /runtime_task_cancel_js_facade_retired/.test(runtimeTaskJobSurface) &&
     /runtime_job_cancel_js_facade_retired/.test(runtimeTaskJobSurface) &&
@@ -18685,6 +18714,7 @@ function runCompositor() {
     /runtime task job mutation facades fail closed before JS lifecycle mutation/.test(
       runtimeTaskJobSurfaceTest,
     ) &&
+    runtimeTaskJobReadProjectionLegacyRemoved &&
     /assertRuntimeTaskJobRustCoreRequired/.test(runtimeTaskJobSurfaceTest) &&
     /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeTaskJobSurfaceTest);
   const runtimeSubagentSdkOutputContractStatusBlock = blockBetween(
@@ -19685,6 +19715,7 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-task-job-read-aliases-retired",
+    runtimeTaskJobReadProjectionLegacyRemoved ||
     /const agentId = options\.agent_id \?\? undefined;/.test(runtimeTaskJobSurface) &&
       /taskId: run\.id/.test(runtimeTaskJobSurface) &&
       /jobId: run\.id/.test(runtimeTaskJobSurface) &&
@@ -19729,7 +19760,17 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
       "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime task/job reads must ignore retired agentId request aliases, persisted taskId/jobId/runId aliases, and expose canonical snake_case not-found details",
+    "Phase 10/11 is pending: runtime task/job reads must either fail closed at the Rust daemon-core boundary or ignore retired agentId request aliases, persisted taskId/jobId/runId aliases, and expose canonical snake_case not-found details",
+  );
+  assertCheck(
+    result,
+    "runtime-task-job-read-projection-js-facades-retired",
+    runtimeTaskJobReadProjectionLegacyRemoved,
+    [
+      "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
+      "packages/runtime-daemon/src/runtime-task-job-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: runtime task/job list/get JS read projections must fail closed before JS run-list reads",
   );
   assertCheck(
     result,
@@ -22518,8 +22559,9 @@ function runCompositor() {
       /options\.agent_id/.test(runtimeJobSdkListMethodBlock) &&
       /params\.set\("agent_id",/.test(runtimeTaskSdkListMethodBlock) &&
       /params\.set\("agent_id",/.test(runtimeJobSdkListMethodBlock) &&
-      /options\.agent_id/.test(runtimeTaskJobListJobsBlock) &&
-      /options\.agent_id/.test(runtimeTaskJobListTasksBlock) &&
+      (runtimeTaskJobReadProjectionLegacyRemoved ||
+        /options\.agent_id/.test(runtimeTaskJobListJobsBlock) &&
+          /options\.agent_id/.test(runtimeTaskJobListTasksBlock)) &&
       /store\.listRuns\(url\.searchParams\.get\("agent_id"\) \?\? undefined\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -22529,13 +22571,15 @@ function runCompositor() {
       /url: "\/v1\/runs\?agentId=agent-retired&agent_id=agent-canonical"/.test(
         publicRuntimeRoutesTest,
       ) &&
-      /legacy-agent/.test(runtimeTaskJobSurfaceTest) &&
+      (runtimeTaskJobReadProjectionLegacyRemoved ||
+        /legacy-agent/.test(runtimeTaskJobSurfaceTest)) &&
       !/^\s*agentId\?: string;/m.test(runtimeTaskSdkListOptionsBlock) &&
       !/^\s*agentId\?: string;/m.test(runtimeJobSdkListOptionsBlock) &&
       !/options\.agentId|params\.set\("agentId"/.test(runtimeTaskSdkListMethodBlock) &&
       !/options\.agentId|params\.set\("agentId"/.test(runtimeJobSdkListMethodBlock) &&
-      !/options\.agentId/.test(runtimeTaskJobListJobsBlock) &&
-      !/options\.agentId/.test(runtimeTaskJobListTasksBlock) &&
+      (runtimeTaskJobReadProjectionLegacyRemoved ||
+        !/options\.agentId/.test(runtimeTaskJobListJobsBlock) &&
+          !/options\.agentId/.test(runtimeTaskJobListTasksBlock)) &&
       !/searchParams\.get\("agentId"\)/.test(publicRuntimeRoutes),
     [
       "packages/agent-sdk/src/substrate-client.ts",

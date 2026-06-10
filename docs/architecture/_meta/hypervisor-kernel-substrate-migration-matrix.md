@@ -13853,7 +13853,7 @@ The expanded Slice 733-740 ledger was compacted on 2026-06-08 after Slice 740 ve
 
 - Slice 733 retired runtime bridge thread start and turn-submit JS authority: `createRuntimeBridgeThread` and `createRuntimeBridgeTurn` now fail closed before bridge probing or dispatch, max-step compatibility shaping, live-event normalization append, in-flight registration, Rust planner invocation from the JS facade, agent/run map mutation, `writeAgent`/`writeRun`, or runtime-event append. Existing bridge control and normalization helpers remain migration/projection plumbing only until direct Rust daemon-core runtime bridge admission, execution dispatch, persistence, replay, and projection replace them.
 - Slices 734-735 retired runtime subagent lifecycle JS authority and then deleted its unreachable legacy bodies: spawn, wait lifecycle update, send-input, resume, assign, cancel, cancellation propagation, and direct subagent control-event append fail closed before child-agent/run creation, run cancellation, runtime-event append, Rust planner invocation from the JS facade, `writeSubagent`, or duplicate receipt/policy evidence synthesis. List/get/result helpers remain read/projection adapters over already-admitted records until direct Rust daemon-core subagent admission, event materialization, persistence, replay, and projection APIs land.
-- Slice 736 retired runtime task/job lifecycle JS authority: `createTask`, `cancelTask`, and `cancelJob` fail closed before JS agent lookup/synthesis, `createAgent`, `createRun`, public-id-to-run cancellation resolution, `cancelRun`, or task/job lifecycle projection as accepted mutation truth. List/get helpers remain read/projection adapters over already-admitted run/task/job records until direct Rust daemon-core task/job admission and projection APIs land.
+- Slice 736 retired runtime task/job lifecycle JS authority: `createTask`, `cancelTask`, and `cancelJob` fail closed before JS agent lookup/synthesis, `createAgent`, `createRun`, public-id-to-run cancellation resolution, `cancelRun`, or task/job lifecycle projection as accepted mutation truth. Slice 950 later retired the remaining task/job list/get JS readback facades, so public task/job projection now fails closed until direct Rust daemon-core task/job admission and projection APIs land.
 - Slice 737 retired runtime thread-fork JS authority: `forkThread` fails closed before source-thread/source-agent lookup, runtime-event idempotency lookup, `createAgent`, fork-thread projection, `appendRuntimeEvent`, or JS-created fork receipt/policy evidence. Direct Rust daemon-core thread-fork admission and projection APIs are still pending.
 - Slice 738 retired conversation-artifact lifecycle JS authority: create, action, export, and promote controls fail closed before JS artifact class selection, revision/file materialization, action policy checks, export/promote projection, JS receipt construction, `ConversationArtifactStore` mutation calls, or artifact-state commits from the JS public facade. List/get/revision helpers remain read/projection adapters over already-admitted artifact records until direct Rust daemon-core artifact admission and projection APIs land.
 - Slice 739 retired permanent agent deletion JS authority: `deleteAgent` fails closed before JS agent lookup, run-count retention checks, `agents` map deletion, local JSON removal, or duplicate operation append. Direct Rust daemon-core permanent deletion admission/projection APIs are still pending.
@@ -20723,3 +20723,39 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of subagent projection command
 transport, Agentgres-backed subagent truth, and stable protocol APIs without
 encoding JS subagent maps or run maps as public subagent projection authority.
+
+## Implementation Slice Evidence: 950
+
+Slice 950 retired runtime task/job public JS readback. Public
+`RuntimeTaskJobControl.listTasks()`, `getTask()`, `listJobs()`, and `getJob()`
+now fail closed with `runtime_task_job_control_rust_core_required` at
+`task.list`, `task.get`, `job.list`, and `job.get` instead of deriving public
+task/job projection truth from `store.listRuns()`. The stale task/job list/get
+success-path tests were replaced with fail-closed boundary tests, and
+conformance now rejects reintroducing JS run-list reads in those public
+facades.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-task-job-surface.mjs packages/runtime-daemon/src/runtime-task-job-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-task-job-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal task/job migration. Direct Rust daemon-core
+task/job projection, Agentgres-backed run/task/job truth, StepModuleRouter
+dispatch for admitted task work, wallet authority for lifecycle control,
+receipt/state-root binding, replay, command-transport retirement, and stable
+SDK/IDE/CLI protocol APIs remain before terminal pure Rust substrate
+conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-950 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of task/job projection command
+transport, Agentgres-backed run/task/job truth, and stable protocol APIs without
+encoding JS run maps as public task/job projection authority.

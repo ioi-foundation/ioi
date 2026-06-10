@@ -2190,6 +2190,13 @@ longer returns `store.subagents` or `store.getRun()` data as subagent
 projection truth. Direct Rust daemon-core subagent projection over
 Agentgres-admitted lifecycle truth remains required before terminal
 conformance.
+Slice 950 retired runtime task/job public JS readback. Public
+`RuntimeTaskJobControl.listTasks()`, `getTask()`, `listJobs()`, and `getJob()`
+now fail closed at `task.list`, `task.get`, `job.list`, and `job.get` with
+`runtime_task_job_control_rust_core_required`, so JS no longer derives task/job
+projection truth from `store.listRuns()`. Direct Rust daemon-core task/job
+projection over Agentgres-admitted run/task/job truth remains required before
+terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

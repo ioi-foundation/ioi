@@ -1,32 +1,9 @@
-import { optionalString } from "./runtime-value-helpers.mjs";
-
-function defaultNotFound(message, details = {}) {
-  const error = new Error(message);
-  error.status = 404;
-  error.details = details;
-  return error;
-}
-
-function defaultRuntimeTaskRecordForRun(run = {}) {
-  return {
-    taskId: run.id,
-    runId: run.id,
-    status: run.status,
-    createdAt: run.createdAt ?? "",
-  };
-}
-
-function defaultRuntimeJobRecordForRun(run = {}) {
-  return {
-    jobId: run.id,
-    runId: run.id,
-    status: run.status,
-    createdAt: run.createdAt ?? "",
-  };
-}
-
 const runtimeTaskJobControlFacadeRetirementEvidenceRefs = [
   "runtime_task_job_control_js_facade_retired",
+  "runtime_task_list_js_facade_retired",
+  "runtime_task_get_js_facade_retired",
+  "runtime_job_list_js_facade_retired",
+  "runtime_job_get_js_facade_retired",
   "runtime_task_create_js_facade_retired",
   "runtime_task_cancel_js_facade_retired",
   "runtime_job_cancel_js_facade_retired",
@@ -35,10 +12,6 @@ const runtimeTaskJobControlFacadeRetirementEvidenceRefs = [
 ];
 
 export function createRuntimeTaskJobSurface({
-  notFound: notFoundDep = defaultNotFound,
-  optionalString: optionalStringDep = optionalString,
-  runtimeJobRecordForRun: runtimeJobRecordForRunDep = defaultRuntimeJobRecordForRun,
-  runtimeTaskRecordForRun: runtimeTaskRecordForRunDep = defaultRuntimeTaskRecordForRun,
   runtimeError: runtimeErrorDep = null,
 } = {}) {
   function throwRuntimeTaskJobRustCoreRequired({
@@ -52,7 +25,7 @@ export function createRuntimeTaskJobSurface({
           status: 501,
           code: "runtime_task_job_control_rust_core_required",
           message:
-            "Runtime task/job lifecycle mutations require direct Rust daemon-core admission and persistence.",
+            "Runtime task/job lifecycle and projection facades require direct Rust daemon-core admission, persistence, and projection.",
           details: {
             rust_core_boundary: "runtime.task_job_control",
             operation,
@@ -67,7 +40,7 @@ export function createRuntimeTaskJobSurface({
         })
       : Object.assign(
           new Error(
-            "Runtime task/job lifecycle mutations require direct Rust daemon-core admission and persistence.",
+            "Runtime task/job lifecycle and projection facades require direct Rust daemon-core admission, persistence, and projection.",
           ),
           {
             status: 501,
@@ -90,12 +63,12 @@ export function createRuntimeTaskJobSurface({
 
   return {
     listJobs(store, options = {}) {
-      const agentId = options.agent_id ?? undefined;
-      const status = options.status ?? undefined;
-      return store.listRuns(agentId)
-        .map((run) => runtimeJobRecordForRunDep(run))
-        .filter((job) => !status || job.status === status)
-        .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      void store;
+      void options;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_job_list",
+        operationKind: "job.list",
+      });
     },
     createTask(store, body = {}) {
       void store;
@@ -106,17 +79,20 @@ export function createRuntimeTaskJobSurface({
       });
     },
     listTasks(store, options = {}) {
-      const agentId = options.agent_id ?? undefined;
-      const status = options.status ?? undefined;
-      return store.listRuns(agentId)
-        .map((run) => runtimeTaskRecordForRunDep(run))
-        .filter((task) => !status || task.status === status)
-        .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+      void store;
+      void options;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_task_list",
+        operationKind: "task.list",
+      });
     },
     getTask(store, taskId) {
-      const task = this.listTasks(store).find((candidate) => candidate.taskId === taskId);
-      if (!task) throw notFoundDep(`Task not found: ${taskId}`, { task_id: taskId });
-      return task;
+      void store;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_task_get",
+        operationKind: "task.get",
+        taskId,
+      });
     },
     cancelTask(store, taskId) {
       void store;
@@ -127,9 +103,12 @@ export function createRuntimeTaskJobSurface({
       });
     },
     getJob(store, jobId) {
-      const job = this.listJobs(store).find((candidate) => candidate.jobId === jobId);
-      if (!job) throw notFoundDep(`Job not found: ${jobId}`, { job_id: jobId });
-      return job;
+      void store;
+      throwRuntimeTaskJobRustCoreRequired({
+        operation: "runtime_job_get",
+        operationKind: "job.get",
+        jobId,
+      });
     },
     cancelJob(store, jobId) {
       void store;
