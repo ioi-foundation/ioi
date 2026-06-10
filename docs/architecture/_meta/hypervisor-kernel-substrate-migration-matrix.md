@@ -19763,3 +19763,46 @@ route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs. The
 `ioi-step-module-bridge` command path is acceptable only as migration
 transport; it is not the terminal architecture.
+
+At Slice 924 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 925 is that seam
+and satisfies the Slice 924 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 924 is now satisfied.
+
+## Implementation Slice Evidence: 925
+
+Slice 925 retired a family of daemon-core command-argument selectors. The
+worker/service package, L1 settlement, cTEE private workspace, external
+capability authority, and governed meta-improvement runners no longer export
+per-runner `*_COMMAND_ARGS_ENV` constants, parse
+`IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`, store constructor `args`, or spawn the
+daemon-core command with JS-shaped argv. Their command transport now uses fixed
+empty argv, and env/constructor attempts fail closed with surface-specific
+`*_command_args_retired` errors.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal daemon-core transport migration. The fixed
+command transport remains migration scaffolding, and the broader model_mount,
+Agentgres admission, context-policy/state-update, approval-state, coding-tool
+approval, and workspace-restore daemon-core runners still have their own
+command-argument selector seams until direct Rust daemon-core APIs or a later
+family-retirement slice removes them.
+
+Next scheduled matrix-compaction pass: compact Slice 925 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs. Fixed argv on command
+transport is a migration constraint, not the terminal architecture.

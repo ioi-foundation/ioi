@@ -1,25 +1,33 @@
 import { spawnSync } from "node:child_process";
 
 export const L1_SETTLEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const L1_SETTLEMENT_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const L1_SETTLEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_L1_SETTLEMENT_BACKEND = "l1_settlement_guard";
 
 export function createL1SettlementRunnerFromEnv(env = process.env, options = {}) {
+  assertNoL1SettlementCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustL1SettlementRunner({
     command: options.command ?? env[L1_SETTLEMENT_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[L1_SETTLEMENT_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoL1SettlementCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new L1SettlementRunnerError(
+    "L1 settlement command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "l1_settlement_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustL1SettlementRunner {
   constructor(options = {}) {
+    assertNoL1SettlementCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -49,11 +57,10 @@ export class RustL1SettlementRunner {
         "l1_settlement_bridge_unconfigured",
         {
           env: L1_SETTLEMENT_COMMAND_ENV,
-          argsEnv: L1_SETTLEMENT_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -120,20 +127,6 @@ export function normalizeL1SettlementBridgeResult(value = {}) {
     receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.receipt_refs) ?? [],
     admission_hash: result.admission_hash ?? record.admission_hash ?? null,
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function objectRecord(value) {

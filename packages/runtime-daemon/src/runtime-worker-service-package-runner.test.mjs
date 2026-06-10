@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   RUST_WORKER_SERVICE_PACKAGE_BACKEND,
   RustWorkerServicePackageRunner,
-  WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV,
   WORKER_SERVICE_PACKAGE_COMMAND_ENV,
   WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION,
   WorkerServicePackageRunnerError,
@@ -94,7 +93,6 @@ test("worker/service package runner sends invocation admission bridge request", 
   const calls = [];
   const runner = new RustWorkerServicePackageRunner({
     command: "mock-worker-service-package-bridge",
-    args: ["--json"],
     spawnSyncImpl(command, args, options) {
       const bridgeRequest = JSON.parse(options.input);
       calls.push({ command, args, bridgeRequest });
@@ -149,7 +147,7 @@ test("worker/service package runner sends invocation admission bridge request", 
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-worker-service-package-bridge");
-  assert.deepEqual(calls[0].args, ["--json"]);
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].bridgeRequest.schema_version, WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].bridgeRequest.operation, "admit_worker_service_package_invocation");
   assert.equal(calls[0].bridgeRequest.backend, RUST_WORKER_SERVICE_PACKAGE_BACKEND);
@@ -169,7 +167,6 @@ test("worker/service package runner sends invocation admission bridge request", 
 test("worker/service package runner env uses daemon-core command boundary", () => {
   const runner = createWorkerServicePackageRunnerFromEnv({
     [WORKER_SERVICE_PACKAGE_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV]: "--json",
     IOI_WORKER_SERVICE_PACKAGE_COMMAND: "retired-worker-service-package-bridge",
     IOI_WORKER_SERVICE_PACKAGE_COMMAND_ARGS: "--retired-package",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -177,7 +174,28 @@ test("worker/service package runner env uses daemon-core command boundary", () =
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("worker/service package runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createWorkerServicePackageRunnerFromEnv({
+        [WORKER_SERVICE_PACKAGE_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof WorkerServicePackageRunnerError &&
+      error.code === "worker_service_package_command_args_retired",
+  );
+});
+
+test("worker/service package runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustWorkerServicePackageRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof WorkerServicePackageRunnerError &&
+      error.code === "worker_service_package_command_args_retired",
+  );
 });
 
 test("worker/service package runner fails closed without command", () => {

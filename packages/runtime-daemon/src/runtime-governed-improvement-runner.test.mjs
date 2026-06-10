@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV,
   GOVERNED_IMPROVEMENT_COMMAND_ENV,
   GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION,
   GovernedImprovementRunnerError,
@@ -30,7 +29,6 @@ test("governed improvement runner sends proposal admission bridge request", () =
   const calls = [];
   const runner = new RustGovernedImprovementRunner({
     command: "mock-governed-improvement-bridge",
-    args: ["--json"],
     spawnSyncImpl(command, args, options) {
       const request = JSON.parse(options.input);
       calls.push({ command, args, request });
@@ -68,7 +66,7 @@ test("governed improvement runner sends proposal admission bridge request", () =
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-governed-improvement-bridge");
-  assert.deepEqual(calls[0].args, ["--json"]);
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_governed_runtime_improvement_proposal");
   assert.equal(calls[0].request.backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
@@ -87,7 +85,6 @@ test("governed improvement runner sends proposal admission bridge request", () =
 test("governed improvement runner env uses daemon-core command boundary", () => {
   const runner = createGovernedImprovementRunnerFromEnv({
     [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV]: "--json",
     IOI_GOVERNED_IMPROVEMENT_COMMAND: "retired-governed-improvement-bridge",
     IOI_GOVERNED_IMPROVEMENT_COMMAND_ARGS: "--retired-governed",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -95,7 +92,28 @@ test("governed improvement runner env uses daemon-core command boundary", () => 
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("governed improvement runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createGovernedImprovementRunnerFromEnv({
+        [GOVERNED_IMPROVEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof GovernedImprovementRunnerError &&
+      error.code === "governed_improvement_command_args_retired",
+  );
+});
+
+test("governed improvement runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustGovernedImprovementRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof GovernedImprovementRunnerError &&
+      error.code === "governed_improvement_command_args_retired",
+  );
 });
 
 test("governed improvement runner fails closed without command", () => {

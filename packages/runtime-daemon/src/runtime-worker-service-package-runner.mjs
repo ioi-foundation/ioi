@@ -1,25 +1,33 @@
 import { spawnSync } from "node:child_process";
 
 export const WORKER_SERVICE_PACKAGE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_WORKER_SERVICE_PACKAGE_BACKEND = "rust_package_invocation";
 
 export function createWorkerServicePackageRunnerFromEnv(env = process.env, options = {}) {
+  assertNoWorkerServicePackageCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustWorkerServicePackageRunner({
     command: options.command ?? env[WORKER_SERVICE_PACKAGE_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoWorkerServicePackageCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new WorkerServicePackageRunnerError(
+    "Worker/service package command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "worker_service_package_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustWorkerServicePackageRunner {
   constructor(options = {}) {
+    assertNoWorkerServicePackageCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -49,11 +57,10 @@ export class RustWorkerServicePackageRunner {
         "worker_service_package_bridge_unconfigured",
         {
           env: WORKER_SERVICE_PACKAGE_COMMAND_ENV,
-          argsEnv: WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -128,20 +135,6 @@ export function normalizeWorkerServicePackageBridgeResult(value = {}) {
     authority_grant_refs:
       stringArray(result.authority_grant_refs) ?? stringArray(record.authority_grant_refs) ?? [],
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function objectRecord(value) {

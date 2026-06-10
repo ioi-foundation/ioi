@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 
 export const CTEE_PRIVATE_WORKSPACE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_CTEE_PRIVATE_WORKSPACE_BACKEND = "ctee_operator";
 
@@ -12,20 +11,29 @@ const RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES = [
 ];
 
 export function createCteePrivateWorkspaceRunnerFromEnv(env = process.env, options = {}) {
+  assertNoCteePrivateWorkspaceCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustCteePrivateWorkspaceRunner({
     command: options.command ?? env[CTEE_PRIVATE_WORKSPACE_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoCteePrivateWorkspaceCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new CteePrivateWorkspaceRunnerError(
+    "Private Workspace cTEE command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "ctee_private_workspace_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustCteePrivateWorkspaceRunner {
   constructor(options = {}) {
+    assertNoCteePrivateWorkspaceCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -57,11 +65,10 @@ export class RustCteePrivateWorkspaceRunner {
         "ctee_private_workspace_bridge_unconfigured",
         {
           env: CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
-          argsEnv: CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -148,20 +155,6 @@ export function normalizeCteePrivateWorkspaceBridgeResult(value = {}) {
     receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.result?.receipt_refs) ?? [],
     evidence_refs: stringArray(result.evidence_refs) ?? stringArray(record.projection?.evidence_refs) ?? [],
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function objectRecord(value) {

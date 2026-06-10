@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV,
   EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
   EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION,
   ExternalCapabilityAuthorityRunnerError,
@@ -32,7 +31,6 @@ test("external capability authority runner sends Rust authority bridge request",
   const calls = [];
   const runner = new RustExternalCapabilityAuthorityRunner({
     command: "mock-external-capability-authority-bridge",
-    args: ["--json"],
     spawnSyncImpl(command, args, options) {
       const request = JSON.parse(options.input);
       calls.push({ command, args, request });
@@ -62,7 +60,7 @@ test("external capability authority runner sends Rust authority bridge request",
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-external-capability-authority-bridge");
-  assert.deepEqual(calls[0].args, ["--json"]);
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].request.schema_version, EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "authorize_external_capability_exit");
   assert.equal(calls[0].request.backend, RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND);
@@ -81,7 +79,6 @@ test("external capability authority runner sends Rust authority bridge request",
 test("external capability authority runner env uses daemon-core command boundary", () => {
   const runner = createExternalCapabilityAuthorityRunnerFromEnv({
     [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV]: "--json",
     IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND: "retired-external-capability-bridge",
     IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS: "--retired-external",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -89,7 +86,28 @@ test("external capability authority runner env uses daemon-core command boundary
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("external capability authority runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createExternalCapabilityAuthorityRunnerFromEnv({
+        [EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--json",
+      }),
+    (error) =>
+      error instanceof ExternalCapabilityAuthorityRunnerError &&
+      error.code === "external_capability_authority_command_args_retired",
+  );
+});
+
+test("external capability authority runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustExternalCapabilityAuthorityRunner({ args: ["--json"] }),
+    (error) =>
+      error instanceof ExternalCapabilityAuthorityRunnerError &&
+      error.code === "external_capability_authority_command_args_retired",
+  );
 });
 
 test("external capability authority runner fails closed without command", () => {

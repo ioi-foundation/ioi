@@ -1,25 +1,33 @@
 import { spawnSync } from "node:child_process";
 
 export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
-export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS";
 export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND = "rust_authority";
 
 export function createExternalCapabilityAuthorityRunnerFromEnv(env = process.env, options = {}) {
+  assertNoExternalCapabilityAuthorityCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
   return new RustExternalCapabilityAuthorityRunner({
     command: options.command ?? env[EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV] ?? null,
-    args:
-      options.args ??
-      parseCommandArgs(env[EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV]),
     spawnSyncImpl: options.spawnSyncImpl,
     mockResult: options.mockResult,
   });
 }
 
+export function assertNoExternalCapabilityAuthorityCommandArgs(value) {
+  if (Array.isArray(value) && value.length === 0) return;
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new ExternalCapabilityAuthorityRunnerError(
+    "External capability authority command argument selection is retired; daemon-core command argv is fixed migration transport.",
+    "external_capability_authority_command_args_retired",
+    { retired_args: value },
+  );
+}
+
 export class RustExternalCapabilityAuthorityRunner {
   constructor(options = {}) {
+    assertNoExternalCapabilityAuthorityCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.args = normalizeArgs(options.args);
     this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
     this.mockResult = options.mockResult;
   }
@@ -49,11 +57,10 @@ export class RustExternalCapabilityAuthorityRunner {
         "external_capability_authority_bridge_unconfigured",
         {
           env: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
-          argsEnv: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV,
         },
       );
     }
-    const output = this.spawnSyncImpl(this.command, this.args, {
+    const output = this.spawnSyncImpl(this.command, [], {
       input: `${JSON.stringify(request)}\n`,
       encoding: "utf8",
       windowsHide: true,
@@ -128,20 +135,6 @@ export function normalizeExternalCapabilityAuthorityBridgeResult(value = {}) {
       [],
     authority_hash: result.authority_hash ?? authority.authority_hash ?? null,
   };
-}
-
-function parseCommandArgs(value) {
-  if (!value) return [];
-  if (Array.isArray(value)) return normalizeArgs(value);
-  return String(value)
-    .split(/\s+/)
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-function normalizeArgs(value) {
-  if (!Array.isArray(value)) return [];
-  return value.map((entry) => String(entry)).filter((entry) => entry.length > 0);
 }
 
 function objectRecord(value) {

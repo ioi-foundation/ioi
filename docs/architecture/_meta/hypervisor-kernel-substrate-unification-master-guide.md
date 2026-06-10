@@ -277,6 +277,12 @@ constructor-`args` selectors at the runtime-daemon StepModule runner. The bridge
 binary path may still exist as migration transport, but the JS edge may no
 longer shape argv or preserve compatibility argument semantics; any direct Rust
 daemon-core API that replaces this transport must keep that selector retired.
+Slice 925 applies the same fixed-argv rule to the worker/service package, L1
+settlement, cTEE private workspace, external capability authority, and governed
+meta-improvement daemon-core runners by retiring `IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS`
+and constructor-`args` for those surfaces. This is still not the terminal
+transport shape: direct Rust daemon-core APIs must replace the command transport
+after the relevant admission/control APIs are verified.
 
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement

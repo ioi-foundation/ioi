@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  L1_SETTLEMENT_COMMAND_ARGS_ENV,
   L1_SETTLEMENT_COMMAND_ENV,
+  L1SettlementRunnerError,
   RustL1SettlementRunner,
   createL1SettlementRunnerFromEnv,
 } from "./runtime-l1-settlement-runner.mjs";
@@ -23,7 +23,6 @@ test("L1 settlement runner sends admission bridge request", () => {
   const calls = [];
   const runner = new RustL1SettlementRunner({
     command: "mock-l1-settlement-bridge",
-    args: ["--settlement"],
     spawnSyncImpl(command, args, options) {
       const bridgeRequest = JSON.parse(options.input);
       calls.push({ command, args, bridgeRequest });
@@ -54,7 +53,7 @@ test("L1 settlement runner sends admission bridge request", () => {
   const result = runner.admitAttempt(settlementAttempt());
 
   assert.equal(calls[0].command, "mock-l1-settlement-bridge");
-  assert.deepEqual(calls[0].args, ["--settlement"]);
+  assert.deepEqual(calls[0].args, []);
   assert.equal(calls[0].bridgeRequest.operation, "admit_l1_settlement_attempt");
   assert.equal(calls[0].bridgeRequest.backend, "l1_settlement_guard");
   assert.equal(calls[0].bridgeRequest.attempt.settlement_ref, "l1://settlement/marketplace-transaction");
@@ -70,7 +69,6 @@ test("L1 settlement runner sends admission bridge request", () => {
 test("L1 settlement runner env uses daemon-core command boundary", () => {
   const runner = createL1SettlementRunnerFromEnv({
     [L1_SETTLEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    [L1_SETTLEMENT_COMMAND_ARGS_ENV]: "--json",
     IOI_L1_SETTLEMENT_COMMAND: "retired-l1-settlement-bridge",
     IOI_L1_SETTLEMENT_COMMAND_ARGS: "--retired-l1",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
@@ -78,7 +76,28 @@ test("L1 settlement runner env uses daemon-core command boundary", () => {
   });
 
   assert.equal(runner.command, "ioi-runtime-daemon-core");
-  assert.deepEqual(runner.args, ["--json"]);
+});
+
+test("L1 settlement runner command args env fails closed", () => {
+  assert.throws(
+    () =>
+      createL1SettlementRunnerFromEnv({
+        [L1_SETTLEMENT_COMMAND_ENV]: "ioi-runtime-daemon-core",
+        IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--settlement",
+      }),
+    (error) =>
+      error instanceof L1SettlementRunnerError &&
+      error.code === "l1_settlement_command_args_retired",
+  );
+});
+
+test("L1 settlement runner command args constructor option fails closed", () => {
+  assert.throws(
+    () => new RustL1SettlementRunner({ args: ["--settlement"] }),
+    (error) =>
+      error instanceof L1SettlementRunnerError &&
+      error.code === "l1_settlement_command_args_retired",
+  );
 });
 
 test("L1 settlement runner fails closed without command", () => {

@@ -5529,7 +5529,13 @@ function runBridge() {
       /ioi\.runtime\.daemon_core\.command\.v1/.test(externalCapabilityAuthorityRunner) &&
       !/IOI_EXTERNAL_CAPABILITY_AUTHORITY_COMMAND/.test(externalCapabilityAuthorityRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
+      !/EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ARGS_ENV/.test(externalCapabilityAuthorityRunner) &&
+      !/parseCommandArgs/.test(externalCapabilityAuthorityRunner) &&
+      !/normalizeArgs/.test(externalCapabilityAuthorityRunner) &&
+      !/this\.args/.test(externalCapabilityAuthorityRunner) &&
+      !/argsEnv/.test(externalCapabilityAuthorityRunner) &&
       /RustExternalCapabilityAuthorityRunner/.test(externalCapabilityAuthorityRunner) &&
+      /assertNoExternalCapabilityAuthorityCommandArgs/.test(externalCapabilityAuthorityRunner) &&
       /createExternalCapabilityAuthorityRunnerFromEnv/.test(externalCapabilityAuthorityRunner) &&
       /createExternalCapabilityAuthorityRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.externalCapabilityAuthorityRunner/.test(runtimeDaemonIndex) &&
@@ -5537,10 +5543,19 @@ function runBridge() {
       /authorize_external_capability_exit/.test(externalCapabilityAuthorityRunner) &&
       /rust_authority/.test(externalCapabilityAuthorityRunner) &&
       /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
+      /external_capability_authority_command_args_retired/.test(externalCapabilityAuthorityRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(externalCapabilityAuthorityRunner) &&
       /external capability authority runner sends Rust authority bridge request/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(externalCapabilityAuthorityRunnerTest) &&
       /external capability authority runner env uses daemon-core command boundary/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner command args env fails closed/.test(
+        externalCapabilityAuthorityRunnerTest,
+      ) &&
+      /external capability authority runner command args constructor option fails closed/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
       /external capability authority runner fails closed without command/.test(
@@ -10926,7 +10941,13 @@ function runBridge() {
       /ioi\.runtime\.daemon_core\.command\.v1/.test(workerServicePackageRunner) &&
       !/IOI_WORKER_SERVICE_PACKAGE_COMMAND/.test(workerServicePackageRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(workerServicePackageRunner) &&
+      !/WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV/.test(workerServicePackageRunner) &&
+      !/parseCommandArgs/.test(workerServicePackageRunner) &&
+      !/normalizeArgs/.test(workerServicePackageRunner) &&
+      !/this\.args/.test(workerServicePackageRunner) &&
+      !/argsEnv/.test(workerServicePackageRunner) &&
       /RustWorkerServicePackageRunner/.test(workerServicePackageRunner) &&
+      /assertNoWorkerServicePackageCommandArgs/.test(workerServicePackageRunner) &&
       /createWorkerServicePackageRunnerFromEnv/.test(workerServicePackageRunner) &&
       /createWorkerServicePackageRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.workerServicePackageRunner/.test(runtimeDaemonIndex) &&
@@ -10934,10 +10955,19 @@ function runBridge() {
       /admit_worker_service_package_invocation/.test(workerServicePackageRunner) &&
       /rust_package_invocation/.test(workerServicePackageRunner) &&
       /worker_service_package_bridge_unconfigured/.test(workerServicePackageRunner) &&
+      /worker_service_package_command_args_retired/.test(workerServicePackageRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(workerServicePackageRunner) &&
       /worker\/service package runner sends invocation admission bridge request/.test(
         workerServicePackageRunnerTest,
       ) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(workerServicePackageRunnerTest) &&
       /worker\/service package runner env uses daemon-core command boundary/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner command args env fails closed/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner command args constructor option fails closed/.test(
         workerServicePackageRunnerTest,
       ) &&
       /worker\/service package runner fails closed without command/.test(
@@ -11498,7 +11528,13 @@ function runBridge() {
       /ioi\.runtime\.daemon_core\.command\.v1/.test(l1SettlementRunner) &&
       !/IOI_L1_SETTLEMENT_COMMAND/.test(l1SettlementRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(l1SettlementRunner) &&
+      !/L1_SETTLEMENT_COMMAND_ARGS_ENV/.test(l1SettlementRunner) &&
+      !/parseCommandArgs/.test(l1SettlementRunner) &&
+      !/normalizeArgs/.test(l1SettlementRunner) &&
+      !/this\.args/.test(l1SettlementRunner) &&
+      !/argsEnv/.test(l1SettlementRunner) &&
       /RustL1SettlementRunner/.test(l1SettlementRunner) &&
+      /assertNoL1SettlementCommandArgs/.test(l1SettlementRunner) &&
       /createL1SettlementRunnerFromEnv/.test(l1SettlementRunner) &&
       /createL1SettlementRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.l1SettlementRunner/.test(runtimeDaemonIndex) &&
@@ -11506,8 +11542,13 @@ function runBridge() {
       /admit_l1_settlement_attempt/.test(l1SettlementRunner) &&
       /l1_settlement_guard/.test(l1SettlementRunner) &&
       /l1_settlement_bridge_unconfigured/.test(l1SettlementRunner) &&
+      /l1_settlement_command_args_retired/.test(l1SettlementRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(l1SettlementRunner) &&
       /L1 settlement runner sends admission bridge request/.test(l1SettlementRunnerTest) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner env uses daemon-core command boundary/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner command args env fails closed/.test(l1SettlementRunnerTest) &&
+      /L1 settlement runner command args constructor option fails closed/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner fails closed without command/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner surfaces Rust settlement rejection/.test(l1SettlementRunnerTest) &&
       /runtime store mounts L1 settlement runner from options/.test(l1SettlementStoreTest),
@@ -11752,7 +11793,13 @@ function runBridge() {
       /ioi\.runtime\.daemon_core\.command\.v1/.test(governedImprovementRunner) &&
       !/IOI_GOVERNED_IMPROVEMENT_COMMAND/.test(governedImprovementRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(governedImprovementRunner) &&
+      !/GOVERNED_IMPROVEMENT_COMMAND_ARGS_ENV/.test(governedImprovementRunner) &&
+      !/parseCommandArgs/.test(governedImprovementRunner) &&
+      !/normalizeArgs/.test(governedImprovementRunner) &&
+      !/this\.args/.test(governedImprovementRunner) &&
+      !/argsEnv/.test(governedImprovementRunner) &&
       /RustGovernedImprovementRunner/.test(governedImprovementRunner) &&
+      /assertNoGovernedImprovementCommandArgs/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(governedImprovementRunner) &&
       /createGovernedImprovementRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
@@ -11760,8 +11807,13 @@ function runBridge() {
       /admit_governed_runtime_improvement_proposal/.test(governedImprovementRunner) &&
       /rust_governed_evolution/.test(governedImprovementRunner) &&
       /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
+      /governed_improvement_command_args_retired/.test(governedImprovementRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(governedImprovementRunner) &&
       /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
       /governed improvement runner env uses daemon-core command boundary/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner command args env fails closed/.test(governedImprovementRunnerTest) &&
+      /governed improvement runner command args constructor option fails closed/.test(governedImprovementRunnerTest) &&
       /governed improvement runner fails closed without command/.test(governedImprovementRunnerTest) &&
       /governed improvement runner surfaces Rust proposal rejection/.test(governedImprovementRunnerTest) &&
       /runtime store mounts governed improvement runner from options/.test(governedImprovementStoreTest),
@@ -16511,7 +16563,13 @@ function runCtee() {
       /ioi\.runtime\.daemon_core\.command\.v1/.test(cteePrivateWorkspaceRunner) &&
       !/IOI_CTEE_PRIVATE_WORKSPACE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(cteePrivateWorkspaceRunner) &&
+      !/CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS_ENV/.test(cteePrivateWorkspaceRunner) &&
+      !/parseCommandArgs/.test(cteePrivateWorkspaceRunner) &&
+      !/normalizeArgs/.test(cteePrivateWorkspaceRunner) &&
+      !/this\.args/.test(cteePrivateWorkspaceRunner) &&
+      !/argsEnv/.test(cteePrivateWorkspaceRunner) &&
       /RustCteePrivateWorkspaceRunner/.test(cteePrivateWorkspaceRunner) &&
+      /assertNoCteePrivateWorkspaceCommandArgs/.test(cteePrivateWorkspaceRunner) &&
       /createCteePrivateWorkspaceRunnerFromEnv/.test(cteePrivateWorkspaceRunner) &&
       /createCteePrivateWorkspaceRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.cteePrivateWorkspaceRunner/.test(runtimeDaemonIndex) &&
@@ -16519,8 +16577,15 @@ function runCtee() {
       /execute_private_workspace_ctee_action/.test(cteePrivateWorkspaceRunner) &&
       /ctee_operator/.test(cteePrivateWorkspaceRunner) &&
       /ctee_private_workspace_bridge_unconfigured/.test(cteePrivateWorkspaceRunner) &&
+      /ctee_private_workspace_command_args_retired/.test(cteePrivateWorkspaceRunner) &&
+      /spawnSyncImpl\(this\.command,\s*\[\]/.test(cteePrivateWorkspaceRunner) &&
       /cTEE private workspace runner sends execution bridge request/.test(cteePrivateWorkspaceRunnerTest) &&
+      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner env uses daemon-core command boundary/.test(cteePrivateWorkspaceRunnerTest) &&
+      /cTEE private workspace runner command args env fails closed/.test(cteePrivateWorkspaceRunnerTest) &&
+      /cTEE private workspace runner command args constructor option fails closed/.test(
+        cteePrivateWorkspaceRunnerTest,
+      ) &&
       /cTEE private workspace runner fails closed without command/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner surfaces Rust execution rejection/.test(cteePrivateWorkspaceRunnerTest) &&
       /runtime store mounts cTEE private workspace runner from options/.test(
