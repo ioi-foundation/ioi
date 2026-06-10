@@ -32,8 +32,6 @@ test("visual GUI local capture request detector ignores retired aliases", () => 
 });
 
 test("visual GUI local fixture capture emits canonical patch fields only", () => {
-  const previous = process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
-  process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = "1";
   const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-visual-capture-test-"));
   try {
     const result = captureLocalVisualGuiObservation({
@@ -82,7 +80,6 @@ test("visual GUI local fixture capture emits canonical patch fields only", () =>
     }
     assert.equal(Object.hasOwn(result.inputPatch.visual_targets[0].bounds, "coordinateSpaceId"), false);
   } finally {
-    process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = previous;
     fs.rmSync(captureDir, { recursive: true, force: true });
   }
 });

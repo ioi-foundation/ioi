@@ -42,13 +42,6 @@ export function captureLocalVisualGuiObservation({
   let screenshotBuffer = null;
 
   if (requestedProvider === "fixture") {
-    if (process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE !== "1") {
-      return unavailableCapture({
-        captureRef,
-        reason: "fixture_provider_disabled",
-        warnings: ["Fixture visual capture provider requires IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE=1."],
-      });
-    }
     const fixtureBase64 = cleanString(input.capture_fixture_png_base64);
     if (!fixtureBase64) {
       return unavailableCapture({

@@ -20368,3 +20368,37 @@ preserve the non-terminal status of command transport, explicit fixture
 exposure, direct Rust daemon-core route/provider/runtime-engine/catalog/workflow
 APIs, Agentgres-backed replay, and stable protocol APIs without encoding
 environment selectors as terminal architecture.
+
+## Implementation Slice Evidence: 940
+
+Slice 940 retired the visual GUI local fixture environment selectors. The
+runtime visual GUI local capture and local executor helpers no longer read
+`IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or
+`IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`; explicit fixture capture/execution
+continues through canonical request fields such as `capture_provider`,
+`capture_fixture_png_base64`, `local_gui_executor_provider`, and
+`local_gui_executor_fixture_png_base64`. This removes hidden daemon env gates
+from the visual GUI fixture path while preserving the non-terminal status of
+JS-side computer-use local capture/executor scaffolding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/visual-gui-local-capture.mjs packages/runtime-daemon/src/visual-gui-local-capture.test.mjs packages/runtime-daemon/src/visual-gui-local-executor.mjs packages/runtime-daemon/src/visual-gui-local-executor.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/visual-gui-local-capture.test.mjs packages/runtime-daemon/src/visual-gui-local-executor.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal computer-use or visual GUI execution
+migration. Direct Rust daemon-core visual action custody, wallet approval
+authority, Agentgres-backed artifact/event admission, replay/projection, and
+stable protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 940 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of visual GUI local capture/execution JS
+helpers, command transport, Agentgres-backed replay, and stable protocol APIs
+without encoding fixture env selectors as terminal architecture.

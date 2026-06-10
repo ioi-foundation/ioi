@@ -2093,6 +2093,13 @@ model-mounting environment adapter now honors only `IOI_EXPOSE_INTERNAL_FIXTURE_
 or approval/runtime test setup, so fixture exposure cannot survive as a hidden
 legacy env selector while Rust-owned provider and projection paths continue to
 replace daemon-side JS scaffolding.
+Slice 940 retired the visual GUI local fixture environment selectors. The
+visual GUI local capture/executor helpers no longer read
+`IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or
+`IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`; fixture capture and fixture local
+execution are selected only by canonical request fields and fixture payloads,
+so visual GUI test providers cannot be toggled by hidden daemon env selectors
+while computer-use execution continues moving toward Rust daemon-core custody.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

@@ -227,7 +227,6 @@ export async function executeLocalVisualGuiAction({
 function localExecutorProvider(input) {
   const requestedProvider = cleanString(input.local_gui_executor_provider);
   if (requestedProvider === "fixture") {
-    if (process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE !== "1") return null;
     return {
       id: "fixture",
       execute(payload) {

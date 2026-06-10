@@ -859,6 +859,8 @@ function runDocs() {
       /load-policy normalizer now honors only canonical `ttl_seconds`, `ttl`, `idle_ttl_seconds`, `auto_evict`, and `memory_pressure_evict`/.test(guide) &&
       /Slice 939 retired the internal fixture-model environment compatibility selector/.test(guide) &&
       /model-mounting environment adapter now honors only `IOI_EXPOSE_INTERNAL_FIXTURE_MODELS`/.test(guide) &&
+      /Slice 940 retired the visual GUI local fixture environment selectors/.test(guide) &&
+      /visual GUI local capture\/executor helpers no longer read\s+`IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or\s+`IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -2043,6 +2045,9 @@ function runDocs() {
       ) &&
       /MCP serve `tools\/call` now consumes canonical `params\.arguments` only/.test(implementationMatrix) &&
       /visual observation mutation metadata now considers only canonical\s+`screenshot_path`, `som_path`, and `ax_path`/.test(implementationMatrix) &&
+      /visual GUI local fixture capture\/execution no longer reads `IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE` or `IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE`/.test(
+        implementationMatrix,
+      ) &&
       /JS may remain only as primitive volatile-state collection and protocol\/input transport until direct Rust projection APIs own\s+the full server-control surface/.test(
         implementationMatrix,
       ) &&
@@ -4904,6 +4909,8 @@ function runBridge() {
       /input\.local_gui_executor_fixture_png_base64/.test(visualGuiLocalExecutor) &&
       /visual GUI local executor request detector ignores retired request aliases/.test(visualGuiLocalExecutorTest) &&
       /localGuiExecutorProvider:\s*"fixture"/.test(visualGuiLocalExecutorTest) &&
+      !/IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE/.test(visualGuiLocalExecutor) &&
+      !/IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE/.test(visualGuiLocalExecutorTest) &&
       !/\binput\.(?:localGuiExecutor|executeLocalGui|visualGuiLocalExecutor|visualGuiExecutor|executorMode|localGuiExecutorProvider|localGuiExecutorFixturePngBase64)\b/.test(
         visualGuiLocalExecutor,
       ),
@@ -5023,6 +5030,8 @@ function runBridge() {
       /Object\.hasOwn\(result\.inputPatch,\s*key\),\s*false/.test(
         visualGuiLocalCaptureTest,
       ) &&
+      !/IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE/.test(visualGuiLocalCapture) &&
+      !/IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE/.test(visualGuiLocalCaptureTest) &&
       !/\binput\.(?:captureScreen|localCapture|captureVisualGui|captureProvider|localCaptureProvider|captureAxTree|captureAccessibilityTree|captureFixturePngBase64|captureFixtureAxTree|captureFixtureAxJson|captureCoordinateSpaceId|coordinateSpaceId|captureAppName|appName|captureWindowTitle|windowTitle|viewportWidth|viewportHeight|detectedPatterns)\b/.test(
         visualGuiLocalCapture,
       ) &&

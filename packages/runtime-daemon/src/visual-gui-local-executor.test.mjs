@@ -320,24 +320,10 @@ function screenshotArtifactResolver(ref) {
 }
 
 async function withFixtureExecution(callback) {
-  const previousCaptureFixture = process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE;
-  const previousExecutorFixture = process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE;
   const captureDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-visual-executor-test-"));
-  process.env.IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE = "1";
-  process.env.IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE = "1";
   try {
     await callback(captureDir);
   } finally {
-    restoreEnv("IOI_RUNTIME_ENABLE_VISUAL_CAPTURE_FIXTURE", previousCaptureFixture);
-    restoreEnv("IOI_RUNTIME_ENABLE_VISUAL_EXECUTOR_FIXTURE", previousExecutorFixture);
     fs.rmSync(captureDir, { recursive: true, force: true });
-  }
-}
-
-function restoreEnv(name, value) {
-  if (value === undefined) {
-    delete process.env[name];
-  } else {
-    process.env[name] = value;
   }
 }
