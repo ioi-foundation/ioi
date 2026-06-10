@@ -4535,6 +4535,16 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
+Current lane note: after Slice 972, public runtime account, runtime-node, and
+tool catalog projections are no longer JS-authored public truth. The daemon edge
+now translates `RuntimeToolCatalogProjectionRequiredCore` fail-closed records
+for those surfaces while direct Rust daemon-core projection APIs are extracted.
+This is a larger-cut migration seam, not terminal architecture: the command
+transport, JS edge error translation, and remaining internal descriptor helper
+code are scaffolding until Rust daemon-core runtime catalog projection over
+Agentgres-admitted truth, wallet/network authority, receipt/state-root binding,
+replay, and stable IDE/CLI/SDK protocol APIs own the surface end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

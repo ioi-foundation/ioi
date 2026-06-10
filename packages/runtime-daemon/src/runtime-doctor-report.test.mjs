@@ -94,3 +94,36 @@ test("runtime doctor report blocks when required state paths are missing", () =>
   assert.ok(report.blockers.includes("memory.store"));
   assert.equal(report.workspace.exists, false);
 });
+
+test("runtime doctor report degrades when runtime tool catalog projection is Rust-core required", () => {
+  const { helper, store } = createHarness();
+  store.listTools = () => {
+    const error = new Error("Runtime tool catalog requires Rust core.");
+    error.code = "runtime_tool_catalog_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.tool_catalog",
+      projection_kind: "tools",
+      workspace_root: "/workspace",
+    };
+    throw error;
+  };
+  store.listRuntimeNodes = () => {
+    const error = new Error("Runtime nodes require Rust core.");
+    error.code = "runtime_tool_catalog_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.tool_catalog",
+      projection_kind: "runtime_nodes",
+      workspace_root: "/workspace",
+    };
+    throw error;
+  };
+
+  const report = helper.doctorReport(store);
+  const toolCheck = report.checks.find((check) => check.id === "tool.catalog");
+
+  assert.equal(report.readiness, "ready");
+  assert.equal(toolCheck.status, "degraded");
+  assert.equal(toolCheck.required, false);
+  assert.ok(report.optionalWarnings.includes("tool.catalog"));
+  assert.equal(report.runtimeNodes.length, 0);
+});

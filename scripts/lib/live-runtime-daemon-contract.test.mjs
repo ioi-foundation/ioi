@@ -9567,57 +9567,13 @@ test("coding tool pack invokes status, diff, inspect, apply patch, diagnostics, 
         options: { local: { cwd }, model: { id: "auto", routeId: "route.native-local" } },
       }),
     });
-    const expectedCodingToolIds = [
-      "artifact.read",
-      "computer_use.request_lease",
-      "file.apply_patch",
-      "file.inspect",
-      "git.diff",
-      "lsp.diagnostics",
-      "test.run",
-      "tool.retrieve_result",
-      "workspace.status",
-    ];
-
-    const catalog = await fetchJson(`${daemon.endpoint}/v1/tools?pack=coding`);
-    assert.deepEqual(
-      catalog.map((tool) => tool.stable_tool_id).sort(),
-      expectedCodingToolIds,
-    );
-    assert.ok(catalog.every((tool) => tool.pack === "coding"));
-    assert.ok(catalog.every((tool) => tool.workflow_node_type));
-    const patchContract = catalog.find((tool) => tool.stable_tool_id === "file.apply_patch");
-    assert.ok(patchContract);
-    assert.equal(patchContract.effect_class, "local_write");
-    assert.ok(patchContract.authority_scope_requirements.includes("scope:workspace.write"));
-    assert.ok(patchContract.evidence_requirements.includes("workspace_snapshot_receipt"));
-    const testContract = catalog.find((tool) => tool.stable_tool_id === "test.run");
-    assert.ok(testContract);
-    assert.equal(testContract.effect_class, "local_command");
-    assert.ok(testContract.authority_scope_requirements.includes("scope:workspace.test"));
-    const diagnosticsContract = catalog.find((tool) => tool.stable_tool_id === "lsp.diagnostics");
-    assert.ok(diagnosticsContract);
-    assert.equal(diagnosticsContract.effect_class, "local_read");
-    assert.equal(diagnosticsContract.risk_domain, "diagnostics");
-    assert.ok(diagnosticsContract.input_schema.properties.commandId.enum.includes("auto"));
-    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.diagnosticsMode"));
-    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.defaultDiagnosticCommandId"));
-    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.restorePolicy"));
-    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.restoreConflictPolicy"));
-    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.diagnosticsRepairDefault"));
-    assert.ok(patchContract.workflow_config_fields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
-    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.diagnosticsMode"));
-    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.defaultDiagnosticCommandId"));
-    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.restorePolicy"));
-    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.restoreConflictPolicy"));
-    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.diagnosticsRepairDefault"));
-    assert.ok(diagnosticsContract.workflow_config_fields.includes("toolPack.coding.operatorOverrideRequiresApproval"));
-    const artifactContract = catalog.find((tool) => tool.stable_tool_id === "artifact.read");
-    assert.ok(artifactContract);
-    assert.equal(artifactContract.effect_class, "local_read");
-    const retrieveContract = catalog.find((tool) => tool.stable_tool_id === "tool.retrieve_result");
-    assert.ok(retrieveContract);
-    assert.equal(retrieveContract.risk_domain, "artifact");
+    const catalog = await fetchJsonStatus(`${daemon.endpoint}/v1/tools?pack=coding`);
+    assert.equal(catalog.status, 501);
+    assert.equal(catalog.body.error.code, "runtime_tool_catalog_rust_core_required");
+    assert.equal(catalog.body.error.details.projection_kind, "tools");
+    assert.equal(catalog.body.error.details.pack, "coding");
+    assert.equal(catalog.body.error.details.rust_core_boundary, "runtime.tool_catalog");
+    assert.equal(Object.hasOwn(catalog.body.error.details, "projectionKind"), false);
 
     const statusResult = await fetchJson(
       `${daemon.endpoint}/v1/threads/${thread.thread_id}/tools/workspace.status/invoke`,

@@ -20366,6 +20366,50 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 972
+
+Slice 972 moved public runtime account, runtime-node, and tool catalog projection
+refusal authoring into `RuntimeToolCatalogProjectionRequiredCore` through
+`plan_runtime_tool_catalog_projection_required`. The runtime daemon tool surface
+now fails closed before JS account/node/tool catalog builders can author public
+truth for `/v1/account`, `/v1/runtime/nodes`, or `/v1/tools`, and translates the
+mounted Rust daemon-core required envelope when the context-policy runner is
+available. The doctor report degrades with Rust-core-required details instead of
+re-authoring public runtime catalog truth, and the live daemon contract now
+expects `/v1/tools?pack=coding` to fail closed with
+`runtime_tool_catalog_rust_core_required`.
+
+This is still non-terminal migration plumbing: direct Rust daemon-core runtime
+catalog projection over Agentgres-admitted catalog truth, wallet/network
+authority for external tool exposure, receipt/state-root binding, replay,
+command-transport retirement, and stable protocol APIs remain required before
+terminal conformance. `runtime-tool-catalog.mjs` remains only non-authoritative
+internal descriptor/governance helper scaffolding until direct Rust projection
+and catalog APIs own those shapes.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 972 | Moved runtime account/node/tool catalog projection-required refusal authoring into `RuntimeToolCatalogProjectionRequiredCore` through `plan_runtime_tool_catalog_projection_required`; JS translates the Rust-authored fail-closed envelope before public runtime catalog projection construction. | Direct Rust daemon-core runtime catalog projection over Agentgres-admitted runtime catalog truth, wallet/network authority where tool exposure exits local trust, receipt/state-root binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-tool-surface.mjs packages/runtime-daemon/src/runtime-tool-surface.test.mjs packages/runtime-daemon/src/runtime-doctor-report.mjs packages/runtime-daemon/src/runtime-doctor-report.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs scripts/lib/live-runtime-daemon-contract.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-tool-surface.test.mjs packages/runtime-daemon/src/runtime-doctor-report.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services rust_policy_plans_runtime_tool_catalog_projection_required` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo test -p ioi-node bridge_plans_runtime_tool_catalog_projection_required_through_rust_core` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo check -p ioi-services` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo check -p ioi-node` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 971
 
 Slice 971 moved public repository workflow projection refusal authoring into

@@ -127,7 +127,9 @@ use policy::{
     RuntimeBridgeThreadStartAgentStateUpdateError, RuntimeBridgeThreadStartAgentStateUpdateRecord,
     RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
     RuntimeBridgeTurnRunStateUpdateError, RuntimeBridgeTurnRunStateUpdateRecord,
-    RuntimeBridgeTurnRunStateUpdateRequest, SkillHookRegistryProjectionRequiredCore,
+    RuntimeBridgeTurnRunStateUpdateRequest, RuntimeToolCatalogProjectionRequiredCore,
+    RuntimeToolCatalogProjectionRequiredError, RuntimeToolCatalogProjectionRequiredRecord,
+    RuntimeToolCatalogProjectionRequiredRequest, SkillHookRegistryProjectionRequiredCore,
     SkillHookRegistryProjectionRequiredError, SkillHookRegistryProjectionRequiredRecord,
     SkillHookRegistryProjectionRequiredRequest, SubagentRecordStateUpdateCore,
     SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
@@ -332,6 +334,14 @@ impl RuntimeKernelService {
     ) -> Result<RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredError>
     {
         RepositoryWorkflowProjectionRequiredCore.plan(request)
+    }
+
+    pub fn plan_runtime_tool_catalog_projection_required(
+        &self,
+        request: &RuntimeToolCatalogProjectionRequiredRequest,
+    ) -> Result<RuntimeToolCatalogProjectionRequiredRecord, RuntimeToolCatalogProjectionRequiredError>
+    {
+        RuntimeToolCatalogProjectionRequiredCore.plan(request)
     }
 
     pub fn plan_thread_control_agent_state_update(

@@ -13085,6 +13085,15 @@ function runReceipts() {
   const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
+  const policyCoreForState = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
+    : "";
+  const runtimeContextPolicyRunnerForState = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
+    : "";
+  const runtimeContextPolicyRunnerTestForState = exists("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs")
+    : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     : "";
@@ -13105,6 +13114,18 @@ function runReceipts() {
     : "";
   const runtimeToolCatalogTest = exists("packages/runtime-daemon/src/runtime-tool-catalog.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-tool-catalog.test.mjs")
+    : "";
+  const runtimeToolSurface = exists("packages/runtime-daemon/src/runtime-tool-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-tool-surface.mjs")
+    : "";
+  const runtimeToolSurfaceTest = exists("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
+    : "";
+  const runtimeDoctorReportTest = exists("packages/runtime-daemon/src/runtime-doctor-report.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-doctor-report.test.mjs")
+    : "";
+  const liveRuntimeDaemonContract = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
     : "";
   const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
@@ -16443,6 +16464,74 @@ function runReceipts() {
       "packages/runtime-daemon/src/step-module-abi.test.mjs",
     ],
     "Phase 10/11 is pending: runtime and coding tool catalog records must expose canonical snake_case fields without camelCase compatibility aliases",
+  );
+  const liveRuntimeDaemonContractForState = exists("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    ? read("scripts/lib/live-runtime-daemon-contract.test.mjs")
+    : "";
+  assertCheck(
+    result,
+    "runtime-tool-catalog-public-js-projection-retired",
+    /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCoreForState) &&
+      /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION/.test(policyCoreForState) &&
+      /RuntimeToolCatalogProjectionRequiredRequest/.test(policyCoreForState) &&
+      /RuntimeToolCatalogProjectionRequiredCore/.test(policyCoreForState) &&
+      /runtime_tool_catalog_js_projection_retired/.test(policyCoreForState) &&
+      /rust_daemon_core_runtime_tool_catalog_required/.test(policyCoreForState) &&
+      /agentgres_runtime_tool_catalog_truth_required/.test(policyCoreForState) &&
+      /runtime_tool_catalog_rust_core_required/.test(policyCoreForState) &&
+      /rust_policy_plans_runtime_tool_catalog_projection_required/.test(policyCoreForState) &&
+      /plan_runtime_tool_catalog_projection_required/.test(runtimeKernelModule) &&
+      /RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      /bridge_plans_runtime_tool_catalog_projection_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunnerForState,
+      ) &&
+      /planRuntimeToolCatalogProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
+      /runtime tool catalog projection-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTestForState,
+      ) &&
+      /throwRuntimeToolCatalogProjectionRustCoreRequired/.test(runtimeToolSurface) &&
+      /planRuntimeToolCatalogProjectionRequired/.test(runtimeToolSurface) &&
+      /runtime_tool_catalog_js_projection_retired/.test(runtimeToolSurface) &&
+      /rust_daemon_core_runtime_tool_catalog_required/.test(runtimeToolSurface) &&
+      /agentgres_runtime_tool_catalog_truth_required/.test(runtimeToolSurface) &&
+      !/runtimeToolsDep|runtimeAccountDep|runtimeNodesDep/.test(runtimeToolSurface) &&
+      /runtime tool surface fails closed for retired JS public projections/.test(
+        runtimeToolSurfaceTest,
+      ) &&
+      /projection_kind === "account"/.test(runtimeToolSurfaceTest) &&
+      /projection_kind === "runtime_nodes"/.test(runtimeToolSurfaceTest) &&
+      /projection_kind === "tools"/.test(runtimeToolSurfaceTest) &&
+      /toolCatalogRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /runtimeToolCatalogForDoctor/.test(runtimeDoctorReport) &&
+      /runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReport) &&
+      /runtime doctor report degrades when runtime tool catalog projection is Rust-core required/.test(
+        runtimeDoctorReportTest,
+      ) &&
+      /const catalog = await fetchJsonStatus\(`\$\{daemon\.endpoint\}\/v1\/tools\?pack=coding`\)/.test(
+        liveRuntimeDaemonContractForState,
+      ) &&
+      /catalog\.status,\s*501/.test(liveRuntimeDaemonContractForState) &&
+      /catalog\.body\.error\.code,\s*"runtime_tool_catalog_rust_core_required"/.test(
+        liveRuntimeDaemonContractForState,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-tool-surface.mjs",
+      "packages/runtime-daemon/src/runtime-tool-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-doctor-report.mjs",
+      "packages/runtime-daemon/src/runtime-doctor-report.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "scripts/lib/live-runtime-daemon-contract.test.mjs",
+    ],
+    "Phase 10/11 is pending: public runtime account, node, and tool catalog projections must fail closed through the Rust daemon-core projection-required boundary instead of returning JS-authored catalog truth",
   );
   assertCheck(
     result,

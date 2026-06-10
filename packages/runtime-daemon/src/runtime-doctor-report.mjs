@@ -12,6 +12,8 @@ export function createRuntimeDoctorReport({
     const generatedAt = new Date().toISOString();
     const modelProjection = store.modelMounting.projection();
     const skillHookCatalog = skillHookCatalogForDoctor(store);
+    const runtimeToolCatalog = runtimeToolCatalogForDoctor(store);
+    const runtimeNodes = runtimeNodesForDoctor(store);
     const memoryPaths = store.memory.pathProjection({
       threadId: null,
       workspace: store.defaultCwd,
@@ -56,10 +58,10 @@ export function createRuntimeDoctorReport({
       ),
       doctorCheck(
         "tool.catalog",
-        store.listTools().length > 0 ? "pass" : "blocked",
-        true,
-        `${store.listTools().length} governed runtime tool(s) are registered.`,
-        store.listTools().map((tool) => tool.stable_tool_id),
+        runtimeToolCatalog.status,
+        false,
+        runtimeToolCatalog.message,
+        runtimeToolCatalog.toolIds,
       ),
       doctorCheck(
         "workflow.react_flow_registry",
@@ -209,7 +211,7 @@ export function createRuntimeDoctorReport({
         networkConfigured: Boolean(processEnv.IOI_WALLET_NETWORK_URL),
         networkUrlHash: processEnv.IOI_WALLET_NETWORK_URL ? doctorHash(processEnv.IOI_WALLET_NETWORK_URL) : null,
       },
-      runtimeNodes: store.listRuntimeNodes().map((node) => redactRuntimeNodeForDoctor(node, { doctorHash })),
+      runtimeNodes: runtimeNodes.nodes.map((node) => redactRuntimeNodeForDoctor(node, { doctorHash })),
       checks,
       blockers: requiredFailures.map((check) => check.id),
       optionalWarnings,
@@ -225,6 +227,52 @@ export function createRuntimeDoctorReport({
   return {
     doctorReport,
   };
+}
+
+function runtimeToolCatalogForDoctor(store) {
+  try {
+    const tools = store.listTools();
+    return {
+      status: tools.length > 0 ? "pass" : "blocked",
+      message: `${tools.length} governed runtime tool(s) are registered.`,
+      toolIds: tools.map((tool) => tool.stable_tool_id),
+      rustCoreRequired: false,
+      rustCoreDetails: null,
+    };
+  } catch (error) {
+    if (error?.code !== "runtime_tool_catalog_rust_core_required") {
+      throw error;
+    }
+    return {
+      status: "degraded",
+      message: "Runtime tool catalog projection is retired in JS and requires direct Rust daemon-core projection.",
+      toolIds: [
+        "runtime_tool_catalog_js_projection_retired",
+        "rust_daemon_core_runtime_tool_catalog_required",
+      ],
+      rustCoreRequired: true,
+      rustCoreDetails: error.details,
+    };
+  }
+}
+
+function runtimeNodesForDoctor(store) {
+  try {
+    return {
+      nodes: store.listRuntimeNodes(),
+      rustCoreRequired: false,
+      rustCoreDetails: null,
+    };
+  } catch (error) {
+    if (error?.code !== "runtime_tool_catalog_rust_core_required") {
+      throw error;
+    }
+    return {
+      nodes: [],
+      rustCoreRequired: true,
+      rustCoreDetails: error.details,
+    };
+  }
 }
 
 function skillHookCatalogForDoctor(store) {

@@ -45,6 +45,10 @@ pub const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.repository-workflow-projection-required-request.v1";
 pub const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.repository-workflow-projection-required.v1";
+pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.tool-catalog-projection-required-request.v1";
+pub const RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.tool-catalog-projection-required.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
@@ -296,6 +300,15 @@ pub enum SkillHookRegistryProjectionRequiredError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum RepositoryWorkflowProjectionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum RuntimeToolCatalogProjectionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -1234,6 +1247,47 @@ pub struct RepositoryWorkflowProjectionRequiredRecord {
     pub operation_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub projection_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workspace_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    pub evidence_refs: Vec<String>,
+    pub details: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeToolCatalogProjectionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub projection_kind: Option<String>,
+    #[serde(default)]
+    pub pack: Option<String>,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub source: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeToolCatalogProjectionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub projection_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pack: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_root: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3222,6 +3276,65 @@ impl RepositoryWorkflowProjectionRequiredCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct RuntimeToolCatalogProjectionRequiredCore;
+
+impl RuntimeToolCatalogProjectionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &RuntimeToolCatalogProjectionRequiredRequest,
+    ) -> Result<RuntimeToolCatalogProjectionRequiredRecord, RuntimeToolCatalogProjectionRequiredError>
+    {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let projection_kind = optional_trimmed(request.projection_kind.as_deref());
+        let pack = optional_trimmed(request.pack.as_deref());
+        let workspace_root = optional_trimmed(request.workspace_root.as_deref());
+        let source = optional_trimmed(request.source.as_deref())
+            .or_else(|| Some("rust_runtime_tool_catalog_projection_required_command".to_string()));
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            vec![
+                "runtime_tool_catalog_js_projection_retired".to_string(),
+                "rust_daemon_core_runtime_tool_catalog_required".to_string(),
+                "agentgres_runtime_tool_catalog_truth_required".to_string(),
+            ]
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.tool_catalog",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "projection_kind": projection_kind,
+            "pack": pack,
+            "workspace_root": workspace_root,
+            "source": source,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(RuntimeToolCatalogProjectionRequiredRecord {
+            schema_version: RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_tool_catalog_projection_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_tool_catalog_rust_core_required".to_string(),
+            message: "Runtime account, node, and tool catalog projections require direct Rust daemon-core projection over Agentgres-admitted runtime catalog truth.".to_string(),
+            rust_core_boundary: "runtime.tool_catalog".to_string(),
+            operation,
+            operation_kind,
+            projection_kind,
+            pack,
+            workspace_root,
+            source,
+            evidence_refs,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
 
 impl ThreadControlAgentStateUpdateCore {
@@ -4656,6 +4769,30 @@ impl RepositoryWorkflowProjectionRequiredRequest {
         }
         if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
             return Err(RepositoryWorkflowProjectionRequiredError::MissingField(
+                "operation_kind",
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl RuntimeToolCatalogProjectionRequiredRequest {
+    pub fn validate(&self) -> Result<(), RuntimeToolCatalogProjectionRequiredError> {
+        if self.schema_version != RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(
+                RuntimeToolCatalogProjectionRequiredError::InvalidSchemaVersion {
+                    expected: RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(RuntimeToolCatalogProjectionRequiredError::MissingField(
+                "operation",
+            ));
+        }
+        if optional_trimmed(Some(self.operation_kind.as_str())).is_none() {
+            return Err(RuntimeToolCatalogProjectionRequiredError::MissingField(
                 "operation_kind",
             ));
         }
@@ -8103,6 +8240,46 @@ mod tests {
             "repository_workflow.projection.pr_attempts"
         );
         assert_eq!(record.details["projection_kind"], "pr_attempts");
+        assert_eq!(record.details["workspace_root"], "/workspace/project");
+        assert!(record.details.get("projectionKind").is_none());
+        assert!(record.details.get("workspaceRoot").is_none());
+    }
+
+    #[test]
+    fn rust_policy_plans_runtime_tool_catalog_projection_required() {
+        let record = RuntimeToolCatalogProjectionRequiredCore
+            .plan(&RuntimeToolCatalogProjectionRequiredRequest {
+                schema_version: RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                    .to_string(),
+                operation: "runtime_tool_catalog".to_string(),
+                operation_kind: "runtime.tool_catalog.projection.tools".to_string(),
+                projection_kind: Some("tools".to_string()),
+                pack: Some("coding".to_string()),
+                workspace_root: Some("/workspace/project".to_string()),
+                source: Some("runtime.tool_surface".to_string()),
+                evidence_refs: vec![
+                    "runtime_tool_catalog_js_projection_retired".to_string(),
+                    "rust_daemon_core_runtime_tool_catalog_required".to_string(),
+                    "agentgres_runtime_tool_catalog_truth_required".to_string(),
+                ],
+            })
+            .expect("runtime tool catalog projection required");
+
+        assert_eq!(
+            record.schema_version,
+            RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "runtime_tool_catalog_rust_core_required");
+        assert_eq!(record.rust_core_boundary, "runtime.tool_catalog");
+        assert_eq!(record.operation, "runtime_tool_catalog");
+        assert_eq!(
+            record.operation_kind,
+            "runtime.tool_catalog.projection.tools"
+        );
+        assert_eq!(record.details["projection_kind"], "tools");
+        assert_eq!(record.details["pack"], "coding");
         assert_eq!(record.details["workspace_root"], "/workspace/project");
         assert!(record.details.get("projectionKind").is_none());
         assert!(record.details.get("workspaceRoot").is_none());
