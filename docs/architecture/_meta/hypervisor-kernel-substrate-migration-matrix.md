@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 891 after the next
+- Next scheduled matrix-compaction pass: compact Slice 892 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -16823,10 +16823,11 @@ provider stream transport. `OllamaModelProviderDriver.invoke()` and
 `model_mount_provider_js_invocation_retired` before `/api/chat` or
 `/api/embeddings` request shaping, provider HTTP stream transport,
 token-estimation, output synthesis, or provider-result assembly. The shared
-fail-closed boundary now lives in `provider-invocation-retirement.mjs` instead
-of the OpenAI-compatible driver, and the dead JS chat/Responses request/output
-translator helpers plus `fetchProviderStream()`/stream-timeout helper are
-removed rather than preserved as dormant compatibility scaffolding.
+fail-closed boundary no longer preserves separate hosted and Ollama helper
+bodies; `provider-invocation-retirement.mjs` is now absent after Slice 892. The
+dead JS chat/Responses request/output translator helpers plus
+`fetchProviderStream()`/stream-timeout helper are removed rather than preserved
+as dormant compatibility scaffolding.
 
 Focused evidence:
 
@@ -16950,10 +16951,10 @@ Slice 829 retired the remaining JS provider HTTP transport/probe authority
 path. `provider-transport.mjs` no longer performs live `fetch()` calls, resolves
 provider auth headers for runtime provider requests, applies provider HTTP
 timeouts, retries provider-open probes, or returns tolerated provider HTTP
-responses from JS. `fetchProviderJson()` and `retryProviderOpen()` now fail
-closed with `model_mount_provider_http_transport_retired` before live HTTP
-request shaping. The dead HTTP timeout/retry/fallback policy helpers were
-removed, leaving only the provider-health failure classifier used by the
+responses from JS; Slice 892 later deleted the leftover wrapper module rather
+than preserving `fetchProviderJson()` or `retryProviderOpen()` as fail-closed
+compatibility surfaces. The dead HTTP timeout/retry/fallback policy helpers
+were removed, leaving only the provider-health failure classifier used by the
 fail-closed public facade.
 
 OpenAI-compatible, Ollama, vLLM, and llama.cpp driver health/inventory/lifecycle
@@ -18682,7 +18683,36 @@ stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
 protocol surfaces remain required before provider execution reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 891 after the next direct
+Scheduled matrix-compaction obligation from Slice 891 is now satisfied.
+
+## Implementation Slice Evidence: 892
+
+Slice 892 deleted the leftover provider invocation-retirement and HTTP
+transport wrappers. `provider-invocation-retirement.mjs`,
+`provider-transport.mjs`, and `provider-transport.test.mjs` are absent rather
+than preserved as fail-closed compatibility surfaces after hosted/nonlocal JS
+drivers, provider HTTP request shaping, retry probes, and driver-name inference
+were retired. Public provider execution still fails closed through the mounted
+daemon facades and Rust provider-result admission checks, but there is no
+standalone JS provider invocation/HTTP transport module for future code to
+re-enter.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/provider-auth.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs packages/runtime-daemon/src/model-mounting/provider-auth.test.mjs packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
+stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
+protocol surfaces remain required before provider execution reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 892 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

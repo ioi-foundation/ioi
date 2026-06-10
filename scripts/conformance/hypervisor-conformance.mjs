@@ -729,7 +729,8 @@ function runDocs() {
       /native-local provider lifecycle path still calls the Rust `model_mount`\s+planner, but now sends no JS process snapshot or local backend-log evidence/.test(guide) &&
       /Slice 829 retired the remaining JS provider HTTP transport\/probe authority\s+path/.test(guide) &&
       /`provider-transport\.mjs` no longer performs `fetch\(\)`/.test(guide) &&
-      /`fetchProviderJson\(\)` and `retryProviderOpen\(\)` now fail closed with\s+`model_mount_provider_http_transport_retired`/.test(guide) &&
+      /Slice 892 deleted the leftover provider invocation-retirement and HTTP\s+transport wrappers/.test(guide) &&
+      /`provider-invocation-retirement\.mjs`,\s+`provider-transport\.mjs`, and\s+`provider-transport\.test\.mjs` are absent/.test(guide) &&
       /Ollama catalog bridge no longer reaches through the JS provider driver for live\s+catalog truth/.test(guide) &&
       /Slice 830 retired external live model-catalog HTTP search from the JS daemon\s+catalog-provider ports/.test(guide) &&
       /Hugging Face-compatible search helper module is\s+deleted/.test(guide) &&
@@ -886,7 +887,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 823 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 824/.test(matrix) &&
       /Slice 824 retired the remaining Ollama JS provider invocation/.test(matrix) &&
-      /`provider-invocation-retirement\.mjs`/.test(matrix) &&
+      /`provider-invocation-retirement\.mjs` is now absent/.test(matrix) &&
       /`fetchProviderStream\(\)`\/stream-timeout helper are\s+removed/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 824 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 825/.test(matrix) &&
@@ -911,7 +912,7 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 828 is now satisfied/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 829/.test(matrix) &&
       /Slice 829 retired the remaining JS provider HTTP transport\/probe authority\s+path/.test(matrix) &&
-      /model_mount_provider_http_transport_retired/.test(matrix) &&
+      /provider-transport\.mjs` no longer performs live `fetch\(\)` calls/.test(matrix) &&
       /OpenAI-compatible, Ollama, vLLM, and llama\.cpp driver health\/inventory\/lifecycle\s+methods now fail before/.test(matrix) &&
       /ollama_catalog_js_driver_bridge_retired/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 829 is now satisfied/.test(matrix) &&
@@ -1055,7 +1056,11 @@ function runDocs() {
       /Implementation Slice Evidence: 891/.test(matrix) &&
       /Slice 891 retired provider driver-kind inference from the JS model_mount\s+facade/.test(matrix) &&
       /hosted\/non-migrated provider failure\s+details report `provider_driver: null`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 891/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 891 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 892/.test(matrix) &&
+      /Slice 892 deleted the leftover provider invocation-retirement and HTTP\s+transport wrappers/.test(matrix) &&
+      /`provider-invocation-retirement\.mjs`,\s+`provider-transport\.mjs`, and `provider-transport\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 892/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1225,7 +1230,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 888 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 889 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 890 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 891/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 891 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 892/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1699,7 +1705,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 891 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 892 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2916,14 +2922,8 @@ function runBridge() {
   const openAiCompatibleDriverTest = exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs")
     : "";
-  const providerInvocationRetirement = exists("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs")
-    : "";
   const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
-    : "";
-  const providerTransport = exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
     : "";
   const providerTransportPolicy = exists("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs")
@@ -10475,8 +10475,9 @@ function runBridge() {
       /model_mount_provider_driver_factory_retired/.test(modelMountingState) &&
       /rust_core_boundary:\s*"model_mount\.provider_execution"/.test(modelMountingState) &&
       /js_provider_driver_factory_retired/.test(modelMountingState) &&
-      /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
-      /rust_core_boundary:\s*"model_mount\.provider_invocation"/.test(providerInvocationRetirement) &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs") &&
@@ -10485,7 +10486,7 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs") &&
-      !/fetchProviderStream/.test(providerTransport) &&
+      !/fetchProviderStream/.test(modelMountingState) &&
       !/providerStreamRequestTimeoutMs/.test(providerTransportPolicy) &&
       !/chatCompletionRequestBody/.test(providerProtocol) &&
       !/outputTextFromChat/.test(providerProtocol) &&
@@ -10538,13 +10539,12 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-provider-responses-chat-fallback-retired",
-    /model_mount_provider_js_invocation_retired/.test(providerInvocationRetirement) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-openai-backend-drivers.mjs"),
     [
-      "packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-openai-compatible-driver.test.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs",
@@ -11931,12 +11931,6 @@ function runReceipts() {
     : "";
   const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
-    : "";
-  const providerTransport = exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-transport.mjs")
-    : "";
-  const providerTransportTest = exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs")
     : "";
   const providerAuth = exists("packages/runtime-daemon/src/model-mounting/provider-auth.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-auth.mjs")
@@ -14038,10 +14032,8 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "packages/runtime-daemon/src/model-mounting/provider-invocation-retirement.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
-      "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-protocol.mjs",
     ],
     "Phase 9/10 is pending: provider results must be Rust-backed observations bound to provider execution",
@@ -14084,15 +14076,13 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-open-retry-append-retired",
-    /model_mount_provider_http_transport_retired/.test(providerTransport) &&
-      /provider_http_transport_js_retired/.test(providerTransport) &&
-      /rust_daemon_core_provider_transport_required/.test(providerTransport) &&
-      /agentgres_provider_projection_required/.test(providerTransport) &&
-      /retryProviderOpen\([\s\S]*?throw providerHttpTransportRetiredError/.test(providerTransport) &&
-      !/fetch\(|AbortController|setTimeout|providerRequestTimeoutMs|shouldRetryProviderOpen|providerOpenRetryDelayMs|providerOpenRetryPolicy/.test(providerTransport) &&
-      !/appendOperation\?\.\("model\.provider_open_retry"/.test(providerTransport) &&
-      !/model\.provider_open_retry/.test(providerTransport) &&
-      /provider transport fetch fails closed before live HTTP requests or retries/.test(providerTransportTest),
+    !exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs") &&
+      !/fetchProviderJson|retryProviderOpen|providerHttpTransportRetiredError|providerOpenRetryPolicy/.test(
+        modelMountingState,
+      ) &&
+      !/appendOperation\?\.\("model\.provider_open_retry"/.test(modelMountingState) &&
+      !/model\.provider_open_retry/.test(modelMountingState),
     [
       "packages/runtime-daemon/src/model-mounting/provider-transport.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs",
@@ -14102,18 +14092,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-provider-transport-auth-error-aliases-retired",
-    /provider_id:\s*provider\?\.id \?\? null/.test(providerTransport) &&
-      /provider_kind:\s*provider\?\.kind \?\? null/.test(providerTransport) &&
-      /provider_id:\s*provider\.id/.test(providerTransport) &&
-      /provider_kind:\s*provider\.kind/.test(providerTransport) &&
-      /http_status:\s*result\.status/.test(providerTransport) &&
-      /provider_error_hash:\s*stableHash/.test(providerTransport) &&
-      /provider_error_code:\s*providerError\.code/.test(providerTransport) &&
-      /command_exit_code:\s*result\.status/.test(providerTransport) &&
-      /stderr_hash:\s*stableHash/.test(providerTransport) &&
-      !/(?:providerId|providerKind|httpStatus|providerErrorHash|providerErrorCode|providerErrorType|providerErrorMessage|providerErrorText|commandExitCode|stderrHash)\s*:/.test(
-        providerTransport,
-      ) &&
+    !exists("packages/runtime-daemon/src/model-mounting/provider-transport.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-transport.test.mjs") &&
       /provider_id:\s*provider\.id/.test(providerAuth) &&
       /provider_kind:\s*provider\.kind/.test(providerAuth) &&
       /vault_ref_configured:\s*false/.test(providerAuth) &&
@@ -14125,10 +14105,6 @@ function runReceipts() {
       !/(?:providerId:\s*provider\.id|providerKind:\s*provider\.kind|vaultRefConfigured:\s*false|vaultRefHash:\s*stableHash|resolvedMaterial:\s*false|authScheme:\s*scheme|authHeaderName:\s*(?:SECRET_REDACTION|headerName))/.test(
         providerAuth,
       ) &&
-      /Object\.hasOwn\(httpError\.details,\s*"providerId"\),\s*false/.test(providerTransportTest) &&
-      /Object\.hasOwn\(httpError\.details,\s*"httpStatus"\),\s*false/.test(providerTransportTest) &&
-      /Object\.hasOwn\(commandError\.details,\s*"commandExitCode"\),\s*false/.test(providerTransportTest) &&
-      /Object\.hasOwn\(error\.details,\s*"operationKind"\),\s*false/.test(providerTransportTest) &&
       /Object\.hasOwn\(error\.details,\s*"providerId"\),\s*false/.test(providerAuthTest) &&
       /Object\.hasOwn\(error\.details,\s*"vaultRefHash"\),\s*false/.test(providerAuthTest) &&
       /Object\.hasOwn\(error\.details,\s*"authHeaderName"\),\s*false/.test(providerAuthTest),

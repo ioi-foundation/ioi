@@ -1283,7 +1283,8 @@ HTTP stream transport body. `OllamaModelProviderDriver.invoke()` and
 `model_mount_provider_js_invocation_retired` before Ollama `/api/chat` or
 `/api/embeddings` request shaping, provider HTTP stream transport, token
 estimation, output synthesis, or provider-result assembly. The shared
-fail-closed boundary moved into `provider-invocation-retirement.mjs`, and the
+fail-closed boundary no longer preserves separate hosted and Ollama helper
+bodies; `provider-invocation-retirement.mjs` is now absent after Slice 892. The
 dead JS chat/Responses request and output translators plus generic
 `fetchProviderStream()`/stream-timeout helper were removed rather than retained
 as dormant compatibility scaffolding. Catalog/list/health and lifecycle probes
@@ -1350,9 +1351,10 @@ Slice 829 retired the remaining JS provider HTTP transport/probe authority
 path. `provider-transport.mjs` no longer performs `fetch()`, applies JS HTTP
 timeouts, retries provider-open probes, resolves provider auth headers for
 provider runtime requests, or tolerates live provider HTTP responses from JS;
-`fetchProviderJson()` and `retryProviderOpen()` now fail closed with
-`model_mount_provider_http_transport_retired`. OpenAI-compatible, Ollama,
-vLLM, and llama.cpp driver health/inventory/lifecycle methods now fail before
+Slice 892 later deleted the leftover wrapper module rather than preserving
+`fetchProviderJson()` or `retryProviderOpen()` as fail-closed compatibility
+surfaces. OpenAI-compatible, Ollama, vLLM, and llama.cpp driver
+health/inventory/lifecycle methods now fail before
 `/models`, `/api/tags`, `/api/ps`, or `/api/generate` request shaping, and the
 Ollama catalog bridge no longer reaches through the JS provider driver for live
 catalog truth. This still does not claim terminal provider migration: direct
@@ -2106,6 +2108,18 @@ Rust daemon-core model_mount/provider APIs. Terminal provider migration still
 requires direct Rust daemon-core provider transports, lifecycle, inventory,
 projection, Agentgres-backed replay, stable protocol APIs, and
 command-transport retirement.
+
+Slice 892 deleted the leftover provider invocation-retirement and HTTP
+transport wrappers. `provider-invocation-retirement.mjs`,
+`provider-transport.mjs`, and `provider-transport.test.mjs` are absent rather
+than preserved as fail-closed compatibility surfaces after hosted/nonlocal JS
+drivers, provider HTTP request shaping, retry probes, and driver-name inference
+were retired. Public provider execution still fails closed through the mounted
+daemon facades and Rust provider-result admission checks, but there is no
+standalone JS provider invocation/HTTP transport module for future code to
+re-enter. Terminal provider migration still requires direct Rust daemon-core
+provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
+stable protocol APIs, and command-transport retirement.
 
 ## Part II: Target Execution Model
 
