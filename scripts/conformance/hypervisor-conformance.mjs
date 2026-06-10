@@ -778,6 +778,10 @@ function runDocs() {
       !/export function llamaCppGpuLayersArg/.test(localRuntimeEngines) &&
       !/export function backendBindAddress/.test(localRuntimeEngines) &&
       !/llamaCppGpuLayersArg|backendBindAddress/.test(localRuntimeEnginesTest) &&
+      /Slice 902 deleted the retired catalog-entry materializer module/.test(guide) &&
+      /`catalog-entries\.mjs` and `catalog-entries\.test\.mjs` are absent/.test(guide) &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs") &&
       /Slice 832 retired the remaining JS catalog-provider runtime-material and\s+non-OAuth auth-header vault-resolution helpers/.test(guide) &&
       /`catalogProviderRuntimeMaterial\(\)`\s+now preserves already-materialized session projections but fails closed/.test(guide) &&
       /`catalogProviderAuthHeaders\(\)` now fails\s+closed with the same Rust catalog-provider control boundary/.test(guide) &&
@@ -1133,7 +1137,11 @@ function runDocs() {
       /Implementation Slice Evidence: 901/.test(matrix) &&
       /Slice 901 deleted the unused local runtime-engine helper tail/.test(matrix) &&
       /`local-runtime-engines\.mjs` no longer exports `llamaCppGpuLayersArg\(\)` or\s+`backendBindAddress\(\)`/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 901/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 901 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 902/.test(matrix) &&
+      /Slice 902 deleted the retired catalog-entry materializer module/.test(matrix) &&
+      /`catalog-entries\.mjs` and `catalog-entries\.test\.mjs` are absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 902/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1313,7 +1321,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 898 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 899 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 900 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 901/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 901 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 902/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1793,7 +1802,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 901 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 902 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -14501,14 +14510,14 @@ function runReceipts() {
     result,
     "model-mount-catalog-variant-enrichment-js-retired",
     !exists("packages/runtime-daemon/src/model-mounting/catalog-operations.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs") &&
       /model_catalog_variant_enrichment_js_retired/.test(catalogOperations) &&
       /model_catalog\.variant_enrich/.test(catalogOperations) &&
       /rust_core_boundary:\s*"model_mount\.catalog_variant_projection"/.test(catalogOperations) &&
       /rust_daemon_core_catalog_variant_projection_required/.test(catalogOperations) &&
       /agentgres_catalog_projection_required/.test(catalogOperations) &&
       /throwCatalogVariantEnrichmentRetired/.test(catalogOperations) &&
-      /model_catalog_variant_enrichment_js_retired/.test(catalogEntries) &&
-      /catalogVariantForSource\(source,\s*body = \{\}\)[\s\S]*?throwCatalogVariantEnrichmentRetired\(\)/.test(catalogEntries) &&
       !/export function enrichCatalogEntryForState[\s\S]*?state\.storageSummary\(\)[\s\S]*?function defaultRuntimeError/.test(
         catalogOperations,
       ) &&
@@ -14521,10 +14530,10 @@ function runReceipts() {
       !/export function enrichCatalogEntryForState[\s\S]*?enrichCatalogEntry\(entry,\s*\{[\s\S]*?function defaultRuntimeError/.test(
         catalogOperations,
       ) &&
-      !/catalogEntry\s*=\s*fixtureModelCatalog/.test(catalogEntries) &&
-      !/selectionReceiptFields:/.test(catalogEntries) &&
+      !/fixtureModelCatalog|localManifestCatalogEntries|huggingFaceCatalogEntries|catalogEntryMatches|catalogVariantForSource|selectionReceiptFields/.test(
+        `${catalogEntries}\n${catalogEntriesTest}`,
+      ) &&
       /catalog entry enrichment fails closed before JS storage and artifact materialization/.test(catalogOperationsTest) &&
-      /fixture catalog variant enrichment fails closed before JS selection metadata/.test(catalogEntriesTest) &&
       /assert\.equal\(state\.enrichCatalogEntryCalls,\s*0\)/.test(catalogOperationsTest) &&
       /ModelMountingState\.prototype\.enrichCatalogEntry/.test(catalogOperationsTest) &&
       !/enrichCatalogEntryForState\(this,\s*entry,\s*options,\s*\{/.test(modelMountingRoot) &&
@@ -14534,7 +14543,6 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-entries.mjs",
       "packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs",
-      "packages/runtime-daemon/src/model-mounting.mjs",
     ],
     "Phase 7/11 is pending: catalog variant enrichment must fail closed before JS storage/artifact reads, helper enrichment, fixture lookup, or selection receipt-field synthesis",
   );

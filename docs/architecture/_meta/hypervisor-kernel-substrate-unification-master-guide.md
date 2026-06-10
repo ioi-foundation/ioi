@@ -2218,6 +2218,16 @@ still requires direct Rust daemon-core runtime-engine preference/profile,
 projection, process-planning, local runtime materialization, Agentgres replay,
 stable protocol APIs, and command-transport retirement.
 
+Slice 902 deleted the retired catalog-entry materializer module.
+`catalog-entries.mjs` and `catalog-entries.test.mjs` are absent rather than
+preserved as a fail-closed compatibility wrapper for fixture catalog entries,
+local manifest parsing, Hugging Face entry shaping, Ollama artifact entry
+projection, filter matching, or legacy variant selection metadata. Mounted
+catalog search and variant enrichment already fail closed at their Rust
+daemon-core catalog search/projection boundaries; JS no longer retains a
+standalone catalog entry materialization library for retired catalog surfaces to
+re-enter.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

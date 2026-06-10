@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 901 after the next
+- Next scheduled matrix-compaction pass: compact Slice 902 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -17117,7 +17117,7 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs` plus the then-live catalog-entry focused test | passed before Slice 902 deleted `catalog-entries.test.mjs` |
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog search, Agentgres-backed projection, direct Rust API replacement for
@@ -17143,7 +17143,7 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs` plus the then-live catalog-entry focused test | passed before Slice 902 deleted `catalog-entries.test.mjs` |
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog search/projection APIs, Agentgres-backed projection, command-transport
@@ -17227,7 +17227,7 @@ Focused evidence:
 
 | Check | Result |
 | --- | --- |
-| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-entries.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs` plus the then-live catalog-entry focused test | passed before Slice 902 deleted `catalog-entries.test.mjs` |
 
 This still does not claim terminal catalog migration: direct Rust daemon-core
 catalog status/projection APIs, catalog provider configuration read/projection
@@ -18966,9 +18966,38 @@ runtime materialization, Agentgres-backed replay/projection, stable protocol
 APIs, and command-transport retirement remain required before runtime-engine
 control reaches the pure Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 901 after the next direct
+Scheduled matrix-compaction obligation from Slice 901 is now satisfied.
+
+## Implementation Slice Evidence: 902
+
+Slice 902 deleted the retired catalog-entry materializer module.
+`catalog-entries.mjs` and `catalog-entries.test.mjs` are absent rather than
+preserved as a fail-closed compatibility wrapper for fixture catalog entries,
+local manifest parsing, Hugging Face entry shaping, Ollama artifact entry
+projection, filter matching, or legacy variant selection metadata. Mounted
+catalog search and variant enrichment still fail closed before JS provider
+orchestration, storage reads, artifact-map reads, fixture lookup, or selection
+receipt-field synthesis, but the standalone JS catalog-entry materialization
+library is gone.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/catalog-operations.test.mjs packages/runtime-daemon/src/model-mounting/catalog-provider-ports.test.mjs packages/runtime-daemon/src/model-mounting/catalog-registry.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal catalog migration: direct Rust daemon-core
+catalog search/status/projection APIs, catalog-provider configuration
+read/projection APIs, Agentgres-backed catalog truth, stable protocol APIs, and
+command-transport retirement remain required before catalog control reaches the
+pure Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 902 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
-provider/runtime-engine execution-control APIs, Agentgres-backed replay, and
-stable protocol APIs. The `ioi-step-module-bridge` command path is acceptable
-only as migration transport; it is not the terminal architecture.
+provider/runtime-engine/catalog execution-control APIs, Agentgres-backed replay,
+and stable protocol APIs. The `ioi-step-module-bridge` command path is
+acceptable only as migration transport; it is not the terminal architecture.
