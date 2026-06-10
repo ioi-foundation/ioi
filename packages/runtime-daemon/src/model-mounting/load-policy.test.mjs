@@ -78,8 +78,10 @@ test("canonical load option input strips retired request aliases before provider
     loadOptions: {
       context_length: 9999,
       estimateOnly: true,
+      gpuOffload: "retired",
     },
     estimateOnly: true,
+    gpuOffload: "retired",
     contextLength: 8888,
     modelPath: "/retired/model.gguf",
     embedding: true,
@@ -99,14 +101,16 @@ test("canonical load option input strips retired request aliases before provider
     tensorParallelSize: 8,
     gpuMemoryUtilization: 0.99,
     estimateOnly: true,
+    gpuOffload: "retired",
     modelPath: "/retired/model.gguf",
     embedding: true,
   }), {});
 });
 
-test("load option normalization ignores retired estimateOnly alias", () => {
+test("load option normalization ignores retired estimateOnly and gpuOffload aliases", () => {
   assert.deepEqual(normalizeLoadOptions({
     estimateOnly: true,
+    gpuOffload: "auto",
   }), {
     estimateOnly: false,
     gpu: null,

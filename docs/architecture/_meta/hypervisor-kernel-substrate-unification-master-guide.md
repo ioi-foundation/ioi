@@ -2062,6 +2062,11 @@ load-option normalizer now honors only canonical `estimate_only`, and
 normalization, so the retired public estimate path cannot be steered through a
 camelCase request alias while canonical `estimate_only` still fails closed at
 the Rust-core-required `model_mount.instance.estimate` boundary.
+Slice 934 retired the load-option `gpuOffload` compatibility alias. The
+load-option normalizer now honors only canonical `gpu_offload` or `gpu`, and
+`canonicalLoadOptionsInput()` strips `gpuOffload` before provider/runtime
+normalization, so GPU placement cannot be steered through a camelCase
+compatibility selector while backend process planning remains Rust-authored.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been
