@@ -2129,6 +2129,13 @@ process maps. The remaining backend registry state is migration plumbing for
 backend process planning/default records only; terminal conformance still
 requires direct Rust daemon-core backend projection over Agentgres-admitted
 topology and lifecycle truth.
+Slice 944 removed backend-registry snapshots from native fixture materialization.
+The Rust-backed native fixture artifact and endpoint records no longer carry
+`backendRegistry` arrays from `state.backendRegistry()`, and fixture seeding no
+longer calls that JS registry read while creating the artifact/endpoint records.
+The records remain deterministic migration fixtures only; backend inventory,
+process state, and lifecycle projection must come from direct Rust daemon-core
+model_mount projection over Agentgres-admitted truth.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

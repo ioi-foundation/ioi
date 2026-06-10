@@ -188,7 +188,7 @@ export function localFixtureEndpointRecord(checkedAt) {
   };
 }
 
-export function nativeFixtureEndpointRecord({ artifact, backendRegistry, checkedAt } = {}) {
+export function nativeFixtureEndpointRecord({ artifact, checkedAt } = {}) {
   return {
     id: "endpoint.autopilot.native-fixture",
     providerId: "provider.autopilot.local",
@@ -205,7 +205,6 @@ export function nativeFixtureEndpointRecord({ artifact, backendRegistry, checked
     },
     status: "mounted",
     mountedAt: checkedAt,
-    backendRegistry,
   };
 }
 

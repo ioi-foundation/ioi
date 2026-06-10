@@ -58,7 +58,6 @@ test("default artifact, endpoint, and route records preserve compatibility ids",
   const localEndpoint = localFixtureEndpointRecord(checkedAt);
   const nativeEndpoint = nativeFixtureEndpointRecord({
     artifact: { modelId: "autopilot:native-fixture" },
-    backendRegistry: [{ id: "backend.autopilot.native-local.fixture" }],
     checkedAt,
   });
   const routes = defaultRouteRecords();
@@ -69,6 +68,7 @@ test("default artifact, endpoint, and route records preserve compatibility ids",
   assert.equal(localEndpoint.id, "endpoint.local.auto");
   assert.equal(nativeEndpoint.id, "endpoint.autopilot.native-fixture");
   assert.equal(nativeEndpoint.modelId, "autopilot:native-fixture");
+  assert.equal(Object.hasOwn(nativeEndpoint, "backendRegistry"), false);
   assert.equal(routes[0].id, "route.local-first");
   assert.equal(routes[1].id, "route.native-local");
   assert.deepEqual(routes[1].deniedProviders, ["openai", "anthropic", "gemini", "lm_studio"]);

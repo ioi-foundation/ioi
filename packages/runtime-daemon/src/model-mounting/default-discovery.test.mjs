@@ -19,7 +19,7 @@ function fakeState() {
       ["provider.lmstudio", { id: "provider.lmstudio" }],
     ]),
     backendRegistry() {
-      return [{ id: "backend.native" }];
+      throw new Error("native fixture artifact must not read JS backend registry");
     },
   };
 }
@@ -35,7 +35,7 @@ test("native local fixture artifact is a Rust-backed record without JS file mate
   assert.equal(artifact.format, "rust_backed_fixture");
   assert.equal(artifact.checksum, null);
   assert.equal(artifact.contextWindow, 8192);
-  assert.deepEqual(artifact.backendRegistry, [{ id: "backend.native" }]);
+  assert.equal(Object.hasOwn(artifact, "backendRegistry"), false);
   assert.equal(Object.hasOwn(artifact, "artifactPath"), false);
 });
 

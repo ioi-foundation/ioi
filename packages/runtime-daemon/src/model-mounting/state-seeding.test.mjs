@@ -12,7 +12,7 @@ function fakeState() {
     homeDir: "/home/ioi",
     calls: [],
     backendRegistry() {
-      return [{ id: "backend.native" }];
+      throw new Error("fixture seeding must not read JS backend registry");
     },
     ensureNativeLocalFixtureArtifact(checkedAt) {
       this.calls.push(["ensureNativeLocalFixtureArtifact", checkedAt]);
@@ -47,10 +47,9 @@ function deps({ fixturesEnabled = true } = {}) {
     localFixtureArtifactRecords: () => [{ id: "artifact.fixture" }],
     localFixtureEndpointRecord: () => ({ id: "endpoint.fixture" }),
     localFolderProviderRecord: () => ({ id: "provider.local.folder" }),
-    nativeFixtureEndpointRecord: ({ artifact, backendRegistry }) => ({
+    nativeFixtureEndpointRecord: ({ artifact }) => ({
       id: "endpoint.native",
       modelId: artifact.modelId,
-      backendCount: backendRegistry.length,
     }),
     nativeLocalProviderRecord: () => ({ id: "provider.autopilot.local" }),
     runtimeProviderRecords: ({ llamaBinary, vllmBinary }) => [
@@ -76,7 +75,7 @@ test("state seeding preserves default providers, routes, and native fixture reco
   assert.deepEqual([...state.routes.keys()], ["route.local-first"]);
   assert.equal(state.providers.get("provider.llama-cpp").llamaBinary, "/home/ioi/llama-server");
   assert.equal(state.providers.get("provider.vllm").vllmBinary, "/bin/vllm");
-  assert.equal(state.endpoints.get("endpoint.native").backendCount, 1);
+  assert.equal(Object.hasOwn(state.endpoints.get("endpoint.native"), "backendCount"), false);
   assert.deepEqual(state.calls, [
     ["seedBackends", "2026-06-03T12:00:00.000Z"],
     ["ensureNativeLocalFixtureArtifact", "2026-06-03T12:00:00.000Z"],

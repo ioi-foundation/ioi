@@ -20504,3 +20504,35 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of backend projection command transport,
 Agentgres-backed backend truth, and stable protocol APIs without encoding the
 Node `listBackends()` refusal as terminal architecture.
+
+## Implementation Slice Evidence: 944
+
+Slice 944 removed backend-registry snapshots from native fixture
+materialization. The Rust-backed native fixture artifact and endpoint records no
+longer carry `backendRegistry` arrays from `state.backendRegistry()`, and
+fixture seeding no longer calls the JS backend registry read while creating
+those deterministic fixture records. This prevents internal fixture
+materialization from preserving backend inventory/projection truth after public
+backend list readback was retired.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/default-discovery.mjs packages/runtime-daemon/src/model-mounting/default-records.mjs packages/runtime-daemon/src/model-mounting/state-seeding.mjs packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/default-records.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/default-discovery.test.mjs packages/runtime-daemon/src/model-mounting/default-records.test.mjs packages/runtime-daemon/src/model-mounting/state-seeding.test.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal backend projection migration. Direct Rust
+daemon-core backend projection, Agentgres-backed backend topology/lifecycle
+truth, command-transport retirement, replay, and stable SDK/IDE/CLI protocol
+APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-944 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of backend projection command transport,
+Agentgres-backed backend truth, and stable protocol APIs without encoding
+deterministic fixture records as backend inventory authority.

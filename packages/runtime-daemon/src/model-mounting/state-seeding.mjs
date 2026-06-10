@@ -55,7 +55,6 @@ export function seedModelMountingDefaults(state, deps = {}) {
     state.upsertDefault(state.endpoints, localFixtureEndpointRecord(checkedAt));
     state.upsertDefault(state.endpoints, nativeFixtureEndpointRecord({
       artifact: nativeFixtureArtifact,
-      backendRegistry: state.backendRegistry(),
       checkedAt,
     }));
   }

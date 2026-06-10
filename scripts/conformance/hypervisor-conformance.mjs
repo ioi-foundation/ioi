@@ -14643,9 +14643,22 @@ function runReceipts() {
       ) &&
       /source:\s*"rust_model_mount_native_local_fixture"/.test(defaultDiscovery) &&
       /format:\s*"rust_backed_fixture"/.test(defaultDiscovery) &&
+      !/backendRegistry:\s*state\.backendRegistry\(\)/.test(defaultDiscovery) &&
+      !/backendRegistry:\s*state\.backendRegistry\(\)/.test(stateSeeding) &&
+      !/nativeFixtureEndpointRecord\(\{[\s\S]*backendRegistry:\s*state\.backendRegistry\(\)/.test(stateSeeding) &&
+      !/backendRegistry,/.test(
+        defaultRecords.match(/export function nativeFixtureEndpointRecord\([\s\S]*?\n\}/)?.[0] ?? "",
+      ) &&
       !/pruneInternalFixtureProjectionRecords\(state,\s*\{/.test(defaultDiscoveryTest) &&
       /native local fixture artifact is a Rust-backed record without JS file materialization/.test(defaultDiscoveryTest) &&
       /Object\.hasOwn\(artifact,\s*"artifactPath"\),\s*false/.test(defaultDiscoveryTest) &&
+      /Object\.hasOwn\(artifact,\s*"backendRegistry"\),\s*false/.test(defaultDiscoveryTest) &&
+      /native fixture artifact must not read JS backend registry/.test(defaultDiscoveryTest) &&
+      /fixture seeding must not read JS backend registry/.test(stateSeedingTest) &&
+      /Object\.hasOwn\(state\.endpoints\.get\("endpoint\.native"\),\s*"backendCount"\),\s*false/.test(
+        stateSeedingTest,
+      ) &&
+      /Object\.hasOwn\(nativeEndpoint,\s*"backendRegistry"\),\s*false/.test(defaultRecordsTest) &&
       /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(guide) &&
       /`fixture-policy\.mjs` is absent/.test(guide) &&
       /Slice 921 deleted the standalone JS fixture-policy compatibility wrapper/.test(matrix),

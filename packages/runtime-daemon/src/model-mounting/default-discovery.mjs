@@ -48,6 +48,7 @@ function isFixtureModelRecord(record = {}) {
 }
 
 export function ensureNativeLocalFixtureArtifact(state, checkedAt) {
+  void state;
   return {
     id: "autopilot.native.fixture",
     providerId: "provider.autopilot.local",
@@ -63,7 +64,6 @@ export function ensureNativeLocalFixtureArtifact(state, checkedAt) {
     privacyClass: "local_private",
     source: "rust_model_mount_native_local_fixture",
     state: "installed",
-    backendRegistry: state.backendRegistry(),
     discoveredAt: checkedAt,
   };
 }
