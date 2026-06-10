@@ -56,9 +56,6 @@ import {
   writeBackendLog as writeBackendLogState,
 } from "./model-mounting/backend-registry-state.mjs";
 import { discoverAutopilotLlamaServer, llamaCppLibraryPathEnv } from "./model-mounting/local-runtime-engines.mjs";
-import {
-  providerHealthFailureStatus,
-} from "./model-mounting/provider-transport-policy.mjs";
 import { createProviderRegistryBindings } from "./model-mounting/provider-registry-bindings.mjs";
 import {
   assertNoPlaintextProviderSecret,

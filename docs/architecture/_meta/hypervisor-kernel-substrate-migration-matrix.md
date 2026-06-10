@@ -253,7 +253,7 @@ Matrix compaction timing:
 - Scheduled matrix-compaction obligation from Slice 805 is now satisfied by the
   provider-driver deletion and driver-inference retirement lane, while the
   command bridge remains explicitly non-terminal migration transport.
-- Next scheduled matrix-compaction pass: compact Slice 892 after the next
+- Next scheduled matrix-compaction pass: compact Slice 893 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -18712,7 +18712,34 @@ stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
 protocol surfaces remain required before provider execution reaches the pure
 Rust substrate target.
 
-Next scheduled matrix-compaction pass: compact Slice 892 after the next direct
+Scheduled matrix-compaction obligation from Slice 892 is now satisfied.
+
+## Implementation Slice Evidence: 893
+
+Slice 893 deleted the final provider transport-policy remnant.
+`provider-transport-policy.mjs` and `provider-transport-policy.test.mjs` are
+absent after the HTTP transport wrapper deletion, so timeout, retry, stream,
+and provider-health transport policy no longer has a standalone JS
+compatibility module to re-enter. Public provider health/control still fails
+closed through mounted daemon facades until direct Rust daemon-core provider
+APIs own the surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting.mjs scripts/conformance/hypervisor-conformance.mjs && node --test packages/runtime-daemon/src/model-mounting/provider-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+
+This still does not claim terminal provider migration: direct Rust daemon-core
+provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
+stable protocol APIs, command-transport retirement, and stable IDE/CLI/SDK
+protocol surfaces remain required before provider execution reaches the pure
+Rust substrate target.
+
+Next scheduled matrix-compaction pass: compact Slice 893 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 provider execution/control APIs, Agentgres-backed replay, and stable protocol

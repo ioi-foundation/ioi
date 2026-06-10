@@ -2121,6 +2121,17 @@ re-enter. Terminal provider migration still requires direct Rust daemon-core
 provider transports, lifecycle, inventory, projection, Agentgres-backed replay,
 stable protocol APIs, and command-transport retirement.
 
+Slice 893 deleted the final provider transport-policy remnant.
+`provider-transport-policy.mjs` and `provider-transport-policy.test.mjs` are
+absent after the HTTP transport wrapper deletion, so timeout, retry, stream,
+and provider-health transport policy no longer has a standalone JS
+compatibility module to re-enter. Public provider health/control still fails
+closed through mounted daemon facades until direct Rust daemon-core provider
+APIs own the surface. Terminal provider migration still requires direct Rust
+daemon-core provider transports, lifecycle, inventory, projection,
+Agentgres-backed replay, stable protocol APIs, and command-transport
+retirement.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each

@@ -731,6 +731,8 @@ function runDocs() {
       /`provider-transport\.mjs` no longer performs `fetch\(\)`/.test(guide) &&
       /Slice 892 deleted the leftover provider invocation-retirement and HTTP\s+transport wrappers/.test(guide) &&
       /`provider-invocation-retirement\.mjs`,\s+`provider-transport\.mjs`, and\s+`provider-transport\.test\.mjs` are absent/.test(guide) &&
+      /Slice 893 deleted the final provider transport-policy remnant/.test(guide) &&
+      /`provider-transport-policy\.mjs` and `provider-transport-policy\.test\.mjs` are\s+absent/.test(guide) &&
       /Ollama catalog bridge no longer reaches through the JS provider driver for live\s+catalog truth/.test(guide) &&
       /Slice 830 retired external live model-catalog HTTP search from the JS daemon\s+catalog-provider ports/.test(guide) &&
       /Hugging Face-compatible search helper module is\s+deleted/.test(guide) &&
@@ -1060,7 +1062,11 @@ function runDocs() {
       /Implementation Slice Evidence: 892/.test(matrix) &&
       /Slice 892 deleted the leftover provider invocation-retirement and HTTP\s+transport wrappers/.test(matrix) &&
       /`provider-invocation-retirement\.mjs`,\s+`provider-transport\.mjs`, and `provider-transport\.test\.mjs` are absent/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 892/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 892 is now satisfied/.test(matrix) &&
+      /Implementation Slice Evidence: 893/.test(matrix) &&
+      /Slice 893 deleted the final provider transport-policy remnant/.test(matrix) &&
+      /`provider-transport-policy\.mjs` and `provider-transport-policy\.test\.mjs` are\s+absent/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 893/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 838/.test(matrix) &&
       /Slice 838 retired the remaining non-search catalog variant enrichment path from\s+JS/.test(matrix) &&
       /model_catalog_variant_enrichment_js_retired/.test(matrix) &&
@@ -1231,7 +1237,8 @@ function runDocs() {
       /Scheduled matrix-compaction obligation from Slice 889 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 890 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 891 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 892/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slice 892 is now satisfied/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 893/.test(matrix) &&
       /the fail-closed `storage-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` storage methods now own canonical storage request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `capability-token-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -1705,7 +1712,7 @@ function runDocs() {
       /Compacted Implementation Slice Evidence: 792/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 792 is now satisfied/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slice 804 is now satisfied/.test(matrix) &&
-      /Next scheduled matrix-compaction pass: compact Slice 892 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
+      /Next scheduled matrix-compaction pass: compact Slice 893 after the next\s+Rust-core extraction or facade-retirement seam lands/.test(matrix) &&
       /writing or reading `server-state\.json`/.test(implementationMatrix) &&
       /JS no longer sends provider-status summaries from `state\.providers\.values\(\)`\/`provider_statuses`/.test(implementationMatrix) &&
       /private backend registry log helper no longer writes `backend-logs\/\*\.jsonl`/.test(implementationMatrix) &&
@@ -2924,9 +2931,6 @@ function runBridge() {
     : "";
   const providerProtocol = exists("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-protocol.mjs")
-    : "";
-  const providerTransportPolicy = exists("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs")
-    ? read("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs")
     : "";
   const providerLocalDrivers = exists("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/provider-local-drivers.mjs")
@@ -10486,8 +10490,10 @@ function runBridge() {
       !exists("packages/runtime-daemon/src/model-mounting/provider-ollama-driver.test.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/provider-lm-studio-driver.test.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-transport-policy.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/provider-transport-policy.test.mjs") &&
       !/fetchProviderStream/.test(modelMountingState) &&
-      !/providerStreamRequestTimeoutMs/.test(providerTransportPolicy) &&
+      !/providerStreamRequestTimeoutMs/.test(modelMountingState) &&
       !/chatCompletionRequestBody/.test(providerProtocol) &&
       !/outputTextFromChat/.test(providerProtocol) &&
       !/outputTextFromResponse/.test(providerProtocol) &&
