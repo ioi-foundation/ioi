@@ -1191,18 +1191,6 @@ export class AgentgresRuntimeStateStore {
       : thread;
   }
 
-  updateThreadMode(threadId, request = {}) {
-    return this.threadControlSurface.updateThreadMode(this, threadId, request);
-  }
-
-  updateThreadModel(threadId, request = {}) {
-    return this.threadControlSurface.updateThreadModel(this, threadId, request);
-  }
-
-  updateThreadThinking(threadId, request = {}) {
-    return this.threadControlSurface.updateThreadThinking(this, threadId, request);
-  }
-
   updateThreadRuntimeControls(threadId, request = {}) {
     return this.threadControlSurface.updateThreadRuntimeControls(this, threadId, request);
   }
@@ -1233,10 +1221,6 @@ export class AgentgresRuntimeStateStore {
       modeEvent,
       now,
     });
-  }
-
-  acknowledgeWorkspaceTrustWarning(threadId, warningId, request = {}) {
-    return this.threadControlSurface.acknowledgeWorkspaceTrustWarning(this, threadId, warningId, request);
   }
 
   forkThread(threadId, request = {}) {

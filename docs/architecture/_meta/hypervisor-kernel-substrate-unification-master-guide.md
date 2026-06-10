@@ -2252,6 +2252,17 @@ admission: direct Rust daemon-core route admission, wallet authority,
 StepModuleRouter dispatch, receipt/state-root binding, Agentgres truth, replay,
 projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal thread-tool conformance.
+Slice 957 retired the daemon-store thread-control route pass-through wrappers.
+The public mode/model/thinking and workspace-trust acknowledgement routes now
+call the fail-closed `RuntimeThreadControl` surface directly, so JS no longer
+preserves `updateThreadMode()`, `updateThreadModel()`,
+`updateThreadThinking()`, or `acknowledgeWorkspaceTrustWarning()` as duplicate
+store-level compatibility wrappers. This does not claim terminal
+thread-control or workspace-trust admission: direct Rust daemon-core route
+admission, wallet/cTEE/model-route authority, Agentgres expected-head/state-root
+binding, receipt/event materialization, replay, projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain required before
+terminal conformance.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

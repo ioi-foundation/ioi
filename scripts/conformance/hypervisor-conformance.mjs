@@ -7040,6 +7040,21 @@ function runBridge() {
       /thread control mode\/model\/thinking facades fail closed before JS mutation/.test(
         runtimeThreadControlSurfaceTest,
       ) &&
+      /thread route sends runtime controls through thread control surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /store\.threadControlSurface\.updateThreadMode\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadControlSurface\.updateThreadModel\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadControlSurface\.updateThreadThinking\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/^\s*(?:updateThreadMode|updateThreadModel|updateThreadThinking)\(threadId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadControlSurfaceTest) &&
       /error\.details\.thread_id/.test(runtimeThreadControlSurfaceTest) &&
       /error\.details\.requested_control_kind/.test(runtimeThreadControlSurfaceTest) &&
@@ -17187,6 +17202,12 @@ function runCompositor() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
+    : "";
+  const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    : "";
   const skillHookCatalog = exists("packages/runtime-daemon/src/skill-hook-catalog.mjs")
     ? read("packages/runtime-daemon/src/skill-hook-catalog.mjs")
     : "";
@@ -17235,9 +17256,6 @@ function runCompositor() {
     : "";
   const studioIntentFrameTest = exists("packages/runtime-daemon/src/studio-intent-frame.test.mjs")
     ? read("packages/runtime-daemon/src/studio-intent-frame.test.mjs")
-    : "";
-  const runtimeRouteHandlers = exists("packages/runtime-daemon/src/runtime-route-handlers.mjs")
-    ? read("packages/runtime-daemon/src/runtime-route-handlers.mjs")
     : "";
   const runtimeRunReadSurface = exists("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-read-surface.mjs")
@@ -23839,6 +23857,15 @@ function runCompositor() {
       ) &&
       /Object\.prototype\.hasOwnProperty\.call\(request\.body,\s*"workflowGraphId"\),\s*false/.test(
         agentIdeRuntimeControlNodesTest,
+      ) &&
+      /thread route sends workspace-trust acknowledgement through thread control surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /store\.threadControlSurface\.acknowledgeWorkspaceTrustWarning\(\s*store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\),\s*await readBody\(request\),/m.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/^\s*acknowledgeWorkspaceTrustWarning\(threadId, warningId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       !/retiredWorkspaceTrustAcknowledgementAliases/.test(workspaceTrustState) &&
       !/store\.agentForThread|store\.runtimeEventStream|store\.appendRuntimeEvent|store\.threadForAgent/.test(

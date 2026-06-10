@@ -328,6 +328,102 @@ test("thread route invokes coding tools through canonical store surface", async 
   });
 });
 
+test("thread route sends runtime controls through thread control surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const body = { mode: "review" };
+  const store = {
+    threadControlSurface: {
+      updateThreadMode(surfaceStore, threadId, requestBody) {
+        calls.push({ surfaceStore, threadId, requestBody });
+        return {
+          status: "blocked",
+          thread_id: threadId,
+          requested_control_kind: "mode",
+        };
+      },
+    },
+    updateThreadMode() {
+      throw new Error("retired updateThreadMode wrapper must not be routed");
+    },
+  };
+
+  await handleThreadRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/mode",
+      body,
+    }),
+    response,
+    store,
+    url: new URL("/v1/threads/thread_route/mode", "http://daemon.test"),
+    segments: ["v1", "threads", "thread_route", "mode"],
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].surfaceStore, store);
+  assert.equal(calls[0].threadId, "thread_route");
+  assert.deepEqual(calls[0].requestBody, body);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "blocked",
+    thread_id: "thread_route",
+    requested_control_kind: "mode",
+  });
+});
+
+test("thread route sends workspace-trust acknowledgement through thread control surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const response = responseRecorder();
+  const calls = [];
+  const body = { reason: "operator acknowledged" };
+  const store = {
+    threadControlSurface: {
+      acknowledgeWorkspaceTrustWarning(surfaceStore, threadId, warningId, requestBody) {
+        calls.push({ surfaceStore, threadId, warningId, requestBody });
+        return {
+          status: "blocked",
+          thread_id: threadId,
+          warning_id: warningId,
+          requested_control_kind: "workspace_trust_acknowledgement",
+        };
+      },
+    },
+    acknowledgeWorkspaceTrustWarning() {
+      throw new Error("retired acknowledgeWorkspaceTrustWarning wrapper must not be routed");
+    },
+  };
+
+  await handleThreadRoute({
+    request: request({
+      method: "POST",
+      url: "/v1/threads/thread_route/workspace-trust/warning_1/acknowledge",
+      body,
+    }),
+    response,
+    store,
+    url: new URL(
+      "/v1/threads/thread_route/workspace-trust/warning_1/acknowledge",
+      "http://daemon.test",
+    ),
+    segments: ["v1", "threads", "thread_route", "workspace-trust", "warning_1", "acknowledge"],
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].surfaceStore, store);
+  assert.equal(calls[0].threadId, "thread_route");
+  assert.equal(calls[0].warningId, "warning_1");
+  assert.deepEqual(calls[0].requestBody, body);
+  assert.deepEqual(JSON.parse(response.body), {
+    status: "blocked",
+    thread_id: "thread_route",
+    warning_id: "warning_1",
+    requested_control_kind: "workspace_trust_acknowledgement",
+  });
+});
+
 test("model mounting native route does not expose retired estimate-load endpoint", async () => {
   const { handleModelMountingNativeRoute } = routeHandlers();
   const response = responseRecorder();

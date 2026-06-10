@@ -20983,3 +20983,36 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of thread-tool command transport,
 Agentgres-backed thread-tool truth, and stable protocol APIs without encoding
 JS route-level dispatch wrappers as public thread-tool authority.
+
+## Implementation Slice Evidence: 957
+
+Slice 957 retired the daemon-store thread-control route pass-through wrappers.
+The public mode/model/thinking and workspace-trust acknowledgement routes now
+call the fail-closed `RuntimeThreadControl` surface directly instead of
+preserving `updateThreadMode()`, `updateThreadModel()`,
+`updateThreadThinking()`, or `acknowledgeWorkspaceTrustWarning()` on the daemon
+store as duplicate route-level compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs packages/runtime-daemon/src/threads/workspace-trust-state.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal thread-control or workspace-trust migration.
+Direct Rust daemon-core route admission, wallet/cTEE/model-route authority,
+Agentgres-backed expected-head/state-root truth, receipt/event materialization,
+replay, projection, command-transport retirement, and stable SDK/IDE/CLI
+protocol APIs remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-957 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of thread-control command transport,
+Agentgres-backed thread-control truth, and stable protocol APIs without
+encoding daemon-store pass-through wrappers as public thread-control authority.
