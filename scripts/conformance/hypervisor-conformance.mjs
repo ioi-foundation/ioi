@@ -3260,10 +3260,13 @@ function runBridge() {
     result,
     "rust-workload-step-module-runner",
     /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
-      /IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
+      /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
       /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
-      /options\.backend \?\? env\[STEP_MODULE_BACKEND_ENV\] \?\? "rust_workload_live"/.test(stepModuleRunner) &&
-      /String\(value \?\? ""\)\.trim\(\)\.toLowerCase\(\) \|\| "rust_workload_live"/.test(stepModuleRunner) &&
+      !/STEP_MODULE_BACKEND_ENV/.test(stepModuleRunner) &&
+      !/normalizeStepModuleBackend/.test(stepModuleRunner) &&
+      !/env\[STEP_MODULE_BACKEND_ENV\]/.test(stepModuleRunner) &&
+      /options\.backend \?\? env\.IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
+      /step_module_backend_selection_retired/.test(stepModuleRunner) &&
       !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
       !/"daemon_js",/.test(stepModuleRunner) &&
       !/"rust_workload_shadow",/.test(stepModuleRunner) &&
@@ -3278,10 +3281,13 @@ function runBridge() {
       /assert\.notEqual\(calls\[0\]\.request\.workspace_root,\s*"\/tmp\/retired-workspace"\)/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /retired StepModule backend selections fail closed/.test(
+      /retired StepModule backend selection env fails closed/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
-      /\["daemon_js",\s*"rust_workload_shadow",\s*"rust_workload_gated"\]/.test(
+      /\["daemon_js",\s*"rust_workload_shadow",\s*"rust_workload_gated",\s*"rust_workload_live"\]/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /retired StepModule backend constructor option fails closed/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ),
     [
@@ -3289,7 +3295,7 @@ function runBridge() {
       "packages/runtime-daemon/src/step-module-runner.test.mjs",
       "crates/client/src/workload_client/mod.rs",
     ],
-    "Phase 2 is pending: default StepModule execution must be Rust workload live and explicit daemon_js/shadow/gated backend selection must fail closed",
+    "Phase 2 is pending: StepModule execution must be Rust workload live by construction and all explicit backend selection must fail closed",
   );
   assertCheck(
     result,

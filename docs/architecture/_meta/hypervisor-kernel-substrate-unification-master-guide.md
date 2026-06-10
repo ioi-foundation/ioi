@@ -2452,6 +2452,20 @@ APIs, Agentgres admission, replay, projection, stable protocol APIs, and
 command-transport retirement remain required before the StepModule substrate
 reaches terminal pure Rust conformance.
 
+Slice 923 retired daemon-side StepModule backend selector configuration.
+`IOI_STEP_MODULE_BACKEND`, constructor `backend` options, and the
+`normalizeStepModuleBackend()` helper path are absent from the runtime-daemon
+runner. `createStepModuleRunnerFromEnv()` constructs a live Rust workload runner
+by construction; any explicit backend selection, including the formerly accepted
+`rust_workload_live` value, fails closed with
+`step_module_backend_selection_retired`. This removes the remaining JS edge
+configuration surface that could encode StepModule backend selection as a local
+compatibility switch. The `ioi-step-module-bridge` command path remains
+migration transport only; direct Rust daemon-core StepModuleRouter APIs,
+Agentgres admission, replay, projection, stable protocol APIs, and
+command-transport retirement remain required before the StepModule substrate
+reaches terminal pure Rust conformance.
+
 ## Part II: Target Execution Model
 
 This part defines the desired ownership shape. It says which layer owns each
@@ -3510,15 +3524,15 @@ Implementation work:
 - Add configuration:
 
 ```text
-IOI_STEP_MODULE_BACKEND=rust_workload_live
 IOI_WORKLOAD_GRPC_ADDR=...
 IOI_SHMEM_ID=...
 ```
 
-Retired backend selections (`daemon_js`, `rust_workload_shadow`, and
-`rust_workload_gated`) fail closed in the runtime-daemon StepModule runner.
-Historical shadow/gated bridge fixtures remain history only; the current daemon
-edge admits live Rust workload execution or no execution.
+`IOI_STEP_MODULE_BACKEND` is retired. Any explicit backend selection fails
+closed in the runtime-daemon StepModule runner, including the formerly accepted
+`rust_workload_live` value. Historical shadow/gated bridge fixtures remain
+history only; the current daemon edge is live Rust workload execution by
+construction, or no execution.
 
 Likely files/modules:
 

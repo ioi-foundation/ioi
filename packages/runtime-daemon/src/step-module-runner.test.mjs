@@ -31,20 +31,28 @@ test("default StepModuleRunner is Rust workload live and fails closed without co
   );
 });
 
-test("retired StepModule backend selections fail closed", () => {
-  for (const backend of ["daemon_js", "rust_workload_shadow", "rust_workload_gated"]) {
+test("retired StepModule backend selection env fails closed", () => {
+  for (const backend of ["daemon_js", "rust_workload_shadow", "rust_workload_gated", "rust_workload_live"]) {
     assert.throws(
       () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_BACKEND: backend }),
       (error) =>
         error instanceof StepModuleRunnerError &&
-        error.code === "step_module_backend_invalid",
+        error.code === "step_module_backend_selection_retired",
     );
   }
 });
 
+test("retired StepModule backend constructor option fails closed", () => {
+  assert.throws(
+    () => new RustWorkloadStepModuleRunner({ backend: "rust_workload_live" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_backend_selection_retired",
+  );
+});
+
 test("rust workload live runner produces workload invocation with mock bridge result", () => {
   const runner = new RustWorkloadStepModuleRunner({
-    backend: "rust_workload_live",
     mockResult: {
       source: "rust_workload_mock",
       result: {
@@ -98,7 +106,6 @@ test("rust workload live runner produces workload invocation with mock bridge re
 test("rust workload command bridge sends StepModuleInvocation request", () => {
   const calls = [];
   const runner = new RustWorkloadStepModuleRunner({
-    backend: "rust_workload_live",
     command: "mock-step-module-bridge",
     spawnSyncImpl(command, args, options) {
       calls.push({ command, args, request: JSON.parse(options.input) });

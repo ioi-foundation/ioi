@@ -271,7 +271,9 @@ Matrix compaction timing:
   fixture-policy compatibility wrapper deletion.
 - Scheduled matrix-compaction obligation from Slice 921 is now satisfied by the
   StepModule runner shadow/gated backend selection retirement.
-- Next scheduled matrix-compaction pass: compact Slice 922 after the next
+- Scheduled matrix-compaction obligation from Slice 922 is now satisfied by the
+  StepModule backend selector retirement.
+- Next scheduled matrix-compaction pass: compact Slice 923 after the next
   Rust-core extraction or facade-retirement seam lands.
 - Future-resumption trigger: resume the migration goal by continuing with the
   next concrete Rust-core extraction or facade-retirement seam; schedule the
@@ -19646,13 +19648,12 @@ Scheduled matrix-compaction obligation from Slice 921 is now satisfied.
 
 ## Implementation Slice Evidence: 922
 
-Slice 922 retired daemon-side StepModule shadow/gated backend selection.
-`createStepModuleRunnerFromEnv()` now accepts only `rust_workload_live`; explicit
-`daemon_js`, `rust_workload_shadow`, or `rust_workload_gated` selections fail
-closed with `step_module_backend_invalid`. The daemon runner now reports live
-mode and live workflow projection by default, so old shadow/gated comparison
-modes cannot be selected from the JS runtime edge as split-brain execution
-fallbacks.
+Slice 922 retired daemon-side StepModule shadow/gated backend selection. At
+Slice 922, `createStepModuleRunnerFromEnv()` accepted only `rust_workload_live`;
+explicit `daemon_js`, `rust_workload_shadow`, or `rust_workload_gated`
+selections failed closed. The daemon runner reported live mode and live workflow
+projection by default, so old shadow/gated comparison modes could not be
+selected from the JS runtime edge as split-brain execution fallbacks.
 
 Focused evidence:
 
@@ -19672,6 +19673,47 @@ stable protocol APIs, and command-transport retirement remain required before
 the StepModule substrate reaches the pure Rust target.
 
 Next scheduled matrix-compaction pass: compact Slice 922 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs. The
+`ioi-step-module-bridge` command path is acceptable only as migration
+transport; it is not the terminal architecture.
+
+At Slice 922 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 923 is that seam
+and satisfies the Slice 922 scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 922 is now satisfied.
+
+## Implementation Slice Evidence: 923
+
+Slice 923 retired daemon-side StepModule backend selector configuration.
+`IOI_STEP_MODULE_BACKEND`, constructor `backend` options, and the
+`normalizeStepModuleBackend()` helper path are absent from the runtime-daemon
+runner. `createStepModuleRunnerFromEnv()` now constructs a live Rust workload
+runner by construction; any explicit backend selection, including the formerly
+accepted `rust_workload_live` value, fails closed with
+`step_module_backend_selection_retired`.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs packages/runtime-daemon/src/step-module-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal StepModule migration: the
+`ioi-step-module-bridge` command path remains migration transport, and direct
+Rust daemon-core StepModuleRouter APIs, Agentgres admission, replay, projection,
+stable protocol APIs, and command-transport retirement remain required before
+the StepModule substrate reaches the pure Rust target.
+
+Next scheduled matrix-compaction pass: compact Slice 923 after the next direct
 Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,

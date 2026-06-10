@@ -4,24 +4,16 @@ import {
   createCodingToolStepModuleProjection,
 } from "./step-module-abi.mjs";
 
-export const STEP_MODULE_BACKEND_ENV = "IOI_STEP_MODULE_BACKEND";
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
 export const STEP_MODULE_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
 export const STEP_MODULE_COMMAND_ARGS_ENV = "IOI_STEP_MODULE_COMMAND_ARGS";
 
-export const STEP_MODULE_BACKENDS = new Set([
-  "rust_workload_live",
-]);
-
 const COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
-  const backend = normalizeStepModuleBackend(
-    options.backend ?? env[STEP_MODULE_BACKEND_ENV] ?? "rust_workload_live",
-  );
+  assertNoStepModuleBackendSelection(options.backend ?? env.IOI_STEP_MODULE_BACKEND);
   return new RustWorkloadStepModuleRunner({
-    backend,
     command: options.command ?? env[STEP_MODULE_COMMAND_ENV] ?? null,
     args: options.args ?? parseCommandArgs(env[STEP_MODULE_COMMAND_ARGS_ENV]),
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
@@ -31,21 +23,18 @@ export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   });
 }
 
-export function normalizeStepModuleBackend(value) {
-  const normalized = String(value ?? "").trim().toLowerCase() || "rust_workload_live";
-  if (!STEP_MODULE_BACKENDS.has(normalized)) {
-    throw new StepModuleRunnerError(
-      `Unknown StepModule backend "${value}".`,
-      "step_module_backend_invalid",
-      { backend: value },
-    );
-  }
-  return normalized;
+export function assertNoStepModuleBackendSelection(value) {
+  if (typeof value !== "string" || value.trim().length === 0) return;
+  throw new StepModuleRunnerError(
+    "StepModule backend selection is retired; runtime-daemon StepModule execution is rust_workload_live.",
+    "step_module_backend_selection_retired",
+    { retired_backend: value, backend: "rust_workload_live" },
+  );
 }
 
 export class StepModuleRunner {
-  constructor({ backend = "rust_workload_live" } = {}) {
-    this.backend = normalizeStepModuleBackend(backend);
+  constructor() {
+    this.backend = "rust_workload_live";
   }
 
   get blocksDaemonJsExecution() {
@@ -63,7 +52,8 @@ export class StepModuleRunner {
 
 export class RustWorkloadStepModuleRunner extends StepModuleRunner {
   constructor(options = {}) {
-    super({ backend: options.backend ?? "rust_workload_live" });
+    assertNoStepModuleBackendSelection(options.backend);
+    super();
     this.command = optionalString(options.command);
     this.args = normalizeArgs(options.args);
     this.grpcAddr = optionalString(options.grpcAddr);
