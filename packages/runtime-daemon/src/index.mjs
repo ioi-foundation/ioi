@@ -1503,26 +1503,6 @@ export class AgentgresRuntimeStateStore {
     return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
   }
 
-  admitGovernedImprovementProposal(threadId, request = {}) {
-    return this.governedImprovementSurface.admitGovernedImprovementProposal(this, threadId, request);
-  }
-
-  authorizeExternalCapabilityExit(threadId, request = {}) {
-    return this.externalCapabilityAuthoritySurface.authorizeExternalCapabilityExit(this, threadId, request);
-  }
-
-  admitWorkerServicePackageInvocation(threadId, request = {}) {
-    return this.workerServicePackageSurface.admitWorkerServicePackageInvocation(this, threadId, request);
-  }
-
-  executeCteePrivateWorkspaceAction(threadId, request = {}) {
-    return this.cteePrivateWorkspaceSurface.executeCteePrivateWorkspaceAction(this, threadId, request);
-  }
-
-  admitL1SettlementAttempt(threadId, request = {}) {
-    return this.l1SettlementSurface.admitL1SettlementAttempt(this, threadId, request);
-  }
-
   applyWorkflowEditProposal(threadId, proposalId, request = {}) {
     return this.workflowEditSurface.applyWorkflowEditProposal(this, threadId, proposalId, request);
   }

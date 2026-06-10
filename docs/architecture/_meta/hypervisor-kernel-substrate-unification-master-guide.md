@@ -2207,6 +2207,21 @@ admission, wallet lifecycle authority, StepModuleRouter dispatch, Agentgres
 expected-head/state-root binding, receipt/event materialization, replay,
 projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal conformance.
+Slice 960 retired the daemon-store admission route pass-through wrappers for
+governed improvement proposals, external capability exits, worker/service
+package invocations, cTEE private workspace actions, and L1 settlement
+attempts. The public thread admission routes now call the mounted
+Rust-backed/fail-closed admission surfaces directly, so JS no longer preserves
+`admitGovernedImprovementProposal()`,
+`authorizeExternalCapabilityExit()`,
+`admitWorkerServicePackageInvocation()`,
+`executeCteePrivateWorkspaceAction()`, or `admitL1SettlementAttempt()` as
+daemon-store compatibility wrappers. This does not claim terminal admission
+migration: direct Rust daemon-core route admission, wallet.network authority,
+cTEE custody enforcement, StepModuleRouter dispatch, Agentgres
+expected-head/state-root binding, receipt/event materialization, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain required before terminal pure Rust substrate conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

@@ -63,227 +63,106 @@ function routeHandlers() {
   });
 }
 
-test("thread route admits governed improvement proposals through store facade", async () => {
+test("thread route sends admission controls through mounted admission surfaces", async () => {
   const { handleThreadRoute } = routeHandlers();
-  const response = responseRecorder();
   const calls = [];
-  const body = {
-    proposal: {
-      schema_version: "ioi.governed_runtime_improvement.v1",
-      proposal_id: "proposal://runtime-improvement/route",
-    },
-  };
-  const store = {
-    admitGovernedImprovementProposal(threadId, requestBody) {
-      calls.push({ threadId, requestBody });
-      return {
-        status: "admitted",
-        proposal_id: requestBody.proposal.proposal_id,
-        mutation_executed: false,
-      };
-    },
-  };
-
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/governed-improvement-proposals",
-      body,
-    }),
-    response,
-    store,
-    url: new URL("/v1/threads/thread_route/governed-improvement-proposals", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "governed-improvement-proposals"],
-  });
-
-  assert.equal(response.statusCode, 201);
-  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
-  assert.deepEqual(JSON.parse(response.body), {
+  const body = { request_id: "route-admission-test" };
+  const surfaceResult = (surface, args) => ({
     status: "admitted",
-    proposal_id: "proposal://runtime-improvement/route",
-    mutation_executed: false,
+    surface,
+    args,
+    direct_truth_write_allowed: false,
   });
-});
-
-test("thread route admits worker/service package invocations through store facade", async () => {
-  const { handleThreadRoute } = routeHandlers();
-  const response = responseRecorder();
-  const calls = [];
-  const body = {
-    invocation: {
-      schema_version: "ioi.worker_service_package_invocation.v1",
-      package_kind: "worker_package",
-      package_ref: "worker://runtime-auditor",
-      manifest_ref: "worker://runtime-auditor@1",
-    },
-  };
   const store = {
-    admitWorkerServicePackageInvocation(threadId, requestBody) {
-      calls.push({ threadId, requestBody });
-      return {
-        status: "admitted",
-        package_ref: requestBody.invocation.package_ref,
-        invocation_admitted: true,
-      };
-    },
-  };
-
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/worker-service-package-invocations",
-      body,
-    }),
-    response,
-    store,
-    url: new URL("/v1/threads/thread_route/worker-service-package-invocations", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "worker-service-package-invocations"],
-  });
-
-  assert.equal(response.statusCode, 201);
-  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
-  assert.deepEqual(JSON.parse(response.body), {
-    status: "admitted",
-    package_ref: "worker://runtime-auditor",
-    invocation_admitted: true,
-  });
-});
-
-test("thread route authorizes external capability exits through store facade", async () => {
-  const { handleThreadRoute } = routeHandlers();
-  const response = responseRecorder();
-  const calls = [];
-  const body = {
-    request: {
-      schema_version: "ioi.external_capability_exit_authority.v1",
-      exit_ref: "exit://aiip/slack-post-message",
-      capability_ref: "capability://connector/slack.postMessage",
-    },
-  };
-  const store = {
-    authorizeExternalCapabilityExit(threadId, requestBody) {
-      calls.push({ threadId, requestBody });
-      return {
-        status: "authorized",
-        exit_ref: requestBody.request.exit_ref,
-        exit_authorized: true,
-      };
-    },
-  };
-
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/external-capability-exits",
-      body,
-    }),
-    response,
-    store,
-    url: new URL("/v1/threads/thread_route/external-capability-exits", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "external-capability-exits"],
-  });
-
-  assert.equal(response.statusCode, 201);
-  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
-  assert.deepEqual(JSON.parse(response.body), {
-    status: "authorized",
-    exit_ref: "exit://aiip/slack-post-message",
-    exit_authorized: true,
-  });
-});
-
-test("thread route executes cTEE private workspace actions through store facade", async () => {
-  const { handleThreadRoute } = routeHandlers();
-  const response = responseRecorder();
-  const calls = [];
-  const body = {
-    action: {
-      invocation: {
-        schema_version: "ioi.step_module_invocation.v1",
-        invocation_id: "invocation://ctee/route",
-      },
-      node_trust: {
-        runtime_node_ref: "node://rented-untrusted",
-        trusted_for_plaintext: false,
+    governedImprovementSurface: {
+      admitGovernedImprovementProposal(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "governedImprovementSurface", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("governedImprovementSurface", [threadId, requestBody]);
       },
     },
-  };
-  const store = {
-    executeCteePrivateWorkspaceAction(threadId, requestBody) {
-      calls.push({ threadId, requestBody });
-      return {
-        status: "admitted",
-        invocation_id: requestBody.action.invocation.invocation_id,
-        action_executed: true,
-      };
+    externalCapabilityAuthoritySurface: {
+      authorizeExternalCapabilityExit(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "externalCapabilityAuthoritySurface", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("externalCapabilityAuthoritySurface", [threadId, requestBody]);
+      },
     },
-  };
-
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/ctee-private-workspace-actions",
-      body,
-    }),
-    response,
-    store,
-    url: new URL("/v1/threads/thread_route/ctee-private-workspace-actions", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "ctee-private-workspace-actions"],
-  });
-
-  assert.equal(response.statusCode, 201);
-  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
-  assert.deepEqual(JSON.parse(response.body), {
-    status: "admitted",
-    invocation_id: "invocation://ctee/route",
-    action_executed: true,
-  });
-});
-
-test("thread route admits L1 settlement attempts through store facade", async () => {
-  const { handleThreadRoute } = routeHandlers();
-  const response = responseRecorder();
-  const calls = [];
-  const body = {
-    attempt: {
-      schema_version: "ioi.l1_settlement_admission.v1",
-      settlement_ref: "l1://settlement/route",
-      domain_ref: "domain://marketplace/services",
-      state_root_ref: "state-root://agentgres/marketplace/after",
-      trigger_refs: ["l1-trigger://service-contract/payment"],
-      receipt_refs: ["receipt://local-settlement/payment"],
+    workerServicePackageSurface: {
+      admitWorkerServicePackageInvocation(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "workerServicePackageSurface", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("workerServicePackageSurface", [threadId, requestBody]);
+      },
     },
-  };
-  const store = {
-    admitL1SettlementAttempt(threadId, requestBody) {
-      calls.push({ threadId, requestBody });
-      return {
-        status: "admitted",
-        settlement_ref: requestBody.attempt.settlement_ref,
-        settlement_admitted: true,
-      };
+    cteePrivateWorkspaceSurface: {
+      executeCteePrivateWorkspaceAction(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "cteePrivateWorkspaceSurface", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("cteePrivateWorkspaceSurface", [threadId, requestBody]);
+      },
     },
+    l1SettlementSurface: {
+      admitL1SettlementAttempt(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "l1SettlementSurface", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("l1SettlementSurface", [threadId, requestBody]);
+      },
+    },
+    admitGovernedImprovementProposal: retiredRouteWrapper,
+    authorizeExternalCapabilityExit: retiredRouteWrapper,
+    admitWorkerServicePackageInvocation: retiredRouteWrapper,
+    executeCteePrivateWorkspaceAction: retiredRouteWrapper,
+    admitL1SettlementAttempt: retiredRouteWrapper,
   };
+  const cases = [
+    {
+      path: "/v1/threads/thread_route/governed-improvement-proposals",
+      segments: ["v1", "threads", "thread_route", "governed-improvement-proposals"],
+      surface: "governedImprovementSurface",
+    },
+    {
+      path: "/v1/threads/thread_route/external-capability-exits",
+      segments: ["v1", "threads", "thread_route", "external-capability-exits"],
+      surface: "externalCapabilityAuthoritySurface",
+    },
+    {
+      path: "/v1/threads/thread_route/worker-service-package-invocations",
+      segments: ["v1", "threads", "thread_route", "worker-service-package-invocations"],
+      surface: "workerServicePackageSurface",
+    },
+    {
+      path: "/v1/threads/thread_route/ctee-private-workspace-actions",
+      segments: ["v1", "threads", "thread_route", "ctee-private-workspace-actions"],
+      surface: "cteePrivateWorkspaceSurface",
+    },
+    {
+      path: "/v1/threads/thread_route/l1-settlement-attempts",
+      segments: ["v1", "threads", "thread_route", "l1-settlement-attempts"],
+      surface: "l1SettlementSurface",
+    },
+  ];
 
-  await handleThreadRoute({
-    request: request({
-      method: "POST",
-      url: "/v1/threads/thread_route/l1-settlement-attempts",
-      body,
-    }),
-    response,
-    store,
-    url: new URL("/v1/threads/thread_route/l1-settlement-attempts", "http://daemon.test"),
-    segments: ["v1", "threads", "thread_route", "l1-settlement-attempts"],
-  });
-
-  assert.equal(response.statusCode, 201);
-  assert.deepEqual(calls, [{ threadId: "thread_route", requestBody: body }]);
-  assert.deepEqual(JSON.parse(response.body), {
-    status: "admitted",
-    settlement_ref: "l1://settlement/route",
-    settlement_admitted: true,
-  });
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 201);
+    assert.equal(call.surface, testCase.surface);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, ["thread_route", body]);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "admitted",
+      surface: testCase.surface,
+      args: ["thread_route", body],
+      direct_truth_write_allowed: false,
+    });
+  }
 });
 
 test("thread route invokes coding tools through canonical store surface", async () => {

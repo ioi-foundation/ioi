@@ -970,23 +970,23 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "governed-improvement-proposals" && !segments[4]) {
-      writeJsonResponse(response, store.admitGovernedImprovementProposal(threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.governedImprovementSurface.admitGovernedImprovementProposal(store, threadId, await readBody(request)), 201);
       return;
     }
     if (request.method === "POST" && action === "external-capability-exits" && !segments[4]) {
-      writeJsonResponse(response, store.authorizeExternalCapabilityExit(threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.externalCapabilityAuthoritySurface.authorizeExternalCapabilityExit(store, threadId, await readBody(request)), 201);
       return;
     }
     if (request.method === "POST" && action === "worker-service-package-invocations" && !segments[4]) {
-      writeJsonResponse(response, store.admitWorkerServicePackageInvocation(threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.workerServicePackageSurface.admitWorkerServicePackageInvocation(store, threadId, await readBody(request)), 201);
       return;
     }
     if (request.method === "POST" && action === "ctee-private-workspace-actions" && !segments[4]) {
-      writeJsonResponse(response, store.executeCteePrivateWorkspaceAction(threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.cteePrivateWorkspaceSurface.executeCteePrivateWorkspaceAction(store, threadId, await readBody(request)), 201);
       return;
     }
     if (request.method === "POST" && action === "l1-settlement-attempts" && !segments[4]) {
-      writeJsonResponse(response, store.admitL1SettlementAttempt(threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.l1SettlementSurface.admitL1SettlementAttempt(store, threadId, await readBody(request)), 201);
       return;
     }
     if (

@@ -5641,8 +5641,7 @@ function runBridge() {
     "external-capability-exit-authority-product-route",
     /createRuntimeExternalCapabilityAuthoritySurface/.test(runtimeDaemonIndex) &&
       /this\.externalCapabilityAuthoritySurface/.test(runtimeDaemonIndex) &&
-      /authorizeExternalCapabilityExit\(threadId, request = \{\}\)/.test(runtimeDaemonIndex) &&
-      /this\.externalCapabilityAuthoritySurface\.authorizeExternalCapabilityExit/.test(
+      !/^\s*authorizeExternalCapabilityExit\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
       /EXTERNAL_CAPABILITY_AUTHORITY_RESPONSE_SCHEMA_VERSION/.test(
@@ -5654,7 +5653,9 @@ function runBridge() {
         externalCapabilityAuthoritySurface,
       ) &&
       /external-capability-exits/.test(runtimeRouteHandlers) &&
-      /store\.authorizeExternalCapabilityExit/.test(runtimeRouteHandlers) &&
+      /store\.externalCapabilityAuthoritySurface\.authorizeExternalCapabilityExit\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
       /external capability authority surface authorizes nested request through Rust runner/.test(
         externalCapabilityAuthoritySurfaceTest,
       ) &&
@@ -5664,7 +5665,7 @@ function runBridge() {
       /external capability authority surface fails closed without request payload/.test(
         externalCapabilityAuthoritySurfaceTest,
       ) &&
-      /thread route authorizes external capability exits through store facade/.test(
+      /thread route sends admission controls through mounted admission surfaces/.test(
         runtimeRouteHandlersTest,
       ),
     [
@@ -11538,15 +11539,19 @@ function runBridge() {
     "worker-service-package-product-route",
     /createRuntimeWorkerServicePackageSurface/.test(runtimeDaemonIndex) &&
       /this\.workerServicePackageSurface/.test(runtimeDaemonIndex) &&
-      /admitWorkerServicePackageInvocation/.test(runtimeDaemonIndex) &&
+      !/^\s*admitWorkerServicePackageInvocation\(threadId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       /WORKER_SERVICE_PACKAGE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(workerServicePackageSurface) &&
       /invocation_admitted:\s*true/.test(workerServicePackageSurface) &&
       /RETIRED_WORKER_SERVICE_PACKAGE_TRUTH_FIELDS/.test(workerServicePackageSurface) &&
       /worker_service_package_agentgres_truth_fields_retired/.test(workerServicePackageSurface) &&
       /store\.workerServicePackageRunner\.admitInvocation/.test(workerServicePackageSurface) &&
       /worker-service-package-invocations/.test(runtimeRouteHandlers) &&
-      /store\.admitWorkerServicePackageInvocation/.test(runtimeRouteHandlers) &&
-      /thread route admits worker\/service package invocations through store facade/.test(runtimeRouteHandlersTest) &&
+      /store\.workerServicePackageSurface\.admitWorkerServicePackageInvocation\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose worker\/service package apply shortcut/.test(runtimeRouteHandlersTest) &&
       /worker\/service package surface admits nested invocation through Rust runner/.test(
         workerServicePackageSurfaceTest,
@@ -11793,13 +11798,15 @@ function runBridge() {
     "l1-settlement-product-route",
     /createRuntimeL1SettlementSurface/.test(runtimeDaemonIndex) &&
       /this\.l1SettlementSurface/.test(runtimeDaemonIndex) &&
-      /admitL1SettlementAttempt/.test(runtimeDaemonIndex) &&
+      !/^\s*admitL1SettlementAttempt\(threadId, request = \{\}\) \{/m.test(runtimeDaemonIndex) &&
       /L1_SETTLEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(l1SettlementSurface) &&
       /settlement_admitted:\s*true/.test(l1SettlementSurface) &&
       /store\.l1SettlementRunner\.admitAttempt/.test(l1SettlementSurface) &&
       /l1-settlement-attempts/.test(runtimeRouteHandlers) &&
-      /store\.admitL1SettlementAttempt/.test(runtimeRouteHandlers) &&
-      /thread route admits L1 settlement attempts through store facade/.test(runtimeRouteHandlersTest) &&
+      /store\.l1SettlementSurface\.admitL1SettlementAttempt\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose L1 settlement apply shortcut/.test(runtimeRouteHandlersTest) &&
       /L1 settlement surface admits nested attempt through Rust runner/.test(l1SettlementSurfaceTest) &&
       /L1 settlement surface fails closed without attempt payload/.test(l1SettlementSurfaceTest),
@@ -12058,15 +12065,19 @@ function runBridge() {
     "governed-meta-improvement-product-route",
     /createRuntimeGovernedImprovementSurface/.test(runtimeDaemonIndex) &&
       /this\.governedImprovementSurface/.test(runtimeDaemonIndex) &&
-      /admitGovernedImprovementProposal/.test(runtimeDaemonIndex) &&
+      !/^\s*admitGovernedImprovementProposal\(threadId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       /GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementSurface) &&
       /mutation_executed:\s*false/.test(governedImprovementSurface) &&
       /RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS/.test(governedImprovementSurface) &&
       /governed_improvement_agentgres_truth_fields_retired/.test(governedImprovementSurface) &&
       /store\.governedImprovementRunner\.admitProposal/.test(governedImprovementSurface) &&
       /governed-improvement-proposals/.test(runtimeRouteHandlers) &&
-      /store\.admitGovernedImprovementProposal/.test(runtimeRouteHandlers) &&
-      /thread route admits governed improvement proposals through store facade/.test(runtimeRouteHandlersTest) &&
+      /store\.governedImprovementSurface\.admitGovernedImprovementProposal\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose governed improvement apply shortcut/.test(runtimeRouteHandlersTest) &&
       /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest) &&
       /governed improvement surface rejects client supplied Agentgres truth before Rust runner/.test(
@@ -16971,15 +16982,19 @@ function runCtee() {
     "ctee-product-route",
     /createRuntimeCteePrivateWorkspaceSurface/.test(runtimeDaemonIndex) &&
       /this\.cteePrivateWorkspaceSurface/.test(runtimeDaemonIndex) &&
-      /executeCteePrivateWorkspaceAction/.test(runtimeDaemonIndex) &&
+      !/^\s*executeCteePrivateWorkspaceAction\(threadId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
       /CTEE_PRIVATE_WORKSPACE_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(cteePrivateWorkspaceSurface) &&
       /action_executed:\s*true/.test(cteePrivateWorkspaceSurface) &&
       /RETIRED_CTEE_PRIVATE_WORKSPACE_TRUTH_FIELDS/.test(cteePrivateWorkspaceSurface) &&
       /ctee_private_workspace_agentgres_truth_fields_retired/.test(cteePrivateWorkspaceSurface) &&
       /store\.cteePrivateWorkspaceRunner\.executeAction/.test(cteePrivateWorkspaceSurface) &&
       /ctee-private-workspace-actions/.test(runtimeRouteHandlers) &&
-      /store\.executeCteePrivateWorkspaceAction/.test(runtimeRouteHandlers) &&
-      /thread route executes cTEE private workspace actions through store facade/.test(
+      /store\.cteePrivateWorkspaceSurface\.executeCteePrivateWorkspaceAction\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread route sends admission controls through mounted admission surfaces/.test(
         runtimeRouteHandlersTest,
       ) &&
       !/"expected_heads":\s*\["agentgres:\/\/ctee\/private-workspace\/head\/before"\]/.test(

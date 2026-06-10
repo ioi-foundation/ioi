@@ -21084,3 +21084,43 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of task/job command transport,
 Agentgres-backed task/job truth, and stable protocol APIs without encoding
 daemon-store pass-through wrappers as public task/job authority.
+
+## Implementation Slice Evidence: 960
+
+Slice 960 retired daemon-store admission route pass-through wrappers for
+governed improvement proposals, external capability exits, worker/service
+package invocations, cTEE private workspace actions, and L1 settlement
+attempts. The public thread admission routes now call the mounted
+Rust-backed/fail-closed admission surfaces directly instead of preserving
+`admitGovernedImprovementProposal()`,
+`authorizeExternalCapabilityExit()`,
+`admitWorkerServicePackageInvocation()`,
+`executeCteePrivateWorkspaceAction()`, or `admitL1SettlementAttempt()` on the
+daemon store as duplicate route-level compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs packages/runtime-daemon/src/runtime-external-capability-authority-surface.test.mjs packages/runtime-daemon/src/runtime-worker-service-package-surface.test.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-surface.test.mjs packages/runtime-daemon/src/runtime-l1-settlement-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal admission migration. Direct Rust
+daemon-core route admission, wallet.network authority, cTEE custody
+enforcement, StepModuleRouter dispatch, Agentgres-backed
+expected-head/state-root truth, receipt/event materialization, replay,
+projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
+remain before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-960 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of admission command transport,
+Agentgres-backed admission truth, wallet/cTEE authority, and stable protocol
+APIs without encoding daemon-store pass-through wrappers as public admission
+authority.
