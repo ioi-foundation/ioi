@@ -2255,6 +2255,17 @@ context-policy migration: direct Rust daemon-core route admission, Agentgres
 expected-head/state-root binding, policy receipt/event materialization, replay,
 projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
 remain required before terminal pure Rust substrate conformance.
+Slice 964 retired the daemon-store MCP route pass-through wrappers. Public MCP
+catalog, validation, import/add/remove/enable/disable, invoke, and serve
+routes plus thread-scoped MCP import/add/remove/enable/disable, search/fetch,
+invoke, serve, status, and validation routes now call the mounted MCP catalog,
+control, and serve surfaces directly. JS no longer preserves the route-facing
+MCP store wrappers as compatibility authority. This does not claim terminal MCP
+migration: direct Rust daemon-core MCP admission/projection, wallet.network
+external-exit authority, Agentgres expected-head/state-root binding, MCP
+receipt/event materialization, replay, command-transport retirement, and stable
+SDK/IDE/CLI protocol APIs remain required before terminal pure Rust substrate
+conformance.
 Slice 951 retired runtime conversation-artifact public JS readback. Public
 `RuntimeConversationArtifactControl.listConversationArtifacts()`,
 `getConversationArtifact()`, and `listConversationArtifactRevisions()` now fail

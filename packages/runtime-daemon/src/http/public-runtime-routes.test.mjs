@@ -301,6 +301,189 @@ test("public runtime context budget route uses context policy surface directly",
   });
 });
 
+test("public runtime MCP routes use mounted MCP surfaces directly", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const body = { request_id: "public-mcp-route-test" };
+  const result = (surface, method, args) => ({ surface, method, args });
+  const store = {
+    mcpCatalogSurface: {
+      mcpStatus(surfaceStore, options) {
+        calls.push({ surface: "mcpCatalogSurface", method: "mcpStatus", surfaceStore, args: [options] });
+        return result("mcpCatalogSurface", "mcpStatus", [options]);
+      },
+      listMcpServers(surfaceStore, options) {
+        calls.push({ surface: "mcpCatalogSurface", method: "listMcpServers", surfaceStore, args: [options] });
+        return result("mcpCatalogSurface", "listMcpServers", [options]);
+      },
+      searchMcpTools(surfaceStore, options) {
+        calls.push({ surface: "mcpCatalogSurface", method: "searchMcpTools", surfaceStore, args: [options] });
+        return result("mcpCatalogSurface", "searchMcpTools", [options]);
+      },
+      getMcpTool(surfaceStore, toolId, options) {
+        calls.push({ surface: "mcpCatalogSurface", method: "getMcpTool", surfaceStore, args: [toolId, options] });
+        return result("mcpCatalogSurface", "getMcpTool", [toolId, options]);
+      },
+      validateMcp(surfaceStore, requestBody) {
+        calls.push({ surface: "mcpCatalogSurface", method: "validateMcp", surfaceStore, args: [requestBody] });
+        return result("mcpCatalogSurface", "validateMcp", [requestBody]);
+      },
+    },
+    mcpControlSurface: {
+      importMcp(surfaceStore, input) {
+        calls.push({ surface: "mcpControlSurface", method: "importMcp", surfaceStore, args: [input] });
+        return result("mcpControlSurface", "importMcp", [input]);
+      },
+      addMcpServer(surfaceStore, input) {
+        calls.push({ surface: "mcpControlSurface", method: "addMcpServer", surfaceStore, args: [input] });
+        return result("mcpControlSurface", "addMcpServer", [input]);
+      },
+      setMcpServerEnabled(surfaceStore, serverId, enabled, input) {
+        calls.push({
+          surface: "mcpControlSurface",
+          method: "setMcpServerEnabled",
+          surfaceStore,
+          args: [serverId, enabled, input],
+        });
+        return result("mcpControlSurface", "setMcpServerEnabled", [serverId, enabled, input]);
+      },
+      removeMcpServer(surfaceStore, serverId, input) {
+        calls.push({ surface: "mcpControlSurface", method: "removeMcpServer", surfaceStore, args: [serverId, input] });
+        return result("mcpControlSurface", "removeMcpServer", [serverId, input]);
+      },
+      invokeMcpTool(surfaceStore, input) {
+        calls.push({ surface: "mcpControlSurface", method: "invokeMcpTool", surfaceStore, args: [input] });
+        return result("mcpControlSurface", "invokeMcpTool", [input]);
+      },
+    },
+    mcpServeSurface: {
+      mcpServeStatus(surfaceStore, options) {
+        calls.push({ surface: "mcpServeSurface", method: "mcpServeStatus", surfaceStore, args: [options] });
+        return result("mcpServeSurface", "mcpServeStatus", [options]);
+      },
+      handleMcpServeJsonRpc(surfaceStore, threadId, message, options) {
+        calls.push({
+          surface: "mcpServeSurface",
+          method: "handleMcpServeJsonRpc",
+          surfaceStore,
+          args: [threadId, message, options],
+        });
+        return result("mcpServeSurface", "handleMcpServeJsonRpc", [threadId, message, options]);
+      },
+    },
+    mcpStatus: retiredRouteWrapper,
+    listMcpServers: retiredRouteWrapper,
+    searchMcpTools: retiredRouteWrapper,
+    getMcpTool: retiredRouteWrapper,
+    validateMcp: retiredRouteWrapper,
+    importMcp: retiredRouteWrapper,
+    addMcpServer: retiredRouteWrapper,
+    setMcpServerEnabled: retiredRouteWrapper,
+    removeMcpServer: retiredRouteWrapper,
+    invokeMcpTool: retiredRouteWrapper,
+    mcpServeStatus: retiredRouteWrapper,
+    handleMcpServeJsonRpc: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      method: "GET",
+      path: "/v1/mcp?thread_id=thread_route",
+      expectedMethod: "mcpStatus",
+      expectedArgs: [{ thread_id: "thread_route" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/mcp/servers?thread_id=thread_route",
+      expectedMethod: "listMcpServers",
+      expectedArgs: [{ thread_id: "thread_route" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/mcp/tools/search?query=diff",
+      expectedMethod: "searchMcpTools",
+      expectedArgs: [{ query: "diff" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/mcp/tools/mcp.tool",
+      expectedMethod: "getMcpTool",
+      expectedArgs: ["mcp.tool", {}],
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/validate",
+      expectedMethod: "validateMcp",
+      expectedArgs: [body],
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/import?thread_id=thread_route",
+      expectedMethod: "importMcp",
+      expectedArgs: [{ thread_id: "thread_route", ...body }],
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/servers",
+      expectedMethod: "addMcpServer",
+      expectedArgs: [body],
+      expectedStatus: 201,
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/servers/mcp.docs/enable",
+      expectedMethod: "setMcpServerEnabled",
+      expectedArgs: ["mcp.docs", true, body],
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/servers/mcp.docs/remove",
+      expectedMethod: "removeMcpServer",
+      expectedArgs: ["mcp.docs", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/tools/mcp.tool/invoke",
+      expectedMethod: "invokeMcpTool",
+      expectedArgs: [{ ...body, tool_id: "mcp.tool" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/mcp/serve?thread_id=thread_route",
+      expectedMethod: "mcpServeStatus",
+      expectedArgs: [{ thread_id: "thread_route" }],
+    },
+    {
+      method: "POST",
+      path: "/v1/mcp/serve?thread_id=thread_route",
+      expectedMethod: "handleMcpServeJsonRpc",
+      expectedArgs: ["thread_route", body, { thread_id: "thread_route" }],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleRequest({
+      request: request({
+        method: testCase.method,
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, testCase.expectedStatus ?? 200);
+    assert.equal(call.method, testCase.expectedMethod);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.expectedArgs);
+    assert.deepEqual(JSON.parse(response.body), {
+      surface: call.surface,
+      method: testCase.expectedMethod,
+      args: testCase.expectedArgs,
+    });
+  }
+});
+
 test("public runtime routes preserve MCP serve thread requirement", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();

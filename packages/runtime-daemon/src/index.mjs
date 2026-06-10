@@ -1491,62 +1491,6 @@ export class AgentgresRuntimeStateStore {
     return this.workflowEditSurface.proposeWorkflowEdit(this, threadId, request);
   }
 
-  listMcpServers(options = {}) {
-    return this.mcpCatalogSurface.listMcpServers(this, options);
-  }
-
-  listMcpTools(options = {}) {
-    return this.mcpCatalogSurface.listMcpTools(this, options);
-  }
-
-  async searchMcpTools(options = {}) {
-    return this.mcpCatalogSurface.searchMcpTools(this, options);
-  }
-
-  async getMcpTool(toolId, options = {}) {
-    return this.mcpCatalogSurface.getMcpTool(this, toolId, options);
-  }
-
-  listMcpResources(options = {}) {
-    return this.mcpCatalogSurface.listMcpResources(this, options);
-  }
-
-  listMcpPrompts(options = {}) {
-    return this.mcpCatalogSurface.listMcpPrompts(this, options);
-  }
-
-  mcpStatus(options = {}) {
-    return this.mcpCatalogSurface.mcpStatus(this, options);
-  }
-
-  validateMcp(input = {}) {
-    return this.mcpCatalogSurface.validateMcp(this, input);
-  }
-
-  importMcp(input = {}) {
-    return this.mcpControlSurface.importMcp(this, input);
-  }
-
-  addMcpServer(input = {}) {
-    return this.mcpControlSurface.addMcpServer(this, input);
-  }
-
-  removeMcpServer(serverId, input = {}) {
-    return this.mcpControlSurface.removeMcpServer(this, serverId, input);
-  }
-
-  importThreadMcp(threadId, request = {}) {
-    return this.mcpControlSurface.importThreadMcp(this, threadId, request);
-  }
-
-  addThreadMcpServer(threadId, request = {}) {
-    return this.mcpControlSurface.addThreadMcpServer(this, threadId, request);
-  }
-
-  removeThreadMcpServer(threadId, serverId, request = {}) {
-    return this.mcpControlSurface.removeThreadMcpServer(this, threadId, serverId, request);
-  }
-
   applyThreadMcpServerMutation({
     threadId,
     agent,
@@ -1571,62 +1515,6 @@ export class AgentgresRuntimeStateStore {
 
   async mcpStatusWithLiveDiscovery(status, agent, request = {}) {
     return this.mcpControlSurface.mcpStatusWithLiveDiscovery(this, status, agent, request);
-  }
-
-  async searchThreadMcpTools(threadId, request = {}) {
-    return this.mcpCatalogSurface.searchThreadMcpTools(this, threadId, request);
-  }
-
-  async getThreadMcpTool(threadId, toolId, request = {}) {
-    return this.mcpCatalogSurface.getThreadMcpTool(this, threadId, toolId, request);
-  }
-
-  async getMcpToolFromCatalog(toolId, request = {}) {
-    return this.mcpCatalogSurface.getMcpToolFromCatalog(this, toolId, request);
-  }
-
-  async searchMcpToolCatalog(request = {}) {
-    return this.mcpCatalogSurface.searchMcpToolCatalog(this, request);
-  }
-
-  setMcpServerEnabled(serverId, enabled, request = {}) {
-    return this.mcpControlSurface.setMcpServerEnabled(this, serverId, enabled, request);
-  }
-
-  setThreadMcpServerEnabled(threadId, serverId, enabled, request = {}) {
-    return this.mcpControlSurface.setThreadMcpServerEnabled(this, threadId, serverId, enabled, request);
-  }
-
-  async invokeMcpTool(request = {}) {
-    return this.mcpControlSurface.invokeMcpTool(this, request);
-  }
-
-  async invokeThreadMcpTool(threadId, toolId, request = {}) {
-    return this.mcpControlSurface.invokeThreadMcpTool(this, threadId, toolId, request);
-  }
-
-  mcpServeStatus(options = {}) {
-    return this.mcpServeSurface.mcpServeStatus(this, options);
-  }
-
-  mcpServeToolCatalog(options = {}) {
-    return this.mcpServeSurface.mcpServeToolCatalog(this, options);
-  }
-
-  async handleMcpServeJsonRpc(threadId, message, request = {}) {
-    return this.mcpServeSurface.handleMcpServeJsonRpc(this, threadId, message, request);
-  }
-
-  async handleSingleMcpServeJsonRpc(threadId, message, request = {}) {
-    return this.mcpServeSurface.handleSingleMcpServeJsonRpc(this, threadId, message, request);
-  }
-
-  async recordThreadMcpStatus(threadId, request = {}) {
-    return this.mcpControlSurface.recordThreadMcpStatus(this, threadId, request);
-  }
-
-  validateThreadMcp(threadId, request = {}) {
-    return this.mcpControlSurface.validateThreadMcp(this, threadId, request);
   }
 
   appendThreadMcpControlEvent({

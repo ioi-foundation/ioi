@@ -21229,3 +21229,35 @@ direct Rust-core extraction or facade-retirement seam lands. The next resume
 should preserve the non-terminal status of context-policy command transport,
 Agentgres-backed context-policy truth, and stable protocol APIs without
 encoding daemon-store pass-through wrappers as public context-policy authority.
+
+## Implementation Slice Evidence: 964
+
+Slice 964 retired route-facing daemon-store MCP pass-through wrappers. Public
+MCP catalog/status/validation, import/add/remove/enable/disable, invoke, and
+serve routes plus thread-scoped MCP import/add/remove/enable/disable,
+search/fetch, invoke, serve, status, and validation routes now call the mounted
+MCP catalog, control, and serve surfaces directly instead of preserving MCP
+methods on the daemon store as duplicate route-level compatibility wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-mcp-catalog-surface.test.mjs packages/runtime-daemon/src/runtime-mcp-control-surface.test.mjs packages/runtime-daemon/src/runtime-mcp-serve-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal MCP migration. Direct Rust daemon-core MCP
+admission/projection, wallet.network external-exit authority, Agentgres-backed
+expected-head/state-root truth, MCP receipt/event materialization, replay,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+before terminal pure Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slices 941-964 after the next
+direct Rust-core extraction or facade-retirement seam lands. The next resume
+should preserve the non-terminal status of MCP command/projection transport,
+wallet.network authority, Agentgres-backed MCP truth, and stable protocol APIs
+without encoding daemon-store pass-through wrappers as public MCP authority.

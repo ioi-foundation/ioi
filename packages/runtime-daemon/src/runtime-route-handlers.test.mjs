@@ -477,6 +477,219 @@ test("thread and run routes send context policy controls through mounted context
   }
 });
 
+test("thread route sends MCP controls through mounted MCP surfaces", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const body = { request_id: "thread-mcp-route-test" };
+  const surfaceResult = (surface, method, args) => ({
+    status: "rust_core_required",
+    surface,
+    method,
+    args,
+  });
+  const store = {
+    mcpControlSurface: {
+      importThreadMcp(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "mcpControlSurface", method: "importThreadMcp", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("mcpControlSurface", "importThreadMcp", [threadId, requestBody]);
+      },
+      addThreadMcpServer(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "mcpControlSurface", method: "addThreadMcpServer", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("mcpControlSurface", "addThreadMcpServer", [threadId, requestBody]);
+      },
+      removeThreadMcpServer(surfaceStore, threadId, serverId, requestBody) {
+        calls.push({
+          surface: "mcpControlSurface",
+          method: "removeThreadMcpServer",
+          surfaceStore,
+          args: [threadId, serverId, requestBody],
+        });
+        return surfaceResult("mcpControlSurface", "removeThreadMcpServer", [threadId, serverId, requestBody]);
+      },
+      setThreadMcpServerEnabled(surfaceStore, threadId, serverId, enabled, requestBody) {
+        calls.push({
+          surface: "mcpControlSurface",
+          method: "setThreadMcpServerEnabled",
+          surfaceStore,
+          args: [threadId, serverId, enabled, requestBody],
+        });
+        return surfaceResult("mcpControlSurface", "setThreadMcpServerEnabled", [threadId, serverId, enabled, requestBody]);
+      },
+      invokeThreadMcpTool(surfaceStore, threadId, toolId, requestBody) {
+        calls.push({
+          surface: "mcpControlSurface",
+          method: "invokeThreadMcpTool",
+          surfaceStore,
+          args: [threadId, toolId, requestBody],
+        });
+        return surfaceResult("mcpControlSurface", "invokeThreadMcpTool", [threadId, toolId, requestBody]);
+      },
+      recordThreadMcpStatus(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "mcpControlSurface", method: "recordThreadMcpStatus", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("mcpControlSurface", "recordThreadMcpStatus", [threadId, requestBody]);
+      },
+      validateThreadMcp(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "mcpControlSurface", method: "validateThreadMcp", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("mcpControlSurface", "validateThreadMcp", [threadId, requestBody]);
+      },
+    },
+    mcpCatalogSurface: {
+      searchThreadMcpTools(surfaceStore, threadId, requestBody) {
+        calls.push({ surface: "mcpCatalogSurface", method: "searchThreadMcpTools", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("mcpCatalogSurface", "searchThreadMcpTools", [threadId, requestBody]);
+      },
+      getThreadMcpTool(surfaceStore, threadId, toolId, requestBody) {
+        calls.push({
+          surface: "mcpCatalogSurface",
+          method: "getThreadMcpTool",
+          surfaceStore,
+          args: [threadId, toolId, requestBody],
+        });
+        return surfaceResult("mcpCatalogSurface", "getThreadMcpTool", [threadId, toolId, requestBody]);
+      },
+    },
+    mcpServeSurface: {
+      mcpServeStatus(surfaceStore, requestBody) {
+        calls.push({ surface: "mcpServeSurface", method: "mcpServeStatus", surfaceStore, args: [requestBody] });
+        return surfaceResult("mcpServeSurface", "mcpServeStatus", [requestBody]);
+      },
+      handleMcpServeJsonRpc(surfaceStore, threadId, message, requestBody) {
+        calls.push({
+          surface: "mcpServeSurface",
+          method: "handleMcpServeJsonRpc",
+          surfaceStore,
+          args: [threadId, message, requestBody],
+        });
+        return surfaceResult("mcpServeSurface", "handleMcpServeJsonRpc", [threadId, message, requestBody]);
+      },
+    },
+    importThreadMcp: retiredRouteWrapper,
+    addThreadMcpServer: retiredRouteWrapper,
+    removeThreadMcpServer: retiredRouteWrapper,
+    setThreadMcpServerEnabled: retiredRouteWrapper,
+    searchThreadMcpTools: retiredRouteWrapper,
+    getThreadMcpTool: retiredRouteWrapper,
+    invokeThreadMcpTool: retiredRouteWrapper,
+    mcpServeStatus: retiredRouteWrapper,
+    handleMcpServeJsonRpc: retiredRouteWrapper,
+    recordThreadMcpStatus: retiredRouteWrapper,
+    validateThreadMcp: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/import",
+      segments: ["v1", "threads", "thread_route", "mcp", "import"],
+      surfaceMethod: "importThreadMcp",
+      args: ["thread_route", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/servers",
+      segments: ["v1", "threads", "thread_route", "mcp", "servers"],
+      surfaceMethod: "addThreadMcpServer",
+      args: ["thread_route", body],
+      expectedStatus: 201,
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/servers/mcp.docs/remove",
+      segments: ["v1", "threads", "thread_route", "mcp", "servers", "mcp.docs", "remove"],
+      surfaceMethod: "removeThreadMcpServer",
+      args: ["thread_route", "mcp.docs", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/servers/mcp.docs/enable",
+      segments: ["v1", "threads", "thread_route", "mcp", "servers", "mcp.docs", "enable"],
+      surfaceMethod: "setThreadMcpServerEnabled",
+      args: ["thread_route", "mcp.docs", true, body],
+    },
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/mcp/tools/search?query=diff",
+      segments: ["v1", "threads", "thread_route", "mcp", "tools", "search"],
+      surfaceMethod: "searchThreadMcpTools",
+      args: ["thread_route", { query: "diff", source: "sdk_client" }],
+    },
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/mcp/tools/mcp.tool",
+      segments: ["v1", "threads", "thread_route", "mcp", "tools", "mcp.tool"],
+      surfaceMethod: "getThreadMcpTool",
+      args: ["thread_route", "mcp.tool", { source: "sdk_client" }],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/tools/mcp.tool/invoke",
+      segments: ["v1", "threads", "thread_route", "mcp", "tools", "mcp.tool", "invoke"],
+      surfaceMethod: "invokeThreadMcpTool",
+      args: ["thread_route", "mcp.tool", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/invoke",
+      segments: ["v1", "threads", "thread_route", "mcp", "invoke"],
+      surfaceMethod: "invokeThreadMcpTool",
+      args: ["thread_route", null, body],
+    },
+    {
+      method: "GET",
+      path: "/v1/threads/thread_route/mcp/serve?transport=sse",
+      segments: ["v1", "threads", "thread_route", "mcp", "serve"],
+      surfaceMethod: "mcpServeStatus",
+      args: [{ transport: "sse", thread_id: "thread_route" }],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/serve",
+      segments: ["v1", "threads", "thread_route", "mcp", "serve"],
+      surfaceMethod: "handleMcpServeJsonRpc",
+      args: ["thread_route", body, { thread_id: "thread_route" }],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/status",
+      segments: ["v1", "threads", "thread_route", "mcp", "status"],
+      surfaceMethod: "recordThreadMcpStatus",
+      args: ["thread_route", body],
+    },
+    {
+      method: "POST",
+      path: "/v1/threads/thread_route/mcp/validate",
+      segments: ["v1", "threads", "thread_route", "mcp", "validate"],
+      surfaceMethod: "validateThreadMcp",
+      args: ["thread_route", body],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: testCase.method,
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, testCase.expectedStatus ?? 200);
+    assert.equal(call.method, testCase.surfaceMethod);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.args);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "rust_core_required",
+      surface: call.surface,
+      method: testCase.surfaceMethod,
+      args: testCase.args,
+    });
+  }
+});
+
 test("thread route invokes coding tools through canonical store surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

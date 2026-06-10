@@ -281,11 +281,11 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp") {
-        writeJsonResponse(response, store.mcpStatus(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.mcpCatalogSurface.mcpStatus(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/serve") {
-        writeJsonResponse(response, store.mcpServeStatus(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/mcp/serve") {
@@ -301,20 +301,20 @@ export function createPublicRuntimeRequestHandler(deps) {
         }
         writeMcpJsonRpcResponse(
           response,
-          await store.handleMcpServeJsonRpc(threadId, await readBody(request), query),
+          await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, await readBody(request), query),
         );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/servers") {
-        writeJsonResponse(response, store.listMcpServers(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.mcpCatalogSurface.listMcpServers(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/tools") {
-        writeJsonResponse(response, store.listMcpTools(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.mcpCatalogSurface.listMcpTools(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/tools/search") {
-        writeJsonResponse(response, await store.searchMcpTools(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, await store.mcpCatalogSurface.searchMcpTools(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (
@@ -327,31 +327,35 @@ export function createPublicRuntimeRequestHandler(deps) {
       ) {
         writeJsonResponse(
           response,
-          await store.getMcpTool(decodeURIComponent(segments[3]), Object.fromEntries(url.searchParams.entries())),
+          await store.mcpCatalogSurface.getMcpTool(
+            store,
+            decodeURIComponent(segments[3]),
+            Object.fromEntries(url.searchParams.entries()),
+          ),
         );
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/resources") {
-        writeJsonResponse(response, store.listMcpResources(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.mcpCatalogSurface.listMcpResources(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp/prompts") {
-        writeJsonResponse(response, store.listMcpPrompts(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.mcpCatalogSurface.listMcpPrompts(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/mcp/validate") {
-        writeJsonResponse(response, store.validateMcp(await readBody(request)));
+        writeJsonResponse(response, store.mcpCatalogSurface.validateMcp(store, await readBody(request)));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/mcp/import") {
-        writeJsonResponse(response, store.importMcp({
+        writeJsonResponse(response, store.mcpControlSurface.importMcp(store, {
           ...Object.fromEntries(url.searchParams.entries()),
           ...(await readBody(request)),
         }));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/mcp/servers") {
-        writeJsonResponse(response, store.addMcpServer({
+        writeJsonResponse(response, store.mcpControlSurface.addMcpServer(store, {
           ...Object.fromEntries(url.searchParams.entries()),
           ...(await readBody(request)),
         }), 201);
@@ -369,7 +373,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         const body = await readBody(request);
         writeJsonResponse(
           response,
-          store.setMcpServerEnabled(decodeURIComponent(segments[3]), segments[4] === "enable", {
+          store.mcpControlSurface.setMcpServerEnabled(store, decodeURIComponent(segments[3]), segments[4] === "enable", {
             ...Object.fromEntries(url.searchParams.entries()),
             ...body,
           }),
@@ -384,7 +388,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         segments[3] &&
         (request.method === "DELETE" ? !segments[4] : segments[4] === "remove" && !segments[5])
       ) {
-        writeJsonResponse(response, store.removeMcpServer(decodeURIComponent(segments[3]), {
+        writeJsonResponse(response, store.mcpControlSurface.removeMcpServer(store, decodeURIComponent(segments[3]), {
           ...Object.fromEntries(url.searchParams.entries()),
           ...(await readBody(request)),
         }));
@@ -402,7 +406,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         const body = await readBody(request);
         writeJsonResponse(
           response,
-          await store.invokeMcpTool({
+          await store.mcpControlSurface.invokeMcpTool(store, {
             ...Object.fromEntries(url.searchParams.entries()),
             ...body,
             tool_id: decodeURIComponent(segments[3]),

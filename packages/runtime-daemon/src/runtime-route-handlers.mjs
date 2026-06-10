@@ -811,11 +811,11 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "mcp" && segments[4] === "import" && !segments[5]) {
-      writeJsonResponse(response, store.importThreadMcp(threadId, await readBody(request)));
+      writeJsonResponse(response, store.mcpControlSurface.importThreadMcp(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "mcp" && segments[4] === "servers" && !segments[5]) {
-      writeJsonResponse(response, store.addThreadMcpServer(threadId, await readBody(request)), 201);
+      writeJsonResponse(response, store.mcpControlSurface.addThreadMcpServer(store, threadId, await readBody(request)), 201);
       return;
     }
     if (
@@ -827,7 +827,12 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        store.removeThreadMcpServer(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+        store.mcpControlSurface.removeThreadMcpServer(
+          store,
+          threadId,
+          decodeURIComponent(segments[5]),
+          await readBody(request),
+        ),
       );
       return;
     }
@@ -841,7 +846,8 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        store.setThreadMcpServerEnabled(
+        store.mcpControlSurface.setThreadMcpServerEnabled(
+          store,
           threadId,
           decodeURIComponent(segments[5]),
           segments[6] === "enable",
@@ -859,7 +865,7 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        await store.searchThreadMcpTools(threadId, {
+        await store.mcpCatalogSurface.searchThreadMcpTools(store, threadId, {
           ...Object.fromEntries(url.searchParams.entries()),
           source: "sdk_client",
         }),
@@ -875,7 +881,7 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        await store.getThreadMcpTool(threadId, decodeURIComponent(segments[5]), {
+        await store.mcpCatalogSurface.getThreadMcpTool(store, threadId, decodeURIComponent(segments[5]), {
           ...Object.fromEntries(url.searchParams.entries()),
           source: "sdk_client",
         }),
@@ -892,16 +898,21 @@ export function createRuntimeRouteHandlers(deps) {
     ) {
       writeJsonResponse(
         response,
-        await store.invokeThreadMcpTool(threadId, decodeURIComponent(segments[5]), await readBody(request)),
+        await store.mcpControlSurface.invokeThreadMcpTool(
+          store,
+          threadId,
+          decodeURIComponent(segments[5]),
+          await readBody(request),
+        ),
       );
       return;
     }
     if (request.method === "POST" && action === "mcp" && segments[4] === "invoke" && !segments[5]) {
-      writeJsonResponse(response, await store.invokeThreadMcpTool(threadId, null, await readBody(request)));
+      writeJsonResponse(response, await store.mcpControlSurface.invokeThreadMcpTool(store, threadId, null, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "mcp" && segments[4] === "serve" && !segments[5]) {
-      writeJsonResponse(response, store.mcpServeStatus({
+      writeJsonResponse(response, store.mcpServeSurface.mcpServeStatus(store, {
         ...Object.fromEntries(url.searchParams.entries()),
         thread_id: threadId,
       }));
@@ -910,7 +921,7 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "POST" && action === "mcp" && segments[4] === "serve" && !segments[5]) {
       writeMcpJsonRpcResponse(
         response,
-        await store.handleMcpServeJsonRpc(threadId, await readBody(request), {
+        await store.mcpServeSurface.handleMcpServeJsonRpc(store, threadId, await readBody(request), {
           ...Object.fromEntries(url.searchParams.entries()),
           thread_id: threadId,
         }),
@@ -918,11 +929,11 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "mcp" && (!segments[4] || segments[4] === "status") && !segments[5]) {
-      writeJsonResponse(response, await store.recordThreadMcpStatus(threadId, await readBody(request)));
+      writeJsonResponse(response, await store.mcpControlSurface.recordThreadMcpStatus(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "mcp" && segments[4] === "validate" && !segments[5]) {
-      writeJsonResponse(response, store.validateThreadMcp(threadId, await readBody(request)));
+      writeJsonResponse(response, store.mcpControlSurface.validateThreadMcp(store, threadId, await readBody(request)));
       return;
     }
     if (request.method === "POST" && action === "memory" && segments[4] === "status" && !segments[5]) {

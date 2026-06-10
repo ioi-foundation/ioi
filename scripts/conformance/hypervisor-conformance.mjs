@@ -24926,6 +24926,52 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-mcp-route-wrappers-retired",
+    /public runtime MCP routes use mounted MCP surfaces directly/.test(publicRuntimeRoutesTest) &&
+      /thread route sends MCP controls through mounted MCP surfaces/.test(runtimeRouteHandlersTest) &&
+      /store\.mcpCatalogSurface\.mcpStatus\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpServeSurface\.mcpServeStatus\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(publicRuntimeRoutes) &&
+      /store\.mcpCatalogSurface\.listMcpServers\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpCatalogSurface\.searchMcpTools\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpCatalogSurface\.getMcpTool\(\s*store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpCatalogSurface\.validateMcp\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpControlSurface\.importMcp\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpControlSurface\.addMcpServer\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpControlSurface\.setMcpServerEnabled\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpControlSurface\.removeMcpServer\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpControlSurface\.invokeMcpTool\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpControlSurface\.importThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpControlSurface\.addThreadMcpServer\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpControlSurface\.removeThreadMcpServer\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpControlSurface\.setThreadMcpServerEnabled\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpCatalogSurface\.searchThreadMcpTools\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpCatalogSurface\.getThreadMcpTool\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpControlSurface\.invokeThreadMcpTool\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpServeSurface\.mcpServeStatus\(store,/.test(runtimeRouteHandlers) &&
+      /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpControlSurface\.recordThreadMcpStatus\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      /store\.mcpControlSurface\.validateThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
+      !/^\s*(?:listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|mcpStatus|validateMcp|importMcp|addMcpServer|removeMcpServer|importThreadMcp|addThreadMcpServer|removeThreadMcpServer|searchThreadMcpTools|getThreadMcpTool|getMcpToolFromCatalog|searchMcpToolCatalog|setMcpServerEnabled|setThreadMcpServerEnabled|invokeMcpTool|invokeThreadMcpTool|mcpServeStatus|mcpServeToolCatalog|handleMcpServeJsonRpc|handleSingleMcpServeJsonRpc|recordThreadMcpStatus|validateThreadMcp)\(/m.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/store\.(?:mcpStatus|mcpServeStatus|handleMcpServeJsonRpc|listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|validateMcp|importMcp|addMcpServer|setMcpServerEnabled|removeMcpServer|invokeMcpTool)\(/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/store\.(?:importThreadMcp|addThreadMcpServer|removeThreadMcpServer|setThreadMcpServerEnabled|searchThreadMcpTools|getThreadMcpTool|invokeThreadMcpTool|mcpServeStatus|handleMcpServeJsonRpc|recordThreadMcpStatus|validateThreadMcp)\(/.test(
+        runtimeRouteHandlers,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    ],
+    "Phase 10/11 is pending: public and thread MCP routes must call mounted MCP surfaces directly without daemon-store MCP pass-through wrappers",
+  );
+  assertCheck(
+    result,
     "runtime-mcp-control-thread-request-alias-retired",
     runtimeMcpControlFacadeRetired &&
       /input\.thread_id/.test(runtimeMcpControlSurface) &&
