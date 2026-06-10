@@ -2067,6 +2067,11 @@ load-option normalizer now honors only canonical `gpu_offload` or `gpu`, and
 `canonicalLoadOptionsInput()` strips `gpuOffload` before provider/runtime
 normalization, so GPU placement cannot be steered through a camelCase
 compatibility selector while backend process planning remains Rust-authored.
+Slice 935 retired the load-option `contextLength` compatibility alias. The
+load-option normalizer now honors only canonical `context_length`, and
+`canonicalLoadOptionsInput()` strips `contextLength` before provider/runtime
+normalization, so context-window steering cannot bypass the Rust-authored
+backend process plan through a camelCase compatibility selector.
 
 Slice 884 retired the fail-closed `backend-lifecycle.mjs` helper module after
 public backend lifecycle and backend-process supervision paths had already been

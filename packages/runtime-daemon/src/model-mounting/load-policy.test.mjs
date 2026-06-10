@@ -107,10 +107,11 @@ test("canonical load option input strips retired request aliases before provider
   }), {});
 });
 
-test("load option normalization ignores retired estimateOnly and gpuOffload aliases", () => {
+test("load option normalization ignores retired estimateOnly, gpuOffload, and contextLength aliases", () => {
   assert.deepEqual(normalizeLoadOptions({
     estimateOnly: true,
     gpuOffload: "auto",
+    contextLength: "8192",
   }), {
     estimateOnly: false,
     gpu: null,
@@ -137,7 +138,7 @@ test("load option normalization ignores retired estimateOnly and gpuOffload alia
 test("runtime engine defaults include only explicit normalized values", () => {
   assert.deepEqual(normalizeRuntimeEngineDefaultLoadOptions({
     gpu: "auto",
-    contextLength: "4096",
+    context_length: "4096",
     parallel: "",
     ttl: "120",
     identifier: "engine-default",

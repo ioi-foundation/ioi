@@ -17,7 +17,7 @@ export function normalizeLoadOptions(value = {}, loadPolicy = {}) {
   const source = typeof value === "object" && value ? value : {};
   const ttl = source.ttl_seconds ?? source.ttlSeconds ?? source.ttl ?? loadPolicy.idleTtlSeconds ?? null;
   const gpu = source.gpu_offload ?? source.gpu ?? null;
-  const contextLength = source.context_length ?? source.contextLength ?? null;
+  const contextLength = source.context_length ?? null;
   const parallel = source.parallelism ?? source.parallel ?? null;
   const identifier = source.identifier ?? source.instance_identifier ?? source.instanceIdentifier ?? null;
   const normalized = {

@@ -849,6 +849,8 @@ function runDocs() {
       /load-option normalizer now honors only canonical `estimate_only`/.test(guide) &&
       /Slice 934 retired the load-option `gpuOffload` compatibility alias/.test(guide) &&
       /load-option normalizer now honors only canonical `gpu_offload` or `gpu`/.test(guide) &&
+      /Slice 935 retired the load-option `contextLength` compatibility alias/.test(guide) &&
+      /load-option normalizer now honors only canonical `context_length`/.test(guide) &&
       /Slice 920 deleted the orphan JS model-instance lifecycle guard module/.test(guide) &&
       /`model-instance-lifecycle\.mjs` is absent/.test(guide) &&
       /lives inside `receipt-write-guards\.mjs`/.test(guide) &&
@@ -10565,7 +10567,8 @@ function runBridge() {
         /embedding:\s*true/.test(loadPolicyTest) &&
         !/source\.estimateOnly/.test(loadPolicy) &&
         !/source\.gpuOffload/.test(loadPolicy) &&
-        /load option normalization ignores retired estimateOnly and gpuOffload aliases/.test(loadPolicyTest) &&
+        !/source\.contextLength/.test(loadPolicy) &&
+        /load option normalization ignores retired estimateOnly, gpuOffload, and contextLength aliases/.test(loadPolicyTest) &&
         /context_length:\s*loadOptions\.context_length \?\? defaults\.context_length \?\? null/.test(
           backendProcessPlanBlock,
         ) &&

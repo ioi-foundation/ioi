@@ -20165,3 +20165,43 @@ Rust-core extraction or facade-retirement seam lands. The next resume should
 preserve the non-terminal status of command transport, direct Rust daemon-core
 route/provider/runtime-engine/catalog/workflow/server-control APIs,
 Agentgres-backed replay, and stable protocol APIs.
+
+At Slice 934 completion, the next compaction pass was scheduled for the next
+direct Rust-core extraction or facade-retirement seam. Slice 935 is a
+load-option compatibility-alias retirement seam and satisfies the Slice 934
+scheduling obligation.
+
+Scheduled matrix-compaction obligation from Slice 934 is now satisfied.
+
+## Implementation Slice Evidence: 935
+
+Slice 935 retired the `contextLength` load-option compatibility alias. The
+load-option normalizer no longer reads `source.contextLength`, and
+`canonicalLoadOptionsInput()` strips `contextLength` before provider/runtime
+normalization. Canonical `context_length` remains the only accepted context
+length load-option input, so context-window steering can no longer bypass the
+Rust-authored backend process plan through a camelCase compatibility selector.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/load-policy.mjs packages/runtime-daemon/src/model-mounting/load-policy.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/load-policy.test.mjs packages/runtime-daemon/src/model-mounting/model-loading-operations.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+This still does not claim terminal instance-lifecycle migration. Direct Rust
+daemon-core load/unload admission, provider lifecycle execution, receipt and
+state-root binding, Agentgres-backed replay/projection, command-transport
+retirement, and stable SDK/IDE/CLI protocol APIs remain before terminal pure
+Rust substrate conformance.
+
+Next scheduled matrix-compaction pass: compact Slice 935 after the next direct
+Rust-core extraction or facade-retirement seam lands. The next resume should
+preserve the non-terminal status of command transport, direct Rust daemon-core
+route/provider/runtime-engine/catalog/workflow/server-control APIs,
+Agentgres-backed replay, and stable protocol APIs.
