@@ -129,7 +129,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       workflowNodeId,
     });
     if (budgetPolicy?.status === "blocked") {
-      const blocked = store.blockCodingToolForBudget({
+      const blocked = store.codingToolGovernanceSurface.blockCodingToolForBudget(store, {
         agent,
         threadId,
         turnId,
@@ -173,10 +173,14 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       workflowNodeId,
     });
     const approvalSatisfaction = approvalManifest
-      ? store.codingToolApprovalSatisfaction({ threadId, approval_manifest: approvalManifest, request })
+      ? store.codingToolGovernanceSurface.codingToolApprovalSatisfaction(store, {
+          threadId,
+          approval_manifest: approvalManifest,
+          request,
+        })
       : null;
     if (approvalManifest && !approvalSatisfaction?.satisfied) {
-      return store.blockCodingToolForApproval({
+      return store.codingToolGovernanceSurface.blockCodingToolForApproval(store, {
         agent,
         threadId,
         turnId,
@@ -256,7 +260,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       artifactRefs.push(...normalizeArray(result.artifact_refs));
       const liveArtifactDrafts = normalizeArray(result?.artifact_drafts);
       if (liveArtifactDrafts.length) {
-        const materializedArtifacts = store.materializeCodingToolArtifactDrafts({
+        const materializedArtifacts = store.codingToolArtifactSurface.materializeCodingToolArtifactDrafts(store, {
           threadId,
           toolId: normalizedToolId,
           toolCallId,
@@ -269,7 +273,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       }
 	      if (normalizedToolId === "file.apply_patch") {
 	        try {
-	          workspaceSnapshot = store.prepareWorkspaceSnapshotForPatch({
+	          workspaceSnapshot = store.workspaceSnapshotSurface.prepareWorkspaceSnapshotForPatch(store, {
 	            threadId,
 	            turnId,
 	            workspaceRoot: agent.cwd,
@@ -347,7 +351,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       step_module_result: stepModuleProjection?.result ?? null,
       step_module_error: stepModuleError,
     };
-    const commandStreamEvents = store.appendCodingToolCommandStreamEvents({
+    const commandStreamEvents = store.codingToolArtifactSurface.appendCodingToolCommandStreamEvents(store, {
       agent,
       threadId,
       turnId,
@@ -384,7 +388,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       payload_summary: payloadSummary,
     });
     if (workspaceSnapshot) {
-      workspaceSnapshotEvent = store.appendWorkspaceSnapshotEvent({
+      workspaceSnapshotEvent = store.workspaceSnapshotSurface.appendWorkspaceSnapshotEvent(store, {
         threadId,
         turnId,
         workspaceRoot: agent.cwd,
@@ -395,7 +399,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     }
     const autoDiagnostics =
       status === "completed" && normalizedToolId === "file.apply_patch"
-        ? store.maybeRunPostEditDiagnostics({
+        ? store.diagnosticsFeedbackSurface.maybeRunPostEditDiagnostics(store, {
             threadId,
             turnId,
             patchToolCallId: toolCallId,
@@ -467,7 +471,7 @@ function requireRustCoreCodingToolResultEventAdmission(_store, event = {}) {
 
 function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
   if (toolId === "artifact.read") {
-    if (typeof store.readCodingToolArtifact !== "function") {
+    if (typeof store.codingToolArtifactSurface?.readCodingToolArtifact !== "function") {
       throw toolInputError(
         "artifact_read_unavailable",
         "artifact.read requires a daemon artifact store.",
@@ -493,12 +497,12 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         artifact_id: artifactId,
         artifact_ref: artifactId,
         range,
-        result: store.readCodingToolArtifact(threadId, artifactId, range),
+        result: store.codingToolArtifactSurface.readCodingToolArtifact(store, threadId, artifactId, range),
       },
     };
   }
   if (toolId === "tool.retrieve_result") {
-    if (typeof store.retrieveCodingToolResult !== "function") {
+    if (typeof store.codingToolArtifactSurface?.retrieveCodingToolResult !== "function") {
       throw toolInputError(
         "tool_retrieve_result_unavailable",
         "tool.retrieve_result requires a daemon artifact store.",
@@ -534,7 +538,7 @@ function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {
         source: "daemon_artifact_store",
         operation: toolId,
         query,
-        result: store.retrieveCodingToolResult(threadId, query),
+        result: store.codingToolArtifactSurface.retrieveCodingToolResult(store, threadId, query),
       },
     };
   }

@@ -15784,6 +15784,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1099
+
+Slice 1099 retires daemon-store coding-tool artifact/governance,
+workspace-snapshot/restore, and diagnostics-feedback helper pass-through
+delegates. The coding-tool invocation surface now calls mounted
+`codingToolGovernanceSurface`, `codingToolArtifactSurface`,
+`workspaceSnapshotSurface`, and `diagnosticsFeedbackSurface` methods directly
+instead of re-entering store wrappers for approval satisfaction/blocking, budget
+blocking, artifact reads/retrieval, command-stream events, artifact draft
+materialization, patch snapshots, snapshot events, or post-edit diagnostics.
+
+The daemon store no longer exposes the retired helper entrypoints, and
+conformance fails if they return. Future positive ownership belongs in direct
+Rust daemon-core coding-tool governance, artifact admission, snapshot admission,
+diagnostics feedback projection, Agentgres expected-head/state-root binding,
+replay, and projection APIs rather than revived JS store wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1098
 
 Slice 1098 retires the remaining unused daemon-store thread auxiliary and MCP

@@ -76,7 +76,7 @@ function createStore(options = {}) {
   const events = [];
   const idempotency = new Map();
   const calls = [];
-  return {
+  const store = {
     calls,
     events,
     idempotency,
@@ -92,63 +92,77 @@ function createStore(options = {}) {
       calls.push({ name: "runtimeEventStream", eventStreamId });
       return { idempotency, events };
     },
-    readCodingToolArtifact(threadId, artifactId, range) {
-      calls.push({ name: "readArtifact", threadId, artifactId, range });
-      return {
-        schema_version: "ioi.runtime.coding-tool-result.v1",
-        artifact_id: artifactId,
-        artifact_refs: [artifactId],
-        content: "stored artifact\n",
-        content_hash: "artifact-content-hash",
-        full_content_hash: "artifact-full-hash",
-        offset_bytes: range?.offset_bytes ?? 0,
-        length_bytes: 16,
-        total_bytes: 16,
-        truncated: false,
-        receipt_refs: ["receipt_artifact_read"],
-        shell_fallback_used: false,
-      };
+    codingToolArtifactSurface: {
+      readCodingToolArtifact(surfaceStore, threadId, artifactId, range) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "readArtifact", threadId, artifactId, range });
+        return {
+          schema_version: "ioi.runtime.coding-tool-result.v1",
+          artifact_id: artifactId,
+          artifact_refs: [artifactId],
+          content: "stored artifact\n",
+          content_hash: "artifact-content-hash",
+          full_content_hash: "artifact-full-hash",
+          offset_bytes: range?.offset_bytes ?? 0,
+          length_bytes: 16,
+          total_bytes: 16,
+          truncated: false,
+          receipt_refs: ["receipt_artifact_read"],
+          shell_fallback_used: false,
+        };
+      },
+      retrieveCodingToolResult(surfaceStore, threadId, query) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "retrieveResult", threadId, query });
+        return {
+          schema_version: "ioi.runtime.coding-tool-result.v1",
+          tool_call_id: query.tool_call_id ?? "tool_from_artifact",
+          artifact_id: query.artifact_id ?? "artifact_result",
+          artifact_refs: [query.artifact_id ?? "artifact_result"],
+          channel: query.channel ?? "stdout",
+          content: "stored result\n",
+          content_hash: "result-content-hash",
+          full_content_hash: "result-full-hash",
+          offset_bytes: query.range?.offset_bytes ?? 0,
+          length_bytes: 14,
+          total_bytes: 14,
+          truncated: false,
+          available_artifacts: [{ artifact_id: query.artifact_id ?? "artifact_result", channel: query.channel ?? "stdout" }],
+          receipt_refs: ["receipt_tool_retrieve_result"],
+          shell_fallback_used: false,
+        };
+      },
+      materializeCodingToolArtifactDrafts(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "materializeArtifacts", input });
+        return [{ id: "artifact_stdout" }];
+      },
+      appendCodingToolCommandStreamEvents(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "commandStream", input });
+        return [{ event_id: "event_command_stream" }];
+      },
     },
-    retrieveCodingToolResult(threadId, query) {
-      calls.push({ name: "retrieveResult", threadId, query });
-      return {
-        schema_version: "ioi.runtime.coding-tool-result.v1",
-        tool_call_id: query.tool_call_id ?? "tool_from_artifact",
-        artifact_id: query.artifact_id ?? "artifact_result",
-        artifact_refs: [query.artifact_id ?? "artifact_result"],
-        channel: query.channel ?? "stdout",
-        content: "stored result\n",
-        content_hash: "result-content-hash",
-        full_content_hash: "result-full-hash",
-        offset_bytes: query.range?.offset_bytes ?? 0,
-        length_bytes: 14,
-        total_bytes: 14,
-        truncated: false,
-        available_artifacts: [{ artifact_id: query.artifact_id ?? "artifact_result", channel: query.channel ?? "stdout" }],
-        receipt_refs: ["receipt_tool_retrieve_result"],
-        shell_fallback_used: false,
-      };
-    },
-    materializeCodingToolArtifactDrafts(input) {
-      calls.push({ name: "materializeArtifacts", input });
-      return [{ id: "artifact_stdout" }];
-    },
-	    prepareWorkspaceSnapshotForPatch(input) {
-	      calls.push({ name: "prepareSnapshot", input });
-	      if (options.onPrepareSnapshot) {
-	        return options.onPrepareSnapshot(input);
-	      }
-	      return {
-	        record: {
-          snapshot_id: "snapshot_alpha",
-          artifact_refs: ["artifact_snapshot"],
-          receipt_refs: ["receipt_snapshot"],
-        },
-      };
-    },
-    appendCodingToolCommandStreamEvents(input) {
-      calls.push({ name: "commandStream", input });
-      return [{ event_id: "event_command_stream" }];
+    workspaceSnapshotSurface: {
+      prepareWorkspaceSnapshotForPatch(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "prepareSnapshot", input });
+        if (options.onPrepareSnapshot) {
+          return options.onPrepareSnapshot(input);
+        }
+        return {
+          record: {
+            snapshot_id: "snapshot_alpha",
+            artifact_refs: ["artifact_snapshot"],
+            receipt_refs: ["receipt_snapshot"],
+          },
+        };
+      },
+      appendWorkspaceSnapshotEvent(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "appendSnapshotEvent", input });
+        return { event_id: "event_snapshot" };
+      },
     },
     appendRuntimeEvent(event) {
       const stored = {
@@ -161,35 +175,40 @@ function createStore(options = {}) {
       idempotency.set(event.idempotency_key, stored);
       return stored;
     },
-    appendWorkspaceSnapshotEvent(input) {
-      calls.push({ name: "appendSnapshotEvent", input });
-      return { event_id: "event_snapshot" };
+    diagnosticsFeedbackSurface: {
+      maybeRunPostEditDiagnostics(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "diagnostics", input });
+        return { status: "completed", patchToolCallId: input.patchToolCallId };
+      },
     },
-    maybeRunPostEditDiagnostics(input) {
-      calls.push({ name: "diagnostics", input });
-      return { status: "completed", patchToolCallId: input.patchToolCallId };
-    },
-    codingToolApprovalSatisfaction(input) {
-      calls.push({ name: "approvalSatisfaction", input });
-      return { satisfied: false, reason: "approval_missing" };
-    },
-    blockCodingToolForApproval(input) {
-      calls.push({ name: "blockApproval", input });
-      return { status: "blocked", approval_required: true, approval_manifest: input.approval_manifest };
-    },
-    blockCodingToolForBudget(input) {
-      calls.push({ name: "blockBudget", input });
-      return {
-        event: { event_id: "event_budget" },
-        receipt_refs: ["receipt_budget"],
-        policy_decision_refs: ["policy_budget"],
-      };
+    codingToolGovernanceSurface: {
+      codingToolApprovalSatisfaction(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "approvalSatisfaction", input });
+        return { satisfied: false, reason: "approval_missing" };
+      },
+      blockCodingToolForApproval(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "blockApproval", input });
+        return { status: "blocked", approval_required: true, approval_manifest: input.approval_manifest };
+      },
+      blockCodingToolForBudget(surfaceStore, input) {
+        assert.equal(surfaceStore, store);
+        calls.push({ name: "blockBudget", input });
+        return {
+          event: { event_id: "event_budget" },
+          receipt_refs: ["receipt_budget"],
+          policy_decision_refs: ["policy_budget"],
+        };
+      },
     },
     invokeComputerUseBrowserDiscoveryTool(threadId, toolId, request) {
       calls.push({ name: "browserDiscovery", threadId, toolId, request });
       return { routed: "browser_discovery", toolId };
     },
   };
+  return store;
 }
 
 test("coding tool invocation surface rejects non-live coding-tool runners before JS execution", () => {

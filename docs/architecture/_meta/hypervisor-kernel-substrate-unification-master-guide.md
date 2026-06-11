@@ -5851,6 +5851,33 @@ expected-head/state-root binding, replay, and projection own the direct APIs;
 future direct Rust APIs should replace the mounted JS surfaces rather than
 reviving daemon-store wrapper methods.
 
+Slice 1099 retires the daemon-store coding-tool artifact/governance,
+workspace-snapshot/restore, and diagnostics-feedback helper pass-through
+delegates. The coding-tool invocation surface now calls mounted
+`codingToolGovernanceSurface`, `codingToolArtifactSurface`,
+`workspaceSnapshotSurface`, and `diagnosticsFeedbackSurface` methods directly
+instead of re-entering `AgentgresRuntimeStateStore` wrappers for approval
+satisfaction/blocking, budget blocking, artifact reads/retrieval, command-stream
+events, artifact draft materialization, patch snapshots, snapshot events, and
+post-edit diagnostics.
+
+The daemon store no longer exposes the retired helper entrypoints, including
+`appendCodingToolCommandStreamEvents()`, `codingToolApprovalSatisfaction()`,
+`blockCodingToolForApproval()`, `blockCodingToolForBudget()`,
+`prepareWorkspaceSnapshotForPatch()`, `materializeWorkspaceSnapshotArtifact()`,
+`appendWorkspaceSnapshotEvent()`, `workspaceSnapshotContentPackage()`,
+`materializeWorkspaceRestorePreviewArtifact()`,
+`materializeWorkspaceRestoreApplyArtifact()`,
+`appendWorkspaceRestorePreviewEvent()`, `appendWorkspaceRestoreApplyEvent()`,
+`maybeRunPostEditDiagnostics()`, `pendingDiagnosticsFeedbackForNextTurn()`,
+`materializeCodingToolArtifactDrafts()`,
+`materializeVisualGuiObservationArtifacts()`, `readCodingToolArtifact()`, and
+`retrieveCodingToolResult()`. Conformance now fails if those wrappers return.
+The remaining mounted JS surfaces are protocol-edge migration scaffolding until
+direct Rust daemon-core coding-tool governance, artifact admission, snapshot
+admission, diagnostics feedback projection, Agentgres expected-head/state-root
+binding, replay, and projection APIs replace them.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

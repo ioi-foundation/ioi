@@ -3199,7 +3199,7 @@ function runBridge() {
     runtimeDaemonIndex.match(/async invokeComputerUseNativeBrowserTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseSandboxedHostedTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseSandboxedHostedTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiObserveTool/)?.[0] ?? "",
-    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  appendCodingToolCommandStreamEvents/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  latestApprovalRequestEvent/)?.[0] ?? "",
   ];
   const computerUseInvocationBodiesGuardOnly =
     computerUseToolIdentityBodies.every((body) =>
@@ -6600,7 +6600,7 @@ function runBridge() {
       /approval_decision_event_id:\s*approvalSatisfaction\?\.decision_event_id \?\? null/.test(
         codingToolInvocationPayloadSummaryBlock,
       ) &&
-      /store\.codingToolApprovalSatisfaction\(\{ threadId, approval_manifest: approvalManifest, request \}\)/.test(
+      /store\.codingToolGovernanceSurface\.codingToolApprovalSatisfaction\(store, \{\s*threadId,\s*approval_manifest: approvalManifest,\s*request,\s*\}\)/.test(
         runtimeCodingToolInvocationSurface,
       ) &&
       /approvalSatisfaction\?\.approval_id/.test(runtimeCodingToolInvocationSurface) &&
@@ -8001,10 +8001,22 @@ function runBridge() {
       /"applyThreadMcpServerMutation"[\s\S]*"mcpStatusWithLiveDiscovery"[\s\S]*"appendThreadMcpControlEvent"[\s\S]*"mcpServersForContext"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
+      /"appendCodingToolCommandStreamEvents"[\s\S]*"codingToolApprovalSatisfaction"[\s\S]*"blockCodingToolForApproval"[\s\S]*"blockCodingToolForBudget"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"prepareWorkspaceSnapshotForPatch"[\s\S]*"materializeWorkspaceSnapshotArtifact"[\s\S]*"appendWorkspaceSnapshotEvent"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"workspaceSnapshotContentPackage"[\s\S]*"materializeWorkspaceRestorePreviewArtifact"[\s\S]*"appendWorkspaceRestoreApplyEvent"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"maybeRunPostEditDiagnostics"[\s\S]*"pendingDiagnosticsFeedbackForNextTurn"[\s\S]*"materializeCodingToolArtifactDrafts"[\s\S]*"materializeVisualGuiObservationArtifacts"[\s\S]*"readCodingToolArtifact"[\s\S]*"retrieveCodingToolResult"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
       /Object\.hasOwn\(prototype, method\), false/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      !/^\s*(?:inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext)\(/m.test(
+      !/^\s*(?:inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult)\(/m.test(
         runtimeDaemonIndex,
       ) &&
       /thread turn surface fails closed for non-runtime resume before JS mutation/.test(
