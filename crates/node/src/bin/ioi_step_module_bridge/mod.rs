@@ -30,7 +30,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
     ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
     ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
-    ModelMountRouteDecisionRequest,
+    ModelMountRouteDecisionRequest, ModelMountServerControlRequiredRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -238,6 +238,16 @@ struct ModelMountBackendLifecycleRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountBackendLifecycleRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountServerControlRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountServerControlRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -957,6 +967,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_model_mount_backend_lifecycle_required(request)
         }
+        "plan_model_mount_server_control_required" => {
+            let request: ModelMountServerControlRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_server_control_required(request)
+        }
         "plan_model_mount_accepted_receipt_head" => {
             let request: ModelMountAcceptedReceiptHeadBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1335,6 +1351,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "admit_model_mount_provider_result"
             | "plan_model_mount_backend_process"
             | "plan_model_mount_backend_lifecycle_required"
+            | "plan_model_mount_server_control_required"
             | "plan_model_mount_accepted_receipt_head"
             | "plan_model_mount_accepted_receipt_transition"
             | "bind_model_mount_invocation_receipt"
@@ -1990,6 +2007,46 @@ fn plan_model_mount_backend_lifecycle_required(
     Ok(json!({
         "source": "rust_model_mount_backend_lifecycle_required_command",
         "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_lifecycle_required".to_string()),
+        "record": record.clone(),
+        "status": record.status,
+        "status_code": record.status_code,
+        "code": record.code,
+        "message": record.message,
+        "rust_core_boundary": record.rust_core_boundary,
+        "operation_kind": record.operation_kind,
+        "details": record.details,
+    }))
+}
+
+fn plan_model_mount_server_control_required(
+    request: ModelMountServerControlRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_server_control_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ModelMountCore
+        .plan_server_control_required(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_server_control_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_server_control_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_server_control_required".to_string()),
         "record": record.clone(),
         "status": record.status,
         "status_code": record.status_code,
@@ -8618,6 +8675,57 @@ mod tests {
         assert_eq!(response["details"]["backend_kind"], Value::Null);
         assert!(response["details"].get("backendId").is_none());
         assert!(response["details"].get("operationKind").is_none());
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_server_control_required_through_rust_core() {
+        let request: ModelMountServerControlRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_server_control_required",
+            "backend": "rust_model_mount_server_control_required",
+            "request": {
+                "schema_version": "ioi.model_mount.server_control_required.v1",
+                "operation": "model_mount.server_control",
+                "operation_kind": "model_mount.server_control.record_operation",
+                "source": "runtime-daemon.model_mounting.server_control",
+                "details": {
+                    "base_url": "http://daemon.test",
+                    "reason": "test",
+                    "server_control_id": "server-control.default"
+                }
+            }
+        }))
+        .expect("server control required bridge request");
+
+        let response = plan_model_mount_server_control_required(request)
+            .expect("server control required planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_server_control_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_server_control_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_server_control_rust_core_required"
+        );
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.server_control.record_operation"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.server_control");
+        assert_eq!(response["details"]["base_url"], "http://daemon.test");
+        assert_eq!(
+            response["details"]["server_control_id"],
+            "server-control.default"
+        );
+        assert!(response["details"].get("operationKind").is_none());
+        assert!(response["details"].get("serverControlId").is_none());
     }
 
     #[test]

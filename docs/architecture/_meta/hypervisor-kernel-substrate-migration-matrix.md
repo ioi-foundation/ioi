@@ -20366,6 +20366,23 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1000
+
+Slice 1000 moved public model-mount server-control Rust-core-required refusal
+authoring into the Rust model_mount core. Server start/stop/restart/log/event
+facades, server-control state writes, and operation recording now call
+`plan_model_mount_server_control_required` through the daemon-core command
+bridge and only translate the Rust-authored failure record at the JS edge.
+
+This is still non-terminal migration work: the Node command bridge remains
+transitional transport and direct Agentgres-backed Rust server-control state,
+log/event projection, replay, and stable SDK/IDE/CLI protocol APIs remain
+required before server control reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1000 | Public model-mount server-control refusal envelopes are planned by Rust model_mount and translated by JS only at the edge. | Direct Agentgres-backed Rust server-control state/log/event/projection replaces JS server-control scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 999
 
 Slice 999 moved public backend lifecycle Rust-core-required refusal authoring

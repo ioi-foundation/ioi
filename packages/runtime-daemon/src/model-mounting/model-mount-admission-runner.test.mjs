@@ -6,6 +6,7 @@ import {
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
   createModelMountAdmissionRunnerFromEnv,
   RustModelMountAdmissionRunner,
 } from "./model-mount-admission-runner.mjs";
@@ -251,6 +252,25 @@ function backendLifecycleRequiredRequest() {
       "rust_daemon_core_lifecycle_required",
       "agentgres_backend_lifecycle_truth_required",
     ],
+  };
+}
+
+function serverControlRequiredRequest() {
+  return {
+    schema_version: "ioi.model_mount.server_control_required.v1",
+    operation: "model_mount.server_control",
+    operation_kind: "model_mount.server_control.record_operation",
+    source: "runtime-daemon.model_mounting.server_control",
+    evidence_refs: [
+      "public_server_control_js_facade_retired",
+      "rust_daemon_core_server_control_required",
+      "agentgres_server_control_truth_required",
+    ],
+    details: {
+      base_url: "http://daemon.test",
+      reason: "test",
+      server_control_id: "server-control.default",
+    },
   };
 }
 
@@ -850,6 +870,84 @@ test("Rust model_mount admission runner sends backend lifecycle required request
   assert.equal(result.details.operation_kind, "model_mount.backend.start");
   assert.equal(Object.hasOwn(result.details, "backendId"), false);
   assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+});
+
+test("Rust model_mount admission runner sends server control required request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_server_control_required_command",
+            backend: RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
+            record: {
+              schema_version: "ioi.model_mount.server_control_required_result.v1",
+              object: "ioi.model_mount_server_control_required",
+              status: "rust_core_required",
+              status_code: 501,
+              code: "model_mount_server_control_rust_core_required",
+              message:
+                "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
+              rust_core_boundary: "model_mount.server_control",
+              operation: request.request.operation,
+              operation_kind: request.request.operation_kind,
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+              details: {
+                ...request.request.details,
+                operation: request.request.operation,
+                operation_kind: request.request.operation_kind,
+                rust_core_boundary: "model_mount.server_control",
+                source: request.request.source,
+                evidence_refs: request.request.evidence_refs,
+              },
+              generated_at: "rust_model_mount_core",
+            },
+            status: "rust_core_required",
+            status_code: 501,
+            code: "model_mount_server_control_rust_core_required",
+            message:
+              "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
+            rust_core_boundary: "model_mount.server_control",
+            operation_kind: request.request.operation_kind,
+            details: {
+              ...request.request.details,
+              operation: request.request.operation,
+              operation_kind: request.request.operation_kind,
+              rust_core_boundary: "model_mount.server_control",
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planServerControlRequired(serverControlRequiredRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_server_control_required");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.server_control_required.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.server_control.record_operation");
+  assert.equal(calls[0].request.request.details.server_control_id, "server-control.default");
+  assert.equal(result.status, "rust_core_required");
+  assert.equal(result.status_code, 501);
+  assert.equal(result.code, "model_mount_server_control_rust_core_required");
+  assert.equal(result.details.base_url, "http://daemon.test");
+  assert.equal(result.details.server_control_id, "server-control.default");
+  assert.equal(result.details.operation_kind, "model_mount.server_control.record_operation");
+  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(result.details, "serverControlId"), false);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

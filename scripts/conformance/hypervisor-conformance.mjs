@@ -14916,18 +14916,29 @@ function runReceipts() {
       /SERVER_CONTROL_RECORD_ID\s*=\s*"server-control\.default"/.test(modelMountingState) &&
       /throwServerControlRustCoreRequired/.test(modelMountingState) &&
       /model_mount_server_control_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.server_control"/.test(modelMountingState) &&
+      /serverControlRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
+      /this\.modelMountAdmissionRunner\.planServerControlRequired/.test(modelMountingState) &&
+      /planServerControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_server_control_required"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /ModelMountServerControlRequiredRequest/.test(modelMountCore) &&
+      /plan_server_control_required/.test(modelMountCore) &&
+      /server_control_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /ModelMountServerControlRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_model_mount_server_control_required/.test(bridgeModule) &&
+      /bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
       /public_server_control_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_server_control_required/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.start"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.stop"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.restart"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.logs_read"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.events_read"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_projection"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.log_append"\)/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.write"/.test(modelMountingState) &&
-      /throwServerControlRustCoreRequired\("model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
+      /agentgres_server_control_truth_required/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.start"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.stop"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.restart"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.logs_read"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.events_read"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.log_projection"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.log_append"\)\)/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.write"/.test(modelMountingState) &&
+      /throwServerControlRustCoreRequired\(this\.serverControlRequired\("model_mount\.server_control\.record_operation"/.test(modelMountingState) &&
       !/commitModelMountRecordState/.test(modelMountingState) &&
       !/state\.lifecycleReceipt\("server_(?:start|stop|restart|logs_read|events_read)"/.test(modelMountingState) &&
       /function serverStatusProjectionInput/.test(modelMountingReadProjectionFacade) &&
@@ -14939,6 +14950,11 @@ function runReceipts() {
       /mounted server control state is volatile input only/.test(serverControlMountedTest) &&
       /mounted server control mutation\/log facades fail closed before JS state or log writes/.test(serverControlMountedTest) &&
       /mounted server control state writes and operation recording fail closed/.test(serverControlMountedTest) &&
+      /Rust model_mount admission runner sends server control required request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /state\.serverControlRequiredRequests\[0\]\.schema_version/.test(serverControlMountedTest) &&
+      /state\.serverControlRequiredRequests\[0\]\.operation_kind/.test(serverControlMountedTest) &&
       /recordServerOperation/.test(serverControlMountedTest) &&
       /model_mount\.server_control\.record_operation/.test(serverControlMountedTest) &&
       /assert\.equal\(Object\.hasOwn\(controlState,\s*"schema_version"\),\s*false\)/.test(serverControlMountedTest),
@@ -14947,8 +14963,12 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/server-control.test.mjs",
       "packages/runtime-daemon/src/model-mounting/server-control-mounted.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/read-projection-facade.mjs",
       "packages/runtime-daemon/src/model-mounting/record-state-commits.mjs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
     "Phase 9/11 is pending: public server-control facade must fail closed until Rust daemon-core model_mount owns server-control receipts, state, logs, events, and projection",
   );

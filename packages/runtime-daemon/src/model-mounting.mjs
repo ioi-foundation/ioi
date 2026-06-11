@@ -547,54 +547,54 @@ export class ModelMountingState {
       id: SERVER_CONTROL_RECORD_ID,
       ...controlState,
     };
-    throwServerControlRustCoreRequired("model_mount.server_control.write", {
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.write", {
       server_control_id: record.id,
       receipt_id: record.receiptId ?? null,
-    });
+    }));
   }
 
   serverStart(baseUrl) {
     void baseUrl;
-    throwServerControlRustCoreRequired("model_mount.server_control.start");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.start"));
   }
 
   serverStop(baseUrl) {
     void baseUrl;
-    throwServerControlRustCoreRequired("model_mount.server_control.stop");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.stop"));
   }
 
   serverRestart(baseUrl) {
     void baseUrl;
-    throwServerControlRustCoreRequired("model_mount.server_control.restart");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.restart"));
   }
 
   recordServerOperation(operation, status, baseUrl, details = {}) {
-    throwServerControlRustCoreRequired("model_mount.server_control.record_operation", {
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.record_operation", {
       operation: operation ?? null,
       status: status ?? null,
       base_url: baseUrl ?? null,
       ...details,
-    });
+    }));
   }
 
   serverLogs(query = {}) {
     void query;
-    throwServerControlRustCoreRequired("model_mount.server_control.logs_read");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.logs_read"));
   }
 
   serverEvents(query = {}) {
     void query;
-    throwServerControlRustCoreRequired("model_mount.server_control.events_read");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.events_read"));
   }
 
   serverLogRecords({ limit = 80 } = {}) {
     void limit;
-    throwServerControlRustCoreRequired("model_mount.server_control.log_projection");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.log_projection"));
   }
 
   writeServerLog(event) {
     void event;
-    throwServerControlRustCoreRequired("model_mount.server_control.log_append");
+    throwServerControlRustCoreRequired(this.serverControlRequired("model_mount.server_control.log_append"));
   }
 
   runtimeModelCatalogList() {
@@ -1192,6 +1192,21 @@ export class ModelMountingState {
         "rust_daemon_core_lifecycle_required",
         "agentgres_backend_lifecycle_truth_required",
       ],
+    });
+  }
+
+  serverControlRequired(operation_kind, details = {}) {
+    return this.modelMountAdmissionRunner.planServerControlRequired({
+      schema_version: "ioi.model_mount.server_control_required.v1",
+      operation: "model_mount.server_control",
+      operation_kind,
+      source: "runtime-daemon.model_mounting.server_control",
+      evidence_refs: [
+        "public_server_control_js_facade_retired",
+        "rust_daemon_core_server_control_required",
+        "agentgres_server_control_truth_required",
+      ],
+      details,
     });
   }
 
@@ -1812,19 +1827,29 @@ function throwBackendProjectionRustCoreRequired(operation_kind) {
   });
 }
 
-function throwServerControlRustCoreRequired(operation_kind, details = {}) {
+function throwServerControlRustCoreRequired(record = {}) {
+  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
+    ? record.details
+    : {};
+  const evidenceRefs = Array.isArray(details.evidence_refs)
+    ? details.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [
+          "public_server_control_js_facade_retired",
+          "rust_daemon_core_server_control_required",
+          "agentgres_server_control_truth_required",
+        ];
   throw runtimeError({
-    status: 501,
-    code: "model_mount_server_control_rust_core_required",
-    message: "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
+    status: record.status_code ?? 501,
+    code: record.code ?? "model_mount_server_control_rust_core_required",
+    message:
+      record.message ??
+      "Server-control facade requires Rust daemon-core model_mount server-control ownership.",
     details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.server_control",
-      evidence_refs: [
-        "public_server_control_js_facade_retired",
-        "rust_daemon_core_server_control_required",
-      ],
       ...details,
+      rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.server_control",
+      evidence_refs: evidenceRefs,
     },
   });
 }
