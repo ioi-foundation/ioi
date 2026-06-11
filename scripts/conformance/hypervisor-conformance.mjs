@@ -11933,6 +11933,39 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "runtime-thread-control-model-output-aliases-retired",
+    /export function initialThreadRuntimeControls/.test(threadRuntimeControls) &&
+      /export function normalizedAgentRuntimeControls/.test(threadRuntimeControls) &&
+      /initialThreadRuntimeControls(?:(?!\nexport function normalizedAgentRuntimeControls)[\s\S])*route_id:\s*modelRoute\.routeId/.test(
+        threadRuntimeControls,
+      ) &&
+      /normalizedAgentRuntimeControls(?:(?!\nexport function requestWithThreadRuntimeControls)[\s\S])*route_id:\s*routeId/.test(
+        threadRuntimeControls,
+      ) &&
+      /normalizedAgentRuntimeControls(?:(?!\nexport function requestWithThreadRuntimeControls)[\s\S])*receipt_id:\s*receiptId/.test(
+        threadRuntimeControls,
+      ) &&
+      !/initialThreadRuntimeControls(?:(?!\nexport function normalizedAgentRuntimeControls)[\s\S])*^\s*(?:routeId|selectedModel|endpointId|providerId|receiptId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId)\s*:/m.test(
+        threadRuntimeControls,
+      ) &&
+      !/const (?:routeId|selectedModel|endpointId|providerId|receiptId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId|updatedAt)\s*=\s*model\.(?:routeId|selectedModel|endpointId|providerId|receiptId|reasoningEffort|maxCostUsd|workflowGraphId|workflowNodeId|updatedAt)/.test(
+        threadRuntimeControls,
+      ) &&
+      /model-control alias must be absent/.test(threadRuntimeControlsTest) &&
+      /Object\.hasOwn\(normalizedFromCanonicalDecision\.model,\s*"reasoningEffort"\),\s*false/.test(
+        threadRuntimeControlsTest,
+      ) &&
+      /Object\.hasOwn\(normalizedFromCanonicalDecision\.model,\s*"workflowNodeId"\),\s*false/.test(
+        threadRuntimeControlsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
+      "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
+    ],
+    "Phase 10/11 is pending: thread runtime-control model records must emit canonical snake_case fields without retired camelCase projection aliases",
+  );
+  assertCheck(
+    result,
     "runtime-thread-control-surface-output-aliases-retired",
     /runtime_thread_control_rust_core_required/.test(runtimeThreadControlSurface) &&
       /runtime_thread_control_event_js_facade_retired/.test(runtimeThreadControlSurface) &&

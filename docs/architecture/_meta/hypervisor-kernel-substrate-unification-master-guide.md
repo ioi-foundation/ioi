@@ -5526,6 +5526,23 @@ module execution, Agentgres-admitted truth, receipt/state-root binding, replay,
 projection, wallet.network authority where applicable, cTEE custody where
 applicable, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1079 retires duplicate camelCase model-route projection fields from the
+runtime thread-control model envelope. `initialThreadRuntimeControls()` and
+`normalizedAgentRuntimeControls()` now emit canonical `route_id`,
+`selected_model`, `endpoint_id`, `provider_id`, `receipt_id`,
+`reasoning_effort`, `max_cost_usd`, `workflow_graph_id`, `workflow_node_id`,
+and `updated_at` fields without parallel `routeId`, `selectedModel`,
+`endpointId`, `providerId`, `receiptId`, `reasoningEffort`, `maxCostUsd`,
+`workflowGraphId`, `workflowNodeId`, or `updatedAt` aliases. The normalized
+runtime-control model reader also stops treating those retired model-control
+aliases as persisted truth.
+
+This slice does not complete thread-control migration: the JS surface remains
+fail-closed/migration scaffolding until direct Rust daemon-core thread-control
+admission, Agentgres state-root binding, replay, and projection APIs own the
+surface. It does, however, remove a duplicate projection shape that could have
+survived as a compatibility contract beside the Rust-owned snake_case protocol.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -11799,10 +11799,9 @@ owner_boundary:
   truth_path: canonical snake_case runtime-control model fields drive the
     inherited model-route handoff payload; retired camelCase helper fields no
     longer satisfy that handoff
-  projection_path: runtime thread-control projections may keep their current
-    view fields, but route-selection handoff payloads are canonical
-    `route_id`, `reasoning_effort`, `max_cost_usd`, `workflow_graph_id`, and
-    `workflow_node_id`
+  projection_path: Slice 609 canonicalized route-selection handoff payloads;
+    Slice 1079 later retired duplicate camelCase model-route projection fields
+    from runtime thread-control model records as well
 touched_files:
   docs:
     - docs/architecture/_meta/hypervisor-kernel-substrate-migration-matrix.md
@@ -15782,6 +15781,38 @@ Focused evidence:
 | `npm run hypervisor-conformance:compositor` | passed |
 | `npm run hypervisor-conformance:negative` | passed |
 | `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+## Implementation Slice Evidence: 1079
+
+Slice 1079 retires duplicate camelCase model-route projection fields from the
+runtime thread-control model envelope. `initialThreadRuntimeControls()` and
+`normalizedAgentRuntimeControls()` now emit canonical `route_id`,
+`selected_model`, `endpoint_id`, `provider_id`, `receipt_id`,
+`reasoning_effort`, `max_cost_usd`, `workflow_graph_id`, `workflow_node_id`,
+and `updated_at` fields without parallel `routeId`, `selectedModel`,
+`endpointId`, `providerId`, `receiptId`, `reasoningEffort`, `maxCostUsd`,
+`workflowGraphId`, `workflowNodeId`, or `updatedAt` aliases. The normalized
+reader also stops accepting those retired model-control aliases as persisted
+model-control truth.
+
+Conformance now fails if the runtime thread-control model envelope regains
+camelCase model-route output aliases or fallback readers for those aliases.
+This is still not terminal thread-control migration: the JS thread-control
+surface remains fail-closed/migration scaffolding until direct Rust daemon-core
+thread-control admission, Agentgres expected-head/state-root binding, replay,
+and projection APIs own the surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/threads/thread-runtime-controls.mjs` | passed |
+| `node --test packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 

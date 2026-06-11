@@ -60,14 +60,24 @@ test("initial and normalized runtime controls preserve schema and model route fi
   assert.equal(Object.hasOwn(controls, "schemaVersion"), false);
   assert.equal(controls.mode, "plan");
   assert.equal(controls.approvalMode, "human_required");
-  assert.equal(controls.model.selectedModel, "local-model");
   assert.equal(controls.model.selected_model, "local-model");
-  assert.equal(controls.model.reasoningEffort, "low");
   assert.equal(controls.model.reasoning_effort, "low");
-  assert.equal(controls.model.workflowGraphId, "graph-1");
   assert.equal(controls.model.workflow_graph_id, "graph-1");
-  assert.equal(controls.model.workflowNodeId, "node-1");
   assert.equal(controls.model.workflow_node_id, "node-1");
+  for (const alias of [
+    "routeId",
+    "selectedModel",
+    "endpointId",
+    "providerId",
+    "receiptId",
+    "reasoningEffort",
+    "maxCostUsd",
+    "workflowGraphId",
+    "workflowNodeId",
+    "updatedAt",
+  ]) {
+    assert.equal(Object.hasOwn(controls.model, alias), false, `${alias} model-control alias must be absent`);
+  }
 
   const poisoned = initialThreadRuntimeControls(
     {
@@ -90,15 +100,10 @@ test("initial and normalized runtime controls preserve schema and model route fi
   assert.equal(Object.hasOwn(poisoned, "schemaVersion"), false);
   assert.equal(poisoned.mode, "agent");
   assert.equal(poisoned.approvalMode, "suggest");
-  assert.equal(poisoned.model.routeId, "route.local-first");
   assert.equal(poisoned.model.route_id, "route.local-first");
-  assert.equal(poisoned.model.reasoningEffort, null);
   assert.equal(poisoned.model.reasoning_effort, null);
-  assert.equal(poisoned.model.maxCostUsd, null);
   assert.equal(poisoned.model.max_cost_usd, null);
-  assert.equal(poisoned.model.workflowGraphId, null);
   assert.equal(poisoned.model.workflow_graph_id, null);
-  assert.equal(poisoned.model.workflowNodeId, "runtime.model-router");
   assert.equal(poisoned.model.workflow_node_id, "runtime.model-router");
 
   const normalizedFromCanonicalDecision = normalizedAgentRuntimeControls({
@@ -112,12 +117,12 @@ test("initial and normalized runtime controls preserve schema and model route fi
     },
   });
   assert.equal(Object.hasOwn(normalizedFromCanonicalDecision, "schemaVersion"), false);
-  assert.equal(normalizedFromCanonicalDecision.model.reasoningEffort, "medium");
   assert.equal(normalizedFromCanonicalDecision.model.reasoning_effort, "medium");
-  assert.equal(normalizedFromCanonicalDecision.model.workflowGraphId, "graph-decision");
   assert.equal(normalizedFromCanonicalDecision.model.workflow_graph_id, "graph-decision");
-  assert.equal(normalizedFromCanonicalDecision.model.workflowNodeId, "node-decision");
   assert.equal(normalizedFromCanonicalDecision.model.workflow_node_id, "node-decision");
+  assert.equal(Object.hasOwn(normalizedFromCanonicalDecision.model, "reasoningEffort"), false);
+  assert.equal(Object.hasOwn(normalizedFromCanonicalDecision.model, "workflowGraphId"), false);
+  assert.equal(Object.hasOwn(normalizedFromCanonicalDecision.model, "workflowNodeId"), false);
 
   assert.deepEqual(normalizedAgentRuntimeControls({
     mode: "chat",
@@ -126,27 +131,17 @@ test("initial and normalized runtime controls preserve schema and model route fi
     modelRouteEndpointId: "endpoint-test",
   }).model, {
     id: "requested-model",
-    routeId: "route.test",
     route_id: "route.test",
-    selectedModel: null,
     selected_model: null,
-    endpointId: "endpoint-test",
     endpoint_id: "endpoint-test",
-    providerId: null,
     provider_id: null,
-    receiptId: null,
     receipt_id: null,
-    reasoningEffort: null,
     reasoning_effort: null,
     privacy: null,
-    maxCostUsd: null,
     max_cost_usd: null,
     allow_hosted_fallback: null,
-    workflowGraphId: null,
     workflow_graph_id: null,
-    workflowNodeId: "runtime.model-router",
     workflow_node_id: "runtime.model-router",
-    updatedAt: null,
     updated_at: null,
   });
 });
