@@ -3167,6 +3167,9 @@ function runBridge() {
   const runtimeAgentServiceAdapterTest = exists("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs")
     : "";
+  const runtimeAgentServiceBridgeBinary = exists("crates/node/src/bin/ioi-runtime-bridge.rs")
+    ? read("crates/node/src/bin/ioi-runtime-bridge.rs")
+    : "";
   const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
     : "";
@@ -9230,14 +9233,40 @@ function runBridge() {
       !/this\.args/.test(runtimeAgentServiceAdapter) &&
       /assertNoRuntimeAgentServiceBridgeArgs/.test(runtimeAgentServiceAdapter) &&
       /runtime_agent_service_bridge_args_retired/.test(runtimeAgentServiceAdapter) &&
+      /assertNoRetiredRuntimeAgentServiceBridgeInputAliases\(operation, input\);/.test(
+        runtimeAgentServiceAdapter,
+      ) &&
+      /runtime_agent_service_bridge_input_aliases_retired/.test(
+        runtimeAgentServiceAdapter,
+      ) &&
+      /retiredRuntimeAgentServiceBridgeInputAliases/.test(runtimeAgentServiceAdapter) &&
       /spawn\(command,\s*\[\]/.test(runtimeAgentServiceAdapter) &&
       !/bridge_id:\s*result\.bridge_id \?\? result\.bridgeId/.test(
         runtimeAgentServiceAdapter,
       ) &&
+      !/alias\s*=\s*"(?:schemaVersion|bridgeId|runtime_profile|agent_id|thread_id|workspace_root|created_at|session_id|streamed_events_only|streamEventsOnly|stream_events_only|projection_mode|managed_sessions_only|request_hash|managed_session_id|change_id|workspaceChangeId)"/.test(
+        runtimeAgentServiceBridgeBinary,
+      ) &&
+      /rejects_retired_bridge_request_aliases/.test(runtimeAgentServiceBridgeBinary) &&
+      /rejects_retired_runtime_bridge_input_aliases/.test(
+        runtimeAgentServiceBridgeBinary,
+      ) &&
+      /ignores_retired_optional_runtime_bridge_input_aliases/.test(
+        runtimeAgentServiceBridgeBinary,
+      ) &&
       /RuntimeAgentService command adapter ignores retired bridgeId result alias/.test(
         runtimeAgentServiceAdapterTest,
       ) &&
+      /RuntimeAgentService command adapter input aliases fail closed before transport/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
       /bridgeId:\s*"retired-bridge-result"/.test(runtimeAgentServiceAdapterTest) &&
+      /adapter\.startThread\(\{ thread_id: "thread_dynamic_env" \}\)/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
+      /adapter\.startThread\(\{ threadId: "thread_retired" \}\)/.test(
+        runtimeAgentServiceAdapterTest,
+      ) &&
       /result\.bridge_id,\s*"canonical-adapter-bridge"/.test(
         runtimeAgentServiceAdapterTest,
       ) &&
@@ -9253,8 +9282,9 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/runtime-agent-service-adapter.mjs",
       "packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs",
+      "crates/node/src/bin/ioi-runtime-bridge.rs",
     ],
-    "Phase 10/11 is pending: RuntimeAgentService command adapter results must expose canonical bridge_id without deriving from or leaking retired bridgeId aliases",
+    "Phase 10/11 is pending: RuntimeAgentService command adapter and bridge binary must use canonical snake_case command payloads without accepting retired bridge/input aliases",
   );
   assertCheck(
     result,

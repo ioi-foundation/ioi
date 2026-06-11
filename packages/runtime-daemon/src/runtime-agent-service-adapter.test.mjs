@@ -44,7 +44,7 @@ console.log(JSON.stringify({
 
   try {
     process.env.IOI_RUNTIME_ADAPTER_DYNAMIC_ENV = "set-after-adapter-construction";
-    const result = await adapter.startThread({ threadId: "thread_dynamic_env" });
+    const result = await adapter.startThread({ thread_id: "thread_dynamic_env" });
     assert.equal(result.bridge_id, "dynamic-env-test");
     assert.equal(result.operation, "start_thread");
     assert.equal(result.dynamic_env, "set-after-adapter-construction");
@@ -91,7 +91,7 @@ console.log(JSON.stringify({
   });
   const events = [];
   const result = await adapter.submitTurn(
-    { threadId: "thread_stream" },
+    { thread_id: "thread_stream" },
     { onRuntimeEvent: (event) => events.push(event) },
   );
 
@@ -169,7 +169,7 @@ console.log(JSON.stringify({
   });
   const events = [];
   const result = await adapter.submitTurn(
-    { threadId: "thread_activity" },
+    { thread_id: "thread_activity" },
     { onRuntimeEvent: (event) => events.push(event) },
   );
 
@@ -205,21 +205,66 @@ console.log(JSON.stringify({
   });
 
   const inspection = await adapter.inspectThread({
-    threadId: "thread_managed",
-    sessionId: "session_managed",
+    thread_id: "thread_managed",
+    session_id: "session_managed",
   });
   assert.equal(inspection.operation, "inspect_thread");
-  assert.equal(inspection.input.threadId, "thread_managed");
+  assert.equal(inspection.input.thread_id, "thread_managed");
 
   const control = await adapter.controlThread({
-    threadId: "thread_managed",
-    sessionId: "session_managed",
-    managedSessionId: "sandbox_browser:one",
+    thread_id: "thread_managed",
+    session_id: "session_managed",
+    managed_session_id: "sandbox_browser:one",
     action: "take_over_session",
   });
   assert.equal(control.operation, "control_thread");
-  assert.equal(control.input.managedSessionId, "sandbox_browser:one");
+  assert.equal(control.input.managed_session_id, "sandbox_browser:one");
   assert.equal(control.input.action, "take_over_session");
+});
+
+test("RuntimeAgentService command adapter input aliases fail closed before transport", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-runtime-adapter-input-alias-"));
+  const bridgeScript = path.join(tempDir, "bridge-input-alias-probe.mjs");
+  writeExecutableBridgeScript(
+    bridgeScript,
+    `
+throw new Error("bridge command should not be spawned for retired input aliases");
+`,
+  );
+
+  const adapter = createRuntimeAgentServiceCommandAdapter({
+    command: bridgeScript,
+    bridgeId: "input-alias-test",
+  });
+
+  await assert.rejects(
+    () => adapter.startThread({ threadId: "thread_retired" }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_input_aliases_retired" &&
+      error.details?.retired_aliases?.includes("threadId"),
+  );
+  await assert.rejects(
+    () => adapter.submitTurn({ thread_id: "thread_ok", sessionId: "session_retired" }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_input_aliases_retired" &&
+      error.details?.retired_aliases?.includes("sessionId"),
+  );
+  await assert.rejects(
+    () => adapter.inspectThread({ session_id: "session_ok", managedSessionsOnly: true }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_input_aliases_retired" &&
+      error.details?.retired_aliases?.includes("managedSessionsOnly"),
+  );
+  await assert.rejects(
+    () => adapter.controlThread({ session_id: "session_ok", action: "take_over_session", managedSessionId: "managed_retired" }),
+    (error) =>
+      error instanceof RuntimeAgentServiceCommandAdapterError &&
+      error.code === "runtime_agent_service_bridge_input_aliases_retired" &&
+      error.details?.retired_aliases?.includes("managedSessionId"),
+  );
 });
 
 test("RuntimeAgentService command adapter bridge args env fails closed", () => {

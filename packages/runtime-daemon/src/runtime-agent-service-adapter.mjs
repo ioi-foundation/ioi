@@ -73,6 +73,7 @@ export class RuntimeAgentServiceCommandAdapter {
   }
 
   async callBridge(operation, input, options = {}) {
+    assertNoRetiredRuntimeAgentServiceBridgeInputAliases(operation, input);
     const request = {
       schema_version: COMMAND_SCHEMA_VERSION,
       bridge_id: this.bridgeId,
@@ -332,6 +333,53 @@ export function assertNoRuntimeAgentServiceBridgeArgs(value) {
       retired_args: value,
     },
   );
+}
+
+export function assertNoRetiredRuntimeAgentServiceBridgeInputAliases(operation, input = {}) {
+  const retiredAliases = retiredRuntimeAgentServiceBridgeInputAliases(operation).filter((field) =>
+    Object.hasOwn(input ?? {}, field),
+  );
+  if (retiredAliases.length === 0) return;
+  throw new RuntimeAgentServiceCommandAdapterError(
+    "RuntimeAgentService bridge input aliases are retired; use canonical snake_case fields.",
+    {
+      code: "runtime_agent_service_bridge_input_aliases_retired",
+      operation,
+      retired_aliases: retiredAliases,
+    },
+  );
+}
+
+function retiredRuntimeAgentServiceBridgeInputAliases(operation) {
+  switch (operation) {
+    case "start_thread":
+      return ["runtimeProfile", "agentId", "threadId", "workspaceRoot", "createdAt"];
+    case "submit_turn":
+      return [
+        "agentId",
+        "threadId",
+        "sessionId",
+        "workspaceRoot",
+        "createdAt",
+        "streamedEventsOnly",
+        "streamEventsOnly",
+      ];
+    case "inspect_thread":
+      return ["sessionId", "threadId", "workspaceRoot", "projectionMode", "managedSessionsOnly"];
+    case "control_thread":
+      return [
+        "sessionId",
+        "threadId",
+        "workspaceRoot",
+        "requestHash",
+        "managedSessionId",
+        "changeId",
+        "workspaceChangeId",
+        "createdAt",
+      ];
+    default:
+      return [];
+  }
 }
 
 function parsePositiveInteger(value, fallback) {

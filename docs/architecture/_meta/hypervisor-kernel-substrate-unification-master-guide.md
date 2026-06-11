@@ -5558,6 +5558,24 @@ The intended long-term shape is direct Rust daemon-core thread-control
 admission, Agentgres expected-head/state-root binding, replay, projection, and
 stable protocol APIs without compatibility request aliases.
 
+Slice 1081 retires RuntimeAgentService bridge command/input alias tolerance at
+both migration edges. The JS command adapter now rejects retired operation
+payload aliases such as `threadId`, `sessionId`, `managedSessionId`,
+`streamEventsOnly`, `requestHash`, and `workspaceChangeId` before spawning the
+bridge command. The Rust `ioi-runtime-bridge` binary now deserializes only the
+canonical `schema_version`, `bridge_id`, `thread_id`, `session_id`,
+`runtime_profile`, `workspace_root`, `streamed_events_only`,
+`managed_sessions_only`, `request_hash`, `managed_session_id`, and `change_id`
+fields.
+
+Conformance now fails if the RuntimeAgentService adapter stops rejecting
+retired input aliases or if the Rust bridge binary regains serde alias
+tolerance for those bridge command/input fields. This still does not make the
+RuntimeAgentService bridge terminal architecture: it remains fixed migration
+transport until direct Rust daemon-core runtime thread/turn/control APIs own
+admission, execution dispatch, persistence, replay, projection, wallet/cTEE
+policy, and Agentgres expected-head/state-root binding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

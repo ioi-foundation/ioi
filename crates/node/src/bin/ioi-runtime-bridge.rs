@@ -91,9 +91,7 @@ struct BridgeOpts {
 
 #[derive(Debug, Deserialize)]
 struct BridgeRequest {
-    #[serde(rename = "schema_version", alias = "schemaVersion")]
     schema_version: String,
-    #[serde(rename = "bridge_id", alias = "bridgeId")]
     bridge_id: String,
     operation: String,
     #[serde(default)]
@@ -106,15 +104,10 @@ struct StartThreadInput {
     request: Value,
     #[serde(default)]
     options: Value,
-    #[serde(rename = "runtimeProfile", alias = "runtime_profile")]
     runtime_profile: Option<String>,
-    #[serde(rename = "agentId", alias = "agent_id")]
     agent_id: Option<String>,
-    #[serde(rename = "threadId", alias = "thread_id")]
     thread_id: String,
-    #[serde(rename = "workspaceRoot", alias = "workspace_root")]
     workspace_root: Option<String>,
-    #[serde(rename = "createdAt", alias = "created_at")]
     created_at: Option<String>,
 }
 
@@ -124,62 +117,37 @@ struct SubmitTurnInput {
     request: Value,
     #[serde(default)]
     options: Value,
-    #[serde(rename = "agentId", alias = "agent_id")]
     agent_id: Option<String>,
-    #[serde(rename = "threadId", alias = "thread_id")]
     thread_id: String,
-    #[serde(rename = "sessionId", alias = "session_id")]
     session_id: String,
-    #[serde(rename = "workspaceRoot", alias = "workspace_root")]
     workspace_root: Option<String>,
-    #[serde(rename = "createdAt", alias = "created_at")]
     created_at: Option<String>,
-    #[serde(
-        default,
-        rename = "streamedEventsOnly",
-        alias = "streamed_events_only",
-        alias = "streamEventsOnly",
-        alias = "stream_events_only"
-    )]
+    #[serde(default)]
     streamed_events_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
 struct InspectThreadInput {
-    #[serde(rename = "sessionId", alias = "session_id")]
     session_id: String,
-    #[serde(rename = "threadId", alias = "thread_id")]
     thread_id: Option<String>,
-    #[serde(rename = "workspaceRoot", alias = "workspace_root")]
     workspace_root: Option<String>,
-    #[serde(default, rename = "projection", alias = "projection_mode")]
+    #[serde(default)]
     projection: Option<String>,
-    #[serde(
-        default,
-        rename = "managedSessionsOnly",
-        alias = "managed_sessions_only"
-    )]
+    #[serde(default)]
     managed_sessions_only: bool,
 }
 
 #[derive(Debug, Deserialize)]
 struct ControlThreadInput {
-    #[serde(rename = "sessionId", alias = "session_id")]
     session_id: String,
-    #[serde(rename = "threadId", alias = "thread_id")]
     thread_id: Option<String>,
-    #[serde(rename = "workspaceRoot", alias = "workspace_root")]
     workspace_root: Option<String>,
     action: String,
     #[serde(default)]
     reason: String,
-    #[serde(rename = "requestHash", alias = "request_hash")]
     request_hash: Option<String>,
-    #[serde(rename = "managedSessionId", alias = "managed_session_id")]
     managed_session_id: Option<String>,
-    #[serde(rename = "changeId", alias = "change_id", alias = "workspaceChangeId")]
     change_id: Option<String>,
-    #[serde(rename = "createdAt", alias = "created_at")]
     created_at: Option<String>,
 }
 
@@ -3607,13 +3575,94 @@ mod tests {
     use std::time::Instant;
 
     #[test]
-    fn parses_bridge_request_aliases() {
+    fn parses_canonical_bridge_request() {
         let request: BridgeRequest = serde_json::from_str(
-            r#"{"schemaVersion":"ioi.runtime.bridge.command.v1","bridgeId":"bridge","operation":"start_thread","input":{}}"#,
+            r#"{"schema_version":"ioi.runtime.bridge.command.v1","bridge_id":"bridge","operation":"start_thread","input":{}}"#,
         )
         .expect("decode bridge request");
         assert_eq!(request.schema_version, COMMAND_SCHEMA_VERSION);
         assert_eq!(request.bridge_id, "bridge");
+    }
+
+    #[test]
+    fn rejects_retired_bridge_request_aliases() {
+        let error = serde_json::from_str::<BridgeRequest>(
+            r#"{"schemaVersion":"ioi.runtime.bridge.command.v1","bridgeId":"bridge","operation":"start_thread","input":{}}"#,
+        )
+        .expect_err("retired bridge request aliases must not satisfy canonical fields");
+        assert!(error.to_string().contains("schema_version"));
+    }
+
+    #[test]
+    fn rejects_retired_runtime_bridge_input_aliases() {
+        let start = serde_json::from_value::<StartThreadInput>(json!({
+            "threadId": "thread_retired",
+            "runtimeProfile": "runtime_service",
+            "agentId": "agent_retired",
+            "workspaceRoot": "/workspace",
+            "createdAt": "2026-06-11T00:00:00Z"
+        }))
+        .expect_err("retired start_thread aliases must not satisfy canonical fields");
+        assert!(start.to_string().contains("thread_id"));
+
+        let submit = serde_json::from_value::<SubmitTurnInput>(json!({
+            "threadId": "thread_retired",
+            "sessionId": "session_retired",
+            "streamEventsOnly": true
+        }))
+        .expect_err("retired submit_turn aliases must not satisfy canonical fields");
+        assert!(submit.to_string().contains("thread_id"));
+
+        let inspect = serde_json::from_value::<InspectThreadInput>(json!({
+            "sessionId": "session_retired",
+            "threadId": "thread_retired",
+            "managedSessionsOnly": true
+        }))
+        .expect_err("retired inspect_thread aliases must not satisfy canonical fields");
+        assert!(inspect.to_string().contains("session_id"));
+
+        let control = serde_json::from_value::<ControlThreadInput>(json!({
+            "sessionId": "session_retired",
+            "threadId": "thread_retired",
+            "managedSessionId": "managed_retired",
+            "requestHash": "hash_retired",
+            "workspaceChangeId": "change_retired",
+            "action": "take_over_session"
+        }))
+        .expect_err("retired control_thread aliases must not satisfy canonical fields");
+        assert!(control.to_string().contains("session_id"));
+    }
+
+    #[test]
+    fn ignores_retired_optional_runtime_bridge_input_aliases() {
+        let submit: SubmitTurnInput = serde_json::from_value(json!({
+            "thread_id": "thread_canonical",
+            "session_id": "session_canonical",
+            "streamEventsOnly": true
+        }))
+        .expect("canonical submit_turn input decodes");
+        assert!(!submit.streamed_events_only);
+
+        let inspect: InspectThreadInput = serde_json::from_value(json!({
+            "session_id": "session_canonical",
+            "managedSessionsOnly": true,
+            "projection_mode": "managed_sessions"
+        }))
+        .expect("canonical inspect_thread input decodes");
+        assert!(!inspect.managed_sessions_only);
+        assert_eq!(inspect.projection, None);
+
+        let control: ControlThreadInput = serde_json::from_value(json!({
+            "session_id": "session_canonical",
+            "action": "take_over_session",
+            "managedSessionId": "managed_retired",
+            "requestHash": "hash_retired",
+            "workspaceChangeId": "change_retired"
+        }))
+        .expect("canonical control_thread input decodes");
+        assert_eq!(control.managed_session_id, None);
+        assert_eq!(control.request_hash, None);
+        assert_eq!(control.change_id, None);
     }
 
     #[test]

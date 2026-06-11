@@ -15784,6 +15784,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1081
+
+Slice 1081 retires RuntimeAgentService bridge command/input alias tolerance at
+both migration edges. The JS command adapter now rejects retired operation
+payload aliases such as `threadId`, `sessionId`, `managedSessionId`,
+`streamEventsOnly`, `requestHash`, and `workspaceChangeId` before spawning the
+bridge command. The Rust `ioi-runtime-bridge` binary now deserializes only
+canonical snake_case bridge command/input fields, so retired camelCase inputs no
+longer satisfy required Rust bridge fields and retired optional aliases are
+ignored instead of treated as bridge control truth.
+
+Conformance now fails if the RuntimeAgentService command adapter stops
+rejecting retired input aliases or if the Rust bridge binary regains serde alias
+tolerance for bridge command/input fields. This is still not terminal
+RuntimeAgentService migration: the command bridge remains fixed migration
+transport until direct Rust daemon-core runtime thread/turn/control APIs own
+admission, execution dispatch, persistence, replay, projection, wallet/cTEE
+policy, and Agentgres expected-head/state-root binding.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --features local-mode rejects_retired_bridge_request_aliases --bin ioi-runtime-bridge` | passed |
+| `cargo test -p ioi-node --features local-mode rejects_retired_runtime_bridge_input_aliases --bin ioi-runtime-bridge` | passed |
+| `cargo test -p ioi-node --features local-mode ignores_retired_optional_runtime_bridge_input_aliases --bin ioi-runtime-bridge` | passed |
+| `node --check packages/runtime-daemon/src/runtime-agent-service-adapter.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1080
 
 Slice 1080 retires the Rust policy-boundary compatibility alias that allowed
