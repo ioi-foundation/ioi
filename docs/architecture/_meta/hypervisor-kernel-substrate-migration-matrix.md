@@ -16154,6 +16154,41 @@ StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
 replay, SDK/IDE protocol coverage, and replacement of command transport with a
 direct Rust daemon-core API remain open terminal blockers.
 
+## Implementation Slice Evidence: 1059
+
+Slice 1059 extends the shared temporary daemon-core command-runner helper to
+the worker/service package, coding-tool approval, and approval-state runners.
+Those JS runners now delegate mock handling, fixed empty-argv command spawn,
+JSON parsing, process-failure mapping, and Rust rejection mapping to
+`packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs` instead of
+importing `node:child_process` and carrying local `invokeBridge` process
+implementations. Conformance now proves those runners use the helper and do
+not import `node:child_process` directly.
+
+This narrows duplicated JS scaffolding; it does not promote the helper or Node
+command transport into the target architecture. The remaining terminal path is
+to migrate or collapse the larger runner surfaces, then replace the shared
+helper itself with direct Rust daemon-core protocol/API entry points, Rust/WASM
+module execution, Agentgres expected-head/state-root admission, receipt
+binding, replay, projection, wallet.network authority gates, cTEE custody, and
+stable IDE/CLI/SDK protocol access.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-approval-state-runner.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 Scheduled matrix-compaction obligation from Slice 788 is now satisfied. The
 next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const APPROVAL_STATE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const APPROVAL_STATE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -34,8 +34,26 @@ export class RustRuntimeApprovalStateRunner {
   constructor(options = {}) {
     assertNoApprovalStateCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_approval_state_mock",
+      defaultBackend: RUST_APPROVAL_STATE_BACKEND,
+      ErrorClass: RuntimeApprovalStateRunnerError,
+      env: APPROVAL_STATE_COMMAND_ENV,
+      unconfiguredMessage:
+        "Runtime approval state updates require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
+      unconfiguredCode: "approval_state_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust approval state bridge command.",
+      spawnFailedCode: "approval_state_bridge_spawn_failed",
+      commandFailedMessage: "Rust approval state bridge command failed.",
+      commandFailedCode: "approval_state_bridge_failed",
+      invalidJsonMessage: "Rust approval state bridge command returned invalid JSON.",
+      invalidJsonCode: "approval_state_bridge_invalid_json",
+      rejectedMessage: "Rust approval state core rejected the request.",
+      rejectedCode: "approval_state_bridge_rejected",
+    });
   }
 
   planApprovalRequestStateUpdate(request = {}) {
@@ -74,65 +92,6 @@ export class RustRuntimeApprovalStateRunner {
     }));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_approval_state_mock",
-        backend: request.backend ?? RUST_APPROVAL_STATE_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new RuntimeApprovalStateRunnerError(
-        "Runtime approval state updates require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
-        "approval_state_bridge_unconfigured",
-        {
-          env: APPROVAL_STATE_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new RuntimeApprovalStateRunnerError(
-        "Failed to spawn Rust approval state bridge command.",
-        "approval_state_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new RuntimeApprovalStateRunnerError(
-        "Rust approval state bridge command failed.",
-        "approval_state_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new RuntimeApprovalStateRunnerError(
-        "Rust approval state bridge command returned invalid JSON.",
-        "approval_state_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new RuntimeApprovalStateRunnerError(
-        parsed.error?.message ?? "Rust approval state core rejected the request.",
-        parsed.error?.code ?? "approval_state_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class RuntimeApprovalStateRunnerError extends Error {

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const WORKER_SERVICE_PACKAGE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -28,8 +28,26 @@ export class RustWorkerServicePackageRunner {
   constructor(options = {}) {
     assertNoWorkerServicePackageCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_worker_service_package_mock",
+      defaultBackend: RUST_WORKER_SERVICE_PACKAGE_BACKEND,
+      ErrorClass: WorkerServicePackageRunnerError,
+      env: WORKER_SERVICE_PACKAGE_COMMAND_ENV,
+      unconfiguredMessage:
+        "Worker/service package invocation admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core package admission.",
+      unconfiguredCode: "worker_service_package_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust worker/service package admission bridge command.",
+      spawnFailedCode: "worker_service_package_bridge_spawn_failed",
+      commandFailedMessage: "Rust worker/service package admission bridge command failed.",
+      commandFailedCode: "worker_service_package_bridge_failed",
+      invalidJsonMessage: "Rust worker/service package admission bridge command returned invalid JSON.",
+      invalidJsonCode: "worker_service_package_bridge_invalid_json",
+      rejectedMessage: "Rust worker/service package core rejected the invocation.",
+      rejectedCode: "worker_service_package_bridge_rejected",
+    });
   }
 
   admitInvocation(request) {
@@ -42,65 +60,6 @@ export class RustWorkerServicePackageRunner {
     return normalizeWorkerServicePackageBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_worker_service_package_mock",
-        backend: request.backend ?? RUST_WORKER_SERVICE_PACKAGE_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new WorkerServicePackageRunnerError(
-        "Worker/service package invocation admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core package admission.",
-        "worker_service_package_bridge_unconfigured",
-        {
-          env: WORKER_SERVICE_PACKAGE_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new WorkerServicePackageRunnerError(
-        "Failed to spawn Rust worker/service package admission bridge command.",
-        "worker_service_package_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new WorkerServicePackageRunnerError(
-        "Rust worker/service package admission bridge command failed.",
-        "worker_service_package_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new WorkerServicePackageRunnerError(
-        "Rust worker/service package admission bridge command returned invalid JSON.",
-        "worker_service_package_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new WorkerServicePackageRunnerError(
-        parsed.error?.message ?? "Rust worker/service package core rejected the invocation.",
-        parsed.error?.code ?? "worker_service_package_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class WorkerServicePackageRunnerError extends Error {

@@ -5877,7 +5877,9 @@ function runBridge() {
       /assertNoCodingToolApprovalCommandArgs/.test(runtimeCodingToolApprovalRunner) &&
       /planApprovalManifest/.test(runtimeCodingToolApprovalRunner) &&
       /coding_tool_approval_command_args_retired/.test(runtimeCodingToolApprovalRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeCodingToolApprovalRunner) &&
+      /createDaemonCoreCommandInvoker/.test(runtimeCodingToolApprovalRunner) &&
+      !/from "node:child_process"/.test(runtimeCodingToolApprovalRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /coding tool approval runner env uses daemon-core command boundary/.test(
         runtimeCodingToolApprovalRunnerTest,
       ) &&
@@ -6310,7 +6312,9 @@ function runBridge() {
       !/argsEnv/.test(runtimeApprovalStateRunner) &&
       /assertNoApprovalStateCommandArgs/.test(runtimeApprovalStateRunner) &&
       /approval_state_command_args_retired/.test(runtimeApprovalStateRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeApprovalStateRunner) &&
+      /createDaemonCoreCommandInvoker/.test(runtimeApprovalStateRunner) &&
+      !/from "node:child_process"/.test(runtimeApprovalStateRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /approval state runner command args env fails closed/.test(runtimeApprovalStateRunnerTest) &&
       /approval state runner command args constructor option fails closed/.test(runtimeApprovalStateRunnerTest) &&
       /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeApprovalStateRunnerTest) &&
@@ -12523,7 +12527,9 @@ function runBridge() {
       /rust_package_invocation/.test(workerServicePackageRunner) &&
       /worker_service_package_bridge_unconfigured/.test(workerServicePackageRunner) &&
       /worker_service_package_command_args_retired/.test(workerServicePackageRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(workerServicePackageRunner) &&
+      /createDaemonCoreCommandInvoker/.test(workerServicePackageRunner) &&
+      !/from "node:child_process"/.test(workerServicePackageRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /worker\/service package runner sends invocation admission bridge request/.test(
         workerServicePackageRunnerTest,
       ) &&

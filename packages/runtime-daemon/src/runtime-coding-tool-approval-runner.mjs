@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const CODING_TOOL_APPROVAL_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const CODING_TOOL_APPROVAL_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -30,8 +30,26 @@ export class RustCodingToolApprovalRunner {
   constructor(options = {}) {
     assertNoCodingToolApprovalCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_coding_tool_approval_mock",
+      defaultBackend: RUST_CODING_TOOL_APPROVAL_BACKEND,
+      ErrorClass: CodingToolApprovalRunnerError,
+      env: CODING_TOOL_APPROVAL_COMMAND_ENV,
+      unconfiguredMessage:
+        "Coding-tool approval requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
+      unconfiguredCode: "coding_tool_approval_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust coding-tool approval bridge command.",
+      spawnFailedCode: "coding_tool_approval_bridge_spawn_failed",
+      commandFailedMessage: "Rust coding-tool approval bridge command failed.",
+      commandFailedCode: "coding_tool_approval_bridge_failed",
+      invalidJsonMessage: "Rust coding-tool approval bridge command returned invalid JSON.",
+      invalidJsonCode: "coding_tool_approval_bridge_invalid_json",
+      rejectedMessage: "Rust coding-tool approval core rejected the request.",
+      rejectedCode: "coding_tool_approval_bridge_rejected",
+    });
   }
 
   planApprovalManifest(request = {}) {
@@ -47,65 +65,6 @@ export class RustCodingToolApprovalRunner {
     return normalizeCodingToolApprovalBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_coding_tool_approval_mock",
-        backend: request.backend ?? RUST_CODING_TOOL_APPROVAL_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new CodingToolApprovalRunnerError(
-        "Coding-tool approval requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
-        "coding_tool_approval_bridge_unconfigured",
-        {
-          env: CODING_TOOL_APPROVAL_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new CodingToolApprovalRunnerError(
-        "Failed to spawn Rust coding-tool approval bridge command.",
-        "coding_tool_approval_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new CodingToolApprovalRunnerError(
-        "Rust coding-tool approval bridge command failed.",
-        "coding_tool_approval_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new CodingToolApprovalRunnerError(
-        "Rust coding-tool approval bridge command returned invalid JSON.",
-        "coding_tool_approval_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new CodingToolApprovalRunnerError(
-        parsed.error?.message ?? "Rust coding-tool approval core rejected the request.",
-        parsed.error?.code ?? "coding_tool_approval_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class CodingToolApprovalRunnerError extends Error {

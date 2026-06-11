@@ -5182,6 +5182,19 @@ remaining daemon-core runners onto the shared helper only as an intermediate
 step, then replacing the shared command-runner helper itself with direct Rust
 daemon-core protocol/API calls and retiring JS command facades/readbacks.
 
+Slice 1059 extends that temporary shared command-runner helper to the
+worker/service package, coding-tool approval, and approval-state runners. Those
+runners no longer import `node:child_process` or own local JSON/process/Rust
+rejection handling; conformance requires them to delegate to
+`runtime-daemon-core-command-runner.mjs` while the helper keeps the fixed
+empty-argv transport rule. This is still an intermediate scaffolding collapse,
+not a canonical Node bridge. Resume by moving the remaining large daemon-core
+runners onto the helper only where it reduces duplicate migration plumbing, then
+cutting the helper itself over to direct Rust daemon-core protocol/API ownership
+and retiring JS command facades, readback adapters, and compatibility wrappers
+once Rust admission, Agentgres truth, receipt/state-root binding, replay,
+projection, wallet.network authority, and cTEE custody are verified.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
