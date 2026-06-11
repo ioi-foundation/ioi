@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const GOVERNED_IMPROVEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -28,8 +28,26 @@ export class RustGovernedImprovementRunner {
   constructor(options = {}) {
     assertNoGovernedImprovementCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_governed_improvement_mock",
+      defaultBackend: RUST_GOVERNED_IMPROVEMENT_BACKEND,
+      ErrorClass: GovernedImprovementRunnerError,
+      env: GOVERNED_IMPROVEMENT_COMMAND_ENV,
+      unconfiguredMessage:
+        "Governed improvement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core proposal admission.",
+      unconfiguredCode: "governed_improvement_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust governed improvement admission bridge command.",
+      spawnFailedCode: "governed_improvement_bridge_spawn_failed",
+      commandFailedMessage: "Rust governed improvement admission bridge command failed.",
+      commandFailedCode: "governed_improvement_bridge_failed",
+      invalidJsonMessage: "Rust governed improvement admission bridge command returned invalid JSON.",
+      invalidJsonCode: "governed_improvement_bridge_invalid_json",
+      rejectedMessage: "Rust governed improvement core rejected the proposal.",
+      rejectedCode: "governed_improvement_bridge_rejected",
+    });
   }
 
   admitProposal(proposal) {
@@ -42,65 +60,6 @@ export class RustGovernedImprovementRunner {
     return normalizeGovernedImprovementBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_governed_improvement_mock",
-        backend: request.backend ?? RUST_GOVERNED_IMPROVEMENT_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new GovernedImprovementRunnerError(
-        "Governed improvement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core proposal admission.",
-        "governed_improvement_bridge_unconfigured",
-        {
-          env: GOVERNED_IMPROVEMENT_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new GovernedImprovementRunnerError(
-        "Failed to spawn Rust governed improvement admission bridge command.",
-        "governed_improvement_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new GovernedImprovementRunnerError(
-        "Rust governed improvement admission bridge command failed.",
-        "governed_improvement_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new GovernedImprovementRunnerError(
-        "Rust governed improvement admission bridge command returned invalid JSON.",
-        "governed_improvement_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new GovernedImprovementRunnerError(
-        parsed.error?.message ?? "Rust governed improvement core rejected the proposal.",
-        parsed.error?.code ?? "governed_improvement_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class GovernedImprovementRunnerError extends Error {

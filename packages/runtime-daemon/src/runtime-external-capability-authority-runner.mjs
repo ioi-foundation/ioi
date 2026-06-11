@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -28,8 +28,26 @@ export class RustExternalCapabilityAuthorityRunner {
   constructor(options = {}) {
     assertNoExternalCapabilityAuthorityCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_external_capability_authority_mock",
+      defaultBackend: RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
+      ErrorClass: ExternalCapabilityAuthorityRunnerError,
+      env: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
+      unconfiguredMessage:
+        "External capability exits require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core wallet.network authority.",
+      unconfiguredCode: "external_capability_authority_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust external capability authority bridge command.",
+      spawnFailedCode: "external_capability_authority_bridge_spawn_failed",
+      commandFailedMessage: "Rust external capability authority bridge command failed.",
+      commandFailedCode: "external_capability_authority_bridge_failed",
+      invalidJsonMessage: "Rust external capability authority bridge command returned invalid JSON.",
+      invalidJsonCode: "external_capability_authority_bridge_invalid_json",
+      rejectedMessage: "Rust authority core rejected the external capability exit.",
+      rejectedCode: "external_capability_authority_bridge_rejected",
+    });
   }
 
   authorizeExit(request) {
@@ -42,65 +60,6 @@ export class RustExternalCapabilityAuthorityRunner {
     return normalizeExternalCapabilityAuthorityBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_external_capability_authority_mock",
-        backend: request.backend ?? RUST_EXTERNAL_CAPABILITY_AUTHORITY_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new ExternalCapabilityAuthorityRunnerError(
-        "External capability exits require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core wallet.network authority.",
-        "external_capability_authority_bridge_unconfigured",
-        {
-          env: EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new ExternalCapabilityAuthorityRunnerError(
-        "Failed to spawn Rust external capability authority bridge command.",
-        "external_capability_authority_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new ExternalCapabilityAuthorityRunnerError(
-        "Rust external capability authority bridge command failed.",
-        "external_capability_authority_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new ExternalCapabilityAuthorityRunnerError(
-        "Rust external capability authority bridge command returned invalid JSON.",
-        "external_capability_authority_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new ExternalCapabilityAuthorityRunnerError(
-        parsed.error?.message ?? "Rust authority core rejected the external capability exit.",
-        parsed.error?.code ?? "external_capability_authority_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class ExternalCapabilityAuthorityRunnerError extends Error {

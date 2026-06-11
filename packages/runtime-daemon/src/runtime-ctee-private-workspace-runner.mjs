@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const CTEE_PRIVATE_WORKSPACE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -34,8 +34,26 @@ export class RustCteePrivateWorkspaceRunner {
   constructor(options = {}) {
     assertNoCteePrivateWorkspaceCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_ctee_private_workspace_mock",
+      defaultBackend: RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
+      ErrorClass: CteePrivateWorkspaceRunnerError,
+      env: CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
+      unconfiguredMessage:
+        "Private Workspace cTEE execution requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core cTEE custody admission.",
+      unconfiguredCode: "ctee_private_workspace_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust Private Workspace cTEE bridge command.",
+      spawnFailedCode: "ctee_private_workspace_bridge_spawn_failed",
+      commandFailedMessage: "Rust Private Workspace cTEE bridge command failed.",
+      commandFailedCode: "ctee_private_workspace_bridge_failed",
+      invalidJsonMessage: "Rust Private Workspace cTEE bridge command returned invalid JSON.",
+      invalidJsonCode: "ctee_private_workspace_bridge_invalid_json",
+      rejectedMessage: "Rust cTEE Private Workspace core rejected the action.",
+      rejectedCode: "ctee_private_workspace_bridge_rejected",
+    });
   }
 
   executeAction(request = {}) {
@@ -50,65 +68,6 @@ export class RustCteePrivateWorkspaceRunner {
     return normalizeCteePrivateWorkspaceBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_ctee_private_workspace_mock",
-        backend: request.backend ?? RUST_CTEE_PRIVATE_WORKSPACE_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new CteePrivateWorkspaceRunnerError(
-        "Private Workspace cTEE execution requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core cTEE custody admission.",
-        "ctee_private_workspace_bridge_unconfigured",
-        {
-          env: CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new CteePrivateWorkspaceRunnerError(
-        "Failed to spawn Rust Private Workspace cTEE bridge command.",
-        "ctee_private_workspace_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new CteePrivateWorkspaceRunnerError(
-        "Rust Private Workspace cTEE bridge command failed.",
-        "ctee_private_workspace_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new CteePrivateWorkspaceRunnerError(
-        "Rust Private Workspace cTEE bridge command returned invalid JSON.",
-        "ctee_private_workspace_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new CteePrivateWorkspaceRunnerError(
-        parsed.error?.message ?? "Rust cTEE Private Workspace core rejected the action.",
-        parsed.error?.code ?? "ctee_private_workspace_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 function assertCanonicalCteePrivateWorkspaceRunnerRequest(request = {}) {

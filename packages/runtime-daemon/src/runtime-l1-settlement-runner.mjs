@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const L1_SETTLEMENT_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const L1_SETTLEMENT_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -28,8 +28,26 @@ export class RustL1SettlementRunner {
   constructor(options = {}) {
     assertNoL1SettlementCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_l1_settlement_guard_mock",
+      defaultBackend: RUST_L1_SETTLEMENT_BACKEND,
+      ErrorClass: L1SettlementRunnerError,
+      env: L1_SETTLEMENT_COMMAND_ENV,
+      unconfiguredMessage:
+        "L1 settlement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core trigger admission.",
+      unconfiguredCode: "l1_settlement_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust L1 settlement admission bridge command.",
+      spawnFailedCode: "l1_settlement_bridge_spawn_failed",
+      commandFailedMessage: "Rust L1 settlement admission bridge command failed.",
+      commandFailedCode: "l1_settlement_bridge_failed",
+      invalidJsonMessage: "Rust L1 settlement admission bridge command returned invalid JSON.",
+      invalidJsonCode: "l1_settlement_bridge_invalid_json",
+      rejectedMessage: "Rust L1 settlement guard rejected the attempt.",
+      rejectedCode: "l1_settlement_bridge_rejected",
+    });
   }
 
   admitAttempt(attempt) {
@@ -42,65 +60,6 @@ export class RustL1SettlementRunner {
     return normalizeL1SettlementBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_l1_settlement_guard_mock",
-        backend: request.backend ?? RUST_L1_SETTLEMENT_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new L1SettlementRunnerError(
-        "L1 settlement admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core trigger admission.",
-        "l1_settlement_bridge_unconfigured",
-        {
-          env: L1_SETTLEMENT_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new L1SettlementRunnerError(
-        "Failed to spawn Rust L1 settlement admission bridge command.",
-        "l1_settlement_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new L1SettlementRunnerError(
-        "Rust L1 settlement admission bridge command failed.",
-        "l1_settlement_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new L1SettlementRunnerError(
-        "Rust L1 settlement admission bridge command returned invalid JSON.",
-        "l1_settlement_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new L1SettlementRunnerError(
-        parsed.error?.message ?? "Rust L1 settlement guard rejected the attempt.",
-        parsed.error?.code ?? "l1_settlement_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class L1SettlementRunnerError extends Error {

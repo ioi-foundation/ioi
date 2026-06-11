@@ -5168,6 +5168,20 @@ entry points, retiring JS command callers/facades/readbacks, and binding
 accepted work through Rust/WASM modules, Agentgres admission, receipt/state-root
 binding, replay, projection, wallet.network authority, and cTEE custody.
 
+Slice 1058 starts collapsing duplicated JS daemon-core command-runner spawn
+scaffolding into
+`packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs`. The
+external capability authority, L1 settlement, governed improvement, and cTEE
+private workspace runners now delegate empty-argv command invocation, mock
+handling, JSON parsing, process failure mapping, and Rust rejection mapping to
+that shared helper instead of each importing `node:child_process` and owning
+local command-process semantics. Conformance now requires those runners to use
+the shared helper and forbids direct child-process imports in them. This is a
+JS-scaffolding reduction, not terminal API migration. Resume by moving the
+remaining daemon-core runners onto the shared helper only as an intermediate
+step, then replacing the shared command-runner helper itself with direct Rust
+daemon-core protocol/API calls and retiring JS command facades/readbacks.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

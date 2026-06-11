@@ -16108,6 +16108,46 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1058
+
+Slice 1058 starts collapsing duplicated JS daemon-core command-runner process
+scaffolding into
+`packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs`. The
+external capability authority, L1 settlement, governed improvement, and cTEE
+private workspace runners now delegate mock handling, empty-argv command
+spawn, JSON parsing, process-failure mapping, and Rust rejection mapping to the
+shared helper instead of each importing `node:child_process` and owning a local
+`invokeBridge` process implementation. Conformance proves those runners use
+the shared helper and do not import `node:child_process` directly.
+
+This is a JS scaffolding-reduction slice, not terminal daemon-core migration.
+The shared command-runner helper, Node command binary, JS command callers, JS
+facades, readback projections, and compatibility wrappers remain temporary
+migration transport until direct Rust daemon-core protocol/API entry points own
+execution/admission, Rust/WASM modules execute admitted work, Agentgres records
+admitted truth, receipt/state-root binding and replay are authoritative,
+wallet.network gates authority, and cTEE governs private workspace custody.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-external-capability-authority-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-l1-settlement-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-external-capability-authority-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-l1-settlement-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,

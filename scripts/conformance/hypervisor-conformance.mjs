@@ -2970,6 +2970,9 @@ function runBridge() {
   const codingTools = exists("packages/runtime-daemon/src/coding-tools.mjs")
     ? read("packages/runtime-daemon/src/coding-tools.mjs")
     : "";
+  const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
+    : "";
   const governedImprovementRunner = exists("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs")
     : "";
@@ -5968,7 +5971,9 @@ function runBridge() {
       /rust_authority/.test(externalCapabilityAuthorityRunner) &&
       /external_capability_authority_bridge_unconfigured/.test(externalCapabilityAuthorityRunner) &&
       /external_capability_authority_command_args_retired/.test(externalCapabilityAuthorityRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(externalCapabilityAuthorityRunner) &&
+      /createDaemonCoreCommandInvoker/.test(externalCapabilityAuthorityRunner) &&
+      !/from "node:child_process"/.test(externalCapabilityAuthorityRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /external capability authority runner sends Rust authority bridge request/.test(
         externalCapabilityAuthorityRunnerTest,
       ) &&
@@ -13141,7 +13146,9 @@ function runBridge() {
       /l1_settlement_guard/.test(l1SettlementRunner) &&
       /l1_settlement_bridge_unconfigured/.test(l1SettlementRunner) &&
       /l1_settlement_command_args_retired/.test(l1SettlementRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(l1SettlementRunner) &&
+      /createDaemonCoreCommandInvoker/.test(l1SettlementRunner) &&
+      !/from "node:child_process"/.test(l1SettlementRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /L1 settlement runner sends admission bridge request/.test(l1SettlementRunnerTest) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(l1SettlementRunnerTest) &&
       /L1 settlement runner env uses daemon-core command boundary/.test(l1SettlementRunnerTest) &&
@@ -13419,7 +13426,9 @@ function runBridge() {
       /rust_governed_evolution/.test(governedImprovementRunner) &&
       /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
       /governed_improvement_command_args_retired/.test(governedImprovementRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(governedImprovementRunner) &&
+      /createDaemonCoreCommandInvoker/.test(governedImprovementRunner) &&
+      !/from "node:child_process"/.test(governedImprovementRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
       /governed improvement runner env uses daemon-core command boundary/.test(governedImprovementRunnerTest) &&
@@ -19250,6 +19259,9 @@ function runCtee() {
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
+  const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
+    : "";
   const cteePrivateWorkspaceRunner = exists("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs")
     : "";
@@ -19405,7 +19417,9 @@ function runCtee() {
       /ctee_operator/.test(cteePrivateWorkspaceRunner) &&
       /ctee_private_workspace_bridge_unconfigured/.test(cteePrivateWorkspaceRunner) &&
       /ctee_private_workspace_command_args_retired/.test(cteePrivateWorkspaceRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(cteePrivateWorkspaceRunner) &&
+      /createDaemonCoreCommandInvoker/.test(cteePrivateWorkspaceRunner) &&
+      !/from "node:child_process"/.test(cteePrivateWorkspaceRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /cTEE private workspace runner sends execution bridge request/.test(cteePrivateWorkspaceRunnerTest) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest) &&
       /cTEE private workspace runner env uses daemon-core command boundary/.test(cteePrivateWorkspaceRunnerTest) &&
