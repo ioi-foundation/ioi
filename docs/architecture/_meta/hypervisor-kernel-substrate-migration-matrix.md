@@ -20371,6 +20371,28 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1007
+
+Slice 1007 split the model_mount Rust-core-required planner family out of the
+broad `model_mount.rs` kernel file into `model_mount/required.rs`. Backend
+lifecycle, server-control, runtime-engine, tokenizer/context-fit, and route
+control required-record request/record types, validators, and planner bodies now
+live in the dedicated Rust module, while `ModelMountCore` remains the public
+facade and forwards to that module.
+
+This is still non-terminal migration work: these surfaces still fail closed
+through migration command transport until direct Rust daemon-core APIs own the
+corresponding control/projection/admission paths over Agentgres-backed truth,
+but the Rust ownership boundary is now explicit and less monolithic for the next
+direct-API cuts.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1007 | Moved model_mount required-record planner types, validators, and planner bodies into `crates/services/src/agentic/runtime/kernel/model_mount/required.rs`; `ModelMountCore` forwards to the module. | Direct Rust daemon-core APIs replace fail-closed command transport and JS edge translation for backend lifecycle, server control, runtime-engine, tokenizer/context-fit, and route-control surfaces. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1006
 
 Slice 1006 retired the remaining dedicated model-mount server-status

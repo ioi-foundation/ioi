@@ -4570,6 +4570,10 @@ model-mount `server_status` read projection now sends empty request state plus
 request-level `base_url` into Rust, and the deleted JS
 `serverStatusProjectionInput()` helper can no longer materialize public server
 truth from volatile server-control state;
+model-mount backend-lifecycle, server-control, runtime-engine, tokenizer, and
+route-control Rust-core-required planner records now live in the dedicated
+Rust `model_mount/required.rs` module behind the stable `ModelMountCore`
+facade instead of accumulating in the broad model-mount kernel file;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

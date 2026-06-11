@@ -2305,6 +2305,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
+          : "",
       ].join("\n")
     : "";
   const modelMountReadProjectionEvidence = [bridgeModule, modelMountCore].join("\n");
@@ -9068,7 +9071,10 @@ function runBridge() {
       /planRouteControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_route_control_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /mod required;/.test(modelMountCore) &&
+      /pub use required::/.test(modelMountCore) &&
       /ModelMountRouteControlRequiredRequest/.test(modelMountCore) &&
+      /required::plan_route_control_required\(request\)/.test(modelMountCore) &&
       /plan_route_control_required/.test(modelMountCore) &&
       /route_control_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
       /ModelMountRouteControlRequiredBridgeRequest/.test(bridgeModule) &&
@@ -13425,6 +13431,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
+          : "",
       ].join("\n")
     : "";
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
@@ -14086,6 +14095,7 @@ function runReceipts() {
       /operation:\s*"plan_model_mount_tokenizer_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /ModelMountTokenizerRequiredRequest/.test(modelMountCore) &&
+      /required::plan_tokenizer_required\(request\)/.test(modelMountCore) &&
       /plan_tokenizer_required/.test(modelMountCore) &&
       /tokenizer_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
       /ModelMountTokenizerRequiredBridgeRequest/.test(bridgeModule) &&
@@ -14857,6 +14867,7 @@ function runReceipts() {
       /operation:\s*"plan_model_mount_runtime_engine_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
+      /required::plan_runtime_engine_required\(request\)/.test(modelMountCore) &&
       /plan_runtime_engine_required/.test(modelMountCore) &&
       /runtime_engine_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
       /ModelMountRuntimeEngineRequiredBridgeRequest/.test(bridgeModule) &&
@@ -15015,6 +15026,7 @@ function runReceipts() {
       /operation:\s*"plan_model_mount_server_control_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /ModelMountServerControlRequiredRequest/.test(modelMountCore) &&
+      /required::plan_server_control_required\(request\)/.test(modelMountCore) &&
       /plan_server_control_required/.test(modelMountCore) &&
       /server_control_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
       /ModelMountServerControlRequiredBridgeRequest/.test(bridgeModule) &&
@@ -15915,6 +15927,7 @@ function runReceipts() {
       /operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
+      /required::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
       /plan_backend_lifecycle_required/.test(modelMountCore) &&
       /backend_lifecycle_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
       /ModelMountBackendLifecycleRequiredBridgeRequest/.test(bridgeModule) &&
