@@ -1180,6 +1180,111 @@ test("thread and run routes send context policy controls through mounted context
   }
 });
 
+test("thread auxiliary and run cancel routes use mounted auxiliary surface", async () => {
+  const { handleThreadRoute, handleRunRoute } = routeHandlers();
+  const calls = [];
+  const body = { request_id: "thread-auxiliary-route-test" };
+  const surfaceResult = (operation, args) => ({
+    status: "rust_core_required",
+    operation,
+    args,
+    direct_truth_write_allowed: false,
+  });
+  const store = {
+    threadAuxiliarySurface: {
+      forkThread(surfaceStore, threadId, requestBody) {
+        calls.push({ operation: "forkThread", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("forkThread", [threadId, requestBody]);
+      },
+      inspectManagedSessionsForThread(surfaceStore, threadId, requestBody) {
+        calls.push({ operation: "inspectManagedSessionsForThread", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("inspectManagedSessionsForThread", [threadId, requestBody]);
+      },
+      inspectWorkspaceChangeReviewsForThread(surfaceStore, threadId, requestBody) {
+        calls.push({ operation: "inspectWorkspaceChangeReviewsForThread", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("inspectWorkspaceChangeReviewsForThread", [threadId, requestBody]);
+      },
+      controlManagedSessionForThread(surfaceStore, threadId, requestBody) {
+        calls.push({ operation: "controlManagedSessionForThread", surfaceStore, args: [threadId, requestBody] });
+        return surfaceResult("controlManagedSessionForThread", [threadId, requestBody]);
+      },
+      cancelRun(surfaceStore, runId) {
+        calls.push({ operation: "cancelRun", surfaceStore, args: [runId] });
+        return surfaceResult("cancelRun", [runId]);
+      },
+    },
+    forkThread: retiredRouteWrapper,
+    inspectManagedSessionsForThread: retiredRouteWrapper,
+    inspectWorkspaceChangeReviewsForThread: retiredRouteWrapper,
+    controlManagedSessionForThread: retiredRouteWrapper,
+    cancelRun: retiredRouteWrapper,
+  };
+  const cases = [
+    {
+      handler: handleThreadRoute,
+      method: "POST",
+      path: "/v1/threads/thread_route/fork",
+      operation: "forkThread",
+      args: ["thread_route", body],
+    },
+    {
+      handler: handleThreadRoute,
+      method: "GET",
+      path: "/v1/threads/thread_route/managed-sessions?projection=summary",
+      operation: "inspectManagedSessionsForThread",
+      args: ["thread_route", { projection: "summary" }],
+    },
+    {
+      handler: handleThreadRoute,
+      method: "GET",
+      path: "/v1/threads/thread_route/workspace-change-reviews?scope=active",
+      operation: "inspectWorkspaceChangeReviewsForThread",
+      args: ["thread_route", { scope: "active" }],
+    },
+    {
+      handler: handleThreadRoute,
+      method: "POST",
+      path: "/v1/threads/thread_route/managed-sessions/control",
+      operation: "controlManagedSessionForThread",
+      args: ["thread_route", body],
+    },
+    {
+      handler: handleRunRoute,
+      method: "POST",
+      path: "/v1/runs/run_route/cancel",
+      operation: "cancelRun",
+      args: ["run_route"],
+    },
+  ];
+
+  for (const testCase of cases) {
+    const url = new URL(testCase.path, "http://daemon.test");
+    const response = responseRecorder();
+    await testCase.handler({
+      request: request({
+        method: testCase.method,
+        url: testCase.path,
+        body,
+      }),
+      response,
+      store,
+      url,
+      segments: url.pathname.split("/").filter(Boolean),
+    });
+    const call = calls.pop();
+    assert.equal(response.statusCode, 200);
+    assert.equal(call.operation, testCase.operation);
+    assert.equal(call.surfaceStore, store);
+    assert.deepEqual(call.args, testCase.args);
+    assert.deepEqual(JSON.parse(response.body), {
+      status: "rust_core_required",
+      operation: testCase.operation,
+      args: testCase.args,
+      direct_truth_write_allowed: false,
+    });
+  }
+});
+
 test("run route sends coding-tool budget recovery through mounted surface", async () => {
   const { handleRunRoute } = routeHandlers();
   const calls = [];

@@ -2807,6 +2807,9 @@ function runBridge() {
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
+  const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
+    : "";
   const runtimeMcpControlSurface = exists("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-control-surface.mjs")
     : "";
@@ -6942,7 +6945,21 @@ function runBridge() {
       /Run cancel facade must not invoke Rust state planning/.test(runtimeRunCancellationTest) &&
       !/plan_run_cancel_state_update/.test(runtimeRunCancellationTest) &&
       /Object\.hasOwn\(error\.details,\s*"runId"\),\s*false/.test(runtimeRunCancellationTest) &&
-      /return cancelRunState\(this,\s*runId\);/.test(runtimeDaemonIndex) &&
+      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      /cancelRun\(store, runId\)/.test(runtimeThreadAuxiliarySurface) &&
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /return this\.threadAuxiliarySurface\.cancelRun\(this,\s*runId\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /store\.threadAuxiliarySurface\.cancelRun\(store, runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/store\.cancelRun\(runId\)/.test(runtimeRouteHandlers) &&
       !/cancelRunState\(this,\s*runId,\s*\{/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -6951,7 +6968,10 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-run-cancellation.mjs",
       "packages/runtime-daemon/src/runtime-run-cancellation.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core admission-required planner and fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
   );
@@ -7802,6 +7822,21 @@ function runBridge() {
     /thread fork mutation facade fails closed before JS fork lifecycle mutation/.test(
       runtimeThreadForkStateTest,
     ) &&
+    /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+    /forkThread\(store, threadId, request = \{\}\)/.test(runtimeThreadAuxiliarySurface) &&
+    /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /return this\.threadAuxiliarySurface\.forkThread\(this,\s*threadId,\s*request\);/.test(
+      runtimeDaemonIndex,
+    ) &&
+    /store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
+      runtimeRouteHandlers,
+    ) &&
+    /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+      runtimeRouteHandlersTest,
+    ) &&
+    !/store\.forkThread\(threadId,/.test(runtimeRouteHandlers) &&
     /assertNoRetiredThreadForkDetailAliases/.test(runtimeThreadForkStateTest) &&
     /assert\.deepEqual\(calls,\s*\[\]\)/.test(runtimeThreadForkStateTest);
   assertCheck(
@@ -7822,6 +7857,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: thread fork request routing must fail closed before JS lifecycle mutation while using canonical idempotency details only",
   );
@@ -7832,6 +7871,10 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/threads/thread-fork-state.mjs",
       "packages/runtime-daemon/src/threads/thread-fork-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: thread fork mutation facades must stay retired before JS agent creation, event append, or fork projection",
   );
@@ -17961,6 +18004,9 @@ function runCompositor() {
   const runtimeTaskJobSurfaceTest = exists("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-task-job-surface.test.mjs")
     : "";
+  const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
+    : "";
   const runtimeCodingToolInvocationSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
     : "";
@@ -24671,6 +24717,34 @@ function runCompositor() {
       /managed session control facade fails closed before JS bridge dispatch or result envelope/.test(
         managedSessionStateTest,
       ) &&
+      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      /inspectManagedSessionsForThread\(store, threadId, request = \{\}\)/.test(
+        runtimeThreadAuxiliarySurface,
+      ) &&
+      /controlManagedSessionForThread\(store, threadId, request = \{\}\)/.test(
+        runtimeThreadAuxiliarySurface,
+      ) &&
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /return this\.threadAuxiliarySurface\.inspectManagedSessionsForThread\(this,\s*threadId,\s*request\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /return this\.threadAuxiliarySurface\.controlManagedSessionForThread\(this,\s*threadId,\s*request\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /store\.threadAuxiliarySurface\.inspectManagedSessionsForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadAuxiliarySurface\.controlManagedSessionForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/store\.(?:inspectManagedSessionsForThread|controlManagedSessionForThread)\(threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
       /assert\.deepEqual\(store\.calls,\s*\[\]\)/.test(managedSessionStateTest) &&
       !/details:\s*\{\s*threadId\s*(?:,|:)/.test(managedSessionState) &&
       !/^\s*(?:threadId|sessionId|managedSessions|managedSessionId)\s*:/m.test(
@@ -24684,6 +24758,10 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/managed-session-state.mjs",
       "packages/runtime-daemon/src/threads/managed-session-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: managed-session inspection/control facades must fail closed before JS bridge projection or control dispatch",
   );
@@ -24720,6 +24798,31 @@ function runCompositor() {
       /workspace change control facade fails closed before JS bridge dispatch or result envelope/.test(
         workspaceChangeStateTest,
       ) &&
+      /createRuntimeThreadAuxiliarySurface/.test(runtimeThreadAuxiliarySurface) &&
+      /inspectWorkspaceChangeReviewsForThread\(store, threadId, request = \{\}\)/.test(
+        runtimeThreadAuxiliarySurface,
+      ) &&
+      /controlWorkspaceChangeForThread\(store, threadId, request = \{\}\)/.test(
+        runtimeThreadAuxiliarySurface,
+      ) &&
+      /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /return this\.threadAuxiliarySurface\.inspectWorkspaceChangeReviewsForThread\(this,\s*threadId,\s*request\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /return this\.threadAuxiliarySurface\.controlWorkspaceChangeForThread\(this,\s*threadId,\s*request\);/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /store\.threadAuxiliarySurface\.inspectWorkspaceChangeReviewsForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /thread auxiliary and run cancel routes use mounted auxiliary surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/store\.inspectWorkspaceChangeReviewsForThread\(threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
       /assertWorkspaceChangeControlRustCoreRequired/.test(
         workspaceChangeStateTest,
       ) &&
@@ -24746,7 +24849,10 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/threads/workspace-change-state.mjs",
       "packages/runtime-daemon/src/threads/workspace-change-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: workspace-change review/control facades must fail closed before JS bridge projection or control dispatch",
   );

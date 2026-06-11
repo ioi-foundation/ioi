@@ -119,7 +119,6 @@ import { createDiagnosticsRepairPolicyHelpers } from "./diagnostics-repair-polic
 import { createRuntimeDiagnosticsRepairSurface } from "./runtime-diagnostics-repair-surface.mjs";
 import { createRuntimeUsageEventHelpers } from "./runtime-usage-events.mjs";
 import { createRuntimeMemoryHelpers } from "./runtime-memory-helpers.mjs";
-import { cancelRun as cancelRunState } from "./runtime-run-cancellation.mjs";
 import { createRuntimeRunHelpers } from "./runtime-run-helpers.mjs";
 import { createRuntimeRunEventHelpers } from "./runtime-run-event-helpers.mjs";
 import { createRuntimeEventEnvelopeHelpers } from "./runtime-event-envelopes.mjs";
@@ -222,15 +221,7 @@ import {
   unregisterInFlightRuntimeTurn as unregisterInFlightRuntimeTurnState,
   updateAgent as updateAgentState,
 } from "./threads/thread-store.mjs";
-import {
-  controlManagedSessionForThread as controlManagedSessionForThreadState,
-  inspectManagedSessionsForThread as inspectManagedSessionsForThreadState,
-} from "./threads/managed-session-state.mjs";
-import {
-  controlWorkspaceChangeForThread as controlWorkspaceChangeForThreadState,
-  inspectWorkspaceChangeReviewsForThread as inspectWorkspaceChangeReviewsForThreadState,
-} from "./threads/workspace-change-state.mjs";
-import { createThreadForkState } from "./threads/thread-fork-state.mjs";
+import { createRuntimeThreadAuxiliarySurface } from "./runtime-thread-auxiliary-surface.mjs";
 import {
   controlRuntimeBridgeThread as controlRuntimeBridgeThreadState,
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
@@ -398,12 +389,6 @@ const threadMemoryState = createThreadMemoryState({
   safeId,
   threadIdForAgent,
   validateMemoryProjection,
-});
-const threadForkState = createThreadForkState({
-  eventStreamIdForThread,
-  fixtureProfileForAgent,
-  operatorControlSource,
-  optionalString,
 });
 const {
   capabilitySequenceForMode,
@@ -756,6 +741,7 @@ export class AgentgresRuntimeStateStore {
     });
     this.threadMemorySurface = threadMemoryState;
     this.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface({ runtimeError });
+    this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface();
     this.runtimeDoctorReport = createRuntimeDoctorReport({
       doctorCheck,
       doctorHash,
@@ -1143,40 +1129,19 @@ export class AgentgresRuntimeStateStore {
   }
 
   async inspectManagedSessionsForThread(threadId, request = {}) {
-    return inspectManagedSessionsForThreadState(this, threadId, request, {
-      RuntimeApiBridgeUnavailableError,
-      isRuntimeBackedAgent,
-      runtimeSessionIdForAgent,
-    });
+    return this.threadAuxiliarySurface.inspectManagedSessionsForThread(this, threadId, request);
   }
 
   async inspectWorkspaceChangeReviewsForThread(threadId, request = {}) {
-    return inspectWorkspaceChangeReviewsForThreadState(this, threadId, request, {
-      RuntimeApiBridgeUnavailableError,
-      isRuntimeBackedAgent,
-      runtimeSessionIdForAgent,
-    });
+    return this.threadAuxiliarySurface.inspectWorkspaceChangeReviewsForThread(this, threadId, request);
   }
 
   async controlWorkspaceChangeForThread(threadId, request = {}) {
-    return controlWorkspaceChangeForThreadState(this, threadId, request, {
-      RuntimeApiBridgeUnavailableError,
-      doctorHash,
-      isRuntimeBackedAgent,
-      optionalString,
-      runtimeSessionIdForAgent,
-      safeId,
-    });
+    return this.threadAuxiliarySurface.controlWorkspaceChangeForThread(this, threadId, request);
   }
 
   async controlManagedSessionForThread(threadId, request = {}) {
-    return controlManagedSessionForThreadState(this, threadId, request, {
-      RuntimeApiBridgeUnavailableError,
-      doctorHash,
-      isRuntimeBackedAgent,
-      optionalString,
-      runtimeSessionIdForAgent,
-    });
+    return this.threadAuxiliarySurface.controlManagedSessionForThread(this, threadId, request);
   }
 
   async resumeThread(threadId, request = {}) {
@@ -1240,7 +1205,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   forkThread(threadId, request = {}) {
-    return threadForkState.forkThread(this, threadId, request);
+    return this.threadAuxiliarySurface.forkThread(this, threadId, request);
   }
 
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
@@ -1611,7 +1576,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   cancelRun(runId) {
-    return cancelRunState(this, runId);
+    return this.threadAuxiliarySurface.cancelRun(this, runId);
   }
 
   replayFromCanonicalState(runId, cursor) {

@@ -20366,6 +20366,46 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 981
+
+Slice 981 mounted a thread auxiliary fail-closed surface for already-retired
+thread fork, managed-session inspection/control, workspace-change inspection,
+and run cancellation route families. The HTTP routes now call
+`store.threadAuxiliarySurface.*(store, ...)` directly instead of daemon-store
+pass-through wrappers such as `store.forkThread()`,
+`store.inspectManagedSessionsForThread()`,
+`store.inspectWorkspaceChangeReviewsForThread()`,
+`store.controlManagedSessionForThread()`, or `store.cancelRun()`. The remaining
+daemon-store methods now delegate into the same mounted surface for internal
+compatibility only.
+
+This is still non-terminal migration plumbing: direct Rust daemon-core
+thread-fork, managed-session, workspace-change, and run-cancel admission/
+projection over Agentgres expected-head/state-root binding, wallet/cTEE/workspace
+authority, receipt/event materialization, replay, command-transport retirement,
+and stable protocol APIs remain required before terminal conformance. The
+auxiliary surface is a temporary fail-closed route boundary, not a canonical
+long-term Node owner.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 981 | Thread fork, managed-session inspection/control, workspace-change inspection, and run cancel routes now call a mounted fail-closed auxiliary surface directly instead of daemon-store pass-through wrappers. | Direct Rust daemon-core control/projection APIs for thread fork, managed session, workspace change, and run cancellation over Agentgres-admitted truth, wallet/cTEE/workspace authority, receipt/state-root binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/threads/thread-fork-state.test.mjs packages/runtime-daemon/src/threads/managed-session-state.test.mjs packages/runtime-daemon/src/threads/workspace-change-state.test.mjs packages/runtime-daemon/src/runtime-run-cancellation.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 980
 
 Slice 980 removed route-level thread/agent memory mutation daemon-store
