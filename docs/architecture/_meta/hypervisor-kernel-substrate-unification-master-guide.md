@@ -6183,6 +6183,25 @@ APIs over Agentgres-backed receipt/state-root binding, replay, projection,
 wallet.network authority, cTEE custody, and stable IDE/CLI/SDK surfaces end to
 end.
 
+Slice 1119 moves Agentgres storage-write admission and runtime-state commit
+command response shaping out of the temporary Node Agentgres command bridge and
+into Rust `agentgres_command.rs` under the kernel service crate. Rust core now
+owns the Agentgres command bridge request structs, storage-write admission
+response envelope, runtime run-state persisted commit response envelope,
+agent/memory/subagent/artifact/model-mount record/model-mount receipt state
+commit response envelopes, and the per-record persistence helper that writes
+through `AgentgresAdmissionCore` after storage admission.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, runtime Agentgres
+runner, and JS persistence callers still exist. The remaining
+`ioi_step_module_bridge/agentgres_command.rs` file is a temporary delegate to
+Rust core, not a durable Agentgres command boundary. The long-term target
+remains direct Rust daemon-core Agentgres protocol APIs over admitted
+receipt/state-root truth, replay, projection, wallet.network authority where
+applicable, cTEE custody where applicable, and stable IDE/CLI/SDK surfaces end
+to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
