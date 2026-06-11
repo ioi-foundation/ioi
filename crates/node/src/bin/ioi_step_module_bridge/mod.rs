@@ -6402,25 +6402,30 @@ mod tests {
             "artifact.read",
             "/tmp",
             json!({
-                "artifactId": "artifact_alpha",
-                "rustWorkloadDataPlane": {
-                    "schemaVersion": "ioi.runtime.coding-tool-data-plane.v1",
+                "artifact_id": "artifact_alpha",
+                "rust_workload_data_plane": {
+                    "schema_version": "ioi.runtime.coding-tool-data-plane.v1",
                     "source": "daemon_artifact_store",
                     "operation": "artifact.read",
-                    "artifactId": "artifact_alpha",
+                    "artifact_id": "artifact_alpha",
                     "result": {
-                        "schemaVersion": "ioi.runtime.coding-tool-result.v1",
-                        "artifactId": "artifact_alpha",
-                        "artifactRef": "artifact_alpha",
-                        "artifactRefs": ["artifact_alpha"],
+                        "schema_version": "ioi.runtime.coding-tool-result.v1",
+                        "artifact_id": "artifact_alpha",
+                        "artifact_ref": "artifact_alpha",
+                        "artifact_refs": ["artifact_alpha"],
                         "content": "hello artifact\n",
-                        "contentHash": "prefetch-hash",
-                        "fullContentHash": "full-hash",
-                        "offsetBytes": 0,
-                        "lengthBytes": 15,
-                        "totalBytes": 15,
+                        "content_hash": "prefetch-hash",
+                        "full_content_hash": "full-hash",
+                        "offset_bytes": 0,
+                        "length_bytes": 15,
+                        "total_bytes": 15,
                         "truncated": false,
-                        "receiptRefs": ["receipt_artifact_prefetch"],
+                        "receipt_refs": ["receipt_artifact_prefetch"],
+                        "shell_fallback_used": true,
+                        "schemaVersion": "retired",
+                        "artifactRefs": ["retired_artifact"],
+                        "contentHash": "retired-hash",
+                        "receiptRefs": ["retired_receipt"],
                         "shellFallbackUsed": true
                     }
                 }
@@ -6434,24 +6439,36 @@ mod tests {
             "rust_artifact_read"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["dataPlaneSource"],
+            response["workload_observation"]["result"]["data_plane_source"],
             "daemon_artifact_store"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["shellFallbackUsed"],
+            response["workload_observation"]["result"]["shell_fallback_used"],
             false
         );
         assert_eq!(
-            response["workload_observation"]["result"]["contentHash"]
+            response["workload_observation"]["result"]["content_hash"]
                 .as_str()
                 .expect("content hash")
                 .len(),
             64
         );
         assert_ne!(
-            response["workload_observation"]["result"]["contentHash"],
+            response["workload_observation"]["result"]["content_hash"],
             "prefetch-hash"
         );
+        for retired_field in [
+            "schemaVersion",
+            "artifactRefs",
+            "contentHash",
+            "receiptRefs",
+            "shellFallbackUsed",
+        ] {
+            assert_eq!(
+                response["workload_observation"]["result"][retired_field],
+                Value::Null
+            );
+        }
         assert_eq!(
             response["result"]["artifact_refs"],
             json!(["artifact_alpha"])
@@ -6474,31 +6491,36 @@ mod tests {
             "tool.retrieve_result",
             "/tmp",
             json!({
-                "toolCallId": "tool_patch",
+                "tool_call_id": "tool_patch",
                 "channel": "stdout",
-                "rustWorkloadDataPlane": {
-                    "schemaVersion": "ioi.runtime.coding-tool-data-plane.v1",
+                "rust_workload_data_plane": {
+                    "schema_version": "ioi.runtime.coding-tool-data-plane.v1",
                     "source": "daemon_artifact_store",
                     "operation": "tool.retrieve_result",
                     "query": {
-                        "toolCallId": "tool_patch",
+                        "tool_call_id": "tool_patch",
                         "channel": "stdout"
                     },
                     "result": {
-                        "schemaVersion": "ioi.runtime.coding-tool-result.v1",
-                        "toolCallId": "tool_patch",
-                        "artifactId": "artifact_result",
-                        "artifactRef": "artifact_result",
-                        "artifactRefs": ["artifact_result"],
+                        "schema_version": "ioi.runtime.coding-tool-result.v1",
+                        "tool_call_id": "tool_patch",
+                        "artifact_id": "artifact_result",
+                        "artifact_ref": "artifact_result",
+                        "artifact_refs": ["artifact_result"],
                         "channel": "stdout",
                         "content": "stored stdout\n",
-                        "contentHash": "prefetch-hash",
-                        "fullContentHash": "full-hash",
-                        "availableArtifacts": [{
-                            "artifactId": "artifact_result",
+                        "content_hash": "prefetch-hash",
+                        "full_content_hash": "full-hash",
+                        "available_artifacts": [{
+                            "artifact_id": "artifact_result",
                             "channel": "stdout"
                         }],
-                        "receiptRefs": ["receipt_tool_result_prefetch"],
+                        "receipt_refs": ["receipt_tool_result_prefetch"],
+                        "shell_fallback_used": true,
+                        "schemaVersion": "retired",
+                        "artifactRefs": ["retired_artifact"],
+                        "contentHash": "retired-hash",
+                        "receiptRefs": ["retired_receipt"],
                         "shellFallbackUsed": true
                     }
                 }
@@ -6512,16 +6534,28 @@ mod tests {
             "rust_tool_result_retrieve"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["toolCallId"],
+            response["workload_observation"]["result"]["tool_call_id"],
             "tool_patch"
         );
         assert_eq!(
-            response["workload_observation"]["result"]["contentHash"]
+            response["workload_observation"]["result"]["content_hash"]
                 .as_str()
                 .expect("content hash")
                 .len(),
             64
         );
+        for retired_field in [
+            "schemaVersion",
+            "artifactRefs",
+            "contentHash",
+            "receiptRefs",
+            "shellFallbackUsed",
+        ] {
+            assert_eq!(
+                response["workload_observation"]["result"][retired_field],
+                Value::Null
+            );
+        }
         assert_eq!(
             response["result"]["artifact_refs"],
             json!(["artifact_result"])
@@ -6540,13 +6574,37 @@ mod tests {
             "artifact.read",
             "/tmp",
             json!({
-                "artifactId": "artifact_alpha"
+                "artifact_id": "artifact_alpha"
             }),
         );
 
         let error = artifact_read_response(request).expect_err("missing payload should fail");
 
         assert_eq!(error.code, "data_plane_payload_required");
+    }
+
+    #[test]
+    fn artifact_read_rejects_retired_data_plane_aliases() {
+        let request = bridge_request(
+            "artifact.read",
+            "/tmp",
+            json!({
+                "artifact_id": "artifact_alpha",
+                "rustWorkloadDataPlane": {
+                    "schemaVersion": "ioi.runtime.coding-tool-data-plane.v1",
+                    "source": "daemon_artifact_store",
+                    "operation": "artifact.read",
+                    "result": {
+                        "artifact_id": "artifact_alpha",
+                        "content": "hello artifact\n"
+                    }
+                }
+            }),
+        );
+
+        let error = artifact_read_response(request).expect_err("retired payload alias should fail");
+
+        assert_eq!(error.code, "data_plane_payload_alias_retired");
     }
 
     #[test]

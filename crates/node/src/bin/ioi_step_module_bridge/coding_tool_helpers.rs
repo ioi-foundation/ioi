@@ -95,6 +95,7 @@ pub(super) fn unique_string_refs(values: Vec<String>) -> Vec<String> {
     })
 }
 
+#[cfg(test)]
 pub(super) fn sha256_hex(bytes: &[u8]) -> Result<String, BridgeError> {
     ioi_crypto::algorithms::hash::sha256(bytes)
         .map(hex::encode)

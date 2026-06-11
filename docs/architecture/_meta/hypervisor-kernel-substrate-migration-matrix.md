@@ -15818,6 +15818,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1114
+
+Slice 1114 moves coding-tool artifact data-plane normalization for
+`artifact.read` and `tool.retrieve_result` out of the temporary
+`ioi_step_module_bridge/coding_tool_command.rs` bridge and into Rust
+`crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs`. The Rust
+kernel service module now owns canonical `rust_workload_data_plane` envelope
+validation, data-plane `schema_version`/source/operation checks,
+artifact-store result validation, content-hash recomputation, shell-fallback
+suppression, canonical artifact/receipt ref extraction, evidence-ref
+derivation, and retired result-alias stripping before the bridge formats the
+StepModule response.
+
+The bridge now delegates `artifact.read` and `tool.retrieve_result` through
+`normalize_artifact_read` and `normalize_tool_retrieve_result`; the old
+bridge-local `normalize_prefetched_artifact_result` implementation is gone.
+Bridge fixtures now use canonical `rust_workload_data_plane` input and assert
+that retired `rustWorkloadDataPlane`, data-plane `schemaVersion`, and result
+aliases such as `artifactRefs`, `receiptRefs`, `contentHash`, and
+`shellFallbackUsed` do not survive the Rust-core boundary.
+
+This is Rust-core extraction and compatibility-wrapper retirement progress,
+not terminal coding-tool migration. The Node bridge, StepModule command
+runner, JS command callers, and coding-tool JS protocol facades remain
+migration scaffolding until direct Rust daemon-core/workload APIs own
+artifact/read retrieval execution, admission, replay, projection, artifact/event
+admission, and stable protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_artifact --lib` | passed |
+| `cargo test -p ioi-node artifact_ --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node tool_retrieve_result --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1112
 
 Slice 1112 moves the coding-tool `test.run` command execution observation path

@@ -1,3 +1,6 @@
+use ioi_services::agentic::runtime::kernel::coding_tool_artifact::{
+    normalize_artifact_read, normalize_tool_retrieve_result,
+};
 use ioi_services::agentic::runtime::kernel::step_module::StepModuleInvocation;
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -5,12 +8,12 @@ use serde_json::{json, Value};
 use super::coding_tool_helpers::{
     apply_workspace_patch, inspect_git_diff, inspect_lsp_diagnostics, inspect_test_run,
     inspect_workspace_path, inspect_workspace_status, json_string_refs, optional_json_string,
-    safe_ref_path, sha256_hex, unique_string_refs,
+    safe_ref_path, unique_string_refs,
 };
 use super::coding_tool_receipt_command::{
     step_module_response, step_module_response_with_expected_heads, successful_step_module_result,
 };
-use super::{computer_use, BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION};
+use super::{computer_use, BridgeError};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct StepModuleBridgeRequest {
@@ -205,38 +208,26 @@ pub(super) fn lsp_diagnostics_response(
 pub(super) fn artifact_read_response(
     request: StepModuleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let read_result = normalize_prefetched_artifact_result(
-        "artifact.read",
-        &request.input,
-        "rust_artifact_read",
-    )?;
+    let read_result = normalize_artifact_read(&request.input).map_err(artifact_bridge_error)?;
     let mut result = successful_step_module_result(&request, "artifact.read", "ArtifactReadNode");
-    result.artifact_refs = json_string_refs(&read_result, &["artifactRefs", "artifact_refs"]);
+    result.artifact_refs = read_result.artifact_refs.clone();
     result.receipt_refs = unique_string_refs(
         result
             .receipt_refs
             .into_iter()
-            .chain(json_string_refs(
-                &read_result,
-                &["receiptRefs", "receipt_refs"],
-            ))
+            .chain(read_result.receipt_refs.clone())
             .collect(),
     );
     result.workflow_projection.evidence_refs.push(format!(
         "evidence://rust-workload/artifact.read/{}",
-        optional_json_string(
-            &read_result,
-            &["artifactId", "artifact_id", "artifactRef", "artifact_ref"]
-        )
-        .map(|value| safe_ref_path(&value))
-        .unwrap_or_else(|| "unknown".to_string())
+        read_result.evidence_ref
     ));
     Ok(step_module_response(
         request,
         result,
         json!({
             "tool": "artifact.read",
-            "result": read_result,
+            "result": read_result.observation,
         }),
     ))
 }
@@ -244,39 +235,28 @@ pub(super) fn artifact_read_response(
 pub(super) fn tool_retrieve_result_response(
     request: StepModuleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let retrieve_result = normalize_prefetched_artifact_result(
-        "tool.retrieve_result",
-        &request.input,
-        "rust_tool_result_retrieve",
-    )?;
+    let retrieve_result =
+        normalize_tool_retrieve_result(&request.input).map_err(artifact_bridge_error)?;
     let mut result =
         successful_step_module_result(&request, "tool.retrieve_result", "ToolRetrieveResultNode");
-    result.artifact_refs = json_string_refs(&retrieve_result, &["artifactRefs", "artifact_refs"]);
+    result.artifact_refs = retrieve_result.artifact_refs.clone();
     result.receipt_refs = unique_string_refs(
         result
             .receipt_refs
             .into_iter()
-            .chain(json_string_refs(
-                &retrieve_result,
-                &["receiptRefs", "receipt_refs"],
-            ))
+            .chain(retrieve_result.receipt_refs.clone())
             .collect(),
     );
     result.workflow_projection.evidence_refs.push(format!(
         "evidence://rust-workload/tool.retrieve_result/{}",
-        optional_json_string(
-            &retrieve_result,
-            &["toolCallId", "tool_call_id", "artifactId", "artifact_id"]
-        )
-        .map(|value| safe_ref_path(&value))
-        .unwrap_or_else(|| "unknown".to_string())
+        retrieve_result.evidence_ref
     ));
     Ok(step_module_response(
         request,
         result,
         json!({
             "tool": "tool.retrieve_result",
-            "result": retrieve_result,
+            "result": retrieve_result.observation,
         }),
     ))
 }
@@ -321,99 +301,8 @@ pub(super) fn computer_use_request_lease_response(
     ))
 }
 
-pub(super) fn normalize_prefetched_artifact_result(
-    tool_id: &str,
-    input: &Value,
-    backend: &str,
-) -> Result<Value, BridgeError> {
-    let envelope = input
-        .get("rustWorkloadDataPlane")
-        .or_else(|| input.get("rust_workload_data_plane"))
-        .and_then(Value::as_object)
-        .ok_or_else(|| {
-            BridgeError::new(
-                "data_plane_payload_required",
-                format!("{tool_id} requires a daemon-provided data-plane payload"),
-            )
-        })?;
-    let source = envelope
-        .get("source")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            BridgeError::new(
-                "data_plane_source_required",
-                format!("{tool_id} requires a data-plane source"),
-            )
-        })?;
-    if source != "daemon_artifact_store" {
-        return Err(BridgeError::new(
-            "data_plane_source_unsupported",
-            format!("{tool_id} does not accept data-plane source {source}"),
-        ));
-    }
-    let operation = envelope
-        .get("operation")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .ok_or_else(|| {
-            BridgeError::new(
-                "data_plane_operation_required",
-                format!("{tool_id} requires a data-plane operation"),
-            )
-        })?;
-    if operation != tool_id {
-        return Err(BridgeError::new(
-            "data_plane_operation_mismatch",
-            format!("{tool_id} received data-plane operation {operation}"),
-        ));
-    }
-    let mut normalized = envelope.get("result").cloned().ok_or_else(|| {
-        BridgeError::new(
-            "data_plane_result_required",
-            format!("{tool_id} requires a data-plane result"),
-        )
-    })?;
-    let fallback_artifact_ref = optional_json_string(
-        &normalized,
-        &["artifactId", "artifact_id", "artifactRef", "artifact_ref"],
-    );
-    let object = normalized.as_object_mut().ok_or_else(|| {
-        BridgeError::new(
-            "data_plane_result_invalid",
-            format!("{tool_id} data-plane result must be an object"),
-        )
-    })?;
-    let content = object
-        .get("content")
-        .and_then(Value::as_str)
-        .ok_or_else(|| {
-            BridgeError::new(
-                "data_plane_content_required",
-                format!("{tool_id} data-plane result must include content"),
-            )
-        })?
-        .to_string();
-    let content_hash = sha256_hex(content.as_bytes())?;
-    object.insert(
-        "schemaVersion".to_string(),
-        json!(CODING_TOOL_RESULT_SCHEMA_VERSION),
-    );
-    object.insert("backend".to_string(), json!(backend));
-    object.insert("dataPlaneSource".to_string(), json!(source));
-    object.insert("data_plane_source".to_string(), json!(source));
-    object.insert("rustWorkloadDataPlane".to_string(), json!(true));
-    object.insert("rust_workload_data_plane".to_string(), json!(true));
-    object.insert("contentHash".to_string(), json!(content_hash));
-    object.insert("content_hash".to_string(), json!(content_hash));
-    object.insert("shellFallbackUsed".to_string(), json!(false));
-    object.insert("shell_fallback_used".to_string(), json!(false));
-    if !object.contains_key("artifactRefs") && !object.contains_key("artifact_refs") {
-        if let Some(artifact_id) = fallback_artifact_ref {
-            object.insert("artifactRefs".to_string(), json!([artifact_id]));
-        }
-    }
-    Ok(normalized)
+fn artifact_bridge_error(
+    error: ioi_services::agentic::runtime::kernel::coding_tool_artifact::CodingToolArtifactError,
+) -> BridgeError {
+    BridgeError::new(error.code(), error.message().to_string())
 }

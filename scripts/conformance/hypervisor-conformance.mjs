@@ -2294,6 +2294,9 @@ function runBridge() {
   const codingToolExecutionCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
     : "";
+  const codingToolArtifactCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs")
+    : "";
   const codingToolWorkspaceCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
     : "";
@@ -3753,7 +3756,9 @@ function runBridge() {
       /fn local_tsc_executable/.test(codingToolWorkspaceCore) &&
       /artifact\.read/.test(codingToolCommandBridge) &&
       /tool\.retrieve_result/.test(codingToolCommandBridge) &&
-      /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
+      /normalize_artifact_read/.test(codingToolCommandBridge) &&
+      /normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
+      !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
       /computer_use\.request_lease/.test(codingToolCommandBridge) &&
       /build_computer_use_lease_request/.test(computerUseBridge) &&
       /computer_use_provider_for_lane/.test(computerUseProviderBridge) &&
@@ -3950,6 +3955,39 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 10/11 remains non-terminal: workspace.status and git.diff git observation, path containment, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+  );
+  assertCheck(
+    result,
+    "coding-tool-artifact-data-plane-rust-core-boundary",
+    /pub mod coding_tool_artifact;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn normalize_artifact_read/.test(codingToolArtifactCore) &&
+      /pub fn normalize_tool_retrieve_result/.test(codingToolArtifactCore) &&
+      /fn normalize_prefetched_artifact_result/.test(codingToolArtifactCore) &&
+      /data_plane_payload_alias_retired/.test(codingToolArtifactCore) &&
+      /data_plane_schema_alias_retired/.test(codingToolArtifactCore) &&
+      /rust_workload_data_plane/.test(codingToolArtifactCore) &&
+      /schema_version/.test(codingToolArtifactCore) &&
+      /remove_retired_result_aliases/.test(codingToolArtifactCore) &&
+      /shell_fallback_used/.test(codingToolArtifactCore) &&
+      /content_hash/.test(codingToolArtifactCore) &&
+      /artifact_refs/.test(codingToolArtifactCore) &&
+      /normalize_artifact_read/.test(codingToolCommandBridge) &&
+      /normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
+      !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
+      !/rustWorkloadDataPlane"\)/.test(codingToolCommandBridge) &&
+      !/dataPlaneSource/.test(codingToolCommandBridge) &&
+      !/shellFallbackUsed/.test(codingToolCommandBridge) &&
+      /artifact_read_rejects_retired_data_plane_aliases/.test(bridgeModule) &&
+      /"rust_workload_data_plane": \{/.test(bridgeModule) &&
+      /"schema_version": "ioi\.runtime\.coding-tool-data-plane\.v1"/.test(bridgeModule) &&
+      /retired_field in \[/.test(bridgeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 remains non-terminal: artifact.read and tool.retrieve_result data-plane normalization must stay in Rust core with canonical envelopes/results while the bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,

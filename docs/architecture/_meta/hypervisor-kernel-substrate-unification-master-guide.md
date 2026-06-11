@@ -6087,6 +6087,22 @@ execution and admission, with the now-thin bridge helper retired when direct
 Rust daemon-core/workload APIs own execution, admission, replay, projection, and
 stable protocol APIs end to end.
 
+Slice 1114 moves the coding-tool artifact data-plane normalization path for
+`artifact.read` and `tool.retrieve_result` out of the temporary StepModule
+bridge and into Rust `coding_tool_artifact.rs` under the kernel service crate.
+Rust core now owns canonical `rust_workload_data_plane` envelope validation,
+data-plane schema/source/operation checks, artifact-store result object
+validation, content-hash recomputation, shell-fallback suppression, canonical
+artifact/receipt ref extraction, evidence-ref derivation, and retirement of
+old camelCase result aliases before the bridge formats the StepModule response.
+
+This remains non-terminal because the Node bridge, shared StepModule command
+runner, JS command callers, and coding-tool JS protocol facades still exist.
+The temporary bridge now delegates artifact/read retrieval normalization to
+Rust core and rejects retired data-plane aliases; the long-term target remains
+direct Rust daemon-core/workload coding-tool execution, admission, replay,
+projection, artifact/event admission, and stable protocol APIs end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
