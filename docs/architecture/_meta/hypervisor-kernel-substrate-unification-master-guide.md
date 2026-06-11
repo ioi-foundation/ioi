@@ -6316,6 +6316,27 @@ filesystem-operation, artifact/payload admission, Agentgres expected-head and
 state-root truth, receipts/events, replay, projection, and stable IDE/CLI/SDK
 surfaces end to end.
 
+Slice 1126 moves thread lifecycle command request/response shaping out of the
+temporary Node thread-lifecycle bridge and into Rust
+`policy/thread_lifecycle.rs`. Rust core now owns the bridge request structs,
+response envelopes, canonical command source markers, bridge-facing error
+codes, and policy facade exports for runtime bridge thread-start state updates,
+runtime bridge turn-run state updates, subagent record updates, thread-control
+agent updates, thread-turn admission-required refusals, lifecycle
+admission-required refusals, agent-create updates, agent-status updates, and
+run-create updates.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, runtime context-policy
+runner, and public thread/agent/run/subagent lifecycle surfaces still exist.
+The remaining `ioi_step_module_bridge/thread_lifecycle_command.rs` file is a
+temporary delegate to Rust core, not a durable lifecycle boundary. The
+long-term target remains direct Rust daemon-core thread, turn, agent, run,
+subagent, and lifecycle admission/persistence APIs over Agentgres
+expected-head and state-root truth, wallet.network authority where applicable,
+receipt/event materialization, replay, projection, and stable IDE/CLI/SDK
+surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

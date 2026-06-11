@@ -346,6 +346,288 @@ pub struct SubagentRecordStateUpdateRecord {
     pub generated_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ThreadLifecycleCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl ThreadLifecycleCommandError {
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        self.message.as_str()
+    }
+
+    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
+        Self {
+            code,
+            message: format!("{error:?}"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThreadControlAgentStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ThreadControlAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThreadTurnAdmissionRequiredBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ThreadTurnAdmissionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LifecycleAdmissionRequiredBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: LifecycleAdmissionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeBridgeThreadStartAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeBridgeTurnRunStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SubagentRecordStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: SubagentRecordStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentCreateStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: AgentCreateStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AgentStatusStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: AgentStatusStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RunCreateStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: RunCreateStateUpdateRequest,
+}
+
+pub fn plan_runtime_bridge_thread_start_agent_state_update_response(
+    request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = RuntimeBridgeThreadStartAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug(
+                "runtime_bridge_thread_start_agent_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_bridge_thread_start_agent_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "bridge_start": record.bridge_start.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn plan_runtime_bridge_turn_run_state_update_response(
+    request: RuntimeBridgeTurnRunStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = RuntimeBridgeTurnRunStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug(
+                "runtime_bridge_turn_run_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_bridge_turn_run_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+pub fn plan_subagent_record_state_update_response(
+    request: SubagentRecordStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = SubagentRecordStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("subagent_record_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_subagent_record_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "subagent": record.subagent.clone(),
+    }))
+}
+
+pub fn plan_thread_control_agent_state_update_response(
+    request: ThreadControlAgentStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = ThreadControlAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug(
+                "thread_control_agent_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_thread_control_agent_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "control": record.control.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn plan_thread_turn_admission_required_response(
+    request: ThreadTurnAdmissionRequiredBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = ThreadTurnAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("thread_turn_admission_required_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_thread_turn_admission_required_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation": record.operation.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+pub fn plan_lifecycle_admission_required_response(
+    request: LifecycleAdmissionRequiredBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = LifecycleAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("lifecycle_admission_required_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_lifecycle_admission_required_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation": record.operation.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+pub fn plan_agent_create_state_update_response(
+    request: AgentCreateStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = AgentCreateStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("agent_create_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_agent_create_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "created_at": record.created_at.clone(),
+        "updated_at": record.updated_at.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn plan_agent_status_state_update_response(
+    request: AgentStatusStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = AgentStatusStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("agent_status_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_agent_status_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn plan_run_create_state_update_response(
+    request: RunCreateStateUpdateBridgeRequest,
+) -> Result<Value, ThreadLifecycleCommandError> {
+    let record = RunCreateStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ThreadLifecycleCommandError::from_debug("run_create_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_run_create_state_update_command",
+        "backend": rust_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "created_at": record.created_at.clone(),
+        "updated_at": record.updated_at.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+fn rust_policy_backend(backend: Option<String>) -> String {
+    backend.unwrap_or_else(|| "rust_policy".to_string())
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
 

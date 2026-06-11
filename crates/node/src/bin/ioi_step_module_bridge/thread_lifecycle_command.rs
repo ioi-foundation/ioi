@@ -1,272 +1,81 @@
 use ioi_services::agentic::runtime::kernel::policy::{
-    AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
-    AgentStatusStateUpdateRequest, LifecycleAdmissionRequiredCore,
-    LifecycleAdmissionRequiredRequest, RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
-    RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
-    RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
-    SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
-    ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
-    ThreadTurnAdmissionRequiredCore, ThreadTurnAdmissionRequiredRequest,
+    plan_agent_create_state_update_response as core_plan_agent_create_state_update,
+    plan_agent_status_state_update_response as core_plan_agent_status_state_update,
+    plan_lifecycle_admission_required_response as core_plan_lifecycle_admission_required,
+    plan_run_create_state_update_response as core_plan_run_create_state_update,
+    plan_runtime_bridge_thread_start_agent_state_update_response as core_plan_runtime_bridge_thread_start_agent_state_update,
+    plan_runtime_bridge_turn_run_state_update_response as core_plan_runtime_bridge_turn_run_state_update,
+    plan_subagent_record_state_update_response as core_plan_subagent_record_state_update,
+    plan_thread_control_agent_state_update_response as core_plan_thread_control_agent_state_update,
+    plan_thread_turn_admission_required_response as core_plan_thread_turn_admission_required,
+    ThreadLifecycleCommandError,
 };
-use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::BridgeError;
 
-#[derive(Debug, Deserialize)]
-pub(super) struct ThreadControlAgentStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ThreadControlAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ThreadTurnAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ThreadTurnAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct LifecycleAdmissionRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: LifecycleAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeThreadStartAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeTurnRunStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct SubagentRecordStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: SubagentRecordStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct AgentCreateStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentCreateStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct AgentStatusStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentStatusStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct RunCreateStateUpdateBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCreateStateUpdateRequest,
-}
+pub(super) use ioi_services::agentic::runtime::kernel::policy::{
+    AgentCreateStateUpdateBridgeRequest, AgentStatusStateUpdateBridgeRequest,
+    LifecycleAdmissionRequiredBridgeRequest, RunCreateStateUpdateBridgeRequest,
+    RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+    RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
+    ThreadControlAgentStateUpdateBridgeRequest, ThreadTurnAdmissionRequiredBridgeRequest,
+};
 
 pub(super) fn plan_runtime_bridge_thread_start_agent_state_update(
     request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = RuntimeBridgeThreadStartAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "runtime_bridge_thread_start_agent_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_thread_start_agent_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "bridge_start": record.bridge_start.clone(),
-        "agent": record.agent.clone(),
-    }))
+    core_plan_runtime_bridge_thread_start_agent_state_update(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_runtime_bridge_turn_run_state_update(
     request: RuntimeBridgeTurnRunStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = RuntimeBridgeTurnRunStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "runtime_bridge_turn_run_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_turn_run_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "run": record.run.clone(),
-    }))
+    core_plan_runtime_bridge_turn_run_state_update(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_subagent_record_state_update(
     request: SubagentRecordStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = SubagentRecordStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("subagent_record_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_subagent_record_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "subagent": record.subagent.clone(),
-    }))
+    core_plan_subagent_record_state_update(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_thread_control_agent_state_update(
     request: ThreadControlAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ThreadControlAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "thread_control_agent_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_thread_control_agent_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "control": record.control.clone(),
-        "agent": record.agent.clone(),
-    }))
+    core_plan_thread_control_agent_state_update(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_thread_turn_admission_required(
     request: ThreadTurnAdmissionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ThreadTurnAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "thread_turn_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_thread_turn_admission_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation": record.operation.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
+    core_plan_thread_turn_admission_required(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_lifecycle_admission_required(
     request: LifecycleAdmissionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = LifecycleAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("lifecycle_admission_required_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_lifecycle_admission_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation": record.operation.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
+    core_plan_lifecycle_admission_required(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_agent_create_state_update(
     request: AgentCreateStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = AgentCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("agent_create_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_agent_create_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
+    core_plan_agent_create_state_update(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_agent_status_state_update(
     request: AgentStatusStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = AgentStatusStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("agent_status_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_agent_status_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
+    core_plan_agent_status_state_update(request).map_err(bridge_error)
 }
 
 pub(super) fn plan_run_create_state_update(
     request: RunCreateStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = RunCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("run_create_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_run_create_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "run": record.run.clone(),
-    }))
+    core_plan_run_create_state_update(request).map_err(bridge_error)
+}
+
+fn bridge_error(error: ThreadLifecycleCommandError) -> BridgeError {
+    BridgeError::new(error.code(), error.message().to_string())
 }

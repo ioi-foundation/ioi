@@ -15697,6 +15697,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1126
+
+Slice 1126 moves thread lifecycle daemon-core command request/response shaping
+out of the temporary Node
+`crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs`
+transport and into Rust
+`crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs`.
+Rust policy core now owns the bridge request structs, response envelopes,
+canonical command source markers, bridge-facing error codes, and policy facade
+exports for runtime bridge thread-start state updates, runtime bridge turn-run
+state updates, subagent record state updates, thread-control agent state
+updates, thread-turn admission-required refusals, lifecycle admission-required
+refusals, agent-create state updates, agent-status state updates, and
+run-create state updates. The Node thread-lifecycle bridge is now a thin
+temporary delegate that converts `ThreadLifecycleCommandError` into the local
+`BridgeError`; it no longer owns `serde::Deserialize`, `serde_json::json`,
+source markers, or local error-code shaping.
+
+This is Rust-core ownership progress, not terminal lifecycle migration. The
+current Node command bridge, command dispatch table, shared daemon-core command
+runner, JS command callers, runtime context-policy runner, and public
+thread/agent/run/subagent lifecycle surfaces remain scaffolding until direct
+Rust daemon-core lifecycle admission/persistence/projection APIs own
+Agentgres expected-head and state-root persistence, receipts/events,
+wallet.network authority where applicable, replay, projection, and stable
+IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services thread_lifecycle --lib` | passed |
+| `cargo test -p ioi-node thread_lifecycle --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node through_rust_core --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1067
 
 Slice 1067 moves the bridge operation-family catalog into Rust kernel protocol
