@@ -41,8 +41,11 @@ pub use common::{
 };
 mod lifecycle;
 pub use lifecycle::{
+    plan_model_mount_instance_lifecycle_response, plan_model_mount_provider_inventory_response,
+    plan_model_mount_provider_lifecycle_response, ModelMountInstanceLifecycleBridgeRequest,
     ModelMountInstanceLifecycleRequest, ModelMountInstanceLifecycleResult,
-    ModelMountProviderInventoryRequest, ModelMountProviderInventoryResult,
+    ModelMountProviderInventoryBridgeRequest, ModelMountProviderInventoryRequest,
+    ModelMountProviderInventoryResult, ModelMountProviderLifecycleBridgeRequest,
     ModelMountProviderLifecycleRequest, ModelMountProviderLifecycleResult,
 };
 mod provider_execution;

@@ -15697,6 +15697,45 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1131
+
+Slice 1131 moves model-mount provider lifecycle, provider inventory, and
+instance lifecycle daemon-core command request/response shaping out of the
+temporary Node
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs` transport
+and into Rust
+`crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs`. Rust
+model-mount lifecycle core now owns the bridge request structs, response
+envelopes, canonical command source markers, backend defaults, and
+bridge-facing error propagation for `plan_model_mount_provider_lifecycle`,
+`plan_model_mount_provider_inventory`, and
+`plan_model_mount_instance_lifecycle`. The Node model-mount bridge keeps only
+thin temporary delegates for these operations; it no longer owns their bridge
+request structs, source markers, backend defaults, or response-field envelopes.
+
+This is Rust-core ownership progress, not terminal model-mount lifecycle or
+inventory migration. The broader Node model-mount bridge, command dispatch
+table, shared daemon-core command runner, JS command callers, model-mount
+admission runner, local model-mount materialization, remaining provider
+execution/provider-result wrapper delegates, and mounted JS facades remain
+scaffolding until direct Rust daemon-core model-mount APIs own Agentgres
+expected-head and state-root persistence, receipt-bound topology,
+wallet.network/cTEE authority where applicable, replay, projection, and stable
+IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services lifecycle --lib` | passed |
+| `cargo test -p ioi-node model_mount --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1130
 
 Slice 1130 moves model-mount backend-process and required-control daemon-core

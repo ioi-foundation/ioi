@@ -1,16 +1,18 @@
 use ioi_services::agentic::runtime::kernel::model_mount::{
     plan_model_mount_backend_lifecycle_required_response as core_plan_model_mount_backend_lifecycle_required,
     plan_model_mount_backend_process_response as core_plan_model_mount_backend_process,
+    plan_model_mount_instance_lifecycle_response as core_plan_model_mount_instance_lifecycle,
+    plan_model_mount_provider_inventory_response as core_plan_model_mount_provider_inventory,
+    plan_model_mount_provider_lifecycle_response as core_plan_model_mount_provider_lifecycle,
     plan_model_mount_read_projection_response as core_plan_model_mount_read_projection,
     plan_model_mount_route_control_required_response as core_plan_model_mount_route_control_required,
     plan_model_mount_runtime_engine_required_response as core_plan_model_mount_runtime_engine_required,
     plan_model_mount_server_control_required_response as core_plan_model_mount_server_control_required,
     plan_model_mount_tokenizer_required_response as core_plan_model_mount_tokenizer_required,
-    ModelMountCore, ModelMountError, ModelMountInstanceLifecycleRequest,
-    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
-    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
-    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
-    ModelMountReadProjectionError, ModelMountRouteDecisionRequest,
+    ModelMountCore, ModelMountError, ModelMountInvocationAdmissionRequest,
+    ModelMountProviderExecutionRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderResultAdmissionRequest, ModelMountReadProjectionError,
+    ModelMountRouteDecisionRequest,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -46,27 +48,6 @@ pub(super) struct ModelMountProviderInvocationBridgeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct ModelMountProviderLifecycleBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderLifecycleRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountProviderInventoryBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountProviderInventoryRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountInstanceLifecycleBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountInstanceLifecycleRequest,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct ModelMountProviderResultAdmissionBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
@@ -75,6 +56,9 @@ pub(super) struct ModelMountProviderResultAdmissionBridgeRequest {
 
 pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountBackendLifecycleRequiredBridgeRequest;
 pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountBackendProcessPlanBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountInstanceLifecycleBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountProviderInventoryBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountProviderLifecycleBridgeRequest;
 pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountReadProjectionBridgeRequest;
 pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountRouteControlRequiredBridgeRequest;
 pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountRuntimeEngineRequiredBridgeRequest;
@@ -319,102 +303,22 @@ pub(super) fn execute_model_mount_provider_stream_invocation(
 pub(super) fn plan_model_mount_provider_lifecycle(
     request: ModelMountProviderLifecycleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let result = ModelMountCore
-        .plan_provider_lifecycle(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_provider_lifecycle_rejected",
-                format!("{error:?}"),
-            )
-        })?;
-    let status = result.status.clone();
-    let backend = result.backend.clone();
-    let backend_id = result.backend_id.clone();
-    let driver = result.driver.clone();
-    let execution_backend = result.execution_backend.clone();
-    let lifecycle_hash = result.lifecycle_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-    Ok(json!({
-        "source": "rust_model_mount_provider_lifecycle_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "status": status,
-        "backend_id": backend_id,
-        "provider_backend": backend,
-        "driver": driver,
-        "execution_backend": execution_backend,
-        "lifecycle_hash": lifecycle_hash,
-        "evidence_refs": evidence_refs,
-    }))
+    core_plan_model_mount_provider_lifecycle(request)
+        .map_err(|error| model_mount_bridge_error("model_mount_provider_lifecycle_rejected", error))
 }
 
 pub(super) fn plan_model_mount_provider_inventory(
     request: ModelMountProviderInventoryBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let result = ModelMountCore
-        .plan_provider_inventory(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_provider_inventory_rejected",
-                format!("{error:?}"),
-            )
-        })?;
-    let status = result.status.clone();
-    let backend = result.backend.clone();
-    let backend_id = result.backend_id.clone();
-    let driver = result.driver.clone();
-    let execution_backend = result.execution_backend.clone();
-    let item_refs = result.item_refs.clone();
-    let item_count = result.item_count;
-    let inventory_hash = result.inventory_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-    Ok(json!({
-        "source": "rust_model_mount_provider_inventory_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "status": status,
-        "backend_id": backend_id,
-        "provider_backend": backend,
-        "driver": driver,
-        "execution_backend": execution_backend,
-        "item_refs": item_refs,
-        "item_count": item_count,
-        "inventory_hash": inventory_hash,
-        "evidence_refs": evidence_refs,
-    }))
+    core_plan_model_mount_provider_inventory(request)
+        .map_err(|error| model_mount_bridge_error("model_mount_provider_inventory_rejected", error))
 }
 
 pub(super) fn plan_model_mount_instance_lifecycle(
     request: ModelMountInstanceLifecycleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let result = ModelMountCore
-        .plan_instance_lifecycle(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_instance_lifecycle_rejected",
-                format!("{error:?}"),
-            )
-        })?;
-    let status = result.status.clone();
-    let backend_id = result.backend_id.clone();
-    let driver = result.driver.clone();
-    let execution_backend = result.execution_backend.clone();
-    let provider_lifecycle_hash = result.provider_lifecycle_hash.clone();
-    let instance_lifecycle_hash = result.instance_lifecycle_hash.clone();
-    let evidence_refs = result.evidence_refs.clone();
-    Ok(json!({
-        "source": "rust_model_mount_instance_lifecycle_command",
-        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
-        "result": result,
-        "status": status,
-        "backendId": backend_id.clone(),
-        "backend_id": backend_id,
-        "driver": driver,
-        "execution_backend": execution_backend,
-        "provider_lifecycle_hash": provider_lifecycle_hash,
-        "instance_lifecycle_hash": instance_lifecycle_hash,
-        "evidence_refs": evidence_refs,
-    }))
+    core_plan_model_mount_instance_lifecycle(request)
+        .map_err(|error| model_mount_bridge_error("model_mount_instance_lifecycle_rejected", error))
 }
 
 pub(super) fn admit_model_mount_provider_result(

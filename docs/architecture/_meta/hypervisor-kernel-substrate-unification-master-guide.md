@@ -6419,6 +6419,26 @@ model-mount control/projection APIs over Agentgres expected-head and state-root
 truth, receipt-bound topology, wallet.network/cTEE authority where applicable,
 replay, projection, and stable IDE/CLI/SDK surfaces end to end.
 
+Slice 1131 moves model-mount provider lifecycle, provider inventory, and
+instance lifecycle command request/response shaping out of the temporary Node
+model-mount bridge and into Rust `model_mount/lifecycle.rs`. Rust core now owns
+the bridge request structs, response envelopes, canonical command source
+markers, backend defaults, and bridge-facing error propagation for
+`plan_model_mount_provider_lifecycle`, `plan_model_mount_provider_inventory`,
+and `plan_model_mount_instance_lifecycle`; the remaining Node functions only
+delegate to the Rust response functions.
+
+This remains non-terminal because model-mount command transport, command
+dispatch, the shared daemon-core command runner, JS command callers, local
+model-mount materialization, provider execution/provider-result wrapper
+delegates, and mounted JS facades still exist. The remaining
+`ioi_step_module_bridge/model_mount_command.rs` file is temporary transport
+scaffolding, not a durable provider lifecycle, provider inventory, or instance
+lifecycle boundary. The long-term target remains direct Rust daemon-core
+model-mount lifecycle/projection APIs over Agentgres expected-head and
+state-root truth, receipt-bound topology, wallet.network/cTEE authority where
+applicable, replay, projection, and stable IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
