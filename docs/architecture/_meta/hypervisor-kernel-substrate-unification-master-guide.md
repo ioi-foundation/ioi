@@ -6055,6 +6055,21 @@ command transport still exist. The long-term target remains direct Rust
 daemon-core/workload coding-tool execution and admission, with bridge-local
 workspace observation retired as each Rust-core surface becomes verified.
 
+Slice 1112 moves the coding-tool `test.run` command execution observation path
+out of the temporary StepModule bridge helper and into Rust
+`coding_tool_workspace.rs` under the kernel service crate. Rust core now owns
+test command allowlisting, command mapping for `node.test`, `npm.test`,
+`cargo.test`, and `cargo.check`, cwd and path containment, sanitized test
+environment filtering, timeout and output bounding, output hashing, pass/fail
+status derivation, and response shaping. The bridge helper delegates to Rust
+core and translates errors only.
+
+This remains non-terminal because the bridge still carries `lsp.diagnostics`
+helper plumbing, and the JS invocation facade/StepModule command transport
+still exist. The long-term target remains direct Rust daemon-core/workload
+coding-tool execution and admission, with bridge-local diagnostic/test
+execution logic retired as each Rust-core surface becomes verified.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

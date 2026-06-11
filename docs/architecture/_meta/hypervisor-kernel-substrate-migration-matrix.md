@@ -15784,6 +15784,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1112
+
+Slice 1112 moves the coding-tool `test.run` command execution observation path
+out of the temporary `ioi_step_module_bridge/coding_tool_helpers.rs` helper and
+into Rust `crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs`.
+The Rust kernel service module now owns test command allowlisting, command
+mapping for `node.test`, `npm.test`, `cargo.test`, and `cargo.check`, cwd and
+path containment, sanitized test environment filtering, timeout and output
+bounding, output hashing, pass/fail status derivation, and response shaping.
+The bridge helper delegates to Rust core and translates errors only; the old
+bridge-local test command mapper, test environment sanitizer, test command IDs,
+test timeout/output constants, and command rejection logic are gone.
+
+This is Rust-core extraction progress, not terminal coding-tool migration. The
+bridge still carries `lsp.diagnostics` helper plumbing for this leg, and the
+Node bridge, StepModule command runner, JS command callers, and coding-tool JS
+facades remain migration scaffolding until direct Rust daemon-core/workload
+APIs own coding-tool execution, admission, replay, projection, and stable
+protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_workspace --lib` | passed |
+| `cargo test -p ioi-node coding_tool --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1111
 
 Slice 1111 moves the coding-tool `workspace.status` and `git.diff` git-backed

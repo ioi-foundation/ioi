@@ -1,8 +1,9 @@
 use ioi_services::agentic::runtime::kernel::coding_tool_execution::{
-    env_key_allowed, run_command_with_timeout as run_core_command_with_timeout, CapturedCommand,
+    run_command_with_timeout as run_core_command_with_timeout, CapturedCommand,
 };
 use ioi_services::agentic::runtime::kernel::coding_tool_workspace::{
     apply_workspace_patch as apply_core_workspace_patch, inspect_git_diff as inspect_core_git_diff,
+    inspect_test_run as inspect_core_test_run,
     inspect_workspace_path as inspect_core_workspace_path,
     inspect_workspace_status as inspect_core_workspace_status, WorkspacePatchOutcome,
 };
@@ -14,105 +15,12 @@ use std::time::Instant;
 use super::{
     BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION, DIAGNOSTIC_COMMAND_IDS,
     DIAGNOSTIC_DEFAULT_OUTPUT_BYTES, DIAGNOSTIC_DEFAULT_TIMEOUT_MS, DIAGNOSTIC_MAX_OUTPUT_BYTES,
-    DIAGNOSTIC_MAX_TIMEOUT_MS, TEST_COMMAND_IDS, TEST_DEFAULT_OUTPUT_BYTES,
-    TEST_DEFAULT_TIMEOUT_MS, TEST_MAX_OUTPUT_BYTES, TEST_MAX_TIMEOUT_MS,
+    DIAGNOSTIC_MAX_TIMEOUT_MS,
 };
 
 pub(super) fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
-    let root = fs::canonicalize(workspace_root)
-        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
-    let command_id = input
-        .get("commandId")
-        .or_else(|| input.get("command_id"))
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or("node.test");
-    if !TEST_COMMAND_IDS.contains(&command_id) {
-        return Err(BridgeError::new(
-            "test_run_command_not_allowed",
-            format!("test.run commandId is not allowlisted: {command_id}"),
-        ));
-    }
-    let cwd = input
-        .get("cwd")
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .unwrap_or(".");
-    let run_cwd = workspace_directory(&root, cwd, "test_run_cwd_missing")?;
-    let paths = workspace_tool_paths(&root, input)?;
-    let timeout_ms = bounded_u64(
-        input
-            .get("timeoutMs")
-            .or_else(|| input.get("timeout_ms"))
-            .and_then(Value::as_u64),
-        TEST_DEFAULT_TIMEOUT_MS,
-        1,
-        TEST_MAX_TIMEOUT_MS,
-    );
-    let max_output_bytes = bounded_u64(
-        input
-            .get("maxOutputBytes")
-            .or_else(|| input.get("max_output_bytes"))
-            .and_then(Value::as_u64),
-        TEST_DEFAULT_OUTPUT_BYTES,
-        1,
-        TEST_MAX_OUTPUT_BYTES,
-    ) as usize;
-    let command = test_command_for_input(command_id, &run_cwd.absolute_path, &paths);
-    let mut args = command.args;
-    args.extend(sanitize_string_array(input.get("args")));
-    let env_overrides = sanitize_test_env(input.get("env"));
-    let started = Instant::now();
-    let run = run_command_with_timeout(
-        command.executable,
-        &args,
-        &run_cwd.absolute_path,
-        timeout_ms,
-        &env_overrides,
-    )?;
-    let duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
-    let (stdout, stdout_truncated) = utf8_preview(&run.stdout, max_output_bytes);
-    let (stderr, stderr_truncated) = utf8_preview(&run.stderr, max_output_bytes);
-    let output_text = format!("{}\n{}", run.stdout, run.stderr);
-    let output_hash = ioi_crypto::algorithms::hash::sha256(output_text.as_bytes())
-        .map(|hash| hex::encode(hash))
-        .map_err(|error| BridgeError::new("test_run_hash_failed", error.to_string()))?;
-    let truncated = stdout_truncated || stderr_truncated;
-    let test_status = if run.timed_out {
-        "timed_out"
-    } else if run.exit_code == 0 {
-        "passed"
-    } else {
-        "failed"
-    };
-    Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
-        "commandId": command_id,
-        "command": command.display_command,
-        "executable": command.executable,
-        "args": args,
-        "cwd": run_cwd.relative_path,
-        "exitCode": run.exit_code,
-        "signal": null,
-        "testStatus": test_status,
-        "timedOut": run.timed_out,
-        "durationMs": duration_ms,
-        "timeoutMs": timeout_ms,
-        "stdout": stdout,
-        "stderr": stderr,
-        "stdoutBytes": run.stdout.len(),
-        "stderrBytes": run.stderr.len(),
-        "outputBytes": run.stdout.len() + run.stderr.len(),
-        "outputHash": output_hash,
-        "truncated": truncated,
-        "spilloverRecommended": truncated,
-        "artifactDrafts": [],
-        "allowedCommandIds": TEST_COMMAND_IDS,
-        "shellFallbackUsed": false,
-    }))
+    inspect_core_test_run(workspace_root, input)
+        .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
 }
 
 pub(super) fn inspect_lsp_diagnostics(
@@ -449,50 +357,6 @@ pub(super) struct DiagnosticsProjectContext {
     tsconfig_paths: Vec<PathBuf>,
     package_root_absolute_path: Option<PathBuf>,
     path_count: usize,
-}
-
-pub(super) struct TestCommand {
-    executable: &'static str,
-    display_command: &'static str,
-    args: Vec<String>,
-}
-
-pub(super) fn test_command_for_input(
-    command_id: &str,
-    cwd: &Path,
-    paths: &[WorkspacePath],
-) -> TestCommand {
-    match command_id {
-        "node.test" => {
-            let mut args = vec!["--test".to_string()];
-            args.extend(
-                paths
-                    .iter()
-                    .map(|path| relative_path_between(cwd, &path.absolute_path)),
-            );
-            TestCommand {
-                executable: "node",
-                display_command: "node --test",
-                args,
-            }
-        }
-        "npm.test" => TestCommand {
-            executable: "npm",
-            display_command: "npm test",
-            args: vec!["test".to_string()],
-        },
-        "cargo.test" => TestCommand {
-            executable: "cargo",
-            display_command: "cargo test",
-            args: vec!["test".to_string()],
-        },
-        "cargo.check" => TestCommand {
-            executable: "cargo",
-            display_command: "cargo check",
-            args: vec!["check".to_string()],
-        },
-        _ => unreachable!("test command id is validated before command mapping"),
-    }
 }
 
 pub(super) fn diagnostics_project_context(
@@ -946,26 +810,6 @@ pub(super) fn unique_string_refs(values: Vec<String>) -> Vec<String> {
         }
         unique
     })
-}
-
-pub(super) fn sanitize_test_env(value: Option<&Value>) -> Vec<(String, String)> {
-    value
-        .and_then(Value::as_object)
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|(key, value)| {
-                    let value = value.as_str()?;
-                    if env_key_allowed(key) {
-                        Some((key.clone(), value.to_string()))
-                    } else {
-                        None
-                    }
-                })
-                .take(40)
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default()
 }
 
 pub(super) fn node_check_output_diagnostics(

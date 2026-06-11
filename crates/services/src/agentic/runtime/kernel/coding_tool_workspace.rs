@@ -1,8 +1,11 @@
-use crate::agentic::runtime::kernel::coding_tool_execution::{run_git_read_only, CommandOutput};
+use crate::agentic::runtime::kernel::coding_tool_execution::{
+    env_key_allowed, run_command_with_timeout, run_git_read_only, CommandOutput,
+};
 use serde_json::{json, Value};
 use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
+use std::time::Instant;
 
 pub const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const APPLY_PATCH_MAX_FILE_BYTES: u64 = 1024 * 1024;
@@ -13,6 +16,11 @@ const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
 const DEFAULT_PREVIEW_LINES: usize = 200;
 const MAX_PREVIEW_LINES: usize = 1000;
 const MAX_DIFF_BYTES: u64 = 64 * 1024;
+const TEST_DEFAULT_TIMEOUT_MS: u64 = 60 * 1000;
+const TEST_MAX_TIMEOUT_MS: u64 = 5 * 60 * 1000;
+const TEST_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
+const TEST_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
+const TEST_COMMAND_IDS: [&str; 4] = ["node.test", "npm.test", "cargo.test", "cargo.check"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodingToolWorkspaceError {
@@ -68,6 +76,13 @@ struct PatchDiffPreview {
 struct PatchEditApplication {
     text: String,
     summary: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TestCommand {
+    executable: &'static str,
+    display_command: &'static str,
+    args: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -250,6 +265,106 @@ pub fn apply_workspace_patch(
         observation,
         transition,
     })
+}
+
+pub fn inspect_test_run(
+    workspace_root: &str,
+    input: &Value,
+) -> Result<Value, CodingToolWorkspaceError> {
+    let root = fs::canonicalize(workspace_root).map_err(|error| {
+        CodingToolWorkspaceError::new("workspace_root_invalid", error.to_string())
+    })?;
+    let command_id = input
+        .get("commandId")
+        .or_else(|| input.get("command_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("node.test");
+    if !TEST_COMMAND_IDS.contains(&command_id) {
+        return Err(CodingToolWorkspaceError::new(
+            "test_run_command_not_allowed",
+            format!("test.run commandId is not allowlisted: {command_id}"),
+        ));
+    }
+    let cwd = input
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(".");
+    let run_cwd = workspace_directory(&root, cwd, "test_run_cwd_missing")?;
+    let paths = workspace_tool_paths(&root, input)?;
+    let timeout_ms = bounded_u64(
+        input
+            .get("timeoutMs")
+            .or_else(|| input.get("timeout_ms"))
+            .and_then(Value::as_u64),
+        TEST_DEFAULT_TIMEOUT_MS,
+        1,
+        TEST_MAX_TIMEOUT_MS,
+    );
+    let max_output_bytes = bounded_u64(
+        input
+            .get("maxOutputBytes")
+            .or_else(|| input.get("max_output_bytes"))
+            .and_then(Value::as_u64),
+        TEST_DEFAULT_OUTPUT_BYTES,
+        1,
+        TEST_MAX_OUTPUT_BYTES,
+    ) as usize;
+    let command = test_command_for_input(command_id, &run_cwd.absolute_path, &paths);
+    let mut args = command.args;
+    args.extend(sanitize_string_array(input.get("args")));
+    let env_overrides = sanitize_test_env(input.get("env"));
+    let started = Instant::now();
+    let run = run_command_with_timeout(
+        command.executable,
+        &args,
+        &run_cwd.absolute_path,
+        timeout_ms,
+        &env_overrides,
+    )
+    .map_err(workspace_execution_error)?;
+    let duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    let (stdout, stdout_truncated) = utf8_preview(&run.stdout, max_output_bytes);
+    let (stderr, stderr_truncated) = utf8_preview(&run.stderr, max_output_bytes);
+    let output_text = format!("{}\n{}", run.stdout, run.stderr);
+    let output_hash = sha256_hex(output_text.as_bytes())?;
+    let truncated = stdout_truncated || stderr_truncated;
+    let test_status = if run.timed_out {
+        "timed_out"
+    } else if run.exit_code == 0 {
+        "passed"
+    } else {
+        "failed"
+    };
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "commandId": command_id,
+        "command": command.display_command,
+        "executable": command.executable,
+        "args": args,
+        "cwd": run_cwd.relative_path,
+        "exitCode": run.exit_code,
+        "signal": null,
+        "testStatus": test_status,
+        "timedOut": run.timed_out,
+        "durationMs": duration_ms,
+        "timeoutMs": timeout_ms,
+        "stdout": stdout,
+        "stderr": stderr,
+        "stdoutBytes": run.stdout.len(),
+        "stderrBytes": run.stderr.len(),
+        "outputBytes": run.stdout.len() + run.stderr.len(),
+        "outputHash": output_hash,
+        "truncated": truncated,
+        "spilloverRecommended": truncated,
+        "artifactDrafts": [],
+        "allowedCommandIds": TEST_COMMAND_IDS,
+        "shellFallbackUsed": false,
+    }))
 }
 
 pub fn inspect_workspace_status(
@@ -511,6 +626,140 @@ pub fn inspect_workspace_path(
         "previewLineCount": lines.len().min(preview_lines),
         "shellFallbackUsed": false,
     }))
+}
+
+fn workspace_tool_paths(
+    root: &Path,
+    input: &Value,
+) -> Result<Vec<WorkspacePath>, CodingToolWorkspaceError> {
+    selected_workspace_paths(input)
+        .iter()
+        .map(|selected_path| {
+            workspace_path_allow_missing_with_message(
+                root,
+                selected_path,
+                "test.run path must stay inside workspace",
+            )
+        })
+        .collect()
+}
+
+fn workspace_directory(
+    root: &Path,
+    selected_path: &str,
+    error_code: &'static str,
+) -> Result<WorkspacePath, CodingToolWorkspaceError> {
+    let path = workspace_path_allow_missing_with_message(
+        root,
+        selected_path,
+        "test.run path must stay inside workspace",
+    )?;
+    if !path.absolute_path.is_dir() {
+        return Err(CodingToolWorkspaceError::new(
+            error_code,
+            "workspace directory must exist".to_string(),
+        ));
+    }
+    Ok(path)
+}
+
+fn test_command_for_input(command_id: &str, cwd: &Path, paths: &[WorkspacePath]) -> TestCommand {
+    match command_id {
+        "node.test" => {
+            let mut args = vec!["--test".to_string()];
+            args.extend(
+                paths
+                    .iter()
+                    .map(|path| relative_path_between(cwd, &path.absolute_path)),
+            );
+            TestCommand {
+                executable: "node",
+                display_command: "node --test",
+                args,
+            }
+        }
+        "npm.test" => TestCommand {
+            executable: "npm",
+            display_command: "npm test",
+            args: vec!["test".to_string()],
+        },
+        "cargo.test" => TestCommand {
+            executable: "cargo",
+            display_command: "cargo test",
+            args: vec!["test".to_string()],
+        },
+        "cargo.check" => TestCommand {
+            executable: "cargo",
+            display_command: "cargo check",
+            args: vec!["check".to_string()],
+        },
+        _ => unreachable!("test command id is validated before command mapping"),
+    }
+}
+
+fn sanitize_test_env(value: Option<&Value>) -> Vec<(String, String)> {
+    value
+        .and_then(Value::as_object)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|(key, value)| {
+                    let value = value.as_str()?;
+                    if env_key_allowed(key) {
+                        Some((key.clone(), value.to_string()))
+                    } else {
+                        None
+                    }
+                })
+                .take(40)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn sanitize_string_array(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .take(100)
+                .map(ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default()
+}
+
+fn relative_path_between(base: &Path, target: &Path) -> String {
+    let normalized_base = normalize_path_lexically(base);
+    let normalized_target = normalize_path_lexically(target);
+    let base_parts = normal_path_parts(&normalized_base);
+    let target_parts = normal_path_parts(&normalized_target);
+    let common_len = base_parts
+        .iter()
+        .zip(target_parts.iter())
+        .take_while(|(left, right)| left == right)
+        .count();
+    let mut parts = Vec::new();
+    parts.extend(std::iter::repeat("..".to_string()).take(base_parts.len() - common_len));
+    parts.extend(target_parts[common_len..].iter().cloned());
+    if parts.is_empty() {
+        ".".to_string()
+    } else {
+        parts.join("/")
+    }
+}
+
+fn normal_path_parts(path: &Path) -> Vec<String> {
+    path.components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy().to_string()),
+            _ => None,
+        })
+        .collect()
 }
 
 fn workspace_diff_paths(
@@ -1105,6 +1354,50 @@ mod tests {
         assert!(result["diff"].as_str().expect("diff").contains("+after"));
         assert_eq!(result["truncated"], false);
         assert!(result["diffHash"].as_str().expect("diff hash").len() >= 32);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn inspects_test_run_in_rust_core() {
+        let workspace = temp_workspace("test-run");
+        fs::write(
+            workspace.join("passing.test.mjs"),
+            "import test from 'node:test';\nimport assert from 'node:assert/strict';\ntest('passes', () => assert.equal(1, 1));\n",
+        )
+        .expect("fixture file");
+
+        let result = inspect_test_run(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "commandId": "node.test",
+                "path": "passing.test.mjs",
+                "timeoutMs": 5000,
+            }),
+        )
+        .expect("test inspected");
+
+        assert_eq!(result["commandId"], "node.test");
+        assert_eq!(result["command"], "node --test");
+        assert_eq!(result["args"], json!(["--test", "passing.test.mjs"]));
+        assert_eq!(result["testStatus"], "passed");
+        assert_eq!(result["exitCode"], 0);
+        assert!(result["outputHash"].as_str().expect("hash").len() >= 32);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn rejects_disallowed_test_run_command_in_rust_core() {
+        let workspace = temp_workspace("test-run-disallowed");
+
+        let error = inspect_test_run(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "commandId": "python.test",
+            }),
+        )
+        .expect_err("command rejected");
+
+        assert_eq!(error.code(), "test_run_command_not_allowed");
         let _ = fs::remove_dir_all(workspace);
     }
 
