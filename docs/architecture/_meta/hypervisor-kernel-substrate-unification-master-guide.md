@@ -5039,6 +5039,22 @@ doctor/readiness, replay, and stable IDE/CLI/SDK surfaces over
 Agentgres-admitted truth, receipt/state-root binding, wallet authority where
 applicable, and cTEE custody where private workspace projection is involved.
 
+Slice 1050 moves the workspace-restore apply-policy, preview/apply operations,
+and workspace-snapshot capture daemon-core command wrappers out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
+transport into
+`crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs`.
+The workspace restore owner remains
+`crates/services/src/agentic/runtime/kernel/workspace_restore.rs`; the bridge
+child module is only fixed migration transport that translates Rust-authored
+restore policy, operation, and snapshot capture records at the process
+boundary. The conformance guard now proves the workspace-restore command
+wrappers stay out of the broad bridge module. This is not terminal workspace
+restore or snapshot migration. Resume by replacing this command transport with
+direct Rust daemon-core workspace restore/snapshot admission, artifact
+materialization, Agentgres expected-head/state-root persistence, receipts,
+events, replay, projection, and stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

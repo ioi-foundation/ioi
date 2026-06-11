@@ -15813,6 +15813,41 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1050
+
+Slice 1050 splits the workspace-restore apply-policy, preview/apply operations,
+and workspace-snapshot capture daemon-core command wrappers out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport
+and into
+`crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs`. The
+canonical workspace restore owner remains
+`crates/services/src/agentic/runtime/kernel/workspace_restore.rs`; the new
+bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge conformance guard now proves the
+workspace-restore command wrappers are outside the broad bridge module while
+the existing bridge tests continue to prove the Rust workspace restore path.
+
+This is a Rust transport-boundary cleanup, not terminal workspace restore or
+snapshot migration. The current JS workspace restore/snapshot surfaces,
+workspace restore runner, workspace artifact/read facades, and Node command
+bridge remain scaffolding until direct Rust daemon-core workspace
+restore/snapshot admission, artifact materialization, Agentgres expected-head
+and state-root persistence, receipts/events, replay, projection, and stable
+IDE/CLI/SDK protocol surfaces own those paths end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node workspace_restore --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node workspace_snapshot --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
