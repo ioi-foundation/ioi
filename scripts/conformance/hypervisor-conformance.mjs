@@ -7845,6 +7845,10 @@ function runBridge() {
       /rust_policy_rejects_retired_thread_control_model_route_aliases/.test(
         policyThreadLifecycleCore,
       ) &&
+      /rust_policy_rejects_retired_thread_control_model_route_request_alias/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      !/alias\s*=\s*"modelRoute"/.test(policyThreadLifecycleCore) &&
       /rust_policy_rejects_subagent_record_state_update_thread_mismatch/.test(
         policyThreadLifecycleCore,
       ) &&

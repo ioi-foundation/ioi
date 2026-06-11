@@ -15784,6 +15784,36 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1080
+
+Slice 1080 retires the Rust policy-boundary compatibility alias that allowed
+camelCase `modelRoute` input to satisfy the canonical thread-control
+`model_route` request field. `ThreadControlAgentStateUpdateRequest` now accepts
+only `model_route`; retired `modelRoute` input remains unknown request data and
+fails closed with `MissingField("model_route")` before the Rust planner can
+produce a thread-control state-update plan.
+
+Conformance now fails if the Rust thread-lifecycle policy regains
+`#[serde(alias = "modelRoute")]` or if the focused Rust proof for retired
+`modelRoute` request input disappears. This is a Rust-core boundary cleanup, not
+terminal thread-control migration: command transport and JS fail-closed facades
+remain temporary scaffolding until direct Rust daemon-core thread-control
+admission, Agentgres expected-head/state-root binding, replay, projection, and
+stable protocol APIs own the surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services rust_policy_rejects_retired_thread_control_model_route_request_alias --lib` | passed |
+| `cargo test -p ioi-services thread_lifecycle --lib` | passed |
+| `cargo test -p ioi-node bridge_plans_thread_control_agent_state_update_through_rust_core --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1079
 
 Slice 1079 retires duplicate camelCase model-route projection fields from the

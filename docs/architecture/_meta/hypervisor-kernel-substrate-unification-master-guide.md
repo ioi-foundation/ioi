@@ -5543,6 +5543,21 @@ admission, Agentgres state-root binding, replay, and projection APIs own the
 surface. It does, however, remove a duplicate projection shape that could have
 survived as a compatibility contract beside the Rust-owned snake_case protocol.
 
+Slice 1080 retires the Rust policy-boundary request alias that allowed
+`modelRoute` to satisfy the canonical `model_route` field for thread-control
+state-update planning. `ThreadControlAgentStateUpdateRequest` now accepts only
+the canonical snake_case request field; a retired camelCase `modelRoute` input
+deserializes as unknown request data and fails closed before the Rust planner
+can produce a thread-control state-update plan.
+
+Conformance now fails if the Rust thread-lifecycle policy regains
+`#[serde(alias = "modelRoute")]` or if the focused Rust proof for the retired
+request alias disappears. This is still not terminal thread-control migration:
+the command transport and JS fail-closed facade remain temporary scaffolding.
+The intended long-term shape is direct Rust daemon-core thread-control
+admission, Agentgres expected-head/state-root binding, replay, projection, and
+stable protocol APIs without compatibility request aliases.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

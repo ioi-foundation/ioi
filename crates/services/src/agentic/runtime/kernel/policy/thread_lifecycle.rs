@@ -107,7 +107,7 @@ pub struct ThreadControlAgentStateUpdateRequest {
     pub workspace_trust_warning_event_id: Option<String>,
     #[serde(default)]
     pub workspace_trust_warning_created_at: Option<String>,
-    #[serde(default, alias = "modelRoute")]
+    #[serde(default)]
     pub model_route: Option<Value>,
 }
 
@@ -1209,6 +1209,50 @@ mod tests {
         assert_eq!(
             error,
             ThreadControlAgentStateUpdateError::MissingField("model_route.selected_model")
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_retired_thread_control_model_route_request_alias() {
+        let request: ThreadControlAgentStateUpdateRequest = serde_json::from_value(json!({
+            "schema_version": THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+            "thread_id": "thread_1",
+            "agent": {
+                "id": "agent_1",
+                "cwd": "/workspace",
+                "runtimeControls": {
+                    "mode": "agent",
+                    "approvalMode": "suggest"
+                }
+            },
+            "control_kind": "thinking",
+            "controls": {
+                "mode": "agent",
+                "approvalMode": "suggest",
+                "model": {
+                    "id": "auto",
+                    "route_id": "route.local-first"
+                }
+            },
+            "event_id": "evt_thread_control",
+            "seq": 7,
+            "created_at": "2026-06-06T05:00:00.000Z",
+            "modelRoute": {
+                "requested_model_id": "auto",
+                "selected_model": "retired-model",
+                "route_id": "route.retired"
+            }
+        }))
+        .expect("retired alias request still deserializes as unknown input");
+
+        assert!(request.model_route.is_none());
+        let error = ThreadControlAgentStateUpdateCore
+            .plan(&request)
+            .expect_err("retired modelRoute request alias must not satisfy model_route");
+
+        assert_eq!(
+            error,
+            ThreadControlAgentStateUpdateError::MissingField("model_route")
         );
     }
 
