@@ -20366,6 +20366,24 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1004
+
+Slice 1004 extracted model-mount read-projection planning from the Node command
+bridge into `ModelMountCore::plan_read_projection`. The bridge now validates the
+daemon-core command envelope and serializes the Rust core plan, while the old
+bridge-local `model_mount_read_projection()` helper tree is removed instead of
+preserved as a duplicate Rust transport implementation.
+
+This is still non-terminal migration work: the Node command bridge remains
+transitional transport, and direct Rust daemon-core projection APIs over
+Agentgres-backed model-mount truth, route topology joins, replay, stable
+SDK/IDE/CLI protocol APIs, and command-transport retirement remain required
+before model-mount projection reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1004 | Model-mount read-projection planning is owned by `ModelMountCore`; the command bridge no longer carries the duplicate projection planner/helper tree. | Direct Rust daemon-core projection APIs over Agentgres-backed model-mount truth replace command-transport migration plumbing, JS materialization, and edge translation. |
+
 ## Implementation Slice Evidence: 1003
 
 Slice 1003 moved public model-mount route-control Rust-core-required refusal
