@@ -15784,6 +15784,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1097
+
+Slice 1097 retires the coding-tool budget blocked-event JS projection facade.
+`RuntimeCodingToolBudgetRecoverySurface` no longer exports
+`latestCodingToolBudgetBlockedEventForRun()`, and the daemon store no longer
+exposes the matching pass-through wrapper. The run-level budget recovery route
+continues to call the mounted `codingToolBudgetRecoveryForRun()` control
+surface, which fails closed through the Rust-authored admission-required
+planner; the removed blocked-event projection facade was stale readback
+scaffolding.
+
+Conformance now fails if `latestCodingToolBudgetBlockedEventForRun()` returns
+on the budget-recovery surface or daemon store. Future blocked-event projection
+must come from Rust daemon-core projection over Agentgres-admitted truth, not
+daemon-local event scanning or JS projection helpers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.mjs packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1096
 
 Slice 1096 retires the unused approval decision JS readback facade. The mounted

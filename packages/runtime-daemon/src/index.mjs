@@ -1155,14 +1155,6 @@ export class AgentgresRuntimeStateStore {
     return this.threadEventSurface.turnForRun(this, run);
   }
 
-  latestCodingToolBudgetBlockedEventForRun(runId, sourceEventId = null) {
-    return this.codingToolBudgetRecoverySurface.latestCodingToolBudgetBlockedEventForRun(
-      this,
-      runId,
-      sourceEventId,
-    );
-  }
-
   workflowEditThreadContext(threadId, request = {}) {
     return this.workflowEditSurface.workflowEditThreadContext(this, threadId, request);
   }

@@ -54,18 +54,6 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
     });
   }
 
-  function latestCodingToolBudgetBlockedEventForRun(store, runId, sourceEventId = null) {
-    throwCodingToolBudgetRecoveryRustCoreRequired("coding_tool_budget_blocked_event_projection", "workflow.run.coding_tool_budget_blocked.project", {
-      run_id: runId,
-      source_event_id: optionalString(sourceEventId) ?? null,
-      evidence_refs: [
-        "coding_tool_budget_blocked_event_js_projection_retired",
-        "rust_daemon_core_coding_tool_budget_recovery_projection_required",
-        "agentgres_coding_tool_budget_recovery_projection_truth_required",
-      ],
-    });
-  }
-
   function codingToolBudgetRecoveryForRun(store, runId, request = {}) {
     throwCodingToolBudgetRecoveryRustCoreRequired("coding_tool_budget_recovery_control", "workflow.run.coding_tool_budget_recovery", {
       run_id: runId,
@@ -82,7 +70,6 @@ export function createRuntimeCodingToolBudgetRecoverySurface(deps = {}) {
   }
 
   return {
-    latestCodingToolBudgetBlockedEventForRun,
     codingToolBudgetRecoveryForRun,
   };
 }

@@ -5820,6 +5820,20 @@ approval surface or daemon store. The remaining approval-request event readback
 is explicitly limited to the current coding-tool approval-satisfaction helper
 until that helper receives a direct Rust daemon-core replacement.
 
+Slice 1097 retires the coding-tool budget blocked-event JS projection facade.
+`RuntimeCodingToolBudgetRecoverySurface` no longer exports
+`latestCodingToolBudgetBlockedEventForRun()`, and the daemon store no longer
+exposes the matching pass-through wrapper. The live run-level budget recovery
+route still calls the mounted `codingToolBudgetRecoveryForRun()` control
+surface, which fails closed through Rust-authored admission-required planning;
+the deleted blocked-event projection was only stale readback scaffolding.
+
+Conformance now fails if the blocked-event projection facade returns on the
+budget-recovery surface or daemon store. Future budget-recovery blocked-event
+projection must be authored by Rust daemon-core projection over Agentgres
+admitted truth, not by reintroducing daemon-local event scans or JS projection
+helpers.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

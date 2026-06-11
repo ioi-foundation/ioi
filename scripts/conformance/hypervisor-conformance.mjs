@@ -7409,7 +7409,7 @@ function runBridge() {
       /coding_tool_budget_recovery_js_facade_retired/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
-      /coding_tool_budget_blocked_event_js_projection_retired/.test(
+      !/coding_tool_budget_blocked_event_js_projection_retired/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
       /CodingToolBudgetRecoveryAdmissionRequiredCore/.test(policyCore) &&
@@ -7442,8 +7442,15 @@ function runBridge() {
       /coding-tool budget recovery control uses Rust daemon-core admission-required planner when mounted/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
       ) &&
-      /coding-tool budget blocked-event projection facade fails closed before JS projection reads/.test(
+      /coding-tool budget blocked-event projection facade is retired/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"latestCodingToolBudgetBlockedEventForRun"\),\s*false/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/latestCodingToolBudgetBlockedEventForRun/.test(runtimeCodingToolBudgetRecoverySurface) &&
+      !/latestCodingToolBudgetBlockedEventForRun\(runId, sourceEventId = null\)/.test(
+        runtimeDaemonIndex,
       ) &&
       /coding-tool budget recovery defaults action canonically while ignoring retired aliases/.test(
         runtimeCodingToolBudgetRecoverySurfaceTest,
@@ -7501,9 +7508,13 @@ function runBridge() {
         runtimeCodingToolBudgetRecovery,
       ) &&
       !/manifest\.recoveryPolicy\b/.test(runtimeCodingToolBudgetRecovery) &&
-      /coding_tool_budget_blocked_event_js_projection_retired/.test(
+      /coding-tool budget blocked-event projection facade is retired/.test(
+        runtimeCodingToolBudgetRecoverySurfaceTest,
+      ) &&
+      !/coding_tool_budget_blocked_event_js_projection_retired/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&
+      !/latestCodingToolBudgetBlockedEventForRun/.test(runtimeCodingToolBudgetRecoverySurface) &&
       !/blockedPayload\.(?:approvalId|workflowGraphId|workflowNodeId)\b/.test(
         runtimeCodingToolBudgetRecoverySurface,
       ) &&

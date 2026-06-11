@@ -197,29 +197,10 @@ test("coding-tool budget recovery control uses Rust daemon-core admission-requir
   assert.deepEqual(calls, []);
 });
 
-test("coding-tool budget blocked-event projection facade fails closed before JS projection reads", () => {
-  const { calls, store, surface } = harness();
-
-  assert.throws(
-    () => surface.latestCodingToolBudgetBlockedEventForRun(store, "run_alpha", "event_budget"),
-    (error) => {
-      assert.equal(error.status, 501);
-      assert.equal(error.code, "runtime_coding_tool_budget_recovery_rust_core_required");
-      assert.equal(error.details.rust_core_boundary, "runtime.coding_tool_budget_recovery");
-      assert.equal(error.details.operation, "coding_tool_budget_blocked_event_projection");
-      assert.equal(error.details.operation_kind, "workflow.run.coding_tool_budget_blocked.project");
-      assert.equal(error.details.run_id, "run_alpha");
-      assert.equal(error.details.source_event_id, "event_budget");
-      assert.deepEqual(error.details.evidence_refs, [
-        "coding_tool_budget_blocked_event_js_projection_retired",
-        "rust_daemon_core_coding_tool_budget_recovery_projection_required",
-        "agentgres_coding_tool_budget_recovery_projection_truth_required",
-      ]);
-      assertNoRetiredBudgetRecoveryDetailAliases(error.details);
-      return true;
-    },
-  );
-
+test("coding-tool budget blocked-event projection facade is retired", () => {
+  const { calls, surface } = harness();
+  assert.equal(Object.hasOwn(surface, "latestCodingToolBudgetBlockedEventForRun"), false);
+  assert.equal(surface.latestCodingToolBudgetBlockedEventForRun, undefined);
   assert.deepEqual(calls, []);
 });
 
