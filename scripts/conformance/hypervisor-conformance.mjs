@@ -6873,6 +6873,28 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-read-projection-command-envelope-owned-by-rust-core",
+    /pub struct ModelMountReadProjectionBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_read_projection_response/.test(modelMountCore) &&
+      /rust_model_mount_read_projection_command/.test(modelMountCore) &&
+      /model_mount_read_projection_kind_unsupported/.test(modelMountCore) &&
+      /core_plan_model_mount_read_projection/.test(modelMountCommandBridge) &&
+      /fn plan_model_mount_read_projection/.test(modelMountCommandBridge) &&
+      /ModelMountReadProjectionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountReadProjectionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountReadProjectionRequest/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_read_projection_command/.test(modelMountCommandBridge) &&
+      !/model_mount_read_projection_kind_unsupported/.test(modelMountCommandBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 migration guard: model-mount read-projection command request/response envelope and source marker live in Rust model_mount core; Node remains a temporary transport delegate only",
+  );
+  assertCheck(
+    result,
     "external-capability-exit-authority-daemon-runner",
     /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(externalCapabilityAuthorityRunner) &&

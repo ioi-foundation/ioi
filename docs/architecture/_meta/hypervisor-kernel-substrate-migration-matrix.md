@@ -15697,6 +15697,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1129
+
+Slice 1129 moves model-mount read-projection daemon-core command
+request/response shaping out of the temporary Node
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs` transport
+and into Rust
+`crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs`.
+Rust model-mount core now owns `ModelMountReadProjectionBridgeRequest`, the
+response envelope, canonical command source marker, backend default, and
+bridge-facing read-projection error propagation for
+`plan_model_mount_read_projection`. The Node model-mount bridge keeps only a
+thin temporary delegate for this operation; it no longer owns the
+read-projection bridge request struct, `rust_model_mount_read_projection_command`
+source marker, backend default, or unsupported-kind error surface.
+
+This is Rust-core ownership progress, not terminal model-mount projection
+migration. The broader Node model-mount bridge, command dispatch table, shared
+daemon-core command runner, JS command callers, model-mount admission runner,
+and JS state-materialization/read-projection facades remain scaffolding until
+direct Rust daemon-core model-mount projection APIs own Agentgres
+expected-head and state-root persistence, receipt-bound topology, replay,
+projection, wallet.network/cTEE authority where applicable, and stable
+IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services read_projection --lib` | passed |
+| `cargo test -p ioi-node model_mount_read_projection --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1128
 
 Slice 1128 moves runtime-control daemon-core command request/response shaping

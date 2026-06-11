@@ -6378,6 +6378,24 @@ approval or operator authority applies, Agentgres expected-head and state-root
 truth, receipt/event materialization, replay, projection, and stable
 IDE/CLI/SDK surfaces end to end.
 
+Slice 1129 moves model-mount read-projection command request/response shaping
+out of the temporary Node model-mount bridge and into Rust
+`model_mount/read_projection.rs`. Rust core now owns the
+`ModelMountReadProjectionBridgeRequest`, response envelope, canonical command
+source marker, backend default, and bridge-facing error propagation for
+`plan_model_mount_read_projection`; the remaining Node function only delegates
+to `plan_model_mount_read_projection_response`.
+
+This remains non-terminal because the broader Node model-mount bridge, command
+dispatch table, shared daemon-core command runner, JS command callers,
+model-mount admission runner, and JS state-materialization/read-projection
+facades still exist. The remaining `ioi_step_module_bridge/model_mount_command.rs`
+file is temporary transport scaffolding, not a durable model-mount projection
+boundary. The long-term target remains direct Rust daemon-core model-mount
+projection APIs over Agentgres expected-head and state-root truth,
+receipt-bound topology, wallet.network/cTEE authority where applicable,
+replay, projection, and stable IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

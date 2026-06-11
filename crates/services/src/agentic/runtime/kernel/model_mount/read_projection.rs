@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 mod adapter_boundary;
 mod aggregate;
@@ -52,6 +52,26 @@ impl ModelMountReadProjectionError {
             message: message.into(),
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModelMountReadProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountReadProjectionRequest,
+}
+
+pub fn plan_model_mount_read_projection_response(
+    request: ModelMountReadProjectionBridgeRequest,
+) -> Result<Value, ModelMountReadProjectionError> {
+    let plan = plan_read_projection(&request.request)?;
+    Ok(json!({
+        "source": "rust_model_mount_read_projection_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_read_projection".to_string()),
+        "projection_kind": plan.projection_kind,
+        "projection": plan.projection,
+        "evidence_refs": plan.evidence_refs,
+    }))
 }
 
 pub(super) fn plan_read_projection(

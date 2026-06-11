@@ -56,6 +56,7 @@ pub use provider_result::{
 };
 mod read_projection;
 pub use read_projection::{
+    plan_model_mount_read_projection_response, ModelMountReadProjectionBridgeRequest,
     ModelMountReadProjectionError, ModelMountReadProjectionPlan, ModelMountReadProjectionRequest,
 };
 mod required;

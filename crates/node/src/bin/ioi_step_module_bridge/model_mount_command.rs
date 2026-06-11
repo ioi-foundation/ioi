@@ -1,9 +1,10 @@
 use ioi_services::agentic::runtime::kernel::model_mount::{
+    plan_model_mount_read_projection_response as core_plan_model_mount_read_projection,
     ModelMountBackendLifecycleRequiredRequest, ModelMountBackendProcessPlanRequest, ModelMountCore,
     ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
     ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
     ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountProviderResultAdmissionRequest, ModelMountReadProjectionRequest,
+    ModelMountProviderResultAdmissionRequest, ModelMountReadProjectionError,
     ModelMountRouteControlRequiredRequest, ModelMountRouteDecisionRequest,
     ModelMountRuntimeEngineRequiredRequest, ModelMountServerControlRequiredRequest,
     ModelMountTokenizerRequiredRequest,
@@ -111,12 +112,7 @@ pub(super) struct ModelMountRouteControlRequiredBridgeRequest {
     request: ModelMountRouteControlRequiredRequest,
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountReadProjectionBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountReadProjectionRequest,
-}
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountReadProjectionBridgeRequest;
 
 pub(super) fn admit_model_mount_route_decision(
     request: ModelMountRouteDecisionBridgeRequest,
@@ -632,14 +628,9 @@ pub(super) fn plan_model_mount_route_control_required(
 pub(super) fn plan_model_mount_read_projection(
     request: ModelMountReadProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let plan = ModelMountCore
-        .plan_read_projection(&request.request)
-        .map_err(|error| BridgeError::new(error.code, error.message))?;
-    Ok(json!({
-        "source": "rust_model_mount_read_projection_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_read_projection".to_string()),
-        "projection_kind": plan.projection_kind,
-        "projection": plan.projection,
-        "evidence_refs": plan.evidence_refs,
-    }))
+    core_plan_model_mount_read_projection(request).map_err(read_projection_bridge_error)
+}
+
+fn read_projection_bridge_error(error: ModelMountReadProjectionError) -> BridgeError {
+    BridgeError::new(error.code, error.message)
 }
