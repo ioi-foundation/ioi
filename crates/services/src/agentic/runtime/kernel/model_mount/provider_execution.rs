@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -11,6 +12,20 @@ mod invocation;
 mod stream;
 
 pub use admission::{ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest};
+
+#[derive(Debug, Deserialize)]
+pub struct ModelMountProviderExecutionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountProviderExecutionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModelMountProviderInvocationBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountProviderInvocationRequest,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderInvocationRequest {
@@ -148,16 +163,119 @@ pub(super) fn admit_provider_execution(
     admission::admit_provider_execution(request)
 }
 
+pub fn admit_model_mount_provider_execution_response(
+    request: ModelMountProviderExecutionBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let record = admit_provider_execution(&request.request)?;
+    let provider_execution_ref = record.provider_execution_ref.clone();
+    let provider_execution_hash = record.provider_execution_hash.clone();
+    let receipt_refs = record.receipt_refs.clone();
+
+    Ok(json!({
+        "source": "rust_model_mount_provider_execution_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "record": record,
+        "provider_execution_ref": provider_execution_ref,
+        "provider_execution_hash": provider_execution_hash,
+        "receipt_refs": receipt_refs,
+        "evidence_refs": [
+            "rust_model_mount_core",
+            provider_execution_ref,
+        ],
+    }))
+}
+
 pub(super) fn invoke_provider(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
     invocation::invoke_provider(request)
 }
 
+pub fn execute_model_mount_provider_invocation_response(
+    request: ModelMountProviderInvocationBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let result = invoke_provider(&request.request)?;
+    let output_text = result.output_text.clone();
+    let token_count = result.token_count.clone();
+    let provider_response_kind = result.provider_response_kind.clone();
+    let execution_backend = result.execution_backend.clone();
+    let backend_id = result.backend_id.clone();
+    let provider_execution_ref = result.provider_execution_ref.clone();
+    let provider_execution_hash = result.provider_execution_hash.clone();
+    let invocation_hash = result.invocation_hash.clone();
+    let evidence_refs = result.evidence_refs.clone();
+
+    Ok(json!({
+        "source": "rust_model_mount_provider_invocation_command",
+        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
+        "result": result,
+        "outputText": output_text.clone(),
+        "output_text": output_text,
+        "tokenCount": token_count.clone(),
+        "token_count": token_count,
+        "providerResponse": null,
+        "provider_response": null,
+        "providerResponseKind": provider_response_kind.clone(),
+        "provider_response_kind": provider_response_kind,
+        "execution_backend": execution_backend,
+        "backendId": backend_id.clone(),
+        "backend_id": backend_id,
+        "provider_execution_ref": provider_execution_ref,
+        "provider_execution_hash": provider_execution_hash,
+        "invocation_hash": invocation_hash,
+        "evidence_refs": evidence_refs,
+    }))
+}
+
 pub(super) fn invoke_provider_stream(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
     stream::invoke_provider_stream(request)
+}
+
+pub fn execute_model_mount_provider_stream_invocation_response(
+    request: ModelMountProviderInvocationBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let result = invoke_provider_stream(&request.request)?;
+    let output_text = result.output_text.clone();
+    let token_count = result.token_count.clone();
+    let provider_response_kind = result.provider_response_kind.clone();
+    let execution_backend = result.execution_backend.clone();
+    let backend_id = result.backend_id.clone();
+    let stream_format = result.stream_format.clone();
+    let stream_kind = result.stream_kind.clone();
+    let stream_chunks = result.stream_chunks.clone();
+    let provider_execution_ref = result.provider_execution_ref.clone();
+    let provider_execution_hash = result.provider_execution_hash.clone();
+    let invocation_hash = result.invocation_hash.clone();
+    let evidence_refs = result.evidence_refs.clone();
+
+    Ok(json!({
+        "source": "rust_model_mount_provider_stream_invocation_command",
+        "backend": request.backend.unwrap_or_else(|| execution_backend.clone()),
+        "result": result,
+        "outputText": output_text.clone(),
+        "output_text": output_text,
+        "tokenCount": token_count.clone(),
+        "token_count": token_count,
+        "providerResponse": null,
+        "provider_response": null,
+        "providerResponseKind": provider_response_kind.clone(),
+        "provider_response_kind": provider_response_kind,
+        "execution_backend": execution_backend,
+        "backendId": backend_id.clone(),
+        "backend_id": backend_id,
+        "streamFormat": stream_format.clone(),
+        "stream_format": stream_format,
+        "streamKind": stream_kind.clone(),
+        "stream_kind": stream_kind,
+        "streamChunks": stream_chunks.clone(),
+        "stream_chunks": stream_chunks,
+        "provider_execution_ref": provider_execution_ref,
+        "provider_execution_hash": provider_execution_hash,
+        "invocation_hash": invocation_hash,
+        "evidence_refs": evidence_refs,
+    }))
 }
 
 fn validate_provider_invocation_common(

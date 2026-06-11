@@ -6930,6 +6930,46 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-provider-command-envelopes-owned-by-rust-core",
+    /pub struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
+      /pub struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
+      /pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
+      /pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
+      /pub struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
+      /rust_model_mount_provider_execution_command/.test(modelMountCore) &&
+      /rust_model_mount_provider_invocation_command/.test(modelMountCore) &&
+      /rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
+      /rust_model_mount_provider_result_command/.test(modelMountCore) &&
+      /core_admit_model_mount_provider_execution/.test(modelMountCommandBridge) &&
+      /core_execute_model_mount_provider_invocation/.test(modelMountCommandBridge) &&
+      /core_execute_model_mount_provider_stream_invocation/.test(modelMountCommandBridge) &&
+      /core_admit_model_mount_provider_result/.test(modelMountCommandBridge) &&
+      !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountProviderInvocationRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountProviderResultAdmissionRequest/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_provider_execution_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_provider_invocation_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_provider_stream_invocation_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_provider_result_command/.test(modelMountCommandBridge) &&
+      !/outputText/.test(modelMountCommandBridge) &&
+      !/tokenCount/.test(modelMountCommandBridge) &&
+      !/streamChunks/.test(modelMountCommandBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 migration guard: model-mount provider execution, invocation, stream invocation, and provider-result command envelopes live in Rust model_mount provider modules; Node remains a temporary transport delegate only",
+  );
+  assertCheck(
+    result,
     "model-mount-planning-command-envelopes-owned-by-rust-core",
     /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
@@ -13243,7 +13283,12 @@ function runBridge() {
     result,
     "model-mount-provider-execution-live-bridge",
     /admit_model_mount_provider_execution/.test(modelMountCommandSurface) &&
-      /ModelMountProviderExecutionRequest/.test(modelMountCommandSurface) &&
+      /ModelMountProviderExecutionRequest/.test(modelMountCore) &&
+      /ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
+      /core_admit_model_mount_provider_execution/.test(modelMountCommandBridge) &&
+      !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
       /bridge_admits_model_mount_provider_execution_through_rust_core/.test(modelMountCommandSurface) &&
       /admitProviderExecution/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_execution_command/.test(modelMountAdmissionRunner) &&
@@ -13360,7 +13405,12 @@ function runBridge() {
     result,
     "model-mount-local-provider-invocation-live-bridge",
     /execute_model_mount_provider_invocation/.test(modelMountCommandSurface) &&
-      /ModelMountProviderInvocationRequest/.test(modelMountCommandSurface) &&
+      /ModelMountProviderInvocationRequest/.test(modelMountCore) &&
+      /ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
+      /pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
+      /core_execute_model_mount_provider_invocation/.test(modelMountCommandBridge) &&
+      !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountProviderInvocationRequest/.test(modelMountCommandBridge) &&
       /bridge_executes_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /bridge_executes_native_local_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderInvocation/.test(modelMountAdmissionRunner) &&
@@ -13388,6 +13438,8 @@ function runBridge() {
     result,
     "model-mount-native-local-stream-invocation-live-bridge",
     /execute_model_mount_provider_stream_invocation/.test(modelMountCommandSurface) &&
+      /pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
+      /core_execute_model_mount_provider_stream_invocation/.test(modelMountCommandBridge) &&
       /bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderStreamInvocation/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_stream_invocation_command/.test(modelMountAdmissionRunner) &&
@@ -13777,7 +13829,12 @@ function runBridge() {
     result,
     "model-mount-provider-js-invocation-retired",
     /admit_model_mount_provider_result/.test(modelMountCommandSurface) &&
-      /ModelMountProviderResultAdmissionRequest/.test(modelMountCommandSurface) &&
+      /ModelMountProviderResultAdmissionRequest/.test(modelMountCore) &&
+      /ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
+      /core_admit_model_mount_provider_result/.test(modelMountCommandBridge) &&
+      !/struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountProviderResultAdmissionRequest/.test(modelMountCommandBridge) &&
       /bridge_admits_model_mount_provider_result_through_rust_core/.test(modelMountCommandSurface) &&
       /admitProviderResult/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_result_command/.test(modelMountAdmissionRunner) &&
@@ -18058,9 +18115,13 @@ function runReceipts() {
       /admit_model_mount_provider_result/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
       ) &&
-      /"provider_result_ref":\s*provider_result_ref/.test(modelMountCommandBridge) &&
-      /"provider_result_hash":\s*provider_result_hash/.test(modelMountCommandBridge) &&
+      /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
+      /"provider_result_ref":\s*provider_result_ref/.test(modelMountCore) &&
+      /"provider_result_hash":\s*provider_result_hash/.test(modelMountCore) &&
+      /core_admit_model_mount_provider_result/.test(modelMountCommandBridge) &&
       !/providerResultRef|providerResultHash/.test(modelMountCommandBridge) &&
+      !/"provider_result_ref":\s*provider_result_ref/.test(modelMountCommandBridge) &&
+      !/"provider_result_hash":\s*provider_result_hash/.test(modelMountCommandBridge) &&
       !/providerResultRef|providerResultHash/.test(
         modelMountAdmissionRunner,
       ) &&

@@ -52,12 +52,17 @@ pub use lifecycle::{
 };
 mod provider_execution;
 pub use provider_execution::{
-    ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
+    admit_model_mount_provider_execution_response,
+    execute_model_mount_provider_invocation_response,
+    execute_model_mount_provider_stream_invocation_response,
+    ModelMountProviderExecutionBridgeRequest, ModelMountProviderExecutionRecord,
+    ModelMountProviderExecutionRequest, ModelMountProviderInvocationBridgeRequest,
     ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
     ModelMountProviderStreamInvocationResult, ModelMountTokenCount,
 };
 mod provider_result;
 pub use provider_result::{
+    admit_model_mount_provider_result_response, ModelMountProviderResultAdmissionBridgeRequest,
     ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
 };
 mod read_projection;

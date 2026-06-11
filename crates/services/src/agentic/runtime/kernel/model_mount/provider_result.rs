@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -74,6 +75,13 @@ pub struct ModelMountProviderResultAdmissionRecord {
     pub backend_evidence_refs: Vec<String>,
     pub evidence_refs: Vec<String>,
     pub provider_result_hash: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModelMountProviderResultAdmissionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountProviderResultAdmissionRequest,
 }
 
 impl ModelMountProviderResultAdmissionRequest {
@@ -176,6 +184,26 @@ pub(super) fn admit_provider_result(
             .collect::<String>()
     );
     Ok(record)
+}
+
+pub fn admit_model_mount_provider_result_response(
+    request: ModelMountProviderResultAdmissionBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let record = admit_provider_result(&request.request)?;
+    let provider_result_ref = record.provider_result_ref.clone();
+    let provider_result_hash = record.provider_result_hash.clone();
+    let receipt_refs = record.receipt_refs.clone();
+    let evidence_refs = record.evidence_refs.clone();
+
+    Ok(json!({
+        "source": "rust_model_mount_provider_result_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "record": record,
+        "provider_result_ref": provider_result_ref,
+        "provider_result_hash": provider_result_hash,
+        "receipt_refs": receipt_refs,
+        "evidence_refs": evidence_refs,
+    }))
 }
 
 fn is_rust_provider_result_backend(request: &ModelMountProviderResultAdmissionRequest) -> bool {

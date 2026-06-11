@@ -15697,6 +15697,49 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1133
+
+Slice 1133 moves the remaining model-mount provider daemon-core command
+response envelopes out of the temporary Rust Node bridge transport and into
+`crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs`
+and `crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs`.
+The canonical model_mount provider owners now contain the bridge request
+structs, response-envelope builders, backend defaults, command source markers,
+non-stream provider invocation alias fields, native stream invocation alias
+fields, and provider-result response wrapping for
+`admit_model_mount_provider_execution`,
+`execute_model_mount_provider_invocation`,
+`execute_model_mount_provider_stream_invocation`, and
+`admit_model_mount_provider_result`. The remaining
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs` functions
+are thin delegates to Rust response builders; they no longer own provider
+execution/invocation/result bridge request types, source markers, backend
+defaults, token/output alias fields, stream chunk alias fields, or
+provider-result response envelopes.
+
+This is a Rust-core ownership cut across model_mount provider command
+envelopes, not terminal model_mount migration. The current Node command bridge,
+shared daemon-core command runner, JS model-mount admission runner, JS
+model-mount facades, local materialization, and direct daemon-core protocol/API
+extraction remain scaffolding until direct Rust daemon-core model_mount
+admission, provider execution, provider-result admission, receipt/state-root
+binding, Agentgres truth, wallet.network/cTEE authority checks, replay,
+projection, and stable protocol APIs own the model_mount path end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services provider_execution --lib` | passed |
+| `cargo test -p ioi-services provider_result --lib` | passed |
+| `cargo test -p ioi-node model_mount --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1132
 
 Slice 1132 moves the model-mount route-decision and invocation-admission

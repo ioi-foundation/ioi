@@ -6461,6 +6461,29 @@ provider execution, receipt/state-root binding, Agentgres truth, wallet.network
 and cTEE authority checks where applicable, replay, projection, and stable
 IDE/CLI/SDK surfaces end to end.
 
+Slice 1133 moves the remaining model-mount provider command response shaping
+out of the temporary Node model-mount bridge and into Rust
+`model_mount/provider_execution.rs` plus `model_mount/provider_result.rs`.
+Rust core now owns the bridge request structs, response envelopes, canonical
+command source markers, backend defaults, provider invocation alias fields,
+stream invocation alias fields, and bridge-facing error propagation for
+`admit_model_mount_provider_execution`,
+`execute_model_mount_provider_invocation`,
+`execute_model_mount_provider_stream_invocation`, and
+`admit_model_mount_provider_result`. The remaining Node functions only
+delegate to the Rust response functions.
+
+This remains non-terminal because model-mount command transport, command
+dispatch, the shared daemon-core command runner, JS command callers,
+model-mount admission runner, local materialization, mounted JS facades, and
+direct daemon-core protocol/API extraction still exist. The remaining
+`ioi_step_module_bridge/model_mount_command.rs` file is temporary transport
+scaffolding, not a durable model-mount provider boundary. The long-term target
+remains direct Rust daemon-core model-mount admission, provider execution,
+provider-result admission, receipt/state-root binding, Agentgres truth,
+wallet.network and cTEE authority checks where applicable, replay, projection,
+and stable IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
