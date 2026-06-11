@@ -15785,6 +15785,51 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1070
+
+Slice 1070 moves temporary bridge operation identity into Rust command
+protocol ownership. `crates/services/src/agentic/runtime/kernel/command_protocol.rs`
+now exposes typed `CommandOperation` variants for every StepModule and
+daemon-core command operation, maps the incoming operation string to that enum,
+round-trips catalog entries through `CommandOperation::as_str()`, and returns
+the typed operation from `ValidatedCommandEnvelope`.
+
+`crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs` still acts as
+stdin/envelope transport, but it now passes `validated.command_operation` to
+`crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs`. The bridge
+dispatch table now matches `CommandOperation::*` variants instead of
+`(CommandFamily, operation)` raw-string pairs and no longer carries an
+unsupported string fallback after Rust validation has already admitted the
+operation identity.
+
+Conformance now fails if bridge operation routing drifts back to raw
+operation-string matching or if Rust loses the typed operation identity,
+round-trip tests, or validated-envelope field. This is a Rust
+protocol-ownership cut, not terminal bridge retirement. The remaining
+`command_dispatch.rs` function table, StepModule command helper, and shared
+daemon-core command helper must still be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1069
 
 Slice 1069 retires the adapter-only bridge command-envelope wrapper. After the

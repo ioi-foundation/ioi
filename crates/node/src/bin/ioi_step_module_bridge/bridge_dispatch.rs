@@ -41,5 +41,5 @@ pub(super) fn run_bridge() -> Result<Value, BridgeError> {
             BridgeError::new(code, message)
         })?;
 
-    dispatch_bridge_operation(validated.operation, validated.command_family, raw_request)
+    dispatch_bridge_operation(validated.command_operation, raw_request)
 }

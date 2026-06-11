@@ -5352,6 +5352,22 @@ daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
 admission, receipt/state-root binding, replay, projection, wallet.network
 authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1070 moves temporary bridge operation identity into the Rust command
+protocol. `command_protocol.rs` now exposes a typed `CommandOperation`, maps
+every StepModule and daemon-core operation string to that Rust enum, round-trips
+catalog entries through `CommandOperation::as_str()`, and returns the typed
+operation from `ValidatedCommandEnvelope`. The stdin bridge still parses the
+wire envelope, but it now dispatches on `validated.command_operation`; the
+bridge-local dispatch module no longer matches `(CommandFamily, operation)` raw
+strings or carries an unsupported string fallback. Conformance now fails if the
+bridge reintroduces raw operation-string routing or if Rust loses the typed
+operation identity and tests. This is still not terminal bridge retirement: the
+remaining `command_dispatch.rs` function table, StepModule command helper, and
+shared daemon-core command helper must still be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
