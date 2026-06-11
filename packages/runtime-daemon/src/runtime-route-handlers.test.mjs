@@ -1540,7 +1540,7 @@ test("thread route sends MCP controls through mounted MCP surfaces", async () =>
   }
 });
 
-test("thread route invokes coding tools through canonical store surface", async () => {
+test("thread route invokes coding tools through mounted invocation surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();
   const calls = [];
@@ -1550,14 +1550,19 @@ test("thread route invokes coding tools through canonical store surface", async 
     input: { include_stat: true },
   };
   const store = {
-    invokeThreadTool(threadId, toolId, requestBody) {
-      calls.push({ threadId, toolId, requestBody });
-      return {
-        status: "completed",
-        thread_id: threadId,
-        tool_id: toolId,
-        request: requestBody,
-      };
+    codingToolInvocationSurface: {
+      invokeThreadTool(surfaceStore, threadId, toolId, requestBody) {
+        calls.push({ surfaceStore, threadId, toolId, requestBody });
+        return {
+          status: "completed",
+          thread_id: threadId,
+          tool_id: toolId,
+          request: requestBody,
+        };
+      },
+    },
+    invokeThreadTool() {
+      throw new Error("retired invokeThreadTool wrapper must not be routed");
     },
     invokeThreadToolAsync() {
       throw new Error("retired invokeThreadToolAsync wrapper must not be routed");
@@ -1577,7 +1582,12 @@ test("thread route invokes coding tools through canonical store surface", async 
   });
 
   assert.equal(response.statusCode, 200);
-  assert.deepEqual(calls, [{ threadId: "thread_route", toolId: "git.diff", requestBody: body }]);
+  assert.deepEqual(calls, [{
+    surfaceStore: store,
+    threadId: "thread_route",
+    toolId: "git.diff",
+    requestBody: body,
+  }]);
   assert.deepEqual(JSON.parse(response.body), {
     status: "completed",
     thread_id: "thread_route",

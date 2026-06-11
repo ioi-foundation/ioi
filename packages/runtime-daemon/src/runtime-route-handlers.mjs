@@ -1028,7 +1028,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "POST" && action === "tools" && segments[4] && segments[5] === "invoke" && !segments[6]) {
-      writeJsonResponse(response, await store.invokeThreadTool(threadId, decodeURIComponent(segments[4]), await readBody(request)));
+      writeJsonResponse(response, await store.codingToolInvocationSurface.invokeThreadTool(store, threadId, decodeURIComponent(segments[4]), await readBody(request)));
       return;
     }
     if (

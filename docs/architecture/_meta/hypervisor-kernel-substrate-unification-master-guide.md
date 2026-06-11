@@ -4535,7 +4535,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 981, public runtime account, runtime-node, tool
+Current lane note: after Slice 982, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4567,6 +4567,10 @@ thread-fork/run-cancel admission, and conversation-artifact projection over
 Agentgres-admitted truth, ArtifactRef/PayloadRef binding where needed,
 wallet/network and cTEE authority where required, receipt/state-root binding,
 replay, and stable IDE/CLI/SDK protocol APIs own the surfaces end to end.
+Thread-tool invocation routes now also call the mounted coding-tool invocation
+surface directly instead of the daemon-store `invokeThreadTool()` pass-through,
+but that surface and command transport remain migration scaffolding until direct
+Rust daemon-core StepModuleRouter/workload-client APIs own dispatch end to end.
 
 ## Final Doctrine
 

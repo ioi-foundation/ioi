@@ -3438,10 +3438,13 @@ function runBridge() {
       /coding tool invocation surface rejects non-live coding-tool runners before JS execution/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&
-      /thread route invokes coding tools through canonical store surface/.test(
+      /thread route invokes coding tools through mounted invocation surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /store\.invokeThreadTool\(threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+      /store\.codingToolInvocationSurface\.invokeThreadTool\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.invokeThreadTool\(threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
       !/invokeThreadToolAsync/.test(runtimeDaemonIndex) &&
