@@ -1,3 +1,4 @@
+use crate::agentic::runtime::kernel::coding_tool_execution::{run_git_read_only, CommandOutput};
 use serde_json::{json, Value};
 use std::fs;
 use std::io::Read;
@@ -11,6 +12,7 @@ const DEFAULT_PREVIEW_BYTES: u64 = 8 * 1024;
 const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
 const DEFAULT_PREVIEW_LINES: usize = 200;
 const MAX_PREVIEW_LINES: usize = 1000;
+const MAX_DIFF_BYTES: u64 = 64 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodingToolWorkspaceError {
@@ -250,6 +252,148 @@ pub fn apply_workspace_patch(
     })
 }
 
+pub fn inspect_workspace_status(
+    workspace_root: &str,
+    input: &Value,
+) -> Result<Value, CodingToolWorkspaceError> {
+    let root = fs::canonicalize(workspace_root).map_err(|error| {
+        CodingToolWorkspaceError::new("workspace_root_invalid", error.to_string())
+    })?;
+    let include_ignored = input
+        .get("includeIgnored")
+        .or_else(|| input.get("include_ignored"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let mut args = vec![
+        "status".to_string(),
+        "--short".to_string(),
+        "--branch".to_string(),
+        "--untracked-files=all".to_string(),
+    ];
+    if include_ignored {
+        args.push("--ignored".to_string());
+    }
+    let status = run_git_read_only(&root, &args).map_err(workspace_execution_error)?;
+    if !status.ok {
+        return Ok(json!({
+            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspaceRoot": workspace_root,
+            "git": {
+                "available": false,
+                "status": "not_git_repository",
+                "error": nonempty_command_error(&status, "git status failed"),
+            },
+            "changedFiles": [],
+            "counts": {
+                "changed": 0,
+                "untracked": 0,
+                "ignored": 0,
+            },
+            "shellFallbackUsed": false,
+        }));
+    }
+
+    let lines = status
+        .stdout
+        .lines()
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>();
+    let branch = lines
+        .iter()
+        .find_map(|line| line.strip_prefix("##").map(str::trim))
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned);
+    let mut changed_files = Vec::new();
+    let mut changed = 0u64;
+    let mut untracked = 0u64;
+    let mut ignored = 0u64;
+    for line in lines.iter().filter(|line| !line.starts_with("##")) {
+        let path = line.get(3..).unwrap_or("").trim();
+        if path.is_empty() {
+            continue;
+        }
+        let status_code = line.get(0..2).unwrap_or("").trim();
+        let status_code = if status_code.is_empty() {
+            "modified"
+        } else {
+            status_code
+        };
+        changed += 1;
+        if status_code.contains('?') {
+            untracked += 1;
+        }
+        if status_code.contains('!') {
+            ignored += 1;
+        }
+        changed_files.push(json!({
+            "status": status_code,
+            "path": path,
+        }));
+    }
+    let porcelain_hash = sha256_hex(status.stdout.as_bytes())?;
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "git": {
+            "available": true,
+            "branch": branch,
+            "porcelainHash": porcelain_hash,
+        },
+        "changedFiles": changed_files,
+        "counts": {
+            "changed": changed,
+            "untracked": untracked,
+            "ignored": ignored,
+        },
+        "shellFallbackUsed": false,
+    }))
+}
+
+pub fn inspect_git_diff(
+    workspace_root: &str,
+    input: &Value,
+) -> Result<Value, CodingToolWorkspaceError> {
+    let root = fs::canonicalize(workspace_root).map_err(|error| {
+        CodingToolWorkspaceError::new("workspace_root_invalid", error.to_string())
+    })?;
+    let paths = workspace_diff_paths(&root, input)?;
+    let max_bytes = bounded_u64(
+        input
+            .get("maxBytes")
+            .or_else(|| input.get("max_bytes"))
+            .and_then(Value::as_u64),
+        MAX_DIFF_BYTES,
+        1,
+        MAX_DIFF_BYTES,
+    ) as usize;
+    let mut diff_args = vec!["diff".to_string(), "--".to_string()];
+    diff_args.extend(paths.iter().cloned());
+    let diff_output = run_git_read_only(&root, &diff_args).map_err(workspace_execution_error)?;
+    if !diff_output.ok {
+        return Err(CodingToolWorkspaceError::new(
+            "git_diff_failed",
+            nonempty_command_error(&diff_output, "git diff failed"),
+        ));
+    }
+    let mut stat_args = vec!["diff".to_string(), "--stat".to_string(), "--".to_string()];
+    stat_args.extend(paths.iter().cloned());
+    let stat_output = run_git_read_only(&root, &stat_args).map_err(workspace_execution_error)?;
+    let (diff_preview, truncated) = utf8_preview(&diff_output.stdout, max_bytes);
+    let diff_hash = sha256_hex(diff_output.stdout.as_bytes())?;
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "paths": paths,
+        "git": { "available": true },
+        "diff": diff_preview,
+        "diffBytes": diff_output.stdout.len(),
+        "diffHash": diff_hash,
+        "truncated": truncated,
+        "stat": if stat_output.ok { stat_output.stdout } else { String::new() },
+        "shellFallbackUsed": false,
+    }))
+}
+
 pub fn inspect_workspace_path(
     workspace_root: &str,
     selected_path: &str,
@@ -369,9 +513,72 @@ pub fn inspect_workspace_path(
     }))
 }
 
+fn workspace_diff_paths(
+    root: &Path,
+    input: &Value,
+) -> Result<Vec<String>, CodingToolWorkspaceError> {
+    let selected_paths = selected_workspace_paths(input);
+    selected_paths
+        .iter()
+        .map(|selected_path| {
+            workspace_relative_path_allow_missing(
+                root,
+                selected_path,
+                "git.diff path must stay inside workspace",
+            )
+        })
+        .collect()
+}
+
+fn selected_workspace_paths(input: &Value) -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Some(values) = input.get("paths").and_then(Value::as_array) {
+        paths.extend(
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(ToOwned::to_owned),
+        );
+    }
+    if let Some(path) = input
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
+        paths.push(path.to_string());
+    }
+    paths
+}
+
+fn workspace_relative_path_allow_missing(
+    root: &Path,
+    selected_path: &str,
+    outside_message: &'static str,
+) -> Result<String, CodingToolWorkspaceError> {
+    Ok(
+        workspace_path_allow_missing_with_message(root, selected_path, outside_message)?
+            .relative_path,
+    )
+}
+
 fn workspace_path_allow_missing(
     root: &Path,
     selected_path: &str,
+) -> Result<WorkspacePath, CodingToolWorkspaceError> {
+    workspace_path_allow_missing_with_message(
+        root,
+        selected_path,
+        "file.apply_patch path must stay inside workspace",
+    )
+}
+
+fn workspace_path_allow_missing_with_message(
+    root: &Path,
+    selected_path: &str,
+    outside_message: &'static str,
 ) -> Result<WorkspacePath, CodingToolWorkspaceError> {
     let candidate = path_candidate(root, selected_path);
     let normalized_root = normalize_path_lexically(root);
@@ -379,7 +586,7 @@ fn workspace_path_allow_missing(
     if !normalized_candidate.starts_with(&normalized_root) {
         return Err(CodingToolWorkspaceError::new(
             "path_outside_workspace",
-            "file.apply_patch path must stay inside workspace".to_string(),
+            outside_message.to_string(),
         ));
     }
     if let Some(boundary) = nearest_existing_path(&normalized_candidate) {
@@ -389,17 +596,14 @@ fn workspace_path_allow_missing(
         if !real_boundary.starts_with(root) {
             return Err(CodingToolWorkspaceError::new(
                 "path_outside_workspace",
-                "file.apply_patch path must stay inside workspace".to_string(),
+                outside_message.to_string(),
             ));
         }
     }
     let relative = normalized_candidate
         .strip_prefix(&normalized_root)
         .map_err(|_| {
-            CodingToolWorkspaceError::new(
-                "path_outside_workspace",
-                "file.apply_patch path must stay inside workspace".to_string(),
-            )
+            CodingToolWorkspaceError::new("path_outside_workspace", outside_message.to_string())
         })?
         .to_string_lossy()
         .replace('\\', "/");
@@ -678,6 +882,24 @@ fn sha256_hex(bytes: &[u8]) -> Result<String, CodingToolWorkspaceError> {
         .map_err(|error| CodingToolWorkspaceError::new("sha256_failed", error.to_string()))
 }
 
+fn workspace_execution_error(
+    error: crate::agentic::runtime::kernel::coding_tool_execution::CodingToolExecutionError,
+) -> CodingToolWorkspaceError {
+    CodingToolWorkspaceError::new(error.code(), error.message().to_string())
+}
+
+fn nonempty_command_error(output: &CommandOutput, fallback: &str) -> String {
+    let stderr = output.stderr.trim();
+    if !stderr.is_empty() {
+        return stderr.to_string();
+    }
+    let stdout = output.stdout.trim();
+    if !stdout.is_empty() {
+        return stdout.to_string();
+    }
+    fallback.to_string()
+}
+
 fn safe_ref_path(value: &str) -> String {
     let safe = value
         .chars()
@@ -835,6 +1057,73 @@ mod tests {
         assert_eq!(error.code(), "path_outside_workspace");
         let _ = fs::remove_file(outside);
         let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn inspects_workspace_status_in_rust_core() {
+        let workspace = temp_workspace("status");
+        init_git_workspace(&workspace);
+        fs::write(workspace.join("README.md"), "hello\n").expect("fixture file");
+
+        let result =
+            inspect_workspace_status(workspace.to_str().expect("workspace path"), &json!({}))
+                .expect("status inspected");
+
+        assert_eq!(result["git"]["available"], true);
+        assert_eq!(result["counts"]["changed"], 1);
+        assert_eq!(result["counts"]["untracked"], 1);
+        assert_eq!(result["changedFiles"][0]["path"], "README.md");
+        assert!(
+            result["git"]["porcelainHash"]
+                .as_str()
+                .expect("porcelain hash")
+                .len()
+                >= 32
+        );
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn inspects_git_diff_in_rust_core() {
+        let workspace = temp_workspace("git-diff");
+        init_git_workspace(&workspace);
+        let target = workspace.join("README.md");
+        fs::write(&target, "before\n").expect("fixture file");
+        run_git(&workspace, &["add", "README.md"]);
+        fs::write(&target, "before\nafter\n").expect("updated file");
+
+        let result = inspect_git_diff(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "path": "README.md",
+                "maxBytes": 4096,
+            }),
+        )
+        .expect("diff inspected");
+
+        assert_eq!(result["paths"][0], "README.md");
+        assert!(result["diff"].as_str().expect("diff").contains("+after"));
+        assert_eq!(result["truncated"], false);
+        assert!(result["diffHash"].as_str().expect("diff hash").len() >= 32);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    fn init_git_workspace(workspace: &Path) {
+        run_git(workspace, &["init"]);
+    }
+
+    fn run_git(workspace: &Path, args: &[&str]) {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(workspace)
+            .args(args)
+            .output()
+            .expect("git command");
+        assert!(
+            output.status.success(),
+            "git command failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     fn temp_workspace(name: &str) -> PathBuf {

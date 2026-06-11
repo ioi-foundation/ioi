@@ -3855,7 +3855,7 @@ function runBridge() {
       /safe_subprocess_env/.test(codingToolExecutionCore) &&
       /is_sensitive_env_key/.test(codingToolExecutionCore) &&
       /run_core_command_with_timeout/.test(codingToolHelpersBridge) &&
-      /run_core_git_read_only/.test(codingToolHelpersBridge) &&
+      !/run_core_git_read_only/.test(codingToolHelpersBridge) &&
       !/use std::process/.test(codingToolHelpersBridge) &&
       !/Command::new/.test(codingToolHelpersBridge) &&
       !/\.spawn\(\)/.test(codingToolHelpersBridge) &&
@@ -3922,6 +3922,34 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
     ],
     "Phase 10/11 remains non-terminal: file.inspect workspace containment, directory listing, metadata, preview, and preview hashing must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+  );
+  assertCheck(
+    result,
+    "coding-tool-workspace-git-observation-rust-core-boundary",
+    /pub mod coding_tool_workspace;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn inspect_workspace_status/.test(codingToolWorkspaceCore) &&
+      /pub fn inspect_git_diff/.test(codingToolWorkspaceCore) &&
+      /run_git_read_only\(&root, &args\)/.test(codingToolWorkspaceCore) &&
+      /run_git_read_only\(&root, &diff_args\)/.test(codingToolWorkspaceCore) &&
+      /workspace_diff_paths/.test(codingToolWorkspaceCore) &&
+      /porcelainHash/.test(codingToolWorkspaceCore) &&
+      /diffHash/.test(codingToolWorkspaceCore) &&
+      /inspect_core_workspace_status/.test(codingToolHelpersBridge) &&
+      /inspect_core_git_diff/.test(codingToolHelpersBridge) &&
+      !/fn workspace_diff_paths/.test(codingToolHelpersBridge) &&
+      !/fn run_git_read_only/.test(codingToolHelpersBridge) &&
+      !/fn nonempty_command_error/.test(codingToolHelpersBridge) &&
+      !/git_diff_failed/.test(codingToolHelpersBridge) &&
+      !/workspace_status_hash_failed/.test(codingToolHelpersBridge) &&
+      !/MAX_DIFF_BYTES/.test(bridgeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 remains non-terminal: workspace.status and git.diff git observation, path containment, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,

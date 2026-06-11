@@ -6040,6 +6040,21 @@ target remains direct Rust daemon-core/workload coding-tool execution and
 admission, with bridge-local filesystem observation retired as each Rust-core
 surface becomes verified.
 
+Slice 1111 moves the coding-tool `workspace.status` and `git.diff` git-backed
+workspace observation paths out of the temporary StepModule bridge helper and
+into Rust `coding_tool_workspace.rs` under the kernel service crate. Rust core
+now owns status command planning, diff command planning, workspace path
+containment for diff targets, porcelain/diff output hashing, git-unavailable
+response shaping, changed-file counting, diff preview truncation, and stat
+projection for these observations. The bridge helper delegates to Rust core and
+translates errors only.
+
+This remains non-terminal because the bridge still carries `test.run` and
+`lsp.diagnostics` helper plumbing, and the JS invocation facade/StepModule
+command transport still exist. The long-term target remains direct Rust
+daemon-core/workload coding-tool execution and admission, with bridge-local
+workspace observation retired as each Rust-core surface becomes verified.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

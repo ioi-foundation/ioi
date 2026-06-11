@@ -1,10 +1,10 @@
 use ioi_services::agentic::runtime::kernel::coding_tool_execution::{
-    env_key_allowed, run_command_with_timeout as run_core_command_with_timeout,
-    run_git_read_only as run_core_git_read_only, CapturedCommand, CommandOutput,
+    env_key_allowed, run_command_with_timeout as run_core_command_with_timeout, CapturedCommand,
 };
 use ioi_services::agentic::runtime::kernel::coding_tool_workspace::{
-    apply_workspace_patch as apply_core_workspace_patch,
-    inspect_workspace_path as inspect_core_workspace_path, WorkspacePatchOutcome,
+    apply_workspace_patch as apply_core_workspace_patch, inspect_git_diff as inspect_core_git_diff,
+    inspect_workspace_path as inspect_core_workspace_path,
+    inspect_workspace_status as inspect_core_workspace_status, WorkspacePatchOutcome,
 };
 use serde_json::{json, Value};
 use std::fs;
@@ -14,7 +14,7 @@ use std::time::Instant;
 use super::{
     BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION, DIAGNOSTIC_COMMAND_IDS,
     DIAGNOSTIC_DEFAULT_OUTPUT_BYTES, DIAGNOSTIC_DEFAULT_TIMEOUT_MS, DIAGNOSTIC_MAX_OUTPUT_BYTES,
-    DIAGNOSTIC_MAX_TIMEOUT_MS, MAX_DIFF_BYTES, TEST_COMMAND_IDS, TEST_DEFAULT_OUTPUT_BYTES,
+    DIAGNOSTIC_MAX_TIMEOUT_MS, TEST_COMMAND_IDS, TEST_DEFAULT_OUTPUT_BYTES,
     TEST_DEFAULT_TIMEOUT_MS, TEST_MAX_OUTPUT_BYTES, TEST_MAX_TIMEOUT_MS,
 };
 
@@ -237,141 +237,13 @@ pub(super) fn inspect_workspace_status(
     workspace_root: &str,
     input: &Value,
 ) -> Result<Value, BridgeError> {
-    let root = fs::canonicalize(workspace_root)
-        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
-    let include_ignored = input
-        .get("includeIgnored")
-        .or_else(|| input.get("include_ignored"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let mut args = vec![
-        "status".to_string(),
-        "--short".to_string(),
-        "--branch".to_string(),
-        "--untracked-files=all".to_string(),
-    ];
-    if include_ignored {
-        args.push("--ignored".to_string());
-    }
-    let status = run_git_read_only(&root, &args)?;
-    if !status.ok {
-        return Ok(json!({
-            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-            "workspaceRoot": workspace_root,
-            "git": {
-                "available": false,
-                "status": "not_git_repository",
-                "error": nonempty_command_error(&status, "git status failed"),
-            },
-            "changedFiles": [],
-            "counts": {
-                "changed": 0,
-                "untracked": 0,
-                "ignored": 0,
-            },
-            "shellFallbackUsed": false,
-        }));
-    }
-
-    let lines = status
-        .stdout
-        .lines()
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>();
-    let branch = lines
-        .iter()
-        .find_map(|line| line.strip_prefix("##").map(str::trim))
-        .filter(|line| !line.is_empty())
-        .map(ToOwned::to_owned);
-    let mut changed_files = Vec::new();
-    let mut changed = 0u64;
-    let mut untracked = 0u64;
-    let mut ignored = 0u64;
-    for line in lines.iter().filter(|line| !line.starts_with("##")) {
-        let path = line.get(3..).unwrap_or("").trim();
-        if path.is_empty() {
-            continue;
-        }
-        let status_code = line.get(0..2).unwrap_or("").trim();
-        let status_code = if status_code.is_empty() {
-            "modified"
-        } else {
-            status_code
-        };
-        changed += 1;
-        if status_code.contains('?') {
-            untracked += 1;
-        }
-        if status_code.contains('!') {
-            ignored += 1;
-        }
-        changed_files.push(json!({
-            "status": status_code,
-            "path": path,
-        }));
-    }
-    let porcelain_hash = ioi_crypto::algorithms::hash::sha256(status.stdout.as_bytes())
-        .map(|hash| hex::encode(hash))
-        .map_err(|error| BridgeError::new("workspace_status_hash_failed", error.to_string()))?;
-    Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
-        "git": {
-            "available": true,
-            "branch": branch,
-            "porcelainHash": porcelain_hash,
-        },
-        "changedFiles": changed_files,
-        "counts": {
-            "changed": changed,
-            "untracked": untracked,
-            "ignored": ignored,
-        },
-        "shellFallbackUsed": false,
-    }))
+    inspect_core_workspace_status(workspace_root, input)
+        .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
 }
 
 pub(super) fn inspect_git_diff(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
-    let root = fs::canonicalize(workspace_root)
-        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
-    let paths = workspace_diff_paths(&root, input)?;
-    let max_bytes = bounded_u64(
-        input
-            .get("maxBytes")
-            .or_else(|| input.get("max_bytes"))
-            .and_then(Value::as_u64),
-        MAX_DIFF_BYTES,
-        1,
-        MAX_DIFF_BYTES,
-    ) as usize;
-    let mut diff_args = vec!["diff".to_string(), "--".to_string()];
-    diff_args.extend(paths.iter().cloned());
-    let diff_output = run_git_read_only(&root, &diff_args)?;
-    if !diff_output.ok {
-        return Err(BridgeError::new(
-            "git_diff_failed",
-            nonempty_command_error(&diff_output, "git diff failed"),
-        ));
-    }
-    let mut stat_args = vec!["diff".to_string(), "--stat".to_string(), "--".to_string()];
-    stat_args.extend(paths.iter().cloned());
-    let stat_output = run_git_read_only(&root, &stat_args)?;
-    let (diff_preview, truncated) = utf8_preview(&diff_output.stdout, max_bytes);
-    let diff_hash = ioi_crypto::algorithms::hash::sha256(diff_output.stdout.as_bytes())
-        .map(|hash| hex::encode(hash))
-        .map_err(|error| BridgeError::new("git_diff_hash_failed", error.to_string()))?;
-    Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
-        "paths": paths,
-        "git": { "available": true },
-        "diff": diff_preview,
-        "diffBytes": diff_output.stdout.len(),
-        "diffHash": diff_hash,
-        "truncated": truncated,
-        "stat": if stat_output.ok { stat_output.stdout } else { String::new() },
-        "shellFallbackUsed": false,
-    }))
+    inspect_core_git_diff(workspace_root, input)
+        .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
 }
 
 pub(super) fn inspect_workspace_path(
@@ -389,14 +261,6 @@ pub(super) fn apply_workspace_patch(
 ) -> Result<WorkspacePatchOutcome, BridgeError> {
     apply_core_workspace_patch(workspace_root, input)
         .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
-}
-
-pub(super) fn workspace_diff_paths(root: &Path, input: &Value) -> Result<Vec<String>, BridgeError> {
-    let selected_paths = selected_workspace_paths(input);
-    selected_paths
-        .iter()
-        .map(|selected_path| workspace_relative_path_allow_missing(root, selected_path))
-        .collect()
 }
 
 pub(super) fn workspace_tool_paths(
@@ -430,13 +294,6 @@ pub(super) fn selected_workspace_paths(input: &Value) -> Vec<String> {
         paths.push(path.to_string());
     }
     paths
-}
-
-pub(super) fn workspace_relative_path_allow_missing(
-    root: &Path,
-    selected_path: &str,
-) -> Result<String, BridgeError> {
-    Ok(workspace_path_allow_missing(root, selected_path)?.relative_path)
 }
 
 pub(super) fn workspace_path_allow_missing(
@@ -1178,26 +1035,6 @@ pub(super) fn diagnostic_code(message: &str) -> String {
     } else {
         code
     }
-}
-
-pub(super) fn run_git_read_only(
-    root: &Path,
-    args: &[String],
-) -> Result<CommandOutput, BridgeError> {
-    run_core_git_read_only(root, args)
-        .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
-}
-
-pub(super) fn nonempty_command_error(output: &CommandOutput, fallback: &str) -> String {
-    let stderr = output.stderr.trim();
-    if !stderr.is_empty() {
-        return stderr.to_string();
-    }
-    let stdout = output.stdout.trim();
-    if !stdout.is_empty() {
-        return stdout.to_string();
-    }
-    fallback.to_string()
 }
 
 pub(super) fn sha256_hex(bytes: &[u8]) -> Result<String, BridgeError> {
