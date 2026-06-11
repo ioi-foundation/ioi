@@ -4593,8 +4593,10 @@ Node bridge shape;
 model-mount accepted-receipt head/transition request/result types, validation,
 state-root derivation, operation/head refs, transition hashing, and tamper
 validation now live in the dedicated Rust `model_mount/accepted_receipt.rs`
-module behind `ModelMountCore`, making receipt/state-root binding a distinct
-Rust core boundary rather than broad model-mount helper code;
+module behind `ModelMountCore`, and the accepted-receipt Rust tests/fixtures
+now live beside that implementation instead of in the broad parent facade,
+making receipt/state-root binding a distinct Rust core boundary rather than
+broad model-mount helper code;
 model-mount provider lifecycle, provider inventory, and model-instance
 lifecycle request/result types, validation, backend/driver classification,
 evidence refs, and transition hashes now live in the dedicated Rust

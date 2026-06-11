@@ -17955,11 +17955,31 @@ function runReceipts() {
       ) &&
       /plan_accepted_receipt_transition/.test(modelMountCore) &&
       /validate_accepted_receipt_transition/.test(modelMountCore) &&
-      /InvalidAcceptedReceiptTransitionHash/.test(modelMountCore) &&
-      /accepted_receipt_transition_rejects_tampered_hash/.test(modelMountCore) &&
+      /InvalidAcceptedReceiptTransitionHash/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
+      /accepted_receipt_transition_rejects_tampered_hash/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
+      /accepted_receipt_head_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
+      !/fn accepted_receipt_transition_request/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/fn accepted_receipt_head_request/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/fn accepted_receipt_transition_rejects_tampered_hash/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION/.test(modelMountCore) &&
-      /agentgres:\/\/model-mounting\/accepted-receipts/.test(modelMountCore) &&
-      /model-mounting-accepted-receipts/.test(modelMountCore) &&
+      /agentgres:\/\/model-mounting\/accepted-receipts/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
+      /model-mounting-accepted-receipts/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(bridgeModule) &&
       /agentgres:\/\/model-mounting\/accepted-receipts/.test(agentgresAdmissionCore) &&
       !/agentgres:\/\/model-mounting\/operation-log/.test(
