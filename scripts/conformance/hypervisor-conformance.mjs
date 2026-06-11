@@ -55,6 +55,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs")
+      : "",
     exists("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       : "",
@@ -2606,6 +2609,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
     : "";
+  const policyThreadLifecycleCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs")
+    : "";
   const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     : "";
@@ -2631,7 +2639,7 @@ function runBridge() {
       /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\nimpl DiagnosticsOperatorOverrideStateUpdateRequest \{)/,
     )?.[0] ?? "";
   const threadControlAgentStateUpdateCoreBlock =
-    policyCore.match(
+    policyThreadLifecycleCore.match(
       /impl ThreadControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct AgentCreateStateUpdateCore;)/,
     )?.[0] ?? "";
   const mcpControlAgentStateUpdateCoreBlock =
@@ -2647,11 +2655,11 @@ function runBridge() {
       /impl ThreadMemoryAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeThreadStartAgentStateUpdateCore;)/,
     )?.[0] ?? "";
   const runtimeBridgeThreadStartAgentStateUpdateCoreBlock =
-    policyCore.match(
+    policyThreadLifecycleCore.match(
       /impl RuntimeBridgeThreadStartAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeTurnRunStateUpdateCore;)/,
     )?.[0] ?? "";
   const runtimeBridgeTurnRunStateUpdateCoreBlock =
-    policyCore.match(
+    policyThreadLifecycleCore.match(
       /impl RuntimeBridgeTurnRunStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct SubagentRecordStateUpdateCore;)/,
     )?.[0] ?? "";
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
@@ -7168,6 +7176,52 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "policy-thread-lifecycle-rust-owner-split",
+    /mod thread_lifecycle;/.test(policyFacade) &&
+      /pub use thread_lifecycle::/.test(policyFacade) &&
+      /pub struct ThreadControlAgentStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct AgentCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct RunCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct AgentStatusStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /pub struct RuntimeBridgeTurnRunStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct SubagentRecordStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_thread_mode_agent_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_agent_create_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_run_create_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_agent_status_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_plans_runtime_bridge_turn_run_state_update/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_plans_subagent_record_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_rejects_retired_thread_control_model_route_aliases/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      /rust_policy_rejects_subagent_record_state_update_thread_mismatch/.test(
+        policyThreadLifecycleCore,
+      ) &&
+      !/pub struct ThreadControlAgentStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct AgentCreateStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct SubagentRecordStateUpdateCore;/.test(policyFacade) &&
+      !/rust_policy_plans_thread_mode_agent_state_update/.test(policyFacade) &&
+      !/rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(
+        policyFacade,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: thread/run lifecycle policy owners must stay in the Rust policy child module while direct Rust daemon-core lifecycle admission/persistence replaces command transport",
+  );
+  assertCheck(
+    result,
     "operator-control-state-update-error-detail-aliases-retired",
     /thread_id:\s*threadId/.test(runtimeThreadTurnSurface) &&
       /turn_id:\s*turnId/.test(runtimeThreadTurnSurface) &&
@@ -7303,6 +7357,7 @@ function runBridge() {
       !/cancelRunState\(this,\s*runId,\s*\{/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7427,6 +7482,7 @@ function runBridge() {
       !/^\s+(?:skillHookCatalog|listSkills|listHooks)\(/m.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7512,6 +7568,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -23358,6 +23415,7 @@ function runCompositor() {
         runtimeSubagentSurfaceTest,
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-subagent-surface.mjs",
       "packages/runtime-daemon/src/runtime-subagent-surface.test.mjs",
     ],

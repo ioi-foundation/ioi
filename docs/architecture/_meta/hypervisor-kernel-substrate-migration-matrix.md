@@ -20514,3 +20514,40 @@ Scheduled matrix-compaction obligation: compact Slices 1035-1038 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1039
+
+Slice 1039 splits the Rust thread/run lifecycle policy owner family out of the
+broad `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs`. The
+child owner now contains thread-control, agent create, run create, agent status,
+runtime-bridge thread start, runtime-bridge turn run, and subagent record
+state-update request/record/error types, planner cores, validation, model-route
+alias rejection, subagent parent-thread mismatch rejection, and focused proof
+tests. The parent policy module only re-exports those surfaces.
+
+This is a Rust-core ownership cut across lifecycle, runtime-bridge, and
+subagent state planning, not terminal lifecycle migration. The current JS
+thread-control facade, JS agent/run lifecycle facade, JS runtime-bridge thread
+facade, JS subagent facade, JS context-policy runner, and Node command bridge
+remain migration transport/scaffolding until direct Rust daemon-core lifecycle
+admission, wallet authority, cTEE custody policy where applicable, Agentgres
+expected-head/state-root persistence, receipts/events, replay, projection, and
+stable protocol APIs own the path end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services thread_lifecycle` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1035-1039 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.

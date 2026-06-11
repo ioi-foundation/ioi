@@ -4842,6 +4842,25 @@ daemon-core operator-control admission/persistence over wallet authority,
 runtime control custody, Agentgres expected heads/state roots, receipts/events,
 replay, projection, and stable IDE/CLI/SDK protocol APIs.
 
+Slice 1039 moves the thread/run lifecycle policy owner family out of the
+broad Rust `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs`. The
+child module owns thread-control, agent create, run create, agent status,
+runtime-bridge thread start, runtime-bridge turn run, and subagent record
+state-update request/record/error types, planner cores, validation, model-route
+alias rejection, subagent parent-thread mismatch rejection, and focused proof
+tests; the parent facade only re-exports the surfaces. This is a larger
+Rust ownership cut across lifecycle, runtime-bridge, and subagent state
+planning, not terminal lifecycle migration. The current JS thread-control
+facade, agent/run lifecycle facade, runtime-bridge thread facade, subagent
+facade, JS context-policy runner, and Node command bridge remain temporary
+migration transport. Resume by replacing those transport paths with direct
+Rust daemon-core lifecycle admission/persistence over wallet authority,
+cTEE policy where private workspace custody is involved, Agentgres expected
+heads/state roots, receipts/events, replay, projection, and stable IDE/CLI/SDK
+protocol APIs. Schedule a matrix-compaction pass for Slices 1035-1039 once the
+next larger Rust-core extraction/facade-retirement seam is clear.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
