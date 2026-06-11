@@ -5252,6 +5252,21 @@ StepModuleRouter dispatch, Agentgres admission, receipt/state-root binding,
 replay, projection, wallet.network authority, cTEE custody, and stable
 IDE/CLI/SDK protocol surfaces.
 
+Slice 1064 moves temporary bridge operation routing out of stdin/envelope
+transport and into
+`crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs`.
+`bridge_dispatch.rs` now only reads stdin, parses the canonical envelope,
+checks the Rust-owned command schema from `command_envelope.rs`, and calls
+`dispatch_bridge_operation()`. The large operation match still exists as
+temporary bridge routing, but it no longer lives in the process-envelope
+transport. Conformance now fails if `bridge_dispatch.rs` regains the operation
+table. This is still not terminal bridge retirement. Resume by replacing
+`command_dispatch.rs`, `command_envelope.rs`, the StepModule command helper,
+and the shared daemon-core command helper with direct Rust daemon-core/workload
+protocol APIs over Rust/WASM execution, Agentgres admission, receipt/state-root
+binding, replay, projection, wallet.network authority, cTEE custody, and
+stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

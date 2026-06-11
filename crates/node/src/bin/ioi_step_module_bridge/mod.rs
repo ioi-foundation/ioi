@@ -15,6 +15,7 @@ mod authority_command;
 mod bridge_dispatch;
 mod coding_tool_command;
 mod coding_tool_helpers;
+mod command_dispatch;
 mod command_envelope;
 mod computer_use;
 mod context_policy_command;

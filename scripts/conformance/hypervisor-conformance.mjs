@@ -2266,6 +2266,9 @@ function runBridge() {
   const bridgeDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     : "";
+  const bridgeCommandDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs")
+    : "";
   const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     : "";
@@ -2342,10 +2345,14 @@ function runBridge() {
     result,
     "bridge-command-schema-version-alias-retired",
     /mod bridge_dispatch;/.test(bridgeModule) &&
+      /mod command_dispatch;/.test(bridgeModule) &&
       /mod command_envelope;/.test(bridgeModule) &&
       /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
-      /match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
+      /dispatch_bridge_operation\(envelope\.operation\.as_str\(\),\s*raw_request\)/.test(bridgeDispatch) &&
+      !/match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
+      /pub\(super\) fn dispatch_bridge_operation/.test(bridgeCommandDispatch) &&
+      /match operation/.test(bridgeCommandDispatch) &&
       /expected_command_schema_version/.test(bridgeDispatch) &&
       !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
       /pub\(super\) const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
@@ -2359,6 +2366,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs",
     ],
     "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
@@ -3627,7 +3635,7 @@ function runBridge() {
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
       /mod coding_tool_command;/.test(bridgeModule) &&
       /mod coding_tool_helpers;/.test(bridgeModule) &&
-      /run_coding_tool_step_module/.test(bridgeDispatch) &&
+      /run_coding_tool_step_module/.test(bridgeCommandDispatch) &&
       !/struct StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/fn workspace_status_response/.test(bridgeModule) &&
