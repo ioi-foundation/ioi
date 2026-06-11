@@ -15471,41 +15471,48 @@ function runReceipts() {
     "model-mount-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs") &&
       /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /provider_execution::admit_provider_result\(request\)/.test(
+      /provider_result::admit_provider_result\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /ModelMountProviderResultAdmissionRequest/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /admits_rust_provider_result_bound_to_execution/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /provider_result_admission_requires_bound_provider_execution/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /provider_result_admission_rejects_hash_drift_or_wrong_backend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       !/fn admits_rust_provider_result_bound_to_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ProviderResultOutputHashMismatch/.test(
+      !/fn admits_rust_provider_result_bound_to_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      !/pub struct ModelMountProviderResultAdmissionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /ProviderResultOutputHashMismatch/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /UnsupportedProviderResultBackend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /is_rust_provider_result_backend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /rust_model_mount_provider_result_backend_bound/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       !/js_provider_driver_observation_bound"\.to_string/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       /admit_model_mount_provider_result/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -15532,6 +15539,7 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
@@ -15543,21 +15551,26 @@ function runReceipts() {
     "model-mount-stream-provider-result-admission-core",
       exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs") &&
       /admits_stream_start_rust_provider_result_bound_to_execution/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ) &&
       !/fn admits_stream_start_rust_provider_result_bound_to_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /stream_status/.test(
+      !/fn admits_stream_start_rust_provider_result_bound_to_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
+      /stream_status/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
+      ) &&
       /ProviderExecutionRefMismatch/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs"),
       ),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: stream-start provider result admission must bind to the same stream-status provider execution record",

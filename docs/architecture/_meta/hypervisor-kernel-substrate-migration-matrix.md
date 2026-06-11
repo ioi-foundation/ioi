@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1020
+
+Slice 1020 split provider-result admission out of the broad
+`model_mount/provider_execution.rs` module and into
+`model_mount/provider_result.rs`. Provider-result request/record types,
+validation, Rust backend checks, output-hash binding, provider-execution
+binding, evidence refs, result hash/ref derivation, and provider-result Rust
+tests now live beside the Rust boundary they prove. `ModelMountCore` remains
+the public facade, while provider execution stays focused on execution
+admission, provider invocation, and native-local stream invocation.
+
+This is still non-terminal migration work: provider-result implementation and
+proof ownership are now isolated in Rust, but direct Rust daemon-core
+provider-result protocol APIs must still replace command transport and JS edge
+translation before terminal provider-result ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1020 | Moved provider-result admission request/record types, validation, backend/hash/evidence helpers, and provider-result tests from `crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs`; conformance now requires those tests and helpers in the provider-result module and fails if provider-result admission regrows in the provider-execution module. | Direct Rust daemon-core provider-result protocol APIs replace the command bridge and JS edge translation once the provider-result Rust boundary can own receipt/projection/admission end to end. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1019
 
 Slice 1019 moved the remaining model_mount lifecycle proof surface out of the

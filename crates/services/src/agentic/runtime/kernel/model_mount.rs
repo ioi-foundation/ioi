@@ -48,8 +48,11 @@ mod provider_execution;
 pub use provider_execution::{
     ModelMountProviderExecutionRecord, ModelMountProviderExecutionRequest,
     ModelMountProviderInvocationRequest, ModelMountProviderInvocationResult,
-    ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
     ModelMountProviderStreamInvocationResult, ModelMountTokenCount,
+};
+mod provider_result;
+pub use provider_result::{
+    ModelMountProviderResultAdmissionRecord, ModelMountProviderResultAdmissionRequest,
 };
 mod read_projection;
 pub use read_projection::{
@@ -135,7 +138,7 @@ impl ModelMountCore {
         &self,
         request: &ModelMountProviderResultAdmissionRequest,
     ) -> Result<ModelMountProviderResultAdmissionRecord, ModelMountError> {
-        provider_execution::admit_provider_result(request)
+        provider_result::admit_provider_result(request)
     }
 
     pub fn plan_backend_process(
