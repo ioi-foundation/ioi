@@ -15784,6 +15784,31 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1101
+
+Slice 1101 retires unused workflow-edit target/context JS helper facades. No
+live route or caller uses `workflowEditThreadContext()` or
+`resolveWorkflowEditTarget()`; the daemon store and mounted workflow-edit
+surface no longer expose those methods, and conformance fails if their retired
+`workflow_edit_thread_context` or `workflow_edit_target_resolution` facade
+patterns return.
+
+Proposal/apply remain the only mounted workflow-edit protocol-edge operations
+until direct Rust daemon-core workflow-edit context, target resolution, proposal
+admission, apply admission, wallet approval authority, Agentgres
+expected-head/state-root binding, receipt binding, replay, and projection APIs
+replace the temporary JS surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1100
 
 Slice 1100 retires daemon-store diagnostics-repair and conversation-artifact

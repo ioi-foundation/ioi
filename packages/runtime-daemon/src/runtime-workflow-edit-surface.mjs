@@ -51,30 +51,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
     });
   }
 
-  function workflowEditThreadContext(store, threadId, request = {}) {
-    throwWorkflowEditRustCoreRequired("workflow_edit_thread_context", "workflow.edit.context", {
-      thread_id: threadId,
-      turn_id: optionalString(request.turn_id) ?? null,
-      evidence_refs: [
-        "workflow_edit_thread_context_js_facade_retired",
-        "rust_daemon_core_workflow_edit_context_required",
-        "agentgres_workflow_edit_context_truth_required",
-      ],
-    });
-  }
-
-  function resolveWorkflowEditTarget(agent, request = {}) {
-    throwWorkflowEditRustCoreRequired("workflow_edit_target_resolution", "workflow.edit.target.resolve", {
-      agent_id: optionalString(agent?.id) ?? null,
-      workflow_path: optionalString(request.workflow_path) ?? null,
-      evidence_refs: [
-        "workflow_edit_target_resolution_js_facade_retired",
-        "rust_daemon_core_workflow_edit_target_required",
-        "agentgres_workflow_edit_target_truth_required",
-      ],
-    });
-  }
-
   function proposeWorkflowEdit(store, threadId, request = {}) {
     throwWorkflowEditRustCoreRequired("workflow_edit_proposal", "workflow.edit_proposed", {
       thread_id: threadId,
@@ -120,8 +96,6 @@ export function createRuntimeWorkflowEditSurface(deps = {}) {
   }
 
   return {
-    workflowEditThreadContext,
-    resolveWorkflowEditTarget,
     proposeWorkflowEdit,
     applyWorkflowEditProposal,
   };

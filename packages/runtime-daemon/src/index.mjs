@@ -1133,14 +1133,6 @@ export class AgentgresRuntimeStateStore {
     return this.threadEventSurface.turnForRun(this, run);
   }
 
-  workflowEditThreadContext(threadId, request = {}) {
-    return this.workflowEditSurface.workflowEditThreadContext(this, threadId, request);
-  }
-
-  resolveWorkflowEditTarget(agent, request = {}) {
-    return this.workflowEditSurface.resolveWorkflowEditTarget(agent, request);
-  }
-
   agentForThread(threadId) {
     return agentForThreadState(this, threadId, {
       agentIdForThread,

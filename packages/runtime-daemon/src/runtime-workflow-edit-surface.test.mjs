@@ -227,37 +227,6 @@ test("workflow-edit apply facade fails closed before JS proposal lookup or mutat
   assert.deepEqual(store.calls, []);
 });
 
-test("workflow-edit target/context facades fail closed before JS agent or workspace resolution", () => {
-  const store = createStore();
-  const surface = createSurface();
-
-  assert.throws(
-    () => surface.workflowEditThreadContext(store, "thread_alpha", { turn_id: "turn_alpha" }),
-    (error) => {
-      assert.equal(error.code, "runtime_workflow_edit_rust_core_required");
-      assert.equal(error.details.operation, "workflow_edit_thread_context");
-      assert.equal(error.details.operation_kind, "workflow.edit.context");
-      assert.equal(error.details.thread_id, "thread_alpha");
-      assert.equal(error.details.turn_id, "turn_alpha");
-      assertNoRetiredWorkflowEditDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.throws(
-    () => surface.resolveWorkflowEditTarget({ id: "agent_alpha", cwd: "/workspace" }, { workflow_path: "workflow.json" }),
-    (error) => {
-      assert.equal(error.code, "runtime_workflow_edit_rust_core_required");
-      assert.equal(error.details.operation, "workflow_edit_target_resolution");
-      assert.equal(error.details.operation_kind, "workflow.edit.target.resolve");
-      assert.equal(error.details.agent_id, "agent_alpha");
-      assert.equal(error.details.workflow_path, "workflow.json");
-      assertNoRetiredWorkflowEditDetailAliases(error.details);
-      return true;
-    },
-  );
-  assert.deepEqual(store.calls, []);
-});
-
 test("workflow-edit apply still validates canonical proposal id before the Rust-core boundary", () => {
   const surface = createSurface();
 
@@ -273,9 +242,11 @@ test("workflow-edit apply still validates canonical proposal id before the Rust-
   );
 });
 
-test("workflow-edit read helper facades are retired with the JS apply path", () => {
+test("workflow-edit helper facades are retired with the JS apply path", () => {
   const surface = createSurface();
 
   assert.equal(Object.hasOwn(surface, "latestWorkflowEditProposalEvent"), false);
   assert.equal(Object.hasOwn(surface, "workflowEditApprovalSatisfaction"), false);
+  assert.equal(Object.hasOwn(surface, "workflowEditThreadContext"), false);
+  assert.equal(Object.hasOwn(surface, "resolveWorkflowEditTarget"), false);
 });

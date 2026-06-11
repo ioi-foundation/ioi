@@ -9872,11 +9872,17 @@ function runBridge() {
       /throwWorkflowEditRustCoreRequired\("workflow_edit_proposal",\s*"workflow\.edit_proposed"/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      /throwWorkflowEditRustCoreRequired\("workflow_edit_thread_context",\s*"workflow\.edit\.context"/.test(
+      !/workflowEditThreadContext|workflow_edit_thread_context|workflow\.edit\.context/.test(
         runtimeWorkflowEditSurface,
       ) &&
-      /throwWorkflowEditRustCoreRequired\("workflow_edit_target_resolution",\s*"workflow\.edit\.target\.resolve"/.test(
+      !/resolveWorkflowEditTarget|workflow_edit_target_resolution|workflow\.edit\.target\.resolve/.test(
         runtimeWorkflowEditSurface,
+      ) &&
+      !/^\s+workflowEditThreadContext\(threadId, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
+      ) &&
+      !/^\s+resolveWorkflowEditTarget\(agent, request = \{\}\) \{/m.test(
+        runtimeDaemonIndex,
       ) &&
       /workflow_edit_proposal_js_facade_retired/.test(runtimeWorkflowEditSurface) &&
       /rust_daemon_core_workflow_edit_proposal_required/.test(runtimeWorkflowEditSurface) &&
@@ -9901,7 +9907,13 @@ function runBridge() {
       /workflow-edit proposal uses Rust daemon-core admission-required planner when mounted/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /workflow-edit target\/context facades fail closed before JS agent or workspace resolution/.test(
+      /workflow-edit helper facades are retired with the JS apply path/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"workflowEditThreadContext"\),\s*false/.test(
+        runtimeWorkflowEditSurfaceTest,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"resolveWorkflowEditTarget"\),\s*false/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /appendRuntimeEvent must not be called by the retired workflow-edit JS facade/.test(
@@ -9960,7 +9972,7 @@ function runBridge() {
       /workflow-edit apply still validates canonical proposal id before the Rust-core boundary/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
-      /workflow-edit read helper facades are retired with the JS apply path/.test(
+      /workflow-edit helper facades are retired with the JS apply path/.test(
         runtimeWorkflowEditSurfaceTest,
       ) &&
       /assertNoRetiredWorkflowEditDetailAliases\(error\.details\)/.test(

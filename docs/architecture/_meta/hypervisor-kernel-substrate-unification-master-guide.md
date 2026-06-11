@@ -5899,6 +5899,20 @@ conversation-artifact admission/projection, with Agentgres expected-head and
 state-root binding, receipt_binder, ArtifactRef/PayloadRef admission, replay,
 and projection replacing the temporary protocol-edge surface calls.
 
+Slice 1101 retires the unused workflow-edit target/context JS helper facades
+instead of preserving them as fail-closed compatibility surface area. No live
+route or caller uses `workflowEditThreadContext()` or
+`resolveWorkflowEditTarget()`; the daemon store and mounted workflow-edit
+surface no longer expose those methods, and conformance fails if their
+`workflow_edit_thread_context` or `workflow_edit_target_resolution` JS facade
+patterns return.
+
+Workflow-edit proposal/apply remain the only mounted JS protocol-edge
+operations for this lane until direct Rust daemon-core workflow-edit context,
+target resolution, proposal admission, apply admission, wallet approval
+authority, Agentgres expected-head/state-root binding, receipt binding, replay,
+and projection APIs replace the temporary surface.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
