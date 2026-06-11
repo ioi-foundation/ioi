@@ -9313,6 +9313,22 @@ function runBridge() {
         runtimeBridgeThreadTest,
       ) &&
       /error\.details\.runtime_profile/.test(runtimeBridgeThreadTest) &&
+      /runtime thread-control integration proof rejects retired model-route seeding/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /runtime-service thread creation fails before JS runtime bridge dispatch/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /runtime thread-control compatibility store wrappers stay retired/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /store\.agentRunLifecycleSurface\.createThread\(store,/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /calls\.some\(\(call\) => call\.operation === "start_thread"\), false/.test(
+        runtimeThreadControlTest,
+      ) &&
+      /typeof store\.createThread,\s*"undefined"/.test(runtimeThreadControlTest) &&
       /runtime profile request normalization ignores retired camelCase aliases/.test(
         runtimeApiBridgeTest,
       ) &&
@@ -9333,6 +9349,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge thread start/turn/control JS facades must stay retired before bridge dispatch, Rust-planner calls from the facade, JS event append, or JS agent/run persistence while direct Rust daemon-core admission is extracted",
   );

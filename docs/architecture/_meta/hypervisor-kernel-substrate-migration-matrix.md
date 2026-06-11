@@ -15784,6 +15784,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1087
+
+Slice 1087 converts `runtime-thread-control.test.mjs` from an obsolete live JS
+runtime-service integration proof into current negative boundary evidence. The
+test now proves retired model-route seeding fails through the Rust model-mount
+route-control required boundary, runtime-service thread creation fails before
+JS runtime bridge `startThread` dispatch or agent/run cache mutation, and the
+removed daemon-store lifecycle/thread-control/subagent compatibility wrappers
+stay absent.
+
+This is not terminal runtime-service migration. Runtime-service thread start,
+turn submit, managed-session control, and subagent recovery still need direct
+Rust daemon-core admission, execution dispatch, Agentgres expected-head/state
+root binding, persistence, replay, projection, and stable protocol APIs before
+live proofs should be restored.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-thread-control.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-control.test.mjs packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1086
 
 Slice 1086 retires the daemon-store lifecycle creation pass-throughs. The

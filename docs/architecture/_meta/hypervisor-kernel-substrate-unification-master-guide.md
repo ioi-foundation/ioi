@@ -5670,6 +5670,23 @@ still migration scaffolding, and the next Rust-core cut must replace it with
 direct Rust daemon-core lifecycle admission, persistence, replay, projection,
 Agentgres expected-head/state-root binding, and stable protocol APIs.
 
+Slice 1087 converts the stale `runtime-thread-control.test.mjs` live
+runtime-service proof into negative boundary evidence. That test no longer
+tries to seed model routes through retired JS model-mount mutation facades,
+start runtime-service threads through JS bridge dispatch, or exercise subagent
+recovery through removed daemon-store compatibility wrappers. Instead it proves
+that route seeding fails through the Rust model-mount route-control required
+record, runtime-service thread creation fails before JS runtime bridge
+`startThread` dispatch or agent/run cache mutation, and the retired daemon-store
+lifecycle and thread-control/subagent wrappers remain absent.
+
+Conformance now fails if this test drifts back into a live JS runtime-service
+proof or if it stops checking the Rust-required route-control and runtime
+bridge boundaries. This remains non-terminal: runtime-service thread start,
+turn submit, managed-session control, and subagent recovery still need direct
+Rust daemon-core admission, dispatch, Agentgres binding, replay, and projection
+before they can become active live proofs again.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
