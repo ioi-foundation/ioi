@@ -2297,6 +2297,9 @@ function runBridge() {
   const codingToolArtifactCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs")
     : "";
+  const codingToolStepModuleCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs")
+    : "";
   const codingToolWorkspaceCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
     : "";
@@ -3744,7 +3747,8 @@ function runBridge() {
       /file\.apply_patch/.test(codingToolCommandBridge) &&
       /pub\(super\) fn apply_workspace_patch/.test(codingToolHelpersBridge) &&
       !/AgentgresAdmissionCore/.test(codingToolCommandBridge) &&
-      /AgentgresAdmissionCore/.test(codingToolReceiptCommandBridge) &&
+      !/AgentgresAdmissionCore/.test(codingToolReceiptCommandBridge) &&
+      /AgentgresAdmissionCore/.test(codingToolStepModuleCore) &&
       /test\.run/.test(codingToolCommandBridge) &&
       /pub\(super\) fn inspect_test_run/.test(codingToolHelpersBridge) &&
       /npm\.test/.test(codingToolWorkspaceCore) &&
@@ -3772,11 +3776,18 @@ function runBridge() {
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
       !/ReceiptBinder/.test(codingToolCommandBridge) &&
       !/RustProjectionCore/.test(codingToolCommandBridge) &&
-      /StepModuleRouterCore/.test(codingToolReceiptCommandBridge) &&
-      /WorkloadClient::plan_step_module_dispatch/.test(codingToolReceiptCommandBridge) &&
-      /ReceiptBinder/.test(codingToolReceiptCommandBridge) &&
-      /RustProjectionCore/.test(codingToolReceiptCommandBridge) &&
-      /router_admission/.test(codingToolReceiptCommandBridge) &&
+      !/StepModuleRouterCore/.test(codingToolReceiptCommandBridge) &&
+      !/WorkloadClient::plan_step_module_dispatch/.test(codingToolReceiptCommandBridge) &&
+      !/ReceiptBinder/.test(codingToolReceiptCommandBridge) &&
+      !/RustProjectionCore/.test(codingToolReceiptCommandBridge) &&
+      /pub mod coding_tool_step_module;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn successful_coding_tool_step_module_result/.test(codingToolStepModuleCore) &&
+      /pub fn coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
+      /StepModuleRouterCore/.test(codingToolStepModuleCore) &&
+      /WorkloadClient::plan_step_module_dispatch/.test(codingToolStepModuleCore) &&
+      /ReceiptBinder/.test(codingToolStepModuleCore) &&
+      /RustProjectionCore/.test(codingToolStepModuleCore) &&
+      /router_admission/.test(codingToolStepModuleCore) &&
       /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(runtimeCodingToolInvocationSurface) &&
       /workspace\.status/.test(runtimeCodingToolInvocationSurface) &&
       /git\.diff/.test(runtimeCodingToolInvocationSurface) &&
@@ -3844,12 +3855,13 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
-    "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",
+    "Phase 3/10 is pending: route migrated coding tools through Rust core StepModule admission/receipt/projection planning and the live workload path without daemon_js while command transport remains temporary",
   );
   assertCheck(
     result,
@@ -4077,8 +4089,10 @@ function runBridge() {
       /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
       !/StepModuleRouterCore/.test(codingToolCommandBridge) &&
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
-      /StepModuleRouterCore/.test(codingToolReceiptCommandBridge) &&
-      /WorkloadClient::plan_step_module_dispatch/.test(codingToolReceiptCommandBridge),
+      !/StepModuleRouterCore/.test(codingToolReceiptCommandBridge) &&
+      !/WorkloadClient::plan_step_module_dispatch/.test(codingToolReceiptCommandBridge) &&
+      /StepModuleRouterCore/.test(codingToolStepModuleCore) &&
+      /WorkloadClient::plan_step_module_dispatch/.test(codingToolStepModuleCore),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/client/src/workload_client/mod.rs",
@@ -4086,6 +4100,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Phase 3/10/11 remains non-terminal: coding-tool StepModule wrappers must not regain local command-envelope identity while the next Rust-core extraction/facade-retirement slice replaces temporary Node command transport with direct Rust daemon-core/workload APIs",
@@ -4100,10 +4115,11 @@ function runBridge() {
       /DaemonJsBackendRetired/.test(workloadClient) &&
       /workload_client_rejects_daemon_js_dispatch/.test(workloadClient) &&
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
-      /WorkloadClient::plan_step_module_dispatch/.test(codingToolReceiptCommandBridge) &&
-      /workload_step_module_dispatch_request/.test(codingToolReceiptCommandBridge) &&
-      /"workload_dispatch": workload_dispatch/.test(codingToolReceiptCommandBridge) &&
-      /"workload_observation": workload_observation/.test(codingToolReceiptCommandBridge) &&
+      !/WorkloadClient::plan_step_module_dispatch/.test(codingToolReceiptCommandBridge) &&
+      /WorkloadClient::plan_step_module_dispatch/.test(codingToolStepModuleCore) &&
+      /coding_tool_workload_step_module_dispatch_request/.test(codingToolStepModuleCore) &&
+      /"workload_dispatch": workload_dispatch/.test(codingToolStepModuleCore) &&
+      /"workload_observation": workload_observation/.test(codingToolStepModuleCore) &&
       /rust_workload_client_step_module_dispatch/.test(bridgeModule) &&
       /bridge_result\?\.workload_observation/.test(runtimeCodingToolInvocationSurface) &&
       /Object\.hasOwn\(result\.step_module\.bridge_result,\s*"shadow_observation"\),\s*false/.test(

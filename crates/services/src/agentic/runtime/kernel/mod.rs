@@ -10,6 +10,7 @@ pub mod capability;
 pub mod coding_tool_artifact;
 pub mod coding_tool_computer_use;
 pub mod coding_tool_execution;
+pub mod coding_tool_step_module;
 pub mod coding_tool_workspace;
 pub mod command_protocol;
 pub mod ctee;

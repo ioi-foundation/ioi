@@ -6121,6 +6121,27 @@ admission, wallet.network/cTEE custody enforcement where applicable,
 Agentgres-backed receipt/state-root binding, replay, projection, and stable
 protocol APIs end to end.
 
+Slice 1116 moves coding-tool StepModule result construction, workload dispatch
+planning, StepModuleRouter admission, receipt binding, Agentgres admission,
+projection binding, and response assembly out of the temporary Node receipt
+bridge and into Rust `coding_tool_step_module.rs` under the kernel service
+crate. Rust core now owns backend-to-projection status selection, successful
+StepModule result shaping, workload-client dispatch request derivation,
+dispatch evidence merging, result validation, router admission, receipt/state
+binding, optional Agentgres operation admission, projection record creation,
+and the canonical `rust_workload_command` response envelope for coding-tool
+StepModule work.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared StepModule command runner, JS command callers, and coding-tool JS
+protocol facades still exist. The remaining
+`ioi_step_module_bridge/coding_tool_receipt_command.rs` file is a temporary
+delegate to Rust core, not a durable architectural boundary. The long-term
+target remains direct Rust daemon-core/workload coding-tool execution,
+admission, replay, projection, and stable protocol APIs end to end, with the
+bridge deleted or reduced to external protocol transport once the direct Rust
+daemon-core surface is verified.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

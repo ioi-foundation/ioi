@@ -15784,6 +15784,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1116
+
+Slice 1116 moves coding-tool StepModule result construction, workload dispatch
+planning, StepModuleRouter admission, receipt binding, Agentgres admission,
+projection binding, and response-envelope assembly out of the temporary
+`ioi_step_module_bridge/coding_tool_receipt_command.rs` bridge module into
+Rust `crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs`.
+The Rust kernel service module now owns backend-to-projection status selection,
+successful StepModule result shaping, workload-client dispatch request
+derivation, dispatch evidence merging, result validation, router admission,
+receipt/state binding, optional Agentgres operation admission, projection
+record creation, and canonical `rust_workload_command` response shaping for
+coding-tool StepModule work.
+
+The bridge receipt module is now a thin delegate that converts the bridge
+request into `CodingToolStepModuleRequest` and calls Rust core. It no longer
+imports or owns `WorkloadClient::plan_step_module_dispatch`,
+`StepModuleRouterCore`, `ReceiptBinder`, `AgentgresAdmissionCore`, or
+`RustProjectionCore`.
+
+This is Rust-core extraction and bridge-shape retirement progress, not terminal
+coding-tool migration. The Node StepModule command transport, command dispatch
+table, JS command callers, and coding-tool JS protocol facades remain migration
+scaffolding until direct Rust daemon-core/workload APIs own coding-tool
+execution, admission, replay, projection, and stable protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_step_module --lib` | passed |
+| `cargo test -p ioi-node coding_tool --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1115
 
 Slice 1115 moves coding-tool `computer_use.request_lease` planning out of the
