@@ -272,7 +272,7 @@ pub(super) fn computer_use_request_lease_response(
     })?;
     let lease_request =
         computer_use::build_computer_use_lease_request(&workspace_root, &request.input)
-            .map_err(|error| BridgeError::new("computer_use_lease_request_failed", error))?;
+            .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))?;
     let mut result = successful_step_module_result(
         &request,
         "computer_use.request_lease",

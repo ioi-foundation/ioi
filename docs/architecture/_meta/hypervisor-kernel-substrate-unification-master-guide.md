@@ -6103,6 +6103,24 @@ Rust core and rejects retired data-plane aliases; the long-term target remains
 direct Rust daemon-core/workload coding-tool execution, admission, replay,
 projection, artifact/event admission, and stable protocol APIs end to end.
 
+Slice 1115 moves the coding-tool `computer_use.request_lease` planning path
+out of the temporary StepModule bridge and into Rust
+`coding_tool_computer_use.rs` under the kernel service crate. Rust core now
+owns prompt/lane/session/action canonicalization, wallet.network authority
+scope derivation, approval-required calculation, provider registry records,
+provider hint matching, fail-closed unavailable-provider projection, request
+seed hashing, receipt/evidence ref derivation, thread-tool input shaping, and
+retired camelCase alias rejection/ignoring for request-lease inputs and output.
+
+This remains non-terminal because the Node bridge, shared StepModule command
+runner, JS command callers, and computer-use JS protocol facades still exist.
+The deleted `ioi_step_module_bridge/computer_use_provider.rs` file is not a
+long-term architecture target; the remaining bridge file delegates to Rust core
+only, and the long-term target remains direct Rust daemon-core computer-use
+admission, wallet.network/cTEE custody enforcement where applicable,
+Agentgres-backed receipt/state-root binding, replay, projection, and stable
+protocol APIs end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

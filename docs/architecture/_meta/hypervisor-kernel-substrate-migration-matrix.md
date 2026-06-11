@@ -15784,6 +15784,49 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1115
+
+Slice 1115 moves coding-tool `computer_use.request_lease` planning out of the
+temporary `ioi_step_module_bridge/computer_use.rs` and deleted
+`ioi_step_module_bridge/computer_use_provider.rs` bridge modules into Rust
+`crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs`. The
+Rust kernel service module now owns prompt/lane/session/action canonicalization,
+wallet.network authority-scope derivation, approval-required calculation,
+provider registry records, provider hint matching, fail-closed
+unavailable-provider projection, request seed hashing, receipt/evidence ref
+derivation, thread-tool input shaping, and canonical snake_case output
+construction.
+
+The bridge now delegates `computer_use.request_lease` through
+`build_core_computer_use_lease_request`; it no longer owns provider records,
+provider matching, request hashing, authority-scope selection, or
+request/result alias handling. The deleted bridge provider module is explicitly
+not a long-term shape. Existing bridge fixtures still prove retired aliases
+such as `computerUseLane`, `actionKind`, `approvalRef`, `providerKind`,
+`sandboxProvider`, `targetRef`, `sessionMode`, and
+`observationRetentionMode` cannot steer authority, provider selection, target
+binding, or retention policy.
+
+This is Rust-core extraction and bridge-shape retirement progress, not terminal
+computer-use migration. The Node StepModule command transport, JS command
+callers, and computer-use JS protocol facades remain migration scaffolding
+until direct Rust daemon-core/workload APIs own computer-use admission,
+wallet.network authority, cTEE/workspace custody where applicable,
+Agentgres-backed receipt/state-root binding, replay, projection, and stable
+protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_computer_use --lib` | passed |
+| `cargo test -p ioi-node computer_use_request_lease --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1113
 
 Slice 1113 moves the coding-tool `lsp.diagnostics` execution observation path

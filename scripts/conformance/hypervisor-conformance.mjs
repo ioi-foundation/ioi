@@ -2324,9 +2324,10 @@ function runBridge() {
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
-  const computerUseProviderBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs")
-    ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs")
+  const computerUseCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs")
     : "";
+  const computerUseCoreRuntime = computerUseCore.split("#[cfg(test)]")[0] ?? computerUseCore;
   const policyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     : "";
@@ -3761,8 +3762,10 @@ function runBridge() {
       !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
       /computer_use\.request_lease/.test(codingToolCommandBridge) &&
       /build_computer_use_lease_request/.test(computerUseBridge) &&
-      /computer_use_provider_for_lane/.test(computerUseProviderBridge) &&
-      /computer_use_provider_registry_report/.test(computerUseProviderBridge) &&
+      /build_core_computer_use_lease_request/.test(computerUseBridge) &&
+      /computer_use_provider_for_lane/.test(computerUseCore) &&
+      /computer_use_provider_registry_report/.test(computerUseCore) &&
+      /struct ComputerUseProvider/.test(computerUseCore) &&
       !/struct ComputerUseProvider/.test(computerUseBridge) &&
       /ioi\.step_module\.command_bridge\.v1/.test(commandProtocolCore) &&
       !/StepModuleRouterCore/.test(codingToolCommandBridge) &&
@@ -3841,7 +3844,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
@@ -4147,16 +4150,18 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-lane-alias-retired",
-    /computer_use_lane_for_input/.test(computerUseBridge) &&
+    /computer_use_lane_for_input/.test(computerUseCoreRuntime) &&
       /optional_json_string\(input,\s*&\["lane",\s*"computer_use_lane"\]\)/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
-      !/computerUseLane/.test(computerUseBridge) &&
+      !/computerUseLane/.test(computerUseCoreRuntime) &&
+      !/computer_use_lane_for_input/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_lane_alias/.test(bridgeModule) &&
       /"computerUseLane": "sandboxed_hosted"/.test(bridgeModule) &&
       /"native_browser"/.test(bridgeModule) &&
       /"computer_use\.native_browser\.read"/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4165,15 +4170,17 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-approval-alias-retired",
-    /optional_json_string\(input,\s*&\["approval_ref"\]\)/.test(computerUseBridge) &&
+    /optional_json_string\(input,\s*&\["approval_ref"\]\)/.test(computerUseCoreRuntime) &&
       !/optional_json_string\(input,\s*&\["approvalRef",\s*"approval_ref"\]\)/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
+      !/optional_json_string\(input,\s*&\["approval_ref"\]\)/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_approval_alias/.test(bridgeModule) &&
       /"approvalRef": "approval_legacy"/.test(bridgeModule) &&
       /"computer_use\.native_browser\.act"/.test(bridgeModule) &&
       /approval_required_before_execution/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4182,15 +4189,17 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-action-kind-alias-retired",
-    /optional_json_string\(input,\s*&\["action_kind"\]\)/.test(computerUseBridge) &&
+    /optional_json_string\(input,\s*&\["action_kind"\]\)/.test(computerUseCoreRuntime) &&
       !/optional_json_string\(input,\s*&\["actionKind",\s*"action_kind"\]\)/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
+      !/computer_use_action_kind_for_input/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_action_kind_alias/.test(bridgeModule) &&
       /"actionKind": "click"/.test(bridgeModule) &&
       /"computer_use\.native_browser\.read"/.test(bridgeModule) &&
       /approval_required_before_execution/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4200,17 +4209,19 @@ function runBridge() {
     result,
     "computer-use-request-lease-provider-aliases-retired",
     /optional_json_string\(\s*input,\s*&\["provider_id",\s*"provider_kind",\s*"sandbox_provider"\]/.test(
-      computerUseBridge,
+      computerUseCoreRuntime,
     ) &&
-      /optional_json_string\(input,\s*&\["sandbox_provider"\]\)/.test(computerUseBridge) &&
-      !/optional_json_string\(\s*input,\s*&\[\s*"providerId"/.test(computerUseBridge) &&
-      !/optional_json_string\(\s*input,\s*&\[[^\]]*"providerKind"/.test(computerUseBridge) &&
-      !/optional_json_string\(\s*input,\s*&\[[^\]]*"sandboxProvider"/.test(computerUseBridge) &&
+      /optional_json_string\(input,\s*&\["sandbox_provider"\]\)/.test(computerUseCoreRuntime) &&
+      !/optional_json_string\(\s*input,\s*&\[\s*"providerId"/.test(computerUseCoreRuntime) &&
+      !/optional_json_string\(\s*input,\s*&\[[^\]]*"providerKind"/.test(computerUseCoreRuntime) &&
+      !/optional_json_string\(\s*input,\s*&\[[^\]]*"sandboxProvider"/.test(computerUseCoreRuntime) &&
+      !/computer_use_provider_for_lane/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_provider_aliases/.test(bridgeModule) &&
       /"sandboxProvider": "local_container"/.test(bridgeModule) &&
       /"providerKind": "local_container"/.test(bridgeModule) &&
       /"ioi\.computer_use\.sandboxed_hosted\.local_fixture"/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4219,14 +4230,16 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-target-ref-alias-retired",
-    /optional_json_string\(input,\s*&\["target_ref"\]\)/.test(computerUseBridge) &&
+    /optional_json_string\(input,\s*&\["target_ref"\]\)/.test(computerUseCoreRuntime) &&
       !/optional_json_string\(input,\s*&\["targetRef",\s*"target_ref"\]\)/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
+      !/optional_json_string\(input,\s*&\["target_ref"\]\)/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_target_ref_alias/.test(bridgeModule) &&
       /"targetRef": "target_retired"/.test(bridgeModule) &&
       /"computer_use\.native_browser\.read"/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4235,15 +4248,17 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-session-mode-alias-retired",
-    /optional_json_string\(input,\s*&\["session_mode"\]\)/.test(computerUseBridge) &&
+    /optional_json_string\(input,\s*&\["session_mode"\]\)/.test(computerUseCoreRuntime) &&
       !/optional_json_string\(input,\s*&\["sessionMode",\s*"session_mode"\]\)/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
+      !/computer_use_session_mode_for_input/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_session_mode_alias/.test(bridgeModule) &&
       /"sessionMode": "hosted_sandbox"/.test(bridgeModule) &&
       /"local_sandbox"/.test(bridgeModule) &&
       /"ioi\.computer_use\.sandboxed_hosted"/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4253,11 +4268,12 @@ function runBridge() {
     result,
     "computer-use-request-lease-observation-retention-alias-retired",
     /optional_json_string\(\s*input,\s*&\["observation_retention_mode"\]/.test(
-      computerUseBridge,
+      computerUseCoreRuntime,
     ) &&
       !/optional_json_string\(\s*input,\s*&\["observationRetentionMode",\s*"observation_retention_mode"\]/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
+      !/observation_retention_mode/.test(computerUseBridge) &&
       /computer_use_request_lease_ignores_retired_observation_retention_alias/.test(
         bridgeModule,
       ) &&
@@ -4265,6 +4281,7 @@ function runBridge() {
       /"observation_retention_mode": "local_raw_artifacts"/.test(bridgeModule) &&
       /"prompt_visible_summary_only"/.test(bridgeModule),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
@@ -4295,18 +4312,20 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-result-output-aliases-retired",
-    /build_computer_use_lease_request/.test(computerUseBridge) &&
-      /"lease_request":/.test(computerUseBridge) &&
-      /"thread_tool":/.test(computerUseBridge) &&
-      /"wallet_network_authority_boundary":/.test(computerUseBridge) &&
-      /"receipt_refs":/.test(computerUseBridge) &&
+    /build_computer_use_lease_request/.test(computerUseCoreRuntime) &&
+      /"lease_request":/.test(computerUseCoreRuntime) &&
+      /"thread_tool":/.test(computerUseCoreRuntime) &&
+      /"wallet_network_authority_boundary":/.test(computerUseCoreRuntime) &&
+      /"receipt_refs":/.test(computerUseCoreRuntime) &&
       !/"(?:schemaVersion|requestRef|workspaceRoot|leaseRequest|threadTool|providerRegistry|approvalRequiredBeforeExecution|walletNetworkAuthorityBoundary|evidenceRefs|receiptRefs|shellFallbackUsed|sessionMode|actionKind|authorityScope|repoAuthorityScope|sharedClipboardPolicy|artifactPolicy|approvalRef|failClosedWhenUnavailable|providerId|providerKind|walletNetworkAuthorityRequiredBeforeExecution|toolPack|toolName|unavailableReason|targetRef|observationRetentionMode|sandboxProvider|sandboxFixture)"/.test(
-        computerUseBridge,
+        computerUseCoreRuntime,
       ) &&
+      !/"lease_request":/.test(computerUseBridge) &&
       /retired workload result field \{retired_field\} must not be emitted/.test(
         bridgeModule,
       ),
     [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],

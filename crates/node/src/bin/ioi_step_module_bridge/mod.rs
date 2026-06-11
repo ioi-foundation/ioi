@@ -18,7 +18,6 @@ mod coding_tool_helpers;
 mod coding_tool_receipt_command;
 mod command_dispatch;
 mod computer_use;
-mod computer_use_provider;
 mod context_policy_command;
 mod governed_admission_command;
 mod governed_receipt_command;
