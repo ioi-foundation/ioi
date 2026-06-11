@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1010
+
+Slice 1010 split the model_mount provider lifecycle, provider inventory, and
+model-instance lifecycle planning cluster out of the broad `model_mount.rs`
+kernel file into `model_mount/lifecycle.rs`. The request/result types,
+validation, backend and driver classification, evidence refs, and lifecycle,
+inventory, and instance-transition hashes now live in the dedicated Rust module,
+while `ModelMountCore` remains the public facade and forwards to that module.
+
+This is still non-terminal migration work: local provider lifecycle, inventory,
+and model-instance state transitions still cross migration command transport and
+JS edge translation until direct Rust daemon-core lifecycle/projection APIs own
+control, Agentgres-backed truth, replay, and stable protocol surfaces. The
+dedicated Rust module is the lifecycle ownership boundary for that retirement
+work, not a canonical long-term bridge.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1010 | Moved provider lifecycle, provider inventory, and model-instance lifecycle request/result types, validators, backend/driver classification, evidence refs, and hashes into `crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs`; `ModelMountCore` forwards to the module. | Direct Rust daemon-core lifecycle/projection APIs replace command transport and JS edge translation for provider lifecycle, provider inventory, and model-instance transitions over Agentgres-backed truth. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1009
 
 Slice 1009 split model_mount accepted-receipt head and transition planning out

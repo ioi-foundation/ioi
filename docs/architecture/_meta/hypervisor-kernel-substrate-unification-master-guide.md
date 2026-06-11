@@ -4585,6 +4585,12 @@ state-root derivation, operation/head refs, transition hashing, and tamper
 validation now live in the dedicated Rust `model_mount/accepted_receipt.rs`
 module behind `ModelMountCore`, making receipt/state-root binding a distinct
 Rust core boundary rather than broad model-mount helper code;
+model-mount provider lifecycle, provider inventory, and model-instance
+lifecycle request/result types, validation, backend/driver classification,
+evidence refs, and transition hashes now live in the dedicated Rust
+`model_mount/lifecycle.rs` module behind `ModelMountCore`, making local
+provider and model-instance lifecycle planning a distinct Rust core boundary
+for the next direct daemon-core API cut;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,
