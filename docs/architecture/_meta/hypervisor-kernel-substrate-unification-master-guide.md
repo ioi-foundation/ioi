@@ -4574,6 +4574,12 @@ model-mount backend-lifecycle, server-control, runtime-engine, tokenizer, and
 route-control Rust-core-required planner records now live in the dedicated
 Rust `model_mount/required.rs` module behind the stable `ModelMountCore`
 facade instead of accumulating in the broad model-mount kernel file;
+model-mount backend-process plan request/result types, validation, public/spawn
+argument shaping, readiness status, evidence refs, and plan hashing now live in
+the dedicated Rust `model_mount/backend_process.rs` module behind
+`ModelMountCore::plan_backend_process`, keeping backend-process ownership
+directional toward Rust core process/lifecycle APIs rather than a long-term
+Node bridge shape;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

@@ -2308,6 +2308,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
+          : "",
       ].join("\n")
     : "";
   const modelMountReadProjectionEvidence = [bridgeModule, modelMountCore].join("\n");
@@ -13434,6 +13437,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
+          : "",
       ].join("\n")
     : "";
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
@@ -13707,28 +13713,40 @@ function runReceipts() {
     result,
     "model-mount-backend-process-plan-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs") &&
       /MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountBackendProcessPlanRequest/.test(
+      /mod backend_process;/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /pub use backend_process::/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /backend_process::plan_backend_process\(request\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountBackendProcessPlanRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /ModelMountBackendProcessPlan/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
-      /plan_backend_process/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /plan_backend_process/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
+      ) &&
       /backend_process_public_args/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /backend_process_spawn_args/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
-      /backend_spawn_status/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /backend_spawn_status/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
+      ) &&
       /backend_process_plan_hash/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /rust_model_mount_backend_process_plan/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /backend_process_plan_owns_supervision_args_and_readiness/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
@@ -13741,6 +13759,7 @@ function runReceipts() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own backend process supervision args, spawn readiness, evidence, and hash planning",
   );

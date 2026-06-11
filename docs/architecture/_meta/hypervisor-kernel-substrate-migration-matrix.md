@@ -20371,6 +20371,28 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1008
+
+Slice 1008 split the model_mount backend-process planner out of the broad
+`model_mount.rs` kernel file into `model_mount/backend_process.rs`. Backend
+process plan request/result types, validation, public/spawn argument shaping,
+spawn readiness status, evidence refs, and plan hashing now live in the
+dedicated Rust module, while `ModelMountCore::plan_backend_process` remains the
+public facade and forwards to that module.
+
+This is still non-terminal migration work: backend process supervision and
+provider lifecycle execution remain behind migration transport/fail-closed
+facades until direct Rust daemon-core lifecycle/process APIs own control,
+projection, replay, and Agentgres-backed truth. The dedicated Rust module is a
+staging boundary for that retirement work, not a canonical long-term Node bridge.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1008 | Moved backend-process planner request/result types, validation, argument shaping, readiness/evidence, and plan hashing into `crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs`; `ModelMountCore` forwards to the module. | Direct Rust daemon-core backend process/lifecycle APIs replace command transport, JS process materialization, and JS edge translation while preserving Agentgres-backed projection/replay. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1007
 
 Slice 1007 split the model_mount Rust-core-required planner family out of the
