@@ -5715,6 +5715,18 @@ runtime-service proof must be Rust daemon-core admission, Agentgres
 expected-head/state-root binding, replay, and projection over stable protocol
 APIs; it must not restore JS bridge result shaping.
 
+Slice 1090 removes the stale runtime-service bridge success-path fixtures from
+`runtime-bridge-thread.test.mjs`. The fail-closed test no longer defines fake
+RuntimeAgentService bridge objects, fake Rust planner delegates, fake in-flight
+turn registration, fake event append, or fake agent/run persistence helpers; it
+uses only inert call logs and verifies the start, turn-submit, and control
+facades fail before any such operation could exist.
+
+Conformance now rejects reintroducing fake bridge/planner/persistence helpers
+into that negative-boundary proof. Positive runtime-service evidence must come
+from the future direct Rust daemon-core path, not from resurrected JS bridge
+success fixtures inside tests.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

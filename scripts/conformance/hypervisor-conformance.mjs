@@ -9306,10 +9306,11 @@ function runBridge() {
       /store\.calls\.some\(\(call\) => call\.operation === "control_thread"\), false/.test(
         runtimeBridgeThreadTest,
       ) &&
-      /store\.calls\.some\(\(call\) => call\.operation === "plan_runtime_bridge_thread_start_agent_state_update"\),\s*false/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /store\.calls\.some\(\(call\) => call\.operation === "plan_runtime_bridge_turn_run_state_update"\),\s*false/.test(
+      !/function fake(?:Turn|Control)?Store/.test(runtimeBridgeThreadTest) &&
+      !/class BridgeUnavailableError/.test(runtimeBridgeThreadTest) &&
+      !/contextPolicyRunner/.test(runtimeBridgeThreadTest) &&
+      !/runtimeBridge:\s*\{/.test(runtimeBridgeThreadTest) &&
+      !/\b(?:registerInFlightRuntimeTurn|unregisterInFlightRuntimeTurn|appendOperation|writeAgent|writeRun|appendRuntimeEvent)\s*\(/.test(
         runtimeBridgeThreadTest,
       ) &&
       /error\.details\.runtime_profile/.test(runtimeBridgeThreadTest) &&

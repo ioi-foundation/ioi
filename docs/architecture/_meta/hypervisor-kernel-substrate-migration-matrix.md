@@ -15784,6 +15784,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1090
+
+Slice 1090 removes stale runtime-service bridge success-path fixtures from the
+runtime bridge negative-boundary test. `runtime-bridge-thread.test.mjs` no
+longer defines fake RuntimeAgentService bridge objects, fake Rust planner
+delegates, fake in-flight turn registration, fake event append, or fake
+agent/run persistence helpers; the proof now uses inert call logs only and
+verifies start, turn-submit, and control fail before any JS bridge success path
+can be reached.
+
+This is not terminal runtime-service migration. It tightens the proof boundary
+after the JS runtime bridge path was made fail-closed and after bridge-result
+normalizers were retired; the replacement positive proof still needs direct
+Rust daemon-core runtime-service admission, Agentgres expected-head/state-root
+binding, replay, projection, and stable protocol APIs.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --test packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1089
 
 Slice 1089 retires the remaining runtime-service bridge result and live-event

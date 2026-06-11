@@ -46,214 +46,18 @@ function assertRuntimeBridgeThreadRustCoreRequired(error, {
   return true;
 }
 
-class BridgeUnavailableError extends Error {
-  constructor(details = {}) {
-    super("bridge unavailable");
-    this.details = details;
-  }
-}
-
 function deps() {
   return {
-    eventStreamIdForThread: (threadId) => `stream_${threadId}`,
-    normalizeArray: (value) => Array.isArray(value) ? value : [],
-    optionalPositiveInteger: (value) => {
-      const number = Number(value);
-      return Number.isInteger(number) && number > 0 ? number : null;
-    },
-    optionalString: (value) => typeof value === "string" && value.trim() ? value.trim() : null,
-    runIdForTurn: (turnId) => `run_${turnId}`,
-    RuntimeApiBridgeUnavailableError: BridgeUnavailableError,
     runtimeError: (input) => {
       const error = new Error(input.message);
       Object.assign(error, input);
       return error;
     },
-    runtimeSessionIdForAgent: (agent) => agent.runtimeSessionId ?? "session_runtime",
-    threadIdForAgent: (agentId) => `thread_${agentId}`,
-  };
-}
-
-function fakeStore({ bridgeResult, bridgeError, bridgeStartStateUpdate } = {}) {
-  const calls = [];
-  const agents = new Map();
-  return {
-    calls,
-    agents,
-    contextPolicyRunner: {
-      planRuntimeBridgeThreadStartAgentStateUpdate(request = {}) {
-        calls.push({ operation: "plan_runtime_bridge_thread_start_agent_state_update", input: request });
-        return bridgeStartStateUpdate ?? {
-          status: "planned",
-          operation_kind: "thread.runtime_bridge.start",
-          agent: {
-            ...request.agent,
-            runtimeProfile: request.runtime_profile,
-            runtimeSessionId: request.session_id,
-            runtimeBridgeId: request.bridge_id,
-            runtimeBridgeStatus: request.status,
-            runtimeBridgeSource: request.source,
-            fixtureProfile: null,
-            updatedAt: request.updated_at,
-          },
-        };
-      },
-    },
-    runtimeBridge: {
-      bridgeId: "bridge_default",
-      async startThread(input) {
-        calls.push({ operation: "start_thread", input });
-        if (bridgeError) throw bridgeError;
-        return bridgeResult ?? {
-          session_id: "session_runtime",
-          bridge_id: "bridge_runtime",
-          status: "active",
-          source: "runtime_service",
-          events: [{ event_kind: "thread.started" }],
-        };
-      },
-    },
-    assertRuntimeBridgeAvailable(input) {
-      calls.push({ operation: "assert_bridge", input });
-    },
-    createAgent(options) {
-      calls.push({ operation: "create_agent", options });
-      const agent = {
-        id: "agent_runtime",
-        cwd: "/workspace",
-        createdAt: "2026-06-03T00:00:00.000Z",
-        modelRouteDecision: { routeId: "route.local-first" },
-      };
-      agents.set(agent.id, agent);
-      return agent;
-    },
-    writeAgent(agent, operationKind) {
-      calls.push({ operation: "write_agent", agent, operationKind });
-    },
-    appendRuntimeEvent(event) {
-      calls.push({ operation: "append_event", event });
-    },
-    threadForAgent(agent) {
-      calls.push({ operation: "thread_for_agent", agent });
-      return {
-        thread_id: `thread_${agent.id}`,
-        agent_id: agent.id,
-        runtime_session_id: agent.runtimeSessionId,
-      };
-    },
-    runtimeBridgeUnavailable(input) {
-      const error = new Error("runtime bridge unavailable");
-      error.input = input;
-      return error;
-    },
-  };
-}
-
-function fakeTurnStore({ bridgeResult, bridgeError, liveEvent, bridgeTurnRunStateUpdate } = {}) {
-  const calls = [];
-  const runs = new Map();
-  return {
-    calls,
-    runs,
-    contextPolicyRunner: {
-      planRuntimeBridgeTurnRunStateUpdate(request = {}) {
-        calls.push({ operation: "plan_runtime_bridge_turn_run_state_update", input: request });
-        return bridgeTurnRunStateUpdate ?? {
-          status: "planned",
-          operation_kind: "turn.runtime_bridge.submit",
-          run: request.run,
-        };
-      },
-    },
-    runtimeBridge: {
-      bridgeId: "bridge_default",
-      async submitTurn(input, handlers = {}) {
-        calls.push({ operation: "submit_turn", input });
-        if (liveEvent) handlers.onRuntimeEvent?.(liveEvent);
-        if (bridgeError) throw bridgeError;
-        return bridgeResult ?? {
-          turn_id: "turn_runtime",
-          run_id: "run_runtime",
-          status: "completed",
-          result: "done",
-          events: [{ event_kind: "turn.started" }],
-        };
-      },
-    },
-    assertRuntimeBridgeAvailable(input) {
-      calls.push({ operation: "assert_bridge", input });
-    },
-    appendRuntimeEvent(event) {
-      calls.push({ operation: "append_event", event });
-    },
-    registerInFlightRuntimeTurn(input) {
-      calls.push({ operation: "register_in_flight", input });
-    },
-    unregisterInFlightRuntimeTurn(threadId, turnId) {
-      calls.push({ operation: "unregister_in_flight", threadId, turnId });
-    },
-    appendOperation(operationKind, payload) {
-      calls.push({ operation: "append_operation", operationKind, payload });
-    },
-    writeRun(run, operationKind) {
-      calls.push({ operation: "write_run", run, operationKind });
-    },
-    turnForRun(run) {
-      calls.push({ operation: "turn_for_run", run });
-      return { turn_id: run.turnId, run_id: run.id };
-    },
-    runtimeBridgeUnavailable(input) {
-      const error = new Error("runtime bridge unavailable");
-      error.input = input;
-      return error;
-    },
-  };
-}
-
-function fakeControlStore({ bridgeResult, bridgeError } = {}) {
-  const calls = [];
-  return {
-    calls,
-    runtimeBridge: {
-      async controlThread(input) {
-        calls.push({ operation: "control_thread", input });
-        if (bridgeError) throw bridgeError;
-        return bridgeResult ?? { status: "accepted", action: input.action };
-      },
-    },
-    assertRuntimeBridgeAvailable(input) {
-      calls.push({ operation: "assert_bridge", input });
-    },
-    runtimeBridgeUnavailable(input) {
-      const error = new Error("runtime bridge unavailable");
-      error.input = input;
-      return error;
-    },
-  };
-}
-
-function turnDeps() {
-  return {
-    ...deps(),
-    RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS: 8,
-    insertRuntimeBridgeComputerUseDerivedEvents: ({ projection }) => projection.events,
-    insertRuntimeBridgeDiagnosticsInjectionEvent: ({ projection }) => [
-      { event_kind: "lsp.diagnostics.injected" },
-      ...projection.events,
-    ],
-    insertRuntimeBridgeUsageDeltaEvents: ({ projection }) => projection.events,
-    runtimeBridgeRunRecord: ({ agent, request, projection }) => ({
-      id: projection.runId,
-      agentId: agent.id,
-      turnId: projection.turnId,
-      request,
-      projection,
-    }),
   };
 }
 
 test("runtime bridge thread creation fails closed before JS bridge dispatch and agent persistence", async () => {
-  const store = fakeStore();
+  const store = { calls: [], agents: new Map() };
 
   await assert.rejects(
     createRuntimeBridgeThread(store, {
@@ -283,9 +87,7 @@ test("runtime bridge thread creation fails closed before JS bridge dispatch and 
 });
 
 test("runtime bridge turn creation fails closed before JS bridge dispatch and run persistence", async () => {
-  const store = fakeTurnStore({
-    liveEvent: { event_kind: "turn.delta", turn_id: "turn_live", run_id: "run_live" },
-  });
+  const store = { calls: [], runs: new Map() };
   const agent = {
     id: "agent_runtime",
     cwd: "/workspace",
@@ -299,7 +101,7 @@ test("runtime bridge turn creation fails closed before JS bridge dispatch and ru
       threadId: "thread_agent_runtime",
       request: { prompt: "hello", max_steps: 2, options: { maxSteps: 4 } },
       diagnosticsFeedback: { injectionId: "diag_1" },
-    }, turnDeps()),
+    }, deps()),
     (error) => {
       assert.equal(error.details.thread_id, "thread_agent_runtime");
       assert.equal(error.details.agent_id, "agent_runtime");
@@ -326,7 +128,7 @@ test("runtime bridge turn creation fails closed before JS bridge dispatch and ru
 });
 
 test("runtime bridge thread control fails closed before JS bridge dispatch", async () => {
-  const store = fakeControlStore({ bridgeError: new BridgeUnavailableError({ reason: "not configured" }) });
+  const store = { calls: [] };
   const agent = {
     id: "agent_runtime",
     cwd: "/workspace",
