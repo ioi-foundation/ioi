@@ -1,11 +1,16 @@
 use serde_json::{json, Value};
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
 pub const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const APPLY_PATCH_MAX_FILE_BYTES: u64 = 1024 * 1024;
 const APPLY_PATCH_MAX_DIFF_BYTES: usize = 32 * 1024;
 const APPLY_PATCH_MAX_EDITS: usize = 20;
+const DEFAULT_PREVIEW_BYTES: u64 = 8 * 1024;
+const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
+const DEFAULT_PREVIEW_LINES: usize = 200;
+const MAX_PREVIEW_LINES: usize = 1000;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodingToolWorkspaceError {
@@ -245,6 +250,125 @@ pub fn apply_workspace_patch(
     })
 }
 
+pub fn inspect_workspace_path(
+    workspace_root: &str,
+    selected_path: &str,
+    input: &Value,
+) -> Result<Value, CodingToolWorkspaceError> {
+    let root = fs::canonicalize(workspace_root).map_err(|error| {
+        CodingToolWorkspaceError::new("workspace_root_invalid", error.to_string())
+    })?;
+    let target = workspace_existing_path(&root, selected_path)?;
+    let metadata = fs::metadata(&target.absolute_path)
+        .map_err(|error| CodingToolWorkspaceError::new("not_found", error.to_string()))?;
+    if metadata.is_dir() {
+        let mut entries = fs::read_dir(&target.absolute_path)
+            .map_err(|error| {
+                CodingToolWorkspaceError::new("file_inspect_read_dir_failed", error.to_string())
+            })?
+            .take(100)
+            .map(|entry| {
+                entry
+                    .map_err(|error| {
+                        CodingToolWorkspaceError::new(
+                            "file_inspect_read_dir_failed",
+                            error.to_string(),
+                        )
+                    })
+                    .and_then(|entry| {
+                        let kind = entry.file_type().map_err(|error| {
+                            CodingToolWorkspaceError::new(
+                                "file_inspect_file_type_failed",
+                                error.to_string(),
+                            )
+                        })?;
+                        Ok(json!({
+                            "name": entry.file_name().to_string_lossy(),
+                            "kind": if kind.is_dir() { "directory" } else if kind.is_file() { "file" } else { "other" },
+                        }))
+                    })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        entries.sort_by(|left, right| {
+            left.get("name")
+                .and_then(Value::as_str)
+                .cmp(&right.get("name").and_then(Value::as_str))
+        });
+        return Ok(json!({
+            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspaceRoot": workspace_root,
+            "path": target.relative_path,
+            "kind": "directory",
+            "exists": true,
+            "sizeBytes": metadata.len(),
+            "entries": entries,
+            "entryCount": entries.len(),
+            "shellFallbackUsed": false,
+        }));
+    }
+    if !metadata.is_file() {
+        return Ok(json!({
+            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+            "workspaceRoot": workspace_root,
+            "path": target.relative_path,
+            "kind": "other",
+            "exists": true,
+            "sizeBytes": metadata.len(),
+            "shellFallbackUsed": false,
+        }));
+    }
+    let max_bytes = bounded_u64(
+        input
+            .get("maxBytes")
+            .or_else(|| input.get("max_bytes"))
+            .and_then(Value::as_u64),
+        DEFAULT_PREVIEW_BYTES,
+        1,
+        MAX_PREVIEW_BYTES,
+    );
+    let preview_lines = bounded_usize(
+        input
+            .get("previewLines")
+            .or_else(|| input.get("preview_lines"))
+            .and_then(Value::as_u64),
+        DEFAULT_PREVIEW_LINES,
+        1,
+        MAX_PREVIEW_LINES,
+    );
+    let bytes_to_read = metadata.len().min(max_bytes) as usize;
+    let mut file = fs::File::open(&target.absolute_path).map_err(|error| {
+        CodingToolWorkspaceError::new("file_inspect_open_failed", error.to_string())
+    })?;
+    let mut buffer = vec![0u8; bytes_to_read];
+    let bytes_read = file.read(&mut buffer).map_err(|error| {
+        CodingToolWorkspaceError::new("file_inspect_read_failed", error.to_string())
+    })?;
+    buffer.truncate(bytes_read);
+    let preview = String::from_utf8_lossy(&buffer);
+    let lines = preview.split('\n').collect::<Vec<_>>();
+    let line_preview = lines
+        .iter()
+        .take(preview_lines)
+        .copied()
+        .collect::<Vec<_>>()
+        .join("\n");
+    let preview_hash = format!("sha256:{}", sha256_hex(line_preview.as_bytes())?);
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "path": target.relative_path,
+        "kind": "file",
+        "exists": true,
+        "sizeBytes": metadata.len(),
+        "preview": line_preview,
+        "previewBytes": line_preview.len(),
+        "previewHash": preview_hash,
+        "truncated": bytes_read < metadata.len() as usize || lines.len() > preview_lines,
+        "previewLineCount": lines.len().min(preview_lines),
+        "shellFallbackUsed": false,
+    }))
+}
+
 fn workspace_path_allow_missing(
     root: &Path,
     selected_path: &str,
@@ -289,6 +413,34 @@ fn workspace_path_allow_missing(
             absolute_path: normalized_candidate,
             relative_path: relative,
         }
+    })
+}
+
+fn workspace_existing_path(
+    root: &Path,
+    selected_path: &str,
+) -> Result<WorkspacePath, CodingToolWorkspaceError> {
+    let candidate = path_candidate(root, selected_path);
+    let canonical = fs::canonicalize(&candidate)
+        .map_err(|error| CodingToolWorkspaceError::new("not_found", error.to_string()))?;
+    if !canonical.starts_with(root) {
+        return Err(CodingToolWorkspaceError::new(
+            "path_outside_workspace",
+            "file.inspect path must stay inside workspace".to_string(),
+        ));
+    }
+    let relative = canonical
+        .strip_prefix(root)
+        .unwrap_or(canonical.as_path())
+        .to_string_lossy()
+        .replace('\\', "/");
+    Ok(WorkspacePath {
+        absolute_path: canonical,
+        relative_path: if relative.is_empty() {
+            ".".to_string()
+        } else {
+            relative
+        },
     })
 }
 
@@ -545,6 +697,22 @@ fn safe_ref_path(value: &str) -> String {
     }
 }
 
+fn bounded_u64(value: Option<u64>, default_value: u64, minimum: u64, maximum: u64) -> u64 {
+    value.unwrap_or(default_value).clamp(minimum, maximum)
+}
+
+fn bounded_usize(
+    value: Option<u64>,
+    default_value: usize,
+    minimum: usize,
+    maximum: usize,
+) -> usize {
+    value
+        .and_then(|value| usize::try_from(value).ok())
+        .unwrap_or(default_value)
+        .clamp(minimum, maximum)
+}
+
 fn metadata_mtime_ms(metadata: &fs::Metadata) -> Option<u128> {
     metadata
         .modified()
@@ -617,6 +785,54 @@ mod tests {
 
         assert_eq!(error.code(), "path_outside_workspace");
         assert_eq!(fs::read_to_string(&outside).expect("outside"), "outside");
+        let _ = fs::remove_file(outside);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn inspects_file_preview_in_rust_core() {
+        let workspace = temp_workspace("inspect-file");
+        let target = workspace.join("README.md");
+        fs::write(&target, "# IOI\nsecond line\nthird line\n").expect("fixture file");
+
+        let result = inspect_workspace_path(
+            workspace.to_str().expect("workspace path"),
+            "README.md",
+            &json!({
+                "previewLines": 2,
+                "maxBytes": 100,
+            }),
+        )
+        .expect("file inspected");
+
+        assert_eq!(result["kind"], "file");
+        assert_eq!(result["path"], "README.md");
+        assert_eq!(result["preview"], "# IOI\nsecond line");
+        assert_eq!(result["previewLineCount"], 2);
+        assert!(result["previewHash"]
+            .as_str()
+            .expect("preview hash")
+            .starts_with("sha256:"));
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn rejects_workspace_inspect_path_escape_in_rust_core() {
+        let workspace = temp_workspace("inspect-escape");
+        let outside = workspace
+            .parent()
+            .expect("parent")
+            .join("outside-inspect.txt");
+        fs::write(&outside, "outside").expect("outside file");
+
+        let error = inspect_workspace_path(
+            workspace.to_str().expect("workspace path"),
+            "../outside-inspect.txt",
+            &json!({}),
+        )
+        .expect_err("path escape rejected");
+
+        assert_eq!(error.code(), "path_outside_workspace");
         let _ = fs::remove_file(outside);
         let _ = fs::remove_dir_all(workspace);
     }

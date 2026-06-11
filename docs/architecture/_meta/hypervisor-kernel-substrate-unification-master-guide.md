@@ -6025,6 +6025,21 @@ transport still exist. The long-term target remains direct Rust
 daemon-core/workload coding-tool execution and admission, with JS retained only
 as stable protocol/API composition where needed.
 
+Slice 1110 moves the coding-tool `file.inspect` workspace observation path out
+of the temporary StepModule bridge helper and into Rust
+`coding_tool_workspace.rs` under the kernel service crate. Rust core now owns
+workspace path canonicalization, path escape rejection, metadata reads,
+directory listing, file preview reads, preview line/byte bounding, and preview
+hash derivation for `file.inspect`. The bridge helper delegates to Rust core
+and translates errors only.
+
+This remains non-terminal because the bridge still carries other coding-tool
+workspace status, diff, test, and diagnostic observation helpers, and the JS
+invocation facade/StepModule command transport still exist. The long-term
+target remains direct Rust daemon-core/workload coding-tool execution and
+admission, with bridge-local filesystem observation retired as each Rust-core
+surface becomes verified.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

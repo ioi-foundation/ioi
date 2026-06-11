@@ -3,20 +3,19 @@ use ioi_services::agentic::runtime::kernel::coding_tool_execution::{
     run_git_read_only as run_core_git_read_only, CapturedCommand, CommandOutput,
 };
 use ioi_services::agentic::runtime::kernel::coding_tool_workspace::{
-    apply_workspace_patch as apply_core_workspace_patch, WorkspacePatchOutcome,
+    apply_workspace_patch as apply_core_workspace_patch,
+    inspect_workspace_path as inspect_core_workspace_path, WorkspacePatchOutcome,
 };
 use serde_json::{json, Value};
 use std::fs;
-use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::time::Instant;
 
 use super::{
-    BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION, DEFAULT_PREVIEW_BYTES, DEFAULT_PREVIEW_LINES,
-    DIAGNOSTIC_COMMAND_IDS, DIAGNOSTIC_DEFAULT_OUTPUT_BYTES, DIAGNOSTIC_DEFAULT_TIMEOUT_MS,
-    DIAGNOSTIC_MAX_OUTPUT_BYTES, DIAGNOSTIC_MAX_TIMEOUT_MS, MAX_DIFF_BYTES, MAX_PREVIEW_BYTES,
-    MAX_PREVIEW_LINES, TEST_COMMAND_IDS, TEST_DEFAULT_OUTPUT_BYTES, TEST_DEFAULT_TIMEOUT_MS,
-    TEST_MAX_OUTPUT_BYTES, TEST_MAX_TIMEOUT_MS,
+    BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION, DIAGNOSTIC_COMMAND_IDS,
+    DIAGNOSTIC_DEFAULT_OUTPUT_BYTES, DIAGNOSTIC_DEFAULT_TIMEOUT_MS, DIAGNOSTIC_MAX_OUTPUT_BYTES,
+    DIAGNOSTIC_MAX_TIMEOUT_MS, MAX_DIFF_BYTES, TEST_COMMAND_IDS, TEST_DEFAULT_OUTPUT_BYTES,
+    TEST_DEFAULT_TIMEOUT_MS, TEST_MAX_OUTPUT_BYTES, TEST_MAX_TIMEOUT_MS,
 };
 
 pub(super) fn inspect_test_run(workspace_root: &str, input: &Value) -> Result<Value, BridgeError> {
@@ -380,113 +379,8 @@ pub(super) fn inspect_workspace_path(
     selected_path: &str,
     input: &Value,
 ) -> Result<Value, BridgeError> {
-    let root = fs::canonicalize(workspace_root)
-        .map_err(|error| BridgeError::new("workspace_root_invalid", error.to_string()))?;
-    let target = workspace_target(&root, selected_path)?;
-    let metadata =
-        fs::metadata(&target).map_err(|error| BridgeError::new("not_found", error.to_string()))?;
-    let relative_path = target
-        .strip_prefix(&root)
-        .unwrap_or(target.as_path())
-        .to_string_lossy()
-        .replace('\\', "/");
-    if metadata.is_dir() {
-        let mut entries = fs::read_dir(&target)
-            .map_err(|error| BridgeError::new("file_inspect_read_dir_failed", error.to_string()))?
-            .take(100)
-            .map(|entry| {
-                entry
-                    .map_err(|error| BridgeError::new("file_inspect_read_dir_failed", error.to_string()))
-                    .and_then(|entry| {
-                        let kind = entry
-                            .file_type()
-                            .map_err(|error| BridgeError::new("file_inspect_file_type_failed", error.to_string()))?;
-                        Ok(json!({
-                            "name": entry.file_name().to_string_lossy(),
-                            "kind": if kind.is_dir() { "directory" } else if kind.is_file() { "file" } else { "other" },
-                        }))
-                    })
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        entries.sort_by(|left, right| {
-            left.get("name")
-                .and_then(Value::as_str)
-                .cmp(&right.get("name").and_then(Value::as_str))
-        });
-        return Ok(json!({
-            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-            "workspaceRoot": workspace_root,
-            "path": relative_path,
-            "kind": "directory",
-            "exists": true,
-            "sizeBytes": metadata.len(),
-            "entries": entries,
-            "entryCount": entries.len(),
-            "shellFallbackUsed": false,
-        }));
-    }
-    if !metadata.is_file() {
-        return Ok(json!({
-            "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-            "workspaceRoot": workspace_root,
-            "path": relative_path,
-            "kind": "other",
-            "exists": true,
-            "sizeBytes": metadata.len(),
-            "shellFallbackUsed": false,
-        }));
-    }
-    let max_bytes = bounded_u64(
-        input
-            .get("maxBytes")
-            .or_else(|| input.get("max_bytes"))
-            .and_then(Value::as_u64),
-        DEFAULT_PREVIEW_BYTES,
-        1,
-        MAX_PREVIEW_BYTES,
-    );
-    let preview_lines = bounded_usize(
-        input
-            .get("previewLines")
-            .or_else(|| input.get("preview_lines"))
-            .and_then(Value::as_u64),
-        DEFAULT_PREVIEW_LINES,
-        1,
-        MAX_PREVIEW_LINES,
-    );
-    let bytes_to_read = metadata.len().min(max_bytes) as usize;
-    let mut file = fs::File::open(&target)
-        .map_err(|error| BridgeError::new("file_inspect_open_failed", error.to_string()))?;
-    let mut buffer = vec![0u8; bytes_to_read];
-    let bytes_read = file
-        .read(&mut buffer)
-        .map_err(|error| BridgeError::new("file_inspect_read_failed", error.to_string()))?;
-    buffer.truncate(bytes_read);
-    let preview = String::from_utf8_lossy(&buffer);
-    let lines = preview.split('\n').collect::<Vec<_>>();
-    let line_preview = lines
-        .iter()
-        .take(preview_lines)
-        .copied()
-        .collect::<Vec<_>>()
-        .join("\n");
-    let preview_hash = ioi_crypto::algorithms::hash::sha256(line_preview.as_bytes())
-        .map(|hash| format!("sha256:{}", hex::encode(hash)))
-        .map_err(|error| BridgeError::new("file_inspect_hash_failed", error.to_string()))?;
-    Ok(json!({
-        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
-        "workspaceRoot": workspace_root,
-        "path": relative_path,
-        "kind": "file",
-        "exists": true,
-        "sizeBytes": metadata.len(),
-        "preview": line_preview,
-        "previewBytes": line_preview.len(),
-        "previewHash": preview_hash,
-        "truncated": bytes_read < metadata.len() as usize || lines.len() > preview_lines,
-        "previewLineCount": lines.len().min(preview_lines),
-        "shellFallbackUsed": false,
-    }))
+    inspect_core_workspace_path(workspace_root, selected_path, input)
+        .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
 }
 
 pub(super) fn apply_workspace_patch(
@@ -604,19 +498,6 @@ pub(super) fn workspace_directory(
         ));
     }
     Ok(path)
-}
-
-pub(super) fn workspace_target(root: &Path, selected_path: &str) -> Result<PathBuf, BridgeError> {
-    let candidate = path_candidate(root, selected_path);
-    let canonical = fs::canonicalize(&candidate)
-        .map_err(|error| BridgeError::new("not_found", error.to_string()))?;
-    if !canonical.starts_with(root) {
-        return Err(BridgeError::new(
-            "path_outside_workspace",
-            "file.inspect path must stay inside workspace".to_string(),
-        ));
-    }
-    Ok(canonical)
 }
 
 pub(super) fn path_candidate(root: &Path, selected_path: &str) -> PathBuf {
@@ -1357,11 +1238,4 @@ pub(super) fn utf8_preview(text: &str, max_bytes: usize) -> (String, bool) {
 
 pub(super) fn bounded_u64(value: Option<u64>, default: u64, min: u64, max: u64) -> u64 {
     value.unwrap_or(default).clamp(min, max)
-}
-
-pub(super) fn bounded_usize(value: Option<u64>, default: usize, min: usize, max: usize) -> usize {
-    value
-        .and_then(|value| usize::try_from(value).ok())
-        .unwrap_or(default)
-        .clamp(min, max)
 }

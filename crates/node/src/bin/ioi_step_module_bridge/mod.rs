@@ -151,8 +151,6 @@ use workspace_restore_command::{
 
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
-const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
-const MAX_PREVIEW_BYTES: u64 = 64 * 1024;
 const MAX_DIFF_BYTES: u64 = 64 * 1024;
 const DIAGNOSTIC_DEFAULT_TIMEOUT_MS: u64 = 30 * 1000;
 const DIAGNOSTIC_MAX_TIMEOUT_MS: u64 = 2 * 60 * 1000;
@@ -162,8 +160,6 @@ const TEST_DEFAULT_TIMEOUT_MS: u64 = 60 * 1000;
 const TEST_MAX_TIMEOUT_MS: u64 = 5 * 60 * 1000;
 const TEST_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
 const TEST_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
-const DEFAULT_PREVIEW_LINES: usize = 200;
-const MAX_PREVIEW_LINES: usize = 500;
 const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.check"];
 const TEST_COMMAND_IDS: [&str; 4] = ["node.test", "npm.test", "cargo.test", "cargo.check"];
 

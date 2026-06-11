@@ -3899,6 +3899,32 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-workspace-inspect-rust-core-boundary",
+    /pub mod coding_tool_workspace;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn inspect_workspace_path/.test(codingToolWorkspaceCore) &&
+      /fs::metadata\(&target\.absolute_path/.test(codingToolWorkspaceCore) &&
+      /fs::read_dir\(&target\.absolute_path/.test(codingToolWorkspaceCore) &&
+      /fs::File::open\(&target\.absolute_path/.test(codingToolWorkspaceCore) &&
+      /file_inspect_read_dir_failed/.test(codingToolWorkspaceCore) &&
+      /file_inspect_open_failed/.test(codingToolWorkspaceCore) &&
+      /file_inspect_read_failed/.test(codingToolWorkspaceCore) &&
+      /previewHash/.test(codingToolWorkspaceCore) &&
+      /inspect_core_workspace_path/.test(codingToolHelpersBridge) &&
+      !/fn workspace_target/.test(codingToolHelpersBridge) &&
+      !/file_inspect_read_dir_failed/.test(codingToolHelpersBridge) &&
+      !/file_inspect_open_failed/.test(codingToolHelpersBridge) &&
+      !/file_inspect_read_failed/.test(codingToolHelpersBridge) &&
+      !/fs::read_dir/.test(codingToolHelpersBridge) &&
+      !/fs::File::open/.test(codingToolHelpersBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+    ],
+    "Phase 10/11 remains non-terminal: file.inspect workspace containment, directory listing, metadata, preview, and preview hashing must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+  );
+  assertCheck(
+    result,
     "bridge-coding-tool-local-envelope-checks-retired",
     !/COMMAND_SCHEMA_VERSION/.test(codingToolCommandBridge) &&
       !/COMMAND_SCHEMA_VERSION/.test(codingToolReceiptCommandBridge) &&
