@@ -9,12 +9,13 @@ import {
 } from "./runtime-agent-run-lifecycle.mjs";
 
 function fakeStore() {
-  return {
+  const store = {
     agents: new Map([["agent_existing", { id: "agent_existing", runtime: "local" }]]),
     runs: new Map(),
     defaultCwd: "/workspace/default",
     writes: [],
     plannerCalls: [],
+    lifecycleAdmissionRequiredCalls: [],
     routeCalls: [],
     memoryCalls: [],
     getAgentCalls: [],
@@ -23,6 +24,37 @@ function fakeStore() {
     resolveModelRoute(options, context) {
       this.routeCalls.push({ surface: "agent", options, context });
       return { selectedModel: "model.local" };
+    },
+    contextPolicyRunner: {
+      planLifecycleAdmissionRequired(request) {
+        store.lifecycleAdmissionRequiredCalls.push(request);
+        return {
+          source: "rust_lifecycle_admission_required_command",
+          backend: "rust_policy",
+          record: {
+            status: "rust_core_required",
+            status_code: 501,
+            code: request.operation === "agent_create"
+              ? "runtime_agent_create_rust_core_required"
+              : "runtime_run_create_rust_core_required",
+            message: request.operation === "agent_create"
+              ? "Agent creation requires direct Rust daemon-core state admission and persistence."
+              : "Run creation requires direct Rust daemon-core state admission and persistence.",
+            details: {
+              rust_core_boundary: request.operation === "agent_create"
+                ? "runtime.agent_create"
+                : "runtime.run_create",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              agent_id: request.agent_id ?? null,
+              requested_cwd: request.requested_cwd ?? null,
+              requested_runtime: request.requested_runtime ?? null,
+              requested_mode: request.requested_mode ?? null,
+              evidence_refs: request.evidence_refs,
+            },
+          },
+        };
+      },
     },
     resolveRunModelRoute(agent, request) {
       this.routeCalls.push({ surface: "run", agent, request });
@@ -53,6 +85,7 @@ function fakeStore() {
       return { thread_id: `thread_${agent.id}`, agent_id: agent.id };
     },
   };
+  return store;
 }
 
 function assertNoRetiredLifecycleDetailAliases(details) {
@@ -98,6 +131,20 @@ test("createAgent facade fails closed before Rust planning or JS persistence", (
     },
   );
 
+  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
+  assert.deepEqual(store.lifecycleAdmissionRequiredCalls[0], {
+    operation: "agent_create",
+    operation_kind: "agent.create",
+    agent_id: undefined,
+    requested_cwd: "/workspace/project",
+    requested_runtime: "hosted",
+    requested_mode: undefined,
+    evidence_refs: [
+      "runtime_agent_create_js_facade_retired",
+      "rust_daemon_core_agent_create_required",
+      "agentgres_agent_create_state_truth_required",
+    ],
+  });
   assert.equal(store.agents.size, 1);
   assert.deepEqual(store.writes, []);
   assert.deepEqual(store.plannerCalls, []);
@@ -133,6 +180,20 @@ test("createRun facade fails closed before route, memory, Rust planning, or JS p
     },
   );
 
+  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
+  assert.deepEqual(store.lifecycleAdmissionRequiredCalls[0], {
+    operation: "run_create",
+    operation_kind: "run.create",
+    agent_id: "agent_existing",
+    requested_cwd: undefined,
+    requested_runtime: undefined,
+    requested_mode: "learn",
+    evidence_refs: [
+      "runtime_run_create_js_facade_retired",
+      "rust_daemon_core_run_create_required",
+      "agentgres_run_create_state_truth_required",
+    ],
+  });
   assert.equal(store.runs.size, 0);
   assert.deepEqual(store.writes, []);
   assert.deepEqual(store.getAgentCalls, []);
@@ -154,6 +215,9 @@ test("createRun missing-agent path is still Rust-core required and does not read
     },
   );
 
+  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
+  assert.equal(store.lifecycleAdmissionRequiredCalls[0].operation, "run_create");
+  assert.equal(store.lifecycleAdmissionRequiredCalls[0].agent_id, "agent_missing");
   assert.deepEqual(store.getAgentCalls, []);
   assert.deepEqual(store.writes, []);
 });
@@ -172,6 +236,9 @@ test("createThread facade fails closed before JS agent persistence for default t
     },
   );
 
+  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 1);
+  assert.equal(store.lifecycleAdmissionRequiredCalls[0].operation, "agent_create");
+  assert.equal(store.lifecycleAdmissionRequiredCalls[0].requested_cwd, "/workspace/thread");
   assert.deepEqual(store.runtimeThreadCalls, []);
   assert.deepEqual(store.startedEvents, []);
   assert.deepEqual(store.writes, []);
@@ -229,6 +296,7 @@ test("agent/run lifecycle surface routes create, run creation, and thread creati
     runtime_profile: "runtime_service",
   });
   assert.equal(store.runtimeThreadCalls.length, 1);
+  assert.equal(store.lifecycleAdmissionRequiredCalls.length, 2);
   assert.deepEqual(store.writes, []);
   assert.deepEqual(store.getAgentCalls, []);
   assert.deepEqual(store.routeCalls, []);

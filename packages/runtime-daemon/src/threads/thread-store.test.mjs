@@ -58,12 +58,20 @@ function fakeStore(options = {}) {
     contextPolicyRunner:
       Object.hasOwn(options, "agentStatusStateUpdate")
         ? {
+            planLifecycleAdmissionRequired(request = {}) {
+              calls.push({ operation: "plan_lifecycle_admission_required", input: request });
+              return lifecycleRequiredRecord(request);
+            },
             planAgentStatusStateUpdate(request = {}) {
               calls.push({ operation: "plan_agent_status_state_update", input: request });
               return options.agentStatusStateUpdate;
             },
           }
         : {
+            planLifecycleAdmissionRequired(request = {}) {
+              calls.push({ operation: "plan_lifecycle_admission_required", input: request });
+              return lifecycleRequiredRecord(request);
+            },
             planAgentStatusStateUpdate(request = {}) {
               calls.push({ operation: "plan_agent_status_state_update", input: request });
               return {
@@ -104,6 +112,33 @@ function fakeStore(options = {}) {
     },
     writeAgent(agent, operationKind) {
       this.calls.push({ operation: "write_agent", agent, operationKind });
+    },
+  };
+}
+
+function lifecycleRequiredRecord(request) {
+  const isDelete = request.operation === "agent_delete";
+  return {
+    source: "rust_lifecycle_admission_required_command",
+    backend: "rust_policy",
+    record: {
+      status: "rust_core_required",
+      status_code: 501,
+      code: isDelete
+        ? "runtime_agent_delete_rust_core_required"
+        : "runtime_agent_status_control_rust_core_required",
+      message: isDelete
+        ? "Permanent agent deletion requires direct Rust daemon-core admission and persistence."
+        : "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+      details: {
+        rust_core_boundary: isDelete ? "runtime.agent_delete" : "runtime.agent_status_control",
+        operation: request.operation,
+        operation_kind: request.operation_kind,
+        agent_id: request.agent_id,
+        requested_status: request.requested_status ?? null,
+        requested_operation_kind: request.requested_operation_kind ?? null,
+        evidence_refs: request.evidence_refs,
+      },
     },
   };
 }
@@ -227,6 +262,29 @@ test("thread store agent status facade fails closed before Rust planning or JS p
       return true;
     },
   );
+  assert.deepEqual(
+    store.calls.filter((call) => call.operation === "plan_lifecycle_admission_required"),
+    [{
+      operation: "plan_lifecycle_admission_required",
+      input: {
+        operation: "agent_status_control",
+        operation_kind: "agent_status_update",
+        agent_id: "agent_1",
+        requested_status: "archived",
+        requested_operation_kind: "agent.archive",
+        evidence_refs: [
+          "runtime_agent_status_control_js_facade_retired",
+          "runtime_agent_archive_js_facade_retired",
+          "runtime_agent_unarchive_js_facade_retired",
+          "runtime_agent_resume_js_facade_retired",
+          "runtime_agent_close_js_facade_retired",
+          "runtime_agent_reload_js_facade_retired",
+          "rust_daemon_core_agent_status_control_required",
+          "agentgres_agent_status_state_truth_required",
+        ],
+      },
+    }],
+  );
   assert.equal(store.calls.some((call) => call.operation === "plan_agent_status_state_update"), false);
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
   assert.equal(store.agents.get("agent_1").status, "active");
@@ -249,6 +307,10 @@ test("thread store agent status facade fails closed without JS agent lookup", ()
       assertNoRetiredAgentStatusDetailAliases(error.details);
       return true;
     },
+  );
+  assert.equal(
+    store.calls.filter((call) => call.operation === "plan_lifecycle_admission_required").length,
+    1,
   );
   assert.equal(store.calls.some((call) => call.operation === "plan_agent_status_state_update"), false);
   assert.equal(store.calls.some((call) => call.operation === "write_agent"), false);
@@ -276,6 +338,22 @@ test("thread store permanent delete facade fails closed before JS state mutation
       assertNoRetiredAgentDeleteDetailAliases(error.details);
       return true;
     },
+  );
+  assert.deepEqual(
+    store.calls.filter((call) => call.operation === "plan_lifecycle_admission_required"),
+    [{
+      operation: "plan_lifecycle_admission_required",
+      input: {
+        operation: "agent_delete",
+        operation_kind: "agent_deletion",
+        agent_id: "agent_1",
+        evidence_refs: [
+          "runtime_agent_delete_js_facade_retired",
+          "rust_daemon_core_agent_delete_required",
+          "agentgres_agent_delete_state_truth_required",
+        ],
+      },
+    }],
   );
   assert.equal(store.agents.has("agent_1"), true);
   assert.equal(store.calls.some((call) => call.operation === "remove_quiet"), false);

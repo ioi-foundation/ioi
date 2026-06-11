@@ -82,8 +82,10 @@ pub use run_cancel::{
 pub use thread_lifecycle::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateError, AgentCreateStateUpdateRecord,
     AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore, AgentStatusStateUpdateError,
-    AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest, RunCreateStateUpdateCore,
-    RunCreateStateUpdateError, RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
+    AgentStatusStateUpdateRecord, AgentStatusStateUpdateRequest, LifecycleAdmissionRequiredCore,
+    LifecycleAdmissionRequiredError, LifecycleAdmissionRequiredRecord,
+    LifecycleAdmissionRequiredRequest, RunCreateStateUpdateCore, RunCreateStateUpdateError,
+    RunCreateStateUpdateRecord, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateError,
     RuntimeBridgeThreadStartAgentStateUpdateRecord,
     RuntimeBridgeThreadStartAgentStateUpdateRequest, RuntimeBridgeTurnRunStateUpdateCore,
@@ -159,6 +161,10 @@ pub const THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-turn-admission-required-request.v1";
 pub const THREAD_TURN_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-turn-admission-required.v1";
+pub const LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.lifecycle-admission-required-request.v1";
+pub const LIFECYCLE_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.lifecycle-admission-required.v1";
 pub const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.agent-create-state-update-request.v1";
 pub const AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

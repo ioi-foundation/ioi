@@ -5632,6 +5632,26 @@ non-terminal: direct Rust daemon-core thread-turn admission, runtime dispatch,
 Agentgres expected-head/state-root commit, replay, projection, and stable
 protocol APIs must still replace the temporary command transport.
 
+Slice 1085 moves the public agent/run lifecycle admission-required refusal
+family into the Rust thread-lifecycle policy core. The Rust
+`LifecycleAdmissionRequiredCore` now owns the canonical required-boundary
+records for agent creation, run creation, agent status control, and permanent
+agent deletion, and the daemon-core command protocol exposes them through
+`plan_lifecycle_admission_required`. The JS agent/run lifecycle and thread
+store surfaces consume these Rust-authored records while still failing closed
+before JS route/model/memory planning, agent lookup where forbidden, `writeRun`,
+`writeAgent`, agent/run map mutation, or Agentgres commit.
+
+Conformance now fails if these lifecycle required-boundary envelopes are
+authored only in JS, if the typed Rust command operation is removed, if the
+temporary Node command wrapper moves back into the broad bridge module, or if
+the JS surfaces stop proving they called the Rust admission-required planner
+before any retired state-update or persistence path. This remains
+non-terminal: direct Rust daemon-core lifecycle admission, wallet/cTEE policy
+where applicable, Agentgres expected-head/state-root commit, replay,
+projection, and stable protocol APIs must still replace the temporary command
+transport.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

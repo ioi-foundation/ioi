@@ -725,7 +725,10 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
     });
     this.threadMemorySurface = threadMemoryState;
-    this.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface({ runtimeError });
+    this.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface({
+      lifecycleAdmissionRunner: this.contextPolicyRunner,
+      runtimeError,
+    });
     this.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface();
     this.runtimeDoctorReport = createRuntimeDoctorReport({
       doctorCheck,

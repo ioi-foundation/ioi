@@ -15,10 +15,47 @@ export function getAgent(store, agentId, deps = {}) {
 
 export function updateAgent(store, agentId, status, operationKind, deps = {}) {
   const {
+    lifecycleAdmissionRunner = store.contextPolicyRunner ?? null,
     runtimeError = ({ status: errorStatus = 500, code = "agent_status_control_error", message, details }) =>
       Object.assign(new Error(message), { status: errorStatus, code, details }),
   } = deps;
   void store;
+  if (lifecycleAdmissionRunner?.planLifecycleAdmissionRequired) {
+    const record = lifecycleAdmissionRunner.planLifecycleAdmissionRequired({
+      operation: "agent_status_control",
+      operation_kind: "agent_status_update",
+      agent_id: agentId,
+      requested_status: status,
+      requested_operation_kind: operationKind,
+      evidence_refs: [
+        "runtime_agent_status_control_js_facade_retired",
+        "runtime_agent_archive_js_facade_retired",
+        "runtime_agent_unarchive_js_facade_retired",
+        "runtime_agent_resume_js_facade_retired",
+        "runtime_agent_close_js_facade_retired",
+        "runtime_agent_reload_js_facade_retired",
+        "rust_daemon_core_agent_status_control_required",
+        "agentgres_agent_status_state_truth_required",
+      ],
+    });
+    const planned = record?.record ?? record;
+    throw runtimeError({
+      status: Number(planned?.status_code ?? record?.status_code ?? 501),
+      code: planned?.code ?? record?.code ?? "runtime_agent_status_control_rust_core_required",
+      message:
+        planned?.message ??
+        record?.message ??
+        "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+      details: planned?.details ?? record?.details ?? {
+        rust_core_boundary: "runtime.agent_status_control",
+        operation: "agent_status_control",
+        operation_kind: "agent_status_update",
+        requested_operation_kind: operationKind,
+        agent_id: agentId,
+        requested_status: status,
+      },
+    });
+  }
   throw runtimeError({
     status: 501,
     code: "runtime_agent_status_control_rust_core_required",
@@ -47,9 +84,37 @@ export function updateAgent(store, agentId, status, operationKind, deps = {}) {
 
 export function deleteAgent(store, agentId, deps = {}) {
   const {
+    lifecycleAdmissionRunner = store.contextPolicyRunner ?? null,
     runtimeError = ({ status: errorStatus = 500, code = "agent_delete_control_error", message, details }) =>
       Object.assign(new Error(message), { status: errorStatus, code, details }),
   } = deps;
+  if (lifecycleAdmissionRunner?.planLifecycleAdmissionRequired) {
+    const record = lifecycleAdmissionRunner.planLifecycleAdmissionRequired({
+      operation: "agent_delete",
+      operation_kind: "agent_deletion",
+      agent_id: agentId,
+      evidence_refs: [
+        "runtime_agent_delete_js_facade_retired",
+        "rust_daemon_core_agent_delete_required",
+        "agentgres_agent_delete_state_truth_required",
+      ],
+    });
+    const planned = record?.record ?? record;
+    throw runtimeError({
+      status: Number(planned?.status_code ?? record?.status_code ?? 501),
+      code: planned?.code ?? record?.code ?? "runtime_agent_delete_rust_core_required",
+      message:
+        planned?.message ??
+        record?.message ??
+        "Permanent agent deletion requires direct Rust daemon-core admission and persistence.",
+      details: planned?.details ?? record?.details ?? {
+        rust_core_boundary: "runtime.agent_delete",
+        operation: "agent_delete",
+        operation_kind: "agent_deletion",
+        agent_id: agentId,
+      },
+    });
+  }
   throw runtimeError({
     status: 501,
     code: "runtime_agent_delete_rust_core_required",

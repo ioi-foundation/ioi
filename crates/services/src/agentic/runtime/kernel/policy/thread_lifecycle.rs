@@ -6,6 +6,8 @@ use super::{
     AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     AGENT_STATUS_STATE_UPDATE_RESULT_SCHEMA_VERSION,
+    LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    LIFECYCLE_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION,
     RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -31,6 +33,16 @@ pub enum ThreadControlAgentStateUpdateError {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ThreadTurnAdmissionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    UnsupportedOperationKind(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum LifecycleAdmissionRequiredError {
     InvalidSchemaVersion {
         expected: &'static str,
         actual: String,
@@ -154,6 +166,42 @@ pub struct ThreadTurnAdmissionRequiredRequest {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ThreadTurnAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub details: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LifecycleAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub requested_status: Option<String>,
+    #[serde(default)]
+    pub requested_operation_kind: Option<String>,
+    #[serde(default)]
+    pub requested_cwd: Option<String>,
+    #[serde(default)]
+    pub requested_runtime: Option<String>,
+    #[serde(default)]
+    pub requested_mode: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LifecycleAdmissionRequiredRecord {
     pub schema_version: String,
     pub object: String,
     pub status: String,
@@ -300,6 +348,52 @@ pub struct SubagentRecordStateUpdateRecord {
 
 #[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct LifecycleAdmissionRequiredCore;
+
+impl LifecycleAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &LifecycleAdmissionRequiredRequest,
+    ) -> Result<LifecycleAdmissionRequiredRecord, LifecycleAdmissionRequiredError> {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let profile = lifecycle_required_profile(operation.as_str(), operation_kind.as_str())?;
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            profile.evidence_refs
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": profile.boundary,
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "agent_id": optional_trimmed(request.agent_id.as_deref()),
+            "requested_status": optional_trimmed(request.requested_status.as_deref()),
+            "requested_operation_kind": optional_trimmed(request.requested_operation_kind.as_deref()),
+            "requested_cwd": optional_trimmed(request.requested_cwd.as_deref()),
+            "requested_runtime": optional_trimmed(request.requested_runtime.as_deref()),
+            "requested_mode": optional_trimmed(request.requested_mode.as_deref()),
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(LifecycleAdmissionRequiredRecord {
+            schema_version: LIFECYCLE_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_lifecycle_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: profile.code.to_string(),
+            message: profile.message.to_string(),
+            rust_core_boundary: profile.boundary.to_string(),
+            operation,
+            operation_kind,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct ThreadTurnAdmissionRequiredCore;
@@ -752,6 +846,24 @@ impl ThreadTurnAdmissionRequiredRequest {
     }
 }
 
+impl LifecycleAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), LifecycleAdmissionRequiredError> {
+        if self.schema_version != LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(LifecycleAdmissionRequiredError::InvalidSchemaVersion {
+                expected: LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        let operation = optional_trimmed(Some(self.operation.as_str()))
+            .ok_or(LifecycleAdmissionRequiredError::MissingField("operation"))?;
+        let operation_kind = optional_trimmed(Some(self.operation_kind.as_str())).ok_or(
+            LifecycleAdmissionRequiredError::MissingField("operation_kind"),
+        )?;
+        lifecycle_required_profile(operation.as_str(), operation_kind.as_str())?;
+        Ok(())
+    }
+}
+
 impl AgentCreateStateUpdateRequest {
     pub fn validate(&self) -> Result<(), AgentCreateStateUpdateError> {
         if self.schema_version != AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -1076,6 +1188,69 @@ fn default_thread_turn_evidence_refs(operation: &str) -> Vec<String> {
     }
 }
 
+struct LifecycleRequiredProfile {
+    code: &'static str,
+    message: &'static str,
+    boundary: &'static str,
+    evidence_refs: Vec<String>,
+}
+
+fn lifecycle_required_profile(
+    operation: &str,
+    operation_kind: &str,
+) -> Result<LifecycleRequiredProfile, LifecycleAdmissionRequiredError> {
+    match (operation, operation_kind) {
+        ("agent_create", "agent.create") => Ok(LifecycleRequiredProfile {
+            code: "runtime_agent_create_rust_core_required",
+            message: "Agent creation requires direct Rust daemon-core state admission and persistence.",
+            boundary: "runtime.agent_create",
+            evidence_refs: vec![
+                "runtime_agent_create_js_facade_retired".to_string(),
+                "rust_daemon_core_agent_create_required".to_string(),
+                "agentgres_agent_create_state_truth_required".to_string(),
+            ],
+        }),
+        ("run_create", "run.create") => Ok(LifecycleRequiredProfile {
+            code: "runtime_run_create_rust_core_required",
+            message: "Run creation requires direct Rust daemon-core state admission and persistence.",
+            boundary: "runtime.run_create",
+            evidence_refs: vec![
+                "runtime_run_create_js_facade_retired".to_string(),
+                "rust_daemon_core_run_create_required".to_string(),
+                "agentgres_run_create_state_truth_required".to_string(),
+            ],
+        }),
+        ("agent_status_control", "agent_status_update") => Ok(LifecycleRequiredProfile {
+            code: "runtime_agent_status_control_rust_core_required",
+            message: "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+            boundary: "runtime.agent_status_control",
+            evidence_refs: vec![
+                "runtime_agent_status_control_js_facade_retired".to_string(),
+                "runtime_agent_archive_js_facade_retired".to_string(),
+                "runtime_agent_unarchive_js_facade_retired".to_string(),
+                "runtime_agent_resume_js_facade_retired".to_string(),
+                "runtime_agent_close_js_facade_retired".to_string(),
+                "runtime_agent_reload_js_facade_retired".to_string(),
+                "rust_daemon_core_agent_status_control_required".to_string(),
+                "agentgres_agent_status_state_truth_required".to_string(),
+            ],
+        }),
+        ("agent_delete", "agent_deletion") => Ok(LifecycleRequiredProfile {
+            code: "runtime_agent_delete_rust_core_required",
+            message: "Permanent agent deletion requires direct Rust daemon-core admission and persistence.",
+            boundary: "runtime.agent_delete",
+            evidence_refs: vec![
+                "runtime_agent_delete_js_facade_retired".to_string(),
+                "rust_daemon_core_agent_delete_required".to_string(),
+                "agentgres_agent_delete_state_truth_required".to_string(),
+            ],
+        }),
+        _ => Err(LifecycleAdmissionRequiredError::UnsupportedOperationKind(
+            operation_kind.to_string(),
+        )),
+    }
+}
+
 fn json_string_value(value: &Value, key: &str) -> Option<String> {
     value
         .get(key)
@@ -1172,6 +1347,24 @@ mod tests {
             thread_id: Some("thread_1".to_string()),
             agent_id: Some("agent_1".to_string()),
             runtime_profile: Some("fixture".to_string()),
+            evidence_refs: vec![],
+        }
+    }
+
+    fn lifecycle_admission_required_request(
+        operation: &str,
+        operation_kind: &str,
+    ) -> LifecycleAdmissionRequiredRequest {
+        LifecycleAdmissionRequiredRequest {
+            schema_version: LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: operation.to_string(),
+            operation_kind: operation_kind.to_string(),
+            agent_id: Some("agent_1".to_string()),
+            requested_status: Some("archived".to_string()),
+            requested_operation_kind: Some("agent.archive".to_string()),
+            requested_cwd: Some("/workspace".to_string()),
+            requested_runtime: Some("hosted".to_string()),
+            requested_mode: Some("learn".to_string()),
             evidence_refs: vec![],
         }
     }
@@ -1371,6 +1564,76 @@ mod tests {
             "evidenceRefs",
         ] {
             assert!(record.details.get(field).is_none());
+        }
+    }
+
+    #[test]
+    fn rust_policy_plans_lifecycle_admission_required() {
+        let cases = [
+            (
+                "agent_create",
+                "agent.create",
+                "runtime_agent_create_rust_core_required",
+                "runtime.agent_create",
+            ),
+            (
+                "run_create",
+                "run.create",
+                "runtime_run_create_rust_core_required",
+                "runtime.run_create",
+            ),
+            (
+                "agent_status_control",
+                "agent_status_update",
+                "runtime_agent_status_control_rust_core_required",
+                "runtime.agent_status_control",
+            ),
+            (
+                "agent_delete",
+                "agent_deletion",
+                "runtime_agent_delete_rust_core_required",
+                "runtime.agent_delete",
+            ),
+        ];
+
+        for (operation, operation_kind, code, boundary) in cases {
+            let record = LifecycleAdmissionRequiredCore
+                .plan(&lifecycle_admission_required_request(
+                    operation,
+                    operation_kind,
+                ))
+                .expect("lifecycle admission-required record");
+
+            assert_eq!(
+                record.schema_version,
+                LIFECYCLE_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+            );
+            assert_eq!(record.status, "rust_core_required");
+            assert_eq!(record.status_code, 501);
+            assert_eq!(record.code, code);
+            assert_eq!(record.rust_core_boundary, boundary);
+            assert_eq!(record.operation, operation);
+            assert_eq!(record.operation_kind, operation_kind);
+            assert_eq!(record.details["rust_core_boundary"], boundary);
+            assert_eq!(record.details["agent_id"], "agent_1");
+            assert!(record.details["evidence_refs"]
+                .as_array()
+                .expect("evidence refs")
+                .iter()
+                .all(Value::is_string));
+            for field in [
+                "rustCoreBoundary",
+                "operationKind",
+                "agentId",
+                "requestedStatus",
+                "requestedOperationKind",
+                "requestedCwd",
+                "requestedRuntime",
+                "requestedMode",
+                "evidenceRefs",
+            ] {
+                assert!(record.details.get(field).is_none());
+            }
         }
     }
 
@@ -1608,6 +1871,24 @@ mod tests {
             error,
             ThreadTurnAdmissionRequiredError::InvalidSchemaVersion {
                 expected: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_lifecycle_admission_required_schema() {
+        let mut request = lifecycle_admission_required_request("agent_create", "agent.create");
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = LifecycleAdmissionRequiredCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            LifecycleAdmissionRequiredError::InvalidSchemaVersion {
+                expected: LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

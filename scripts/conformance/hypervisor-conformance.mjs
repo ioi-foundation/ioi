@@ -7885,6 +7885,7 @@ function runBridge() {
       /pub struct RunCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct AgentStatusStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct ThreadTurnAdmissionRequiredCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct LifecycleAdmissionRequiredCore;/.test(policyThreadLifecycleCore) &&
       /pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(
         policyThreadLifecycleCore,
       ) &&
@@ -7895,6 +7896,7 @@ function runBridge() {
       /rust_policy_plans_run_create_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_agent_status_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_thread_turn_admission_required/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(
         policyThreadLifecycleCore,
       ) &&
@@ -7914,6 +7916,7 @@ function runBridge() {
       ) &&
       !/pub struct ThreadControlAgentStateUpdateCore;/.test(policyFacade) &&
       !/pub struct ThreadTurnAdmissionRequiredCore;/.test(policyFacade) &&
+      !/pub struct LifecycleAdmissionRequiredCore;/.test(policyFacade) &&
       !/pub struct AgentCreateStateUpdateCore;/.test(policyFacade) &&
       !/pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(policyFacade) &&
       !/pub struct SubagentRecordStateUpdateCore;/.test(policyFacade) &&
@@ -9477,9 +9480,22 @@ function runBridge() {
       /planAgentCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planRunCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planAgentStatusStateUpdate/.test(runtimeContextPolicyRunner) &&
+      /planLifecycleAdmissionRequired/.test(runtimeContextPolicyRunner) &&
       /AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /AGENT_STATUS_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /LifecycleAdmissionRequiredCore/.test(policyCore) &&
+      /LifecycleAdmissionRequiredRequest/.test(policyCore) &&
+      /rust_policy_plans_lifecycle_admission_required/.test(policyThreadLifecycleCore) &&
+      /plan_lifecycle_admission_required/.test(commandProtocolCore) &&
+      /CommandOperation::PlanLifecycleAdmissionRequired/.test(commandProtocolCore) &&
+      /fn plan_lifecycle_admission_required/.test(threadLifecycleCommandBridge) &&
+      /LifecycleAdmissionRequiredBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /rust_lifecycle_admission_required_command/.test(threadLifecycleCommandBridge) &&
+      /bridge_plans_lifecycle_admission_required_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_lifecycle_admission_required/.test(bridgeModule) &&
+      !/struct LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /agent create state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
@@ -9489,9 +9505,16 @@ function runBridge() {
       /agent status state update runner sends Rust state update bridge request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /lifecycle admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.operation,\s*"plan_lifecycle_admission_required"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /runtime_agent_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
       /runtime_run_create_rust_core_required/.test(runtimeAgentRunLifecycle) &&
-      /rust_core_boundary:\s*boundary/.test(runtimeAgentRunLifecycle) &&
+      /planLifecycleAdmissionRequired/.test(runtimeAgentRunLifecycle) &&
+      /lifecycleAdmissionRunner/.test(runtimeAgentRunLifecycle) &&
       /runtime_agent_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /runtime_run_create_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
       /rust_daemon_core_agent_create_required/.test(runtimeAgentRunLifecycle) &&
@@ -9500,10 +9523,14 @@ function runBridge() {
       /agentgres_run_create_state_truth_required/.test(runtimeAgentRunLifecycle) &&
       !/contextPolicyRunner\.planAgentCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
       !/contextPolicyRunner\.planRunCreateStateUpdate/.test(runtimeAgentRunLifecycle) &&
+      /lifecycleAdmissionRequiredCalls\.length,\s*1/.test(runtimeAgentRunLifecycleTest) &&
+      /operation:\s*"agent_create"/.test(runtimeAgentRunLifecycleTest) &&
+      /operation:\s*"run_create"/.test(runtimeAgentRunLifecycleTest) &&
       !/requiredPlannedOperationKind/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"agent\.create"/.test(runtimeAgentRunLifecycle) &&
       !/stateUpdate\.operation_kind\s*\?\?\s*"run\.create"/.test(runtimeAgentRunLifecycle) &&
       /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
+      /planLifecycleAdmissionRequired/.test(threadStore) &&
       /rust_core_boundary:\s*"runtime\.agent_status_control"/.test(threadStore) &&
       /operation:\s*"agent_status_control"/.test(threadStore) &&
       /operation_kind:\s*"agent_status_update"/.test(threadStore) &&
@@ -9518,6 +9545,7 @@ function runBridge() {
       /rust_daemon_core_agent_status_control_required/.test(threadStore) &&
       /agentgres_agent_status_state_truth_required/.test(threadStore) &&
       !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
+      /plan_lifecycle_admission_required/.test(threadStoreTest) &&
       !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
       !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
       /thread store agent status facade fails closed before Rust planning or JS persistence/.test(
@@ -9560,7 +9588,7 @@ function runBridge() {
         runtimeAgentRunLifecycle,
       ) &&
       /createRuntimeAgentRunLifecycleSurface/.test(runtimeAgentRunLifecycle) &&
-      /this\.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface\(\{ runtimeError \}\)/.test(
+      /lifecycleAdmissionRunner:\s*this\.contextPolicyRunner/.test(
         runtimeDaemonIndex,
       ) &&
       /return createAgentState\(this,\s*options\);/.test(runtimeDaemonIndex) &&
@@ -9653,6 +9681,7 @@ function runBridge() {
     result,
     "thread-agent-status-control-js-facade-retired",
     /runtime_agent_status_control_rust_core_required/.test(threadStore) &&
+      /planLifecycleAdmissionRequired/.test(threadStore) &&
       /runtime_agent_status_control_js_facade_retired/.test(threadStore) &&
       /runtime_agent_archive_js_facade_retired/.test(threadStore) &&
       /runtime_agent_unarchive_js_facade_retired/.test(threadStore) &&
@@ -9662,6 +9691,7 @@ function runBridge() {
       /rust_daemon_core_agent_status_control_required/.test(threadStore) &&
       /agentgres_agent_status_state_truth_required/.test(threadStore) &&
       !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
+      /plan_lifecycle_admission_required/.test(threadStoreTest) &&
       !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
       !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
       /store\.agentRunLifecycleSurface\.updateAgent\(store, agentId, "archived", "agent\.archive"\)/.test(

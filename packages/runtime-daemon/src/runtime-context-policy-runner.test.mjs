@@ -16,6 +16,7 @@ import {
   ContextPolicyRunnerError,
   DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_PROJECTION_REQUEST_SCHEMA_VERSION,
   MCP_MANAGER_CATALOG_SUMMARY_PROJECTION_REQUEST_SCHEMA_VERSION,
@@ -1510,6 +1511,67 @@ test("thread turn admission-required runner sends Rust daemon-core request", () 
   assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
   assert.equal(Object.hasOwn(result.record.details, "operationKind"), false);
   assert.equal(Object.hasOwn(result.record.details, "runtimeProfile"), false);
+});
+
+test("lifecycle admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_lifecycle_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status: "rust_core_required",
+              status_code: 501,
+              code: "runtime_agent_status_control_rust_core_required",
+              message:
+                "Agent lifecycle/status control requires direct Rust daemon-core admission and projection.",
+              details: {
+                rust_core_boundary: "runtime.agent_status_control",
+                operation: "agent_status_control",
+                operation_kind: "agent_status_update",
+                agent_id: "agent_1",
+                requested_status: "archived",
+                requested_operation_kind: "agent.archive",
+                evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planLifecycleAdmissionRequired({
+    operation: "agent_status_control",
+    operation_kind: "agent_status_update",
+    agent_id: "agent_1",
+    requested_status: "archived",
+    requested_operation_kind: "agent.archive",
+    evidence_refs: ["runtime_agent_status_control_js_facade_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_lifecycle_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    LIFECYCLE_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "agent_status_update");
+  assert.equal(result.source, "rust_lifecycle_admission_required_command");
+  assert.equal(result.record.code, "runtime_agent_status_control_rust_core_required");
+  assert.equal(result.record.details.agent_id, "agent_1");
+  assert.equal(Object.hasOwn(result.record.details, "agentId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(result.record.details, "requestedStatus"), false);
 });
 
 test("mcp control agent state update runner sends Rust state update bridge request", () => {

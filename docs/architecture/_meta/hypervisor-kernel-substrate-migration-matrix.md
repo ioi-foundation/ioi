@@ -15784,6 +15784,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1085
+
+Slice 1085 moves the public agent/run lifecycle admission-required refusal
+family into the Rust thread-lifecycle policy core. Rust now owns
+`LifecycleAdmissionRequiredCore`, the canonical required-boundary records for
+agent creation, run creation, agent status control, and permanent agent
+deletion, and the `plan_lifecycle_admission_required` daemon-core command
+operation. The JS agent/run lifecycle and thread-store surfaces consume those
+Rust-authored records while still failing closed before JS route/model/memory
+planning, forbidden agent lookup, `writeRun`, `writeAgent`, agent/run map
+mutation, or Agentgres commit.
+
+This is not terminal lifecycle migration. The command bridge remains temporary
+transport until direct Rust daemon-core lifecycle admission, Agentgres
+expected-head/state-root binding, replay, projection, wallet/cTEE policy where
+applicable, and stable protocol APIs own the surface end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs` | passed |
+| `node --check packages/runtime-daemon/src/threads/thread-store.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/threads/thread-store.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo test -p ioi-services lifecycle_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_lifecycle_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1084
 
 Slice 1084 moves the public non-runtime thread-turn admission-required refusal

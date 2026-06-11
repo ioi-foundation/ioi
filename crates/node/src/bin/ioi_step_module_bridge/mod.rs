@@ -123,12 +123,13 @@ use runtime_control_command::{
     RunCancelAdmissionRequiredBridgeRequest, RunCancelStateUpdateBridgeRequest,
 };
 use thread_lifecycle_command::{
-    plan_agent_create_state_update, plan_agent_status_state_update, plan_run_create_state_update,
+    plan_agent_create_state_update, plan_agent_status_state_update,
+    plan_lifecycle_admission_required, plan_run_create_state_update,
     plan_runtime_bridge_thread_start_agent_state_update, plan_runtime_bridge_turn_run_state_update,
     plan_subagent_record_state_update, plan_thread_control_agent_state_update,
     plan_thread_turn_admission_required, AgentCreateStateUpdateBridgeRequest,
-    AgentStatusStateUpdateBridgeRequest, RunCreateStateUpdateBridgeRequest,
-    RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+    AgentStatusStateUpdateBridgeRequest, LifecycleAdmissionRequiredBridgeRequest,
+    RunCreateStateUpdateBridgeRequest, RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
     RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
     ThreadControlAgentStateUpdateBridgeRequest, ThreadTurnAdmissionRequiredBridgeRequest,
 };
@@ -4736,6 +4737,64 @@ mod tests {
             "threadId",
             "agentId",
             "runtimeProfile",
+            "evidenceRefs",
+        ] {
+            assert!(response["details"].get(field).is_none());
+        }
+    }
+
+    #[test]
+    fn bridge_plans_lifecycle_admission_required_through_rust_core() {
+        let request: LifecycleAdmissionRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_lifecycle_admission_required",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.lifecycle-admission-required-request.v1",
+                "operation": "agent_status_control",
+                "operation_kind": "agent_status_update",
+                "agent_id": "agent_1",
+                "requested_status": "archived",
+                "requested_operation_kind": "agent.archive"
+            }
+        }))
+        .expect("lifecycle admission-required bridge request");
+
+        let response = plan_lifecycle_admission_required(request)
+            .expect("lifecycle admission-required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_lifecycle_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_agent_status_control_rust_core_required"
+        );
+        assert_eq!(response["operation"], "agent_status_control");
+        assert_eq!(response["operation_kind"], "agent_status_update");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.agent_status_control"
+        );
+        assert_eq!(response["details"]["agent_id"], "agent_1");
+        assert_eq!(response["details"]["requested_status"], "archived");
+        assert_eq!(
+            response["details"]["requested_operation_kind"],
+            "agent.archive"
+        );
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "agentId",
+            "requestedStatus",
+            "requestedOperationKind",
+            "requestedCwd",
+            "requestedRuntime",
+            "requestedMode",
             "evidenceRefs",
         ] {
             assert!(response["details"].get(field).is_none());
