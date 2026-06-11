@@ -42,8 +42,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     ContextBudgetPolicyCore, ContextBudgetPolicyRequest, ContextCompactionPlanCore,
     ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
-    DiagnosticsOperatorOverrideStateUpdateRequest, DiagnosticsRepairAdmissionRequiredCore,
-    DiagnosticsRepairAdmissionRequiredRequest, McpControlAgentStateUpdateCore,
+    DiagnosticsOperatorOverrideStateUpdateRequest, McpControlAgentStateUpdateCore,
     McpControlAgentStateUpdateRequest, McpManagerCatalogProjectionCore,
     McpManagerCatalogProjectionRequest, McpManagerCatalogSummaryProjectionCore,
     McpManagerCatalogSummaryProjectionRequest, McpManagerStatusProjectionCore,
@@ -65,7 +64,6 @@ use ioi_services::agentic::runtime::kernel::policy::{
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
     ThreadMemoryAgentStateUpdateCore, ThreadMemoryAgentStateUpdateRequest,
-    WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -97,6 +95,12 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 mod computer_use;
+mod policy_command;
+
+use policy_command::{
+    plan_diagnostics_repair_admission_required, plan_workflow_edit_admission_required,
+    DiagnosticsRepairAdmissionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
+};
 
 const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
 const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
@@ -500,26 +504,6 @@ struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: CodingToolBudgetRecoveryAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct WorkflowEditAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: WorkflowEditAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct DiagnosticsRepairAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: DiagnosticsRepairAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -3852,86 +3836,6 @@ fn plan_coding_tool_budget_recovery_admission_required(
         })?;
     Ok(json!({
         "source": "rust_coding_tool_budget_recovery_admission_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
-}
-
-fn plan_workflow_edit_admission_required(
-    request: WorkflowEditAdmissionRequiredBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_workflow_edit_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = WorkflowEditAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "workflow_edit_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_workflow_edit_admission_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
-}
-
-fn plan_diagnostics_repair_admission_required(
-    request: DiagnosticsRepairAdmissionRequiredBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_diagnostics_repair_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = DiagnosticsRepairAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "diagnostics_repair_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_diagnostics_repair_admission_required_command",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),

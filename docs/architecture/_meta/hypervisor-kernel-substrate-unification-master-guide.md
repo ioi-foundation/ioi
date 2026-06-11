@@ -4919,6 +4919,22 @@ projection, and stable IDE/CLI/SDK protocol APIs. Run the scheduled
 matrix-compaction pass for Slices 1035-1042 once the next larger Rust-core
 extraction/facade-retirement seam is clear.
 
+Slice 1043 moves the workflow-edit and diagnostics-repair admission-required
+daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/policy_command.rs`. The service
+owner remains `policy/admission_required.rs`; the bridge child module is only
+fixed migration transport that translates the Rust-authored refusal records at
+the process boundary. The conformance guard now proves the policy owner stays
+out of the broad `policy.rs` facade and the admission-required command wrappers
+stay out of the broad bridge module. This satisfies the scheduled
+matrix-compaction pass for Slices 1035-1042, while preserving their
+non-terminal status. Resume by replacing this command transport with direct
+Rust daemon-core workflow-edit and diagnostics-repair admission/persistence
+APIs over wallet approval authority where applicable, Agentgres expected
+heads/state roots, proposal/apply/repair receipts and events, replay,
+projection, and stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

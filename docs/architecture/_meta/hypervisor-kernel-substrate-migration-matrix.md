@@ -20662,3 +20662,51 @@ Scheduled matrix-compaction obligation: compact Slices 1035-1042 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1043
+
+Slice 1043 splits the workflow-edit and diagnostics-repair admission-required
+daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
+`crates/node/src/bin/ioi_step_module_bridge/policy_command.rs`. The canonical
+policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs`; the
+new bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge conformance guard now proves both that the
+Rust policy owner is outside the broad `policy.rs` facade and that the
+workflow-edit/diagnostics-repair admission-required command wrappers are
+outside the broad bridge module.
+
+This is a Rust transport-boundary cleanup paired with the scheduled
+matrix-compaction pass, not terminal workflow-edit or diagnostics-repair
+migration. The current JS workflow-edit/diagnostics-repair facades, JS
+context-policy runner, and Node command bridge remain scaffolding until direct
+Rust daemon-core workflow-edit and diagnostics-repair admission/persistence,
+wallet approval authority where applicable, Agentgres expected-head and
+state-root persistence, receipts/events, replay, projection, and stable
+protocol APIs own the paths end to end.
+
+Compacted non-terminal status for Slices 1035-1043:
+
+| Slice range | What is now true | What must still replace migration scaffolding |
+| --- | --- | --- |
+| 1035-1042 | Policy planner/projector owner families now live in Rust child modules behind a facade-only `policy.rs`; the broad facade no longer owns migrated hot-path planner cores. | Direct Rust daemon-core projection/admission/persistence APIs over Agentgres, wallet authority, receipt/state-root binding, replay, and stable IDE/CLI/SDK protocol surfaces. |
+| 1043 | Workflow-edit and diagnostics-repair admission-required command wrappers now live in a Rust bridge child module instead of the broad bridge transport. | Remove command transport entirely once direct Rust daemon-core workflow-edit and diagnostics-repair APIs are verified. |
+
+Scheduled matrix-compaction obligation from Slices 1035-1042 is now satisfied.
+No new matrix-compaction pass is pending until the next larger Rust-core
+extraction or facade-retirement seam lands. Future resumes must continue to
+treat JS bridges, JS facades, readback projections, and Node command transport
+as temporary scaffolding only.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node admission_required_through_rust_core --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |

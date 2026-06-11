@@ -2266,6 +2266,9 @@ function runBridge() {
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
+  const policyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
+    : "";
   const workloadClient = exists("crates/client/src/workload_client/mod.rs")
     ? read("crates/client/src/workload_client/mod.rs")
     : "";
@@ -6784,6 +6787,15 @@ function runBridge() {
       /pub struct DiagnosticsRepairAdmissionRequiredRequest/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_diagnostics_repair_admission_required/.test(policyAdmissionRequiredCore) &&
+      /mod policy_command;/.test(bridgeModule) &&
+      /plan_workflow_edit_admission_required/.test(policyCommandBridge) &&
+      /plan_diagnostics_repair_admission_required/.test(policyCommandBridge) &&
+      /WorkflowEditAdmissionRequiredBridgeRequest/.test(policyCommandBridge) &&
+      /DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(policyCommandBridge) &&
+      !/fn plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      !/fn plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      !/struct WorkflowEditAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/struct DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       !/pub struct WorkflowEditAdmissionRequiredCore;/.test(policyFacade) &&
       !/pub struct DiagnosticsRepairAdmissionRequiredCore;/.test(policyFacade) &&
       !/rust_policy_plans_workflow_edit_admission_required/.test(policyFacade) &&
@@ -6791,9 +6803,11 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/policy_command.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 remains non-terminal: workflow-edit and diagnostics-repair admission-required owners must stay in the Rust policy child module while direct Rust daemon-core admission/persistence replaces command transport",
+    "Phase 10/11 remains non-terminal: workflow-edit and diagnostics-repair admission-required owners plus their Rust command-transport wrappers must stay out of broad facades while direct Rust daemon-core admission/persistence replaces command transport",
   );
   assertCheck(
     result,
