@@ -52,6 +52,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
+      : "",
     exists("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
       : "",
@@ -2622,6 +2625,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs")
     : "";
+  const policyMcpMemoryCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
+    : "";
   const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     : "";
@@ -2651,16 +2659,16 @@ function runBridge() {
       /impl ThreadControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct AgentCreateStateUpdateCore;)/,
     )?.[0] ?? "";
   const mcpControlAgentStateUpdateCoreBlock =
-    policyCore.match(
+    policyMcpMemoryCore.match(
       /impl McpControlAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct McpServerValidationCore;)/,
     )?.[0] ?? "";
   const mcpServerValidationCoreBlock =
-    policyCore.match(
+    policyMcpMemoryCore.match(
       /impl McpServerValidationCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct ThreadMemoryAgentStateUpdateCore;)/,
     )?.[0] ?? "";
   const threadMemoryAgentStateUpdateCoreBlock =
-    policyCore.match(
-      /impl ThreadMemoryAgentStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RuntimeBridgeThreadStartAgentStateUpdateCore;)/,
+    policyMcpMemoryCore.match(
+      /impl ThreadMemoryAgentStateUpdateCore \{[\s\S]*?(?=\n\nimpl McpControlAgentStateUpdateRequest \{)/,
     )?.[0] ?? "";
   const runtimeBridgeThreadStartAgentStateUpdateCoreBlock =
     policyThreadLifecycleCore.match(
@@ -6640,6 +6648,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -6724,6 +6733,37 @@ function runBridge() {
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Phase 9/10 remains non-terminal: context-budget and compaction policy owners must stay in the Rust policy child module while direct Rust daemon-core context admission/persistence replaces command transport",
+  );
+  assertCheck(
+    result,
+    "policy-mcp-memory-rust-owner-split",
+    /mod mcp_memory;/.test(policyFacade) &&
+      /pub use mcp_memory::/.test(policyFacade) &&
+      /pub struct McpControlAgentStateUpdateCore;/.test(policyMcpMemoryCore) &&
+      /pub struct McpServerValidationCore;/.test(policyMcpMemoryCore) &&
+      /pub struct McpManagerStatusProjectionCore;/.test(policyMcpMemoryCore) &&
+      /pub struct McpManagerCatalogProjectionCore;/.test(policyMcpMemoryCore) &&
+      /pub struct McpManagerCatalogSummaryProjectionCore;/.test(policyMcpMemoryCore) &&
+      /pub struct MemoryManagerValidationProjectionCore;/.test(policyMcpMemoryCore) &&
+      /pub struct MemoryManagerStatusProjectionCore;/.test(policyMcpMemoryCore) &&
+      /pub struct ThreadMemoryAgentStateUpdateCore;/.test(policyMcpMemoryCore) &&
+      /rust_policy_validates_mcp_servers/.test(policyMcpMemoryCore) &&
+      /rust_policy_projects_mcp_manager_catalog_rows/.test(policyMcpMemoryCore) &&
+      /rust_policy_projects_memory_manager_status/.test(policyMcpMemoryCore) &&
+      /rust_policy_plans_thread_memory_agent_state_update/.test(policyMcpMemoryCore) &&
+      !/pub struct McpControlAgentStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct McpServerValidationCore;/.test(policyFacade) &&
+      !/pub struct McpManagerStatusProjectionCore;/.test(policyFacade) &&
+      !/pub struct MemoryManagerStatusProjectionCore;/.test(policyFacade) &&
+      !/pub struct ThreadMemoryAgentStateUpdateCore;/.test(policyFacade) &&
+      !/rust_policy_validates_mcp_servers/.test(policyFacade) &&
+      !/rust_policy_projects_memory_manager_status/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: MCP and memory policy owners must stay in the Rust policy child module while direct Rust daemon-core MCP/memory admission, projection, and transport-exit authority replace command transport",
   );
   assertCheck(
     result,
@@ -8289,6 +8329,7 @@ function runBridge() {
       /runtimeError/.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -27668,6 +27709,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/mcp-manager.mjs",
       "packages/runtime-daemon/src/mcp-manager.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
     ],
     "Phase 10/11 is pending: MCP manager JS validation helper must be retired so Rust MCP validation remains the only validation decision path",
   );

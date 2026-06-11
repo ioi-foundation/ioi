@@ -4879,6 +4879,26 @@ context-compaction events, replay, projection, and stable IDE/CLI/SDK protocol
 APIs. Keep the scheduled matrix-compaction pass for Slices 1035-1040 pending
 until the next larger Rust-core extraction/facade-retirement seam is clear.
 
+Slice 1041 moves the MCP/memory policy owner family out of the broad Rust
+`policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs`. The child
+module owns MCP control state-update, MCP server validation, MCP validation
+input projection, MCP manager validation/status/catalog/catalog-summary
+projection, memory manager validation/status projection, and thread-memory
+state-update request/record/error types, planner/projector cores, validation,
+MCP catalog and memory projection helper logic, and focused proof tests; the
+parent facade only re-exports the surfaces. This is a larger Rust ownership cut
+across MCP and memory projection/control policy, not terminal MCP or memory
+migration. The current JS MCP control/catalog/serve facades, JS thread-memory
+surface, JS context-policy runner, and Node command bridge remain temporary
+migration transport. Resume by replacing those transport paths with direct
+Rust daemon-core MCP and memory admission/projection APIs over wallet authority
+for external exits, cTEE custody where private workspace memory is involved,
+Agentgres expected heads/state roots, MCP/memory receipts/events, replay,
+projection, and stable IDE/CLI/SDK protocol APIs. Keep the scheduled
+matrix-compaction pass for Slices 1035-1041 pending until the next larger
+Rust-core extraction/facade-retirement seam is clear.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
