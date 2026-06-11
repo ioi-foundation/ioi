@@ -9094,7 +9094,12 @@ function runBridge() {
       /ModelMountRouteControlRequiredRequest/.test(modelMountCore) &&
       /required::plan_route_control_required\(request\)/.test(modelMountCore) &&
       /plan_route_control_required/.test(modelMountCore) &&
-      /route_control_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /route_control_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
+      ) &&
+      !/fn route_control_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /ModelMountRouteControlRequiredBridgeRequest/.test(bridgeModule) &&
       /plan_model_mount_route_control_required/.test(bridgeModule) &&
       /bridge_plans_model_mount_route_control_required_through_rust_core/.test(bridgeModule) &&
@@ -14242,7 +14247,12 @@ function runReceipts() {
       /ModelMountTokenizerRequiredRequest/.test(modelMountCore) &&
       /required::plan_tokenizer_required\(request\)/.test(modelMountCore) &&
       /plan_tokenizer_required/.test(modelMountCore) &&
-      /tokenizer_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /tokenizer_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
+      ) &&
+      !/fn tokenizer_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /ModelMountTokenizerRequiredBridgeRequest/.test(bridgeModule) &&
       /plan_model_mount_tokenizer_required/.test(bridgeModule) &&
       /bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
@@ -15014,7 +15024,12 @@ function runReceipts() {
       /ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
       /required::plan_runtime_engine_required\(request\)/.test(modelMountCore) &&
       /plan_runtime_engine_required/.test(modelMountCore) &&
-      /runtime_engine_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /runtime_engine_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
+      ) &&
+      !/fn runtime_engine_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /ModelMountRuntimeEngineRequiredBridgeRequest/.test(bridgeModule) &&
       /plan_model_mount_runtime_engine_required/.test(bridgeModule) &&
       /bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
@@ -15173,7 +15188,12 @@ function runReceipts() {
       /ModelMountServerControlRequiredRequest/.test(modelMountCore) &&
       /required::plan_server_control_required\(request\)/.test(modelMountCore) &&
       /plan_server_control_required/.test(modelMountCore) &&
-      /server_control_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /server_control_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
+      ) &&
+      !/fn server_control_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /ModelMountServerControlRequiredBridgeRequest/.test(bridgeModule) &&
       /plan_model_mount_server_control_required/.test(bridgeModule) &&
       /bridge_plans_model_mount_server_control_required_through_rust_core/.test(bridgeModule) &&
@@ -16083,7 +16103,12 @@ function runReceipts() {
       /ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
       /required::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
       /plan_backend_lifecycle_required/.test(modelMountCore) &&
-      /backend_lifecycle_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
+      ) &&
+      !/fn backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /ModelMountBackendLifecycleRequiredBridgeRequest/.test(bridgeModule) &&
       /plan_model_mount_backend_lifecycle_required/.test(bridgeModule) &&
       /bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&

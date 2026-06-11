@@ -4573,7 +4573,8 @@ truth from volatile server-control state;
 model-mount backend-lifecycle, server-control, runtime-engine, tokenizer, and
 route-control Rust-core-required planner records now live in the dedicated
 Rust `model_mount/required.rs` module behind the stable `ModelMountCore`
-facade instead of accumulating in the broad model-mount kernel file;
+facade, and the required-record Rust tests now live beside those planners
+instead of accumulating in the broad model-mount kernel file;
 model-mount schema constants, `ModelMountError`, receipt-ref validation,
 non-empty/string helpers, evidence-ref de-duplication, and SHA-256 helper logic
 now live in the dedicated Rust `model_mount/common.rs` module, giving the split

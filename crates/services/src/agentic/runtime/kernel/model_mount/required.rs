@@ -566,3 +566,229 @@ pub fn plan_route_control_required(
         generated_at: "rust_model_mount_core".to_string(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backend_lifecycle_required_is_planned_in_rust_model_mount() {
+        let record = plan_backend_lifecycle_required(&ModelMountBackendLifecycleRequiredRequest {
+            schema_version: MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            operation: "model_mount.backend_lifecycle".to_string(),
+            operation_kind: "model_mount.backend.start".to_string(),
+            backend_id: "backend.llama_cpp".to_string(),
+            backend_kind: None,
+            source: Some("runtime-daemon.model_mounting.backend_lifecycle".to_string()),
+            evidence_refs: vec![],
+        })
+        .expect("backend lifecycle required record");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.model_mount_backend_lifecycle_required");
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(
+            record.code,
+            "model_mount_backend_lifecycle_rust_core_required"
+        );
+        assert_eq!(record.backend_id, "backend.llama_cpp");
+        assert_eq!(record.backend_kind, None);
+        assert_eq!(record.operation_kind, "model_mount.backend.start");
+        assert_eq!(record.rust_core_boundary, "model_mount.backend_lifecycle");
+        assert_eq!(record.details["backend_id"], "backend.llama_cpp");
+        assert_eq!(record.details["backend_kind"], serde_json::Value::Null);
+        assert_eq!(
+            record.details["operation_kind"],
+            "model_mount.backend.start"
+        );
+        assert!(record
+            .evidence_refs
+            .contains(&"public_backend_lifecycle_js_facade_retired".to_string()));
+        assert!(record.details.get("backendId").is_none());
+        assert!(record.details.get("operationKind").is_none());
+    }
+
+    #[test]
+    fn server_control_required_is_planned_in_rust_model_mount() {
+        let record = plan_server_control_required(&ModelMountServerControlRequiredRequest {
+            schema_version: MODEL_MOUNT_SERVER_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "model_mount.server_control".to_string(),
+            operation_kind: "model_mount.server_control.record_operation".to_string(),
+            source: Some("runtime-daemon.model_mounting.server_control".to_string()),
+            evidence_refs: vec![],
+            details: serde_json::json!({
+                "base_url": "http://daemon.test",
+                "reason": "test",
+                "server_control_id": "server-control.default",
+            }),
+        })
+        .expect("server control required record");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_SERVER_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.model_mount_server_control_required");
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "model_mount_server_control_rust_core_required");
+        assert_eq!(
+            record.operation_kind,
+            "model_mount.server_control.record_operation"
+        );
+        assert_eq!(record.rust_core_boundary, "model_mount.server_control");
+        assert_eq!(record.details["base_url"], "http://daemon.test");
+        assert_eq!(record.details["reason"], "test");
+        assert_eq!(
+            record.details["server_control_id"],
+            "server-control.default"
+        );
+        assert_eq!(
+            record.details["operation_kind"],
+            "model_mount.server_control.record_operation"
+        );
+        assert!(record
+            .evidence_refs
+            .contains(&"public_server_control_js_facade_retired".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"agentgres_server_control_truth_required".to_string()));
+        assert!(record.details.get("operationKind").is_none());
+        assert!(record.details.get("serverControlId").is_none());
+    }
+
+    #[test]
+    fn runtime_engine_required_is_planned_in_rust_model_mount() {
+        let record = plan_runtime_engine_required(&ModelMountRuntimeEngineRequiredRequest {
+            schema_version: MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "model_mount.runtime_engine".to_string(),
+            operation_kind: "model_mount.runtime_engine_profile.write".to_string(),
+            source: Some("runtime-daemon.model_mounting.runtime_engine".to_string()),
+            evidence_refs: vec![],
+            details: serde_json::json!({
+                "engine_id": "backend.llama-cpp",
+            }),
+        })
+        .expect("runtime engine required record");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.model_mount_runtime_engine_required");
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "model_mount_runtime_engine_rust_core_required");
+        assert_eq!(
+            record.operation_kind,
+            "model_mount.runtime_engine_profile.write"
+        );
+        assert_eq!(record.rust_core_boundary, "model_mount.runtime_engine");
+        assert_eq!(record.details["engine_id"], "backend.llama-cpp");
+        assert_eq!(
+            record.details["operation_kind"],
+            "model_mount.runtime_engine_profile.write"
+        );
+        assert!(record
+            .evidence_refs
+            .contains(&"public_runtime_engine_js_facade_retired".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"agentgres_runtime_engine_truth_required".to_string()));
+        assert!(record.details.get("engineId").is_none());
+        assert!(record.details.get("operationKind").is_none());
+    }
+
+    #[test]
+    fn tokenizer_required_is_planned_in_rust_model_mount() {
+        let record = plan_tokenizer_required(&ModelMountTokenizerRequiredRequest {
+            schema_version: MODEL_MOUNT_TOKENIZER_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "context_fit".to_string(),
+            source: Some("runtime-daemon.model_mounting.tokenizer".to_string()),
+            evidence_refs: vec![],
+            details: serde_json::json!({
+                "model": "llama-test",
+                "route_id": "route.local-first",
+                "requested_scope": "model.context:*",
+            }),
+        })
+        .expect("tokenizer required record");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_TOKENIZER_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.model_mount_tokenizer_required");
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "model_mount_tokenizer_rust_core_required");
+        assert_eq!(record.operation, "context_fit");
+        assert_eq!(record.rust_core_boundary, "model_mount.tokenizer");
+        assert_eq!(record.details["operation"], "context_fit");
+        assert_eq!(record.details["model"], "llama-test");
+        assert_eq!(record.details["route_id"], "route.local-first");
+        assert_eq!(record.details["requested_scope"], "model.context:*");
+        assert!(record
+            .evidence_refs
+            .contains(&"model_mount_tokenizer_js_facade_retired".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_daemon_core_model_context_fit_required".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"agentgres_model_tokenizer_truth_required".to_string()));
+        assert!(record.details.get("routeId").is_none());
+        assert!(record.details.get("requestedScope").is_none());
+    }
+
+    #[test]
+    fn route_control_required_is_planned_in_rust_model_mount() {
+        let record = plan_route_control_required(&ModelMountRouteControlRequiredRequest {
+            schema_version: MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "model_mount.route_control".to_string(),
+            operation_kind: "model_mount.route.selection_update".to_string(),
+            source: Some("runtime-daemon.model_mounting.route_control".to_string()),
+            evidence_refs: vec![],
+            details: serde_json::json!({
+                "route_id": "route.local-first",
+                "selected_model": "model.local",
+                "receipt_id": "receipt-route-test",
+                "route_selection_boundary": "model_mount.route_selection",
+            }),
+        })
+        .expect("route control required record");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.object, "ioi.model_mount_route_control_required");
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "model_mount_route_control_rust_core_required");
+        assert_eq!(record.operation, "model_mount.route_control");
+        assert_eq!(record.operation_kind, "model_mount.route.selection_update");
+        assert_eq!(record.rust_core_boundary, "model_mount.route_control");
+        assert_eq!(record.details["route_id"], "route.local-first");
+        assert_eq!(record.details["selected_model"], "model.local");
+        assert_eq!(record.details["receipt_id"], "receipt-route-test");
+        assert_eq!(
+            record.details["route_selection_boundary"],
+            "model_mount.route_selection"
+        );
+        assert!(record
+            .evidence_refs
+            .contains(&"model_mount_route_control_js_facade_retired".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"agentgres_route_truth_required".to_string()));
+        assert!(record.details.get("routeId").is_none());
+        assert!(record.details.get("selectedModel").is_none());
+        assert!(record.details.get("receiptId").is_none());
+    }
+}

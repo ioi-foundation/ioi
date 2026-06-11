@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1016
+
+Slice 1016 moved the model_mount Rust-core-required planner proof surface out
+of the broad `model_mount.rs` facade and into `model_mount/required.rs`.
+Backend-lifecycle, server-control, runtime-engine, tokenizer, and route-control
+required-record tests now live beside the planners, schema validation,
+canonical snake_case detail shaping, evidence refs, and Rust-core boundary
+metadata they prove. `ModelMountCore` remains the public facade, but the
+required-record module owns both implementation and module-local proof.
+
+This is still non-terminal migration work: required-record implementation and
+proof ownership are now colocated in Rust, but direct Rust daemon-core
+backend/server/runtime/tokenizer/route-control protocol APIs must still replace
+command transport and JS edge translation before terminal control ownership can
+be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1016 | Moved required-record planner tests from `model_mount.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/required.rs`; conformance now requires those tests in the required module and fails if the parent facade regrows the required-record proof tail. | Direct Rust daemon-core backend/server/runtime/tokenizer/route-control protocol APIs replace the command bridge and JS edge translation once the required-record Rust boundary can own control/projection end to end. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1015
 
 Slice 1015 moved the backend-process Rust proof surface out of the broad
