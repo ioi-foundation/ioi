@@ -1,6 +1,5 @@
 use ioi_client::workload_client::WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION;
 
-#[cfg(test)]
 use serde_json::Value;
 #[cfg(test)]
 use std::{
@@ -13,7 +12,6 @@ mod agentgres_command;
 mod approval_command;
 mod authority_command;
 mod bridge_dispatch;
-mod coding_tool_command;
 mod coding_tool_helpers;
 mod command_dispatch;
 mod context_policy_command;
@@ -48,7 +46,6 @@ use authority_command::{
     authorize_external_capability_exit, ExternalCapabilityExitAuthorityBridgeRequest,
 };
 pub use bridge_dispatch::run_bridge_response_from_stdin;
-use coding_tool_command::*;
 use coding_tool_helpers::*;
 use context_policy_command::{
     evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
@@ -63,6 +60,14 @@ use governed_admission_command::{
 use governed_receipt_command::{
     admit_worker_service_package_invocation, execute_private_workspace_ctee_action,
     CteePrivateWorkspaceBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::coding_tool_step_module::{
+    artifact_read_response as core_artifact_read_response,
+    computer_use_request_lease_response as core_computer_use_request_lease_response,
+    file_apply_patch_response as core_file_apply_patch_response,
+    run_coding_tool_step_module_response as core_run_coding_tool_step_module,
+    tool_retrieve_result_response as core_tool_retrieve_result_response,
+    CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest, CodingToolStepModuleCommandError,
 };
 use ioi_services::agentic::runtime::kernel::command_protocol::{
     command_family, expected_command_schema_version, is_step_module_operation,
@@ -159,6 +164,32 @@ impl BridgeError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
+}
+
+fn run_coding_tool_step_module(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    core_run_coding_tool_step_module(request).map_err(coding_tool_bridge_error)
+}
+
+fn file_apply_patch_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    core_file_apply_patch_response(request).map_err(coding_tool_bridge_error)
+}
+
+fn artifact_read_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    core_artifact_read_response(request).map_err(coding_tool_bridge_error)
+}
+
+fn tool_retrieve_result_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
+    core_tool_retrieve_result_response(request).map_err(coding_tool_bridge_error)
+}
+
+fn computer_use_request_lease_response(
+    request: StepModuleBridgeRequest,
+) -> Result<Value, BridgeError> {
+    core_computer_use_request_lease_response(request).map_err(coding_tool_bridge_error)
+}
+
+fn coding_tool_bridge_error(error: CodingToolStepModuleCommandError) -> BridgeError {
+    BridgeError::new(error.code(), error.message().to_string())
 }
 
 #[cfg(test)]

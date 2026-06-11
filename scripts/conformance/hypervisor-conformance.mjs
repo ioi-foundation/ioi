@@ -3730,28 +3730,28 @@ function runBridge() {
     "migrated-coding-tools-rust-command-bridge",
       exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
-      exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
+      !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs") &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
-      /mod coding_tool_command;/.test(bridgeModule) &&
+      !/mod coding_tool_command;/.test(bridgeModule) &&
       /mod coding_tool_helpers;/.test(bridgeModule) &&
       !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
       !/mod computer_use;/.test(bridgeModule) &&
       /run_coding_tool_step_module/.test(bridgeCommandDispatch) &&
-      !/struct StepModuleBridgeRequest/.test(bridgeModule) &&
-      !/fn run_coding_tool_step_module/.test(bridgeModule) &&
+      /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
+      /fn run_coding_tool_step_module/.test(bridgeModule) &&
+      /core_run_coding_tool_step_module/.test(bridgeModule) &&
       !/fn workspace_status_response/.test(bridgeModule) &&
-      !/fn file_apply_patch_response/.test(bridgeModule) &&
       !/fn inspect_workspace_status/.test(bridgeModule) &&
       !/fn apply_workspace_patch/.test(bridgeModule) &&
       !/fn inspect_test_run/.test(bridgeModule) &&
       !/fn inspect_lsp_diagnostics/.test(bridgeModule) &&
-      /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
-      /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
-      /core_run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      !/CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
+      !/pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      !/core_run_coding_tool_step_module/.test(codingToolCommandBridge) &&
       /workspace\.status/.test(codingToolStepModuleCore) &&
       /pub\(super\) fn inspect_workspace_status/.test(codingToolHelpersBridge) &&
       !/workspace_status_shadow_response/.test(codingToolCommandBridge) &&
@@ -3761,6 +3761,7 @@ function runBridge() {
       /pub fn file_apply_patch_response/.test(codingToolStepModuleCore) &&
       /apply_workspace_patch\(&workspace_root, &request\.input\)/.test(codingToolStepModuleCore) &&
       !/pub\(super\) fn apply_workspace_patch/.test(codingToolHelpersBridge) &&
+      !/AgentgresAdmissionCore/.test(bridgeModule) &&
       !/AgentgresAdmissionCore/.test(codingToolCommandBridge) &&
       !/AgentgresAdmissionCore/.test(codingToolReceiptCommandBridge) &&
       /AgentgresAdmissionCore/.test(codingToolStepModuleCore) &&
@@ -3870,7 +3871,6 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
@@ -3918,7 +3918,7 @@ function runBridge() {
       /payload:\/\/workspace\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
       /agentgres:\/\/operation\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
       /apply_workspace_patch\(&workspace_root, &request\.input\)/.test(codingToolStepModuleCore) &&
-      /core_file_apply_patch_response/.test(codingToolCommandBridge) &&
+      /core_file_apply_patch_response/.test(bridgeModule) &&
       !/apply_core_workspace_patch/.test(codingToolHelpersBridge) &&
       !/fn normalize_patch_edits/.test(codingToolHelpersBridge) &&
       !/fn patch_transition/.test(codingToolHelpersBridge) &&
@@ -4006,8 +4006,8 @@ function runBridge() {
       /artifact_refs/.test(codingToolArtifactCore) &&
       /normalize_artifact_read/.test(codingToolStepModuleCore) &&
       /normalize_tool_retrieve_result/.test(codingToolStepModuleCore) &&
-      /core_artifact_read_response/.test(codingToolCommandBridge) &&
-      /core_tool_retrieve_result_response/.test(codingToolCommandBridge) &&
+      /core_artifact_read_response/.test(bridgeModule) &&
+      /core_tool_retrieve_result_response/.test(bridgeModule) &&
       !/normalize_artifact_read/.test(codingToolCommandBridge) &&
       !/normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
       !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
@@ -4021,7 +4021,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/coding_tool_artifact.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 10/11 remains non-terminal: artifact.read and tool.retrieve_result data-plane normalization must stay in Rust core with canonical envelopes/results while the bridge remains temporary StepModule response glue",
@@ -4107,8 +4106,9 @@ function runBridge() {
         bridgeModule,
       ) &&
       /coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
-      /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
-      /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
+      /fn run_coding_tool_step_module/.test(bridgeModule) &&
+      /core_run_coding_tool_step_module/.test(bridgeModule) &&
       /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       !/StepModuleRouterCore/.test(codingToolCommandBridge) &&
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
@@ -4121,7 +4121,6 @@ function runBridge() {
       "crates/client/src/workload_client/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
@@ -4153,7 +4152,6 @@ function runBridge() {
     [
       "crates/client/src/workload_client/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
@@ -4332,7 +4330,7 @@ function runBridge() {
     /computer_use_request_lease_response/.test(codingToolStepModuleCore) &&
       /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(codingToolStepModuleCore) &&
       /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(codingToolStepModuleCore) &&
-      /core_computer_use_request_lease_response/.test(codingToolCommandBridge) &&
+      /core_computer_use_request_lease_response/.test(bridgeModule) &&
       !/json_string_refs\(\s*&lease_request,\s*&\["receiptRefs",\s*"receipt_refs"\]/.test(
         codingToolStepModuleCore,
       ) &&
@@ -4344,7 +4342,6 @@ function runBridge() {
       ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
     ],
     "Phase 10/11 is pending: Rust computer-use request-lease StepModule receipt/evidence binding must consume canonical receipt_refs/request_ref rather than retired receiptRefs/requestRef output aliases",

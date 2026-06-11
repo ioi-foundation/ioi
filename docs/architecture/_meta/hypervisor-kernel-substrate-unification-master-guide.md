@@ -6505,6 +6505,27 @@ receipt/state-root binding, Agentgres truth, wallet.network and cTEE authority
 checks where applicable, replay, projection, and stable IDE/CLI/SDK surfaces
 end to end.
 
+Slice 1135 retires the now-empty coding-tool StepModule command wrapper module
+instead of preserving it as a compatibility shim. The temporary bridge no
+longer declares `ioi_step_module_bridge/coding_tool_command.rs`; that file is
+deleted, and the bridge module imports the Rust
+`coding_tool_step_module.rs` response functions directly for the remaining
+stdin/JSON dispatch and proof-test transport. Command identity and schema
+validation remain Rust `command_protocol.rs` ownership, while coding-tool
+request/response shaping, StepModuleRouter admission, workload dispatch,
+receipt/state-root binding, Agentgres admission, projection, artifact
+data-plane binding, and computer-use lease evidence binding remain Rust
+`coding_tool_step_module.rs` ownership.
+
+This remains non-terminal because the shared command dispatch table,
+StepModule command runner, JS command callers, runtime coding-tool invocation
+facades, and direct daemon-core/workload protocol/API extraction still exist.
+The surviving `ioi_step_module_bridge` coding-tool imports are temporary
+transport/test scaffolding, not a durable coding-tool execution boundary. The
+next larger cut should replace the remaining command transport and JS caller
+path with direct Rust daemon-core and Rust/WASM workload APIs once that seam is
+clear enough to remove without preserving compatibility behavior.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

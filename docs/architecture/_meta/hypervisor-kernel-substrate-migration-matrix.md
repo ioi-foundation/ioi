@@ -15697,6 +15697,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1135
+
+Slice 1135 retires the remaining coding-tool StepModule command wrapper module
+instead of preserving it as a compatibility shim. The bridge no longer declares
+`crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs`; that file
+is deleted, and `ioi_step_module_bridge/mod.rs` imports the Rust
+`coding_tool_step_module.rs` response functions directly for the remaining
+temporary stdin/JSON dispatch and proof-test transport.
+
+Rust `coding_tool_step_module.rs` remains the owner for
+`CodingToolStepModuleBridgeRequest`, command validation, per-tool dispatch,
+workload observation envelopes, StepModule result construction, receipt
+binding, Agentgres admission, projection records, artifact data-plane evidence
+binding, and computer-use lease receipt/evidence binding. The remaining bridge
+`command_dispatch.rs`, `bridge_dispatch.rs`, and `coding_tool_helpers.rs`
+surfaces are migration transport/test scaffolding only; they are not canonical
+coding-tool execution architecture.
+
+This is still non-terminal. The StepModule command runner, JS caller path,
+runtime coding-tool invocation facades, shared command dispatch table, and
+direct Rust daemon-core/Rust-WASM workload protocol API extraction remain
+scheduled for retirement once the next Rust-core extraction/facade-retirement
+seam is clear.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge coding_tool` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1134
 
 Slice 1134 moves coding-tool StepModule command request/response ownership out
