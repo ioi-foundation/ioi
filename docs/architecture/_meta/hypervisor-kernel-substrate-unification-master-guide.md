@@ -5403,6 +5403,25 @@ Agentgres admission, receipt/state-root binding, replay, projection,
 wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
 surfaces.
 
+Slice 1073 retires the same duplicate bridge-local envelope identity checks
+from the governed-admission command wrappers for cTEE private workspace
+execution, worker/service package invocation, L1 settlement admission, and
+governed runtime-improvement proposal admission. Those wrappers no longer carry
+local `schema_version` or `operation` fields and no longer own local
+`schema_version_invalid` or `operation_unsupported` branches; they deserialize
+only the body-specific backend/invocation/request/attempt/proposal fields
+before entering the Rust cTEE, marketplace, settlement, receipt-binder,
+Agentgres admission, and governed-evolution cores. The StepModule-schema
+rejection proofs for those operations now live at the Rust command protocol
+validator boundary. Conformance now fails if the governed-admission child
+module regains local command-envelope identity. This is still not terminal
+bridge retirement: the remaining `command_dispatch.rs` function table,
+StepModule command helper, and shared daemon-core command helper must still be
+replaced by direct Rust daemon-core/workload protocol APIs over Rust/WASM
+execution, Agentgres admission, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

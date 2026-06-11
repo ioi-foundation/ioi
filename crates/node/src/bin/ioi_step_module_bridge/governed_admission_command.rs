@@ -16,13 +16,10 @@ use ioi_services::agentic::runtime::kernel::step_module::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct CteePrivateWorkspaceBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     invocation: StepModuleInvocation,
@@ -33,9 +30,6 @@ pub(super) struct CteePrivateWorkspaceBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WorkerServicePackageInvocationBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: WorkerServicePackageInvocationRequest,
@@ -43,9 +37,6 @@ pub(super) struct WorkerServicePackageInvocationBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct L1SettlementAdmissionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     attempt: L1SettlementAttempt,
@@ -53,9 +44,6 @@ pub(super) struct L1SettlementAdmissionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct GovernedRuntimeImprovementBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     proposal: GovernedRuntimeImprovementProposal,
@@ -64,21 +52,6 @@ pub(super) struct GovernedRuntimeImprovementBridgeRequest {
 pub(super) fn execute_private_workspace_ctee_action(
     request: CteePrivateWorkspaceBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "execute_private_workspace_ctee_action" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     if request.invocation.module_ref.kind != StepModuleKind::PrivateWorkspaceCteeAction
         || request.invocation.execution.backend != StepModuleBackend::CteeOperator
     {
@@ -131,21 +104,6 @@ pub(super) fn execute_private_workspace_ctee_action(
 pub(super) fn admit_worker_service_package_invocation(
     request: WorkerServicePackageInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_worker_service_package_invocation" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = WorkerServicePackageInvocationCore
         .admit_invocation(&request.request)
         .map_err(|error| {
@@ -196,21 +154,6 @@ pub(super) fn admit_worker_service_package_invocation(
 pub(super) fn admit_l1_settlement_attempt(
     request: L1SettlementAdmissionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_l1_settlement_attempt" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = L1SettlementTriggerGuard
         .admit(&request.attempt)
         .map_err(|error| {
@@ -232,21 +175,6 @@ pub(super) fn admit_l1_settlement_attempt(
 pub(super) fn admit_governed_runtime_improvement_proposal(
     request: GovernedRuntimeImprovementBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_governed_runtime_improvement_proposal" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = GovernedEvolutionCore
         .admit_proposal(&request.proposal)
         .map_err(|error| {

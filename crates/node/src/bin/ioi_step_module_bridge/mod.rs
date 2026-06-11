@@ -2619,79 +2619,15 @@ mod tests {
 
     #[test]
     fn ctee_private_workspace_rejects_step_module_command_schema() {
-        let request: CteePrivateWorkspaceBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "execute_private_workspace_ctee_action",
-            "backend": "ctee_operator",
-            "invocation": {
-                "schema_version": "ioi.step_module_invocation.v1",
-                "invocation_id": "invocation://ctee.bridge.test",
-                "run_id": "run:ctee",
-                "task_id": "task:ctee",
-                "thread_id": "thread:ctee",
-                "workflow_graph_id": "workflow.ctee",
-                "workflow_node_id": "node.ctee.private-workspace",
-                "context_chamber_ref": "chamber:ctee",
-                "action_proposal_ref": "action:ctee:private-workspace",
-                "gate_result_ref": "gate:ctee:private-workspace",
-                "module_ref": {
-                    "kind": "private_workspace_ctee_action",
-                    "id": "private_workspace.mount",
-                    "version": "1",
-                    "manifest_ref": "module://ctee/private-workspace@1"
-                },
-                "actor": {
-                    "actor_id": "runtime:hypervisor-daemon",
-                    "runtime_node_ref": "node://private-workspace"
-                },
-                "authority": {
-                    "authority_grant_refs": ["grant://ctee/private-workspace"],
-                    "policy_hash": "sha256:ctee-policy",
-                    "primitive_capabilities": ["prim:private_workspace.mount"],
-                    "authority_scopes": ["scope:ctee.private_workspace"],
-                    "approval_ref": "approval://declassify"
-                },
-                "input": {
-                    "input_hash": "sha256:ctee-input",
-                    "expected_schema_ref": "schema://ctee/private-workspace/input",
-                    "context_refs": ["ctx://redacted"],
-                    "artifact_refs": ["artifact://encrypted-capsule"],
-                    "payload_refs": ["payload://sealed-private-workspace"],
-                    "state_root_before": "sha256:ctee-before",
-                    "projection_watermark": "agentgres:ctee:0",
-                    "data_plane_handle": null
-                },
-                "custody": {
-                    "privacy_profile": "private_workspace_ctee",
-                    "plaintext_policy": {
-                        "node_plaintext_allowed": false,
-                        "declassification_required": true
-                    },
-                    "custody_proof_ref": "artifact://custody-proof",
-                    "leakage_profile_ref": "artifact://leakage-profile"
-                },
-                "execution": {
-                    "backend": "ctee_operator",
-                    "idempotency_key": "idem:ctee.bridge",
-                    "deadline_ms": 300000,
-                    "resource_lease_ref": "lease://ctee",
-                    "retry_policy_ref": null
-                }
-            },
-            "node_trust": {
-                "runtime_node_ref": "node://rented-untrusted",
-                "trusted_for_plaintext": false,
-                "attestation_ref": null
-            }
-        }))
-        .expect("ctee bridge request");
+        let error = validate_command_envelope(
+            "execute_private_workspace_ctee_action",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before cTEE dispatch");
 
-        let error = execute_private_workspace_ctee_action(request)
-            .expect_err("daemon-core cTEE custody rejects StepModule command schema");
-
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -2825,107 +2761,15 @@ mod tests {
 
     #[test]
     fn worker_service_package_rejects_step_module_command_schema() {
-        let request: WorkerServicePackageInvocationBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_worker_service_package_invocation",
-                "backend": "rust_package_invocation",
-                "request": {
-                    "schema_version": "ioi.worker_service_package_invocation.v1",
-                    "package_kind": "worker_package",
-                    "package_ref": "worker://runtime-auditor",
-                    "manifest_ref": "worker://runtime-auditor@1",
-                    "invocation": {
-                        "schema_version": "ioi.step_module_invocation.v1",
-                        "invocation_id": "invocation://worker-package/bridge",
-                        "run_id": "run:worker-package",
-                        "task_id": "task:worker-package",
-                        "thread_id": "thread:worker-package",
-                        "workflow_graph_id": "workflow.worker-package",
-                        "workflow_node_id": "node.worker-package",
-                        "context_chamber_ref": null,
-                        "action_proposal_ref": "action:worker-package",
-                        "gate_result_ref": "gate:worker-package",
-                        "module_ref": {
-                            "kind": "workload_job",
-                            "id": "worker://runtime-auditor",
-                            "version": "1",
-                            "manifest_ref": "worker://runtime-auditor@1"
-                        },
-                        "actor": {
-                            "actor_id": "runtime:hypervisor-daemon",
-                            "runtime_node_ref": "node://local"
-                        },
-                        "authority": {
-                            "authority_grant_refs": ["grant://wallet/worker-package"],
-                            "policy_hash": "sha256:worker-policy",
-                            "primitive_capabilities": ["prim:worker.invoke"],
-                            "authority_scopes": ["scope:repo.read"],
-                            "approval_ref": "approval://worker-package"
-                        },
-                        "input": {
-                            "input_hash": "sha256:worker-input",
-                            "expected_schema_ref": "schema://worker-package/runtime-auditor/input",
-                            "context_refs": ["agentgres://project/hypervisor"],
-                            "artifact_refs": [],
-                            "payload_refs": ["payload://worker-package/input"],
-                            "state_root_before": "sha256:package-before",
-                            "projection_watermark": "agentgres:worker-package:0",
-                            "data_plane_handle": null
-                        },
-                        "custody": {
-                            "privacy_profile": "internal",
-                            "plaintext_policy": {
-                                "node_plaintext_allowed": true,
-                                "declassification_required": false
-                            },
-                            "custody_proof_ref": null,
-                            "leakage_profile_ref": null
-                        },
-                        "execution": {
-                            "backend": "workload_grpc",
-                            "idempotency_key": "idem:worker-package-bridge",
-                            "deadline_ms": 300000,
-                            "resource_lease_ref": "lease://worker-package",
-                            "retry_policy_ref": null
-                        }
-                    },
-                    "result": {
-                        "schema_version": "ioi.step_module_result.v1",
-                        "invocation_id": "invocation://worker-package/bridge",
-                        "status": "success",
-                        "execution_result_ref": "result://worker-package/bridge",
-                        "normalized_observation_ref": "observation://worker-package/bridge",
-                        "receipt_refs": ["receipt://worker-package/bridge"],
-                        "artifact_refs": ["artifact://worker-package/report"],
-                        "payload_refs": ["payload://worker-package/output"],
-                        "agentgres_operation_refs": ["agentgres://worker-service-package/operations/bridge"],
-                        "state_root_after": "sha256:package-after",
-                        "resulting_head": "agentgres://worker-service-package/head/bridge",
-                        "workflow_projection": {
-                            "workflow_graph_id": "workflow.worker-package",
-                            "workflow_node_id": "node.worker-package",
-                            "component_kind": "WorkerPackageNode",
-                            "status": "live",
-                            "attempt_id": "attempt://worker-package/bridge",
-                            "evidence_refs": ["artifact://worker-package/report"],
-                            "receipt_refs": ["receipt://worker-package/bridge"]
-                        },
-                        "next": {
-                            "model_reentry_required": false,
-                            "verifier_required": true
-                        }
-                    }
-                }
-            }))
-            .expect("worker package bridge request");
+        let error = validate_command_envelope(
+            "admit_worker_service_package_invocation",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before package dispatch");
 
-        let error = admit_worker_service_package_invocation(request)
-            .expect_err("daemon-core worker/service package rejects StepModule command schema");
-
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -2966,27 +2810,15 @@ mod tests {
 
     #[test]
     fn l1_settlement_rejects_step_module_command_schema() {
-        let request: L1SettlementAdmissionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_l1_settlement_attempt",
-            "backend": "l1_settlement_guard",
-            "attempt": {
-                "schema_version": "ioi.l1_settlement_admission.v1",
-                "settlement_ref": "l1://settlement/marketplace-transaction",
-                "domain_ref": "domain://marketplace/services",
-                "state_root_ref": "state-root://agentgres/marketplace/after",
-                "trigger_refs": ["l1-trigger://service-contract/payment"],
-                "receipt_refs": ["receipt://local-settlement/payment"]
-            }
-        }))
-        .expect("L1 settlement bridge request");
+        let error = validate_command_envelope(
+            "admit_l1_settlement_attempt",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before L1 dispatch");
 
-        let error = admit_l1_settlement_attempt(request)
-            .expect_err("daemon-core settlement rejects StepModule command schema");
-
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -3148,31 +2980,15 @@ mod tests {
 
     #[test]
     fn governed_improvement_rejects_step_module_command_schema() {
-        let request: GovernedRuntimeImprovementBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_governed_runtime_improvement_proposal",
-            "backend": "rust_governed_evolution",
-            "proposal": {
-                "schema_version": "ioi.governed_runtime_improvement.v1",
-                "proposal_id": "proposal://runtime-improvement/retired-schema",
-                "target_ref": "skill://runtime-auditor/current",
-                "candidate_ref": "skill-candidate://runtime-auditor/from-trace",
-                "surface": "skill",
-                "source_trace_ref": "trace://runtime-improvement/high-fitness",
-                "eval_receipt_refs": ["receipt://eval/bridge-holdout-pass"],
-                "verifier_receipt_refs": ["receipt://verifier/bridge-regression-pass"],
-                "approval_ref": "approval://wallet/runtime-improvement/bridge",
-                "rollback_ref": "rollback://skill/runtime-auditor/current"
-            }
-        }))
-        .expect("governed runtime improvement bridge request");
+        let error = validate_command_envelope(
+            "admit_governed_runtime_improvement_proposal",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before governed dispatch");
 
-        let error = admit_governed_runtime_improvement_proposal(request)
-            .expect_err("daemon-core governed improvement rejects StepModule command schema");
-
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

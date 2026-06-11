@@ -6080,6 +6080,45 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "bridge-governed-admission-local-envelope-checks-retired",
+    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(governedAdmissionCommandBridge) &&
+      !/schema_version:\s*String/.test(governedAdmissionCommandBridge) &&
+      !/operation:\s*String/.test(governedAdmissionCommandBridge) &&
+      !/schema_version_invalid/.test(governedAdmissionCommandBridge) &&
+      !/operation_unsupported/.test(governedAdmissionCommandBridge) &&
+      /validate_command_envelope\(\s*"execute_private_workspace_ctee_action",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"admit_worker_service_package_invocation",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"admit_l1_settlement_attempt",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"admit_governed_runtime_improvement_proposal",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /pub\(super\) fn execute_private_workspace_ctee_action/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_worker_service_package_invocation/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_l1_settlement_attempt/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_governed_runtime_improvement_proposal/.test(
+        governedAdmissionCommandBridge,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+    ],
+    "Phase 7/8/9/10 remains non-terminal: governed-admission child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before cTEE, package, L1, and governed-improvement dispatch",
+  );
+  assertCheck(
+    result,
     "external-capability-exit-authority-daemon-runner",
     /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
