@@ -44,6 +44,17 @@ function read(relative) {
   return fs.readFileSync(absolutePath(relative), "utf8");
 }
 
+function readRustPolicyCore() {
+  return [
+    exists("crates/services/src/agentic/runtime/kernel/policy.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
+      : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
+      : "",
+  ].join("\n");
+}
+
 function listTrackedMarkdownUnder(relativeRoot) {
   const result = spawnSync("git", ["ls-files", relativeRoot], {
     cwd: repoRoot,
@@ -2568,9 +2579,15 @@ function runBridge() {
   const authorityCore = exists("crates/services/src/agentic/runtime/kernel/authority.rs")
     ? read("crates/services/src/agentic/runtime/kernel/authority.rs")
     : "";
-  const policyCore = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
+  const policyFacade = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
     : "";
+  const policyProjectionRequiredCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
+    : "";
+  const policyCore = readRustPolicyCore();
   const contextCompactionStateUpdateCoreBlock =
     policyCore.match(
       /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryStateUpdateCore;)/,
@@ -6585,6 +6602,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -6624,6 +6642,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7206,6 +7225,35 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core admission-required planner and fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
+  );
+  assertCheck(
+    result,
+    "policy-projection-required-rust-owner-split",
+    /mod projection_required;/.test(policyFacade) &&
+      /pub use projection_required::/.test(policyFacade) &&
+      /pub struct SkillHookRegistryProjectionRequiredCore;/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /pub struct RepositoryWorkflowProjectionRequiredCore;/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /pub struct RuntimeToolCatalogProjectionRequiredCore;/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /pub struct RuntimeLifecycleProjectionRequiredCore;/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      /rust_policy_plans_runtime_lifecycle_projection_required/.test(
+        policyProjectionRequiredCore,
+      ) &&
+      !/pub struct RuntimeLifecycleProjectionRequiredCore;/.test(policyFacade) &&
+      !/rust_policy_plans_runtime_lifecycle_projection_required/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: projection-required refusal owners must stay in the Rust policy child module while the policy facade only re-exports the surface until direct Rust projection APIs replace command transport",
   );
   assertCheck(
     result,
@@ -13720,9 +13768,7 @@ function runReceipts() {
   const runtimeKernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
-  const policyCoreForState = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
-    : "";
+  const policyCoreForState = readRustPolicyCore();
   const runtimeContextPolicyRunnerForState = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     : "";
@@ -17638,6 +17684,7 @@ function runReceipts() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -17897,6 +17944,7 @@ function runReceipts() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -19029,9 +19077,7 @@ function runCompositor() {
   const projectionCore = exists("crates/services/src/agentic/runtime/kernel/projection.rs")
     ? read("crates/services/src/agentic/runtime/kernel/projection.rs")
     : "";
-  const policyCore = exists("crates/services/src/agentic/runtime/kernel/policy.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
-    : "";
+  const policyCore = readRustPolicyCore();
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";

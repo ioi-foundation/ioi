@@ -20381,3 +20381,32 @@ treated as terminal architecture; accepted truth, wallet.network authority where
 applicable, Agentgres-backed state, receipt/state-root binding, replay, and
 stable protocol APIs remain non-terminal until direct Rust daemon-core ownership
 is implemented and proven.
+
+## Implementation Slice Evidence: 1035
+
+Slice 1035 splits the Rust policy projection-required owner family out of the
+broad `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`.
+The child owner now contains the request/record/error types, planner cores,
+validation, and focused Rust proof tests for skill/hook registry, repository
+workflow, runtime tool catalog, and runtime lifecycle projection-required
+refusals. The parent policy module only re-exports those surfaces.
+
+This is a larger Rust-core extraction cut, not terminal projection migration.
+The JS context-policy runner and Node command bridge remain command-transport
+scaffolding until direct Rust daemon-core projection APIs own the registry,
+repository workflow, tool catalog, lifecycle, run-read, doctor/readiness, and
+stable protocol surfaces over Agentgres-admitted truth.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services projection_required` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+
+Scheduled matrix-compaction obligation: compact Slice 1035 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.

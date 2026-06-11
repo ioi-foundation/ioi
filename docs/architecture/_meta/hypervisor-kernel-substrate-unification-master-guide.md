@@ -4784,6 +4784,21 @@ but the mounted JS surface and command transport remain migration scaffolding
 until direct Rust daemon-core StepModuleRouter/workload-client APIs own dispatch
 end to end.
 
+Slice 1035 moves the policy projection-required refusal owner family for
+skill/hook registry, repository workflow, runtime tool catalog, and runtime
+lifecycle projections out of the broad Rust `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`.
+The facade now re-exports the child owner while conformance requires the child
+module to retain the request/record/error types, planner cores, validation, and
+focused proof tests. This is a directionally pure-Rust extraction cut: the
+current JS context-policy runner and Node command bridge are still migration
+transport, not canonical architecture. Resume by replacing those transport
+paths with direct Rust daemon-core projection/admission APIs over
+Agentgres-admitted truth, wallet.network/cTEE authority where applicable,
+receipt/state-root binding, replay, and stable IDE/CLI/SDK protocol APIs.
+Schedule a matrix-compaction pass after the next larger Rust-core extraction or
+facade-retirement seam is clear.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
