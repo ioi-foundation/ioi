@@ -103,7 +103,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/agents") {
-        writeJsonResponse(response, store.createAgent((await readBody(request)).options ?? {}));
+        writeJsonResponse(response, store.agentRunLifecycleSurface.createAgent(store, (await readBody(request)).options ?? {}));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/agents") {

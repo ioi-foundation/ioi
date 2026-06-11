@@ -8184,8 +8184,26 @@ function runBridge() {
       !/store\.agents\.set|store\.runs\.set|store\.writeAgent|store\.writeRun/.test(
         runtimeAgentRunLifecycle,
       ) &&
+      /createRuntimeAgentRunLifecycleSurface/.test(runtimeAgentRunLifecycle) &&
+      /this\.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface\(\{ runtimeError \}\)/.test(
+        runtimeDaemonIndex,
+      ) &&
       /return createAgentState\(this,\s*options\);/.test(runtimeDaemonIndex) &&
       /return createRunState\(this,\s*agentId,\s*request\);/.test(runtimeDaemonIndex) &&
+      /store\.agentRunLifecycleSurface\.createAgent\(store,/.test(publicRuntimeRoutes) &&
+      /store\.agentRunLifecycleSurface\.createRun\(store, agentId,/.test(runtimeRouteHandlers) &&
+      /public runtime agent create route uses mounted agent lifecycle surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /agent lifecycle mutation routes use mounted agent lifecycle surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /agent\/run lifecycle surface routes create and run creation to fail-closed core boundary/.test(
+        runtimeAgentRunLifecycleTest,
+      ) &&
+      !/store\.(?:createAgent|createRun|updateAgent|deleteAgent|getAgent)\(/.test(
+        `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
+      ) &&
       !/createAgentState\(this,\s*options,\s*\{/.test(runtimeDaemonIndex) &&
       !/createRunState\(this,\s*agentId,\s*request,\s*\{/.test(runtimeDaemonIndex) &&
       /createAgent facade fails closed before Rust planning or JS persistence/.test(
@@ -8240,6 +8258,10 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/thread-runtime-controls.mjs",
       "packages/runtime-daemon/src/threads/thread-runtime-controls.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
@@ -8260,6 +8282,17 @@ function runBridge() {
       !/contextPolicyRunner\.planAgentStatusStateUpdate/.test(threadStore) &&
       !/store\.agents\.set\(updated\.id,\s*updated\)/.test(threadStore) &&
       !/store\.writeAgent\(updated,\s*plannedOperationKind\)/.test(threadStore) &&
+      /store\.agentRunLifecycleSurface\.updateAgent\(store, agentId, "archived", "agent\.archive"\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.agentRunLifecycleSurface\.updateAgent\(store, agentId, null, "agent\.reload"\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.agentRunLifecycleSurface\.deleteAgent\(store, agentId\)/.test(runtimeRouteHandlers) &&
+      /agent lifecycle mutation routes use mounted agent lifecycle surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/store\.(?:updateAgent|deleteAgent|getAgent)\(/.test(runtimeRouteHandlers) &&
       /thread store agent status facade fails closed before Rust planning or JS persistence/.test(
         threadStoreTest,
       ) &&
@@ -8269,6 +8302,9 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/threads/thread-store.mjs",
       "packages/runtime-daemon/src/threads/thread-store.test.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: agent lifecycle/status controls must fail closed until Rust daemon-core owns lifecycle admission, persistence, replay, and projection",
   );

@@ -1,3 +1,27 @@
+import {
+  deleteAgent as deleteAgentState,
+  updateAgent as updateAgentState,
+} from "./threads/thread-store.mjs";
+
+export function createRuntimeAgentRunLifecycleSurface({
+  runtimeError,
+} = {}) {
+  return {
+    createAgent(store, options = {}) {
+      return createAgent(store, options);
+    },
+    createRun(store, agentId, request = {}) {
+      return createRun(store, agentId, request);
+    },
+    updateAgent(store, agentId, status, operationKind) {
+      return updateAgentState(store, agentId, status, operationKind, { runtimeError });
+    },
+    deleteAgent(store, agentId) {
+      return deleteAgentState(store, agentId, { runtimeError });
+    },
+  };
+}
+
 export function createAgent(store, options = {}) {
   throwRuntimeLifecycleRustCoreRequired({
     code: "runtime_agent_create_rust_core_required",

@@ -340,6 +340,88 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
   ]);
 });
 
+test("agent lifecycle mutation routes use mounted agent lifecycle surface", async () => {
+  const { handleAgentRoute } = routeHandlers();
+  const calls = [];
+  const rustCoreRequired = (code, details = {}) => {
+    const error = new Error("agent lifecycle requires Rust core");
+    error.status = 501;
+    error.code = code;
+    error.details = details;
+    throw error;
+  };
+  const store = {
+    agentRunLifecycleSurface: {
+      updateAgent(surfaceStore, agentId, status, operationKind) {
+        calls.push({ method: "updateAgent", surfaceStore, agentId, status, operationKind });
+        rustCoreRequired("runtime_agent_status_control_rust_core_required", {
+          agent_id: agentId,
+          requested_status: status,
+          requested_operation_kind: operationKind,
+        });
+      },
+      deleteAgent(surfaceStore, agentId) {
+        calls.push({ method: "deleteAgent", surfaceStore, agentId });
+        rustCoreRequired("runtime_agent_delete_rust_core_required", { agent_id: agentId });
+      },
+      createRun(surfaceStore, agentId, input) {
+        calls.push({ method: "createRun", surfaceStore, agentId, input });
+        rustCoreRequired("runtime_run_create_rust_core_required", { agent_id: agentId });
+      },
+    },
+    updateAgent: retiredRouteWrapper,
+    deleteAgent: retiredRouteWrapper,
+    createRun: retiredRouteWrapper,
+    getAgent: retiredRouteWrapper,
+  };
+
+  const requests = [
+    request({ method: "DELETE", url: "/v1/agents/agent_route" }),
+    request({ method: "POST", url: "/v1/agents/agent_route/archive" }),
+    request({ method: "POST", url: "/v1/agents/agent_route/unarchive" }),
+    request({ method: "POST", url: "/v1/agents/agent_route/resume" }),
+    request({ method: "POST", url: "/v1/agents/agent_route/close" }),
+    request({ method: "POST", url: "/v1/agents/agent_route/reload" }),
+    request({ method: "POST", url: "/v1/agents/agent_route/runs", body: { prompt: "ship it" } }),
+  ];
+
+  for (const req of requests) {
+    await assert.rejects(
+      () => handleAgentRoute({
+        request: req,
+        response: responseRecorder(),
+        store,
+        url: new URL(req.url, "http://daemon.test"),
+        segments: new URL(req.url, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      (error) =>
+        error.code === "runtime_agent_status_control_rust_core_required" ||
+        error.code === "runtime_agent_delete_rust_core_required" ||
+        error.code === "runtime_run_create_rust_core_required",
+    );
+  }
+
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(
+    calls.map(({ method, agentId, status, operationKind, input }) => ({
+      method,
+      agentId,
+      status,
+      operationKind,
+      input,
+    })),
+    [
+      { method: "deleteAgent", agentId: "agent_route", status: undefined, operationKind: undefined, input: undefined },
+      { method: "updateAgent", agentId: "agent_route", status: "archived", operationKind: "agent.archive", input: undefined },
+      { method: "updateAgent", agentId: "agent_route", status: "active", operationKind: "agent.unarchive", input: undefined },
+      { method: "updateAgent", agentId: "agent_route", status: "active", operationKind: "agent.resume", input: undefined },
+      { method: "updateAgent", agentId: "agent_route", status: "closed", operationKind: "agent.close", input: undefined },
+      { method: "updateAgent", agentId: "agent_route", status: null, operationKind: "agent.reload", input: undefined },
+      { method: "createRun", agentId: "agent_route", status: undefined, operationKind: undefined, input: { prompt: "ship it" } },
+    ],
+  );
+});
+
 test("agent and thread memory read routes use mounted thread memory surface", async () => {
   const { handleAgentRoute, handleThreadRoute } = routeHandlers();
   const calls = [];

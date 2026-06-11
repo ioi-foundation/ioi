@@ -174,6 +174,7 @@ import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.
 import { createWorkspaceRestoreRunnerFromEnv } from "./runtime-workspace-restore-runner.mjs";
 import {
   createAgent as createAgentState,
+  createRuntimeAgentRunLifecycleSurface,
   createRun as createRunState,
 } from "./runtime-agent-run-lifecycle.mjs";
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
@@ -754,6 +755,7 @@ export class AgentgresRuntimeStateStore {
       threadIdForAgent,
     });
     this.threadMemorySurface = threadMemoryState;
+    this.agentRunLifecycleSurface = createRuntimeAgentRunLifecycleSurface({ runtimeError });
     this.runtimeDoctorReport = createRuntimeDoctorReport({
       doctorCheck,
       doctorHash,

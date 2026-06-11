@@ -205,6 +205,39 @@ test("public runtime run list route fails closed through lifecycle projection su
   assert.equal(unfilteredResponse.error.details.agent_id, null);
 });
 
+test("public runtime agent create route uses mounted agent lifecycle surface", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const store = {
+    agentRunLifecycleSurface: {
+      createAgent(surfaceStore, options) {
+        calls.push({ surfaceStore, options });
+        const error = new Error("agent creation requires Rust core");
+        error.status = 501;
+        error.code = "runtime_agent_create_rust_core_required";
+        error.details = { rust_core_boundary: "runtime.agent_create", requested_cwd: options.local?.cwd };
+        throw error;
+      },
+    },
+    createAgent: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/agents",
+      body: { options: { local: { cwd: "/workspace/project" } } },
+    }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 501);
+  assert.equal(response.error.code, "runtime_agent_create_rust_core_required");
+  assert.deepEqual(calls, [{ surfaceStore: store, options: { local: { cwd: "/workspace/project" } } }]);
+});
+
 test("public runtime memory projection routes fail closed through thread memory surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

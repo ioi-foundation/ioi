@@ -611,32 +611,31 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "DELETE" && !action) {
-      store.deleteAgent(agentId);
-      writeJsonResponse(response, undefined, 204);
+      writeJsonResponse(response, store.agentRunLifecycleSurface.deleteAgent(store, agentId), 204);
       return;
     }
     if (request.method === "POST" && action === "archive") {
-      writeJsonResponse(response, store.updateAgent(agentId, "archived", "agent.archive"));
+      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "archived", "agent.archive"));
       return;
     }
     if (request.method === "POST" && action === "unarchive") {
-      writeJsonResponse(response, store.updateAgent(agentId, "active", "agent.unarchive"));
+      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "active", "agent.unarchive"));
       return;
     }
     if (request.method === "POST" && action === "resume") {
-      writeJsonResponse(response, store.updateAgent(agentId, "active", "agent.resume"));
+      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "active", "agent.resume"));
       return;
     }
     if (request.method === "POST" && action === "close") {
-      writeJsonResponse(response, store.updateAgent(agentId, "closed", "agent.close"));
+      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, "closed", "agent.close"));
       return;
     }
     if (request.method === "POST" && action === "reload") {
-      writeJsonResponse(response, store.updateAgent(agentId, store.getAgent(agentId).status, "agent.reload"));
+      writeJsonResponse(response, store.agentRunLifecycleSurface.updateAgent(store, agentId, null, "agent.reload"));
       return;
     }
     if (request.method === "POST" && action === "runs") {
-      writeJsonResponse(response, store.createRun(agentId, await readBody(request)));
+      writeJsonResponse(response, store.agentRunLifecycleSurface.createRun(store, agentId, await readBody(request)));
       return;
     }
     if (request.method === "GET" && action === "runs") {

@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   createAgent,
+  createRuntimeAgentRunLifecycleSurface,
   createRun,
 } from "./runtime-agent-run-lifecycle.mjs";
 
@@ -142,4 +143,34 @@ test("createRun missing-agent path is still Rust-core required and does not read
 
   assert.deepEqual(store.getAgentCalls, []);
   assert.deepEqual(store.writes, []);
+});
+
+test("agent/run lifecycle surface routes create and run creation to fail-closed core boundary", () => {
+  const store = fakeStore();
+  const surface = createRuntimeAgentRunLifecycleSurface();
+
+  assert.throws(
+    () => surface.createAgent(store, { local: { cwd: "/workspace/surface" } }),
+    (error) => {
+      assert.equal(error.code, "runtime_agent_create_rust_core_required");
+      assert.equal(error.details.requested_cwd, "/workspace/surface");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.throws(
+    () => surface.createRun(store, "agent_existing", { mode: "review" }),
+    (error) => {
+      assert.equal(error.code, "runtime_run_create_rust_core_required");
+      assert.equal(error.details.agent_id, "agent_existing");
+      assert.equal(error.details.requested_mode, "review");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(store.writes, []);
+  assert.deepEqual(store.getAgentCalls, []);
+  assert.deepEqual(store.routeCalls, []);
+  assert.deepEqual(store.memoryCalls, []);
 });
