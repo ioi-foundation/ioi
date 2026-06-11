@@ -5237,20 +5237,18 @@ Rust/WASM module execution, Agentgres admission, receipt/state-root binding,
 replay, projection, wallet.network authority, cTEE custody, and stable
 IDE/CLI/SDK protocol surfaces.
 
-Slice 1063 moves bridge command-envelope schema ownership out of the temporary
-stdin dispatch transport and into
-`crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs`. The new Rust
-owner module carries the StepModule command schema version, daemon-core command
+Slice 1063 moved bridge command-envelope schema ownership out of the temporary
+stdin dispatch transport and into the temporary bridge-envelope adapter at
+`crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs`. At that slice,
+the adapter carried the StepModule command schema version, daemon-core command
 schema version, expected-schema lookup, and daemon-core operation-family
-classifier. `bridge_dispatch.rs` now consumes that owner while keeping only the
-temporary process dispatch match. Conformance now fails if schema-family truth
-returns to the dispatch module or broad bridge root. This still does not make
-the Node bridge canonical. Resume by replacing the command-envelope transport,
-the StepModule command helper, and the shared daemon-core command helper with
-direct Rust daemon-core/workload protocol APIs, while preserving Rust-owned
-StepModuleRouter dispatch, Agentgres admission, receipt/state-root binding,
-replay, projection, wallet.network authority, cTEE custody, and stable
-IDE/CLI/SDK protocol surfaces.
+classifier so `bridge_dispatch.rs` could keep only transport and schema checks.
+This was an intermediate split, not canonical Rust ownership. Resume by
+replacing bridge-envelope adapter ownership, the StepModule command helper, and
+the shared daemon-core command helper with direct Rust daemon-core/workload
+protocol APIs, while preserving Rust-owned StepModuleRouter dispatch, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
 
 Slice 1064 moves temporary bridge operation routing out of stdin/envelope
 transport and into
@@ -5266,6 +5264,23 @@ and the shared daemon-core command helper with direct Rust daemon-core/workload
 protocol APIs over Rust/WASM execution, Agentgres admission, receipt/state-root
 binding, replay, projection, wallet.network authority, cTEE custody, and
 stable IDE/CLI/SDK protocol surfaces.
+
+Slice 1065 moves command schema-family ownership out of the Node bridge adapter
+and into Rust kernel protocol code at
+`crates/services/src/agentic/runtime/kernel/command_protocol.rs`. The Rust
+module now owns the StepModule command schema version, daemon-core command
+schema version, expected-schema lookup, and daemon-core operation-family
+classifier with Rust proof tests for StepModule and daemon-core operation
+families. `ioi_step_module_bridge/command_envelope.rs` is now adapter-only and
+re-exports the Rust kernel protocol for the remaining temporary Node bridge.
+Conformance now fails if schema-family truth is redefined in the Node envelope,
+dispatch transport, or broad bridge module. This is still not terminal bridge
+retirement. Resume by replacing `command_dispatch.rs`, the adapter-only
+`command_envelope.rs`, the StepModule command helper, and the shared
+daemon-core command helper with direct Rust daemon-core/workload protocol APIs
+over Rust/WASM execution, Agentgres admission, receipt/state-root binding,
+replay, projection, wallet.network authority, cTEE custody, and stable
+IDE/CLI/SDK protocol surfaces.
 
 ## Final Doctrine
 

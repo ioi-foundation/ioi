@@ -2272,6 +2272,9 @@ function runBridge() {
   const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     : "";
+  const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    : "";
   const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     : "";
@@ -2355,10 +2358,17 @@ function runBridge() {
       /match operation/.test(bridgeCommandDispatch) &&
       /expected_command_schema_version/.test(bridgeDispatch) &&
       !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
-      /pub\(super\) const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
-      /pub\(super\) const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
-      /pub\(super\) fn expected_command_schema_version/.test(bridgeCommandEnvelope) &&
-      /pub\(super\) fn is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
+      /pub\(super\) use ioi_services::agentic::runtime::kernel::command_protocol/.test(bridgeCommandEnvelope) &&
+      !/pub\(super\) const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
+      !/pub\(super\) const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
+      !/pub\(super\) fn expected_command_schema_version/.test(bridgeCommandEnvelope) &&
+      !/pub\(super\) fn is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
+      /pub const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
+      /pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
+      /pub fn expected_command_schema_version/.test(commandProtocolCore) &&
+      /pub fn is_daemon_core_operation/.test(commandProtocolCore) &&
+      /daemon_core_operations_use_daemon_core_command_schema/.test(commandProtocolCore) &&
+      /step_module_operation_uses_step_module_command_schema/.test(commandProtocolCore) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
       !/fn is_daemon_core_operation/.test(bridgeModule) &&
       /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
@@ -2368,6 +2378,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs",
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
     ],
     "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
   );
@@ -3669,7 +3680,7 @@ function runBridge() {
       /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
       /computer_use\.request_lease/.test(codingToolCommandBridge) &&
       /build_computer_use_lease_request/.test(computerUseBridge) &&
-      /ioi\.step_module\.command_bridge\.v1/.test(bridgeCommandEnvelope) &&
+      /ioi\.step_module\.command_bridge\.v1/.test(commandProtocolCore) &&
       /StepModuleRouterCore/.test(codingToolCommandBridge) &&
       /router_admission/.test(codingToolCommandBridge) &&
       /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(runtimeCodingToolInvocationSurface) &&
@@ -6693,7 +6704,7 @@ function runBridge() {
       /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
       /ContextBudgetPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
       /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(contextPolicyCommandBridge) &&
-      /is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
+      /is_daemon_core_operation/.test(commandProtocolCore) &&
       !/is_daemon_core_operation/.test(bridgeDispatch) &&
       /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(contextPolicyCommandBridge) &&
@@ -13811,6 +13822,9 @@ function runReceipts() {
   const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     : "";
+  const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
+    : "";
   const agentgresCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs")
     : "";
@@ -18647,7 +18661,7 @@ function runReceipts() {
       !/fn commit_runtime_run_state/.test(bridgeModule) &&
       /pub\(super\) struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandBridge) &&
       /pub\(super\) fn commit_runtime_run_state/.test(agentgresCommandBridge) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       /runtime_agentgres_commit_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(agentgresCommandBridge) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&

@@ -16369,6 +16369,48 @@ command-helper retirement boundary is clearer. Future resumes must not treat
 the shared daemon-core command helper, or the Node bridge as canonical long-term
 architecture.
 
+## Implementation Slice Evidence: 1065
+
+Slice 1065 moves command schema-family ownership out of the Node bridge adapter
+and into Rust kernel protocol code. `crates/services/src/agentic/runtime/kernel/command_protocol.rs`
+now owns the StepModule command schema version, daemon-core command schema
+version, expected-schema lookup, and daemon-core operation-family classifier.
+`crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs` is now
+adapter-only and re-exports the Rust kernel protocol while the temporary Node
+bridge remains in place.
+
+This is a Rust protocol ownership extraction, not terminal bridge retirement.
+The operation table, Node bridge binary, StepModule command helper, shared
+daemon-core command helper, and JS command callers remain temporary migration
+transport until direct Rust daemon-core and Rust/WASM workload protocol APIs
+own execution/admission, Agentgres truth, receipt/state-root binding, replay,
+projection, wallet.network authority, cTEE custody, and stable IDE/CLI/SDK
+protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node bridge_command_schema_version --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation from Slices 1062-1064 is now satisfied
+for command schema-family ownership: the command-envelope protocol source of
+truth is in Rust kernel code, and the Node envelope is adapter-only. Next
+scheduled matrix-compaction pass: compact Slices 1062-1065 with the next direct
+StepModuleRouter, command-dispatch, StepModule command-helper, or daemon-core
+command-helper retirement seam. Future resumes must not treat
+`command_dispatch.rs`, `command_envelope.rs`, `step-module-command-runner.mjs`,
+the shared daemon-core command helper, or the Node bridge as canonical long-term
+architecture.
+
 Scheduled matrix-compaction obligation from Slice 788 is now satisfied. The
 next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
