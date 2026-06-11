@@ -57,6 +57,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_workflow_edit_admission_required",
     "plan_diagnostics_repair_admission_required",
     "plan_diagnostics_operator_override_state_update",
+    "plan_operator_turn_control_admission_required",
     "plan_operator_interrupt_state_update",
     "plan_operator_steer_state_update",
     "plan_run_cancel_state_update",
@@ -152,6 +153,7 @@ pub enum CommandOperation {
     PlanWorkflowEditAdmissionRequired,
     PlanDiagnosticsRepairAdmissionRequired,
     PlanDiagnosticsOperatorOverrideStateUpdate,
+    PlanOperatorTurnControlAdmissionRequired,
     PlanOperatorInterruptStateUpdate,
     PlanOperatorSteerStateUpdate,
     PlanRunCancelStateUpdate,
@@ -248,6 +250,9 @@ impl CommandOperation {
             }
             Self::PlanDiagnosticsOperatorOverrideStateUpdate => {
                 "plan_diagnostics_operator_override_state_update"
+            }
+            Self::PlanOperatorTurnControlAdmissionRequired => {
+                "plan_operator_turn_control_admission_required"
             }
             Self::PlanOperatorInterruptStateUpdate => "plan_operator_interrupt_state_update",
             Self::PlanOperatorSteerStateUpdate => "plan_operator_steer_state_update",
@@ -477,6 +482,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_diagnostics_operator_override_state_update" => {
             Some(CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate)
         }
+        "plan_operator_turn_control_admission_required" => {
+            Some(CommandOperation::PlanOperatorTurnControlAdmissionRequired)
+        }
         "plan_operator_interrupt_state_update" => {
             Some(CommandOperation::PlanOperatorInterruptStateUpdate)
         }
@@ -618,6 +626,7 @@ mod tests {
             "plan_mcp_manager_catalog_summary_projection",
             "commit_runtime_run_state",
             "plan_thread_control_agent_state_update",
+            "plan_operator_turn_control_admission_required",
         ] {
             assert_eq!(command_family(operation), Some(CommandFamily::DaemonCore));
             assert_eq!(

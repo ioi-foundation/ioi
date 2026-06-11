@@ -115,12 +115,12 @@ use runtime_control_command::{
     plan_coding_tool_budget_recovery_admission_required,
     plan_coding_tool_budget_recovery_state_update, plan_diagnostics_operator_override_state_update,
     plan_operator_interrupt_state_update, plan_operator_steer_state_update,
-    plan_run_cancel_admission_required, plan_run_cancel_state_update,
-    CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
+    plan_operator_turn_control_admission_required, plan_run_cancel_admission_required,
+    plan_run_cancel_state_update, CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
     CodingToolBudgetRecoveryStateUpdateBridgeRequest,
     DiagnosticsOperatorOverrideStateUpdateBridgeRequest, OperatorInterruptStateUpdateBridgeRequest,
-    OperatorSteerStateUpdateBridgeRequest, RunCancelAdmissionRequiredBridgeRequest,
-    RunCancelStateUpdateBridgeRequest,
+    OperatorSteerStateUpdateBridgeRequest, OperatorTurnControlAdmissionRequiredBridgeRequest,
+    RunCancelAdmissionRequiredBridgeRequest, RunCancelStateUpdateBridgeRequest,
 };
 use thread_lifecycle_command::{
     plan_agent_create_state_update, plan_agent_status_state_update, plan_run_create_state_update,
@@ -4119,6 +4119,59 @@ mod tests {
             response["run"]["trace"]["operatorControls"][0]["event_id"],
             "event_override"
         );
+    }
+
+    #[test]
+    fn bridge_plans_operator_turn_control_admission_required_through_rust_core() {
+        let request: OperatorTurnControlAdmissionRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_operator_turn_control_admission_required",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.operator-turn-control-admission-required-request.v1",
+                    "operation": "operator_interrupt",
+                    "operation_kind": "turn.interrupt",
+                    "thread_id": "thread_budget",
+                    "turn_id": "turn_budget",
+                    "requested_action": "cancel",
+                    "evidence_refs": ["operator_interrupt_js_facade_retired"]
+                }
+            }))
+            .expect("operator turn control admission-required bridge request");
+
+        let response = plan_operator_turn_control_admission_required(request)
+            .expect("operator turn control admission-required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_operator_turn_control_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_operator_turn_control_rust_core_required"
+        );
+        assert_eq!(response["operation_kind"], "turn.interrupt");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.operator_turn_control"
+        );
+        assert_eq!(response["details"]["thread_id"], "thread_budget");
+        assert_eq!(response["details"]["turn_id"], "turn_budget");
+        assert_eq!(response["details"]["requested_action"], "cancel");
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "threadId",
+            "turnId",
+            "requestedAction",
+            "evidenceRefs",
+        ] {
+            assert!(response["details"].get(field).is_none());
+        }
     }
 
     #[test]

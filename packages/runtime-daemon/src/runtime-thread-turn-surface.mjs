@@ -16,16 +16,18 @@ import {
 } from "./runtime-value-helpers.mjs";
 import { runtimeError } from "./runtime-http-utils.mjs";
 
-export function createRuntimeThreadTurnSurface({
-  controlRuntimeBridgeThread: controlRuntimeBridgeThreadDep = controlRuntimeBridgeThread,
-  diagnosticsFeedbackBlocksContinuation,
-  isRuntimeBackedAgent: isRuntimeBackedAgentDep = isRuntimeBackedAgent,
-  isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
-  optionalString: optionalStringDep = optionalString,
-  requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
-  runtimeError: runtimeErrorDep = runtimeError,
-  runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
-} = {}) {
+export function createRuntimeThreadTurnSurface(deps = {}) {
+  const {
+    controlRuntimeBridgeThread: controlRuntimeBridgeThreadDep = controlRuntimeBridgeThread,
+    diagnosticsFeedbackBlocksContinuation,
+    isRuntimeBackedAgent: isRuntimeBackedAgentDep = isRuntimeBackedAgent,
+    isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
+    optionalString: optionalStringDep = optionalString,
+    operatorTurnControlAdmissionRunner = deps.contextPolicyRunner ?? null,
+    requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
+    runtimeError: runtimeErrorDep = runtimeError,
+    runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
+  } = deps;
   return {
     async resumeThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
@@ -142,6 +144,34 @@ export function createRuntimeThreadTurnSurface({
     turnId,
     requestedAction = null,
   }) {
+    if (operatorTurnControlAdmissionRunner?.planOperatorTurnControlAdmissionRequired) {
+      const record = operatorTurnControlAdmissionRunner.planOperatorTurnControlAdmissionRequired({
+        operation,
+        operation_kind: operationKind,
+        thread_id: threadId,
+        turn_id: turnId,
+        requested_action: requestedAction,
+        evidence_refs: operatorTurnControlEvidenceRefs(operation),
+      });
+      const planned = record?.record ?? record;
+      throw runtimeErrorDep({
+        status: Number(planned?.status_code ?? record?.status_code ?? 501),
+        code: optionalStringDep(planned?.code ?? record?.code) ??
+          "runtime_operator_turn_control_rust_core_required",
+        message:
+          optionalStringDep(planned?.message ?? record?.message) ??
+          "Operator turn control requires direct Rust daemon-core state admission and persistence.",
+        details: planned?.details ?? record?.details ?? {
+          rust_core_boundary: "runtime.operator_turn_control",
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          turn_id: turnId,
+          requested_action: requestedAction,
+          evidence_refs: operatorTurnControlEvidenceRefs(operation),
+        },
+      });
+    }
     throw runtimeErrorDep({
       status: 501,
       code: "runtime_operator_turn_control_rust_core_required",
@@ -154,18 +184,24 @@ export function createRuntimeThreadTurnSurface({
         turn_id: turnId,
         requested_action: requestedAction,
         evidence_refs: [
-          operation === "operator_interrupt"
-            ? "operator_interrupt_js_facade_retired"
-            : "operator_steer_js_facade_retired",
-          operation === "operator_interrupt"
-            ? "rust_daemon_core_operator_interrupt_required"
-            : "rust_daemon_core_operator_steer_required",
-          operation === "operator_interrupt"
-            ? "agentgres_operator_interrupt_state_truth_required"
-            : "agentgres_operator_steer_state_truth_required",
+          ...operatorTurnControlEvidenceRefs(operation),
         ],
       },
     });
+  }
+
+  function operatorTurnControlEvidenceRefs(operation) {
+    return operation === "operator_interrupt"
+      ? [
+          "operator_interrupt_js_facade_retired",
+          "rust_daemon_core_operator_interrupt_required",
+          "agentgres_operator_interrupt_state_truth_required",
+        ]
+      : [
+          "operator_steer_js_facade_retired",
+          "rust_daemon_core_operator_steer_required",
+          "agentgres_operator_steer_state_truth_required",
+        ];
   }
 
   function throwThreadTurnRustCoreRequired({

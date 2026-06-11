@@ -60,7 +60,9 @@ pub use operator_control::{
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateError,
     OperatorInterruptStateUpdateRecord, OperatorInterruptStateUpdateRequest,
     OperatorSteerStateUpdateCore, OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord,
-    OperatorSteerStateUpdateRequest,
+    OperatorSteerStateUpdateRequest, OperatorTurnControlAdmissionRequiredCore,
+    OperatorTurnControlAdmissionRequiredError, OperatorTurnControlAdmissionRequiredRecord,
+    OperatorTurnControlAdmissionRequiredRequest,
 };
 pub use projection_required::{
     RepositoryWorkflowProjectionRequiredCore, RepositoryWorkflowProjectionRequiredError,
@@ -111,6 +113,10 @@ pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &st
     "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
 pub const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.diagnostics-operator-override-state-update.v1";
+pub const OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.operator-turn-control-admission-required-request.v1";
+pub const OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.operator-turn-control-admission-required.v1";
 pub const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.operator-interrupt-state-update-request.v1";
 pub const OPERATOR_INTERRUPT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

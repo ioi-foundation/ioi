@@ -21,6 +21,7 @@ function assertNoRetiredOperatorTurnControlDetailAliases(details) {
 
 function createStore() {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-operator-control-facade-"));
+  const admissionRequiredCalls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
     modelMountAdmissionRunner: {
@@ -39,11 +40,45 @@ function createStore() {
       },
     },
     contextPolicyRunner: {
+      planOperatorTurnControlAdmissionRequired(request) {
+        admissionRequiredCalls.push(request);
+        const evidenceRefs = request.operation === "operator_interrupt"
+          ? [
+              "operator_interrupt_js_facade_retired",
+              "rust_daemon_core_operator_interrupt_required",
+              "agentgres_operator_interrupt_state_truth_required",
+            ]
+          : [
+              "operator_steer_js_facade_retired",
+              "rust_daemon_core_operator_steer_required",
+              "agentgres_operator_steer_state_truth_required",
+            ];
+        return {
+          source: "rust_operator_turn_control_admission_required_command",
+          backend: "rust_policy",
+          record: {
+            status: "rust_core_required",
+            status_code: 501,
+            code: "runtime_operator_turn_control_rust_core_required",
+            message:
+              "Operator turn control requires direct Rust daemon-core state admission and persistence.",
+            details: {
+              rust_core_boundary: "runtime.operator_turn_control",
+              operation: request.operation,
+              operation_kind: request.operation_kind,
+              thread_id: request.thread_id,
+              turn_id: request.turn_id,
+              requested_action: request.requested_action ?? null,
+              evidence_refs: evidenceRefs,
+            },
+          },
+        };
+      },
       planOperatorInterruptStateUpdate() {
-        throw new Error("JS operator interrupt facade must not invoke the Rust planner bridge.");
+        throw new Error("JS operator interrupt facade must not invoke the Rust state-update bridge.");
       },
       planOperatorSteerStateUpdate() {
-        throw new Error("JS operator steer facade must not invoke the Rust planner bridge.");
+        throw new Error("JS operator steer facade must not invoke the Rust state-update bridge.");
       },
     },
     runtimeBridge: {
@@ -52,11 +87,11 @@ function createStore() {
       },
     },
   });
-  return { stateDir, store };
+  return { admissionRequiredCalls, stateDir, store };
 }
 
-test("interruptTurn facade fails closed before runtime bridge, event append, Rust planning, or JS persistence", async () => {
-  const { stateDir, store } = createStore();
+test("interruptTurn facade uses Rust admission-required planner before runtime bridge, event append, state update planning, or JS persistence", async () => {
+  const { admissionRequiredCalls, stateDir, store } = createStore();
   try {
     assert.equal(typeof store.interruptTurn, "undefined");
     await assert.rejects(
@@ -84,6 +119,19 @@ test("interruptTurn facade fails closed before runtime bridge, event append, Rus
       },
     );
 
+    assert.equal(admissionRequiredCalls.length, 1);
+    assert.deepEqual(admissionRequiredCalls[0], {
+      operation: "operator_interrupt",
+      operation_kind: "turn.interrupt",
+      thread_id: "thread_one",
+      turn_id: "turn_one",
+      requested_action: "cancel",
+      evidence_refs: [
+        "operator_interrupt_js_facade_retired",
+        "rust_daemon_core_operator_interrupt_required",
+        "agentgres_operator_interrupt_state_truth_required",
+      ],
+    });
     assert.equal(store.runtimeEventStreams.size, 0);
     assert.equal(store.runs.size, 0);
   } finally {
@@ -92,8 +140,8 @@ test("interruptTurn facade fails closed before runtime bridge, event append, Rus
   }
 });
 
-test("steerTurn facade fails closed before agent/run lookup, event append, Rust planning, or JS persistence", () => {
-  const { stateDir, store } = createStore();
+test("steerTurn facade uses Rust admission-required planner before agent/run lookup, event append, state update planning, or JS persistence", () => {
+  const { admissionRequiredCalls, stateDir, store } = createStore();
   try {
     assert.equal(typeof store.steerTurn, "undefined");
     assert.throws(
@@ -119,6 +167,19 @@ test("steerTurn facade fails closed before agent/run lookup, event append, Rust 
       },
     );
 
+    assert.equal(admissionRequiredCalls.length, 1);
+    assert.deepEqual(admissionRequiredCalls[0], {
+      operation: "operator_steer",
+      operation_kind: "turn.steer",
+      thread_id: "thread_one",
+      turn_id: "turn_one",
+      requested_action: null,
+      evidence_refs: [
+        "operator_steer_js_facade_retired",
+        "rust_daemon_core_operator_steer_required",
+        "agentgres_operator_steer_state_truth_required",
+      ],
+    });
     assert.equal(store.runtimeEventStreams.size, 0);
     assert.equal(store.runs.size, 0);
   } finally {

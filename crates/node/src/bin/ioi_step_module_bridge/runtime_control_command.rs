@@ -4,7 +4,8 @@ use ioi_services::agentic::runtime::kernel::policy::{
     CodingToolBudgetRecoveryStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateRequest, OperatorInterruptStateUpdateCore,
     OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
-    OperatorSteerStateUpdateRequest, RunCancelAdmissionRequiredCore,
+    OperatorSteerStateUpdateRequest, OperatorTurnControlAdmissionRequiredCore,
+    OperatorTurnControlAdmissionRequiredRequest, RunCancelAdmissionRequiredCore,
     RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
 };
 use serde::Deserialize;
@@ -31,6 +32,13 @@ pub(super) struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: DiagnosticsOperatorOverrideStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct OperatorTurnControlAdmissionRequiredBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: OperatorTurnControlAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -129,6 +137,32 @@ pub(super) fn plan_diagnostics_operator_override_state_update(
         "updated_at": record.updated_at.clone(),
         "operator_control": record.operator_control.clone(),
         "run": record.run.clone(),
+    }))
+}
+
+pub(super) fn plan_operator_turn_control_admission_required(
+    request: OperatorTurnControlAdmissionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    let record = OperatorTurnControlAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "operator_turn_control_admission_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_operator_turn_control_admission_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation": record.operation.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
     }))
 }
 

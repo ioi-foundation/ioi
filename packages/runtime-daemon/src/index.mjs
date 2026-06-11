@@ -862,6 +862,7 @@ export class AgentgresRuntimeStateStore {
       contextPolicyRunner: this.contextPolicyRunner,
     });
     this.threadTurnSurface = createRuntimeThreadTurnSurface({
+      contextPolicyRunner: this.contextPolicyRunner,
       diagnosticsFeedbackBlocksContinuation,
       runtimeError,
     });

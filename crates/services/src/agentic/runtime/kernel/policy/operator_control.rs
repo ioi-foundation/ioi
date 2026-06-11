@@ -8,6 +8,8 @@ use super::{
     OPERATOR_INTERRUPT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     OPERATOR_STEER_STATE_UPDATE_RESULT_SCHEMA_VERSION,
+    OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +37,16 @@ pub enum OperatorSteerStateUpdateError {
         actual: String,
     },
     MissingField(&'static str),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum OperatorTurnControlAdmissionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    UnsupportedOperationKind(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -146,6 +158,36 @@ pub struct OperatorSteerStateUpdateRecord {
     pub updated_at: String,
     pub operator_control: Value,
     pub run: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OperatorTurnControlAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
+    pub requested_action: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OperatorTurnControlAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub details: Value,
     pub generated_at: String,
 }
 
@@ -388,6 +430,53 @@ impl OperatorInterruptStateUpdateCore {
 }
 
 #[derive(Debug, Default, Clone)]
+pub struct OperatorTurnControlAdmissionRequiredCore;
+
+impl OperatorTurnControlAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &OperatorTurnControlAdmissionRequiredRequest,
+    ) -> Result<OperatorTurnControlAdmissionRequiredRecord, OperatorTurnControlAdmissionRequiredError>
+    {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
+        let requested_action = optional_trimmed(request.requested_action.as_deref());
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            default_operator_turn_control_evidence_refs(operation.as_str())
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.operator_turn_control",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "thread_id": thread_id,
+            "turn_id": turn_id,
+            "requested_action": requested_action,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(OperatorTurnControlAdmissionRequiredRecord {
+            schema_version: OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+                .to_string(),
+            object: "ioi.runtime_operator_turn_control_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_operator_turn_control_rust_core_required".to_string(),
+            message: "Operator turn control requires direct Rust daemon-core state admission and persistence.".to_string(),
+            rust_core_boundary: "runtime.operator_turn_control".to_string(),
+            operation,
+            operation_kind,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
+
+#[derive(Debug, Default, Clone)]
 pub struct OperatorSteerStateUpdateCore;
 
 impl OperatorSteerStateUpdateCore {
@@ -530,6 +619,43 @@ impl OperatorSteerStateUpdateRequest {
     }
 }
 
+impl OperatorTurnControlAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), OperatorTurnControlAdmissionRequiredError> {
+        if self.schema_version != OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(
+                OperatorTurnControlAdmissionRequiredError::InvalidSchemaVersion {
+                    expected: OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                    actual: self.schema_version.clone(),
+                },
+            );
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(OperatorTurnControlAdmissionRequiredError::MissingField(
+                "operation",
+            ));
+        }
+        let operation_kind = optional_trimmed(Some(self.operation_kind.as_str())).ok_or(
+            OperatorTurnControlAdmissionRequiredError::MissingField("operation_kind"),
+        )?;
+        if operation_kind != "turn.interrupt" && operation_kind != "turn.steer" {
+            return Err(
+                OperatorTurnControlAdmissionRequiredError::UnsupportedOperationKind(operation_kind),
+            );
+        }
+        if optional_trimmed(self.thread_id.as_deref()).is_none() {
+            return Err(OperatorTurnControlAdmissionRequiredError::MissingField(
+                "thread_id",
+            ));
+        }
+        if optional_trimmed(self.turn_id.as_deref()).is_none() {
+            return Err(OperatorTurnControlAdmissionRequiredError::MissingField(
+                "turn_id",
+            ));
+        }
+        Ok(())
+    }
+}
+
 fn optional_trimmed(value: Option<&str>) -> Option<String> {
     let value = value?.trim();
     if value.is_empty() {
@@ -554,6 +680,22 @@ fn append_operator_control(existing: Option<&Value>, control: &Value) -> Value {
         .unwrap_or_default();
     controls.push(control.clone());
     Value::Array(controls)
+}
+
+fn default_operator_turn_control_evidence_refs(operation: &str) -> Vec<String> {
+    match operation {
+        "operator_interrupt" => vec![
+            "operator_interrupt_js_facade_retired".to_string(),
+            "rust_daemon_core_operator_interrupt_required".to_string(),
+            "agentgres_operator_interrupt_state_truth_required".to_string(),
+        ],
+        "operator_steer" => vec![
+            "operator_steer_js_facade_retired".to_string(),
+            "rust_daemon_core_operator_steer_required".to_string(),
+            "agentgres_operator_steer_state_truth_required".to_string(),
+        ],
+        _ => vec!["rust_daemon_core_operator_turn_control_required".to_string()],
+    }
 }
 
 #[cfg(test)]
@@ -640,6 +782,20 @@ mod tests {
             created_at: "2026-06-06T04:35:00.000Z".to_string(),
             source: "react_flow".to_string(),
             guidance: "focus on the failing bridge assertion".to_string(),
+        }
+    }
+
+    fn operator_turn_control_admission_required_request(
+    ) -> OperatorTurnControlAdmissionRequiredRequest {
+        OperatorTurnControlAdmissionRequiredRequest {
+            schema_version: OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
+                .to_string(),
+            operation: "operator_interrupt".to_string(),
+            operation_kind: "turn.interrupt".to_string(),
+            thread_id: Some("thread_budget".to_string()),
+            turn_id: Some("turn_budget".to_string()),
+            requested_action: Some("cancel".to_string()),
+            evidence_refs: vec![],
         }
     }
 
@@ -730,6 +886,47 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_plans_operator_turn_control_admission_required() {
+        let record = OperatorTurnControlAdmissionRequiredCore
+            .plan(&operator_turn_control_admission_required_request())
+            .expect("operator turn control admission-required record");
+
+        assert_eq!(
+            record.schema_version,
+            OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(
+            record.code,
+            "runtime_operator_turn_control_rust_core_required"
+        );
+        assert_eq!(record.operation_kind, "turn.interrupt");
+        assert_eq!(
+            record.details["rust_core_boundary"],
+            "runtime.operator_turn_control"
+        );
+        assert_eq!(record.details["thread_id"], "thread_budget");
+        assert_eq!(record.details["turn_id"], "turn_budget");
+        assert_eq!(record.details["requested_action"], "cancel");
+        assert!(record.details["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "operator_interrupt_js_facade_retired"));
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "threadId",
+            "turnId",
+            "requestedAction",
+            "evidenceRefs",
+        ] {
+            assert!(record.details.get(field).is_none());
+        }
+    }
+
+    #[test]
     fn rust_policy_plans_operator_steer_state_update() {
         let record = OperatorSteerStateUpdateCore
             .plan(&operator_steer_state_update_request())
@@ -808,6 +1005,24 @@ mod tests {
             error,
             OperatorSteerStateUpdateError::InvalidSchemaVersion {
                 expected: OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_operator_turn_control_admission_required_schema() {
+        let mut request = operator_turn_control_admission_required_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = OperatorTurnControlAdmissionRequiredCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            OperatorTurnControlAdmissionRequiredError::InvalidSchemaVersion {
+                expected: OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

@@ -258,6 +258,12 @@ pub(super) fn dispatch_bridge_operation(
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_diagnostics_operator_override_state_update(request)
         }
+        CommandOperation::PlanOperatorTurnControlAdmissionRequired => {
+            let request: OperatorTurnControlAdmissionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_operator_turn_control_admission_required(request)
+        }
         CommandOperation::PlanOperatorInterruptStateUpdate => {
             let request: OperatorInterruptStateUpdateBridgeRequest =
                 serde_json::from_value(raw_request)

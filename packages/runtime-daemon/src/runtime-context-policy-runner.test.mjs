@@ -25,6 +25,7 @@ import {
   MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION,
   MEMORY_MANAGER_STATUS_PROJECTION_REQUEST_SCHEMA_VERSION,
   MEMORY_MANAGER_VALIDATION_PROJECTION_REQUEST_SCHEMA_VERSION,
+  OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
@@ -742,6 +743,67 @@ test("diagnostics operator override state update runner sends Rust state update 
     assert.equal(Object.hasOwn(result.operator_control, field), false);
   }
   assert.equal(result.run.trace.operatorControls[0].event_id, "event_override");
+});
+
+test("operator turn control admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_operator_turn_control_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status: "rust_core_required",
+              status_code: 501,
+              code: "runtime_operator_turn_control_rust_core_required",
+              message:
+                "Operator turn control requires direct Rust daemon-core state admission and persistence.",
+              details: {
+                rust_core_boundary: "runtime.operator_turn_control",
+                operation: "operator_interrupt",
+                operation_kind: "turn.interrupt",
+                thread_id: "thread_budget",
+                turn_id: "turn_budget",
+                requested_action: "cancel",
+                evidence_refs: ["operator_interrupt_js_facade_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planOperatorTurnControlAdmissionRequired({
+    operation: "operator_interrupt",
+    operation_kind: "turn.interrupt",
+    thread_id: "thread_budget",
+    turn_id: "turn_budget",
+    requested_action: "cancel",
+    evidence_refs: ["operator_interrupt_js_facade_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_operator_turn_control_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "turn.interrupt");
+  assert.equal(result.source, "rust_operator_turn_control_admission_required_command");
+  assert.equal(result.record.code, "runtime_operator_turn_control_rust_core_required");
+  assert.equal(result.record.details.thread_id, "thread_budget");
+  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(result.record.details, "requestedAction"), false);
 });
 
 test("operator interrupt state update runner sends Rust state update bridge request", () => {

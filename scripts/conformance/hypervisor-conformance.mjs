@@ -7634,6 +7634,10 @@ function runBridge() {
     "operator-interrupt-state-update-live-bridge",
     /OperatorInterruptStateUpdateCore/.test(policyCore) &&
       /OperatorInterruptStateUpdateRequest/.test(policyCore) &&
+      /OperatorTurnControlAdmissionRequiredCore/.test(policyCore) &&
+      /OperatorTurnControlAdmissionRequiredRequest/.test(policyCore) &&
+      /OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_operator_turn_control_admission_required/.test(policyCore) &&
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_operator_interrupt_state_update/.test(policyCore) &&
       /"event_id": request\.event_id/.test(operatorInterruptStateUpdateCoreBlock) &&
@@ -7656,6 +7660,31 @@ function runBridge() {
       /response\["operator_control"\]\.get\("createdAt"\)\.is_none\(\)/.test(
         bridgeModule,
       ) &&
+      /fn plan_operator_turn_control_admission_required/.test(runtimeControlCommandBridge) &&
+      /OperatorTurnControlAdmissionRequiredBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_operator_turn_control_admission_required_command/.test(runtimeControlCommandBridge) &&
+      /bridge_plans_operator_turn_control_admission_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      !/fn plan_operator_turn_control_admission_required/.test(bridgeModule) &&
+      !/struct OperatorTurnControlAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_operator_turn_control_admission_required/.test(commandProtocolCore) &&
+      /CommandOperation::PlanOperatorTurnControlAdmissionRequired/.test(commandProtocolCore) &&
+      /response\["details"\]\["thread_id"\]/.test(bridgeModule) &&
+      /response\["details"\]\.get\(field\)\.is_none\(\)/.test(bridgeModule) &&
+      /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyRunner) &&
+      /OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /operator turn control admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.operation,\s*"plan_operator_turn_control_admission_required"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /result\.record\.code,\s*"runtime_operator_turn_control_rust_core_required"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /planOperatorInterruptStateUpdate/.test(runtimeContextPolicyRunner) &&
       /OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
@@ -7671,7 +7700,10 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
+      /contextPolicyRunner:\s*this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /planOperatorTurnControlAdmissionRequired/.test(runtimeThreadTurnSurface) &&
+      /operatorTurnControlAdmissionRunner/.test(runtimeThreadTurnSurface) &&
       /rust_core_boundary:\s*"runtime\.operator_turn_control"/.test(runtimeThreadTurnSurface) &&
       /operator_interrupt_js_facade_retired/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_operator_interrupt_required/.test(runtimeThreadTurnSurface) &&
@@ -7691,9 +7723,11 @@ function runBridge() {
       !/approval_mode:\s*agent\.runtimeControls\?\.approvalMode \?\? "suggest"/.test(
         operatorInterruptTurnBody,
       ) &&
-      /interruptTurn facade fails closed before runtime bridge, event append, Rust planning, or JS persistence/.test(
+      /interruptTurn facade uses Rust admission-required planner before runtime bridge, event append, state update planning, or JS persistence/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
+      /admissionRequiredCalls\.length,\s*1/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /operation:\s*"operator_interrupt"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /runtime_control_action:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /controlAction:\s*"cancel"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /workflowGraphId:\s*"graph_retired"/.test(runtimeOperatorTurnControlFacadeTest) &&
@@ -7723,6 +7757,9 @@ function runBridge() {
     "operator-steer-state-update-live-bridge",
     /OperatorSteerStateUpdateCore/.test(policyCore) &&
       /OperatorSteerStateUpdateRequest/.test(policyCore) &&
+      /OperatorTurnControlAdmissionRequiredCore/.test(policyCore) &&
+      /OperatorTurnControlAdmissionRequiredRequest/.test(policyCore) &&
+      /rust_policy_plans_operator_turn_control_admission_required/.test(policyCore) &&
       /OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_operator_steer_state_update/.test(policyCore) &&
       /"event_id": request\.event_id/.test(operatorSteerStateUpdateCoreBlock) &&
@@ -7755,7 +7792,12 @@ function runBridge() {
       /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
+      /planOperatorTurnControlAdmissionRequired/.test(runtimeContextPolicyRunner) &&
+      /operator turn control admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
       /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /planOperatorTurnControlAdmissionRequired/.test(runtimeThreadTurnSurface) &&
       /operator_steer_js_facade_retired/.test(runtimeThreadTurnSurface) &&
       /rust_daemon_core_operator_steer_required/.test(runtimeThreadTurnSurface) &&
       /agentgres_operator_steer_state_truth_required/.test(runtimeThreadTurnSurface) &&
@@ -7771,9 +7813,10 @@ function runBridge() {
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorSteerTurnBody,
       ) &&
-      /steerTurn facade fails closed before agent\/run lookup, event append, Rust planning, or JS persistence/.test(
+      /steerTurn facade uses Rust admission-required planner before agent\/run lookup, event append, state update planning, or JS persistence/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
+      /operation:\s*"operator_steer"/.test(runtimeOperatorTurnControlFacadeTest) &&
       /idempotencyKey:\s*"operator_steer_idempotency_retired"/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
@@ -7803,10 +7846,16 @@ function runBridge() {
       /pub struct DiagnosticsOperatorOverrideStateUpdateCore;/.test(
         policyOperatorControlCore,
       ) &&
+      /pub struct OperatorTurnControlAdmissionRequiredCore;/.test(
+        policyOperatorControlCore,
+      ) &&
       /pub struct OperatorInterruptStateUpdateCore;/.test(policyOperatorControlCore) &&
       /pub struct OperatorSteerStateUpdateCore;/.test(policyOperatorControlCore) &&
       /append_operator_control/.test(policyOperatorControlCore) &&
       /rust_policy_plans_diagnostics_operator_override_state_update/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_plans_operator_turn_control_admission_required/.test(
         policyOperatorControlCore,
       ) &&
       /rust_policy_plans_operator_interrupt_state_update/.test(policyOperatorControlCore) &&
@@ -7815,6 +7864,7 @@ function runBridge() {
         policyOperatorControlCore,
       ) &&
       !/pub struct DiagnosticsOperatorOverrideStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct OperatorTurnControlAdmissionRequiredCore;/.test(policyFacade) &&
       !/pub struct OperatorInterruptStateUpdateCore;/.test(policyFacade) &&
       !/pub struct OperatorSteerStateUpdateCore;/.test(policyFacade) &&
       !/rust_policy_plans_operator_interrupt_state_update/.test(policyFacade),

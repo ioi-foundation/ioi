@@ -16,6 +16,8 @@ export const DIAGNOSTICS_REPAIR_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-repair-admission-required-request.v1";
 export const DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.diagnostics-operator-override-state-update-request.v1";
+export const OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.operator-turn-control-admission-required-request.v1";
 export const OPERATOR_INTERRUPT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.operator-interrupt-state-update-request.v1";
 export const OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -198,6 +200,14 @@ export class RustContextPolicyRunner {
       schemaVersion: DIAGNOSTICS_OPERATOR_OVERRIDE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
+  }
+
+  planOperatorTurnControlAdmissionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_operator_turn_control_admission_required",
+      schemaVersion: OPERATOR_TURN_CONTROL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
   }
 
   planOperatorInterruptStateUpdate(request = {}) {

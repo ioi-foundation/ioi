@@ -15784,6 +15784,42 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1083
+
+Slice 1083 moves the public operator turn-control admission-required refusal
+contract into the Rust policy core. Rust now owns
+`OperatorTurnControlAdmissionRequiredCore`, the canonical
+`runtime_operator_turn_control_rust_core_required` envelope, and the
+`plan_operator_turn_control_admission_required` daemon-core command operation.
+`RuntimeThreadTurn` mounts the context-policy runner and consumes that
+Rust-authored refusal record for public interrupt/steer calls while still
+failing closed before runtime bridge control, event append, run mutation,
+Agentgres commit, or JS state-update planning.
+
+This is not terminal operator-control migration. The command bridge remains
+temporary transport until direct Rust daemon-core operator control admission,
+runtime control, Agentgres expected-head/state-root binding, replay, and
+projection own the surface end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-thread-turn-surface.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo check -p ioi-services` | passed |
+| `cargo check -p ioi-node` | passed |
+| `cargo test -p ioi-services operator_turn_control_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_operator_turn_control_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1082
 
 Slice 1082 retires daemon-store thread-turn and thread-control compatibility
