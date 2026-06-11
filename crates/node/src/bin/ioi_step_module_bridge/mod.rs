@@ -56,6 +56,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
     RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
+    RuntimeLifecycleProjectionRequiredCore, RuntimeLifecycleProjectionRequiredRequest,
     RuntimeToolCatalogProjectionRequiredCore, RuntimeToolCatalogProjectionRequiredRequest,
     SkillHookRegistryProjectionRequiredCore, SkillHookRegistryProjectionRequiredRequest,
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
@@ -562,6 +563,16 @@ struct RuntimeToolCatalogProjectionRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: RuntimeToolCatalogProjectionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct RuntimeLifecycleProjectionRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: RuntimeLifecycleProjectionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1127,6 +1138,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_runtime_tool_catalog_projection_required(request)
         }
+        "plan_runtime_lifecycle_projection_required" => {
+            let request: RuntimeLifecycleProjectionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_runtime_lifecycle_projection_required(request)
+        }
         "plan_thread_control_agent_state_update" => {
             let request: ThreadControlAgentStateUpdateBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1340,6 +1357,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_skill_hook_registry_projection_required"
             | "plan_repository_workflow_projection_required"
             | "plan_runtime_tool_catalog_projection_required"
+            | "plan_runtime_lifecycle_projection_required"
             | "plan_thread_control_agent_state_update"
             | "plan_mcp_control_agent_state_update"
             | "plan_thread_memory_agent_state_update"
@@ -4657,6 +4675,46 @@ fn plan_runtime_tool_catalog_projection_required(
         })?;
     Ok(json!({
         "source": "rust_runtime_tool_catalog_projection_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+fn plan_runtime_lifecycle_projection_required(
+    request: RuntimeLifecycleProjectionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_runtime_lifecycle_projection_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = RuntimeLifecycleProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "runtime_lifecycle_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_runtime_lifecycle_projection_required_command",
         "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
         "record": record.clone(),
         "status": record.status.clone(),
@@ -12108,6 +12166,62 @@ mod tests {
         assert_eq!(response["details"]["pack"], "coding");
         assert_eq!(response["details"]["workspace_root"], "/workspace/project");
         assert!(response["details"].get("projectionKind").is_none());
+        assert!(response["details"].get("workspaceRoot").is_none());
+    }
+
+    #[test]
+    fn bridge_plans_runtime_lifecycle_projection_required_through_rust_core() {
+        let request: RuntimeLifecycleProjectionRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_runtime_lifecycle_projection_required",
+                "backend": "rust_policy",
+                "request": {
+                    "schema_version": "ioi.runtime.lifecycle-projection-required-request.v1",
+                    "operation": "runtime_lifecycle_projection",
+                    "operation_kind": "runtime.lifecycle_projection.agent_runs",
+                    "projection_kind": "agent_runs",
+                    "agent_id": "agent_123",
+                    "run_id": "run_123",
+                    "workspace_root": "/workspace/project",
+                    "source": "runtime.lifecycle_projection_surface",
+                    "evidence_refs": [
+                        "runtime_lifecycle_js_projection_retired",
+                        "rust_daemon_core_runtime_lifecycle_projection_required",
+                        "agentgres_runtime_lifecycle_truth_required"
+                    ]
+                }
+            }))
+            .expect("runtime lifecycle projection required bridge request");
+
+        let response = plan_runtime_lifecycle_projection_required(request)
+            .expect("runtime lifecycle projection refusal planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_lifecycle_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_lifecycle_projection_rust_core_required"
+        );
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.lifecycle_projection"
+        );
+        assert_eq!(
+            response["details"]["operation_kind"],
+            "runtime.lifecycle_projection.agent_runs"
+        );
+        assert_eq!(response["details"]["projection_kind"], "agent_runs");
+        assert_eq!(response["details"]["agent_id"], "agent_123");
+        assert_eq!(response["details"]["run_id"], "run_123");
+        assert_eq!(response["details"]["workspace_root"], "/workspace/project");
+        assert!(response["details"].get("projectionKind").is_none());
+        assert!(response["details"].get("agentId").is_none());
         assert!(response["details"].get("workspaceRoot").is_none());
     }
 

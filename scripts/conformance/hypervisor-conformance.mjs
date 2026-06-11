@@ -2795,6 +2795,12 @@ function runBridge() {
   const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
     : "";
+  const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    : "";
+  const runtimeLifecycleProjectionSurfaceTest = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
+    : "";
   const runtimeThreadControlSurface = exists("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.mjs")
     : "";
@@ -13121,6 +13127,21 @@ function runReceipts() {
   const runtimeToolSurfaceTest = exists("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-tool-surface.test.mjs")
     : "";
+  const runtimeLifecycleProjectionSurface = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs")
+    : "";
+  const runtimeLifecycleProjectionSurfaceTest = exists("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs")
+    : "";
+  const publicRuntimeRoutes = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    : "";
+  const publicRuntimeRoutesTest = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    : "";
+  const runtimeRouteHandlersTest = exists("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-route-handlers.test.mjs")
+    : "";
   const runtimeDoctorReportTest = exists("packages/runtime-daemon/src/runtime-doctor-report.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-doctor-report.test.mjs")
     : "";
@@ -16535,6 +16556,125 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "runtime-lifecycle-public-js-projections-retired",
+    /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCoreForState) &&
+      /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION/.test(policyCoreForState) &&
+      /RuntimeLifecycleProjectionRequiredRequest/.test(policyCoreForState) &&
+      /RuntimeLifecycleProjectionRequiredCore/.test(policyCoreForState) &&
+      /runtime_lifecycle_js_projection_retired/.test(policyCoreForState) &&
+      /rust_daemon_core_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
+      /agentgres_runtime_lifecycle_truth_required/.test(policyCoreForState) &&
+      /runtime_lifecycle_projection_rust_core_required/.test(policyCoreForState) &&
+      /rust_policy_plans_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
+      /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
+      /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
+      /bridge_plans_runtime_lifecycle_projection_required_through_rust_core/.test(
+        bridgeModule,
+      ) &&
+      /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
+        runtimeContextPolicyRunnerForState,
+      ) &&
+      /planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
+      /runtime lifecycle projection-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTestForState,
+      ) &&
+      /throwRuntimeLifecycleProjectionRustCoreRequired/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /planRuntimeLifecycleProjectionRequired/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /runtime_lifecycle_js_projection_retired/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /rust_daemon_core_runtime_lifecycle_projection_required/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /agentgres_runtime_lifecycle_truth_required/.test(
+        runtimeLifecycleProjectionSurface,
+      ) &&
+      /projection_kind:\s*"agents"/.test(runtimeLifecycleProjectionSurface) &&
+      /agent_runs/.test(runtimeLifecycleProjectionSurface) &&
+      /lifecycle projection surface fails public agent\/thread\/run list projections through Rust core/.test(
+        runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      /lifecycle projection surface keeps route identifiers in canonical snake_case details/.test(
+        runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
+        runtimeDaemonIndex,
+      ) &&
+      /lifecycleRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /store\.lifecycleProjectionSurface\.listAgents\(store\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listThreads\(store\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listRuns\(store,\s*url\.searchParams\.get\("agent_id"\)\s*\?\?\s*undefined\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getAgent\(store,\s*agentId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listRuns\(store,\s*agentId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getThread\(store,\s*threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRun\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /public runtime agent and thread list routes fail closed through lifecycle projection surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /public runtime run list route fails closed through lifecycle projection surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /agent, thread, and run detail routes use lifecycle projection surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.listAgents\(\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.listThreads\(\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.listRuns\(/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.getAgent\(agentId\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.listRuns\(agentId\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.getThread\(threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/writeJsonResponse\(response,\s*store\.getRun\(runId\)\)/.test(
+        runtimeRouteHandlers,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
+      "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs",
+      "packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+    ],
+    "Phase 10/11 is pending: public agent, thread, and run lifecycle projections must fail closed through the Rust daemon-core projection-required boundary instead of returning JS-authored lifecycle map truth",
+  );
+  assertCheck(
+    result,
     "authority-evidence-summary-aliases-retired",
     /schema_version:\s*AUTHORITY_EVIDENCE_SUMMARY_LIST_SCHEMA_VERSION/.test(
       authorityEvidenceSummary,
@@ -19061,6 +19201,12 @@ function runCompositor() {
     "function memoryListQuery",
     "function toolListQuery",
   );
+  const publicRuntimeRoutesForTaskJob = exists("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.mjs")
+    : "";
+  const publicRuntimeRoutesTestForTaskJob = exists("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    ? read("packages/runtime-daemon/src/http/public-runtime-routes.test.mjs")
+    : "";
   const runtimeTaskSdkListOptionsBlock = blockBetween(
     agentSdkSubstrateClient,
     "export interface RuntimeTaskListOptions",
@@ -19456,7 +19602,7 @@ function runCompositor() {
       (runtimeConversationArtifactMutationFacadeRetired ||
         /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface)) &&
       /store\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(runtimeRouteHandlers) &&
-      /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutes) &&
+      /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
       /listConversationArtifacts\(input\?: \{ thread_id\?: string \}\)/.test(agentSdkSubstrateClient) &&
       /async listConversationArtifacts\(input: \{ thread_id\?: string \} = \{\}\)/.test(
         conversationArtifactSdkListMethodBlock,
@@ -23067,17 +23213,17 @@ function runCompositor() {
       (runtimeTaskJobReadProjectionLegacyRemoved ||
         /options\.agent_id/.test(runtimeTaskJobListJobsBlock) &&
           /options\.agent_id/.test(runtimeTaskJobListTasksBlock)) &&
-      /store\.listRuns\(url\.searchParams\.get\("agent_id"\) \?\? undefined\)/.test(
-        publicRuntimeRoutes,
+      /store\.lifecycleProjectionSurface\.listRuns\(store,\s*url\.searchParams\.get\("agent_id"\)\s*\?\?\s*undefined\)/.test(
+        publicRuntimeRoutesForTaskJob,
       ) &&
-      /public runtime run list route ignores retired agentId query alias/.test(
-        publicRuntimeRoutesTest,
+      /public runtime run list route fails closed through lifecycle projection surface/.test(
+        publicRuntimeRoutesTestForTaskJob,
       ) &&
       /public runtime task and job routes use task job surface directly/.test(
-        publicRuntimeRoutesTest,
+        publicRuntimeRoutesTestForTaskJob,
       ) &&
-      /url: "\/v1\/runs\?agentId=agent-retired&agent_id=agent-canonical"/.test(
-        publicRuntimeRoutesTest,
+      /url:\s*"\/v1\/runs\?agent_id=agent-canonical"/.test(
+        publicRuntimeRoutesTestForTaskJob,
       ) &&
       (runtimeTaskJobReadProjectionLegacyRemoved ||
         /legacy-agent/.test(runtimeTaskJobSurfaceTest)) &&
@@ -23088,7 +23234,7 @@ function runCompositor() {
       (runtimeTaskJobReadProjectionLegacyRemoved ||
         !/options\.agentId/.test(runtimeTaskJobListJobsBlock) &&
           !/options\.agentId/.test(runtimeTaskJobListTasksBlock)) &&
-      !/searchParams\.get\("agentId"\)/.test(publicRuntimeRoutes),
+      !/searchParams\.get\("agentId"\)/.test(publicRuntimeRoutesForTaskJob),
     [
       "packages/agent-sdk/src/substrate-client.ts",
       "packages/runtime-daemon/src/runtime-task-job-surface.mjs",
@@ -23143,28 +23289,28 @@ function runCompositor() {
     "runtime-task-job-control-js-facade-retired",
     runtimeTaskJobControlFacadeRetired &&
       /store\.taskJobSurface\.createTask\(store,\s*await readBody\(request\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /store\.taskJobSurface\.listTasks\(store,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /store\.taskJobSurface\.cancelTask\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /store\.taskJobSurface\.getTask\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /store\.taskJobSurface\.listJobs\(store,\s*Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /store\.taskJobSurface\.cancelJob\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /store\.taskJobSurface\.getJob\(store,\s*decodeURIComponent\(segments\[2\]\)\)/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       /public runtime task and job routes use task job surface directly/.test(
-        publicRuntimeRoutesTest,
+        publicRuntimeRoutesTestForTaskJob,
       ) &&
       !/^\s*(?:listJobs|createTask|listTasks|getTask|cancelTask|getJob|cancelJob)\(/m.test(
         runtimeDaemonIndex,
@@ -25241,20 +25387,20 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-mcp-route-wrappers-retired",
-    /public runtime MCP routes use mounted MCP surfaces directly/.test(publicRuntimeRoutesTest) &&
+    /public runtime MCP routes use mounted MCP surfaces directly/.test(publicRuntimeRoutesTestForTaskJob) &&
       /thread route sends MCP controls through mounted MCP surfaces/.test(runtimeRouteHandlersTest) &&
-      /store\.mcpCatalogSurface\.mcpStatus\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpServeSurface\.mcpServeStatus\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(publicRuntimeRoutes) &&
-      /store\.mcpCatalogSurface\.listMcpServers\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpCatalogSurface\.searchMcpTools\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpCatalogSurface\.getMcpTool\(\s*store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpCatalogSurface\.validateMcp\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpControlSurface\.importMcp\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpControlSurface\.addMcpServer\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpControlSurface\.setMcpServerEnabled\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpControlSurface\.removeMcpServer\(store,/.test(publicRuntimeRoutes) &&
-      /store\.mcpControlSurface\.invokeMcpTool\(store,/.test(publicRuntimeRoutes) &&
+      /store\.mcpCatalogSurface\.mcpStatus\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpServeSurface\.mcpServeStatus\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpServeSurface\.handleMcpServeJsonRpc\(store,\s*threadId,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpCatalogSurface\.listMcpServers\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpCatalogSurface\.searchMcpTools\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpCatalogSurface\.getMcpTool\(\s*store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpCatalogSurface\.validateMcp\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpControlSurface\.importMcp\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpControlSurface\.addMcpServer\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpControlSurface\.setMcpServerEnabled\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpControlSurface\.removeMcpServer\(store,/.test(publicRuntimeRoutesForTaskJob) &&
+      /store\.mcpControlSurface\.invokeMcpTool\(store,/.test(publicRuntimeRoutesForTaskJob) &&
       /store\.mcpControlSurface\.importThreadMcp\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
       /store\.mcpControlSurface\.addThreadMcpServer\(store,\s*threadId,/.test(runtimeRouteHandlers) &&
       /store\.mcpControlSurface\.removeThreadMcpServer\(\s*store,\s*threadId,/.test(runtimeRouteHandlers) &&
@@ -25270,7 +25416,7 @@ function runCompositor() {
         runtimeDaemonIndex,
       ) &&
       !/store\.(?:mcpStatus|mcpServeStatus|handleMcpServeJsonRpc|listMcpServers|listMcpTools|searchMcpTools|getMcpTool|listMcpResources|listMcpPrompts|validateMcp|importMcp|addMcpServer|setMcpServerEnabled|removeMcpServer|invokeMcpTool)\(/.test(
-        publicRuntimeRoutes,
+        publicRuntimeRoutesForTaskJob,
       ) &&
       !/store\.(?:importThreadMcp|addThreadMcpServer|removeThreadMcpServer|setThreadMcpServerEnabled|searchThreadMcpTools|getThreadMcpTool|invokeThreadMcpTool|mcpServeStatus|handleMcpServeJsonRpc|recordThreadMcpStatus|validateThreadMcp)\(/.test(
         runtimeRouteHandlers,
@@ -25294,13 +25440,13 @@ function runCompositor() {
       /surface\.importMcp\(store, \{ threadId: "thread-agent-one"/.test(
         runtimeMcpControlSurfaceTest,
       ) &&
-      /const threadId = optionalString\(query\.thread_id\)/.test(publicRuntimeRoutes) &&
-      /public runtime MCP serve route ignores retired threadId query alias/.test(publicRuntimeRoutesTest) &&
-      /url: "\/v1\/mcp\/serve\?threadId=thread-retired"/.test(publicRuntimeRoutesTest) &&
+      /const threadId = optionalString\(query\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
+      /public runtime MCP serve route ignores retired threadId query alias/.test(publicRuntimeRoutesTestForTaskJob) &&
+      /url: "\/v1\/mcp\/serve\?threadId=thread-retired"/.test(publicRuntimeRoutesTestForTaskJob) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkServerControlInputBlock) &&
       /^\s*thread_id\?: string;/m.test(runtimeMcpSdkToolInvokeInputBlock) &&
       !/(?:input|request)\.threadId\b/.test(runtimeMcpControlSurface) &&
-      !/query\.threadId\b/.test(publicRuntimeRoutes) &&
+      !/query\.threadId\b/.test(publicRuntimeRoutesForTaskJob) &&
       !/^\s*threadId\?:/m.test(
         `${runtimeMcpSdkServerControlInputBlock}\n${runtimeMcpSdkToolInvokeInputBlock}`,
       ),
@@ -28486,6 +28632,6 @@ function main() {
 try {
   main();
 } catch (error) {
-  console.error(error instanceof Error ? error.message : String(error));
+  console.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
   process.exit(1);
 }

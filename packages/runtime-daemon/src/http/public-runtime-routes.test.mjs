@@ -116,36 +116,93 @@ test("public runtime routes delegate thread subroutes unchanged", async () => {
   assert.equal(response.ended, false);
 });
 
-test("public runtime run list route ignores retired agentId query alias", async () => {
+test("public runtime agent and thread list routes fail closed through lifecycle projection surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    lifecycleProjectionSurface: {
+      listAgents(surfaceStore) {
+        calls.push({ method: "listAgents", surfaceStore });
+        const error = new Error("runtime lifecycle projection requires Rust core");
+        error.status = 501;
+        error.code = "runtime_lifecycle_projection_rust_core_required";
+        error.details = {
+          rust_core_boundary: "runtime.lifecycle_projection",
+          projection_kind: "agents",
+        };
+        throw error;
+      },
+      listThreads(surfaceStore) {
+        calls.push({ method: "listThreads", surfaceStore });
+        const error = new Error("runtime lifecycle projection requires Rust core");
+        error.status = 501;
+        error.code = "runtime_lifecycle_projection_rust_core_required";
+        error.details = {
+          rust_core_boundary: "runtime.lifecycle_projection",
+          projection_kind: "threads",
+        };
+        throw error;
+      },
+    },
+  };
+
+  const agentsResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/agents" }), response: agentsResponse, store });
+  assert.equal(agentsResponse.statusCode, 501);
+  assert.equal(agentsResponse.error.details.projection_kind, "agents");
+
+  const threadsResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/threads" }), response: threadsResponse, store });
+  assert.equal(threadsResponse.statusCode, 501);
+  assert.equal(threadsResponse.error.details.projection_kind, "threads");
+  assert.deepEqual(calls.map((call) => call.method), ["listAgents", "listThreads"]);
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+});
+
+test("public runtime run list route fails closed through lifecycle projection surface", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
   const calls = [];
   const store = {
-    listRuns(agentId) {
-      calls.push({ agentId });
-      return [{ id: agentId ?? "all-runs" }];
+    lifecycleProjectionSurface: {
+      listRuns(_store, agent_id) {
+        calls.push({ agent_id });
+        const error = new Error("runtime lifecycle projection requires Rust core");
+        error.status = 501;
+        error.code = "runtime_lifecycle_projection_rust_core_required";
+        error.details = {
+          rust_core_boundary: "runtime.lifecycle_projection",
+          projection_kind: agent_id ? "agent_runs" : "runs",
+          agent_id: agent_id ?? null,
+        };
+        throw error;
+      },
     },
   };
 
   await handleRequest({
-    request: request({ url: "/v1/runs?agentId=agent-retired&agent_id=agent-canonical" }),
+    request: request({ url: "/v1/runs?agent_id=agent-canonical" }),
     response,
     store,
   });
 
-  assert.equal(response.statusCode, 200);
-  assert.deepEqual(calls, [{ agentId: "agent-canonical" }]);
-  assert.deepEqual(JSON.parse(response.body), [{ id: "agent-canonical" }]);
+  assert.equal(response.statusCode, 501);
+  assert.deepEqual(calls, [{ agent_id: "agent-canonical" }]);
+  assert.equal(response.error.code, "runtime_lifecycle_projection_rust_core_required");
+  assert.equal(response.error.details.projection_kind, "agent_runs");
+  assert.equal(response.error.details.agent_id, "agent-canonical");
 
-  const retiredOnlyResponse = responseRecorder();
+  const unfilteredResponse = responseRecorder();
   await handleRequest({
-    request: request({ url: "/v1/runs?agentId=agent-retired" }),
-    response: retiredOnlyResponse,
+    request: request({ url: "/v1/runs" }),
+    response: unfilteredResponse,
     store,
   });
 
-  assert.deepEqual(calls.at(-1), { agentId: undefined });
-  assert.deepEqual(JSON.parse(retiredOnlyResponse.body), [{ id: "all-runs" }]);
+  assert.deepEqual(calls.at(-1), { agent_id: undefined });
+  assert.equal(unfilteredResponse.statusCode, 501);
+  assert.equal(unfilteredResponse.error.details.projection_kind, "runs");
+  assert.equal(unfilteredResponse.error.details.agent_id, null);
 });
 
 test("public runtime task and job routes use task job surface directly", async () => {

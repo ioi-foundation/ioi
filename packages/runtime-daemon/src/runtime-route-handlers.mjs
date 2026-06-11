@@ -611,7 +611,7 @@ export function createRuntimeRouteHandlers(deps) {
     const agentId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
-      writeJsonResponse(response, store.getAgent(agentId));
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getAgent(store, agentId));
       return;
     }
     if (request.method === "DELETE" && !action) {
@@ -644,7 +644,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "runs") {
-      writeJsonResponse(response, store.listRuns(agentId));
+      writeJsonResponse(response, store.lifecycleProjectionSurface.listRuns(store, agentId));
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
@@ -682,10 +682,7 @@ export function createRuntimeRouteHandlers(deps) {
     const threadId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
-      writeJsonResponse(response, {
-        ...store.getThread(threadId),
-        turns: store.listTurns(threadId),
-      });
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getThread(store, threadId));
       return;
     }
     if (request.method === "GET" && action === "usage" && !segments[4]) {
@@ -1135,7 +1132,7 @@ export function createRuntimeRouteHandlers(deps) {
     const runId = decodeURIComponent(segments[2]);
     const action = segments[3];
     if (request.method === "GET" && !action) {
-      writeJsonResponse(response, store.getRun(runId));
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRun(store, runId));
       return;
     }
     if (request.method === "GET" && action === "usage" && !segments[4]) {

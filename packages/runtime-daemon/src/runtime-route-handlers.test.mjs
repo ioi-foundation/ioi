@@ -63,6 +63,94 @@ function routeHandlers() {
   });
 }
 
+test("agent, thread, and run detail routes use lifecycle projection surface", async () => {
+  const { handleAgentRoute, handleThreadRoute, handleRunRoute } = routeHandlers();
+  const calls = [];
+  const lifecycleProjectionSurface = {
+    getAgent(_store, agentId) {
+      calls.push({ method: "getAgent", id: agentId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "agent", agent_id: agentId };
+      throw error;
+    },
+    getThread(_store, threadId) {
+      calls.push({ method: "getThread", id: threadId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "thread", thread_id: threadId };
+      throw error;
+    },
+    getRun(_store, runId) {
+      calls.push({ method: "getRun", id: runId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "run", run_id: runId };
+      throw error;
+    },
+    listRuns(_store, agentId) {
+      calls.push({ method: "listRuns", id: agentId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "agent_runs", agent_id: agentId };
+      throw error;
+    },
+  };
+  const store = { lifecycleProjectionSurface };
+
+  await assert.rejects(
+    () => handleAgentRoute({
+      request: request({ url: "/v1/agents/agent_route" }),
+      response: responseRecorder(),
+      store,
+      url: new URL("/v1/agents/agent_route", "http://daemon.test"),
+      segments: ["v1", "agents", "agent_route"],
+    }),
+    { code: "runtime_lifecycle_projection_rust_core_required" },
+  );
+  await assert.rejects(
+    () => handleAgentRoute({
+      request: request({ url: "/v1/agents/agent_route/runs" }),
+      response: responseRecorder(),
+      store,
+      url: new URL("/v1/agents/agent_route/runs", "http://daemon.test"),
+      segments: ["v1", "agents", "agent_route", "runs"],
+    }),
+    { code: "runtime_lifecycle_projection_rust_core_required" },
+  );
+  await assert.rejects(
+    () => handleThreadRoute({
+      request: request({ url: "/v1/threads/thread_route" }),
+      response: responseRecorder(),
+      store,
+      url: new URL("/v1/threads/thread_route", "http://daemon.test"),
+      segments: ["v1", "threads", "thread_route"],
+    }),
+    { code: "runtime_lifecycle_projection_rust_core_required" },
+  );
+  await assert.rejects(
+    () => handleRunRoute({
+      request: request({ url: "/v1/runs/run_route" }),
+      response: responseRecorder(),
+      store,
+      url: new URL("/v1/runs/run_route", "http://daemon.test"),
+      segments: ["v1", "runs", "run_route"],
+    }),
+    { code: "runtime_lifecycle_projection_rust_core_required" },
+  );
+
+  assert.deepEqual(calls, [
+    { method: "getAgent", id: "agent_route" },
+    { method: "listRuns", id: "agent_route" },
+    { method: "getThread", id: "thread_route" },
+    { method: "getRun", id: "run_route" },
+  ]);
+});
+
 test("thread route sends admission controls through mounted admission surfaces", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];

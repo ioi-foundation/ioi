@@ -30,6 +30,8 @@ export const REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.repository-workflow-projection-required-request.v1";
 export const RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.tool-catalog-projection-required-request.v1";
+export const RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.lifecycle-projection-required-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
@@ -232,6 +234,14 @@ export class RustContextPolicyRunner {
     return this.evaluateRawPolicy({
       operation: "plan_runtime_tool_catalog_projection_required",
       schemaVersion: RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
+  }
+
+  planRuntimeLifecycleProjectionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_runtime_lifecycle_projection_required",
+      schemaVersion: RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
       request,
     });
   }

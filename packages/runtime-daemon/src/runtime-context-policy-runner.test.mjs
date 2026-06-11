@@ -29,6 +29,7 @@ import {
   OPERATOR_STEER_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_THREAD_START_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUNTIME_BRIDGE_TURN_RUN_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   RUN_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
@@ -1219,6 +1220,82 @@ test("runtime tool catalog projection-required runner sends Rust daemon-core req
   );
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.workspace_root, "/workspace/project");
+  assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
+});
+
+test("runtime lifecycle projection-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_runtime_lifecycle_projection_required_command",
+            backend: "rust_policy",
+            record: {
+              status_code: 501,
+              code: "runtime_lifecycle_projection_rust_core_required",
+              message:
+                "Runtime agent, thread, and run lifecycle projections require direct Rust daemon-core projection over Agentgres-admitted lifecycle truth.",
+              details: {
+                rust_core_boundary: "runtime.lifecycle_projection",
+                operation: "runtime_lifecycle_projection",
+                operation_kind: "runtime.lifecycle_projection.agent_runs",
+                projection_kind: "agent_runs",
+                agent_id: "agent_123",
+                run_id: "run_123",
+                workspace_root: "/workspace/project",
+                evidence_refs: [
+                  "runtime_lifecycle_js_projection_retired",
+                ],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRuntimeLifecycleProjectionRequired({
+    operation: "runtime_lifecycle_projection",
+    operation_kind: "runtime.lifecycle_projection.agent_runs",
+    projection_kind: "agent_runs",
+    agent_id: "agent_123",
+    run_id: "run_123",
+    workspace_root: "/workspace/project",
+    evidence_refs: ["runtime_lifecycle_js_projection_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(
+    captured.operation,
+    "plan_runtime_lifecycle_projection_required",
+  );
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation, "runtime_lifecycle_projection");
+  assert.equal(
+    captured.request.operation_kind,
+    "runtime.lifecycle_projection.agent_runs",
+  );
+  assert.equal(captured.request.projection_kind, "agent_runs");
+  assert.equal(captured.request.agent_id, "agent_123");
+  assert.equal(captured.request.run_id, "run_123");
+  assert.equal(
+    result.source,
+    "rust_runtime_lifecycle_projection_required_command",
+  );
+  assert.equal(result.record.status_code, 501);
+  assert.equal(result.record.details.workspace_root, "/workspace/project");
+  assert.equal(Object.hasOwn(result.record.details, "agentId"), false);
   assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
 });
 

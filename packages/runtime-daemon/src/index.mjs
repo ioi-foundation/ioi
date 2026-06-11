@@ -140,6 +140,7 @@ import { createRuntimeMcpCatalogSurface } from "./runtime-mcp-catalog-surface.mj
 import { createRuntimeMcpControlSurface } from "./runtime-mcp-control-surface.mjs";
 import { createRuntimeMcpServeSurface } from "./runtime-mcp-serve-surface.mjs";
 import { createRuntimeRunReadSurface } from "./runtime-run-read-surface.mjs";
+import { createRuntimeLifecycleProjectionSurface } from "./runtime-lifecycle-projection-surface.mjs";
 import { createRuntimeSkillHookSurface } from "./runtime-skill-hook-surface.mjs";
 import { createRuntimeTaskJobSurface } from "./runtime-task-job-surface.mjs";
 import { createRuntimeGovernedImprovementSurface } from "./runtime-governed-improvement-surface.mjs";
@@ -864,6 +865,10 @@ export class AgentgresRuntimeStateStore {
       runtimeUsageTelemetryForThread,
       runtimeUsageTelemetryList,
       threadIdForAgent,
+    });
+    this.lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface({
+      lifecycleRunner: this.contextPolicyRunner,
+      workspaceRoot: this.defaultCwd,
     });
     this.skillHookSurface = createRuntimeSkillHookSurface({
       defaultCwd: this.defaultCwd,
