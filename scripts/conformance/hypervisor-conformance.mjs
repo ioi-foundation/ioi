@@ -2332,6 +2332,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
@@ -9848,17 +9851,30 @@ function runBridge() {
       /"latest_provider_health" => receipt::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => receipt::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_runtime_survey" => Ok\(receipt::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"product_artifacts" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"artifacts" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"providers" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"endpoints" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"instances" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"routes" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"model_capabilities" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"downloads" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
+      /mod topology;/.test(modelMountReadProjectionEvidence) &&
+      /"artifacts" => Ok\(topology::artifacts\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"product_artifacts" => Ok\(topology::product_artifacts\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"providers" => Ok\(topology::providers\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"endpoints" => Ok\(topology::endpoints\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"instances" => Ok\(topology::instances\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"routes" => Ok\(topology::routes\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"model_capabilities" => Ok\(topology::model_capabilities\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"downloads" => Ok\(topology::downloads\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"oauth_sessions" => Err\(ModelMountReadProjectionError::new\(\s*"model_mount_oauth_read_projection_js_retired"/.test(modelMountReadProjectionEvidence) &&
       /"oauth_states" => Err\(ModelMountReadProjectionError::new\(\s*"model_mount_oauth_read_projection_js_retired"/.test(modelMountReadProjectionEvidence) &&
-      /"provider_health" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"provider_health" => Ok\(topology::provider_health\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"backends" => Ok\(topology::backends\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn artifacts/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn product_artifacts/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn providers/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn endpoints/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn instances/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn routes/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn model_capabilities/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn downloads/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn backends/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn provider_health/.test(modelMountReadProjectionEvidence) &&
+      /topology_list_defaults_ignore_caller_supplied_js_state/.test(modelMountReadProjectionEvidence) &&
       /mod adapter_boundary;/.test(modelMountReadProjectionEvidence) &&
       /"workflow_bindings" => Ok\(adapter_boundary::workflow_bindings\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"adapter_boundaries" => Ok\(adapter_boundary::adapter_boundaries\(&request\.state\)\)/.test(modelMountReadProjectionEvidence) &&
@@ -9880,8 +9896,11 @@ function runBridge() {
       /pub\(super\) fn engine_detail/.test(modelMountReadProjectionEvidence) &&
       /runtime_projection_defaults_ignore_caller_supplied_js_state/.test(modelMountReadProjectionEvidence) &&
       /runtime_engine_detail_fails_closed_until_rust_projection_owns_state/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_model_catalog" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"open_ai_model_list" => Ok\(json!\(\{\s*"object": "list",\s*"data": \[\],\s*\}\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_model_catalog" => Ok\(topology::runtime_model_catalog\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"open_ai_model_list" => Ok\(topology::open_ai_model_list\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn runtime_model_catalog/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn open_ai_model_list/.test(modelMountReadProjectionEvidence) &&
+      /open_ai_model_list_default_is_rust_owned_empty_list/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn snapshot/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn projection/.test(modelMountReadProjectionEvidence) &&
       /aggregate_projection_is_planned_from_admitted_receipts/.test(modelMountReadProjectionEvidence) &&
@@ -13552,6 +13571,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
@@ -16369,7 +16391,8 @@ function runReceipts() {
       /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /"backends" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountCore) &&
+      /"backends" => Ok\(topology::backends\(\)\)/.test(modelMountCore) &&
+      /pub\(super\) fn backends/.test(modelMountCore) &&
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
       /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
       /url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&

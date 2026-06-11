@@ -20371,6 +20371,30 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1026
+
+Slice 1026 split the model_mount topology/product-catalog default read-projection
+cluster out of the broad `model_mount/read_projection.rs` dispatcher and into
+`model_mount/read_projection/topology.rs`. Artifact, product-artifact,
+provider, endpoint, instance, route, model-capability, download, backend,
+provider-health, runtime catalog, and OpenAI-compatible model-list default
+readbacks now have a dedicated Rust owner module and module-local proof that
+caller-supplied JS topology/catalog maps cannot become public projection truth.
+
+This is still non-terminal migration work: topology/product-catalog defaults
+are isolated in Rust, but direct Rust daemon-core projection APIs over
+Agentgres-backed topology, artifact, provider, backend, and catalog
+receipt/state-root truth must still replace command transport, JS state
+materialization, and JS edge translation before terminal projection ownership
+can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1026 | Moved topology/product-catalog default read-projection authorship from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/topology.rs`; conformance now requires topology module proof tests and delegated dispatcher arms instead of root `Value::Array`/OpenAI-list literals. | Direct Rust daemon-core topology/product-catalog projection APIs over Agentgres-backed model_mount receipt/state-root truth replace command bridge, JS state materialization, and JS edge translation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1025
 
 Slice 1025 split the model_mount runtime-engine read-projection cluster out of

@@ -4646,6 +4646,12 @@ fail-closed behavior now live in the dedicated Rust
 `model_mount/read_projection/runtime.rs` module, with module-local Rust proof
 that caller-supplied JS runtime-engine maps, profiles, preferences, and default
 load options cannot become projection truth;
+model-mount topology/product-catalog default read projections now live in the
+dedicated Rust `model_mount/read_projection/topology.rs` module, with
+module-local Rust proof that caller-supplied JS artifacts, providers,
+endpoints, instances, routes, capabilities, downloads, backends,
+provider-health rows, runtime catalog rows, and OpenAI-compatible model-list
+rows cannot become projection truth;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 
@@ -9,6 +9,7 @@ mod authority;
 mod receipt;
 mod runtime;
 mod status;
+mod topology;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelMountReadProjectionRequest {
@@ -76,15 +77,15 @@ pub(super) fn model_mount_read_projection(
         "model_route_decisions" => Ok(receipt::route_decisions(request)),
         "authority_snapshot" => Ok(authority::authority_snapshot(request)),
         "server_status" => Ok(status::server_status(request)),
-        "artifacts" => Ok(Value::Array(Vec::new())),
-        "product_artifacts" => Ok(Value::Array(Vec::new())),
-        "providers" => Ok(Value::Array(Vec::new())),
-        "endpoints" => Ok(Value::Array(Vec::new())),
-        "instances" => Ok(Value::Array(Vec::new())),
-        "routes" => Ok(Value::Array(Vec::new())),
-        "model_capabilities" => Ok(Value::Array(Vec::new())),
-        "downloads" => Ok(Value::Array(Vec::new())),
-        "backends" => Ok(Value::Array(Vec::new())),
+        "artifacts" => Ok(topology::artifacts()),
+        "product_artifacts" => Ok(topology::product_artifacts()),
+        "providers" => Ok(topology::providers()),
+        "endpoints" => Ok(topology::endpoints()),
+        "instances" => Ok(topology::instances()),
+        "routes" => Ok(topology::routes()),
+        "model_capabilities" => Ok(topology::model_capabilities()),
+        "downloads" => Ok(topology::downloads()),
+        "backends" => Ok(topology::backends()),
         "oauth_sessions" => Err(ModelMountReadProjectionError::new(
             "model_mount_oauth_read_projection_js_retired",
             "OAuth session read projection requires Rust daemon-core wallet/cTEE projection",
@@ -93,7 +94,7 @@ pub(super) fn model_mount_read_projection(
             "model_mount_oauth_read_projection_js_retired",
             "OAuth state read projection requires Rust daemon-core wallet/cTEE projection",
         )),
-        "provider_health" => Ok(Value::Array(Vec::new())),
+        "provider_health" => Ok(topology::provider_health()),
         "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
         "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),
         "runtime_engines" => Ok(runtime::engines()),
@@ -102,11 +103,8 @@ pub(super) fn model_mount_read_projection(
         "runtime_preference_for_endpoint" => Ok(runtime::preference_for_endpoint()),
         "runtime_default_load_options" => Ok(runtime::default_load_options()),
         "runtime_engine_detail" => runtime::engine_detail(request),
-        "runtime_model_catalog" => Ok(Value::Array(Vec::new())),
-        "open_ai_model_list" => Ok(json!({
-            "object": "list",
-            "data": [],
-        })),
+        "runtime_model_catalog" => Ok(topology::runtime_model_catalog()),
+        "open_ai_model_list" => Ok(topology::open_ai_model_list()),
         "latest_provider_health" => receipt::latest_provider_health(request),
         "latest_vault_health" => receipt::latest_vault_health(request),
         "latest_runtime_survey" => Ok(receipt::latest_runtime_survey(request)),
