@@ -15697,6 +15697,50 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1130
+
+Slice 1130 moves model-mount backend-process and required-control daemon-core
+command request/response shaping out of the temporary Node
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs` transport
+and into Rust
+`crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs` and
+`crates/services/src/agentic/runtime/kernel/model_mount/required.rs`. Rust
+model-mount core now owns the bridge request structs, response envelopes,
+canonical command source markers, backend defaults, and bridge-facing error
+propagation for `plan_model_mount_backend_process`,
+`plan_model_mount_backend_lifecycle_required`,
+`plan_model_mount_server_control_required`,
+`plan_model_mount_runtime_engine_required`,
+`plan_model_mount_tokenizer_required`, and
+`plan_model_mount_route_control_required`. The Node model-mount bridge keeps
+only thin temporary delegates for these operations; it no longer owns their
+bridge request structs, source markers, backend defaults, or response-field
+envelopes.
+
+This is Rust-core ownership progress, not terminal model-mount control or
+backend-process migration. The broader Node model-mount bridge, command
+dispatch table, shared daemon-core command runner, JS command callers,
+model-mount admission runner, local model-mount materialization, remaining
+provider/lifecycle wrapper delegates, and mounted JS facades remain scaffolding
+until direct Rust daemon-core model-mount APIs own Agentgres expected-head and
+state-root persistence, receipt-bound topology, wallet.network/cTEE authority
+where applicable, replay, projection, and stable IDE/CLI/SDK protocol surfaces
+end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services backend_process --lib` | passed |
+| `cargo test -p ioi-services required --lib` | passed |
+| `cargo test -p ioi-node model_mount --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1129
 
 Slice 1129 moves model-mount read-projection daemon-core command

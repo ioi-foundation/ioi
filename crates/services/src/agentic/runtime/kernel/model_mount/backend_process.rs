@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
@@ -64,6 +65,13 @@ pub struct ModelMountBackendProcessPlan {
     pub plan_hash: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ModelMountBackendProcessPlanBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountBackendProcessPlanRequest,
+}
+
 impl ModelMountBackendProcessPlanRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION {
@@ -98,6 +106,25 @@ pub(super) fn plan_backend_process(
     };
     plan.plan_hash = backend_process_plan_hash(&plan)?;
     Ok(plan)
+}
+
+pub fn plan_model_mount_backend_process_response(
+    request: ModelMountBackendProcessPlanBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let plan = plan_backend_process(&request.request)?;
+    Ok(json!({
+        "source": "rust_model_mount_backend_process_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_process".to_string()),
+        "result": plan.clone(),
+        "supports_supervision": plan.supports_supervision,
+        "supervisor_kind": plan.supervisor_kind,
+        "public_args": plan.public_args,
+        "spawn_args": plan.spawn_args,
+        "spawn_required": plan.spawn_required,
+        "spawn_status": plan.spawn_status,
+        "plan_hash": plan.plan_hash,
+        "evidence_refs": plan.evidence_refs,
+    }))
 }
 
 fn backend_supports_supervision(backend_kind: &str) -> bool {

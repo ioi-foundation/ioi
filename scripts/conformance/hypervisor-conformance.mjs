@@ -6895,6 +6895,60 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-planning-command-envelopes-owned-by-rust-core",
+    /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
+      /pub struct ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_backend_lifecycle_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountServerControlRequiredBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_server_control_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_runtime_engine_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_tokenizer_required_response/.test(modelMountCore) &&
+      /pub struct ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCore) &&
+      /pub fn plan_model_mount_route_control_required_response/.test(modelMountCore) &&
+      /rust_model_mount_backend_process_command/.test(modelMountCore) &&
+      /rust_model_mount_backend_lifecycle_required_command/.test(modelMountCore) &&
+      /rust_model_mount_server_control_required_command/.test(modelMountCore) &&
+      /rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
+      /rust_model_mount_tokenizer_required_command/.test(modelMountCore) &&
+      /rust_model_mount_route_control_required_command/.test(modelMountCore) &&
+      /core_plan_model_mount_backend_process/.test(modelMountCommandBridge) &&
+      /core_plan_model_mount_backend_lifecycle_required/.test(modelMountCommandBridge) &&
+      /core_plan_model_mount_server_control_required/.test(modelMountCommandBridge) &&
+      /core_plan_model_mount_runtime_engine_required/.test(modelMountCommandBridge) &&
+      /core_plan_model_mount_tokenizer_required/.test(modelMountCommandBridge) &&
+      /core_plan_model_mount_route_control_required/.test(modelMountCommandBridge) &&
+      !/struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountServerControlRequiredBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountRuntimeEngineRequiredBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountTokenizerRequiredBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountRouteControlRequiredBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountBackendProcessPlanRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountBackendLifecycleRequiredRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountServerControlRequiredRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountRuntimeEngineRequiredRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountTokenizerRequiredRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountRouteControlRequiredRequest/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_backend_process_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_backend_lifecycle_required_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_server_control_required_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_runtime_engine_required_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_tokenizer_required_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_route_control_required_command/.test(modelMountCommandBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/required.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 migration guard: model-mount backend-process and required-control command request/response envelopes live in Rust model_mount core; Node remains a temporary transport delegate only",
+  );
+  assertCheck(
+    result,
     "external-capability-exit-authority-daemon-runner",
     /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
@@ -13341,12 +13395,14 @@ function runBridge() {
       const backendProcessRunnerBlock =
         modelMountAdmissionRunner.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
       return /plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
-        /ModelMountBackendProcessPlanRequest/.test(modelMountCommandSurface) &&
+        /ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandSurface) &&
+        /core_plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
         /bridge_plans_model_mount_backend_process_through_rust_core/.test(modelMountCommandSurface) &&
-        /"supports_supervision":\s*plan\.supports_supervision/.test(backendProcessBridgeBlock) &&
-        /"public_args":\s*plan\.public_args/.test(backendProcessBridgeBlock) &&
-        /"spawn_args":\s*plan\.spawn_args/.test(backendProcessBridgeBlock) &&
-        /"spawn_status":\s*plan\.spawn_status/.test(backendProcessBridgeBlock) &&
+        /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
+        /"supports_supervision":\s*plan\.supports_supervision/.test(modelMountCore) &&
+        /"public_args":\s*plan\.public_args/.test(modelMountCore) &&
+        /"spawn_args":\s*plan\.spawn_args/.test(modelMountCore) &&
+        /"spawn_status":\s*plan\.spawn_status/.test(modelMountCore) &&
         !/"(?:supportsSupervision|publicArgs|spawnArgs|spawnStatus)":/.test(backendProcessBridgeBlock) &&
         /planBackendProcess\(request\)/.test(modelMountAdmissionRunner) &&
         /operation:\s*"plan_model_mount_backend_process"/.test(modelMountAdmissionRunner) &&
@@ -13387,6 +13443,7 @@ function runBridge() {
     })(),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/product-defaults.test.mjs",

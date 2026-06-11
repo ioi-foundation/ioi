@@ -1,13 +1,16 @@
 use ioi_services::agentic::runtime::kernel::model_mount::{
+    plan_model_mount_backend_lifecycle_required_response as core_plan_model_mount_backend_lifecycle_required,
+    plan_model_mount_backend_process_response as core_plan_model_mount_backend_process,
     plan_model_mount_read_projection_response as core_plan_model_mount_read_projection,
-    ModelMountBackendLifecycleRequiredRequest, ModelMountBackendProcessPlanRequest, ModelMountCore,
-    ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
-    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountProviderResultAdmissionRequest, ModelMountReadProjectionError,
-    ModelMountRouteControlRequiredRequest, ModelMountRouteDecisionRequest,
-    ModelMountRuntimeEngineRequiredRequest, ModelMountServerControlRequiredRequest,
-    ModelMountTokenizerRequiredRequest,
+    plan_model_mount_route_control_required_response as core_plan_model_mount_route_control_required,
+    plan_model_mount_runtime_engine_required_response as core_plan_model_mount_runtime_engine_required,
+    plan_model_mount_server_control_required_response as core_plan_model_mount_server_control_required,
+    plan_model_mount_tokenizer_required_response as core_plan_model_mount_tokenizer_required,
+    ModelMountCore, ModelMountError, ModelMountInstanceLifecycleRequest,
+    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
+    ModelMountReadProjectionError, ModelMountRouteDecisionRequest,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -70,49 +73,13 @@ pub(super) struct ModelMountProviderResultAdmissionBridgeRequest {
     request: ModelMountProviderResultAdmissionRequest,
 }
 
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountBackendProcessPlanBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountBackendProcessPlanRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountBackendLifecycleRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountBackendLifecycleRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountServerControlRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountServerControlRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountRuntimeEngineRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRuntimeEngineRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountTokenizerRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountTokenizerRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-pub(super) struct ModelMountRouteControlRequiredBridgeRequest {
-    #[serde(default)]
-    backend: Option<String>,
-    request: ModelMountRouteControlRequiredRequest,
-}
-
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountBackendLifecycleRequiredBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountBackendProcessPlanBridgeRequest;
 pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountReadProjectionBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountRouteControlRequiredBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountRuntimeEngineRequiredBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountServerControlRequiredBridgeRequest;
+pub(super) use ioi_services::agentic::runtime::kernel::model_mount::ModelMountTokenizerRequiredBridgeRequest;
 
 pub(super) fn admit_model_mount_route_decision(
     request: ModelMountRouteDecisionBridgeRequest,
@@ -476,153 +443,48 @@ pub(super) fn admit_model_mount_provider_result(
 pub(super) fn plan_model_mount_backend_process(
     request: ModelMountBackendProcessPlanBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let plan = ModelMountCore
-        .plan_backend_process(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_backend_process_plan_rejected",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_model_mount_backend_process_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_process".to_string()),
-        "result": plan.clone(),
-        "supports_supervision": plan.supports_supervision,
-        "supervisor_kind": plan.supervisor_kind,
-        "public_args": plan.public_args,
-        "spawn_args": plan.spawn_args,
-        "spawn_required": plan.spawn_required,
-        "spawn_status": plan.spawn_status,
-        "plan_hash": plan.plan_hash,
-        "evidence_refs": plan.evidence_refs,
-    }))
+    core_plan_model_mount_backend_process(request).map_err(|error| {
+        model_mount_bridge_error("model_mount_backend_process_plan_rejected", error)
+    })
 }
 
 pub(super) fn plan_model_mount_backend_lifecycle_required(
     request: ModelMountBackendLifecycleRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ModelMountCore
-        .plan_backend_lifecycle_required(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_backend_lifecycle_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_model_mount_backend_lifecycle_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_lifecycle_required".to_string()),
-        "record": record.clone(),
-        "status": record.status,
-        "status_code": record.status_code,
-        "code": record.code,
-        "message": record.message,
-        "rust_core_boundary": record.rust_core_boundary,
-        "operation_kind": record.operation_kind,
-        "details": record.details,
-    }))
+    core_plan_model_mount_backend_lifecycle_required(request).map_err(|error| {
+        model_mount_bridge_error("model_mount_backend_lifecycle_required_invalid", error)
+    })
 }
 
 pub(super) fn plan_model_mount_server_control_required(
     request: ModelMountServerControlRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ModelMountCore
-        .plan_server_control_required(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_server_control_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_model_mount_server_control_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_server_control_required".to_string()),
-        "record": record.clone(),
-        "status": record.status,
-        "status_code": record.status_code,
-        "code": record.code,
-        "message": record.message,
-        "rust_core_boundary": record.rust_core_boundary,
-        "operation_kind": record.operation_kind,
-        "details": record.details,
-    }))
+    core_plan_model_mount_server_control_required(request).map_err(|error| {
+        model_mount_bridge_error("model_mount_server_control_required_invalid", error)
+    })
 }
 
 pub(super) fn plan_model_mount_runtime_engine_required(
     request: ModelMountRuntimeEngineRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ModelMountCore
-        .plan_runtime_engine_required(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_runtime_engine_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_model_mount_runtime_engine_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_runtime_engine_required".to_string()),
-        "record": record.clone(),
-        "status": record.status,
-        "status_code": record.status_code,
-        "code": record.code,
-        "message": record.message,
-        "rust_core_boundary": record.rust_core_boundary,
-        "operation_kind": record.operation_kind,
-        "details": record.details,
-    }))
+    core_plan_model_mount_runtime_engine_required(request).map_err(|error| {
+        model_mount_bridge_error("model_mount_runtime_engine_required_invalid", error)
+    })
 }
 
 pub(super) fn plan_model_mount_tokenizer_required(
     request: ModelMountTokenizerRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ModelMountCore
-        .plan_tokenizer_required(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_tokenizer_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_model_mount_tokenizer_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_tokenizer_required".to_string()),
-        "record": record.clone(),
-        "status": record.status,
-        "status_code": record.status_code,
-        "code": record.code,
-        "message": record.message,
-        "rust_core_boundary": record.rust_core_boundary,
-        "operation": record.operation,
-        "details": record.details,
-    }))
+    core_plan_model_mount_tokenizer_required(request)
+        .map_err(|error| model_mount_bridge_error("model_mount_tokenizer_required_invalid", error))
 }
 
 pub(super) fn plan_model_mount_route_control_required(
     request: ModelMountRouteControlRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let record = ModelMountCore
-        .plan_route_control_required(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "model_mount_route_control_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_model_mount_route_control_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_route_control_required".to_string()),
-        "record": record.clone(),
-        "status": record.status,
-        "status_code": record.status_code,
-        "code": record.code,
-        "message": record.message,
-        "rust_core_boundary": record.rust_core_boundary,
-        "operation": record.operation,
-        "operation_kind": record.operation_kind,
-        "details": record.details,
-    }))
+    core_plan_model_mount_route_control_required(request).map_err(|error| {
+        model_mount_bridge_error("model_mount_route_control_required_invalid", error)
+    })
 }
 
 pub(super) fn plan_model_mount_read_projection(
@@ -633,4 +495,8 @@ pub(super) fn plan_model_mount_read_projection(
 
 fn read_projection_bridge_error(error: ModelMountReadProjectionError) -> BridgeError {
     BridgeError::new(error.code, error.message)
+}
+
+fn model_mount_bridge_error(code: &'static str, error: ModelMountError) -> BridgeError {
+    BridgeError::new(code, format!("{error:?}"))
 }

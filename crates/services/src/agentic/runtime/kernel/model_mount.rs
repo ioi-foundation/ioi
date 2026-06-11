@@ -10,7 +10,8 @@ pub use accepted_receipt::{
 };
 mod backend_process;
 pub use backend_process::{
-    ModelMountBackendProcessLoadOptions, ModelMountBackendProcessPlan,
+    plan_model_mount_backend_process_response, ModelMountBackendProcessLoadOptions,
+    ModelMountBackendProcessPlan, ModelMountBackendProcessPlanBridgeRequest,
     ModelMountBackendProcessPlanRequest,
 };
 mod common;
@@ -61,10 +62,17 @@ pub use read_projection::{
 };
 mod required;
 pub use required::{
+    plan_model_mount_backend_lifecycle_required_response,
+    plan_model_mount_route_control_required_response,
+    plan_model_mount_runtime_engine_required_response,
+    plan_model_mount_server_control_required_response,
+    plan_model_mount_tokenizer_required_response, ModelMountBackendLifecycleRequiredBridgeRequest,
     ModelMountBackendLifecycleRequiredRecord, ModelMountBackendLifecycleRequiredRequest,
-    ModelMountRouteControlRequiredRecord, ModelMountRouteControlRequiredRequest,
+    ModelMountRouteControlRequiredBridgeRequest, ModelMountRouteControlRequiredRecord,
+    ModelMountRouteControlRequiredRequest, ModelMountRuntimeEngineRequiredBridgeRequest,
     ModelMountRuntimeEngineRequiredRecord, ModelMountRuntimeEngineRequiredRequest,
-    ModelMountServerControlRequiredRecord, ModelMountServerControlRequiredRequest,
+    ModelMountServerControlRequiredBridgeRequest, ModelMountServerControlRequiredRecord,
+    ModelMountServerControlRequiredRequest, ModelMountTokenizerRequiredBridgeRequest,
     ModelMountTokenizerRequiredRecord, ModelMountTokenizerRequiredRequest,
 };
 

@@ -6396,6 +6396,29 @@ projection APIs over Agentgres expected-head and state-root truth,
 receipt-bound topology, wallet.network/cTEE authority where applicable,
 replay, projection, and stable IDE/CLI/SDK surfaces end to end.
 
+Slice 1130 moves model-mount backend-process and required-control command
+request/response shaping out of the temporary Node model-mount bridge and into
+Rust `model_mount/backend_process.rs` plus `model_mount/required.rs`. Rust core
+now owns the bridge request structs, response envelopes, canonical command
+source markers, backend defaults, and bridge-facing error propagation for
+`plan_model_mount_backend_process`,
+`plan_model_mount_backend_lifecycle_required`,
+`plan_model_mount_server_control_required`,
+`plan_model_mount_runtime_engine_required`,
+`plan_model_mount_tokenizer_required`, and
+`plan_model_mount_route_control_required`; the remaining Node functions only
+delegate to the Rust response functions.
+
+This remains non-terminal because model-mount command transport, command
+dispatch, the shared daemon-core command runner, JS command callers, local
+model-mount materialization, provider/lifecycle wrapper delegates, and mounted
+JS facades still exist. The remaining `ioi_step_module_bridge/model_mount_command.rs`
+file is temporary transport scaffolding, not a durable backend-process or
+required-control boundary. The long-term target remains direct Rust daemon-core
+model-mount control/projection APIs over Agentgres expected-head and state-root
+truth, receipt-bound topology, wallet.network/cTEE authority where applicable,
+replay, projection, and stable IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
