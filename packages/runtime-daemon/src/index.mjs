@@ -753,6 +753,7 @@ export class AgentgresRuntimeStateStore {
       subagentReceiverForRequest,
       threadIdForAgent,
     });
+    this.threadMemorySurface = threadMemoryState;
     this.runtimeDoctorReport = createRuntimeDoctorReport({
       doctorCheck,
       doctorHash,

@@ -644,7 +644,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.memoryPolicyForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPolicyForAgent(store, agentId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
@@ -652,7 +652,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-      writeJsonResponse(response, store.memoryPathForAgent(agentId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPathForAgent(store, agentId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
@@ -664,7 +664,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory") {
-      writeJsonResponse(response, store.listMemoryForAgent(agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
+      writeJsonResponse(response, store.threadMemorySurface.publicListMemoryForAgent(store, agentId, Object.fromEntries(new URL(request.url ?? "/", "http://127.0.0.1").searchParams.entries())));
       return;
     }
     if (request.method === "POST" && action === "memory") {
@@ -1091,7 +1091,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {
-      writeJsonResponse(response, store.memoryPolicyForThread(threadId));
+      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPolicyForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PUT" || request.method === "PATCH") && action === "memory" && segments[4] === "policy") {
@@ -1099,7 +1099,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "path") {
-      writeJsonResponse(response, store.memoryPathForThread(threadId));
+      writeJsonResponse(response, store.threadMemorySurface.publicMemoryPathForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if ((request.method === "PATCH" || request.method === "PUT") && action === "memory" && segments[4]) {
@@ -1111,7 +1111,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "memory") {
-      writeJsonResponse(response, store.listMemoryForThread(threadId, Object.fromEntries(url.searchParams.entries())));
+      writeJsonResponse(response, store.threadMemorySurface.publicListMemoryForThread(store, threadId, Object.fromEntries(url.searchParams.entries())));
       return;
     }
     if (request.method === "POST" && action === "memory") {

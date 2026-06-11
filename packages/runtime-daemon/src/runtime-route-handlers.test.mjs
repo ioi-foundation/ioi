@@ -340,6 +340,132 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
   ]);
 });
 
+test("agent and thread memory read routes use mounted thread memory surface", async () => {
+  const { handleAgentRoute, handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const rustCoreRequired = (details = {}) => {
+    const error = new Error("thread memory control requires Rust core");
+    error.status = 501;
+    error.code = "runtime_thread_memory_control_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.thread_memory_control",
+      ...details,
+    };
+    throw error;
+  };
+  const threadMemorySurface = {
+    publicMemoryPolicyForAgent(surfaceStore, agentId, options) {
+      calls.push({ method: "publicMemoryPolicyForAgent", surfaceStore, agentId, options });
+      rustCoreRequired({ requested_control_kind: "memory_policy_projection", agent_id: agentId });
+    },
+    publicMemoryPathForAgent(surfaceStore, agentId, options) {
+      calls.push({ method: "publicMemoryPathForAgent", surfaceStore, agentId, options });
+      rustCoreRequired({ requested_control_kind: "memory_path_projection", agent_id: agentId });
+    },
+    publicListMemoryForAgent(surfaceStore, agentId, options) {
+      calls.push({ method: "publicListMemoryForAgent", surfaceStore, agentId, options });
+      rustCoreRequired({ requested_control_kind: "memory_read_projection", agent_id: agentId });
+    },
+    publicMemoryPolicyForThread(surfaceStore, threadId, options) {
+      calls.push({ method: "publicMemoryPolicyForThread", surfaceStore, threadId, options });
+      rustCoreRequired({ requested_control_kind: "memory_policy_projection", thread_id: threadId });
+    },
+    publicMemoryPathForThread(surfaceStore, threadId, options) {
+      calls.push({ method: "publicMemoryPathForThread", surfaceStore, threadId, options });
+      rustCoreRequired({ requested_control_kind: "memory_path_projection", thread_id: threadId });
+    },
+    publicListMemoryForThread(surfaceStore, threadId, options) {
+      calls.push({ method: "publicListMemoryForThread", surfaceStore, threadId, options });
+      rustCoreRequired({ requested_control_kind: "memory_read_projection", thread_id: threadId });
+    },
+  };
+  const store = {
+    threadMemorySurface,
+    listMemoryForAgent: retiredRouteWrapper,
+    memoryPolicyForAgent: retiredRouteWrapper,
+    memoryPathForAgent: retiredRouteWrapper,
+    listMemoryForThread: retiredRouteWrapper,
+    memoryPolicyForThread: retiredRouteWrapper,
+    memoryPathForThread: retiredRouteWrapper,
+  };
+
+  for (const path of [
+    "/v1/agents/agent_route/memory/policy?thread_id=thread_custom",
+    "/v1/agents/agent_route/memory/path?thread_id=thread_custom",
+    "/v1/agents/agent_route/memory?query=deploy",
+  ]) {
+    await assert.rejects(
+      () => handleAgentRoute({
+        request: request({ url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      { code: "runtime_thread_memory_control_rust_core_required" },
+    );
+  }
+  for (const path of [
+    "/v1/threads/thread_route/memory/policy?redaction=summary",
+    "/v1/threads/thread_route/memory/path",
+    "/v1/threads/thread_route/memory?query=deploy",
+  ]) {
+    await assert.rejects(
+      () => handleThreadRoute({
+        request: request({ url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: new URL(path, "http://daemon.test").pathname.split("/").filter(Boolean),
+      }),
+      { code: "runtime_thread_memory_control_rust_core_required" },
+    );
+  }
+
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(
+    calls.map(({ method, agentId, threadId, options }) => ({ method, agentId, threadId, options })),
+    [
+      {
+        method: "publicMemoryPolicyForAgent",
+        agentId: "agent_route",
+        threadId: undefined,
+        options: { thread_id: "thread_custom" },
+      },
+      {
+        method: "publicMemoryPathForAgent",
+        agentId: "agent_route",
+        threadId: undefined,
+        options: { thread_id: "thread_custom" },
+      },
+      {
+        method: "publicListMemoryForAgent",
+        agentId: "agent_route",
+        threadId: undefined,
+        options: { query: "deploy" },
+      },
+      {
+        method: "publicMemoryPolicyForThread",
+        agentId: undefined,
+        threadId: "thread_route",
+        options: { redaction: "summary" },
+      },
+      {
+        method: "publicMemoryPathForThread",
+        agentId: undefined,
+        threadId: "thread_route",
+        options: {},
+      },
+      {
+        method: "publicListMemoryForThread",
+        agentId: undefined,
+        threadId: "thread_route",
+        options: { query: "deploy" },
+      },
+    ],
+  );
+});
+
 test("thread route sends admission controls through mounted admission surfaces", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];

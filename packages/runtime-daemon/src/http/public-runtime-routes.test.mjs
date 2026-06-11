@@ -205,6 +205,80 @@ test("public runtime run list route fails closed through lifecycle projection su
   assert.equal(unfilteredResponse.error.details.agent_id, null);
 });
 
+test("public runtime memory projection routes fail closed through thread memory surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const rustCoreRequired = (details = {}) => {
+    const error = new Error("thread memory control requires Rust core");
+    error.status = 501;
+    error.code = "runtime_thread_memory_control_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.thread_memory_control",
+      ...details,
+    };
+    throw error;
+  };
+  const store = {
+    threadMemorySurface: {
+      publicMemoryStatus(surfaceStore, options) {
+        calls.push({ method: "publicMemoryStatus", surfaceStore, options });
+        rustCoreRequired({ requested_control_kind: "memory_status_projection" });
+      },
+      publicMemoryProjectionForContext(surfaceStore, options) {
+        calls.push({ method: "publicMemoryProjectionForContext", surfaceStore, options });
+        rustCoreRequired({ requested_control_kind: "memory_read_projection" });
+      },
+      publicMemoryPolicyForContext(surfaceStore, options) {
+        calls.push({ method: "publicMemoryPolicyForContext", surfaceStore, options });
+        rustCoreRequired({ requested_control_kind: "memory_policy_projection" });
+      },
+      publicMemoryPathForContext(surfaceStore, options) {
+        calls.push({ method: "publicMemoryPathForContext", surfaceStore, options });
+        rustCoreRequired({ requested_control_kind: "memory_path_projection" });
+      },
+      publicValidateMemory(surfaceStore, input) {
+        calls.push({ method: "publicValidateMemory", surfaceStore, input });
+        rustCoreRequired({ requested_control_kind: "memory_validate_projection" });
+      },
+    },
+    memoryProjectionForContext: retiredRouteWrapper,
+    memoryStatus: retiredRouteWrapper,
+    validateMemory: retiredRouteWrapper,
+  };
+
+  for (const path of [
+    "/v1/memory?thread_id=thread_route",
+    "/v1/memory/records?thread_id=thread_route",
+    "/v1/memory/policy?agent_id=agent_route",
+    "/v1/memory/path?thread_id=thread_route",
+  ]) {
+    const response = responseRecorder();
+    await handleRequest({ request: request({ url: path }), response, store });
+    assert.equal(response.statusCode, 501);
+    assert.equal(response.error.code, "runtime_thread_memory_control_rust_core_required");
+  }
+
+  const validateResponse = responseRecorder();
+  await handleRequest({
+    request: request({ method: "POST", url: "/v1/memory/validate", body: { thread_id: "thread_route" } }),
+    response: validateResponse,
+    store,
+  });
+  assert.equal(validateResponse.statusCode, 501);
+  assert.equal(validateResponse.error.code, "runtime_thread_memory_control_rust_core_required");
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(
+    calls.map(({ method, options, input }) => ({ method, options, input })),
+    [
+      { method: "publicMemoryStatus", options: { thread_id: "thread_route" }, input: undefined },
+      { method: "publicMemoryProjectionForContext", options: { thread_id: "thread_route" }, input: undefined },
+      { method: "publicMemoryPolicyForContext", options: { agent_id: "agent_route" }, input: undefined },
+      { method: "publicMemoryPathForContext", options: { thread_id: "thread_route" }, input: undefined },
+      { method: "publicValidateMemory", options: undefined, input: { thread_id: "thread_route" } },
+    ],
+  );
+});
+
 test("public runtime task and job routes use task job surface directly", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

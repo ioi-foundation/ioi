@@ -197,7 +197,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/memory") {
-        writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.threadMemorySurface.publicMemoryStatus(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/runs") {
@@ -261,23 +261,23 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/memory") {
-        writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.threadMemorySurface.publicMemoryStatus(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/memory/records") {
-        writeJsonResponse(response, store.memoryProjectionForContext(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.threadMemorySurface.publicMemoryProjectionForContext(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/memory/policy") {
-        writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())).policy);
+        writeJsonResponse(response, store.threadMemorySurface.publicMemoryPolicyForContext(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/memory/path") {
-        writeJsonResponse(response, store.memoryStatus(Object.fromEntries(url.searchParams.entries())).paths);
+        writeJsonResponse(response, store.threadMemorySurface.publicMemoryPathForContext(store, Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/memory/validate") {
-        writeJsonResponse(response, store.validateMemory(await readBody(request)));
+        writeJsonResponse(response, store.threadMemorySurface.publicValidateMemory(store, await readBody(request)));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/mcp") {

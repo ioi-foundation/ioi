@@ -52,6 +52,7 @@ export function createThreadMemoryState({
         memory_id: memoryId,
         evidence_refs: [
           "runtime_thread_memory_control_js_facade_retired",
+          "runtime_thread_memory_read_projection_js_facade_retired",
           "runtime_thread_memory_write_js_facade_retired",
           "runtime_thread_memory_policy_js_facade_retired",
           "runtime_thread_memory_status_validation_js_facade_retired",
@@ -179,6 +180,136 @@ export function createThreadMemoryState({
     throwThreadMemoryRustCoreRequired({ operation: "delete", memoryId });
   }
 
+  function publicListMemoryForThread(store, threadId, options = {}) {
+    void store;
+    void options;
+    throwThreadMemoryRustCoreRequired({
+      operation: "read_projection",
+      controlKind: "memory_read_projection",
+      threadId,
+    });
+  }
+
+  function publicMemoryPolicyForThread(store, threadId, options = {}) {
+    void store;
+    void options;
+    throwThreadMemoryRustCoreRequired({
+      operation: "policy_projection",
+      controlKind: "memory_policy_projection",
+      threadId,
+    });
+  }
+
+  function publicMemoryPathForThread(store, threadId, options = {}) {
+    void store;
+    void options;
+    throwThreadMemoryRustCoreRequired({
+      operation: "path_projection",
+      controlKind: "memory_path_projection",
+      threadId,
+    });
+  }
+
+  function publicListMemoryForAgent(store, agentId, options = {}) {
+    void store;
+    void options;
+    throwThreadMemoryRustCoreRequired({
+      operation: "read_projection",
+      controlKind: "memory_read_projection",
+      agentId,
+    });
+  }
+
+  function publicMemoryPolicyForAgent(store, agentId, options = {}) {
+    void store;
+    void options;
+    throwThreadMemoryRustCoreRequired({
+      operation: "policy_projection",
+      controlKind: "memory_policy_projection",
+      agentId,
+    });
+  }
+
+  function publicMemoryPathForAgent(store, agentId, options = {}) {
+    void store;
+    void options;
+    throwThreadMemoryRustCoreRequired({
+      operation: "path_projection",
+      controlKind: "memory_path_projection",
+      agentId,
+    });
+  }
+
+  function publicMemoryProjectionForContext(store, options = {}) {
+    const threadId = optionalString(options.thread_id);
+    const agentId =
+      optionalString(options.agent_id) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    void store;
+    throwThreadMemoryRustCoreRequired({
+      operation: "read_projection",
+      controlKind: "memory_read_projection",
+      threadId: threadId ?? null,
+      agentId: agentId ?? null,
+    });
+  }
+
+  function publicMemoryStatus(store, options = {}) {
+    const threadId = optionalString(options.thread_id);
+    const agentId =
+      optionalString(options.agent_id) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    void store;
+    throwThreadMemoryRustCoreRequired({
+      operation: "status_projection",
+      controlKind: "memory_status_projection",
+      threadId: threadId ?? null,
+      agentId: agentId ?? null,
+    });
+  }
+
+  function publicMemoryPolicyForContext(store, options = {}) {
+    const threadId = optionalString(options.thread_id);
+    const agentId =
+      optionalString(options.agent_id) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    void store;
+    throwThreadMemoryRustCoreRequired({
+      operation: "policy_projection",
+      controlKind: "memory_policy_projection",
+      threadId: threadId ?? null,
+      agentId: agentId ?? null,
+    });
+  }
+
+  function publicMemoryPathForContext(store, options = {}) {
+    const threadId = optionalString(options.thread_id);
+    const agentId =
+      optionalString(options.agent_id) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    void store;
+    throwThreadMemoryRustCoreRequired({
+      operation: "path_projection",
+      controlKind: "memory_path_projection",
+      threadId: threadId ?? null,
+      agentId: agentId ?? null,
+    });
+  }
+
+  function publicValidateMemory(store, input = {}) {
+    const threadId = optionalString(input.thread_id);
+    const agentId =
+      optionalString(input.agent_id) ??
+      (threadId ? agentIdForThread(threadId) : undefined);
+    void store;
+    throwThreadMemoryRustCoreRequired({
+      operation: "validate_projection",
+      controlKind: "memory_validate_projection",
+      threadId: threadId ?? null,
+      agentId: agentId ?? null,
+    });
+  }
+
   function memoryProjectionForContext(store, options = {}) {
     const threadId = optionalString(options.thread_id);
     const agentId =
@@ -285,6 +416,17 @@ export function createThreadMemoryState({
     memoryPolicyForThread,
     memoryProjectionForContext,
     memoryStatus,
+    publicListMemoryForAgent,
+    publicListMemoryForThread,
+    publicMemoryPathForAgent,
+    publicMemoryPathForContext,
+    publicMemoryPathForThread,
+    publicMemoryPolicyForAgent,
+    publicMemoryPolicyForContext,
+    publicMemoryPolicyForThread,
+    publicMemoryProjectionForContext,
+    publicMemoryStatus,
+    publicValidateMemory,
     recordThreadMemoryMutation,
     recordThreadMemoryStatus,
     rememberForAgent,

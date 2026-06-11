@@ -7680,6 +7680,7 @@ function runBridge() {
       ) &&
       /runtime_thread_memory_control_rust_core_required/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_read_projection_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_status_validation_js_facade_retired/.test(
@@ -7708,6 +7709,9 @@ function runBridge() {
       /thread memory mutation and policy facades fail closed before JS store mutation/.test(
         runtimeThreadMemoryStateTest,
       ) &&
+      /route-facing memory read projections fail closed before JS memory store readback/.test(
+        runtimeThreadMemoryStateTest,
+      ) &&
       /thread memory status and validation facades fail closed before event append or Rust planning/.test(
         runtimeThreadMemoryStateTest,
       ) &&
@@ -7727,6 +7731,10 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
       "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 10/11 is pending: thread-memory mutation/control must fail closed until Rust daemon-core owns memory admission, persistence, replay, and projection; bridge planners remain migration plumbing only",
@@ -19809,6 +19817,73 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-memory-route-read-projections-fail-closed",
+    /this\.threadMemorySurface = threadMemoryState/.test(runtimeDaemonIndex) &&
+      /publicListMemoryForThread/.test(runtimeThreadMemoryState) &&
+      /publicMemoryPolicyForThread/.test(runtimeThreadMemoryState) &&
+      /publicMemoryPathForThread/.test(runtimeThreadMemoryState) &&
+      /publicListMemoryForAgent/.test(runtimeThreadMemoryState) &&
+      /publicMemoryPolicyForAgent/.test(runtimeThreadMemoryState) &&
+      /publicMemoryPathForAgent/.test(runtimeThreadMemoryState) &&
+      /publicMemoryProjectionForContext/.test(runtimeThreadMemoryState) &&
+      /publicMemoryStatus/.test(runtimeThreadMemoryState) &&
+      /publicMemoryPolicyForContext/.test(runtimeThreadMemoryState) &&
+      /publicMemoryPathForContext/.test(runtimeThreadMemoryState) &&
+      /publicValidateMemory/.test(runtimeThreadMemoryState) &&
+      /store\.threadMemorySurface\.publicMemoryPolicyForAgent\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.publicMemoryPathForAgent\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.publicListMemoryForAgent\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.publicMemoryPolicyForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.publicMemoryPathForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.publicListMemoryForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.publicMemoryStatus\(store,/.test(publicRuntimeRoutes) &&
+      /store\.threadMemorySurface\.publicMemoryProjectionForContext\(store,/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.threadMemorySurface\.publicMemoryPolicyForContext\(store,/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.threadMemorySurface\.publicMemoryPathForContext\(store,/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.threadMemorySurface\.publicValidateMemory\(store,/.test(publicRuntimeRoutes) &&
+      /agent and thread memory read routes use mounted thread memory surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      /public runtime memory projection routes fail closed through thread memory surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      !/store\.(?:listMemoryForThread|memoryPolicyForThread|memoryPathForThread|listMemoryForAgent|memoryPolicyForAgent|memoryPathForAgent)\(/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.(?:memoryStatus|memoryProjectionForContext|validateMemory)\(/.test(
+        publicRuntimeRoutes,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.mjs",
+      "packages/runtime-daemon/src/threads/thread-memory-state.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+    ],
+    "Phase 10/11 is pending: public memory read/status/policy/path/validation routes must fail closed through the mounted Rust-core-required memory surface before JS memory-store readback",
+  );
+  assertCheck(
+    result,
     "agent-memory-read-query-alias-retired",
     /const threadId = options\.thread_id \?\? threadIdForAgent\(agent\.id\)/.test(
       runtimeThreadMemoryState,
@@ -19877,6 +19952,7 @@ function runCompositor() {
       runtimeThreadMemoryState,
     ) &&
       /runtime_thread_memory_control_js_facade_retired/.test(runtimeThreadMemoryState) &&
+      /runtime_thread_memory_read_projection_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_write_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /runtime_thread_memory_policy_js_facade_retired/.test(runtimeThreadMemoryState) &&
       /thread memory mutation and policy facades fail closed before JS store mutation/.test(

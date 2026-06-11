@@ -192,6 +192,7 @@ function assertThreadMemoryRustCoreRequired(error, expected = {}) {
   assert.equal(error.details.memory_id, expected.memoryId ?? null);
   assert.deepEqual(error.details.evidence_refs, [
     "runtime_thread_memory_control_js_facade_retired",
+    "runtime_thread_memory_read_projection_js_facade_retired",
     "runtime_thread_memory_write_js_facade_retired",
     "runtime_thread_memory_policy_js_facade_retired",
     "runtime_thread_memory_status_validation_js_facade_retired",
@@ -338,6 +339,89 @@ test("thread memory mutation and policy facades fail closed before JS store muta
     {
       call: () => state.deleteMemoryRecord(store, "memory_1", {}),
       expected: { operation: "delete", controlKind: "memory_delete", memoryId: "memory_1" },
+    },
+  ];
+
+  for (const { call, expected } of cases) {
+    assert.throws(
+      call,
+      (error) => {
+        assertThreadMemoryRustCoreRequired(error, expected);
+        return true;
+      },
+    );
+  }
+
+  assert.deepEqual(calls, []);
+});
+
+test("route-facing memory read projections fail closed before JS memory store readback", () => {
+  const { calls, state, store } = createHarness();
+
+  const cases = [
+    {
+      call: () => state.publicListMemoryForThread(store, "thread_a", { query: "deploy" }),
+      expected: { operation: "read_projection", controlKind: "memory_read_projection", threadId: "thread_a" },
+    },
+    {
+      call: () => state.publicMemoryPolicyForThread(store, "thread_a", {}),
+      expected: { operation: "policy_projection", controlKind: "memory_policy_projection", threadId: "thread_a" },
+    },
+    {
+      call: () => state.publicMemoryPathForThread(store, "thread_a", {}),
+      expected: { operation: "path_projection", controlKind: "memory_path_projection", threadId: "thread_a" },
+    },
+    {
+      call: () => state.publicListMemoryForAgent(store, "agent_a", { query: "deploy" }),
+      expected: { operation: "read_projection", controlKind: "memory_read_projection", agentId: "agent_a" },
+    },
+    {
+      call: () => state.publicMemoryPolicyForAgent(store, "agent_a", {}),
+      expected: { operation: "policy_projection", controlKind: "memory_policy_projection", agentId: "agent_a" },
+    },
+    {
+      call: () => state.publicMemoryPathForAgent(store, "agent_a", {}),
+      expected: { operation: "path_projection", controlKind: "memory_path_projection", agentId: "agent_a" },
+    },
+    {
+      call: () => state.publicMemoryProjectionForContext(store, { thread_id: "thread_a" }),
+      expected: {
+        operation: "read_projection",
+        controlKind: "memory_read_projection",
+        threadId: "thread_a",
+        agentId: "agent_a",
+      },
+    },
+    {
+      call: () => state.publicMemoryStatus(store, { agent_id: "agent_a" }),
+      expected: { operation: "status_projection", controlKind: "memory_status_projection", agentId: "agent_a" },
+    },
+    {
+      call: () => state.publicMemoryPolicyForContext(store, { thread_id: "thread_a" }),
+      expected: {
+        operation: "policy_projection",
+        controlKind: "memory_policy_projection",
+        threadId: "thread_a",
+        agentId: "agent_a",
+      },
+    },
+    {
+      call: () => state.publicMemoryPathForContext(store, { thread_id: "thread_a" }),
+      expected: {
+        operation: "path_projection",
+        controlKind: "memory_path_projection",
+        threadId: "thread_a",
+        agentId: "agent_a",
+      },
+    },
+    {
+      call: () => state.publicValidateMemory(store, { thread_id: "thread_a" }),
+      expected: {
+        operation: "validate_projection",
+        controlKind: "memory_validate_projection",
+        threadId: "thread_a",
+        agentId: "agent_a",
+      },
     },
   ];
 
