@@ -15785,6 +15785,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1074
+
+Slice 1074 retires duplicate bridge-local command-envelope identity checks from
+the approval and workspace-restore command wrappers. `approval_command.rs` now
+deserializes only body-specific backend/request fields for coding-tool approval
+manifest planning and approval request/decision/revoke state-update planning.
+`workspace_restore_command.rs` now does the same for workspace-restore
+apply-policy planning, preview/apply operations, and workspace snapshot capture.
+Neither child module carries local `schema_version`/`operation` fields or local
+`schema_version_invalid`/`operation_unsupported` branches.
+
+The fail-closed schema-family proofs for approval and workspace-restore
+operations now live at the Rust command protocol boundary through
+`validate_command_envelope()`. The approval policy/authority planning,
+workspace-restore policy planning, file preview/apply logic, and snapshot
+capture logic remain in their Rust cores. Conformance now fails if either child
+wrapper regains local envelope identity. This is not terminal bridge retirement:
+`command_dispatch.rs`, the StepModule command helper, and the shared
+daemon-core command helper still must be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1073
 
 Slice 1073 retires duplicate bridge-local command-envelope identity checks from

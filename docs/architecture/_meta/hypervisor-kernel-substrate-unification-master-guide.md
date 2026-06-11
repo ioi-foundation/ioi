@@ -5422,6 +5422,24 @@ execution, Agentgres admission, receipt/state-root binding, replay, projection,
 wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
 surfaces.
 
+Slice 1074 retires duplicate bridge-local envelope identity checks from the
+approval and workspace-restore command wrappers. The approval child module no
+longer carries local `schema_version` or `operation` fields for coding-tool
+approval manifests or approval request/decision/revoke state-update planning,
+and the workspace-restore child module no longer carries those fields for
+apply-policy planning, preview/apply operations, or snapshot capture. The
+wrappers now deserialize only body-specific backend/request fields before
+entering the Rust approval and workspace-restore cores. The StepModule-schema
+rejection proofs for those operations now live at the Rust command protocol
+validator boundary. Conformance now fails if approval or workspace-restore
+child modules regain local command-envelope identity. This is still not
+terminal bridge retirement: the remaining `command_dispatch.rs` function table,
+StepModule command helper, and shared daemon-core command helper must still be
+replaced by direct Rust daemon-core/workload protocol APIs over Rust/WASM
+execution, Agentgres admission, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

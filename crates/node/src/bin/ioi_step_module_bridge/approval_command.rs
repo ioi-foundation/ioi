@@ -7,13 +7,10 @@ use ioi_services::agentic::runtime::kernel::approval::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct CodingToolApprovalBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: CodingToolApprovalRequest,
@@ -21,9 +18,6 @@ pub(super) struct CodingToolApprovalBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ApprovalRequestStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ApprovalRequestStateUpdateRequest,
@@ -31,9 +25,6 @@ pub(super) struct ApprovalRequestStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ApprovalDecisionStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ApprovalDecisionStateUpdateRequest,
@@ -41,9 +32,6 @@ pub(super) struct ApprovalDecisionStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ApprovalRevokeStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ApprovalRevokeStateUpdateRequest,
@@ -52,21 +40,6 @@ pub(super) struct ApprovalRevokeStateUpdateBridgeRequest {
 pub(super) fn plan_coding_tool_approval_manifest(
     request: CodingToolApprovalBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_coding_tool_approval_manifest" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let plan = CodingToolApprovalCore
         .plan_manifest(&request.request)
         .map_err(|error| {
@@ -89,21 +62,6 @@ pub(super) fn plan_coding_tool_approval_manifest(
 pub(super) fn plan_approval_request_state_update(
     request: ApprovalRequestStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_approval_request_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ApprovalRequestStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -129,21 +87,6 @@ pub(super) fn plan_approval_request_state_update(
 pub(super) fn plan_approval_decision_state_update(
     request: ApprovalDecisionStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_approval_decision_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ApprovalDecisionStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -169,21 +112,6 @@ pub(super) fn plan_approval_decision_state_update(
 pub(super) fn plan_approval_revoke_state_update(
     request: ApprovalRevokeStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_approval_revoke_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ApprovalRevokeStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {

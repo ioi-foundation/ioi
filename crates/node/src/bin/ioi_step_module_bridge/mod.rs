@@ -3088,47 +3088,15 @@ mod tests {
 
     #[test]
     fn workspace_restore_apply_rejects_step_module_command_schema() {
-        let workspace = temp_workspace("apply-retired-schema");
-        let target = workspace.join("src/app.js");
-        fs::create_dir_all(target.parent().expect("parent")).expect("mkdir");
-        fs::write(&target, "new").expect("write current");
-        let old_hash = sha256_hex(b"old").expect("old hash");
-        let new_hash = sha256_hex(b"new").expect("new hash");
-        let request: WorkspaceRestoreOperationsBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "apply_workspace_restore_operations",
-            "backend": "rust_workspace_restore",
-            "request": {
-                "schema_version": "ioi.workspace_restore_apply_operations_request.v1",
-                "workspace_root": workspace.to_string_lossy(),
-                "max_diff_bytes": 4096,
-                "allow_conflicts": false,
-                "files": [
-                    {
-                        "path": "src/app.js",
-                        "before": {
-                            "exists": true,
-                            "content_hash": old_hash,
-                            "content": "old"
-                        },
-                        "after": {
-                            "exists": true,
-                            "content_hash": new_hash
-                        }
-                    }
-                ]
-            }
-        }))
-        .expect("workspace restore operations bridge request");
+        let error = validate_command_envelope(
+            "apply_workspace_restore_operations",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before restore dispatch");
 
-        let error = apply_workspace_restore_operations(request)
-            .expect_err("daemon-core workspace restore rejects StepModule command schema");
-
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-        assert_eq!(fs::read_to_string(&target).expect("not restored"), "new");
-        let _ = fs::remove_dir_all(workspace);
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
@@ -3463,54 +3431,30 @@ mod tests {
 
     #[test]
     fn approval_authority_rejects_step_module_command_schema() {
-        let request: CodingToolApprovalBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_coding_tool_approval_manifest",
-            "backend": "rust_authority",
-            "request": {
-                "schema_version": "ioi.runtime.coding-tool-approval-request.v1",
-                "thread_id": "thread_approval",
-                "tool_id": "file.apply_patch",
-                "tool_call_id": "call_approval",
-                "effect_class": "workspace_write",
-                "input": { "path": "src/app.js" }
-            }
-        }))
-        .expect("coding-tool approval bridge request");
+        let error = validate_command_envelope(
+            "plan_coding_tool_approval_manifest",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before approval dispatch");
 
-        let error = plan_coding_tool_approval_manifest(request)
-            .expect_err("approval authority must reject StepModule bridge schema");
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
     fn approval_state_rejects_step_module_command_schema() {
-        let request: ApprovalRequestStateUpdateBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "plan_approval_request_state_update",
-            "backend": "rust_authority",
-            "request": {
-                "schema_version": "ioi.runtime.approval-request-state-update-request.v1",
-                "thread_id": "thread_alpha",
-                "run_id": "run_alpha",
-                "run": { "id": "run_alpha", "trace": {} },
-                "event_id": "event_approval",
-                "seq": 3,
-                "created_at": "2026-06-06T04:30:00.000Z",
-                "approval_id": "approval_alpha",
-                "source": "runtime_auto",
-                "reason": "Need permission"
-            }
-        }))
-        .expect("approval request state update bridge request");
+        let error = validate_command_envelope(
+            "plan_approval_request_state_update",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err(
+            "Rust command protocol rejects StepModule schema before approval-state dispatch",
+        );
 
-        let error = plan_approval_request_state_update(request)
-            .expect_err("approval state must reject StepModule bridge schema");
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

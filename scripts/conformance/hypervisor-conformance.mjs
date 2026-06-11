@@ -5940,7 +5940,6 @@ function runBridge() {
       /mod approval_command;/.test(bridgeModule) &&
       /fn plan_coding_tool_approval_manifest/.test(approvalCommandBridge) &&
       /CodingToolApprovalBridgeRequest/.test(approvalCommandBridge) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(approvalCommandBridge) &&
       /approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_coding_tool_approval_command/.test(approvalCommandBridge) &&
       /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
@@ -6116,6 +6115,59 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
     ],
     "Phase 7/8/9/10 remains non-terminal: governed-admission child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before cTEE, package, L1, and governed-improvement dispatch",
+  );
+  const approvalWorkspaceCommandWrappers = [
+    approvalCommandBridge,
+    workspaceRestoreCommandBridge,
+  ].join("\n");
+  assertCheck(
+    result,
+    "bridge-approval-workspace-local-envelope-checks-retired",
+    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(approvalWorkspaceCommandWrappers) &&
+      !/schema_version:\s*String/.test(approvalWorkspaceCommandWrappers) &&
+      !/operation:\s*String/.test(approvalWorkspaceCommandWrappers) &&
+      !/schema_version_invalid/.test(approvalWorkspaceCommandWrappers) &&
+      !/operation_unsupported/.test(approvalWorkspaceCommandWrappers) &&
+      /validate_command_envelope\(\s*"plan_coding_tool_approval_manifest",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"plan_approval_request_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"apply_workspace_restore_operations",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /pub\(super\) fn plan_coding_tool_approval_manifest/.test(
+        approvalCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_approval_request_state_update/.test(
+        approvalCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_approval_decision_state_update/.test(
+        approvalCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_approval_revoke_state_update/.test(
+        approvalCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_workspace_restore_apply_policy/.test(
+        workspaceRestoreCommandBridge,
+      ) &&
+      /pub\(super\) fn preview_workspace_restore_operations/.test(
+        workspaceRestoreCommandBridge,
+      ) &&
+      /pub\(super\) fn apply_workspace_restore_operations/.test(
+        workspaceRestoreCommandBridge,
+      ) &&
+      /pub\(super\) fn capture_workspace_snapshot_files/.test(
+        workspaceRestoreCommandBridge,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs",
+    ],
+    "Phase 10/11 remains non-terminal: approval and workspace-restore child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before approval or restore dispatch",
   );
   assertCheck(
     result,
@@ -6456,7 +6508,6 @@ function runBridge() {
       ) &&
       /fn plan_approval_request_state_update/.test(approvalCommandBridge) &&
       /ApprovalRequestStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(approvalCommandBridge) &&
       /approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_approval_request_state_update_command/.test(approvalCommandBridge) &&
       /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&

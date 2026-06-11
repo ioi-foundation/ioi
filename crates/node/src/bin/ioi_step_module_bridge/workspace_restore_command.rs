@@ -6,13 +6,10 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WorkspaceRestoreApplyPolicyBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: WorkspaceRestoreApplyPolicyRequest,
@@ -20,9 +17,6 @@ pub(super) struct WorkspaceRestoreApplyPolicyBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WorkspaceRestoreOperationsBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: WorkspaceRestoreOperationsRequest,
@@ -30,9 +24,6 @@ pub(super) struct WorkspaceRestoreOperationsBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WorkspaceSnapshotCaptureBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: WorkspaceSnapshotCaptureRequest,
@@ -41,21 +32,6 @@ pub(super) struct WorkspaceSnapshotCaptureBridgeRequest {
 pub(super) fn plan_workspace_restore_apply_policy(
     request: WorkspaceRestoreApplyPolicyBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_workspace_restore_apply_policy" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let plan = WorkspaceRestoreApplyPolicyCore
         .plan_apply_policy(&request.request)
         .map_err(|error| {
@@ -84,21 +60,6 @@ pub(super) fn plan_workspace_restore_apply_policy(
 pub(super) fn preview_workspace_restore_operations(
     request: WorkspaceRestoreOperationsBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "preview_workspace_restore_operations" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let operations = WorkspaceRestoreOperationsCore
         .preview_operations(&request.request)
         .map_err(|error| {
@@ -115,21 +76,6 @@ pub(super) fn preview_workspace_restore_operations(
 pub(super) fn apply_workspace_restore_operations(
     request: WorkspaceRestoreOperationsBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "apply_workspace_restore_operations" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let operations = WorkspaceRestoreOperationsCore
         .apply_operations(&request.request)
         .map_err(|error| {
@@ -146,21 +92,6 @@ pub(super) fn apply_workspace_restore_operations(
 pub(super) fn capture_workspace_snapshot_files(
     request: WorkspaceSnapshotCaptureBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "capture_workspace_snapshot_files" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let capture = WorkspaceSnapshotCaptureCore
         .capture_files(&request.request)
         .map_err(|error| {
