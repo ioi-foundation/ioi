@@ -20366,6 +20366,24 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 998
+
+Slice 998 retired public backend lifecycle preflight reads from the JS backend
+registry. `backendHealth()`, `startBackend()`, `stopBackend()`, and
+`backendLogs()` now fail closed from the requested `backend_id` before calling
+`backend()`, `backendRegistry()`, derived backend projection, local backend kind
+inference, lifecycle receipt creation, or process control.
+
+This is still non-terminal migration work: public lifecycle control can no
+longer use JS backend registry readback as preflight truth, but direct
+Agentgres-backed Rust backend inventory, backend lifecycle/process control,
+replay, projection, and stable SDK/IDE/CLI protocol APIs remain required before
+backend lifecycle reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 998 | Public backend lifecycle health/start/stop/log refusals no longer read the JS backend registry before the Rust-core-required boundary. | Direct Agentgres-backed Rust backend lifecycle/control/projection replaces private JS backend registry/process scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 997
 
 Slice 997 moved public model backend list projection onto the Rust model-mount

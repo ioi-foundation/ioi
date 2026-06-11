@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 997, public runtime account, runtime-node, tool
+Current lane note: after Slice 998, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4588,7 +4588,10 @@ map mutation; public backend list projection now routes through the Rust
 model-mount read-projection command with empty JS request state instead of the
 JS backend registry/readback facade, and Rust currently returns the
 non-authoritative empty backend projection until direct Agentgres-backed backend
-truth owns inventory;
+truth owns inventory; public backend health/start/stop/log lifecycle refusals
+now fail closed from the requested `backend_id` before JS backend registry
+lookup, derived backend projection, local backend kind inference, receipt
+creation, or process control can run;
 the route-facing skill/hook, model catalog/capability, repository workflow,
 runtime account/node/tool, and doctor-report daemon-store delegates have been
 deleted rather than preserved as inert compatibility wrappers;

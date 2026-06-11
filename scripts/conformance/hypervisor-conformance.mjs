@@ -15793,16 +15793,16 @@ function runReceipts() {
       /operation_kind,\s*[\r\n]\s*rust_core_boundary:\s*"model_mount\.backend_lifecycle"/.test(backendLifecycle) &&
       /public_backend_lifecycle_js_facade_retired/.test(backendLifecycle) &&
       /rust_daemon_core_lifecycle_required/.test(backendLifecycle) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.health",\s*backend\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.health",\s*\{\s*id:\s*backendId\s*\}\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.start",\s*backend\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.start",\s*\{\s*id:\s*backendId\s*\}\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.stop",\s*backend\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.stop",\s*\{\s*id:\s*backendId\s*\}\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*backend\)/.test(
+      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*\{\s*id:\s*backendId\s*\}\)/.test(
         backendLifecycle,
       ) &&
       /model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
@@ -15866,6 +15866,8 @@ function runReceipts() {
       /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
         backendLifecycleTest,
       ) &&
+      /public backend lifecycle must not read JS backend registry/.test(backendLifecycleTest) &&
+      /assert\.equal\(error\.details\.backend_kind,\s*null\)/.test(backendLifecycleTest) &&
       /public backend list delegates to Rust projection without JS backend registry input/.test(
         backendLifecycleTest,
       ) &&

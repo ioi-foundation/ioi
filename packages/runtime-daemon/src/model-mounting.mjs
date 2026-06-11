@@ -1707,24 +1707,20 @@ export class ModelMountingState {
   }
 
   backendHealth(backendId) {
-    const backend = this.backend(backendId);
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.health", backend);
+    throwBackendLifecycleRustCoreRequired("model_mount.backend.health", { id: backendId });
   }
 
   startBackend(backendId, body = {}) {
-    const backend = this.backend(backendId);
     void body;
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.start", backend);
+    throwBackendLifecycleRustCoreRequired("model_mount.backend.start", { id: backendId });
   }
 
   stopBackend(backendId) {
-    const backend = this.backend(backendId);
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.stop", backend);
+    throwBackendLifecycleRustCoreRequired("model_mount.backend.stop", { id: backendId });
   }
 
   backendLogs(backendId) {
-    const backend = this.backend(backendId);
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.logs_read", backend);
+    throwBackendLifecycleRustCoreRequired("model_mount.backend.logs_read", { id: backendId });
   }
 
   writeBackendLog(endpointId, event) {
@@ -1763,7 +1759,7 @@ function throwBackendLifecycleRustCoreRequired(operation_kind, backend) {
     message: "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
     details: {
       backend_id: backend.id,
-      backend_kind: backend.kind,
+      backend_kind: backend.kind ?? null,
       operation_kind,
       rust_core_boundary: "model_mount.backend_lifecycle",
       evidence_refs: [

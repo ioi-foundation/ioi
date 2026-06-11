@@ -191,6 +191,9 @@ test("backend process supervisor retired error uses canonical Rust-boundary meta
 
 test("public backend lifecycle facade fails closed until Rust core owns lifecycle control", () => {
   const state = fakeState();
+  state.backendRegistry = () => {
+    throw new Error("public backend lifecycle must not read JS backend registry");
+  };
 
   assert.throws(
     () => backendHealth(state, "backend.native", deps),
@@ -198,7 +201,7 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
       assert.equal(error.details.backend_id, "backend.native");
-      assert.equal(error.details.backend_kind, "native_local");
+      assert.equal(error.details.backend_kind, null);
       assert.equal(error.details.operation_kind, "model_mount.backend.health");
       assert.equal(error.details.rust_core_boundary, "model_mount.backend_lifecycle");
       assert.deepEqual(error.details.evidence_refs, [
@@ -256,6 +259,9 @@ test("public backend list delegates to Rust projection without JS backend regist
 
 test("blocked backend public lifecycle start still fails at Rust-core boundary before JS control", () => {
   const state = fakeState();
+  state.backendRegistry = () => {
+    throw new Error("public backend lifecycle must not read JS backend registry");
+  };
 
   assert.throws(
     () => startBackend(state, "backend.blocked", {}, deps),
@@ -263,7 +269,7 @@ test("blocked backend public lifecycle start still fails at Rust-core boundary b
       assert.equal(error.status, 501);
       assert.equal(error.code, "model_mount_backend_lifecycle_rust_core_required");
       assert.equal(error.details.backend_id, "backend.blocked");
-      assert.equal(error.details.backend_kind, "llama_cpp");
+      assert.equal(error.details.backend_kind, null);
       assert.equal(error.details.operation_kind, "model_mount.backend.start");
       assert.equal(Object.hasOwn(error.details, "backendId"), false);
       assert.equal(Object.hasOwn(error.details, "backendKind"), false);
