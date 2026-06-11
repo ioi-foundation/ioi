@@ -22,6 +22,7 @@ pub mod intervention;
 pub mod invocation;
 pub mod marketplace;
 pub mod model_mount;
+pub mod model_mount_receipt;
 pub mod plan;
 pub mod policy;
 pub mod profile;

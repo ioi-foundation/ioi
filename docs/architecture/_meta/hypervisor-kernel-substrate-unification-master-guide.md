@@ -6142,6 +6142,27 @@ admission, replay, projection, and stable protocol APIs end to end, with the
 bridge deleted or reduced to external protocol transport once the direct Rust
 daemon-core surface is verified.
 
+Slice 1117 moves model_mount accepted-receipt response shaping and invocation
+receipt binding/admission out of the temporary Node receipt bridge and into
+Rust `model_mount_receipt.rs` under the kernel service crate. Rust core now
+owns accepted-receipt head/transition command responses, model_mount
+StepModule invocation/result gate checks, caller-supplied expected-head
+rejection, Rust-planned accepted-receipt transition validation, transition
+mismatch fail-closed checks, StepModuleRouter admission, receipt binding,
+accepted-receipt append through `ReceiptBinder`, optional Agentgres operation
+admission, projection record creation, and the canonical
+`rust_model_mount_receipt_binding_command` response envelope.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, model-mount admission
+runner, and model-mount JS protocol facades still exist. The remaining
+`ioi_step_module_bridge/model_mount_receipt_command.rs` file is a temporary
+delegate to Rust core, not a durable receipt/admission boundary. The long-term
+target remains direct Rust daemon-core model_mount protocol APIs over
+Agentgres-backed receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody where applicable, and stable IDE/CLI/SDK surfaces end
+to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -2321,6 +2321,9 @@ function runBridge() {
   const modelMountReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
     : "";
+  const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
+    : "";
   const threadLifecycleCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
     : "";
@@ -2641,7 +2644,7 @@ function runBridge() {
   const retiredModelInvocationFacadeBodyPattern =
     /\b(?:state\.authorize|state\.selectRoute|state\.routeSelectionReceipt|state\.ensureLoaded|state\.compileEphemeralMcpIntegrations|state\.receipt|state\.admitModelMountInvocation|state\.bindModelMountInvocationReceipt|state\.inflightModelInvocations|state\.invokeModel|admitModelMountProviderExecution|admitModelMountProviderResult|executeModelProviderInvocation|executeModelMountProviderInvocation|executeModelMountProviderStreamInvocation|bindModelMountInvocationReceipt|invocationReceiptDetails|persistRouteSelection|rejectUnmigratedProviderInvocationExecution|rejectProviderCompatTranslation|withTextChunksReadableStream|model_mount_provider_invocation_backend_unmigrated|model_mount_provider_stream_invocation_backend_unmigrated|model_mount_native_stream_result_required|model_mount_native_stream_backend_required)\b/;
   const modelMountInvocationReceiptBridgeBlock =
-    modelMountReceiptCommandBridge.match(/fn bind_model_mount_invocation_receipt[\s\S]*$/)?.[0] ??
+    modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
     modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountAdmissionRunnerError)/)?.[0] ??
@@ -6618,15 +6621,21 @@ function runBridge() {
       /pub\(super\) fn bind_model_mount_invocation_receipt/.test(
         modelMountReceiptCommandBridge,
       ) &&
-      /ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
-      /AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
-      /RustProjectionCore/.test(modelMountReceiptCommandBridge) &&
+      !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
+      !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
+      !/RustProjectionCore/.test(modelMountReceiptCommandBridge) &&
+      /pub mod model_mount_receipt;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn bind_model_mount_invocation_receipt_response/.test(modelMountReceiptCore) &&
+      /ReceiptBinder/.test(modelMountReceiptCore) &&
+      /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
+      /RustProjectionCore/.test(modelMountReceiptCore) &&
       /pub\(super\) fn plan_model_mount_read_projection/.test(
         modelMountCommandBridge,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs",
@@ -13380,16 +13389,19 @@ function runBridge() {
     "model-mount-invocation-receipt-binding-live-bridge",
     /bind_model_mount_invocation_receipt/.test(modelMountCommandSurface) &&
       /ModelMountInvocationReceiptBindingBridgeRequest/.test(modelMountCommandSurface) &&
-      /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountCommandSurface) &&
+      /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountReceiptCore) &&
       /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
       /validate_accepted_receipt_transition\(transition\)/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_mismatch/.test(modelMountInvocationReceiptBridgeBlock) &&
       /bridge_binds_model_mount_invocation_receipt_through_rust_core/.test(modelMountCommandSurface) &&
       /accepted_receipt_transition/.test(modelMountCommandSurface) &&
-      /ReceiptBinder/.test(modelMountCommandSurface) &&
-      /AgentgresAdmissionCore/.test(modelMountCommandSurface) &&
-      /AcceptedReceiptAppendIssuer::RustReceiptCore/.test(modelMountCommandSurface) &&
+      !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
+      !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
+      !/AcceptedReceiptAppendIssuer::RustReceiptCore/.test(modelMountReceiptCommandBridge) &&
+      /ReceiptBinder/.test(modelMountReceiptCore) &&
+      /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
+      /AcceptedReceiptAppendIssuer::RustReceiptCore/.test(modelMountReceiptCore) &&
       /bindInvocationReceipt/.test(modelMountAdmissionRunner) &&
       /model_mount_invocation_expected_heads_retired/.test(modelMountAdmissionRunner) &&
       !/expected_heads:/.test(modelMountInvocationReceiptRunnerBlock) &&
@@ -13408,6 +13420,7 @@ function runBridge() {
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
@@ -14734,6 +14747,9 @@ function runReceipts() {
   const modelMountReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
     : "";
+  const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
+    : "";
   const projectionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
     : "";
@@ -14764,7 +14780,7 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
   const modelMountInvocationReceiptBridgeBlock =
-    modelMountReceiptCommandBridge.match(/fn bind_model_mount_invocation_receipt[\s\S]*$/)?.[0] ??
+    modelMountReceiptCore.match(/fn bind_model_mount_invocation_receipt_response[\s\S]*$/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
     modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountAdmissionRunnerError)/)?.[0] ??
@@ -20011,10 +20027,15 @@ function runReceipts() {
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
       !/RustProjectionCore/.test(modelMountCommandBridge) &&
       /bind_model_mount_invocation_receipt/.test(modelMountReceiptCommandBridge) &&
-      /ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
-      /AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
-      /append_accepted_receipt/.test(modelMountReceiptCommandBridge) &&
-      /RustProjectionCore/.test(modelMountReceiptCommandBridge) &&
+      !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
+      !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
+      !/append_accepted_receipt/.test(modelMountReceiptCommandBridge) &&
+      !/RustProjectionCore/.test(modelMountReceiptCommandBridge) &&
+      /bind_model_mount_invocation_receipt_response/.test(modelMountReceiptCore) &&
+      /ReceiptBinder/.test(modelMountReceiptCore) &&
+      /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
+      /append_accepted_receipt/.test(modelMountReceiptCore) &&
+      /RustProjectionCore/.test(modelMountReceiptCore) &&
       /model_mount_receipt_binding_ref/.test(modelInvocationOps) &&
       /model_mount_accepted_receipt_append/.test(modelInvocationOps) &&
       /model_mount_agentgres_admission/.test(modelInvocationOps) &&
@@ -20027,7 +20048,7 @@ function runReceipts() {
       /planAcceptedReceiptHead/.test(modelMountingState) &&
       /plan_model_mount_accepted_receipt_head/.test(modelMountAdmissionRunner) &&
       /plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
-      /ModelMountAcceptedReceiptHeadRequest/.test(modelMountReceiptCommandBridge) &&
+      /ModelMountAcceptedReceiptHeadRequest/.test(modelMountReceiptCore) &&
       /mod accepted_receipt;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
@@ -20068,7 +20089,7 @@ function runReceipts() {
         modelInvocationOps,
       ) &&
       /plan_model_mount_accepted_receipt_transition/.test(bridgeModule) &&
-      /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountReceiptCommandBridge) &&
+      /accepted_receipt_transition:\s*Option<ModelMountAcceptedReceiptTransition>/.test(modelMountReceiptCore) &&
       /model_mount_caller_supplied_expected_heads/.test(modelMountInvocationReceiptBridgeBlock) &&
       /model_mount_accepted_receipt_transition_required/.test(modelMountInvocationReceiptBridgeBlock) &&
       /validate_accepted_receipt_transition\(transition\)/.test(modelMountInvocationReceiptBridgeBlock) &&
@@ -20137,6 +20158,7 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
@@ -20147,8 +20169,9 @@ function runReceipts() {
     result,
     "model-mount-invocation-agentgres-admission-core",
     /bind_model_mount_invocation_receipt/.test(modelMountReceiptCommandBridge) &&
-      /AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
-      /agentgres_admission/.test(modelMountReceiptCommandBridge) &&
+      !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
+      /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
+      /agentgres_admission/.test(modelMountReceiptCore) &&
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
       /modelMountInvocationAgentgresTransitionForReceipt/.test(modelInvocationOps) &&
       /model_mount_agentgres_expected_heads/.test(modelInvocationOps) &&
@@ -20164,6 +20187,7 @@ function runReceipts() {
       ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 4 is pending: model invocation receipt operations must pass through Rust Agentgres admission with expected heads and state-root binding",

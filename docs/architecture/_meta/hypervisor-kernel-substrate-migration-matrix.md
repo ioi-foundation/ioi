@@ -15784,6 +15784,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1117
+
+Slice 1117 moves model_mount accepted-receipt response shaping and invocation
+receipt binding/admission out of the temporary
+`ioi_step_module_bridge/model_mount_receipt_command.rs` bridge module into Rust
+`crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs`. The Rust
+kernel service module now owns accepted-receipt head/transition response
+shaping, model_mount StepModule invocation/result gate checks,
+caller-supplied expected-head rejection, Rust-planned accepted-receipt
+transition validation, transition mismatch fail-closed checks,
+StepModuleRouter admission, receipt binding, accepted-receipt append through
+`ReceiptBinder`, optional Agentgres operation admission, projection record
+creation, and canonical `rust_model_mount_receipt_binding_command` response
+shaping.
+
+The bridge receipt module is now a thin delegate that maps
+`ModelMountReceiptError` into `BridgeError`. It no longer imports or owns
+`ReceiptBinder`, `AgentgresAdmissionCore`, `AcceptedReceiptAppendIssuer`, or
+`RustProjectionCore`.
+
+This is Rust-core extraction and bridge-shape retirement progress, not terminal
+model_mount migration. The Node daemon-core command transport, command dispatch
+table, JS command callers, model-mount admission runner, and model-mount JS
+protocol facades remain migration scaffolding until direct Rust daemon-core
+model_mount APIs own invocation, receipt/state-root binding, Agentgres
+admission, replay, projection, wallet.network authority, cTEE custody where
+applicable, and stable protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services model_mount_receipt --lib` | passed |
+| `cargo test -p ioi-node model_mount_invocation_receipt --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1116
 
 Slice 1116 moves coding-tool StepModule result construction, workload dispatch
