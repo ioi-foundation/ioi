@@ -20625,3 +20625,40 @@ Scheduled matrix-compaction obligation: compact Slices 1035-1041 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1042
+
+Slice 1042 splits the Rust workflow-edit and diagnostics-repair
+admission-required policy owner family out of the broad `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs`. The
+child owner now contains workflow-edit and diagnostics-repair admission-required
+request/record/error types, planner cores, validation, canonical detail
+shaping, and focused proof tests. The parent policy module only re-exports
+those surfaces and now acts as the policy facade for shared constants,
+`PolicyEvaluationRecord`, module declarations, and owner re-exports.
+
+This is a Rust-core ownership cut across workflow-edit and diagnostics-repair
+admission-required refusals, not terminal workflow-edit or diagnostics-repair
+migration. The current JS workflow-edit/diagnostics-repair facades, JS
+context-policy runner, and Node command bridge remain migration
+transport/scaffolding until direct Rust daemon-core workflow-edit and
+diagnostics-repair admission/persistence, wallet approval authority where
+applicable, Agentgres expected-head and state-root persistence, receipts/events,
+replay, projection, and stable protocol APIs own the paths end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services admission_required` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1035-1042 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.

@@ -4899,6 +4899,26 @@ projection, and stable IDE/CLI/SDK protocol APIs. Keep the scheduled
 matrix-compaction pass for Slices 1035-1041 pending until the next larger
 Rust-core extraction/facade-retirement seam is clear.
 
+Slice 1042 moves the workflow-edit and diagnostics-repair admission-required
+owner family out of the broad Rust `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs`. The
+child module owns the workflow-edit and diagnostics-repair
+admission-required request/record/error types, planner cores, validation,
+canonical detail shaping, and focused proof tests; the parent facade only
+re-exports the surfaces. This finishes the current policy facade split: broad
+`policy.rs` now carries shared policy constants, `PolicyEvaluationRecord`,
+module declarations, and re-exports rather than owning migrated hot-path
+planner cores. This is still not terminal workflow-edit or diagnostics-repair
+migration. The current JS workflow-edit/diagnostics-repair facades, JS
+context-policy runner, and Node command bridge remain temporary migration
+transport. Resume by replacing those transport paths with direct Rust
+daemon-core workflow-edit and diagnostics-repair admission/persistence APIs
+over wallet approval authority where applicable, Agentgres expected
+heads/state roots, proposal/apply/repair receipts and events, replay,
+projection, and stable IDE/CLI/SDK protocol APIs. Run the scheduled
+matrix-compaction pass for Slices 1035-1042 once the next larger Rust-core
+extraction/facade-retirement seam is clear.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

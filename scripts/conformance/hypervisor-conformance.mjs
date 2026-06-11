@@ -49,6 +49,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/admission_required.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/admission_required.rs")
+      : "",
     exists("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
       : "",
@@ -2604,6 +2607,11 @@ function runBridge() {
     "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
+    : "";
+  const policyAdmissionRequiredCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/admission_required.rs")
     : "";
   const policyContextLifecycleCore = exists(
     "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
@@ -6767,6 +6775,28 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "policy-admission-required-rust-owner-split",
+    /mod admission_required;/.test(policyFacade) &&
+      /pub use admission_required::/.test(policyFacade) &&
+      /pub struct WorkflowEditAdmissionRequiredCore;/.test(policyAdmissionRequiredCore) &&
+      /pub struct DiagnosticsRepairAdmissionRequiredCore;/.test(policyAdmissionRequiredCore) &&
+      /pub struct WorkflowEditAdmissionRequiredRequest/.test(policyAdmissionRequiredCore) &&
+      /pub struct DiagnosticsRepairAdmissionRequiredRequest/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_plans_workflow_edit_admission_required/.test(policyAdmissionRequiredCore) &&
+      /rust_policy_plans_diagnostics_repair_admission_required/.test(policyAdmissionRequiredCore) &&
+      !/pub struct WorkflowEditAdmissionRequiredCore;/.test(policyFacade) &&
+      !/pub struct DiagnosticsRepairAdmissionRequiredCore;/.test(policyFacade) &&
+      !/rust_policy_plans_workflow_edit_admission_required/.test(policyFacade) &&
+      !/rust_policy_plans_diagnostics_repair_admission_required/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: workflow-edit and diagnostics-repair admission-required owners must stay in the Rust policy child module while direct Rust daemon-core admission/persistence replaces command transport",
+  );
+  assertCheck(
+    result,
     "coding-tool-budget-recovery-state-update-live-bridge",
     /CodingToolBudgetRecoveryStateUpdateCore/.test(policyCore) &&
       /CodingToolBudgetRecoveryStateUpdateRequest/.test(policyCore) &&
@@ -9163,6 +9193,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/runtime-workflow-edit-surface.mjs",
       "packages/runtime-daemon/src/runtime-workflow-edit-surface.test.mjs",
+      "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
     ],
     "Phase 10/11 is pending: workflow edit proposal/apply paths must use canonical request identity, target, patch, approval, and receipt fields before approval and projection handling",
   );
@@ -26451,6 +26482,7 @@ function runCompositor() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 10/11 is pending: diagnostics repair control must use the Rust daemon-core admission-required planner and fail closed before JS lookup, retry-run creation, event append, run mutation, or persistence",
