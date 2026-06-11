@@ -10,13 +10,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: CodingToolBudgetRecoveryStateUpdateRequest,
@@ -24,9 +21,6 @@ pub(super) struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: CodingToolBudgetRecoveryAdmissionRequiredRequest,
@@ -34,9 +28,6 @@ pub(super) struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: DiagnosticsOperatorOverrideStateUpdateRequest,
@@ -44,9 +35,6 @@ pub(super) struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct OperatorInterruptStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: OperatorInterruptStateUpdateRequest,
@@ -54,9 +42,6 @@ pub(super) struct OperatorInterruptStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct OperatorSteerStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: OperatorSteerStateUpdateRequest,
@@ -64,9 +49,6 @@ pub(super) struct OperatorSteerStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RunCancelStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: RunCancelStateUpdateRequest,
@@ -74,9 +56,6 @@ pub(super) struct RunCancelStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RunCancelAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: RunCancelAdmissionRequiredRequest,
@@ -85,21 +64,6 @@ pub(super) struct RunCancelAdmissionRequiredBridgeRequest {
 pub(super) fn plan_coding_tool_budget_recovery_state_update(
     request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_coding_tool_budget_recovery_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = CodingToolBudgetRecoveryStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -123,21 +87,6 @@ pub(super) fn plan_coding_tool_budget_recovery_state_update(
 pub(super) fn plan_coding_tool_budget_recovery_admission_required(
     request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_coding_tool_budget_recovery_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = CodingToolBudgetRecoveryAdmissionRequiredCore
         .plan(&request.request)
         .map_err(|error| {
@@ -163,21 +112,6 @@ pub(super) fn plan_coding_tool_budget_recovery_admission_required(
 pub(super) fn plan_diagnostics_operator_override_state_update(
     request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_diagnostics_operator_override_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = DiagnosticsOperatorOverrideStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -201,21 +135,6 @@ pub(super) fn plan_diagnostics_operator_override_state_update(
 pub(super) fn plan_operator_interrupt_state_update(
     request: OperatorInterruptStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_operator_interrupt_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = OperatorInterruptStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -240,21 +159,6 @@ pub(super) fn plan_operator_interrupt_state_update(
 pub(super) fn plan_operator_steer_state_update(
     request: OperatorSteerStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_operator_steer_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = OperatorSteerStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -275,21 +179,6 @@ pub(super) fn plan_operator_steer_state_update(
 pub(super) fn plan_run_cancel_state_update(
     request: RunCancelStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_run_cancel_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = RunCancelStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -313,21 +202,6 @@ pub(super) fn plan_run_cancel_state_update(
 pub(super) fn plan_run_cancel_admission_required(
     request: RunCancelAdmissionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_run_cancel_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = RunCancelAdmissionRequiredCore
         .plan(&request.request)
         .map_err(|error| {

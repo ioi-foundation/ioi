@@ -6169,6 +6169,64 @@ function runBridge() {
     ],
     "Phase 10/11 remains non-terminal: approval and workspace-restore child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before approval or restore dispatch",
   );
+  const policyLifecycleMemoryCommandWrappers = [
+    contextPolicyCommandBridge,
+    runtimeControlCommandBridge,
+    threadLifecycleCommandBridge,
+    mcpMemoryCommandBridge,
+  ].join("\n");
+  assertCheck(
+    result,
+    "bridge-policy-lifecycle-memory-local-envelope-checks-retired",
+    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(policyLifecycleMemoryCommandWrappers) &&
+      !/schema_version:\s*String/.test(policyLifecycleMemoryCommandWrappers) &&
+      !/operation:\s*String/.test(policyLifecycleMemoryCommandWrappers) &&
+      !/schema_version_invalid/.test(policyLifecycleMemoryCommandWrappers) &&
+      !/operation_unsupported/.test(policyLifecycleMemoryCommandWrappers) &&
+      /validate_command_envelope\(\s*"evaluate_context_budget_policy",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"plan_operator_interrupt_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"plan_runtime_bridge_thread_start_agent_state_update",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"validate_mcp_servers",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /pub\(super\) fn evaluate_context_budget_policy/.test(
+        contextPolicyCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_context_compaction_state_update/.test(
+        contextPolicyCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_operator_interrupt_state_update/.test(
+        runtimeControlCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_run_cancel_admission_required/.test(
+        runtimeControlCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_runtime_bridge_thread_start_agent_state_update/.test(
+        threadLifecycleCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_run_create_state_update/.test(
+        threadLifecycleCommandBridge,
+      ) &&
+      /pub\(super\) fn validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
+      /pub\(super\) fn plan_thread_memory_agent_state_update/.test(
+        mcpMemoryCommandBridge,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs",
+    ],
+    "Phase 10/11 remains non-terminal: policy, runtime-control, thread-lifecycle, and MCP/memory child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before dispatch",
+  );
   assertCheck(
     result,
     "external-capability-exit-authority-daemon-runner",
@@ -6884,7 +6942,6 @@ function runBridge() {
       /mod context_policy_command;/.test(bridgeModule) &&
       /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
       /ContextBudgetPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(contextPolicyCommandBridge) &&
       /is_daemon_core_operation/.test(commandProtocolCore) &&
       !/is_daemon_core_operation/.test(bridgeDispatch) &&
       /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&

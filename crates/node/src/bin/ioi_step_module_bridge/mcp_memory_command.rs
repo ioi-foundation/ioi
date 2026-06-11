@@ -13,13 +13,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpControlAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpControlAgentStateUpdateRequest,
@@ -27,9 +24,6 @@ pub(super) struct McpControlAgentStateUpdateBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpServerValidationBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpServerValidationRequest,
@@ -37,9 +31,6 @@ pub(super) struct McpServerValidationBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpServerValidationInputBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpServerValidationInputRequest,
@@ -47,9 +38,6 @@ pub(super) struct McpServerValidationInputBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpManagerStatusProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpManagerStatusProjectionRequest,
@@ -57,9 +45,6 @@ pub(super) struct McpManagerStatusProjectionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpManagerValidationProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpManagerValidationProjectionRequest,
@@ -67,9 +52,6 @@ pub(super) struct McpManagerValidationProjectionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct MemoryManagerStatusProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: MemoryManagerStatusProjectionRequest,
@@ -77,9 +59,6 @@ pub(super) struct MemoryManagerStatusProjectionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct MemoryManagerValidationProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: MemoryManagerValidationProjectionRequest,
@@ -87,9 +66,6 @@ pub(super) struct MemoryManagerValidationProjectionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpManagerCatalogProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpManagerCatalogProjectionRequest,
@@ -97,9 +73,6 @@ pub(super) struct McpManagerCatalogProjectionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct McpManagerCatalogSummaryProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: McpManagerCatalogSummaryProjectionRequest,
@@ -107,9 +80,6 @@ pub(super) struct McpManagerCatalogSummaryProjectionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ThreadMemoryAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ThreadMemoryAgentStateUpdateRequest,
@@ -118,21 +88,6 @@ pub(super) struct ThreadMemoryAgentStateUpdateBridgeRequest {
 pub(super) fn plan_mcp_control_agent_state_update(
     request: McpControlAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_mcp_control_agent_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpControlAgentStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
@@ -156,21 +111,6 @@ pub(super) fn plan_mcp_control_agent_state_update(
 pub(super) fn validate_mcp_servers(
     request: McpServerValidationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "validate_mcp_servers" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpServerValidationCore
         .validate(&request.request)
         .map_err(|error| BridgeError::new("mcp_server_validation_invalid", format!("{error:?}")))?;
@@ -190,21 +130,6 @@ pub(super) fn validate_mcp_servers(
 pub(super) fn project_mcp_server_validation_input(
     request: McpServerValidationInputBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "project_mcp_server_validation_input" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpServerValidationInputCore
         .project(&request.request)
         .map_err(|error| {
@@ -226,21 +151,6 @@ pub(super) fn project_mcp_server_validation_input(
 pub(super) fn plan_mcp_manager_status_projection(
     request: McpManagerStatusProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_mcp_manager_status_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpManagerStatusProjectionCore
         .project(&request.request)
         .map_err(|error| {
@@ -274,21 +184,6 @@ pub(super) fn plan_mcp_manager_status_projection(
 pub(super) fn plan_mcp_manager_validation_projection(
     request: McpManagerValidationProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_mcp_manager_validation_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpManagerValidationProjectionCore
         .project(&request.request)
         .map_err(|error| {
@@ -323,21 +218,6 @@ pub(super) fn plan_mcp_manager_validation_projection(
 pub(super) fn plan_memory_manager_status_projection(
     request: MemoryManagerStatusProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_memory_manager_status_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = MemoryManagerStatusProjectionCore
         .project(&request.request)
         .map_err(|error| {
@@ -376,21 +256,6 @@ pub(super) fn plan_memory_manager_status_projection(
 pub(super) fn plan_memory_manager_validation_projection(
     request: MemoryManagerValidationProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_memory_manager_validation_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = MemoryManagerValidationProjectionCore
         .project(&request.request)
         .map_err(|error| {
@@ -422,21 +287,6 @@ pub(super) fn plan_memory_manager_validation_projection(
 pub(super) fn plan_mcp_manager_catalog_projection(
     request: McpManagerCatalogProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_mcp_manager_catalog_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpManagerCatalogProjectionCore
         .project(&request.request)
         .map_err(|error| {
@@ -468,21 +318,6 @@ pub(super) fn plan_mcp_manager_catalog_projection(
 pub(super) fn plan_mcp_manager_catalog_summary_projection(
     request: McpManagerCatalogSummaryProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_mcp_manager_catalog_summary_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = McpManagerCatalogSummaryProjectionCore
         .project(&request.request)
         .map_err(|error| {
@@ -521,21 +356,6 @@ pub(super) fn plan_mcp_manager_catalog_summary_projection(
 pub(super) fn plan_thread_memory_agent_state_update(
     request: ThreadMemoryAgentStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_thread_memory_agent_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ThreadMemoryAgentStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {

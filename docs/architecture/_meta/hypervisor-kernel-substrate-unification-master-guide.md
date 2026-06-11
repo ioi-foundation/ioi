@@ -5440,6 +5440,25 @@ execution, Agentgres admission, receipt/state-root binding, replay, projection,
 wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
 surfaces.
 
+Slice 1075 retires duplicate bridge-local envelope identity checks from the
+context-policy, runtime-control, thread-lifecycle, and MCP/memory command
+wrappers. Those child modules no longer carry local `schema_version` or
+`operation` fields and no longer own local `schema_version_invalid` or
+`operation_unsupported` branches for budget policy, compaction policy,
+context-compaction state updates, operator/runtime-control updates, run cancel
+gates, runtime bridge thread/run state updates, agent/run lifecycle updates,
+MCP control, MCP validation/projection, memory projection, or thread-memory
+state updates. They deserialize only body-specific backend/request fields
+before entering the Rust policy cores. The representative StepModule-schema
+rejection proofs for those families now live at the Rust command protocol
+validator boundary. Conformance now fails if any of those child modules regain
+local command-envelope identity. This is still not terminal bridge retirement:
+the remaining `command_dispatch.rs` function table, StepModule command helper,
+and shared daemon-core command helper must still be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

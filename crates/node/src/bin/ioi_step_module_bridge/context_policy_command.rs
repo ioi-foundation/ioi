@@ -6,13 +6,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ContextBudgetPolicyBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ContextBudgetPolicyRequest,
@@ -20,9 +17,6 @@ pub(super) struct ContextBudgetPolicyBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct CompactionPolicyBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: CompactionPolicyRequest,
@@ -30,9 +24,6 @@ pub(super) struct CompactionPolicyBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ContextCompactionPlanBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ContextCompactionPlanRequest,
@@ -40,9 +31,6 @@ pub(super) struct ContextCompactionPlanBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ContextCompactionStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ContextCompactionStateUpdateRequest,
@@ -53,7 +41,6 @@ pub(super) fn evaluate_context_budget_policy(
 ) -> Result<Value, BridgeError> {
     evaluate_context_budget_policy_bridge(
         request,
-        "evaluate_context_budget_policy",
         "rust_context_budget_policy_command",
         "context_budget_policy_invalid",
     )
@@ -64,7 +51,6 @@ pub(super) fn evaluate_coding_tool_budget_policy(
 ) -> Result<Value, BridgeError> {
     evaluate_context_budget_policy_bridge(
         request,
-        "evaluate_coding_tool_budget_policy",
         "rust_coding_tool_budget_policy_command",
         "coding_tool_budget_policy_invalid",
     )
@@ -72,25 +58,9 @@ pub(super) fn evaluate_coding_tool_budget_policy(
 
 fn evaluate_context_budget_policy_bridge(
     request: ContextBudgetPolicyBridgeRequest,
-    expected_operation: &'static str,
     source: &'static str,
     error_code: &'static str,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != expected_operation {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ContextBudgetPolicyCore
         .evaluate(&request.request)
         .map_err(|error| BridgeError::new(error_code, format!("{error:?}")))?;
@@ -120,21 +90,6 @@ fn evaluate_context_budget_policy_bridge(
 pub(super) fn evaluate_compaction_policy(
     request: CompactionPolicyBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "evaluate_compaction_policy" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = CompactionPolicyCore
         .evaluate(&request.request)
         .map_err(|error| BridgeError::new("compaction_policy_invalid", format!("{error:?}")))?;
@@ -171,21 +126,6 @@ pub(super) fn evaluate_compaction_policy(
 pub(super) fn plan_context_compaction(
     request: ContextCompactionPlanBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_context_compaction" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ContextCompactionPlanCore
         .plan(&request.request)
         .map_err(|error| {
@@ -221,21 +161,6 @@ pub(super) fn plan_context_compaction(
 pub(super) fn plan_context_compaction_state_update(
     request: ContextCompactionStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_context_compaction_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ContextCompactionStateUpdateCore
         .plan(&request.request)
         .map_err(|error| {
