@@ -1657,8 +1657,8 @@ function runDocs() {
       ) &&
       /not the terminal architecture/.test(matrix) &&
       /Bridge scaffolding retirement/.test(matrix) &&
-      /Last matrix compaction pass: 2026-06-10/.test(matrix) &&
-      /Expanded implementation evidence is compacted\s+through Slices 941-969/.test(matrix) &&
+      /Last matrix compaction pass: 2026-06-11/.test(matrix) &&
+      /Expanded implementation evidence\s+is compacted through Slices 941-1033/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
       /Slices 941-969 are compacted into this preservation summary/.test(matrix) &&
       /Moved workflow-edit admission-required refusal authoring into `WorkflowEditAdmissionRequiredCore`/.test(matrix) &&
@@ -1666,12 +1666,11 @@ function runDocs() {
       /Moved diagnostics repair admission-required refusal authoring into\s+`DiagnosticsRepairAdmissionRequiredCore`/.test(matrix) &&
       /Moved run-cancel admission-required refusal authoring into\s+`RunCancelAdmissionRequiredCore`/.test(matrix) &&
       /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(matrix) &&
-      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 971 lands/.test(matrix) &&
-      /Implementation Slice Evidence: 970/.test(matrix) &&
-      /Moved skill\/hook registry projection-required refusal authoring into\s+`SkillHookRegistryProjectionRequiredCore`/.test(matrix) &&
-      /Implementation Slice Evidence: 971/.test(matrix) &&
-      /Moved repository workflow projection-required refusal authoring into\s+`RepositoryWorkflowProjectionRequiredCore`/.test(matrix) &&
-      /Schedule the next matrix-compaction pass only after the next Rust-core\s+extraction or facade-retirement seam lands/.test(matrix) &&
+      /Compacted Implementation Slice Evidence: 970-1033/.test(matrix) &&
+      /Slices 970-1033 are compacted into this preservation summary/.test(matrix) &&
+      /Provider-execution invocation\/stream\/admission, lifecycle provider\/inventory\/instance, and required-record backend\/server\/runtime\/tokenizer\/route child owners split out of broad Rust modules/.test(matrix) &&
+      /Scheduled matrix-compaction obligation from Slices 970-1033 is now satisfied/.test(matrix) &&
+      /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction\s+or facade-retirement seam lands/.test(matrix) &&
       /encoding the command bridge as\s+terminal shape/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 761/.test(matrix) &&
       /Compacted Implementation Slice Evidence: 762/.test(matrix) &&
@@ -2044,22 +2043,16 @@ function runDocs() {
         ) &&
         /not the terminal architecture/.test(matrix) &&
         /Bridge scaffolding retirement/.test(matrix) &&
-        /Last matrix compaction pass: 2026-06-10/.test(matrix) &&
+        /Last matrix compaction pass: 2026-06-11/.test(matrix) &&
         /Compacted Implementation Slice Evidence: 941-969/.test(matrix) &&
         /Scheduled matrix-compaction obligation from Slices 941-969 is now satisfied/.test(
           matrix,
         ) &&
-        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction or\s+facade-retirement seam after Slice 971 lands/.test(
+        /Compacted Implementation Slice Evidence: 970-1033/.test(matrix) &&
+        /Scheduled matrix-compaction obligation from Slices 970-1033 is now satisfied/.test(
           matrix,
         ) &&
-        /Implementation Slice Evidence: 970/.test(matrix) &&
-        /Moved skill\/hook registry projection-required refusal authoring into\s+`SkillHookRegistryProjectionRequiredCore`/.test(
-          matrix,
-        ) &&
-        /Implementation Slice Evidence: 971/.test(matrix) &&
-        /Moved repository workflow projection-required refusal authoring into\s+`RepositoryWorkflowProjectionRequiredCore`/.test(
-          matrix,
-        ) &&
+        /No\s+matrix-compaction pass is pending until the next larger Rust-core extraction\s+or facade-retirement seam lands/.test(matrix) &&
         /encoding the command bridge as\s+terminal shape/.test(matrix)),
     [GUIDE, MATRIX],
     "master guide and migration matrix must keep command bridge usage scoped to migration transport, not terminal architecture",

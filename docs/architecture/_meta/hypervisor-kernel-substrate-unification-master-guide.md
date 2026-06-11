@@ -300,6 +300,17 @@ runtime-agent service bridge command. The configured command must be executable
 as the transport endpoint itself until the temporary bridge collapses into the
 stable daemon protocol/API and Rust daemon-core ownership.
 
+Slice 1034 completed the scheduled post-Slice-1033 matrix-compaction pass. The
+migration matrix now preserves expanded implementation evidence through Slices
+941-1033 in compacted summaries, including the model-mount required-record
+child owner split, while keeping the same terminal target: direct Rust
+daemon-core APIs over Agentgres-backed truth, receipt/state-root binding,
+wallet.network authority where applicable, cTEE custody, replay, projection,
+and stable protocol APIs must still replace command transport and JS edge
+translation before completion can be claimed. No matrix-compaction pass is
+pending until the next larger Rust-core extraction or facade-retirement seam
+lands.
+
 Resume-goal scheduling marker: the Slice 733-740 matrix-compaction pass is
 complete, and the Slice 741 thread-memory control facade-retirement
 matrix-compaction pass is complete. The Slice 742 thread runtime-control
