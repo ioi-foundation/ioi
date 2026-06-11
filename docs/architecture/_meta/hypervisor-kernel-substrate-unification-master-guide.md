@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 1004, public runtime account, runtime-node, tool
+Current lane note: after Slice 1005, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4617,7 +4617,10 @@ route-selection truth can run;
 model-mount read projection planning has moved out of the Node command bridge
 helper body into `ModelMountCore::plan_read_projection`, and the bridge now
 acts only as command transport for projection kinds while the duplicated
-bridge-local projection planner/helper tree is removed;
+bridge-local projection planner/helper tree is removed; that Rust-owned
+projection implementation now lives in `model_mount/read_projection.rs` behind
+the `ModelMountCore` facade so future Rust-core projection/API cuts do not
+accumulate in the broad model-mount kernel file;
 the route-facing skill/hook, model catalog/capability, repository workflow,
 runtime account/node/tool, and doctor-report daemon-store delegates have been
 deleted rather than preserved as inert compatibility wrappers;

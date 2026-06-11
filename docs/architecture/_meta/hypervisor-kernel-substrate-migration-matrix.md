@@ -20366,6 +20366,25 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1005
+
+Slice 1005 split the Rust-owned model-mount read-projection planner body out of
+the broad `model_mount.rs` kernel file into
+`model_mount/read_projection.rs`, while keeping `ModelMountCore` as the public
+Rust daemon-core facade and preserving the existing command transport as
+transitional edge plumbing.
+
+This is still non-terminal migration work: the dedicated Rust projection module
+reduces monolith risk and makes the next Rust projection/API cuts easier to
+review, but direct Rust daemon-core projection APIs over Agentgres-backed
+model-mount truth, route topology joins, replay, stable SDK/IDE/CLI protocol
+APIs, and command-transport retirement remain required before model-mount
+projection reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1005 | Model-mount read-projection implementation now lives in a dedicated Rust core submodule behind `ModelMountCore::plan_read_projection`. | Direct Rust daemon-core projection APIs over Agentgres-backed model-mount truth replace command-transport migration plumbing, JS materialization, and edge translation. |
+
 ## Implementation Slice Evidence: 1004
 
 Slice 1004 extracted model-mount read-projection planning from the Node command

@@ -2299,7 +2299,12 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+    ? [
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
+          : "",
+      ].join("\n")
     : "";
   const modelMountReadProjectionEvidence = [bridgeModule, modelMountCore].join("\n");
   const modelMountInvocationReceiptProjectionEvidence = modelMountCore;
@@ -9937,6 +9942,7 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
     ],
     "Phase 10/11 is pending: model_mount read projection, route-decision replay, and authority snapshot projection must be authored by Rust daemon-core rather than JS projection helpers",
   );
@@ -13411,7 +13417,12 @@ function runReceipts() {
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
-    ? read("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+    ? [
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
+          : "",
+      ].join("\n")
     : "";
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/marketplace.rs")
@@ -13532,6 +13543,7 @@ function runReceipts() {
       /admit_model_mount_route_decision/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9 is pending: Rust model_mount core must own resolved route decisions, receipts, and cTEE custody metadata",
