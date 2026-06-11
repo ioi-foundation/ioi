@@ -5138,6 +5138,22 @@ Rust daemon-core coding-tool execution/admission APIs, Rust/WASM workload
 module execution, Agentgres-backed persistence, receipt/state-root binding,
 replay, projection, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1056 moves the lower-level coding-tool workspace filesystem, path,
+diagnostic subprocess, test-run, and patch helper plumbing out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
+transport into
+`crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs`. The broad
+bridge root now retains operation dispatch, the stdin/stdout transport
+envelope, proof tests, and child-module wiring, while the coding-tool command
+transport imports helper plumbing from a dedicated Rust sibling module.
+Conformance now fails if the helper function bodies return to the root bridge.
+This is still not terminal coding-tool migration and must not canonize the
+Node bridge shape. Resume by moving this helper plumbing behind direct Rust
+daemon-core coding-tool execution/admission APIs and Rust/WASM workload modules,
+then retiring the command transport, JS invocation facade, readback shims,
+duplicate truth paths, and any compatibility wrappers that survive the verified
+Rust-core boundary.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

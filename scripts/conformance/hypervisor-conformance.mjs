@@ -2272,6 +2272,9 @@ function runBridge() {
   const codingToolCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs")
     : "";
+  const codingToolHelpersBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs")
+    : "";
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
@@ -3587,34 +3590,40 @@ function runBridge() {
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
+      exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
       /mod coding_tool_command;/.test(bridgeModule) &&
+      /mod coding_tool_helpers;/.test(bridgeModule) &&
       /run_coding_tool_step_module/.test(bridgeModule) &&
       !/struct StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/fn workspace_status_response/.test(bridgeModule) &&
       !/fn file_apply_patch_response/.test(bridgeModule) &&
+      !/fn inspect_workspace_status/.test(bridgeModule) &&
+      !/fn apply_workspace_patch/.test(bridgeModule) &&
+      !/fn inspect_test_run/.test(bridgeModule) &&
+      !/fn inspect_lsp_diagnostics/.test(bridgeModule) &&
       /pub\(super\) struct StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
       /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
       /workspace\.status/.test(codingToolCommandBridge) &&
-      /inspect_workspace_status/.test(bridgeModule) &&
+      /pub\(super\) fn inspect_workspace_status/.test(codingToolHelpersBridge) &&
       !/workspace_status_shadow_response/.test(codingToolCommandBridge) &&
       /git\.diff/.test(codingToolCommandBridge) &&
       /file\.inspect/.test(codingToolCommandBridge) &&
       /file\.apply_patch/.test(codingToolCommandBridge) &&
-      /apply_workspace_patch/.test(bridgeModule) &&
+      /pub\(super\) fn apply_workspace_patch/.test(codingToolHelpersBridge) &&
       /AgentgresAdmissionCore/.test(codingToolCommandBridge) &&
       /test\.run/.test(codingToolCommandBridge) &&
-      /inspect_test_run/.test(bridgeModule) &&
-      /npm\.test/.test(bridgeModule) &&
-      /cargo\.test/.test(bridgeModule) &&
-      /cargo\.check/.test(bridgeModule) &&
+      /pub\(super\) fn inspect_test_run/.test(codingToolHelpersBridge) &&
+      /npm\.test/.test(codingToolHelpersBridge) &&
+      /cargo\.test/.test(codingToolHelpersBridge) &&
+      /cargo\.check/.test(codingToolHelpersBridge) &&
       /lsp\.diagnostics/.test(codingToolCommandBridge) &&
-      /inspect_lsp_diagnostics/.test(bridgeModule) &&
-      /typescript\.check/.test(bridgeModule) &&
-      /run_typescript_check/.test(bridgeModule) &&
-      /local_tsc_executable/.test(bridgeModule) &&
+      /pub\(super\) fn inspect_lsp_diagnostics/.test(codingToolHelpersBridge) &&
+      /typescript\.check/.test(codingToolHelpersBridge) &&
+      /pub\(super\) fn run_typescript_check/.test(codingToolHelpersBridge) &&
+      /pub\(super\) fn local_tsc_executable/.test(codingToolHelpersBridge) &&
       /artifact\.read/.test(codingToolCommandBridge) &&
       /tool\.retrieve_result/.test(codingToolCommandBridge) &&
       /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&

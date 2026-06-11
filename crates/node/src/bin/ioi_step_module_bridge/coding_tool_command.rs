@@ -14,12 +14,12 @@ use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{
-    apply_workspace_patch, computer_use, inspect_git_diff, inspect_lsp_diagnostics,
-    inspect_test_run, inspect_workspace_path, inspect_workspace_status, json_string_refs,
-    optional_json_string, safe_ref_path, sha256_hex, unique_string_refs, BridgeError,
-    CODING_TOOL_RESULT_SCHEMA_VERSION, COMMAND_SCHEMA_VERSION,
+use super::coding_tool_helpers::{
+    apply_workspace_patch, inspect_git_diff, inspect_lsp_diagnostics, inspect_test_run,
+    inspect_workspace_path, inspect_workspace_status, json_string_refs, optional_json_string,
+    safe_ref_path, sha256_hex, unique_string_refs,
 };
+use super::{computer_use, BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION, COMMAND_SCHEMA_VERSION};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct StepModuleBridgeRequest {
