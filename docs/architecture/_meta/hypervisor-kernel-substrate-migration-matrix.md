@@ -20410,3 +20410,37 @@ Scheduled matrix-compaction obligation: compact Slice 1035 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1036
+
+Slice 1036 splits the Rust run-cancel policy owner family out of the broad
+`policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs`. The child
+owner now contains run-cancel state-update and admission-required
+request/record/error types, planner cores, validation, cancellation helper
+planning, and focused proof tests. The parent policy module only re-exports
+those surfaces.
+
+This is a Rust-core ownership cut, not terminal cancellation migration. The
+current JS run-cancel facade, JS context-policy runner, and Node command bridge
+remain migration transport/scaffolding until direct Rust daemon-core run
+cancellation admission, Agentgres expected-head/state-root persistence,
+receipt/event materialization, replay, projection, and stable protocol APIs own
+the path end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services run_cancel` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1035-1036 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.

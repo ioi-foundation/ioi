@@ -4799,6 +4799,19 @@ receipt/state-root binding, replay, and stable IDE/CLI/SDK protocol APIs.
 Schedule a matrix-compaction pass after the next larger Rust-core extraction or
 facade-retirement seam is clear.
 
+Slice 1036 moves the run-cancel policy owner family out of the broad Rust
+`policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs`. The child
+module owns run-cancel state-update and admission-required request/record/error
+types, planner cores, validation, cancellation helper planning, and focused
+proof tests; the parent facade only re-exports the surface. This preserves the
+larger pure-Rust extraction direction while keeping the current JS
+run-cancel facade, context-policy runner, and Node command bridge explicitly
+non-terminal. Resume by replacing that transport path with direct Rust
+daemon-core cancellation admission/persistence over Agentgres expected
+heads/state roots, receipt/event materialization, replay, projection, and
+stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

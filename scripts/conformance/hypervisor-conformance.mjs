@@ -52,6 +52,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
+      : "",
   ].join("\n");
 }
 
@@ -2587,6 +2590,9 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
     : "";
+  const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
+    : "";
   const policyCore = readRustPolicyCore();
   const contextCompactionStateUpdateCoreBlock =
     policyCore.match(
@@ -2606,7 +2612,7 @@ function runBridge() {
     )?.[0] ?? "";
   const operatorSteerStateUpdateCoreBlock =
     policyCore.match(
-      /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct RunCancelStateUpdateCore;)/,
+      /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct ThreadControlAgentStateUpdateCore;)/,
     )?.[0] ?? "";
   const threadControlAgentStateUpdateCoreBlock =
     policyCore.match(
@@ -6719,6 +6725,7 @@ function runBridge() {
       !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7225,6 +7232,26 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 9/10 is pending: public run cancellation must use the Rust daemon-core admission-required planner and fail closed until Rust daemon-core owns state admission and persistence; bridge planner remains migration plumbing only",
+  );
+  assertCheck(
+    result,
+    "policy-run-cancel-rust-owner-split",
+    /mod run_cancel;/.test(policyFacade) &&
+      /pub use run_cancel::/.test(policyFacade) &&
+      /pub struct RunCancelStateUpdateCore;/.test(policyRunCancelCore) &&
+      /pub struct RunCancelAdmissionRequiredCore;/.test(policyRunCancelCore) &&
+      /runtime_task_record_for_canceled_run/.test(policyRunCancelCore) &&
+      /rust_policy_plans_run_cancel_state_update/.test(policyRunCancelCore) &&
+      /rust_policy_plans_run_cancel_admission_required/.test(policyRunCancelCore) &&
+      !/pub struct RunCancelStateUpdateCore;/.test(policyFacade) &&
+      !/runtime_task_record_for_canceled_run/.test(policyFacade) &&
+      !/rust_policy_plans_run_cancel_state_update/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: run-cancel policy owners must stay in the Rust policy child module while direct Rust daemon-core cancellation admission/persistence replaces command transport",
   );
   assertCheck(
     result,
