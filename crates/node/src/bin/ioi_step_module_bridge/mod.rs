@@ -22,6 +22,7 @@ mod context_policy_command;
 mod governed_admission_command;
 mod mcp_memory_command;
 mod model_mount_command;
+mod model_mount_receipt_command;
 mod policy_command;
 mod projection_command;
 mod runtime_control_command;
@@ -82,23 +83,26 @@ use mcp_memory_command::{
 use model_mount_command::{
     admit_model_mount_invocation, admit_model_mount_provider_execution,
     admit_model_mount_provider_result, admit_model_mount_route_decision,
-    bind_model_mount_invocation_receipt, execute_model_mount_provider_invocation,
-    execute_model_mount_provider_stream_invocation, plan_model_mount_accepted_receipt_head,
-    plan_model_mount_accepted_receipt_transition, plan_model_mount_backend_lifecycle_required,
-    plan_model_mount_backend_process, plan_model_mount_instance_lifecycle,
-    plan_model_mount_provider_inventory, plan_model_mount_provider_lifecycle,
-    plan_model_mount_read_projection, plan_model_mount_route_control_required,
-    plan_model_mount_runtime_engine_required, plan_model_mount_server_control_required,
-    plan_model_mount_tokenizer_required, ModelMountAcceptedReceiptHeadBridgeRequest,
-    ModelMountAcceptedReceiptTransitionBridgeRequest,
+    execute_model_mount_provider_invocation, execute_model_mount_provider_stream_invocation,
+    plan_model_mount_backend_lifecycle_required, plan_model_mount_backend_process,
+    plan_model_mount_instance_lifecycle, plan_model_mount_provider_inventory,
+    plan_model_mount_provider_lifecycle, plan_model_mount_read_projection,
+    plan_model_mount_route_control_required, plan_model_mount_runtime_engine_required,
+    plan_model_mount_server_control_required, plan_model_mount_tokenizer_required,
     ModelMountBackendLifecycleRequiredBridgeRequest, ModelMountBackendProcessPlanBridgeRequest,
     ModelMountInstanceLifecycleBridgeRequest, ModelMountInvocationAdmissionBridgeRequest,
-    ModelMountInvocationReceiptBindingBridgeRequest, ModelMountProviderExecutionBridgeRequest,
-    ModelMountProviderInventoryBridgeRequest, ModelMountProviderInvocationBridgeRequest,
-    ModelMountProviderLifecycleBridgeRequest, ModelMountProviderResultAdmissionBridgeRequest,
-    ModelMountReadProjectionBridgeRequest, ModelMountRouteControlRequiredBridgeRequest,
-    ModelMountRouteDecisionBridgeRequest, ModelMountRuntimeEngineRequiredBridgeRequest,
-    ModelMountServerControlRequiredBridgeRequest, ModelMountTokenizerRequiredBridgeRequest,
+    ModelMountProviderExecutionBridgeRequest, ModelMountProviderInventoryBridgeRequest,
+    ModelMountProviderInvocationBridgeRequest, ModelMountProviderLifecycleBridgeRequest,
+    ModelMountProviderResultAdmissionBridgeRequest, ModelMountReadProjectionBridgeRequest,
+    ModelMountRouteControlRequiredBridgeRequest, ModelMountRouteDecisionBridgeRequest,
+    ModelMountRuntimeEngineRequiredBridgeRequest, ModelMountServerControlRequiredBridgeRequest,
+    ModelMountTokenizerRequiredBridgeRequest,
+};
+use model_mount_receipt_command::{
+    bind_model_mount_invocation_receipt, plan_model_mount_accepted_receipt_head,
+    plan_model_mount_accepted_receipt_transition, ModelMountAcceptedReceiptHeadBridgeRequest,
+    ModelMountAcceptedReceiptTransitionBridgeRequest,
+    ModelMountInvocationReceiptBindingBridgeRequest,
 };
 use policy_command::{
     plan_diagnostics_repair_admission_required, plan_workflow_edit_admission_required,

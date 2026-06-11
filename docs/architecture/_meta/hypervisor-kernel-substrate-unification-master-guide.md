@@ -5936,6 +5936,21 @@ until direct Rust daemon-core computer-use admission, wallet.network authority,
 cTEE/workspace custody, Agentgres expected-head/state-root binding,
 receipt/event materialization, replay, and projection APIs replace the bridge.
 
+Slice 1104 splits the Rust model_mount accepted-receipt planning and invocation
+receipt binding command boundary out of
+`ioi_step_module_bridge/model_mount_command.rs` into
+`ioi_step_module_bridge/model_mount_receipt_command.rs`. The general
+model_mount command wrapper no longer owns `ReceiptBinder`,
+`AgentgresAdmissionCore`, or `RustProjectionCore` imports, while the new receipt
+boundary owns accepted-receipt head/transition planning, caller-supplied expected
+head rejection, transition validation, StepModuleRouter admission, receipt
+binding, accepted-receipt append, Agentgres admission, and projection binding.
+
+This is still temporary command-transport scaffolding, not the terminal direct
+daemon-core API. It exists only to keep receipt/state-root ownership explicit
+until direct Rust daemon-core model_mount protocol APIs replace the Node command
+bridge and remaining JS model_mount facades.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

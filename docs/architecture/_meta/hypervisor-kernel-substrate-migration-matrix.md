@@ -15784,6 +15784,35 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1104
+
+Slice 1104 splits the Rust model_mount accepted-receipt planning and invocation
+receipt binding command boundary out of
+`ioi_step_module_bridge/model_mount_command.rs` into
+`ioi_step_module_bridge/model_mount_receipt_command.rs`. The general
+model_mount command wrapper no longer owns `ReceiptBinder`,
+`AgentgresAdmissionCore`, or `RustProjectionCore`; the new receipt command
+module owns accepted-receipt head/transition planning, transition validation,
+StepModuleRouter admission, receipt binding, accepted-receipt append, Agentgres
+admission, and projection binding.
+
+This is bridge containment only. The module remains temporary command-transport
+scaffolding until direct Rust daemon-core model_mount protocol APIs replace the
+Node bridge, shared command runner, JS command callers, and remaining JS
+model_mount facades.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `rustfmt crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs crates/node/src/bin/ioi_step_module_bridge/mod.rs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-node model_mount_accepted_receipt --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node model_mount_invocation_receipt --bin ioi-step-module-bridge` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance` | passed |
+
 ## Implementation Slice Evidence: 1103
 
 Slice 1103 splits the Rust StepModule bridge computer-use provider registry and
