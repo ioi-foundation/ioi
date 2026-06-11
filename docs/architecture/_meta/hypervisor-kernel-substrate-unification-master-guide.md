@@ -4606,7 +4606,9 @@ lifecycle request/result types, validation, backend/driver classification,
 evidence refs, and transition hashes now live in the dedicated Rust
 `model_mount/lifecycle.rs` module behind `ModelMountCore`, making local
 provider and model-instance lifecycle planning a distinct Rust core boundary
-for the next direct daemon-core API cut;
+for the next direct daemon-core API cut, and the lifecycle/inventory/instance
+Rust tests now live beside that module instead of accumulating in the broad
+model-mount kernel file;
 model-mount provider execution admission, fixture/native-local provider
 invocation execution, native-local stream invocation chunk planning, and
 provider-result admission now live in the dedicated Rust

@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1019
+
+Slice 1019 moved the remaining model_mount lifecycle proof surface out of the
+broad `model_mount.rs` facade and into `model_mount/lifecycle.rs`. Provider
+lifecycle, provider inventory, and model-instance lifecycle tests now live
+beside the request/result types, validation, backend/driver classification,
+evidence refs, transition hashes, and status/action guards they prove. The
+parent `model_mount.rs` file is now a facade/re-export/delegation layer with no
+module-local test body.
+
+This is still non-terminal migration work: lifecycle implementation and proof
+ownership are now colocated in Rust, but direct Rust daemon-core lifecycle,
+inventory, and instance transition protocol APIs must still replace command
+transport and JS edge translation before terminal lifecycle ownership can be
+claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1019 | Moved provider-lifecycle, provider-inventory, and model-instance lifecycle tests from `model_mount.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs`; conformance now requires those tests in the lifecycle module and fails if the parent facade regrows a test module. | Direct Rust daemon-core lifecycle/inventory/instance transition protocol APIs replace the command bridge and JS edge translation once the lifecycle Rust boundary can own state/projection end to end. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1018
 
 Slice 1018 moved the model_mount provider execution proof surface out of the
