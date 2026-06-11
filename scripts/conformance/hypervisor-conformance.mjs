@@ -2331,10 +2331,12 @@ function runBridge() {
   const mcpMemoryCommandBridge = mcpMemoryCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
-  const modelMountCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs")
+  const modelMountCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs");
+  const modelMountCommandBridge = modelMountCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs")
     : "";
-  const modelMountReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
+  const modelMountReceiptCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs");
+  const modelMountReceiptCommandBridge = modelMountReceiptCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
     : "";
   const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
@@ -6724,7 +6726,11 @@ function runBridge() {
   assertCheck(
     result,
     "bridge-model-mount-local-envelope-checks-retired",
-    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(modelMountCommandBridge) &&
+    !modelMountCommandBridgeExists &&
+      !modelMountReceiptCommandBridgeExists &&
+      !/mod model_mount_command;/.test(bridgeModule) &&
+      !/mod model_mount_receipt_command;/.test(bridgeModule) &&
+      !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(modelMountCommandBridge) &&
       !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(modelMountReceiptCommandBridge) &&
       !/schema_version:\s*String/.test(modelMountCommandBridge) &&
       !/schema_version:\s*String/.test(modelMountReceiptCommandBridge) &&
@@ -6734,7 +6740,6 @@ function runBridge() {
       !/schema_version_invalid/.test(modelMountReceiptCommandBridge) &&
       !/operation_unsupported/.test(modelMountCommandBridge) &&
       !/operation_unsupported/.test(modelMountReceiptCommandBridge) &&
-      /mod model_mount_receipt_command;/.test(bridgeModule) &&
       /fn assert_model_mount_command_rejects_step_module_schema/.test(bridgeModule) &&
       /assert_model_mount_command_rejects_step_module_schema\(\s*"admit_model_mount_route_decision",?\s*\)/.test(
         bridgeModule,
@@ -6748,46 +6753,46 @@ function runBridge() {
       /assert_model_mount_command_rejects_step_module_schema\(\s*"plan_model_mount_read_projection",?\s*\)/.test(
         bridgeModule,
       ) &&
-      /pub\(super\) fn admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
-      /pub\(super\) fn admit_model_mount_invocation/.test(modelMountCommandBridge) &&
-      /pub\(super\) fn admit_model_mount_provider_execution/.test(
-        modelMountCommandBridge,
+      /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
+      /admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
+      /admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn execute_model_mount_provider_invocation/.test(
-        modelMountCommandBridge,
+      /execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn execute_model_mount_provider_stream_invocation/.test(
-        modelMountCommandBridge,
+      /execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_provider_lifecycle/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_provider_inventory/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_instance_lifecycle/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn admit_model_mount_provider_result/.test(
-        modelMountCommandBridge,
+      /admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_backend_process/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_backend_lifecycle_required/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_server_control_required/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_runtime_engine_required/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_tokenizer_required/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_route_control_required/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
+        bridgeModule,
       ) &&
       !/pub\(super\) fn plan_model_mount_accepted_receipt_head/.test(
         modelMountCommandBridge,
@@ -6801,14 +6806,14 @@ function runBridge() {
       !/ReceiptBinder/.test(modelMountCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
       !/RustProjectionCore/.test(modelMountCommandBridge) &&
-      /pub\(super\) fn plan_model_mount_accepted_receipt_head/.test(
-        modelMountReceiptCommandBridge,
+      /plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_model_mount_accepted_receipt_transition/.test(
-        modelMountReceiptCommandBridge,
+      /plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn bind_model_mount_invocation_receipt/.test(
-        modelMountReceiptCommandBridge,
+      /bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(
+        bridgeModule,
       ) &&
       !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
@@ -6818,30 +6823,28 @@ function runBridge() {
       /ReceiptBinder/.test(modelMountReceiptCore) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /RustProjectionCore/.test(modelMountReceiptCore) &&
-      /pub\(super\) fn plan_model_mount_read_projection/.test(
-        modelMountCommandBridge,
+      /plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(
+        bridgeModule,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers must not regain local command-envelope identity while the next Rust-core extraction/facade-retirement slice replaces the temporary Node bridge with direct daemon-core model_mount protocol APIs",
+    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers are retired and must not regain local command-envelope identity while the next Rust-core extraction/facade-retirement slice replaces the temporary Node bridge with direct daemon-core model_mount protocol APIs",
   );
   assertCheck(
     result,
     "model-mount-read-projection-command-envelope-owned-by-rust-core",
-    /pub struct ModelMountReadProjectionBridgeRequest/.test(modelMountCore) &&
+      /pub struct ModelMountReadProjectionBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_read_projection_response/.test(modelMountCore) &&
       /rust_model_mount_read_projection_command/.test(modelMountCore) &&
       /model_mount_read_projection_kind_unsupported/.test(modelMountCore) &&
-      /core_plan_model_mount_read_projection/.test(modelMountCommandBridge) &&
-      /fn plan_model_mount_read_projection/.test(modelMountCommandBridge) &&
-      /ModelMountReadProjectionBridgeRequest/.test(modelMountCommandBridge) &&
+      !modelMountCommandBridgeExists &&
+      /plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(bridgeModule) &&
+      /ModelMountReadProjectionBridgeRequest/.test(bridgeModule) &&
       !/struct ModelMountReadProjectionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountReadProjectionRequest/.test(modelMountCommandBridge) &&
       !/rust_model_mount_read_projection_command/.test(modelMountCommandBridge) &&
@@ -6849,10 +6852,10 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount read-projection command request/response envelope and source marker live in Rust model_mount core; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: model-mount read-projection command request/response envelope and source marker live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
   );
   assertCheck(
     result,
@@ -6864,12 +6867,11 @@ function runBridge() {
       /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
       /rust_model_mount_invocation_command/.test(modelMountCore) &&
-      /core_admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
-      /core_admit_model_mount_invocation/.test(modelMountCommandBridge) &&
-      /fn admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
-      /fn admit_model_mount_invocation/.test(modelMountCommandBridge) &&
-      /ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
-      /ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
+      !modelMountCommandBridgeExists &&
+      /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
+      /admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
+      /ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
+      /ModelMountInvocationAdmissionBridgeRequest/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountRouteDecisionRequest/.test(modelMountCommandBridge) &&
@@ -6883,10 +6885,10 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/admission.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount route-decision and invocation-admission command envelopes, including Rust-authored route-selection receipt details, live in Rust model_mount core; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: model-mount route-decision and invocation-admission command envelopes, including Rust-authored route-selection receipt details, live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
   );
   assertCheck(
     result,
@@ -6902,10 +6904,13 @@ function runBridge() {
       /rust_model_mount_provider_invocation_command/.test(modelMountCore) &&
       /rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
       /rust_model_mount_provider_result_command/.test(modelMountCore) &&
-      /core_admit_model_mount_provider_execution/.test(modelMountCommandBridge) &&
-      /core_execute_model_mount_provider_invocation/.test(modelMountCommandBridge) &&
-      /core_execute_model_mount_provider_stream_invocation/.test(modelMountCommandBridge) &&
-      /core_admit_model_mount_provider_result/.test(modelMountCommandBridge) &&
+      !modelMountCommandBridgeExists &&
+      /admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(bridgeModule) &&
+      /execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(bridgeModule) &&
+      /execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
+        bridgeModule,
+      ) &&
+      /admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(bridgeModule) &&
       !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
@@ -6923,10 +6928,10 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount provider execution, invocation, stream invocation, and provider-result command envelopes live in Rust model_mount provider modules; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: model-mount provider execution, invocation, stream invocation, and provider-result command envelopes live in Rust model_mount provider modules; the child Node delegate is retired while the broad bridge remains temporary transport only",
   );
   assertCheck(
     result,
@@ -6949,12 +6954,21 @@ function runBridge() {
       /rust_model_mount_runtime_engine_required_command/.test(modelMountCore) &&
       /rust_model_mount_tokenizer_required_command/.test(modelMountCore) &&
       /rust_model_mount_route_control_required_command/.test(modelMountCore) &&
-      /core_plan_model_mount_backend_process/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_backend_lifecycle_required/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_server_control_required/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_runtime_engine_required/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_tokenizer_required/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_route_control_required/.test(modelMountCommandBridge) &&
+      !modelMountCommandBridgeExists &&
+      /plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(bridgeModule) &&
+      /plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required/.test(
+        bridgeModule,
+      ) &&
+      /plan_model_mount_server_control_required_response as plan_model_mount_server_control_required/.test(
+        bridgeModule,
+      ) &&
+      /plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required/.test(
+        bridgeModule,
+      ) &&
+      /plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required/.test(bridgeModule) &&
+      /plan_model_mount_route_control_required_response as plan_model_mount_route_control_required/.test(
+        bridgeModule,
+      ) &&
       !/struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountBackendLifecycleRequiredBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountServerControlRequiredBridgeRequest/.test(modelMountCommandBridge) &&
@@ -6977,10 +6991,10 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/required.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount backend-process and required-control command request/response envelopes live in Rust model_mount core; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: model-mount backend-process and required-control command request/response envelopes live in Rust model_mount core; the child Node delegate is retired while the broad bridge remains temporary transport only",
   );
   assertCheck(
     result,
@@ -6994,9 +7008,10 @@ function runBridge() {
       /rust_model_mount_provider_lifecycle_command/.test(modelMountCore) &&
       /rust_model_mount_provider_inventory_command/.test(modelMountCore) &&
       /rust_model_mount_instance_lifecycle_command/.test(modelMountCore) &&
-      /core_plan_model_mount_provider_lifecycle/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_provider_inventory/.test(modelMountCommandBridge) &&
-      /core_plan_model_mount_instance_lifecycle/.test(modelMountCommandBridge) &&
+      !modelMountCommandBridgeExists &&
+      /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(bridgeModule) &&
+      /plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(bridgeModule) &&
+      /plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(bridgeModule) &&
       !/struct ModelMountProviderLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountProviderInventoryBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCommandBridge) &&
@@ -7009,10 +7024,10 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: model-mount provider lifecycle, provider inventory, and instance lifecycle command request/response envelopes live in Rust model_mount lifecycle core; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: model-mount provider lifecycle, provider inventory, and instance lifecycle command request/response envelopes live in Rust model_mount lifecycle core; the child Node delegate is retired while the broad bridge remains temporary transport only",
   );
   assertCheck(
     result,
@@ -11093,15 +11108,15 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-decision-live-bridge",
-    /mod model_mount_command;/.test(bridgeModule) &&
+    !modelMountCommandBridgeExists &&
+      !/mod model_mount_command;/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
       !/fn admit_model_mount_route_decision/.test(bridgeModule) &&
       /pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
-      /core_admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
-      /ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
+      /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
+      /ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
-      /pub\(super\) fn admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
       /admit_model_mount_route_decision/.test(modelMountCommandSurface) &&
       /ModelMountRouteDecisionRequest/.test(modelMountCore) &&
       /bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
@@ -11568,7 +11583,7 @@ function runBridge() {
       !/return buildModelMountingProjection\(state,\s*\{ schemaVersion: modelMountSchemaVersion \}\);/.test(
         modelMountingReadProjectionFacade,
       ) &&
-      /fn plan_model_mount_read_projection/.test(modelMountCommandSurface) &&
+      /plan_model_mount_read_projection_response as plan_model_mount_read_projection/.test(modelMountCommandSurface) &&
       /bridge_plans_model_mount_read_projection_through_rust_core/.test(modelMountCommandSurface),
     [
       "packages/runtime-daemon/src/model-mounting/io.mjs",
@@ -13201,7 +13216,7 @@ function runBridge() {
       /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
       /ModelMountInvocationAdmissionRequest/.test(modelMountCore) &&
-      /core_admit_model_mount_invocation/.test(modelMountCommandBridge) &&
+      /admit_model_mount_invocation_response as admit_model_mount_invocation/.test(modelMountCommandSurface) &&
       !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountInvocationAdmissionRequest/.test(modelMountCommandBridge) &&
       /bridge_admits_model_mount_invocation_through_rust_core/.test(modelMountCommandSurface) &&
@@ -13228,7 +13243,7 @@ function runBridge() {
       /ModelMountProviderExecutionRequest/.test(modelMountCore) &&
       /ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
-      /core_admit_model_mount_provider_execution/.test(modelMountCommandBridge) &&
+      /admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
       /bridge_admits_model_mount_provider_execution_through_rust_core/.test(modelMountCommandSurface) &&
@@ -13350,7 +13365,7 @@ function runBridge() {
       /ModelMountProviderInvocationRequest/.test(modelMountCore) &&
       /ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
       /pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
-      /core_execute_model_mount_provider_invocation/.test(modelMountCommandBridge) &&
+      /execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderInvocationRequest/.test(modelMountCommandBridge) &&
       /bridge_executes_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
@@ -13379,9 +13394,11 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-local-stream-invocation-live-bridge",
-    /execute_model_mount_provider_stream_invocation/.test(modelMountCommandSurface) &&
+      /execute_model_mount_provider_stream_invocation/.test(modelMountCommandSurface) &&
       /pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
-      /core_execute_model_mount_provider_stream_invocation/.test(modelMountCommandBridge) &&
+      /execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
+        modelMountCommandSurface,
+      ) &&
       /bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderStreamInvocation/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_stream_invocation_command/.test(modelMountAdmissionRunner) &&
@@ -13428,7 +13445,7 @@ function runBridge() {
         modelMountAdmissionRunner.match(/function normalizeProviderLifecycleBridgeResult[\s\S]*?(?=\n\nfunction normalizeProviderInventoryBridgeResult)/)?.[0] ?? "";
       return /plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
       /ModelMountProviderLifecycleBridgeRequest/.test(modelMountCommandSurface) &&
-      /core_plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
+      /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(modelMountCommandSurface) &&
       /bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
       /pub fn plan_model_mount_provider_lifecycle_response/.test(modelMountCore) &&
       /"backend_id":\s*backend_id/.test(modelMountCore) &&
@@ -13468,7 +13485,7 @@ function runBridge() {
         modelMountAdmissionRunner.match(/function normalizeBackendProcessPlanBridgeResult[\s\S]*?(?=\n\nfunction normalizeInvocationReceiptBindingBridgeResult)/)?.[0] ?? "";
       return /plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
         /ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCommandSurface) &&
-        /core_plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
+        /plan_model_mount_backend_process_response as plan_model_mount_backend_process/.test(modelMountCommandSurface) &&
         /bridge_plans_model_mount_backend_process_through_rust_core/.test(modelMountCommandSurface) &&
         /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
         /"supports_supervision":\s*plan\.supports_supervision/.test(modelMountCore) &&
@@ -13622,7 +13639,7 @@ function runBridge() {
         modelMountAdmissionRunner.match(/function normalizeProviderInventoryBridgeResult[\s\S]*?(?=\n\nfunction normalizeInstanceLifecycleBridgeResult)/)?.[0] ?? "";
       return /plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
       /ModelMountProviderInventoryBridgeRequest/.test(modelMountCommandSurface) &&
-      /core_plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
+      /plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory/.test(modelMountCommandSurface) &&
       /bridge_plans_local_model_mount_provider_inventory_through_rust_core/.test(modelMountCommandSurface) &&
       /pub fn plan_model_mount_provider_inventory_response/.test(modelMountCore) &&
       /"backend_id":\s*backend_id/.test(modelMountCore) &&
@@ -13668,7 +13685,7 @@ function runBridge() {
     "model-mount-instance-lifecycle-js-facade-retired",
     /plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
       /ModelMountInstanceLifecycleBridgeRequest/.test(modelMountCommandSurface) &&
-      /core_plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
+      /plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle/.test(modelMountCommandSurface) &&
       /bridge_plans_model_mount_instance_lifecycle_through_rust_core/.test(modelMountCommandSurface) &&
       /pub fn plan_model_mount_instance_lifecycle_response/.test(modelMountCore) &&
       /planInstanceLifecycle/.test(modelMountAdmissionRunner) &&
@@ -13774,7 +13791,7 @@ function runBridge() {
       /ModelMountProviderResultAdmissionRequest/.test(modelMountCore) &&
       /ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
-      /core_admit_model_mount_provider_result/.test(modelMountCommandBridge) &&
+      /admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderResultAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderResultAdmissionRequest/.test(modelMountCommandBridge) &&
       /bridge_admits_model_mount_provider_result_through_rust_core/.test(modelMountCommandSurface) &&
@@ -15381,12 +15398,15 @@ function runReceipts() {
   const agentgresCommandCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_command.rs")
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_command.rs")
     : "";
-  const modelMountCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs")
+  const modelMountCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs");
+  const modelMountCommandBridge = modelMountCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs")
     : "";
-  const modelMountReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
+  const modelMountReceiptCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs");
+  const modelMountReceiptCommandBridge = modelMountReceiptCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs")
     : "";
+  const modelMountCommandSurface = [bridgeModule, modelMountCommandBridge, modelMountReceiptCommandBridge].join("\n");
   const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     : "";
@@ -18038,7 +18058,7 @@ function runReceipts() {
       /pub fn admit_model_mount_provider_result_response/.test(modelMountCore) &&
       /"provider_result_ref":\s*provider_result_ref/.test(modelMountCore) &&
       /"provider_result_hash":\s*provider_result_hash/.test(modelMountCore) &&
-      /core_admit_model_mount_provider_result/.test(modelMountCommandBridge) &&
+      /admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(modelMountCommandSurface) &&
       !/providerResultRef|providerResultHash/.test(modelMountCommandBridge) &&
       !/"provider_result_ref":\s*provider_result_ref/.test(modelMountCommandBridge) &&
       !/"provider_result_hash":\s*provider_result_hash/.test(modelMountCommandBridge) &&
@@ -20671,13 +20691,15 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-invocation-receipt-binder-core",
-    /mod model_mount_command;/.test(bridgeModule) &&
-      /mod model_mount_receipt_command;/.test(bridgeModule) &&
+    !modelMountCommandBridgeExists &&
+      !modelMountReceiptCommandBridgeExists &&
+      !/mod model_mount_command;/.test(bridgeModule) &&
+      !/mod model_mount_receipt_command;/.test(bridgeModule) &&
       !/bind_model_mount_invocation_receipt/.test(modelMountCommandBridge) &&
       !/ReceiptBinder/.test(modelMountCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
       !/RustProjectionCore/.test(modelMountCommandBridge) &&
-      /bind_model_mount_invocation_receipt/.test(modelMountReceiptCommandBridge) &&
+      /bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       !/ReceiptBinder/.test(modelMountReceiptCommandBridge) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
       !/append_accepted_receipt/.test(modelMountReceiptCommandBridge) &&
@@ -20806,7 +20828,6 @@ function runReceipts() {
       !/(?:modelMountReceiptBinding|modelMountAcceptedReceiptAppend|modelMountStepModuleInvocation|modelMountStepModuleResult|modelMountRouterAdmission|modelMountAgentgres|modelMountProjectionRecord)/.test(modelInvocationOps),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
@@ -20819,7 +20840,8 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-invocation-agentgres-admission-core",
-    /bind_model_mount_invocation_receipt/.test(modelMountReceiptCommandBridge) &&
+    !modelMountReceiptCommandBridgeExists &&
+      /bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt/.test(bridgeModule) &&
       !/AgentgresAdmissionCore/.test(modelMountReceiptCommandBridge) &&
       /AgentgresAdmissionCore/.test(modelMountReceiptCore) &&
       /agentgres_admission/.test(modelMountReceiptCore) &&
@@ -20837,7 +20859,7 @@ function runReceipts() {
         modelInvocationOps,
       ),
     [
-      "crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],

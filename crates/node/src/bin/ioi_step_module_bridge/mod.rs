@@ -10,8 +10,6 @@ use std::{
 
 mod bridge_dispatch;
 mod coding_tool_helpers;
-mod model_mount_command;
-mod model_mount_receipt_command;
 
 pub use bridge_dispatch::run_bridge_response_from_stdin;
 use coding_tool_helpers::*;
@@ -62,6 +60,39 @@ use ioi_services::agentic::runtime::kernel::governed_receipt::{
     admit_worker_service_package_invocation_response as admit_worker_service_package_invocation,
     execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action,
     CteePrivateWorkspaceBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::model_mount::{
+    admit_model_mount_invocation_response as admit_model_mount_invocation,
+    admit_model_mount_provider_execution_response as admit_model_mount_provider_execution,
+    admit_model_mount_provider_result_response as admit_model_mount_provider_result,
+    admit_model_mount_route_decision_response as admit_model_mount_route_decision,
+    execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation,
+    execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation,
+    plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required,
+    plan_model_mount_backend_process_response as plan_model_mount_backend_process,
+    plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle,
+    plan_model_mount_provider_inventory_response as plan_model_mount_provider_inventory,
+    plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle,
+    plan_model_mount_read_projection_response as plan_model_mount_read_projection,
+    plan_model_mount_route_control_required_response as plan_model_mount_route_control_required,
+    plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required,
+    plan_model_mount_server_control_required_response as plan_model_mount_server_control_required,
+    plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required,
+    ModelMountBackendLifecycleRequiredBridgeRequest, ModelMountBackendProcessPlanBridgeRequest,
+    ModelMountInstanceLifecycleBridgeRequest, ModelMountInvocationAdmissionBridgeRequest,
+    ModelMountProviderExecutionBridgeRequest, ModelMountProviderInventoryBridgeRequest,
+    ModelMountProviderInvocationBridgeRequest, ModelMountProviderLifecycleBridgeRequest,
+    ModelMountProviderResultAdmissionBridgeRequest, ModelMountReadProjectionBridgeRequest,
+    ModelMountRouteControlRequiredBridgeRequest, ModelMountRouteDecisionBridgeRequest,
+    ModelMountRuntimeEngineRequiredBridgeRequest, ModelMountServerControlRequiredBridgeRequest,
+    ModelMountTokenizerRequiredBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::model_mount_receipt::{
+    bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt,
+    plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head,
+    plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition,
+    ModelMountAcceptedReceiptHeadBridgeRequest, ModelMountAcceptedReceiptTransitionBridgeRequest,
+    ModelMountInvocationReceiptBindingBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy,
@@ -128,30 +159,6 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
     plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy,
     WorkspaceRestoreApplyPolicyBridgeRequest, WorkspaceRestoreOperationsBridgeRequest,
     WorkspaceSnapshotCaptureBridgeRequest,
-};
-use model_mount_command::{
-    admit_model_mount_invocation, admit_model_mount_provider_execution,
-    admit_model_mount_provider_result, admit_model_mount_route_decision,
-    execute_model_mount_provider_invocation, execute_model_mount_provider_stream_invocation,
-    plan_model_mount_backend_lifecycle_required, plan_model_mount_backend_process,
-    plan_model_mount_instance_lifecycle, plan_model_mount_provider_inventory,
-    plan_model_mount_provider_lifecycle, plan_model_mount_read_projection,
-    plan_model_mount_route_control_required, plan_model_mount_runtime_engine_required,
-    plan_model_mount_server_control_required, plan_model_mount_tokenizer_required,
-    ModelMountBackendLifecycleRequiredBridgeRequest, ModelMountBackendProcessPlanBridgeRequest,
-    ModelMountInstanceLifecycleBridgeRequest, ModelMountInvocationAdmissionBridgeRequest,
-    ModelMountProviderExecutionBridgeRequest, ModelMountProviderInventoryBridgeRequest,
-    ModelMountProviderInvocationBridgeRequest, ModelMountProviderLifecycleBridgeRequest,
-    ModelMountProviderResultAdmissionBridgeRequest, ModelMountReadProjectionBridgeRequest,
-    ModelMountRouteControlRequiredBridgeRequest, ModelMountRouteDecisionBridgeRequest,
-    ModelMountRuntimeEngineRequiredBridgeRequest, ModelMountServerControlRequiredBridgeRequest,
-    ModelMountTokenizerRequiredBridgeRequest,
-};
-use model_mount_receipt_command::{
-    bind_model_mount_invocation_receipt, plan_model_mount_accepted_receipt_head,
-    plan_model_mount_accepted_receipt_transition, ModelMountAcceptedReceiptHeadBridgeRequest,
-    ModelMountAcceptedReceiptTransitionBridgeRequest,
-    ModelMountInvocationReceiptBindingBridgeRequest,
 };
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
@@ -2406,8 +2413,7 @@ mod tests {
             .expect("retired provider result bridge request");
         let error = admit_model_mount_provider_result(request)
             .expect_err("retired JS provider result observations fail in Rust core");
-        assert_eq!(error.code, "model_mount_provider_result_rejected");
-        assert!(error.message.contains("UnsupportedProviderResultBackend"));
+        assert!(format!("{error:?}").contains("UnsupportedProviderResultBackend"));
     }
 
     #[test]

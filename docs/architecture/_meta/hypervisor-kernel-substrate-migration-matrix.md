@@ -15697,6 +15697,37 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1140
+
+Slice 1140 retires the final model-mount bridge child wrapper modules that had
+become pure Rust delegate shells after command dispatch moved into Rust
+`command_dispatch.rs` and model-mount request/response ownership moved into
+Rust `model_mount.rs` and `model_mount_receipt.rs`:
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs` and
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_receipt_command.rs`.
+The broad bridge proof surface now imports Rust response functions and request
+types directly from the Rust model-mount and model-mount receipt kernel
+modules.
+
+This is migration progress only. The Node bridge binary, shared JS command
+runner/caller path, StepModule command runner, model-mount admission runner,
+local materialization, JS edge readback/protocol surfaces, and broader JS
+facades remain temporary scaffolding until direct Rust daemon-core and
+Rust/WASM workload APIs replace command transport. The retired model-mount
+child delegates must not be recreated or treated as canonical architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1139
 
 Slice 1139 retires three more policy/lifecycle/MCP bridge child wrapper
@@ -15710,10 +15741,11 @@ directly from `policy/coding_tool_budget_recovery.rs`,
 `policy/operator_control.rs`, `policy/run_cancel.rs`,
 `policy/thread_lifecycle.rs`, and `policy/mcp_memory.rs`.
 
-This is migration progress only. The Node bridge binary, shared JS command
-runner/caller path, StepModule command runner, model-mount bridge delegates,
-and broader JS facade/readback surfaces remain temporary scaffolding until
-direct Rust daemon-core and Rust/WASM workload APIs replace command transport.
+This was migration progress only. At this slice, the Node bridge binary,
+shared JS command runner/caller path, StepModule command runner, model-mount
+bridge delegates, and broader JS facade/readback surfaces remained temporary
+scaffolding until direct Rust daemon-core and Rust/WASM workload APIs replace
+command transport; Slice 1140 later retires the model-mount child delegates.
 
 | Check | Result |
 | --- | --- |

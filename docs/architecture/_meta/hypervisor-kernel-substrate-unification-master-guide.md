@@ -6389,9 +6389,11 @@ to `plan_model_mount_read_projection_response`.
 This remains non-terminal because the broader Node model-mount bridge, command
 dispatch table, shared daemon-core command runner, JS command callers,
 model-mount admission runner, and JS state-materialization/read-projection
-facades still exist. The remaining `ioi_step_module_bridge/model_mount_command.rs`
-file is temporary transport scaffolding, not a durable model-mount projection
-boundary. The long-term target remains direct Rust daemon-core model-mount
+facades still exist. At this slice, the remaining
+`ioi_step_module_bridge/model_mount_command.rs` file was temporary transport
+scaffolding, not a durable model-mount projection boundary; Slice 1140 later
+retires that child delegate. The long-term target remains direct Rust
+daemon-core model-mount
 projection APIs over Agentgres expected-head and state-root truth,
 receipt-bound topology, wallet.network/cTEE authority where applicable,
 replay, projection, and stable IDE/CLI/SDK surfaces end to end.
@@ -6412,9 +6414,10 @@ delegate to the Rust response functions.
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers, local
 model-mount materialization, provider/lifecycle wrapper delegates, and mounted
-JS facades still exist. The remaining `ioi_step_module_bridge/model_mount_command.rs`
-file is temporary transport scaffolding, not a durable backend-process or
-required-control boundary. The long-term target remains direct Rust daemon-core
+JS facades still exist. At this slice, the remaining
+`ioi_step_module_bridge/model_mount_command.rs` file was temporary transport
+scaffolding, not a durable backend-process or required-control boundary; Slice
+1140 later retires that child delegate. The long-term target remains direct Rust daemon-core
 model-mount control/projection APIs over Agentgres expected-head and state-root
 truth, receipt-bound topology, wallet.network/cTEE authority where applicable,
 replay, projection, and stable IDE/CLI/SDK surfaces end to end.
@@ -6431,10 +6434,10 @@ delegate to the Rust response functions.
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers, local
 model-mount materialization, provider execution/provider-result wrapper
-delegates, and mounted JS facades still exist. The remaining
-`ioi_step_module_bridge/model_mount_command.rs` file is temporary transport
+delegates, and mounted JS facades still exist. At this slice, the remaining
+`ioi_step_module_bridge/model_mount_command.rs` file was temporary transport
 scaffolding, not a durable provider lifecycle, provider inventory, or instance
-lifecycle boundary. The long-term target remains direct Rust daemon-core
+lifecycle boundary; Slice 1140 later retires that child delegate. The long-term target remains direct Rust daemon-core
 model-mount lifecycle/projection APIs over Agentgres expected-head and
 state-root truth, receipt-bound topology, wallet.network/cTEE authority where
 applicable, replay, projection, and stable IDE/CLI/SDK surfaces end to end.
@@ -6453,10 +6456,11 @@ Node functions only delegate to the Rust response functions.
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers,
 model-mount admission runner, provider execution/provider-result wrapper
-delegates, local materialization, and mounted JS facades still exist. The
-remaining `ioi_step_module_bridge/model_mount_command.rs` file is temporary
-transport scaffolding, not a durable model-mount admission boundary. The
-long-term target remains direct Rust daemon-core model-mount admission,
+delegates, local materialization, and mounted JS facades still exist. At this
+slice, the remaining `ioi_step_module_bridge/model_mount_command.rs` file was
+temporary transport scaffolding, not a durable model-mount admission boundary;
+Slice 1140 later retires that child delegate. The long-term target remains
+direct Rust daemon-core model-mount admission,
 provider execution, receipt/state-root binding, Agentgres truth, wallet.network
 and cTEE authority checks where applicable, replay, projection, and stable
 IDE/CLI/SDK surfaces end to end.
@@ -6476,10 +6480,11 @@ delegate to the Rust response functions.
 This remains non-terminal because model-mount command transport, command
 dispatch, the shared daemon-core command runner, JS command callers,
 model-mount admission runner, local materialization, mounted JS facades, and
-direct daemon-core protocol/API extraction still exist. The remaining
-`ioi_step_module_bridge/model_mount_command.rs` file is temporary transport
-scaffolding, not a durable model-mount provider boundary. The long-term target
-remains direct Rust daemon-core model-mount admission, provider execution,
+direct daemon-core protocol/API extraction still exist. At this slice, the
+remaining `ioi_step_module_bridge/model_mount_command.rs` file was temporary
+transport scaffolding, not a durable model-mount provider boundary; Slice 1140
+later retires that child delegate. The long-term target remains direct Rust
+daemon-core model-mount admission, provider execution,
 provider-result admission, receipt/state-root binding, Agentgres truth,
 wallet.network and cTEE authority checks where applicable, replay, projection,
 and stable IDE/CLI/SDK surfaces end to end.
@@ -6599,15 +6604,36 @@ imports Rust response functions and request types directly from
 `policy/run_cancel.rs`, `policy/thread_lifecycle.rs`, and
 `policy/mcp_memory.rs`.
 
+This was non-terminal because the Node bridge binary, JS daemon-core command
+runner, StepModule command runner, JS command callers, model-mount bridge
+delegates, and broader JS facade/readback surfaces still existed as migration
+scaffolding. Slice 1140 later retires the model-mount child delegates. The
+deleted policy/lifecycle/MCP wrapper files must not be recreated or treated as
+canonical, and the next larger cuts should replace the JS command-runner/caller
+path and broad bridge transport with direct Rust daemon-core and Rust/WASM
+workload protocol APIs once that seam is clear enough to remove without
+preserving compatibility behavior.
+
+Slice 1140 retires the final model-mount bridge child delegate modules after
+runtime command dispatch had already moved into Rust `command_dispatch.rs` and
+model-mount request/response ownership had moved into Rust
+`model_mount.rs` and `model_mount_receipt.rs`. The deleted files are
+`ioi_step_module_bridge/model_mount_command.rs` and
+`ioi_step_module_bridge/model_mount_receipt_command.rs`. The bridge proof
+surface now imports Rust model-mount admission, provider execution, lifecycle,
+backend planning, read-projection, accepted-receipt, and invocation-receipt
+binding response functions and request types directly from the Rust kernel
+modules.
+
 This remains non-terminal because the Node bridge binary, JS daemon-core
 command runner, StepModule command runner, JS command callers, model-mount
-bridge delegates, and broader JS facade/readback surfaces still exist as
-migration scaffolding. The deleted policy/lifecycle/MCP wrapper files must not
-be recreated or treated as canonical. The next larger cuts should continue
-collapsing model-mount bridge delegates and then replace the JS
-command-runner/caller path with direct Rust daemon-core and Rust/WASM workload
-protocol APIs once that seam is clear enough to remove without preserving
-compatibility behavior.
+admission runner, local materialization, JS readback/protocol edge surfaces,
+and broader facade/readback surfaces still exist as migration scaffolding. The
+deleted model-mount child wrappers must not be recreated or treated as
+canonical. The next larger cuts should replace the broad bridge transport and
+JS command-runner/caller path with direct Rust daemon-core and Rust/WASM
+workload protocol APIs once that seam is clear enough to remove without
+preserving compatibility behavior.
 
 ## Final Doctrine
 
