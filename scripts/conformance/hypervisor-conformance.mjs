@@ -2317,6 +2317,12 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
@@ -9819,7 +9825,10 @@ function runBridge() {
       /read_projection_is_planned_in_rust_model_mount_core/.test(modelMountCore) &&
       !/fn model_mount_read_projection/.test(bridgeModule) &&
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"server_status" => Ok\(model_mount_server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /mod authority;/.test(modelMountReadProjectionEvidence) &&
+      /mod status;/.test(modelMountReadProjectionEvidence) &&
+      /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"server_status" => Ok\(status::server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"catalog_status" => Err\(ModelMountReadProjectionError::new\(\s*"model_catalog_status_js_readback_retired"/.test(modelMountReadProjectionEvidence) &&
       /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
@@ -9878,9 +9887,17 @@ function runBridge() {
       /pub\(super\) fn workflow_bindings/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_adapter_boundaries/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_workflow_bindings/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_server_status/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_catalog_status/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_catalog_adapter_boundary/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn server_status/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn catalog_status/.test(modelMountReadProjectionEvidence) &&
+      /fn catalog_adapter_boundary/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn authority_snapshot/.test(modelMountReadProjectionEvidence) &&
+      /server_status_is_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
+      /catalog_status_is_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
+      /authority_snapshot_is_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_server_status/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_catalog_status/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_catalog_adapter_boundary/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_authority_snapshot/.test(modelMountReadProjectionEvidence) &&
       !/fn status_count/.test(modelMountReadProjectionEvidence) &&
       /fn model_mount_runtime_engine_detail/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_model_capabilities/.test(modelMountReadProjectionEvidence) &&
@@ -9900,8 +9917,8 @@ function runBridge() {
       /model_mount_runtime_engine_not_found/.test(modelMountReadProjectionEvidence) &&
       !/runtime_survey_input/.test(modelMountReadProjectionEvidence) &&
       !/runtime_survey_default/.test(modelMountReadProjectionEvidence) &&
-      /"server": model_mount_server_status\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"catalog": model_mount_catalog_status\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"server": status::server_status\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"catalog": status::catalog_status\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"workflowNodes": adapter_boundary::workflow_bindings\(\)/.test(modelMountReadProjectionEvidence) &&
       /"workflowBindings": adapter_boundary::workflow_bindings\(\)/.test(modelMountReadProjectionEvidence) &&
       /"modelCapabilities": \[\]/.test(modelMountReadProjectionEvidence) &&
@@ -13476,6 +13493,12 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")

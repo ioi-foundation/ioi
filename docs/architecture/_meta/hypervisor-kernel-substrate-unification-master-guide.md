@@ -4624,6 +4624,12 @@ authors now live in the dedicated Rust
 Rust proof that wallet.network, cTEE/vault, OAuth, Agentgres, and workflow node
 projection metadata are authored by Rust instead of a JS compatibility helper
 or broad dispatcher body;
+model-mount server/catalog status and authority-snapshot projection authors now
+live in dedicated Rust `model_mount/read_projection/status.rs` and
+`model_mount/read_projection/authority.rs` modules, with module-local Rust
+proof that server status ignores retired JS status inputs, catalog status
+ignores retired catalog-status inputs, and wallet authority summary/readback
+metadata is owned outside the broad read-projection dispatcher;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

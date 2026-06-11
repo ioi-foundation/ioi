@@ -20371,6 +20371,30 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1022
+
+Slice 1022 split the model_mount read-projection server/catalog status and
+authority-snapshot projection cluster out of the broad
+`model_mount/read_projection.rs` dispatcher and into
+`model_mount/read_projection/status.rs` plus
+`model_mount/read_projection/authority.rs`. Server status, catalog status,
+catalog adapter-boundary metadata, wallet authority summary logic, authority
+receipt filtering, and nested server-status readback now have dedicated Rust
+owner modules and module-local proof.
+
+This is still non-terminal migration work: status and authority projection
+authorship is isolated in Rust, but direct Rust daemon-core projection APIs over
+Agentgres-backed server, catalog, wallet, vault, and authority truth must still
+replace command transport, JS state materialization, and JS edge translation
+before terminal projection ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1022 | Moved server-status, catalog-status, catalog adapter-boundary, and authority-snapshot projection authors from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/status.rs` and `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs`; conformance now requires module-local status/authority tests and fails if the old broad dispatcher helper names regrow. | Direct Rust daemon-core projection APIs over Agentgres-backed server/catalog/wallet/vault/authority truth replace command bridge, JS state materialization, and JS edge translation for status and authority projections. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1021
 
 Slice 1021 split the model_mount read-projection adapter/workflow projection

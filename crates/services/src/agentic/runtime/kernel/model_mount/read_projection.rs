@@ -4,6 +4,8 @@ use serde_json::{json, Value};
 use super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 
 mod adapter_boundary;
+mod authority;
+mod status;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelMountReadProjectionRequest {
@@ -69,8 +71,8 @@ pub(super) fn model_mount_read_projection(
         "projection_summary" => Ok(model_mount_projection_summary(request)),
         "receipt_replay" => model_mount_receipt_replay(request),
         "model_route_decisions" => Ok(model_mount_route_decisions(request)),
-        "authority_snapshot" => Ok(model_mount_authority_snapshot(request)),
-        "server_status" => Ok(model_mount_server_status(request)),
+        "authority_snapshot" => Ok(authority::authority_snapshot(request)),
+        "server_status" => Ok(status::server_status(request)),
         "artifacts" => Ok(Value::Array(Vec::new())),
         "product_artifacts" => Ok(Value::Array(Vec::new())),
         "providers" => Ok(Value::Array(Vec::new())),
@@ -121,8 +123,8 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let receipts = array_field(state, "receipts");
     json!({
         "schemaVersion": model_mount_projection_schema_version(request),
-        "server": model_mount_server_status(request),
-        "catalog": model_mount_catalog_status(request),
+        "server": status::server_status(request),
+        "catalog": status::catalog_status(request),
         "oauthSessions": [],
         "oauthStates": [],
         "artifacts": [],
@@ -178,7 +180,7 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "backends": [],
         "backendProcesses": [],
         "providers": [],
-        "catalog": model_mount_catalog_status(request),
+        "catalog": status::catalog_status(request),
         "oauthSessions": [],
         "oauthStates": [],
         "downloads": [],
@@ -201,67 +203,6 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),
         "toolReceipts": receipts_by_kind(&receipts, "mcp_tool_invocation"),
         "receipts": receipts,
-    })
-}
-
-fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value {
-    let base_url = request.base_url.clone();
-    let native_base_url = base_url
-        .as_ref()
-        .map(|url| format!("{url}/api/v1"))
-        .unwrap_or_else(|| "/api/v1".to_string());
-    let open_ai_compatible_base_url = base_url
-        .as_ref()
-        .map(|url| format!("{url}/v1"))
-        .unwrap_or_else(|| "/v1".to_string());
-    json!({
-        "schemaVersion": model_mount_projection_schema_version(request),
-        "status": "stopped",
-        "gatewayStatus": "running",
-        "controlStatus": "running",
-        "lastServerOperation": "server_status",
-        "lastServerOperationAt": Value::Null,
-        "lastServerReceiptId": Value::Null,
-        "nativeBaseUrl": native_base_url,
-        "openAiCompatibleBaseUrl": open_ai_compatible_base_url,
-        "loadedInstances": 0,
-        "mountedEndpoints": 0,
-        "providerStates": {
-            "available": 0,
-            "degraded": 0,
-        },
-        "backendStates": {
-            "available": 0,
-            "degraded": 0,
-        },
-        "idleTtlSeconds": 900,
-        "autoEvict": true,
-        "checkedAt": Value::Null,
-    })
-}
-
-fn model_mount_catalog_status(request: &ModelMountReadProjectionRequest) -> Value {
-    json!({
-        "schemaVersion": model_mount_projection_schema_version(request),
-        "checkedAt": Value::Null,
-        "providers": [],
-        "adapterBoundary": model_mount_catalog_adapter_boundary(),
-        "filters": {
-            "formats": ["gguf", "mlx", "safetensors"],
-            "quantization": ["Q2", "Q3", "Q4", "Q5", "Q6", "Q8", "F16", "BF16", "IQ"],
-            "compatibility": ["native_local_fixture", "llama_cpp", "ollama", "vllm", "mlx"],
-        },
-        "storage": Value::Null,
-        "lastSearch": Value::Null,
-        "results": [],
-    })
-}
-
-fn model_mount_catalog_adapter_boundary() -> Value {
-    json!({
-        "port": "ModelCatalogProviderPort",
-        "operations": ["search", "resolveVariant", "importUrl", "download", "health"],
-        "evidenceRefs": ["provider_neutral_model_catalog_adapter_boundary"],
     })
 }
 
@@ -365,68 +306,6 @@ fn model_mount_route_decisions(request: &ModelMountReadProjectionRequest) -> Val
         &request.state,
         "receipts",
     )))
-}
-
-fn model_mount_authority_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
-    let state = &request.state;
-    let grants = array_field(state, "grants");
-    let vault_refs = array_field(state, "vault_refs");
-    let authority_receipts = array_field(state, "receipts")
-        .into_iter()
-        .filter(|receipt| {
-            matches!(
-                json_string_field(receipt, "kind").as_deref(),
-                Some("permission_token")
-                    | Some("permission_token_revocation")
-                    | Some("vault_ref_binding")
-                    | Some("vault_ref_removal")
-                    | Some("vault_adapter_health")
-            )
-        })
-        .rev()
-        .take(25)
-        .collect::<Vec<_>>()
-        .into_iter()
-        .rev()
-        .collect::<Vec<_>>();
-    let wallet = object_or_null(state.get("wallet"));
-    let active_grants = grants
-        .iter()
-        .filter(|grant| grant.get("revokedAt").is_none())
-        .count();
-    let revoked_grants = grants.len().saturating_sub(active_grants);
-    let vault_ref_count = vault_refs.len();
-    let authority_receipt_count = authority_receipts.len();
-    let remote_wallet_configured = wallet
-        .get("remoteAdapter")
-        .and_then(|remote| remote.get("configured"))
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    json!({
-        "schemaVersion": "ioi.wallet-core-lite.authority.v1",
-        "source": "agentgres_wallet_authority_projection",
-        "generatedAt": model_mount_projection_generated_at(request),
-        "server": model_mount_server_status(request),
-        "wallet": wallet,
-        "vault": object_or_null(state.get("vault")),
-        "grants": grants,
-        "vaultRefs": vault_refs,
-        "approvals": [],
-        "approvalQueue": {
-            "status": "not_configured",
-            "pendingCount": 0,
-            "evidenceRefs": ["wallet.network.approval_queue.pending_runtime_adapter"],
-        },
-        "receipts": authority_receipts,
-        "summary": {
-            "activeGrants": active_grants,
-            "revokedGrants": revoked_grants,
-            "vaultRefs": vault_ref_count,
-            "pendingApprovals": 0,
-            "receiptCount": authority_receipt_count,
-            "remoteWalletConfigured": remote_wallet_configured,
-        },
-    })
 }
 
 fn model_mount_latest_provider_health(
