@@ -238,6 +238,112 @@ test("public runtime agent create route uses mounted agent lifecycle surface", a
   assert.deepEqual(calls, [{ surfaceStore: store, options: { local: { cwd: "/workspace/project" } } }]);
 });
 
+test("public runtime thread create route uses mounted agent lifecycle surface", async () => {
+  const { handleRequest } = routeHarness();
+  const response = responseRecorder();
+  const calls = [];
+  const store = {
+    agentRunLifecycleSurface: {
+      async createThread(surfaceStore, body) {
+        calls.push({ surfaceStore, body });
+        return {
+          thread_id: "thread_route",
+          status: "active",
+        };
+      },
+    },
+    createThread: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/threads",
+      body: { options: { local: { cwd: "/workspace/project" } } },
+    }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(JSON.parse(response.body), {
+    thread_id: "thread_route",
+    status: "active",
+  });
+  assert.deepEqual(calls, [
+    {
+      surfaceStore: store,
+      body: { options: { local: { cwd: "/workspace/project" } } },
+    },
+  ]);
+});
+
+test("public runtime usage and authority evidence routes use mounted run read surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    runReadSurface: {
+      listUsage(surfaceStore, options) {
+        calls.push({ method: "listUsage", surfaceStore, options });
+        return {
+          schema_version: "runtime.usage.telemetry.v1",
+          items: [{ run_id: "run_route" }],
+        };
+      },
+      authorityEvidenceSummary(surfaceStore, options) {
+        calls.push({ method: "authorityEvidenceSummary", surfaceStore, options });
+        return {
+          schema_version: "authority.evidence.summary.v1",
+          filters: options,
+        };
+      },
+    },
+    listUsage: retiredRouteWrapper,
+    authorityEvidenceSummary: retiredRouteWrapper,
+  };
+
+  const usageResponse = responseRecorder();
+  await handleRequest({
+    request: request({ url: "/v1/usage?group_by=thread&agent_id=agent_route" }),
+    response: usageResponse,
+    store,
+  });
+
+  assert.equal(usageResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(usageResponse.body), {
+    payload: {
+      schema_version: "runtime.usage.telemetry.v1",
+      items: [{ run_id: "run_route" }],
+    },
+    metadata: { requestMetadata: true },
+  });
+
+  const evidenceResponse = responseRecorder();
+  await handleRequest({
+    request: request({ url: "/v1/authority-evidence?thread_id=thread_route" }),
+    response: evidenceResponse,
+    store,
+  });
+
+  assert.equal(evidenceResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(evidenceResponse.body), {
+    schema_version: "authority.evidence.summary.v1",
+    filters: { thread_id: "thread_route" },
+  });
+  assert.deepEqual(calls, [
+    {
+      method: "listUsage",
+      surfaceStore: store,
+      options: { group_by: "thread", agent_id: "agent_route" },
+    },
+    {
+      method: "authorityEvidenceSummary",
+      surfaceStore: store,
+      options: { thread_id: "thread_route" },
+    },
+  ]);
+});
+
 test("public runtime memory projection routes fail closed through thread memory surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

@@ -57,8 +57,6 @@ import {
 import {
   RuntimeApiBridgeUnavailableError,
   createRuntimeApiBridge,
-  isRuntimeServiceProfile,
-  runtimeProfileForRequest,
 } from "./runtime-api-bridge.mjs";
 import {
   agentIdForThread,
@@ -1092,14 +1090,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   async createThread(request = {}) {
-    const options = request.options ?? request;
-    const runtimeProfile = runtimeProfileForRequest(request, options);
-    if (isRuntimeServiceProfile(runtimeProfile)) {
-      return this.createRuntimeBridgeThread({ request, options, runtimeProfile });
-    }
-    const agent = this.createAgent(options);
-    this.ensureThreadStartedEvent(agent);
-    return this.threadForAgent(agent);
+    return this.agentRunLifecycleSurface.createThread(this, request);
   }
 
   async createRuntimeBridgeThread({ request, options, runtimeProfile }) {

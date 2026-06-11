@@ -4538,12 +4538,13 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 984, public runtime account, runtime-node, tool
+Current lane note: after Slice 985, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
-scorecard, run artifact, public memory list/policy/path/status/validation, and
-public/thread-scoped conversation-artifact route-facing projections are no
+scorecard, run artifact, top-level usage, authority-evidence, public memory
+list/policy/path/status/validation, and public/thread-scoped
+conversation-artifact route-facing projections are no
 longer JS-authored public truth. The daemon edge now
 translates `RuntimeToolCatalogProjectionRequiredCore` and
 `RuntimeLifecycleProjectionRequiredCore` fail-closed records for catalog and
@@ -4551,11 +4552,13 @@ lifecycle surfaces, and the mounted thread-memory surface fails closed for
 public memory projections before JS `AgentMemoryStore` readback; conversation
 artifact routes call the mounted fail-closed artifact surface directly before
 daemon-store pass-through wrappers or JS artifact-store readback; public agent
-create, agent status/delete, and agent-scoped run create routes call the mounted
-agent/run lifecycle surface directly, and reload no longer reads JS agent state
-before fail-closed admission; agent/thread memory write, edit, delete, policy,
-status, and validation routes also call the mounted thread-memory surface
-directly before daemon-store pass-through wrappers; thread fork,
+create, top-level thread create, agent status/delete, and agent-scoped run
+create routes call the mounted agent/run lifecycle surface directly, public
+usage and authority-evidence routes call the mounted run-read surface directly,
+and reload no longer reads JS agent state before fail-closed admission;
+agent/thread memory write, edit, delete, policy, status, and validation routes
+also call the mounted thread-memory surface directly before daemon-store
+pass-through wrappers; thread fork,
 managed-session inspection/control, workspace-change inspection, and run cancel
 routes call a mounted auxiliary fail-closed surface instead of daemon-store
 pass-through wrappers while direct Rust daemon-core projection and admission APIs

@@ -2,6 +2,10 @@ import {
   deleteAgent as deleteAgentState,
   updateAgent as updateAgentState,
 } from "./threads/thread-store.mjs";
+import {
+  isRuntimeServiceProfile,
+  runtimeProfileForRequest,
+} from "./runtime-api-bridge.mjs";
 
 export function createRuntimeAgentRunLifecycleSurface({
   runtimeError,
@@ -13,6 +17,9 @@ export function createRuntimeAgentRunLifecycleSurface({
     createRun(store, agentId, request = {}) {
       return createRun(store, agentId, request);
     },
+    createThread(store, request = {}) {
+      return createThread(store, request);
+    },
     updateAgent(store, agentId, status, operationKind) {
       return updateAgentState(store, agentId, status, operationKind, { runtimeError });
     },
@@ -20,6 +27,17 @@ export function createRuntimeAgentRunLifecycleSurface({
       return deleteAgentState(store, agentId, { runtimeError });
     },
   };
+}
+
+export function createThread(store, request = {}) {
+  const options = request.options ?? request;
+  const runtimeProfile = runtimeProfileForRequest(request, options);
+  if (isRuntimeServiceProfile(runtimeProfile)) {
+    return store.createRuntimeBridgeThread({ request, options, runtimeProfile });
+  }
+  const agent = createAgent(store, options);
+  store.ensureThreadStartedEvent(agent);
+  return store.threadForAgent(agent);
 }
 
 export function createAgent(store, options = {}) {

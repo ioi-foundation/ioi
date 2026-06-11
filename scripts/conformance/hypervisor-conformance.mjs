@@ -8276,18 +8276,25 @@ function runBridge() {
       ) &&
       /return createAgentState\(this,\s*options\);/.test(runtimeDaemonIndex) &&
       /return createRunState\(this,\s*agentId,\s*request\);/.test(runtimeDaemonIndex) &&
+      /return this\.agentRunLifecycleSurface\.createThread\(this,\s*request\);/.test(
+        runtimeDaemonIndex,
+      ) &&
       /store\.agentRunLifecycleSurface\.createAgent\(store,/.test(publicRuntimeRoutes) &&
+      /store\.agentRunLifecycleSurface\.createThread\(store,/.test(publicRuntimeRoutes) &&
       /store\.agentRunLifecycleSurface\.createRun\(store, agentId,/.test(runtimeRouteHandlers) &&
       /public runtime agent create route uses mounted agent lifecycle surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /public runtime thread create route uses mounted agent lifecycle surface/.test(
         publicRuntimeRoutesTest,
       ) &&
       /agent lifecycle mutation routes use mounted agent lifecycle surface/.test(
         runtimeRouteHandlersTest,
       ) &&
-      /agent\/run lifecycle surface routes create and run creation to fail-closed core boundary/.test(
+      /agent\/run lifecycle surface routes create, run creation, and thread creation to mounted boundary/.test(
         runtimeAgentRunLifecycleTest,
       ) &&
-      !/store\.(?:createAgent|createRun|updateAgent|deleteAgent|getAgent)\(/.test(
+      !/store\.(?:createAgent|createRun|createThread|updateAgent|deleteAgent|getAgent)\(/.test(
         `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
       ) &&
       !/createAgentState\(this,\s*options,\s*\{/.test(runtimeDaemonIndex) &&
@@ -16842,6 +16849,15 @@ function runReceipts() {
       /public runtime run list route fails closed through lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
+      /store\.runReadSurface\.listUsage\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /public runtime usage and authority evidence routes use mounted run read surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
       /agent, thread, and run detail routes use lifecycle projection surface/.test(
         runtimeRouteHandlersTest,
       ) &&
@@ -16861,6 +16877,12 @@ function runReceipts() {
         publicRuntimeRoutes,
       ) &&
       !/writeJsonResponse\(response,\s*store\.listRuns\(/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/store\.listUsage\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/store\.authorityEvidenceSummary\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
         publicRuntimeRoutes,
       ) &&
       !/writeJsonResponse\(response,\s*store\.getAgent\(agentId\)\)/.test(

@@ -5,6 +5,7 @@ import {
   createAgent,
   createRuntimeAgentRunLifecycleSurface,
   createRun,
+  createThread,
 } from "./runtime-agent-run-lifecycle.mjs";
 
 function fakeStore() {
@@ -17,6 +18,8 @@ function fakeStore() {
     routeCalls: [],
     memoryCalls: [],
     getAgentCalls: [],
+    runtimeThreadCalls: [],
+    startedEvents: [],
     resolveModelRoute(options, context) {
       this.routeCalls.push({ surface: "agent", options, context });
       return { selectedModel: "model.local" };
@@ -38,6 +41,16 @@ function fakeStore() {
     },
     writeRun(run, operationKind) {
       this.writes.push({ kind: "run", operationKind, run });
+    },
+    createRuntimeBridgeThread(input) {
+      this.runtimeThreadCalls.push(input);
+      return { thread_id: "thread_runtime", runtime_profile: input.runtimeProfile };
+    },
+    ensureThreadStartedEvent(agent) {
+      this.startedEvents.push(agent.id);
+    },
+    threadForAgent(agent) {
+      return { thread_id: `thread_${agent.id}`, agent_id: agent.id };
     },
   };
 }
@@ -145,7 +158,46 @@ test("createRun missing-agent path is still Rust-core required and does not read
   assert.deepEqual(store.writes, []);
 });
 
-test("agent/run lifecycle surface routes create and run creation to fail-closed core boundary", () => {
+test("createThread facade fails closed before JS agent persistence for default threads", () => {
+  const store = fakeStore();
+
+  assert.throws(
+    () => createThread(store, { options: { local: { cwd: "/workspace/thread" } } }),
+    (error) => {
+      assert.equal(error.code, "runtime_agent_create_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.agent_create");
+      assert.equal(error.details.requested_cwd, "/workspace/thread");
+      assertNoRetiredLifecycleDetailAliases(error.details);
+      return true;
+    },
+  );
+
+  assert.deepEqual(store.runtimeThreadCalls, []);
+  assert.deepEqual(store.startedEvents, []);
+  assert.deepEqual(store.writes, []);
+});
+
+test("createThread facade routes runtime-service threads through runtime bridge boundary", async () => {
+  const store = fakeStore();
+
+  const result = await createThread(store, {
+    options: {
+      runtime_profile: "runtime_service",
+      local: { cwd: "/workspace/runtime" },
+    },
+  });
+
+  assert.deepEqual(result, {
+    thread_id: "thread_runtime",
+    runtime_profile: "runtime_service",
+  });
+  assert.equal(store.runtimeThreadCalls.length, 1);
+  assert.equal(store.runtimeThreadCalls[0].runtimeProfile, "runtime_service");
+  assert.deepEqual(store.startedEvents, []);
+  assert.deepEqual(store.writes, []);
+});
+
+test("agent/run lifecycle surface routes create, run creation, and thread creation to mounted boundary", async () => {
   const store = fakeStore();
   const surface = createRuntimeAgentRunLifecycleSurface();
 
@@ -168,7 +220,15 @@ test("agent/run lifecycle surface routes create and run creation to fail-closed 
       return true;
     },
   );
+  const thread = await surface.createThread(store, {
+    options: { runtime_profile: "runtime_service" },
+  });
 
+  assert.deepEqual(thread, {
+    thread_id: "thread_runtime",
+    runtime_profile: "runtime_service",
+  });
+  assert.equal(store.runtimeThreadCalls.length, 1);
   assert.deepEqual(store.writes, []);
   assert.deepEqual(store.getAgentCalls, []);
   assert.deepEqual(store.routeCalls, []);

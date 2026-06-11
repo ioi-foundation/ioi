@@ -20366,6 +20366,45 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 985
+
+Slice 985 removed another public-route pass-through layer from the daemon edge.
+Top-level public `/v1/threads` creation now calls the mounted
+`RuntimeAgentRunLifecycle` surface directly instead of `store.createThread()`.
+Public `/v1/usage` and `/v1/authority-evidence` now call the mounted
+`RuntimeRunRead` surface directly instead of `store.listUsage()` or
+`store.authorityEvidenceSummary()`. The public route tests poison those retired
+wrappers so route-level behavior cannot silently re-enter daemon-store
+compatibility methods after context compaction.
+
+This is still non-terminal migration work: default thread creation fails closed
+at the Rust-core-required agent admission boundary, runtime-service thread
+creation still uses the existing runtime bridge migration path, and run-read
+projection still prepares JS-side inputs until direct Rust daemon-core
+Agentgres-backed projection APIs own usage and authority evidence end to end.
+The terminal target remains direct Rust daemon-core agent/thread/run admission,
+runtime thread creation, usage/authority projection, wallet/cTEE authority,
+Agentgres expected-head/state-root binding, receipt/event materialization,
+replay, and stable IDE/CLI/SDK protocol APIs.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 985 | Public thread creation plus top-level usage and authority-evidence routes now call mounted lifecycle/run-read surfaces directly instead of daemon-store compatibility wrappers. | Direct Rust daemon-core agent/thread/run admission and Agentgres-backed usage/authority projection with wallet/cTEE authority, receipt/state-root binding, replay, and stable protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 984
 
 Slice 984 mounted a `RuntimeThreadTurn` surface for thread resume, turn create,

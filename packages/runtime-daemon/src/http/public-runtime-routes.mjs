@@ -111,7 +111,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/threads") {
-        writeJsonResponse(response, await store.createThread(await readBody(request)));
+        writeJsonResponse(response, await store.agentRunLifecycleSurface.createThread(store, await readBody(request)));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/threads") {
@@ -122,7 +122,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         writeJsonResponse(
           response,
           usageTelemetryWithRequestMetadata(
-            store.listUsage(Object.fromEntries(url.searchParams.entries())),
+            store.runReadSurface.listUsage(store, Object.fromEntries(url.searchParams.entries())),
             usageRequestMetadataFromUrl(url, {
               runtimeUsageTelemetrySchemaVersion: RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION,
             }),
@@ -137,7 +137,7 @@ export function createPublicRuntimeRequestHandler(deps) {
       ) {
         writeJsonResponse(
           response,
-          store.authorityEvidenceSummary(Object.fromEntries(url.searchParams.entries())),
+          store.runReadSurface.authorityEvidenceSummary(store, Object.fromEntries(url.searchParams.entries())),
         );
         return;
       }
