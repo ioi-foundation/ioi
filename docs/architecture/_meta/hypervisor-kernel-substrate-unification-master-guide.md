@@ -4580,6 +4580,11 @@ the dedicated Rust `model_mount/backend_process.rs` module behind
 `ModelMountCore::plan_backend_process`, keeping backend-process ownership
 directional toward Rust core process/lifecycle APIs rather than a long-term
 Node bridge shape;
+model-mount accepted-receipt head/transition request/result types, validation,
+state-root derivation, operation/head refs, transition hashing, and tamper
+validation now live in the dedicated Rust `model_mount/accepted_receipt.rs`
+module behind `ModelMountCore`, making receipt/state-root binding a distinct
+Rust core boundary rather than broad model-mount helper code;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

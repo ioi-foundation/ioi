@@ -2302,6 +2302,9 @@ function runBridge() {
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
     ? [
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -13431,6 +13434,9 @@ function runReceipts() {
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
     ? [
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -17774,6 +17780,24 @@ function runReceipts() {
       /plan_model_mount_accepted_receipt_head/.test(modelMountAdmissionRunner) &&
       /plan_model_mount_accepted_receipt_head/.test(bridgeModule) &&
       /ModelMountAcceptedReceiptHeadRequest/.test(bridgeModule) &&
+      /mod accepted_receipt;/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /pub use accepted_receipt::/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /accepted_receipt::plan_accepted_receipt_head\(request\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /accepted_receipt::plan_accepted_receipt_transition\(request\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /accepted_receipt::validate_accepted_receipt_transition\(transition\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountAcceptedReceiptHeadRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
       /plan_accepted_receipt_head/.test(modelMountCore) &&
       /MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION/.test(modelMountCore) &&
       /head_ref:\s*result\.head_ref \?\? head\.head_ref/.test(modelMountAdmissionRunner) &&
@@ -17806,6 +17830,9 @@ function runReceipts() {
       /accepted_receipt_transition:\s*acceptedReceiptTransition/.test(modelMountInvocationReceiptRunnerBlock) &&
       /Rust model_mount admission runner rejects direct expected head binding input/.test(modelMountAdmissionRunnerTest) &&
       /ModelMountAcceptedReceiptTransitionRequest/.test(bridgeModule) &&
+      /ModelMountAcceptedReceiptTransitionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs"),
+      ) &&
       /plan_accepted_receipt_transition/.test(modelMountCore) &&
       /validate_accepted_receipt_transition/.test(modelMountCore) &&
       /InvalidAcceptedReceiptTransitionHash/.test(modelMountCore) &&
@@ -17841,6 +17868,7 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs",
       "packages/runtime-daemon/src/model-mounting.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],

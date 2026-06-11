@@ -20371,6 +20371,28 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1009
+
+Slice 1009 split model_mount accepted-receipt head and transition planning out
+of the broad `model_mount.rs` kernel file into `model_mount/accepted_receipt.rs`.
+Accepted-receipt head/transition request and result types, validation,
+state-root derivation, operation/head ref construction, transition hashing, and
+tamper validation now live in the dedicated Rust module, while `ModelMountCore`
+remains the public facade and forwards to that module.
+
+This is still non-terminal migration work: model_mount receipt binding and
+Agentgres admission still pass through migration command transport until direct
+Rust daemon-core receipt APIs own the stable protocol surface, projection,
+replay, and accepted truth. The dedicated Rust module is the receipt/state-root
+ownership boundary for that retirement work, not a canonical long-term bridge.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1009 | Moved accepted-receipt head/transition types, validation, state-root derivation, operation/head refs, transition hashing, and tamper validation into `crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs`; `ModelMountCore` forwards to the module. | Direct Rust daemon-core receipt APIs replace command transport and JS edge translation for model_mount receipt binding, Agentgres admission, projection, and replay. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1008
 
 Slice 1008 split the model_mount backend-process planner out of the broad
