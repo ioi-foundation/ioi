@@ -2528,6 +2528,12 @@ function runBridge() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const runtimeDiagnosticsFeedbackSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
+    : "";
+  const runtimeDiagnosticsFeedbackSurfaceTest = exists("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs")
+    : "";
   const codingToolStepModuleContextBlock =
     runtimeCodingToolInvocationSurface.match(/const stepModuleContext = \([\s\S]*?\n\s*\}\);/)?.[0] ?? "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
@@ -2884,7 +2890,7 @@ function runBridge() {
     runtimeDaemonIndex.match(/async invokeComputerUseNativeBrowserTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseSandboxedHostedTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseSandboxedHostedTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiObserveTool/)?.[0] ?? "",
-    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  invokeThreadTool/)?.[0] ?? "",
+    runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  appendCodingToolCommandStreamEvents/)?.[0] ?? "",
   ];
   const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
@@ -3444,9 +3450,16 @@ function runBridge() {
       /store\.codingToolInvocationSurface\.invokeThreadTool\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
+      /store\.codingToolInvocationSurface\.invokeThreadTool\(store, threadId, "lsp\.diagnostics", \{/.test(
+        runtimeDiagnosticsFeedbackSurface,
+      ) &&
+      /retired invokeThreadTool wrapper must not be used for diagnostics feedback/.test(
+        runtimeDiagnosticsFeedbackSurfaceTest,
+      ) &&
       !/store\.invokeThreadTool\(threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
+      !/\n\s+invokeThreadTool\(threadId, toolId, request = \{\}\) \{/.test(runtimeDaemonIndex) &&
       !/invokeThreadToolAsync/.test(runtimeDaemonIndex) &&
       !/store\.invokeThreadToolAsync/.test(runtimeRouteHandlers),
     [

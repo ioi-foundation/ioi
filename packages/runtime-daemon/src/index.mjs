@@ -2698,10 +2698,6 @@ export class AgentgresRuntimeStateStore {
     }
   }
 
-  invokeThreadTool(threadId, toolId, request = {}) {
-    return this.codingToolInvocationSurface.invokeThreadTool(this, threadId, toolId, request);
-  }
-
   appendCodingToolCommandStreamEvents({
     agent,
     threadId,

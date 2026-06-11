@@ -42,9 +42,17 @@ function createStore(events = []) {
   const calls = [];
   return {
     calls,
-    invokeThreadTool(threadId, toolId, request) {
-      calls.push({ threadId, toolId, request });
-      return { ok: true, threadId, toolId, request };
+    codingToolInvocationSurface: {
+      invokeThreadTool(surfaceStore, threadId, toolId, request) {
+        calls.push({ surfaceStore, threadId, toolId, request });
+        return { ok: true, threadId, toolId, request };
+      },
+    },
+    invokeThreadTool() {
+      throw new Error("retired invokeThreadTool wrapper must not be used for diagnostics feedback");
+    },
+    invokeThreadToolAsync() {
+      throw new Error("retired invokeThreadToolAsync wrapper must not be used for diagnostics feedback");
     },
     runtimeEventStream() {
       return { events };
@@ -110,6 +118,7 @@ test("diagnostics feedback surface invokes lsp diagnostics with repair context",
 
   assert.equal(result.toolId, "lsp.diagnostics");
   assert.equal(store.calls.length, 1);
+  assert.equal(store.calls[0].surfaceStore, store);
   const request = store.calls[0].request;
   assert.equal(request.workflow_node_id, "runtime.coding-tool.lsp-diagnostics.auto");
   assert.deepEqual(request.rollback_refs, ["snapshot_alpha", "rollback_alpha"]);

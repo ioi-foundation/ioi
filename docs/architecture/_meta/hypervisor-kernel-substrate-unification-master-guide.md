@@ -2412,13 +2412,16 @@ SDK/IDE/CLI protocol APIs remain required before terminal MCP serve
 conformance.
 Slice 956 retired the daemon-store `invokeThreadToolAsync()` compatibility
 wrapper. The public `/v1/threads/:thread_id/tools/:tool_id/invoke` route now
-calls the canonical `invokeThreadTool()` surface directly, preserving the
-current Rust workload live StepModule path while removing the duplicate
-route-level JS dispatch fanout. This does not claim terminal thread-tool
-admission: direct Rust daemon-core route admission, wallet authority,
-StepModuleRouter dispatch, receipt/state-root binding, Agentgres truth, replay,
-projection, command-transport retirement, and stable SDK/IDE/CLI protocol APIs
-remain required before terminal thread-tool conformance.
+calls the mounted `codingToolInvocationSurface.invokeThreadTool(store, ...)`
+surface directly, preserving the current Rust workload live StepModule path
+while removing the duplicate route-level JS dispatch fanout. Slice 983 then
+removed the remaining daemon-store `invokeThreadTool()` wrapper and moved
+post-edit diagnostics feedback dispatch onto the same mounted invocation
+surface. This does not claim terminal thread-tool admission: direct Rust
+daemon-core route admission, wallet authority, StepModuleRouter dispatch,
+receipt/state-root binding, Agentgres truth, replay, projection,
+command-transport retirement, and stable SDK/IDE/CLI protocol APIs remain
+required before terminal thread-tool conformance.
 Slice 957 retired the daemon-store thread-control route pass-through wrappers.
 The public mode/model/thinking and workspace-trust acknowledgement routes now
 call the fail-closed `RuntimeThreadControl` surface directly, so JS no longer
@@ -4535,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 982, public runtime account, runtime-node, tool
+Current lane note: after Slice 983, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4569,8 +4572,11 @@ wallet/network and cTEE authority where required, receipt/state-root binding,
 replay, and stable IDE/CLI/SDK protocol APIs own the surfaces end to end.
 Thread-tool invocation routes now also call the mounted coding-tool invocation
 surface directly instead of the daemon-store `invokeThreadTool()` pass-through,
-but that surface and command transport remain migration scaffolding until direct
-Rust daemon-core StepModuleRouter/workload-client APIs own dispatch end to end.
+and post-edit diagnostics feedback now invokes `lsp.diagnostics` through that
+mounted surface too. The daemon-store `invokeThreadTool()` wrapper is retired,
+but the mounted JS surface and command transport remain migration scaffolding
+until direct Rust daemon-core StepModuleRouter/workload-client APIs own dispatch
+end to end.
 
 ## Final Doctrine
 

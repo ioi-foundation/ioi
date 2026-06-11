@@ -20366,6 +20366,41 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 983
+
+Slice 983 retired the daemon-store `invokeThreadTool()` compatibility wrapper
+after Slice 982 removed route-level use of it. Post-edit diagnostics feedback now
+invokes `lsp.diagnostics` through
+`store.codingToolInvocationSurface.invokeThreadTool(store, ...)` directly, and
+the focused diagnostics feedback test poisons both `invokeThreadTool()` and
+`invokeThreadToolAsync()` so the wrapper path cannot return as hidden dispatch
+plumbing.
+
+This is still non-terminal migration plumbing: the mounted coding-tool
+invocation surface remains a JS migration surface around the Rust workload live
+runner and command transport. Direct Rust daemon-core StepModuleRouter dispatch,
+workload-client APIs, Agentgres receipt/state-root binding, wallet authority,
+replay, command-transport retirement, and stable protocol APIs remain required
+before terminal conformance.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 983 | Retired daemon-store `invokeThreadTool()` and routed post-edit diagnostics feedback through the mounted coding-tool invocation surface. | Direct Rust daemon-core StepModuleRouter/workload-client dispatch over Agentgres-admitted truth, wallet authority, receipt/state-root binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 982
 
 Slice 982 removed the remaining thread-tool invocation route-level daemon-store

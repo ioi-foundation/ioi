@@ -48,7 +48,7 @@ export function createRuntimeDiagnosticsFeedbackSurface(deps = {}) {
       ...normalizeArray(patchResult?.rollback_refs),
     ]);
     const repairPolicyConfig = config.repairPolicyConfig ?? diagnosticsRepairPolicyConfig(request, input);
-    return store.invokeThreadTool(threadId, "lsp.diagnostics", {
+    return store.codingToolInvocationSurface.invokeThreadTool(store, threadId, "lsp.diagnostics", {
       source: "runtime_auto",
       turn_id: turnId || null,
       workflow_graph_id: workflowGraphId,
