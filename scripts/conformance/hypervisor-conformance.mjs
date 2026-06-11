@@ -2269,6 +2269,9 @@ function runBridge() {
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
+  const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
+    : "";
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
@@ -12411,15 +12414,28 @@ function runBridge() {
   assertCheck(
     result,
     "worker-service-package-invocation-live-bridge",
-    /admit_worker_service_package_invocation/.test(bridgeModule) &&
-      /WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
-      /WorkerServicePackageInvocationCore/.test(bridgeModule) &&
-      /rust_worker_service_package_invocation_command/.test(bridgeModule) &&
-      /accepted_receipt_append/.test(bridgeModule) &&
+    /mod governed_admission_command;/.test(bridgeModule) &&
+      /admit_worker_service_package_invocation/.test(bridgeModule) &&
+      !/struct WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
+      !/fn admit_worker_service_package_invocation/.test(bridgeModule) &&
+      /pub\(super\) struct WorkerServicePackageInvocationBridgeRequest/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_worker_service_package_invocation/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /WorkerServicePackageInvocationCore/.test(governedAdmissionCommandBridge) &&
+      /rust_worker_service_package_invocation_command/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
       /worker_service_package_rejects_step_module_command_schema/.test(bridgeModule),
-    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+    ],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
   );
   assertCheck(
@@ -13025,15 +13041,24 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-admission-live-bridge",
-    /admit_l1_settlement_attempt/.test(bridgeModule) &&
-      /L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
-      /L1SettlementTriggerGuard/.test(bridgeModule) &&
-      /rust_l1_settlement_guard_command/.test(bridgeModule) &&
-      /l1_settlement_guard/.test(bridgeModule) &&
-      /l1_settlement_admission_invalid/.test(bridgeModule) &&
+    /mod governed_admission_command;/.test(bridgeModule) &&
+      /admit_l1_settlement_attempt/.test(bridgeModule) &&
+      !/struct L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
+      !/fn admit_l1_settlement_attempt/.test(bridgeModule) &&
+      /pub\(super\) struct L1SettlementAdmissionBridgeRequest/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_l1_settlement_attempt/.test(governedAdmissionCommandBridge) &&
+      /L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
+      /rust_l1_settlement_guard_command/.test(governedAdmissionCommandBridge) &&
+      /l1_settlement_guard/.test(governedAdmissionCommandBridge) &&
+      /l1_settlement_admission_invalid/.test(governedAdmissionCommandBridge) &&
       /l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_admits_l1_settlement_attempt_through_rust_core/.test(bridgeModule),
-    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+    ],
     "Phase 8/11 is pending: L1 settlement attempts must be admitted through the Rust trigger guard before any product surface can settle",
   );
   assertCheck(
@@ -13292,15 +13317,26 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-proposal-live-bridge",
-    /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
-      /GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
-      /GovernedRuntimeImprovementProposal/.test(bridgeModule) &&
-      /GovernedEvolutionCore/.test(bridgeModule) &&
-      /rust_governed_meta_improvement_command/.test(bridgeModule) &&
+    /mod governed_admission_command;/.test(bridgeModule) &&
+      /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
+      !/struct GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
+      !/fn admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
+      /pub\(super\) struct GovernedRuntimeImprovementBridgeRequest/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_governed_runtime_improvement_proposal/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /GovernedRuntimeImprovementProposal/.test(governedAdmissionCommandBridge) &&
+      /GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
+      /rust_governed_meta_improvement_command/.test(governedAdmissionCommandBridge) &&
       /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule) &&
       /governed_improvement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /agentgres:\/\/runtime-improvement\/head\/current/.test(bridgeModule),
-    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+    ],
     "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",
   );
   assertCheck(
@@ -19111,6 +19147,9 @@ function runCtee() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -19223,16 +19262,27 @@ function runCtee() {
   assertCheck(
     result,
     "ctee-execution-bridge-command",
-    /CteePrivateWorkspaceBridgeRequest/.test(bridgeModule) &&
+    /mod governed_admission_command;/.test(bridgeModule) &&
       /execute_private_workspace_ctee_action/.test(bridgeModule) &&
-      /PrivateWorkspaceCteeModule/.test(bridgeModule) &&
-      /rust_ctee_private_workspace_command/.test(bridgeModule) &&
-      /accepted_receipt_append/.test(bridgeModule) &&
+      !/struct CteePrivateWorkspaceBridgeRequest/.test(bridgeModule) &&
+      !/fn execute_private_workspace_ctee_action/.test(bridgeModule) &&
+      /pub\(super\) struct CteePrivateWorkspaceBridgeRequest/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) fn execute_private_workspace_ctee_action/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /PrivateWorkspaceCteeModule/.test(governedAdmissionCommandBridge) &&
+      /rust_ctee_private_workspace_command/.test(governedAdmissionCommandBridge) &&
+      /accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /ctee_private_workspace_rejects_step_module_command_schema/.test(
         bridgeModule,
       ) &&
       /bridge_executes_private_workspace_ctee_action_through_rust_core/.test(bridgeModule),
-    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+    ],
     "Phase 7 is pending: daemon command bridge must expose Rust cTEE execution with receipt/admission/projection artifacts",
   );
   assertCheck(

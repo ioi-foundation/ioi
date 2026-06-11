@@ -5055,6 +5055,22 @@ direct Rust daemon-core workspace restore/snapshot admission, artifact
 materialization, Agentgres expected-head/state-root persistence, receipts,
 events, replay, projection, and stable IDE/CLI/SDK protocol APIs.
 
+Slice 1051 moves the cTEE private workspace action, worker/service package
+invocation admission, L1 settlement admission, and governed runtime-improvement
+proposal admission daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs`.
+The Rust owners remain `ctee`, `marketplace`, `settlement`, `evolution`,
+`receipt_binder`, and Agentgres admission; the bridge child module is only
+fixed migration transport that translates those Rust-owned records at the
+process boundary. The conformance guard now proves these governed
+admission/action command wrappers stay out of the broad bridge module. This is
+not terminal cTEE, worker/service package, L1 settlement, or meta-improvement
+migration. Resume by replacing this command transport with direct Rust
+daemon-core APIs for custody, package invocation, settlement trigger guards,
+governed proposal admission, receipt/state-root binding, Agentgres admission,
+replay, projection, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
