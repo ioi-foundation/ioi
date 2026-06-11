@@ -63,6 +63,51 @@ function routeHandlers() {
   });
 }
 
+test("model mounting authority evidence routes use mounted run read surface", async () => {
+  const { handleModelMountingNativeRoute } = routeHandlers();
+  const calls = [];
+  const store = {
+    modelMounting: {},
+    runReadSurface: {
+      authorityEvidenceSummary(surfaceStore, options) {
+        calls.push({ surfaceStore, options });
+        return {
+          schema_version: "authority.evidence.summary.v1",
+          filters: options,
+        };
+      },
+    },
+    authorityEvidenceSummary: retiredRouteWrapper,
+  };
+  const paths = [
+    "/api/v1/authority-evidence",
+    "/api/v1/authority-evidence-summaries",
+    "/api/v1/workflow-capability-preflight-evidence",
+    "/api/v1/workflow-capability-preflight",
+  ];
+
+  for (const path of paths) {
+    const response = responseRecorder();
+    await handleModelMountingNativeRoute({
+      request: request({ url: `${path}?thread_id=thread_route` }),
+      response,
+      store,
+      url: new URL(`${path}?thread_id=thread_route`, "http://daemon.test"),
+      segments: path.split("/").filter(Boolean),
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.deepEqual(JSON.parse(response.body), {
+      schema_version: "authority.evidence.summary.v1",
+      filters: { thread_id: "thread_route" },
+    });
+  }
+
+  assert.equal(calls.length, paths.length);
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(calls.map((call) => call.options), paths.map(() => ({ thread_id: "thread_route" })));
+});
+
 test("agent, thread, and run detail routes use lifecycle projection surface", async () => {
   const { handleAgentRoute, handleThreadRoute, handleRunRoute } = routeHandlers();
   const calls = [];

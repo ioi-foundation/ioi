@@ -75,31 +75,31 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repository-context") {
-        writeJsonResponse(response, store.repositoryContext());
+        writeJsonResponse(response, store.repositorySurface.repositoryContext(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/branch-policy") {
-        writeJsonResponse(response, store.branchPolicy());
+        writeJsonResponse(response, store.repositorySurface.branchPolicy(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/github-context") {
-        writeJsonResponse(response, store.githubContext());
+        writeJsonResponse(response, store.repositorySurface.githubContext(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/pr-attempts") {
-        writeJsonResponse(response, store.prAttempts());
+        writeJsonResponse(response, store.repositorySurface.prAttempts(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/issue-context") {
-        writeJsonResponse(response, store.issueContext());
+        writeJsonResponse(response, store.repositorySurface.issueContext(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/review-gate") {
-        writeJsonResponse(response, store.reviewGate());
+        writeJsonResponse(response, store.repositorySurface.reviewGate(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/github/pr-create-plan") {
-        writeJsonResponse(response, store.githubPrCreatePlan());
+        writeJsonResponse(response, store.repositorySurface.githubPrCreatePlan(store));
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/agents") {
@@ -264,19 +264,19 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repositories") {
-        writeJsonResponse(response, store.listRepositories());
+        writeJsonResponse(response, store.repositorySurface.listRepositories(store));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/account") {
-        writeJsonResponse(response, store.getAccount());
+        writeJsonResponse(response, store.toolSurface.getAccount());
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/runtime/nodes") {
-        writeJsonResponse(response, store.listRuntimeNodes());
+        writeJsonResponse(response, store.toolSurface.listRuntimeNodes());
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/tools") {
-        writeJsonResponse(response, store.listTools(Object.fromEntries(url.searchParams.entries())));
+        writeJsonResponse(response, store.toolSurface.listTools(Object.fromEntries(url.searchParams.entries())));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/memory") {

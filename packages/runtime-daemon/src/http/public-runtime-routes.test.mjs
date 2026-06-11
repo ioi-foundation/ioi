@@ -106,6 +106,117 @@ test("public runtime routes dispatch top-level daemon projections", async () => 
   assert.deepEqual(JSON.parse(response.body), { ok: true, baseUrl: "http://daemon.test" });
 });
 
+test("public runtime repository workflow routes use mounted repository surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const repositorySurface = {
+    listRepositories(surfaceStore) {
+      calls.push({ method: "listRepositories", surfaceStore });
+      return { repositories: [] };
+    },
+    repositoryContext(surfaceStore) {
+      calls.push({ method: "repositoryContext", surfaceStore });
+      return { context_id: "repo_context" };
+    },
+    branchPolicy(surfaceStore) {
+      calls.push({ method: "branchPolicy", surfaceStore });
+      return { policy_id: "branch_policy" };
+    },
+    githubContext(surfaceStore) {
+      calls.push({ method: "githubContext", surfaceStore });
+      return { context_id: "github_context" };
+    },
+    prAttempts(surfaceStore) {
+      calls.push({ method: "prAttempts", surfaceStore });
+      return { attempts: [] };
+    },
+    issueContext(surfaceStore) {
+      calls.push({ method: "issueContext", surfaceStore });
+      return { issue_id: "issue_context" };
+    },
+    reviewGate(surfaceStore) {
+      calls.push({ method: "reviewGate", surfaceStore });
+      return { gate_id: "review_gate" };
+    },
+    githubPrCreatePlan(surfaceStore) {
+      calls.push({ method: "githubPrCreatePlan", surfaceStore });
+      return { plan_id: "pr_plan" };
+    },
+  };
+  const store = {
+    repositorySurface,
+    listRepositories: retiredRouteWrapper,
+    repositoryContext: retiredRouteWrapper,
+    branchPolicy: retiredRouteWrapper,
+    githubContext: retiredRouteWrapper,
+    prAttempts: retiredRouteWrapper,
+    issueContext: retiredRouteWrapper,
+    reviewGate: retiredRouteWrapper,
+    githubPrCreatePlan: retiredRouteWrapper,
+  };
+  const routes = [
+    ["/v1/repositories", "listRepositories"],
+    ["/v1/repository-context", "repositoryContext"],
+    ["/v1/branch-policy", "branchPolicy"],
+    ["/v1/github-context", "githubContext"],
+    ["/v1/pr-attempts", "prAttempts"],
+    ["/v1/issue-context", "issueContext"],
+    ["/v1/review-gate", "reviewGate"],
+    ["/v1/github/pr-create-plan", "githubPrCreatePlan"],
+  ];
+
+  for (const [url] of routes) {
+    const response = responseRecorder();
+    await handleRequest({ request: request({ url }), response, store });
+    assert.equal(response.statusCode, 200);
+  }
+
+  assert.deepEqual(calls.map((call) => call.method), routes.map(([, method]) => method));
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+});
+
+test("public runtime account node and tool routes use mounted tool surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    toolSurface: {
+      getAccount() {
+        calls.push({ method: "getAccount" });
+        return { account_id: "acct_route" };
+      },
+      listRuntimeNodes() {
+        calls.push({ method: "listRuntimeNodes" });
+        return { nodes: [] };
+      },
+      listTools(options) {
+        calls.push({ method: "listTools", options });
+        return { tools: [], pack: options.pack };
+      },
+    },
+    getAccount: retiredRouteWrapper,
+    listRuntimeNodes: retiredRouteWrapper,
+    listTools: retiredRouteWrapper,
+  };
+
+  const accountResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/account" }), response: accountResponse, store });
+  assert.deepEqual(JSON.parse(accountResponse.body), { account_id: "acct_route" });
+
+  const nodesResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/runtime/nodes" }), response: nodesResponse, store });
+  assert.deepEqual(JSON.parse(nodesResponse.body), { nodes: [] });
+
+  const toolsResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/tools?pack=coding" }), response: toolsResponse, store });
+  assert.deepEqual(JSON.parse(toolsResponse.body), { tools: [], pack: "coding" });
+
+  assert.deepEqual(calls, [
+    { method: "getAccount" },
+    { method: "listRuntimeNodes" },
+    { method: "listTools", options: { pack: "coding" } },
+  ]);
+});
+
 test("public runtime routes delegate thread subroutes unchanged", async () => {
   const { calls, handleRequest } = routeHarness();
   const response = responseRecorder();

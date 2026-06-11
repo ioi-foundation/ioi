@@ -20366,6 +20366,48 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 986
+
+Slice 986 removed another group of route-level daemon-store compatibility
+wrappers. Public repository workflow routes (`/v1/repositories`,
+`/v1/repository-context`, `/v1/branch-policy`, `/v1/github-context`,
+`/v1/pr-attempts`, `/v1/issue-context`, `/v1/review-gate`, and
+`/v1/github/pr-create-plan`) now call the mounted `RuntimeRepository` surface
+directly. Public runtime account/node/tool catalog routes (`/v1/account`,
+`/v1/runtime/nodes`, and `/v1/tools`) now call the mounted `RuntimeTool` surface
+directly. The `/api/v1/authority-evidence`,
+`/api/v1/authority-evidence-summaries`,
+`/api/v1/workflow-capability-preflight-evidence`, and
+`/api/v1/workflow-capability-preflight` route family now calls the mounted
+`RuntimeRunRead` surface directly. Route tests poison the retired
+daemon-store wrappers so the route layer cannot silently re-enter them.
+
+This is still non-terminal migration work: these mounted JS surfaces are
+fail-closed/projection-required migration adapters, and the Rust daemon-core
+direct projection APIs still need to own repository workflow, runtime tool
+catalog, and authority-evidence projection over Agentgres-admitted truth with
+receipt/state-root binding, replay, wallet.network authority where exposure
+exits local trust, command-transport retirement, and stable IDE/CLI/SDK
+protocols.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 986 | Public repository workflow, runtime account/node/tool catalog, and `/api/v1` authority-evidence routes now call mounted surfaces directly instead of daemon-store compatibility wrappers. | Direct Rust daemon-core repository/tool/authority projection over Agentgres truth with wallet authority, receipt/state-root binding, replay, command-transport retirement, and stable protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 985
 
 Slice 985 removed another public-route pass-through layer from the daemon edge.

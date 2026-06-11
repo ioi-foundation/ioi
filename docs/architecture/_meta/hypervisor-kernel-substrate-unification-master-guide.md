@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 985, public runtime account, runtime-node, tool
+Current lane note: after Slice 986, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4553,8 +4553,11 @@ public memory projections before JS `AgentMemoryStore` readback; conversation
 artifact routes call the mounted fail-closed artifact surface directly before
 daemon-store pass-through wrappers or JS artifact-store readback; public agent
 create, top-level thread create, agent status/delete, and agent-scoped run
-create routes call the mounted agent/run lifecycle surface directly, public
-usage and authority-evidence routes call the mounted run-read surface directly,
+create routes call the mounted agent/run lifecycle surface directly; public
+runtime account/node/tool catalog routes call the mounted tool surface directly;
+public repository workflow routes call the mounted repository surface directly;
+public usage, public authority-evidence, and `/api/v1` authority-evidence /
+workflow-capability preflight routes call the mounted run-read surface directly;
 and reload no longer reads JS agent state before fail-closed admission;
 agent/thread memory write, edit, delete, policy, status, and validation routes
 also call the mounted thread-memory surface directly before daemon-store

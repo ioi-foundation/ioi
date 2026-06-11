@@ -7114,6 +7114,20 @@ function runBridge() {
       ) &&
       /createRuntimeRepositorySurface\(\{\s*repositoryRunner:\s*this\.contextPolicyRunner,/s.test(
         runtimeDaemonIndex,
+      ) &&
+      /store\.repositorySurface\.listRepositories\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.repositoryContext\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.branchPolicy\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.githubContext\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.prAttempts\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.issueContext\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.reviewGate\(store\)/.test(publicRuntimeRoutes) &&
+      /store\.repositorySurface\.githubPrCreatePlan\(store\)/.test(publicRuntimeRoutes) &&
+      /public runtime repository workflow routes use mounted repository surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      !/store\.(?:listRepositories|repositoryContext|branchPolicy|githubContext|prAttempts|issueContext|reviewGate|githubPrCreatePlan)\(/.test(
+        publicRuntimeRoutes,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -7122,6 +7136,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-repository-surface.mjs",
       "packages/runtime-daemon/src/runtime-repository-surface.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
     "Phase 6/10/11 is pending: public repository workflow projections must fail closed through Rust daemon-core until direct Rust projection over Agentgres-admitted repository workflow truth replaces the migration bridge",
@@ -16664,6 +16680,15 @@ function runReceipts() {
       /projection_kind === "runtime_nodes"/.test(runtimeToolSurfaceTest) &&
       /projection_kind === "tools"/.test(runtimeToolSurfaceTest) &&
       /toolCatalogRunner: this\.contextPolicyRunner/.test(runtimeDaemonIndex) &&
+      /store\.toolSurface\.getAccount\(\)/.test(publicRuntimeRoutes) &&
+      /store\.toolSurface\.listRuntimeNodes\(\)/.test(publicRuntimeRoutes) &&
+      /store\.toolSurface\.listTools\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /public runtime account node and tool routes use mounted tool surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      !/store\.(?:getAccount|listRuntimeNodes|listTools)\(/.test(publicRuntimeRoutes) &&
       /runtimeToolCatalogForDoctor/.test(runtimeDoctorReport) &&
       /runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReport) &&
       /runtime doctor report degrades when runtime tool catalog projection is Rust-core required/.test(
@@ -16686,6 +16711,8 @@ function runReceipts() {
       "packages/runtime-daemon/src/runtime-tool-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-doctor-report.mjs",
       "packages/runtime-daemon/src/runtime-doctor-report.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
@@ -16976,10 +17003,30 @@ function runReceipts() {
       ) &&
       !/\b(?:options|payload|row|fallbackPayload)\.(?:threadId|runId|capabilityRef|routeId|eventKind|sourceKind|schemaVersion|issueCode|resultSummary|receiptRefs|policyDecisionRefs|capabilityRows|capabilityRefs|modelCapabilityRef|toolCapabilityRef|connectorCapabilityRef|authorityScopes|authorityScopeRequirements|lastRepairReceiptRefs|preflightReceiptRefs|sourceRunId|createdAt|workflowNodeId|nodeId|nodeType|bindingKind)\b/.test(
         authorityEvidenceSummary,
+      ) &&
+      /store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.runReadSurface\.authorityEvidenceSummary\(store, Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /public runtime usage and authority evidence routes use mounted run read surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /model mounting authority evidence routes use mounted run read surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
+      !/store\.authorityEvidenceSummary\(Object\.fromEntries\(url\.searchParams\.entries\(\)\)\)/.test(
+        `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
       ),
     [
       "packages/runtime-daemon/src/authority-evidence-summary.mjs",
       "packages/runtime-daemon/src/authority-evidence-summary.test.mjs",
+      "packages/runtime-daemon/src/runtime-run-read-surface.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
     ],
     "Phase 10/11 is pending: authority evidence summaries must expose canonical snake_case fields without camelCase compatibility aliases",
   );
