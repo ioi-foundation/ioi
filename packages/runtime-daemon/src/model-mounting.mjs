@@ -1210,6 +1210,21 @@ export class ModelMountingState {
     });
   }
 
+  runtimeEngineRequired(operation_kind, details = {}) {
+    return this.modelMountAdmissionRunner.planRuntimeEngineRequired({
+      schema_version: "ioi.model_mount.runtime_engine_required.v1",
+      operation: "model_mount.runtime_engine",
+      operation_kind,
+      source: "runtime-daemon.model_mounting.runtime_engine",
+      evidence_refs: [
+        "public_runtime_engine_js_facade_retired",
+        "rust_daemon_core_runtime_engine_required",
+        "agentgres_runtime_engine_truth_required",
+      ],
+      details,
+    });
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }
@@ -1626,16 +1641,16 @@ export class ModelMountingState {
 
   selectRuntimeEngine(body = {}) {
     const engineId = requiredString(body.engine_id, "engine_id");
-    throwRuntimeEngineRustCoreRequired("model_mount.runtime_preference.write", { engine_id: engineId });
+    throwRuntimeEngineRustCoreRequired(this.runtimeEngineRequired("model_mount.runtime_preference.write", { engine_id: engineId }));
   }
 
   updateRuntimeEngine(engineId, body = {}) {
     void body;
-    throwRuntimeEngineRustCoreRequired("model_mount.runtime_engine_profile.write", { engine_id: engineId });
+    throwRuntimeEngineRustCoreRequired(this.runtimeEngineRequired("model_mount.runtime_engine_profile.write", { engine_id: engineId }));
   }
 
   removeRuntimeEngineOverride(engineId) {
-    throwRuntimeEngineRustCoreRequired("model_mount.runtime_engine_profile.delete", { engine_id: engineId });
+    throwRuntimeEngineRustCoreRequired(this.runtimeEngineRequired("model_mount.runtime_engine_profile.delete", { engine_id: engineId }));
   }
 
   listRuntimeEngines() {
@@ -1854,19 +1869,29 @@ function throwServerControlRustCoreRequired(record = {}) {
   });
 }
 
-function throwRuntimeEngineRustCoreRequired(operation_kind, details = {}) {
+function throwRuntimeEngineRustCoreRequired(record = {}) {
+  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
+    ? record.details
+    : {};
+  const evidenceRefs = Array.isArray(details.evidence_refs)
+    ? details.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [
+          "public_runtime_engine_js_facade_retired",
+          "rust_daemon_core_runtime_engine_required",
+          "agentgres_runtime_engine_truth_required",
+        ];
   throw runtimeError({
-    status: 501,
-    code: "model_mount_runtime_engine_rust_core_required",
-    message: "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
+    status: record.status_code ?? 501,
+    code: record.code ?? "model_mount_runtime_engine_rust_core_required",
+    message:
+      record.message ??
+      "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
     details: {
-      operation_kind,
-      rust_core_boundary: "model_mount.runtime_engine",
-      evidence_refs: [
-        "public_runtime_engine_js_facade_retired",
-        "rust_daemon_core_runtime_engine_required",
-      ],
       ...details,
+      rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.runtime_engine",
+      evidence_refs: evidenceRefs,
     },
   });
 }

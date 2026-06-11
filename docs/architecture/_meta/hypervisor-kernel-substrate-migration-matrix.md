@@ -20366,6 +20366,24 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1001
+
+Slice 1001 moved public model-mount runtime-engine Rust-core-required refusal
+authoring into the Rust model_mount core. `selectRuntimeEngine()`,
+`updateRuntimeEngine()`, and `removeRuntimeEngineOverride()` now call
+`plan_model_mount_runtime_engine_required` through the daemon-core command
+bridge and only translate the Rust-authored failure record at the JS edge.
+
+This is still non-terminal migration work: the Node command bridge remains
+transitional transport and direct Agentgres-backed Rust runtime-engine
+preference/profile/projection APIs, replay, stable SDK/IDE/CLI protocol APIs,
+and local runtime-engine materialization retirement remain required before
+runtime-engine control reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1001 | Public model-mount runtime-engine mutation refusal envelopes are planned by Rust model_mount and translated by JS only at the edge. | Direct Agentgres-backed Rust runtime-engine preference/profile/projection replaces JS runtime-engine scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 1000
 
 Slice 1000 moved public model-mount server-control Rust-core-required refusal

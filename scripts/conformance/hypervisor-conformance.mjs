@@ -823,7 +823,7 @@ function runDocs() {
       /`catalog-provider-config\.test\.mjs`,\s+`oauth-boundary\.mjs`, and `oauth-boundary\.test\.mjs` are absent/.test(guide) &&
       /Slice 912 deleted the standalone runtime-engine compatibility helper/.test(guide) &&
       /`runtime-engines\.mjs` and `runtime-engines\.test\.mjs` are absent/.test(guide) &&
-      /`selectRuntimeEngine\(\)`, `updateRuntimeEngine\(\)`, and\s+`removeRuntimeEngineOverride\(\)` methods fail closed directly/.test(guide) &&
+      /public runtime-engine preference\/profile mutation refusals now request a Rust\s+`model_mount\.runtime_engine` required record/.test(guide) &&
       /Slice 913 deleted the final local provider driver adapter module/.test(guide) &&
       /`provider-local-drivers\.mjs` and `provider-local-drivers\.test\.mjs` are absent/.test(guide) &&
       /Slice 914 deleted the orphan JS model-capability materializer/.test(guide) &&
@@ -14775,17 +14775,29 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-runtime-engine-js-facade-retired",
-    !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
+      !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.mjs") &&
       !exists("packages/runtime-daemon/src/model-mounting/runtime-engines.test.mjs") &&
       !/from "\.\/model-mounting\/runtime-engines\.mjs"/.test(modelMountingState) &&
+      /runtimeEngineRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
+      /this\.modelMountAdmissionRunner\.planRuntimeEngineRequired/.test(modelMountingState) &&
+      /planRuntimeEngineRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_runtime_engine_required"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
+      /plan_runtime_engine_required/.test(modelMountCore) &&
+      /runtime_engine_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /ModelMountRuntimeEngineRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_model_mount_runtime_engine_required/.test(bridgeModule) &&
+      /bridge_plans_model_mount_runtime_engine_required_through_rust_core/.test(bridgeModule) &&
       /throwRuntimeEngineRustCoreRequired/.test(modelMountingState) &&
       /model_mount_runtime_engine_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.runtime_engine"/.test(modelMountingState) &&
+      /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.runtime_engine"/.test(modelMountingState) &&
       /public_runtime_engine_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_runtime_engine_required/.test(modelMountingState) &&
-      /selectRuntimeEngine\(body = \{\}\)\s*\{[\s\S]*?const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);[\s\S]*?throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_preference\.write",\s*\{ engine_id: engineId \}\)/.test(modelMountingState) &&
-      /updateRuntimeEngine\(engineId,\s*body = \{\}\)\s*\{[\s\S]*?void body;[\s\S]*?throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.write",\s*\{ engine_id: engineId \}\)/.test(modelMountingState) &&
-      /removeRuntimeEngineOverride\(engineId\)\s*\{[\s\S]*?throwRuntimeEngineRustCoreRequired\("model_mount\.runtime_engine_profile\.delete",\s*\{ engine_id: engineId \}\)/.test(modelMountingState) &&
+      /agentgres_runtime_engine_truth_required/.test(modelMountingState) &&
+      /selectRuntimeEngine\(body = \{\}\)\s*\{[\s\S]*?const engineId = requiredString\(body\.engine_id,\s*"engine_id"\);[\s\S]*?throwRuntimeEngineRustCoreRequired\(this\.runtimeEngineRequired\("model_mount\.runtime_preference\.write",\s*\{ engine_id: engineId \}\)\)/.test(modelMountingState) &&
+      /updateRuntimeEngine\(engineId,\s*body = \{\}\)\s*\{[\s\S]*?void body;[\s\S]*?throwRuntimeEngineRustCoreRequired\(this\.runtimeEngineRequired\("model_mount\.runtime_engine_profile\.write",\s*\{ engine_id: engineId \}\)\)/.test(modelMountingState) &&
+      /removeRuntimeEngineOverride\(engineId\)\s*\{[\s\S]*?throwRuntimeEngineRustCoreRequired\(this\.runtimeEngineRequired\("model_mount\.runtime_engine_profile\.delete",\s*\{ engine_id: engineId \}\)\)/.test(modelMountingState) &&
       !/state\.lifecycleReceipt\("runtime_engine_(?:select|update|profile_remove)"/.test(modelMountingState) &&
       !/commitRuntimeEngineRecordState/.test(modelMountingState) &&
       !/runtime_engine_record_state_commit_unconfigured/.test(modelMountingState) &&
@@ -14802,10 +14814,14 @@ function runReceipts() {
       /model_mount\.runtime_engine_profile\.delete/.test(runtimeEngineMountedTest) &&
       /public_runtime_engine_js_facade_retired/.test(runtimeEngineMountedTest) &&
       /rust_daemon_core_runtime_engine_required/.test(runtimeEngineMountedTest) &&
+      /agentgres_runtime_engine_truth_required/.test(runtimeEngineMountedTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(runtimeEngineMountedTest) &&
       /assert\.equal\(state\.projections,\s*0\)/.test(runtimeEngineMountedTest) &&
       /mounted runtime-engine requests ignore retired camelCase aliases/.test(runtimeEngineMountedTest) &&
+      /Rust model_mount admission runner sends runtime engine required request/.test(modelMountAdmissionRunnerTest) &&
+      /state\.runtimeEngineRequiredRequests\[0\]\.schema_version/.test(runtimeEngineMountedTest) &&
+      /state\.runtimeEngineRequiredRequests\[0\]\.operation_kind/.test(runtimeEngineMountedTest) &&
       /loadModelMountingMap applies Rust-admitted tombstone records/.test(
         read("packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs"),
       ) &&
@@ -14823,9 +14839,13 @@ function runReceipts() {
       /operatorLabel: "Retired label"/.test(runtimeEngineMountedTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/runtime-engine-mounted.test.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.mjs",
       "packages/runtime-daemon/src/model-mounting/state-persistence.test.mjs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
     "Phase 9/11 is pending: runtime-engine mutation must fail closed from the mounted state until Rust daemon-core owns preference/profile receipts, record-state admission, and projections",
   );

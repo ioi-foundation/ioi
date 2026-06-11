@@ -6,6 +6,7 @@ import {
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
   createModelMountAdmissionRunnerFromEnv,
   RustModelMountAdmissionRunner,
@@ -270,6 +271,23 @@ function serverControlRequiredRequest() {
       base_url: "http://daemon.test",
       reason: "test",
       server_control_id: "server-control.default",
+    },
+  };
+}
+
+function runtimeEngineRequiredRequest() {
+  return {
+    schema_version: "ioi.model_mount.runtime_engine_required.v1",
+    operation: "model_mount.runtime_engine",
+    operation_kind: "model_mount.runtime_engine_profile.write",
+    source: "runtime-daemon.model_mounting.runtime_engine",
+    evidence_refs: [
+      "public_runtime_engine_js_facade_retired",
+      "rust_daemon_core_runtime_engine_required",
+      "agentgres_runtime_engine_truth_required",
+    ],
+    details: {
+      engine_id: "backend.llama-cpp",
     },
   };
 }
@@ -948,6 +966,83 @@ test("Rust model_mount admission runner sends server control required request", 
   assert.equal(result.details.operation_kind, "model_mount.server_control.record_operation");
   assert.equal(Object.hasOwn(result.details, "operationKind"), false);
   assert.equal(Object.hasOwn(result.details, "serverControlId"), false);
+});
+
+test("Rust model_mount admission runner sends runtime engine required request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_runtime_engine_required_command",
+            backend: RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
+            record: {
+              schema_version: "ioi.model_mount.runtime_engine_required_result.v1",
+              object: "ioi.model_mount_runtime_engine_required",
+              status: "rust_core_required",
+              status_code: 501,
+              code: "model_mount_runtime_engine_rust_core_required",
+              message:
+                "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
+              rust_core_boundary: "model_mount.runtime_engine",
+              operation: request.request.operation,
+              operation_kind: request.request.operation_kind,
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+              details: {
+                operation: request.request.operation,
+                ...request.request.details,
+                operation_kind: request.request.operation_kind,
+                rust_core_boundary: "model_mount.runtime_engine",
+                source: request.request.source,
+                evidence_refs: request.request.evidence_refs,
+              },
+              generated_at: "rust_model_mount_core",
+            },
+            status: "rust_core_required",
+            status_code: 501,
+            code: "model_mount_runtime_engine_rust_core_required",
+            message:
+              "Runtime-engine mutation facade requires Rust daemon-core model_mount runtime-engine ownership.",
+            rust_core_boundary: "model_mount.runtime_engine",
+            operation_kind: request.request.operation_kind,
+            details: {
+              operation: request.request.operation,
+              ...request.request.details,
+              operation_kind: request.request.operation_kind,
+              rust_core_boundary: "model_mount.runtime_engine",
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRuntimeEngineRequired(runtimeEngineRequiredRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_runtime_engine_required");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.runtime_engine_required.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.runtime_engine_profile.write");
+  assert.equal(calls[0].request.request.details.engine_id, "backend.llama-cpp");
+  assert.equal(result.status, "rust_core_required");
+  assert.equal(result.status_code, 501);
+  assert.equal(result.code, "model_mount_runtime_engine_rust_core_required");
+  assert.equal(result.details.engine_id, "backend.llama-cpp");
+  assert.equal(result.details.operation_kind, "model_mount.runtime_engine_profile.write");
+  assert.equal(Object.hasOwn(result.details, "engineId"), false);
+  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {
