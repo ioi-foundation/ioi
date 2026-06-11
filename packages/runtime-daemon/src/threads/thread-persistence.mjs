@@ -332,8 +332,9 @@ export function writeAgentRecord(store, agent, operationKind, deps = {}) {
       details: { operation_kind: operationKind },
     });
   }
+  const commit = commitAgentState(store, agent, operationKind, String(agentId));
   store.agents?.set?.(String(agentId), agent);
-  return commitAgentState(store, agent, operationKind, String(agentId));
+  return commit;
 }
 
 export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
@@ -350,8 +351,9 @@ export function writeSubagentRecord(store, subagent, operationKind, deps = {}) {
       details: { operation_kind: operationKind },
     });
   }
+  const commit = commitSubagentState(store, subagent, operationKind, String(subagentId));
   store.subagents.set(String(subagentId), subagent);
-  return commitSubagentState(store, subagent, operationKind, String(subagentId));
+  return commit;
 }
 
 export function writeRunRecord(store, run, operationKind, deps = {}) {

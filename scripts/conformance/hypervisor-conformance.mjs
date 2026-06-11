@@ -17468,7 +17468,16 @@ function runReceipts() {
       /const agentId = agent\.id;/.test(writeAgentRecordBody) &&
       !/agent\.agent_id/.test(writeAgentRecordBody) &&
       !/\bwriteJson\(store\.pathFor\("agents"/.test(writeAgentRecordBody) &&
+      /const commit = commitAgentState\(store, agent, operationKind, String\(agentId\)\);[\s\S]*store\.agents\?\.set\?\.\(String\(agentId\), agent\);[\s\S]*return commit;/.test(
+        writeAgentRecordBody,
+      ) &&
+      !/store\.agents\?\.set\?\.\(String\(agentId\), agent\);[\s\S]*commitAgentState/.test(
+        writeAgentRecordBody,
+      ) &&
       /thread persistence commits agent records through Rust Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /thread persistence does not cache agent records before Rust commit succeeds/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /thread persistence rejects retired agent identity aliases before Rust commit/.test(
@@ -17529,7 +17538,16 @@ function runReceipts() {
       /const subagentId = subagent\.subagent_id;/.test(writeSubagentRecordBody) &&
       !/subagent\.subagentId|subagent\.agent_id|subagent\.agentId/.test(writeSubagentRecordBody) &&
       !/\bwriteJson\(store\.pathFor\("subagents"/.test(writeSubagentRecordBody) &&
+      /const commit = commitSubagentState\(store, subagent, operationKind, String\(subagentId\)\);[\s\S]*store\.subagents\.set\(String\(subagentId\), subagent\);[\s\S]*return commit;/.test(
+        writeSubagentRecordBody,
+      ) &&
+      !/store\.subagents\.set\(String\(subagentId\), subagent\);[\s\S]*commitSubagentState/.test(
+        writeSubagentRecordBody,
+      ) &&
       /thread persistence commits subagent records through Rust Agentgres/.test(
+        read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
+      ) &&
+      /thread persistence does not cache subagent records before Rust commit succeeds/.test(
         read("packages/runtime-daemon/src/threads/thread-persistence.test.mjs"),
       ) &&
       /thread persistence rejects retired subagent identity aliases before Rust commit/.test(

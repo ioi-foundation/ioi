@@ -381,6 +381,32 @@ test("thread persistence rejects retired agent identity aliases before Rust comm
   assert.equal(store.agents.size, 0);
 });
 
+test("thread persistence does not cache agent records before Rust commit succeeds", () => {
+  const store = fakeStore();
+  const agent = {
+    id: "agent_1",
+    status: "active",
+    receipt_refs: ["receipt_agent"],
+  };
+  store.commitRuntimeAgentState = (request) => {
+    store.agentCommitRequests.push(request);
+    const error = new Error("Rust Agentgres agent-state commit rejected.");
+    error.code = "runtime_agent_state_commit_rejected";
+    throw error;
+  };
+
+  assert.throws(
+    () => writeAgentRecord(store, agent, "agent.create", deps(store)),
+    (error) => {
+      assert.equal(error.code, "runtime_agent_state_commit_rejected");
+      return true;
+    },
+  );
+  assert.equal(store.agentCommitRequests.length, 1);
+  assert.equal(store.agents.has("agent_1"), false);
+  assert.deepEqual(store.writes, []);
+});
+
 test("thread persistence commits subagent records through Rust Agentgres", () => {
   const store = fakeStore();
   const subagent = {
@@ -448,6 +474,33 @@ test("thread persistence rejects retired subagent identity aliases before Rust c
     assert.equal(store.subagentCommitRequests.length, 0);
     assert.equal(store.subagents.size, 0);
   }
+});
+
+test("thread persistence does not cache subagent records before Rust commit succeeds", () => {
+  const store = fakeStore();
+  const subagent = {
+    subagent_id: "subagent_1",
+    parent_thread_id: "thread_1",
+    agent_id: "agent_1",
+    receipt_refs: ["receipt_subagent"],
+  };
+  store.commitRuntimeSubagentState = (request) => {
+    store.subagentCommitRequests.push(request);
+    const error = new Error("Rust Agentgres subagent-state commit rejected.");
+    error.code = "runtime_subagent_state_commit_rejected";
+    throw error;
+  };
+
+  assert.throws(
+    () => writeSubagentRecord(store, subagent, "subagent.spawn", deps(store)),
+    (error) => {
+      assert.equal(error.code, "runtime_subagent_state_commit_rejected");
+      return true;
+    },
+  );
+  assert.equal(store.subagentCommitRequests.length, 1);
+  assert.equal(store.subagents.has("subagent_1"), false);
+  assert.deepEqual(store.writes, []);
 });
 
 test("thread persistence resolves state paths and quiet removal without operation logs", () => {
