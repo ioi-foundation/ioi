@@ -15784,6 +15784,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1113
+
+Slice 1113 moves the coding-tool `lsp.diagnostics` execution observation path
+out of the temporary `ioi_step_module_bridge/coding_tool_helpers.rs` helper and
+into Rust `crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs`.
+The Rust kernel service module now owns diagnostic command allowlisting, `auto`
+backend selection, node syntax-check execution, TypeScript project/file check
+execution, local `tsc` discovery, diagnostic project-context projection,
+TypeScript diagnostic parsing, node diagnostic parsing, cwd and path
+containment, timeout and output bounding, output hashing, diagnostic status
+derivation, and response shaping. The bridge helper delegates to Rust core and
+translates errors only; the old bridge-local diagnostic project context,
+TypeScript/node backend runners, output parsers, local `tsc` discovery,
+diagnostic constants, path helpers, subprocess wrapper, timeout/output bounds,
+and diagnostic response shaping are gone.
+
+This is Rust-core extraction progress, not terminal coding-tool migration. The
+Node bridge, StepModule command runner, JS command callers, and coding-tool JS
+facades remain migration scaffolding until direct Rust daemon-core/workload
+APIs own coding-tool execution, admission, replay, projection, and stable
+protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_workspace --lib` | passed |
+| `cargo test -p ioi-node coding_tool --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1112
 
 Slice 1112 moves the coding-tool `test.run` command execution observation path

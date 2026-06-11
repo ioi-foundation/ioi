@@ -151,11 +151,6 @@ use workspace_restore_command::{
 
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
-const DIAGNOSTIC_DEFAULT_TIMEOUT_MS: u64 = 30 * 1000;
-const DIAGNOSTIC_MAX_TIMEOUT_MS: u64 = 2 * 60 * 1000;
-const DIAGNOSTIC_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
-const DIAGNOSTIC_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
-const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.check"];
 
 #[derive(Debug)]
 struct BridgeError {

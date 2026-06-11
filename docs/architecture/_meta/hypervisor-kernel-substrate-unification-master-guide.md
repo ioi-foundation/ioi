@@ -6070,6 +6070,23 @@ still exist. The long-term target remains direct Rust daemon-core/workload
 coding-tool execution and admission, with bridge-local diagnostic/test
 execution logic retired as each Rust-core surface becomes verified.
 
+Slice 1113 moves the coding-tool `lsp.diagnostics` execution observation path
+out of the temporary StepModule bridge helper and into Rust
+`coding_tool_workspace.rs` under the kernel service crate. Rust core now owns
+diagnostic command allowlisting, `auto` backend selection, node syntax-check
+execution, TypeScript project/file check execution, local `tsc` discovery,
+diagnostic project-context projection, TypeScript diagnostic parsing, node
+diagnostic parsing, cwd/path containment, timeout and output bounding, output
+hashing, diagnostic status derivation, and response shaping. The bridge helper
+delegates to Rust core and translates errors only.
+
+This remains non-terminal because the Node bridge, shared StepModule command
+runner, JS command callers, and coding-tool JS protocol facades still exist.
+The long-term target remains direct Rust daemon-core/workload coding-tool
+execution and admission, with the now-thin bridge helper retired when direct
+Rust daemon-core/workload APIs own execution, admission, replay, projection, and
+stable protocol APIs end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

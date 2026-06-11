@@ -1,5 +1,5 @@
 use crate::agentic::runtime::kernel::coding_tool_execution::{
-    env_key_allowed, run_command_with_timeout, run_git_read_only, CommandOutput,
+    env_key_allowed, run_command_with_timeout, run_git_read_only, CapturedCommand, CommandOutput,
 };
 use serde_json::{json, Value};
 use std::fs;
@@ -21,6 +21,11 @@ const TEST_MAX_TIMEOUT_MS: u64 = 5 * 60 * 1000;
 const TEST_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
 const TEST_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
 const TEST_COMMAND_IDS: [&str; 4] = ["node.test", "npm.test", "cargo.test", "cargo.check"];
+const DIAGNOSTIC_DEFAULT_TIMEOUT_MS: u64 = 30 * 1000;
+const DIAGNOSTIC_MAX_TIMEOUT_MS: u64 = 2 * 60 * 1000;
+const DIAGNOSTIC_DEFAULT_OUTPUT_BYTES: u64 = 64 * 1024;
+const DIAGNOSTIC_MAX_OUTPUT_BYTES: u64 = 64 * 1024;
+const DIAGNOSTIC_COMMAND_IDS: [&str; 3] = ["auto", "node.check", "typescript.check"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CodingToolWorkspaceError {
@@ -83,6 +88,34 @@ struct TestCommand {
     executable: &'static str,
     display_command: &'static str,
     args: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DiagnosticRun {
+    backend: &'static str,
+    resolved_command_id: &'static str,
+    display_command: &'static str,
+    stdout: String,
+    stderr: String,
+    exit_code: i32,
+    timed_out: bool,
+    backend_status: &'static str,
+    backend_reason: Option<&'static str>,
+    fallback_used: bool,
+    fallback_from: Option<&'static str>,
+    project_context: Value,
+    diagnostic_status: &'static str,
+    diagnostics: Vec<Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DiagnosticsProjectContext {
+    workspace_root: PathBuf,
+    project_root_absolute_path: PathBuf,
+    tsconfig_absolute_path: Option<PathBuf>,
+    tsconfig_paths: Vec<PathBuf>,
+    package_root_absolute_path: Option<PathBuf>,
+    path_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -293,8 +326,13 @@ pub fn inspect_test_run(
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or(".");
-    let run_cwd = workspace_directory(&root, cwd, "test_run_cwd_missing")?;
-    let paths = workspace_tool_paths(&root, input)?;
+    let run_cwd = workspace_directory(
+        &root,
+        cwd,
+        "test_run_cwd_missing",
+        "test.run path must stay inside workspace",
+    )?;
+    let paths = workspace_tool_paths(&root, input, "test.run path must stay inside workspace")?;
     let timeout_ms = bounded_u64(
         input
             .get("timeoutMs")
@@ -363,6 +401,132 @@ pub fn inspect_test_run(
         "spilloverRecommended": truncated,
         "artifactDrafts": [],
         "allowedCommandIds": TEST_COMMAND_IDS,
+        "shellFallbackUsed": false,
+    }))
+}
+
+pub fn inspect_lsp_diagnostics(
+    workspace_root: &str,
+    input: &Value,
+) -> Result<Value, CodingToolWorkspaceError> {
+    let root = fs::canonicalize(workspace_root).map_err(|error| {
+        CodingToolWorkspaceError::new("workspace_root_invalid", error.to_string())
+    })?;
+    let command_id = input
+        .get("commandId")
+        .or_else(|| input.get("command_id"))
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("auto");
+    if !DIAGNOSTIC_COMMAND_IDS.contains(&command_id) {
+        return Err(CodingToolWorkspaceError::new(
+            "lsp_diagnostics_command_not_allowed",
+            format!("lsp.diagnostics commandId is not allowlisted: {command_id}"),
+        ));
+    }
+    let cwd = input
+        .get("cwd")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or(".");
+    let run_cwd = workspace_directory(
+        &root,
+        cwd,
+        "lsp_diagnostics_cwd_missing",
+        "lsp.diagnostics path must stay inside workspace",
+    )?;
+    let paths = workspace_tool_paths(
+        &root,
+        input,
+        "lsp.diagnostics path must stay inside workspace",
+    )?;
+    if paths.is_empty() {
+        return Err(CodingToolWorkspaceError::new(
+            "lsp_diagnostics_path_required",
+            "lsp.diagnostics requires path or paths".to_string(),
+        ));
+    }
+    let timeout_ms = bounded_u64(
+        input
+            .get("timeoutMs")
+            .or_else(|| input.get("timeout_ms"))
+            .and_then(Value::as_u64),
+        DIAGNOSTIC_DEFAULT_TIMEOUT_MS,
+        1,
+        DIAGNOSTIC_MAX_TIMEOUT_MS,
+    );
+    let max_output_bytes = bounded_u64(
+        input
+            .get("maxOutputBytes")
+            .or_else(|| input.get("max_output_bytes"))
+            .and_then(Value::as_u64),
+        DIAGNOSTIC_DEFAULT_OUTPUT_BYTES,
+        1,
+        DIAGNOSTIC_MAX_OUTPUT_BYTES,
+    ) as usize;
+    let project_context = diagnostics_project_context(&root, &run_cwd.absolute_path, &paths);
+    let has_typescript_path = paths
+        .iter()
+        .any(|path| typescript_path_supported(&path.relative_path));
+    let run_typescript =
+        command_id == "typescript.check" || (command_id == "auto" && has_typescript_path);
+    let started = Instant::now();
+    let run = if run_typescript {
+        run_typescript_check(
+            &root,
+            &run_cwd.absolute_path,
+            &paths,
+            timeout_ms,
+            input,
+            project_context,
+        )?
+    } else {
+        run_node_check(&run_cwd.absolute_path, &paths, timeout_ms, project_context)?
+    };
+    let duration_ms = started.elapsed().as_millis().min(u128::from(u64::MAX)) as u64;
+    let (stdout, stdout_truncated) = utf8_preview(&run.stdout, max_output_bytes);
+    let (stderr, stderr_truncated) = utf8_preview(&run.stderr, max_output_bytes);
+    let output_text = format!("{}\n{}", run.stdout, run.stderr);
+    let output_hash = sha256_hex(output_text.as_bytes())?;
+    let truncated = stdout_truncated || stderr_truncated;
+    let diagnostics = run.diagnostics;
+    let diagnostic_count = diagnostics.len();
+    let path_refs = paths
+        .iter()
+        .map(|path| path.relative_path.clone())
+        .collect::<Vec<_>>();
+    Ok(json!({
+        "schemaVersion": CODING_TOOL_RESULT_SCHEMA_VERSION,
+        "workspaceRoot": workspace_root,
+        "commandId": command_id,
+        "requestedCommandId": command_id,
+        "resolvedCommandId": run.resolved_command_id,
+        "command": run.display_command,
+        "cwd": run_cwd.relative_path.clone(),
+        "backend": run.backend,
+        "backendStatus": run.backend_status,
+        "backendReason": run.backend_reason,
+        "fallbackUsed": run.fallback_used,
+        "fallbackFrom": run.fallback_from,
+        "projectContext": run.project_context,
+        "diagnosticStatus": run.diagnostic_status,
+        "diagnostics": diagnostics,
+        "diagnosticCount": diagnostic_count,
+        "paths": path_refs,
+        "exitCode": run.exit_code,
+        "timedOut": run.timed_out,
+        "durationMs": duration_ms,
+        "timeoutMs": timeout_ms,
+        "stdout": stdout,
+        "stderr": stderr,
+        "outputBytes": run.stdout.len() + run.stderr.len(),
+        "outputHash": output_hash,
+        "truncated": truncated,
+        "spilloverRecommended": truncated,
+        "artifactDrafts": [],
+        "allowedCommandIds": DIAGNOSTIC_COMMAND_IDS,
         "shellFallbackUsed": false,
     }))
 }
@@ -631,15 +795,12 @@ pub fn inspect_workspace_path(
 fn workspace_tool_paths(
     root: &Path,
     input: &Value,
+    outside_message: &'static str,
 ) -> Result<Vec<WorkspacePath>, CodingToolWorkspaceError> {
     selected_workspace_paths(input)
         .iter()
         .map(|selected_path| {
-            workspace_path_allow_missing_with_message(
-                root,
-                selected_path,
-                "test.run path must stay inside workspace",
-            )
+            workspace_path_allow_missing_with_message(root, selected_path, outside_message)
         })
         .collect()
 }
@@ -648,12 +809,9 @@ fn workspace_directory(
     root: &Path,
     selected_path: &str,
     error_code: &'static str,
+    outside_message: &'static str,
 ) -> Result<WorkspacePath, CodingToolWorkspaceError> {
-    let path = workspace_path_allow_missing_with_message(
-        root,
-        selected_path,
-        "test.run path must stay inside workspace",
-    )?;
+    let path = workspace_path_allow_missing_with_message(root, selected_path, outside_message)?;
     if !path.absolute_path.is_dir() {
         return Err(CodingToolWorkspaceError::new(
             error_code,
@@ -715,6 +873,469 @@ fn sanitize_test_env(value: Option<&Value>) -> Vec<(String, String)> {
                 .collect::<Vec<_>>()
         })
         .unwrap_or_default()
+}
+
+fn diagnostics_project_context(
+    root: &Path,
+    run_cwd: &Path,
+    paths: &[WorkspacePath],
+) -> DiagnosticsProjectContext {
+    let mut tsconfig_paths = Vec::new();
+    for path in paths {
+        let start = path
+            .absolute_path
+            .parent()
+            .unwrap_or(path.absolute_path.as_path());
+        if let Some(tsconfig_path) = find_nearest_file(start, "tsconfig.json", root) {
+            if !tsconfig_paths.contains(&tsconfig_path) {
+                tsconfig_paths.push(tsconfig_path);
+            }
+        }
+    }
+    let tsconfig_absolute_path = tsconfig_paths
+        .first()
+        .cloned()
+        .or_else(|| find_nearest_file(run_cwd, "tsconfig.json", root));
+    let project_root_absolute_path = tsconfig_absolute_path
+        .as_ref()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+        .unwrap_or_else(|| run_cwd.to_path_buf());
+    let package_root_absolute_path =
+        find_nearest_file(&project_root_absolute_path, "package.json", root)
+            .and_then(|path| path.parent().map(Path::to_path_buf));
+    DiagnosticsProjectContext {
+        workspace_root: root.to_path_buf(),
+        project_root_absolute_path,
+        tsconfig_absolute_path,
+        tsconfig_paths,
+        package_root_absolute_path,
+        path_count: paths.len(),
+    }
+}
+
+impl DiagnosticsProjectContext {
+    fn to_json(&self, tsc_available: bool) -> Value {
+        json!({
+            "schemaVersion": "ioi.runtime.diagnostics-project-context.v1",
+            "projectRoot": workspace_relative_from_absolute(&self.workspace_root, &self.project_root_absolute_path),
+            "tsconfigPath": self.tsconfig_absolute_path
+                .as_ref()
+                .map(|path| workspace_relative_from_absolute(&self.workspace_root, path)),
+            "tsconfigPaths": self.tsconfig_paths
+                .iter()
+                .map(|path| workspace_relative_from_absolute(&self.workspace_root, path))
+                .collect::<Vec<_>>(),
+            "packageRoot": self.package_root_absolute_path
+                .as_ref()
+                .map(|path| workspace_relative_from_absolute(&self.workspace_root, path)),
+            "packageManager": self.package_root_absolute_path
+                .as_ref()
+                .and_then(|path| package_manager_for_directory(path)),
+            "pathCount": self.path_count,
+            "tscAvailable": tsc_available,
+        })
+    }
+}
+
+fn run_typescript_check(
+    root: &Path,
+    cwd: &Path,
+    paths: &[WorkspacePath],
+    timeout_ms: u64,
+    input: &Value,
+    project_context: DiagnosticsProjectContext,
+) -> Result<DiagnosticRun, CodingToolWorkspaceError> {
+    let backend = if project_context.tsconfig_absolute_path.is_some() {
+        "typescript.project.check"
+    } else {
+        "typescript.file.check"
+    };
+    let display_command = if project_context.tsconfig_absolute_path.is_some() {
+        "tsc --noEmit --pretty false -p tsconfig.json"
+    } else {
+        "tsc --noEmit --pretty false"
+    };
+    let executable = local_tsc_executable(root, &project_context.project_root_absolute_path);
+    let project_context_json = project_context.to_json(executable.is_some());
+    let Some(executable) = executable else {
+        return Ok(DiagnosticRun {
+            backend,
+            resolved_command_id: "typescript.check",
+            display_command,
+            stdout: String::new(),
+            stderr: "typescript.check degraded: local node_modules/.bin/tsc was not found."
+                .to_string(),
+            exit_code: 0,
+            timed_out: false,
+            backend_status: "degraded",
+            backend_reason: Some("typescript_executable_missing"),
+            fallback_used: false,
+            fallback_from: None,
+            project_context: project_context_json,
+            diagnostic_status: "degraded",
+            diagnostics: vec![],
+        });
+    };
+    let mut args = vec![
+        "--noEmit".to_string(),
+        "--pretty".to_string(),
+        "false".to_string(),
+    ];
+    if let Some(tsconfig_path) = project_context.tsconfig_absolute_path.as_ref() {
+        args.push("-p".to_string());
+        args.push(relative_path_between(cwd, tsconfig_path));
+    } else {
+        args.extend(
+            paths
+                .iter()
+                .map(|path| relative_path_between(cwd, &path.absolute_path)),
+        );
+    }
+    args.extend(sanitize_string_array(input.get("args")));
+    let executable_text = executable.to_string_lossy().to_string();
+    let run = run_command_with_timeout(&executable_text, &args, cwd, timeout_ms, &[])
+        .map_err(workspace_execution_error)?;
+    let mut diagnostics = if run.exit_code == 0 && !run.timed_out {
+        vec![]
+    } else {
+        typescript_output_diagnostics(root, cwd, &format!("{}\n{}", run.stdout, run.stderr))
+    };
+    if run.timed_out && diagnostics.is_empty() {
+        diagnostics.push(json!({
+            "path": project_context.tsconfig_absolute_path
+                .as_ref()
+                .map(|path| workspace_relative_from_absolute(root, path))
+                .or_else(|| paths.first().map(|path| path.relative_path.clone())),
+            "severity": "error",
+            "source": "typescript.check",
+            "code": "timeout",
+            "message": "typescript.check timed out.",
+            "line": null,
+            "column": null,
+        }));
+    }
+    let diagnostic_status = if run.timed_out || !diagnostics.is_empty() {
+        "findings"
+    } else {
+        "clean"
+    };
+    Ok(DiagnosticRun {
+        backend,
+        resolved_command_id: "typescript.check",
+        display_command,
+        stdout: run.stdout,
+        stderr: run.stderr,
+        exit_code: run.exit_code,
+        timed_out: run.timed_out,
+        backend_status: if run.timed_out {
+            "timed_out"
+        } else {
+            "available"
+        },
+        backend_reason: None,
+        fallback_used: false,
+        fallback_from: None,
+        project_context: project_context_json,
+        diagnostic_status,
+        diagnostics,
+    })
+}
+
+fn typescript_path_supported(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".ts")
+        || lower.ends_with(".tsx")
+        || lower.ends_with(".mts")
+        || lower.ends_with(".cts")
+}
+
+fn typescript_output_diagnostics(root: &Path, cwd: &Path, output: &str) -> Vec<Value> {
+    output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .filter_map(|line| typescript_output_diagnostic(root, cwd, line))
+        .collect()
+}
+
+fn typescript_output_diagnostic(root: &Path, cwd: &Path, line: &str) -> Option<Value> {
+    let marker = "): error ";
+    let marker_index = line.find(marker)?;
+    let prefix = &line[..marker_index + 1];
+    let rest = &line[marker_index + marker.len()..];
+    let open_index = prefix.rfind('(')?;
+    let close_index = prefix.rfind(')')?;
+    let path_text = prefix[..open_index].trim();
+    let location = &prefix[open_index + 1..close_index];
+    let mut location_parts = location.split(',');
+    let line_number = location_parts.next()?.trim().parse::<u64>().ok()?;
+    let column_number = location_parts.next()?.trim().parse::<u64>().ok()?;
+    let code_end = rest.find(':')?;
+    let code = rest[..code_end].trim();
+    let message = rest[code_end + 1..].trim();
+    if code.is_empty() || message.is_empty() {
+        return None;
+    }
+    Some(json!({
+        "path": normalize_diagnostic_path(root, cwd, path_text),
+        "severity": "error",
+        "source": "typescript.check",
+        "code": code,
+        "message": message,
+        "line": line_number,
+        "column": column_number,
+    }))
+}
+
+fn normalize_diagnostic_path(root: &Path, cwd: &Path, diagnostic_path: &str) -> String {
+    let normalized = diagnostic_path.replace('\\', "/");
+    let candidate = if Path::new(&normalized).is_absolute() {
+        PathBuf::from(&normalized)
+    } else {
+        cwd.join(&normalized)
+    };
+    let normalized_candidate = normalize_path_lexically(&candidate);
+    if normalized_candidate.starts_with(root) {
+        workspace_relative_from_absolute(root, &normalized_candidate)
+    } else {
+        normalized
+    }
+}
+
+fn local_tsc_executable(root: &Path, preferred_directory: &Path) -> Option<PathBuf> {
+    let executable_name = if cfg!(windows) { "tsc.cmd" } else { "tsc" };
+    let mut current = if preferred_directory.starts_with(root) {
+        preferred_directory.to_path_buf()
+    } else {
+        root.to_path_buf()
+    };
+    loop {
+        let candidate = current
+            .join("node_modules")
+            .join(".bin")
+            .join(executable_name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        if current == root || !current.pop() {
+            break;
+        }
+    }
+    None
+}
+
+fn find_nearest_file(start_directory: &Path, file_name: &str, root: &Path) -> Option<PathBuf> {
+    let mut current = normalize_path_lexically(start_directory);
+    if !current.starts_with(root) {
+        current = root.to_path_buf();
+    }
+    loop {
+        let candidate = current.join(file_name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+        if current == root || !current.pop() {
+            break;
+        }
+    }
+    None
+}
+
+fn package_manager_for_directory(directory: &Path) -> Option<&'static str> {
+    if directory.join("pnpm-lock.yaml").exists() {
+        Some("pnpm")
+    } else if directory.join("yarn.lock").exists() {
+        Some("yarn")
+    } else if directory.join("bun.lockb").exists() {
+        Some("bun")
+    } else if directory.join("package-lock.json").exists()
+        || directory.join("package.json").exists()
+    {
+        Some("npm")
+    } else {
+        None
+    }
+}
+
+fn workspace_relative_from_absolute(root: &Path, target: &Path) -> String {
+    let normalized_root = normalize_path_lexically(root);
+    let normalized_target = normalize_path_lexically(target);
+    normalized_target
+        .strip_prefix(&normalized_root)
+        .ok()
+        .map(|path| {
+            let relative = path.to_string_lossy().replace('\\', "/");
+            if relative.is_empty() {
+                ".".to_string()
+            } else {
+                relative
+            }
+        })
+        .unwrap_or_else(|| normalized_target.to_string_lossy().replace('\\', "/"))
+}
+
+fn run_node_check(
+    cwd: &Path,
+    paths: &[WorkspacePath],
+    timeout_ms: u64,
+    project_context: DiagnosticsProjectContext,
+) -> Result<DiagnosticRun, CodingToolWorkspaceError> {
+    let mut stdout_parts = Vec::new();
+    let mut stderr_parts = Vec::new();
+    let mut diagnostics = Vec::new();
+    let mut exit_code = 0;
+    let mut timed_out = false;
+    let mut unsupported_count = 0usize;
+    for target in paths {
+        if !node_check_path_supported(&target.relative_path) {
+            unsupported_count += 1;
+            diagnostics.push(json!({
+                "path": target.relative_path,
+                "severity": "warning",
+                "source": "node.check",
+                "code": "unsupported_path",
+                "message": "node.check only supports .js, .mjs, and .cjs files.",
+                "line": null,
+                "column": null,
+            }));
+            continue;
+        }
+        let run = run_command_with_timeout(
+            "node",
+            &[
+                "--check".to_string(),
+                target.absolute_path.to_string_lossy().to_string(),
+            ],
+            cwd,
+            timeout_ms,
+            &[],
+        )
+        .map_err(workspace_execution_error)?;
+        if !run.stdout.is_empty() {
+            stdout_parts.push(run.stdout.clone());
+        }
+        let stderr_entry = ["# ".to_string() + &target.relative_path, run.stderr.clone()]
+            .into_iter()
+            .filter(|entry| !entry.is_empty())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !stderr_entry.is_empty() {
+            stderr_parts.push(stderr_entry);
+        }
+        exit_code = exit_code.max(run.exit_code);
+        timed_out = timed_out || run.timed_out;
+        if run.exit_code != 0 || run.timed_out {
+            diagnostics.extend(node_check_output_diagnostics(target, &run));
+        }
+    }
+    let backend_status = if unsupported_count == paths.len() {
+        "degraded"
+    } else if timed_out {
+        "timed_out"
+    } else {
+        "available"
+    };
+    let diagnostic_status = if backend_status == "degraded" {
+        "degraded"
+    } else if diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.get("severity").and_then(Value::as_str) == Some("error"))
+    {
+        "findings"
+    } else {
+        "clean"
+    };
+    Ok(DiagnosticRun {
+        backend: "node.check",
+        resolved_command_id: "node.check",
+        display_command: "node --check",
+        stdout: stdout_parts.join("\n"),
+        stderr: stderr_parts.join("\n"),
+        exit_code: if timed_out { 124 } else { exit_code },
+        timed_out,
+        backend_status,
+        backend_reason: if backend_status == "degraded" {
+            Some("unsupported_path")
+        } else {
+            None
+        },
+        fallback_used: false,
+        fallback_from: None,
+        project_context: project_context.to_json(false),
+        diagnostic_status,
+        diagnostics,
+    })
+}
+
+fn node_check_path_supported(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    lower.ends_with(".js") || lower.ends_with(".mjs") || lower.ends_with(".cjs")
+}
+
+fn node_check_output_diagnostics(target: &WorkspacePath, run: &CapturedCommand) -> Vec<Value> {
+    if run.timed_out {
+        return vec![json!({
+            "path": target.relative_path,
+            "severity": "error",
+            "source": "node.check",
+            "code": "timeout",
+            "message": "node.check timed out.",
+            "line": null,
+            "column": null,
+        })];
+    }
+    let message = run
+        .stderr
+        .lines()
+        .find(|line| {
+            let trimmed = line.trim();
+            trimmed.starts_with("SyntaxError")
+                || trimmed.starts_with("TypeError")
+                || trimmed.starts_with("ReferenceError")
+                || trimmed.starts_with("Error:")
+        })
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| {
+            run.stderr
+                .lines()
+                .rev()
+                .map(str::trim)
+                .find(|line| !line.is_empty())
+                .map(ToOwned::to_owned)
+        })
+        .unwrap_or_else(|| "node.check reported a diagnostic.".to_string());
+    vec![json!({
+        "path": target.relative_path,
+        "severity": "error",
+        "source": "node.check",
+        "code": diagnostic_code(&message),
+        "message": message,
+        "line": null,
+        "column": null,
+    })]
+}
+
+fn diagnostic_code(message: &str) -> String {
+    let head = message.split(':').next().unwrap_or("diagnostic");
+    let code = head
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_string();
+    if code.is_empty() {
+        "diagnostic".to_string()
+    } else {
+        code
+    }
 }
 
 fn sanitize_string_array(value: Option<&Value>) -> Vec<String> {
@@ -1401,6 +2022,143 @@ mod tests {
         let _ = fs::remove_dir_all(workspace);
     }
 
+    #[test]
+    fn inspects_lsp_diagnostics_node_check_in_rust_core() {
+        let workspace = temp_workspace("lsp-node-clean");
+        fs::write(workspace.join("ok.mjs"), "const value = 1;\n").expect("fixture file");
+
+        let result = inspect_lsp_diagnostics(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "commandId": "node.check",
+                "path": "ok.mjs",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("diagnostics inspected");
+
+        assert_eq!(result["schemaVersion"], CODING_TOOL_RESULT_SCHEMA_VERSION);
+        assert_eq!(result["backend"], "node.check");
+        assert_eq!(result["resolvedCommandId"], "node.check");
+        assert_eq!(result["diagnosticStatus"], "clean");
+        assert_eq!(result["diagnosticCount"], 0);
+        assert_eq!(result["paths"], json!(["ok.mjs"]));
+        assert_eq!(result["exitCode"], 0);
+        assert_eq!(result["shellFallbackUsed"], false);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn inspects_lsp_diagnostics_node_check_findings_in_rust_core() {
+        let workspace = temp_workspace("lsp-node-findings");
+        fs::write(workspace.join("broken.mjs"), "const = ;\n").expect("fixture file");
+
+        let result = inspect_lsp_diagnostics(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "commandId": "node.check",
+                "path": "broken.mjs",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("diagnostics inspected");
+
+        assert_eq!(result["backend"], "node.check");
+        assert_eq!(result["diagnosticStatus"], "findings");
+        assert_eq!(result["diagnosticCount"], 1);
+        assert_ne!(result["exitCode"], 0);
+        assert_eq!(result["diagnostics"][0]["path"], "broken.mjs");
+        assert_eq!(result["diagnostics"][0]["severity"], "error");
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn inspects_lsp_diagnostics_typescript_findings_in_rust_core() {
+        let workspace = temp_workspace("lsp-typescript-findings");
+        let source_dir = workspace.join("src");
+        let bin = workspace.join("node_modules").join(".bin");
+        fs::create_dir_all(&source_dir).expect("source dir");
+        fs::create_dir_all(&bin).expect("bin dir");
+        fs::write(
+            workspace.join("tsconfig.json"),
+            r#"{"compilerOptions":{"strict":true},"include":["src/**/*.ts"]}"#,
+        )
+        .expect("tsconfig");
+        fs::write(
+            source_dir.join("broken.ts"),
+            "const value: number = 'oops';\n",
+        )
+        .expect("ts fixture");
+        write_fake_executable(
+            &bin.join("tsc"),
+            "#!/bin/sh\necho \"src/broken.ts(1,7): error TS2322: Type 'string' is not assignable to type 'number'.\"\nexit 2\n",
+        );
+
+        let result = inspect_lsp_diagnostics(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "commandId": "typescript.check",
+                "path": "src/broken.ts",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("diagnostics inspected");
+
+        assert_eq!(result["backend"], "typescript.project.check");
+        assert_eq!(result["resolvedCommandId"], "typescript.check");
+        assert_eq!(
+            result["command"],
+            "tsc --noEmit --pretty false -p tsconfig.json"
+        );
+        assert_eq!(result["backendStatus"], "available");
+        assert_eq!(result["diagnosticStatus"], "findings");
+        assert_eq!(result["diagnosticCount"], 1);
+        assert_eq!(result["diagnostics"][0]["path"], "src/broken.ts");
+        assert_eq!(result["diagnostics"][0]["code"], "TS2322");
+        assert_eq!(result["diagnostics"][0]["line"], 1);
+        assert_eq!(result["diagnostics"][0]["column"], 7);
+        assert_eq!(result["projectContext"]["tsconfigPath"], "tsconfig.json");
+        assert_eq!(result["projectContext"]["tscAvailable"], true);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn inspects_lsp_diagnostics_typescript_degraded_in_rust_core() {
+        let workspace = temp_workspace("lsp-typescript-degraded");
+        let source_dir = workspace.join("src");
+        fs::create_dir_all(&source_dir).expect("source dir");
+        fs::write(
+            workspace.join("tsconfig.json"),
+            r#"{"compilerOptions":{"strict":true},"include":["src/**/*.ts"]}"#,
+        )
+        .expect("tsconfig");
+        fs::write(
+            source_dir.join("broken.ts"),
+            "const value: number = 'oops';\n",
+        )
+        .expect("ts fixture");
+
+        let result = inspect_lsp_diagnostics(
+            workspace.to_str().expect("workspace path"),
+            &json!({
+                "commandId": "auto",
+                "path": "src/broken.ts",
+                "timeoutMs": 5000
+            }),
+        )
+        .expect("diagnostics inspected");
+
+        assert_eq!(result["backend"], "typescript.project.check");
+        assert_eq!(result["resolvedCommandId"], "typescript.check");
+        assert_eq!(result["backendStatus"], "degraded");
+        assert_eq!(result["backendReason"], "typescript_executable_missing");
+        assert_eq!(result["diagnosticStatus"], "degraded");
+        assert_eq!(result["projectContext"]["tscAvailable"], false);
+        assert_eq!(result["fallbackUsed"], false);
+        let _ = fs::remove_dir_all(workspace);
+    }
+
     fn init_git_workspace(workspace: &Path) {
         run_git(workspace, &["init"]);
     }
@@ -1428,5 +2186,17 @@ mod tests {
         let _ = fs::remove_dir_all(&path);
         fs::create_dir_all(&path).expect("workspace dir");
         fs::canonicalize(path).expect("canonical workspace")
+    }
+
+    #[cfg(unix)]
+    fn write_fake_executable(path: &Path, content: &str) {
+        use std::os::unix::fs::PermissionsExt;
+
+        fs::write(path, content).expect("fake executable");
+        let mut permissions = fs::metadata(path)
+            .expect("fake executable metadata")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(path, permissions).expect("fake executable permissions");
     }
 }

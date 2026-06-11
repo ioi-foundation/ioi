@@ -3748,9 +3748,9 @@ function runBridge() {
       /cargo\.check/.test(codingToolWorkspaceCore) &&
       /lsp\.diagnostics/.test(codingToolCommandBridge) &&
       /pub\(super\) fn inspect_lsp_diagnostics/.test(codingToolHelpersBridge) &&
-      /typescript\.check/.test(codingToolHelpersBridge) &&
-      /pub\(super\) fn run_typescript_check/.test(codingToolHelpersBridge) &&
-      /pub\(super\) fn local_tsc_executable/.test(codingToolHelpersBridge) &&
+      /typescript\.check/.test(codingToolWorkspaceCore) &&
+      /fn run_typescript_check/.test(codingToolWorkspaceCore) &&
+      /fn local_tsc_executable/.test(codingToolWorkspaceCore) &&
       /artifact\.read/.test(codingToolCommandBridge) &&
       /tool\.retrieve_result/.test(codingToolCommandBridge) &&
       /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
@@ -3854,7 +3854,7 @@ function runBridge() {
       /Command::new\("git"\)/.test(codingToolExecutionCore) &&
       /safe_subprocess_env/.test(codingToolExecutionCore) &&
       /is_sensitive_env_key/.test(codingToolExecutionCore) &&
-      /run_core_command_with_timeout/.test(codingToolHelpersBridge) &&
+      !/run_core_command_with_timeout/.test(codingToolHelpersBridge) &&
       !/run_core_git_read_only/.test(codingToolHelpersBridge) &&
       !/use std::process/.test(codingToolHelpersBridge) &&
       !/Command::new/.test(codingToolHelpersBridge) &&
@@ -3866,7 +3866,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
     ],
-    "Phase 10/11 remains non-terminal: coding-tool process/git execution must stay in the Rust kernel service crate while the bridge remains temporary StepModule protocol glue",
+    "Phase 10/11 remains non-terminal: coding-tool process/git execution and any generic subprocess wrappers must stay in the Rust kernel service crate while the bridge remains temporary StepModule protocol glue",
   );
   assertCheck(
     result,
@@ -3980,6 +3980,39 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 10/11 remains non-terminal: test.run command allowlisting, command mapping, cwd/path containment, environment filtering, timeout/output bounding, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+  );
+  assertCheck(
+    result,
+    "coding-tool-lsp-diagnostics-rust-core-boundary",
+    /pub mod coding_tool_workspace;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn inspect_lsp_diagnostics/.test(codingToolWorkspaceCore) &&
+      /DIAGNOSTIC_COMMAND_IDS/.test(codingToolWorkspaceCore) &&
+      /lsp_diagnostics_command_not_allowed/.test(codingToolWorkspaceCore) &&
+      /lsp_diagnostics_path_required/.test(codingToolWorkspaceCore) &&
+      /run_typescript_check/.test(codingToolWorkspaceCore) &&
+      /run_node_check/.test(codingToolWorkspaceCore) &&
+      /local_tsc_executable/.test(codingToolWorkspaceCore) &&
+      /typescript_output_diagnostic/.test(codingToolWorkspaceCore) &&
+      /node_check_output_diagnostics/.test(codingToolWorkspaceCore) &&
+      /diagnostics_project_context/.test(codingToolWorkspaceCore) &&
+      /outputHash/.test(codingToolWorkspaceCore) &&
+      /inspect_core_lsp_diagnostics/.test(codingToolHelpersBridge) &&
+      !/fn run_typescript_check/.test(codingToolHelpersBridge) &&
+      !/fn run_node_check/.test(codingToolHelpersBridge) &&
+      !/fn local_tsc_executable/.test(codingToolHelpersBridge) &&
+      !/fn typescript_output_diagnostic/.test(codingToolHelpersBridge) &&
+      !/fn node_check_output_diagnostics/.test(codingToolHelpersBridge) &&
+      !/fn diagnostics_project_context/.test(codingToolHelpersBridge) &&
+      !/lsp_diagnostics_command_not_allowed/.test(codingToolHelpersBridge) &&
+      !/DIAGNOSTIC_COMMAND_IDS/.test(bridgeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 remains non-terminal: lsp.diagnostics backend selection, TypeScript/node diagnostic execution, project context, diagnostic parsing, path containment, output bounding, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,
