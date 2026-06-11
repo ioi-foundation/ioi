@@ -147,6 +147,26 @@ pub enum ApprovalRevokeStateUpdateError {
     MissingField(&'static str),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApprovalCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl ApprovalCommandError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CodingToolApprovalRequest {
     pub schema_version: String,
@@ -399,6 +419,34 @@ pub struct ApprovalRevokeStateUpdateRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<Value>,
     pub generated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolApprovalBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CodingToolApprovalRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApprovalRequestStateUpdateBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ApprovalRequestStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApprovalDecisionStateUpdateBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ApprovalDecisionStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApprovalRevokeStateUpdateBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ApprovalRevokeStateUpdateRequest,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -812,6 +860,101 @@ impl CodingToolApprovalCore {
             input_hash,
         })
     }
+}
+
+pub fn plan_coding_tool_approval_manifest_response(
+    request: CodingToolApprovalBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let plan = CodingToolApprovalCore
+        .plan_manifest(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new(
+                "coding_tool_approval_manifest_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_approval_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "plan": plan.clone(),
+        "approval_required": plan.approval_required,
+        "workflow_policy": plan.workflow_policy.clone(),
+        "manifest": plan.manifest.clone(),
+        "input_hash": plan.input_hash.clone(),
+    }))
+}
+
+pub fn plan_approval_request_state_update_response(
+    request: ApprovalRequestStateUpdateBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = ApprovalRequestStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new(
+                "approval_request_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(state_update_response(
+        "rust_approval_request_state_update_command",
+        request.backend,
+        record,
+    ))
+}
+
+pub fn plan_approval_decision_state_update_response(
+    request: ApprovalDecisionStateUpdateBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = ApprovalDecisionStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new(
+                "approval_decision_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(state_update_response(
+        "rust_approval_decision_state_update_command",
+        request.backend,
+        record,
+    ))
+}
+
+pub fn plan_approval_revoke_state_update_response(
+    request: ApprovalRevokeStateUpdateBridgeRequest,
+) -> Result<Value, ApprovalCommandError> {
+    let record = ApprovalRevokeStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ApprovalCommandError::new("approval_revoke_state_update_invalid", format!("{error:?}"))
+        })?;
+    Ok(state_update_response(
+        "rust_approval_revoke_state_update_command",
+        request.backend,
+        record,
+    ))
+}
+
+fn state_update_response<T>(source: &'static str, backend: Option<String>, record: T) -> Value
+where
+    T: Serialize + Clone,
+{
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    json!({
+        "source": source,
+        "backend": backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "record": record_value.clone(),
+        "status": record_value.get("status").cloned().unwrap_or(Value::Null),
+        "operation_kind": record_value.get("operation_kind").cloned().unwrap_or(Value::Null),
+        "target_kind": record_value.get("target_kind").cloned().unwrap_or(Value::Null),
+        "updated_at": record_value.get("updated_at").cloned().unwrap_or(Value::Null),
+        "operator_control": record_value
+            .get("operator_control")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "run": record_value.get("run").cloned().unwrap_or(Value::Null),
+        "agent": record_value.get("agent").cloned().unwrap_or(Value::Null),
+    })
 }
 
 impl CodingToolApprovalRequest {
@@ -1357,6 +1500,28 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_shapes_coding_tool_approval_command_response() {
+        let response =
+            plan_coding_tool_approval_manifest_response(CodingToolApprovalBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: coding_tool_request("workspace_write"),
+            })
+            .expect("approval command response");
+
+        assert_eq!(response["source"], "rust_coding_tool_approval_command");
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["approval_required"], true);
+        assert_eq!(
+            response["manifest"]["schema_version"],
+            CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION
+        );
+        assert!(response["input_hash"]
+            .as_str()
+            .expect("input hash")
+            .starts_with("sha256:"));
+    }
+
+    #[test]
     fn rust_authority_plans_approval_request_state_update() {
         let record = ApprovalRequestStateUpdateCore
             .plan(&approval_request_state_update_request())
@@ -1428,6 +1593,32 @@ mod tests {
                 expected: APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_approval_request_state_update_command_response() {
+        let response =
+            plan_approval_request_state_update_response(ApprovalRequestStateUpdateBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_request_state_update_request(),
+            })
+            .expect("approval request command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_approval_request_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "approval.required");
+        assert_eq!(
+            response["operator_control"]["approval_id"],
+            "approval_alpha"
+        );
+        assert_eq!(
+            response["record"]["schema_version"],
+            APPROVAL_REQUEST_STATE_UPDATE_RESULT_SCHEMA_VERSION
         );
     }
 
@@ -1525,6 +1716,30 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_shapes_approval_decision_state_update_command_response() {
+        let response = plan_approval_decision_state_update_response(
+            ApprovalDecisionStateUpdateBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_decision_state_update_request(),
+            },
+        )
+        .expect("approval decision command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_approval_decision_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "approval.approve");
+        assert_eq!(response["operator_control"]["lease_id"], "lease_alpha");
+        assert_eq!(
+            response["record"]["schema_version"],
+            APPROVAL_DECISION_STATE_UPDATE_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
     fn rust_authority_plans_approval_revoke_state_update() {
         let record = ApprovalRevokeStateUpdateCore
             .plan(&approval_revoke_state_update_request())
@@ -1601,6 +1816,29 @@ mod tests {
                 expected: APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_approval_revoke_state_update_command_response() {
+        let response =
+            plan_approval_revoke_state_update_response(ApprovalRevokeStateUpdateBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: approval_revoke_state_update_request(),
+            })
+            .expect("approval revoke command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_approval_revoke_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "approval.revoke");
+        assert_eq!(response["operator_control"]["lease_status"], "revoked");
+        assert_eq!(
+            response["record"]["schema_version"],
+            APPROVAL_REVOKE_STATE_UPDATE_RESULT_SCHEMA_VERSION
         );
     }
 

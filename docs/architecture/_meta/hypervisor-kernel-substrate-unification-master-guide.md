@@ -6239,6 +6239,27 @@ wallet.network grants, authority receipts, Agentgres-backed receipt/state-root
 truth where applicable, replay, projection, and stable IDE/CLI/SDK surfaces end
 to end.
 
+Slice 1122 moves coding-tool approval manifest and approval
+request/decision/revoke state-update command request/response shaping out of
+the temporary Node approval command bridge and into Rust `approval.rs` under
+the kernel service crate. Rust core now owns the bridge request structs,
+approval manifest wrapping, approval state-update response envelopes,
+canonical `rust_coding_tool_approval_command`,
+`rust_approval_request_state_update_command`,
+`rust_approval_decision_state_update_command`, and
+`rust_approval_revoke_state_update_command` source markers, and bridge-facing
+error codes for rejected approval command bodies.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, approval runners, and
+approval surfaces still exist. The remaining
+`ioi_step_module_bridge/approval_command.rs` file is a temporary delegate to
+Rust core, not a durable approval authority or state-update boundary. The
+long-term target remains direct Rust daemon-core approval protocol APIs over
+wallet.network grants, Agentgres-backed expected-head/state-root truth,
+receipt/event materialization, replay, projection, cTEE custody policy where
+relevant, and stable IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

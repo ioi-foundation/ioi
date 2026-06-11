@@ -15784,6 +15784,48 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1122
+
+Slice 1122 moves coding-tool approval manifest and approval
+request/decision/revoke state-update command request/response shaping out of
+the temporary `ioi_step_module_bridge/approval_command.rs` bridge module into
+Rust `crates/services/src/agentic/runtime/kernel/approval.rs`. The Rust kernel
+service module now owns the bridge request structs, approval manifest response
+wrapping, approval state-update response envelopes, canonical
+`rust_coding_tool_approval_command`,
+`rust_approval_request_state_update_command`,
+`rust_approval_decision_state_update_command`, and
+`rust_approval_revoke_state_update_command` source markers, and bridge-facing
+error codes for rejected approval command bodies.
+
+The approval bridge command module is now a thin delegate that maps
+`ApprovalCommandError` into `BridgeError`. It no longer imports or owns
+`CodingToolApprovalCore`, `ApprovalRequestStateUpdateCore`,
+`ApprovalDecisionStateUpdateCore`, `ApprovalRevokeStateUpdateCore`, the bridge
+request structs, the approval command response envelopes, or the
+bridge-facing rejection codes.
+
+This is Rust-core extraction and bridge-shape retirement progress, not
+terminal approval migration. The Node daemon-core command transport, command
+dispatch table, shared command runner, JS command callers, approval runners,
+and approval surfaces remain migration scaffolding until direct Rust
+daemon-core approval APIs own wallet.network grants, Agentgres expected-head
+and state-root truth, approval receipts/events, replay, projection, cTEE
+custody policy where relevant, and stable protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services approval --lib` | passed |
+| `cargo test -p ioi-node approval --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1121
 
 Slice 1121 moves external capability exit authority command response shaping
