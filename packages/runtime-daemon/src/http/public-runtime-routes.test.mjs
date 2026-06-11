@@ -279,6 +279,155 @@ test("public runtime memory projection routes fail closed through thread memory 
   );
 });
 
+test("public conversation artifact routes fail closed through mounted artifact surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const rustCoreRequired = (details = {}) => {
+    const error = new Error("conversation artifact control requires Rust core");
+    error.status = 501;
+    error.code = "runtime_conversation_artifact_control_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.conversation_artifact_control",
+      ...details,
+    };
+    throw error;
+  };
+  const store = {
+    conversationArtifactSurface: {
+      listConversationArtifacts(surfaceStore, query) {
+        calls.push({ method: "listConversationArtifacts", surfaceStore, query });
+        rustCoreRequired({ operation: "conversation_artifact_list" });
+      },
+      createConversationArtifact(surfaceStore, threadId, input) {
+        calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
+        rustCoreRequired({ operation: "conversation_artifact_create", thread_id: threadId });
+      },
+      getConversationArtifact(surfaceStore, artifactId) {
+        calls.push({ method: "getConversationArtifact", surfaceStore, artifactId });
+        rustCoreRequired({ operation: "conversation_artifact_get", artifact_id: artifactId });
+      },
+      listConversationArtifactRevisions(surfaceStore, artifactId) {
+        calls.push({ method: "listConversationArtifactRevisions", surfaceStore, artifactId });
+        rustCoreRequired({ operation: "conversation_artifact_revision_list", artifact_id: artifactId });
+      },
+      performConversationArtifactAction(surfaceStore, artifactId, input) {
+        calls.push({ method: "performConversationArtifactAction", surfaceStore, artifactId, input });
+        rustCoreRequired({ operation: "conversation_artifact_action", artifact_id: artifactId });
+      },
+      exportConversationArtifact(surfaceStore, artifactId, input) {
+        calls.push({ method: "exportConversationArtifact", surfaceStore, artifactId, input });
+        rustCoreRequired({ operation: "conversation_artifact_export", artifact_id: artifactId });
+      },
+      promoteConversationArtifact(surfaceStore, artifactId, input) {
+        calls.push({ method: "promoteConversationArtifact", surfaceStore, artifactId, input });
+        rustCoreRequired({ operation: "conversation_artifact_promote", artifact_id: artifactId });
+      },
+    },
+    listConversationArtifacts: retiredRouteWrapper,
+    createConversationArtifact: retiredRouteWrapper,
+    getConversationArtifact: retiredRouteWrapper,
+    listConversationArtifactRevisions: retiredRouteWrapper,
+    performConversationArtifactAction: retiredRouteWrapper,
+    exportConversationArtifact: retiredRouteWrapper,
+    promoteConversationArtifact: retiredRouteWrapper,
+  };
+
+  const requests = [
+    request({ url: "/v1/conversation-artifacts?thread_id=thread_route" }),
+    request({
+      method: "POST",
+      url: "/v1/conversation-artifacts",
+      body: { thread_id: "thread_route", title: "Draft" },
+    }),
+    request({ url: "/v1/conversation-artifacts/artifact_route" }),
+    request({ url: "/v1/conversation-artifacts/artifact_route/revisions" }),
+    request({
+      method: "POST",
+      url: "/v1/conversation-artifacts/artifact_route/actions",
+      body: { kind: "edit" },
+    }),
+    request({
+      method: "POST",
+      url: "/v1/conversation-artifacts/artifact_route/export",
+      body: { format: "zip" },
+    }),
+    request({
+      method: "POST",
+      url: "/v1/conversation-artifacts/artifact_route/promote",
+      body: { target: "canvas" },
+    }),
+  ];
+
+  for (const req of requests) {
+    const response = responseRecorder();
+    await handleRequest({ request: req, response, store });
+    assert.equal(response.statusCode, 501);
+    assert.equal(response.error.code, "runtime_conversation_artifact_control_rust_core_required");
+  }
+
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(
+    calls.map(({ method, query, threadId, artifactId, input }) => ({
+      method,
+      query,
+      threadId,
+      artifactId,
+      input,
+    })),
+    [
+      {
+        method: "listConversationArtifacts",
+        query: { thread_id: "thread_route" },
+        threadId: undefined,
+        artifactId: undefined,
+        input: undefined,
+      },
+      {
+        method: "createConversationArtifact",
+        query: undefined,
+        threadId: "thread_route",
+        artifactId: undefined,
+        input: { thread_id: "thread_route", title: "Draft" },
+      },
+      {
+        method: "getConversationArtifact",
+        query: undefined,
+        threadId: undefined,
+        artifactId: "artifact_route",
+        input: undefined,
+      },
+      {
+        method: "listConversationArtifactRevisions",
+        query: undefined,
+        threadId: undefined,
+        artifactId: "artifact_route",
+        input: undefined,
+      },
+      {
+        method: "performConversationArtifactAction",
+        query: undefined,
+        threadId: undefined,
+        artifactId: "artifact_route",
+        input: { kind: "edit" },
+      },
+      {
+        method: "exportConversationArtifact",
+        query: undefined,
+        threadId: undefined,
+        artifactId: "artifact_route",
+        input: { format: "zip" },
+      },
+      {
+        method: "promoteConversationArtifact",
+        query: undefined,
+        threadId: undefined,
+        artifactId: "artifact_route",
+        input: { target: "canvas" },
+      },
+    ],
+  );
+});
+
 test("public runtime task and job routes use task job surface directly", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];

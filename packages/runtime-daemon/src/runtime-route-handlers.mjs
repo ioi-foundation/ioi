@@ -693,11 +693,15 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(response, store.listConversationArtifacts({ thread_id: threadId }));
+      writeJsonResponse(response, store.conversationArtifactSurface.listConversationArtifacts(store, { thread_id: threadId }));
       return;
     }
     if (request.method === "POST" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(response, store.createConversationArtifact(threadId, await readBody(request)), 201);
+      writeJsonResponse(
+        response,
+        store.conversationArtifactSurface.createConversationArtifact(store, threadId, await readBody(request)),
+        201,
+      );
       return;
     }
     if (request.method === "POST" && action === "compaction-policy" && !segments[4]) {

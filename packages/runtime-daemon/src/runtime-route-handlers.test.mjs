@@ -466,6 +466,79 @@ test("agent and thread memory read routes use mounted thread memory surface", as
   );
 });
 
+test("thread conversation artifact routes use mounted artifact surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const rustCoreRequired = (details = {}) => {
+    const error = new Error("conversation artifact control requires Rust core");
+    error.status = 501;
+    error.code = "runtime_conversation_artifact_control_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.conversation_artifact_control",
+      ...details,
+    };
+    throw error;
+  };
+  const store = {
+    conversationArtifactSurface: {
+      listConversationArtifacts(surfaceStore, query) {
+        calls.push({ method: "listConversationArtifacts", surfaceStore, query });
+        rustCoreRequired({ operation: "conversation_artifact_list" });
+      },
+      createConversationArtifact(surfaceStore, threadId, input) {
+        calls.push({ method: "createConversationArtifact", surfaceStore, threadId, input });
+        rustCoreRequired({ operation: "conversation_artifact_create", thread_id: threadId });
+      },
+    },
+    listConversationArtifacts: retiredRouteWrapper,
+    createConversationArtifact: retiredRouteWrapper,
+  };
+
+  await assert.rejects(
+    () => handleThreadRoute({
+      request: request({ url: "/v1/threads/thread_route/artifacts" }),
+      response: responseRecorder(),
+      store,
+      url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
+      segments: ["v1", "threads", "thread_route", "artifacts"],
+    }),
+    { code: "runtime_conversation_artifact_control_rust_core_required" },
+  );
+  await assert.rejects(
+    () => handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: "/v1/threads/thread_route/artifacts",
+        body: { title: "Draft" },
+      }),
+      response: responseRecorder(),
+      store,
+      url: new URL("/v1/threads/thread_route/artifacts", "http://daemon.test"),
+      segments: ["v1", "threads", "thread_route", "artifacts"],
+    }),
+    { code: "runtime_conversation_artifact_control_rust_core_required" },
+  );
+
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(
+    calls.map(({ method, query, threadId, input }) => ({ method, query, threadId, input })),
+    [
+      {
+        method: "listConversationArtifacts",
+        query: { thread_id: "thread_route" },
+        threadId: undefined,
+        input: undefined,
+      },
+      {
+        method: "createConversationArtifact",
+        query: undefined,
+        threadId: "thread_route",
+        input: { title: "Draft" },
+      },
+    ],
+  );
+});
+
 test("thread route sends admission controls through mounted admission surfaces", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];

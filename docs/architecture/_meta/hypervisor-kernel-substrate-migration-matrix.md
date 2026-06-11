@@ -20366,6 +20366,43 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 978
+
+Slice 978 removed the remaining route-level conversation-artifact daemon-store
+pass-through wrappers from public and thread-scoped routes. Public
+`/v1/conversation-artifacts`, artifact detail, revision, action, export, and
+promote routes now call the mounted conversation-artifact surface directly, and
+thread-scoped `/v1/threads/:id/artifacts` list/create routes do the same. The
+routes fail closed before `store.listConversationArtifacts()`,
+`store.createConversationArtifact()`, or sibling pass-through wrappers can
+reintroduce JS artifact-store readback or mutation as public truth.
+
+This is still non-terminal migration plumbing: direct Rust daemon-core
+conversation-artifact admission/projection over Agentgres-admitted artifact
+truth, receipt_binder, ArtifactRef/PayloadRef admission, expected-head/state-root
+binding, replay, command-transport retirement, and stable protocol APIs remain
+required before terminal conformance. Runtime store wrapper methods remain only
+temporary internal scaffolding until direct Rust conversation-artifact APIs own
+those shapes.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 978 | Public and thread-scoped conversation-artifact routes now call the mounted Rust-core-required artifact surface directly instead of daemon-store pass-through wrappers. | Direct Rust daemon-core conversation-artifact admission/projection over Agentgres-admitted artifact truth, receipt/state-root binding, ArtifactRef/PayloadRef admission, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/http/public-runtime-routes.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 977
 
 Slice 977 retired public memory readback projection routes from JS-authored

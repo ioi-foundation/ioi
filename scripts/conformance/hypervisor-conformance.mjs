@@ -19733,7 +19733,37 @@ function runCompositor() {
       /\.filter\(\(record\) => !threadId \|\| record\.thread_id === threadId\)/.test(conversationArtifacts) &&
       (runtimeConversationArtifactMutationFacadeRetired ||
         /thread_id:\s*threadId/.test(runtimeConversationArtifactSurface)) &&
-      /store\.listConversationArtifacts\(\{ thread_id: threadId \}\)/.test(runtimeRouteHandlers) &&
+      /store\.conversationArtifactSurface\.listConversationArtifacts\(store, \{ thread_id: threadId \}\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.conversationArtifactSurface\.createConversationArtifact\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.conversationArtifactSurface\.listConversationArtifacts\(store, Object\.fromEntries/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.conversationArtifactSurface\.createConversationArtifact\(\s*\n\s*store,\s*\n\s*optionalString\(body\.thread_id\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.conversationArtifactSurface\.getConversationArtifact\(store, artifactId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.conversationArtifactSurface\.listConversationArtifactRevisions\(store, artifactId\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.conversationArtifactSurface\.performConversationArtifactAction\(store, artifactId,/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.conversationArtifactSurface\.exportConversationArtifact\(store, artifactId,/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.conversationArtifactSurface\.promoteConversationArtifact\(store, artifactId,/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /thread conversation artifact routes use mounted artifact surface/.test(runtimeRouteHandlersTest) &&
+      /public conversation artifact routes fail closed through mounted artifact surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
       /optionalString\(body\.thread_id\)/.test(publicRuntimeRoutesForTaskJob) &&
       /listConversationArtifacts\(input\?: \{ thread_id\?: string \}\)/.test(agentSdkSubstrateClient) &&
       /async listConversationArtifacts\(input: \{ thread_id\?: string \} = \{\}\)/.test(
@@ -19770,7 +19800,10 @@ function runCompositor() {
       ) &&
       !/listConversationArtifacts\(input\?: \{ threadId/.test(agentSdkSubstrateClient) &&
       !/input\.threadId/.test(conversationArtifactSdkListMethodBlock) &&
-      !/\?threadId=/.test(conversationArtifactSdkListMethodBlock),
+      !/\?threadId=/.test(conversationArtifactSdkListMethodBlock) &&
+      !/store\.(?:listConversationArtifacts|createConversationArtifact|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/.test(
+        `${runtimeRouteHandlers}\n${publicRuntimeRoutes}`,
+      ),
     [
       "packages/runtime-daemon/src/conversation-artifacts.mjs",
       "packages/runtime-daemon/src/conversation-artifacts.test.mjs",
@@ -19802,6 +19835,10 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
     "Phase 10/11 is pending: conversation artifact create/action/export/promote and list/get/revision facades must stay retired before JS artifact mutation or projection",
   );
@@ -19812,6 +19849,10 @@ function runCompositor() {
     [
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.mjs",
       "packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
     "Phase 10/11 is pending: conversation artifact list/get/revision JS read projections must fail closed before JS artifact-store reads",
   );
