@@ -5,13 +5,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct WorkflowEditAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: WorkflowEditAdmissionRequiredRequest,
@@ -19,9 +16,6 @@ pub(super) struct WorkflowEditAdmissionRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct DiagnosticsRepairAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: DiagnosticsRepairAdmissionRequiredRequest,
@@ -30,21 +24,6 @@ pub(super) struct DiagnosticsRepairAdmissionRequiredBridgeRequest {
 pub(super) fn plan_workflow_edit_admission_required(
     request: WorkflowEditAdmissionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_workflow_edit_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = WorkflowEditAdmissionRequiredCore
         .plan(&request.request)
         .map_err(|error| {
@@ -70,21 +49,6 @@ pub(super) fn plan_workflow_edit_admission_required(
 pub(super) fn plan_diagnostics_repair_admission_required(
     request: DiagnosticsRepairAdmissionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_diagnostics_repair_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = DiagnosticsRepairAdmissionRequiredCore
         .plan(&request.request)
         .map_err(|error| {

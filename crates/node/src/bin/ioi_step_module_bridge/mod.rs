@@ -3063,33 +3063,15 @@ mod tests {
 
     #[test]
     fn external_capability_authority_rejects_step_module_command_schema() {
-        let request: ExternalCapabilityExitAuthorityBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "authorize_external_capability_exit",
-            "backend": "rust_authority",
-            "request": {
-                "schema_version": "ioi.external_capability_exit_authority.v1",
-                "exit_ref": "exit://aiip/slack-post-message",
-                "capability_ref": "capability://connector/slack.postMessage",
-                "target_ref": "aiip://workspace/channel/runtime",
-                "policy_hash": "sha256:external-capability-policy",
-                "idempotency_key": "idem:external-capability-exit",
-                "authority_grant_refs": [
-                    "wallet.network://grant/external-capability/slack-post-message"
-                ],
-                "authority_receipt_refs": [
-                    "receipt://wallet.network/authority/slack-post-message"
-                ]
-            }
-        }))
-        .expect("external capability exit bridge request");
+        let error = validate_command_envelope(
+            "authorize_external_capability_exit",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before authority dispatch");
 
-        let error = authorize_external_capability_exit(request)
-            .expect_err("daemon-core authority rejects StepModule command schema");
-
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

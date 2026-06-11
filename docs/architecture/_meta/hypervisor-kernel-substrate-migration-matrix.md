@@ -15785,6 +15785,45 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1072
+
+Slice 1072 retires duplicate bridge-local command-envelope identity checks from
+the authority, admission-required policy, and projection-required command
+wrappers. `authority_command.rs`, `policy_command.rs`, and
+`projection_command.rs` now deserialize only the body-specific backend/request
+fields that their Rust authority or policy core needs; they no longer carry
+local `schema_version`/`operation` fields or local
+`schema_version_invalid`/`operation_unsupported` branches.
+
+The fail-closed schema-family proof moved to the Rust command protocol
+boundary: bridge tests now prove `validate_command_envelope()` rejects a
+StepModule schema for the daemon-core external-capability authority operation
+before child-wrapper dispatch. Conformance now fails if those local envelope
+checks return to the child wrappers, while preserving the explicit non-terminal
+status: `command_dispatch.rs`, the StepModule command helper, and the shared
+daemon-core command helper still must be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1071
 
 Slice 1071 moves temporary bridge envelope parsing into Rust command protocol

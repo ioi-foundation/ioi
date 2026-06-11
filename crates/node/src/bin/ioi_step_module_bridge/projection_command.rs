@@ -7,13 +7,10 @@ use ioi_services::agentic::runtime::kernel::policy::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct SkillHookRegistryProjectionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: SkillHookRegistryProjectionRequiredRequest,
@@ -21,9 +18,6 @@ pub(super) struct SkillHookRegistryProjectionRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RepositoryWorkflowProjectionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: RepositoryWorkflowProjectionRequiredRequest,
@@ -31,9 +25,6 @@ pub(super) struct RepositoryWorkflowProjectionRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeToolCatalogProjectionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: RuntimeToolCatalogProjectionRequiredRequest,
@@ -41,9 +32,6 @@ pub(super) struct RuntimeToolCatalogProjectionRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeLifecycleProjectionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: RuntimeLifecycleProjectionRequiredRequest,
@@ -52,21 +40,6 @@ pub(super) struct RuntimeLifecycleProjectionRequiredBridgeRequest {
 pub(super) fn plan_skill_hook_registry_projection_required(
     request: SkillHookRegistryProjectionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_skill_hook_registry_projection_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = SkillHookRegistryProjectionRequiredCore
         .plan(&request.request)
         .map_err(|error| {
@@ -92,21 +65,6 @@ pub(super) fn plan_skill_hook_registry_projection_required(
 pub(super) fn plan_repository_workflow_projection_required(
     request: RepositoryWorkflowProjectionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_repository_workflow_projection_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = RepositoryWorkflowProjectionRequiredCore
         .plan(&request.request)
         .map_err(|error| {
@@ -132,21 +90,6 @@ pub(super) fn plan_repository_workflow_projection_required(
 pub(super) fn plan_runtime_tool_catalog_projection_required(
     request: RuntimeToolCatalogProjectionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_runtime_tool_catalog_projection_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = RuntimeToolCatalogProjectionRequiredCore
         .plan(&request.request)
         .map_err(|error| {
@@ -172,21 +115,6 @@ pub(super) fn plan_runtime_tool_catalog_projection_required(
 pub(super) fn plan_runtime_lifecycle_projection_required(
     request: RuntimeLifecycleProjectionRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_runtime_lifecycle_projection_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = RuntimeLifecycleProjectionRequiredCore
         .plan(&request.request)
         .map_err(|error| {

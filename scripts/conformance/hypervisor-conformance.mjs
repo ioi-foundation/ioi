@@ -6032,6 +6032,52 @@ function runBridge() {
     ],
     "Phase 9/10 is pending: external capability exits must authorize through Rust authority core and fail closed without wallet.network grants",
   );
+  const authorityPolicyProjectionCommandWrappers = [
+    authorityCommandBridge,
+    policyCommandBridge,
+    projectionCommandBridge,
+  ].join("\n");
+  assertCheck(
+    result,
+    "bridge-authority-policy-projection-local-envelope-checks-retired",
+    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(authorityPolicyProjectionCommandWrappers) &&
+      !/schema_version:\s*String/.test(authorityPolicyProjectionCommandWrappers) &&
+      !/operation:\s*String/.test(authorityPolicyProjectionCommandWrappers) &&
+      !/schema_version_invalid/.test(authorityPolicyProjectionCommandWrappers) &&
+      !/operation_unsupported/.test(authorityPolicyProjectionCommandWrappers) &&
+      /validate_command_envelope\(\s*"authorize_external_capability_exit",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /pub\(super\) fn authorize_external_capability_exit/.test(
+        authorityCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_workflow_edit_admission_required/.test(
+        policyCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_diagnostics_repair_admission_required/.test(
+        policyCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_skill_hook_registry_projection_required/.test(
+        projectionCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_repository_workflow_projection_required/.test(
+        projectionCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_runtime_tool_catalog_projection_required/.test(
+        projectionCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_runtime_lifecycle_projection_required/.test(
+        projectionCommandBridge,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/authority_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/policy_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/projection_command.rs",
+    ],
+    "Phase 10/11 remains non-terminal: authority, admission-required, and projection-required child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before dispatch",
+  );
   assertCheck(
     result,
     "external-capability-exit-authority-daemon-runner",
