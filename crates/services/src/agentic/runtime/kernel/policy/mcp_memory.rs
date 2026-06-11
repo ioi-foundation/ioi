@@ -415,6 +415,375 @@ pub struct ThreadMemoryAgentStateUpdateRecord {
     pub generated_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct McpMemoryCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl McpMemoryCommandError {
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        self.message.as_str()
+    }
+
+    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
+        Self {
+            code,
+            message: format!("{error:?}"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpControlAgentStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpControlAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpServerValidationBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpServerValidationRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpServerValidationInputBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpServerValidationInputRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpManagerStatusProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpManagerStatusProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpManagerValidationProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpManagerValidationProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MemoryManagerStatusProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: MemoryManagerStatusProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MemoryManagerValidationProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: MemoryManagerValidationProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpManagerCatalogProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpManagerCatalogProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct McpManagerCatalogSummaryProjectionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: McpManagerCatalogSummaryProjectionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ThreadMemoryAgentStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ThreadMemoryAgentStateUpdateRequest,
+}
+
+pub fn plan_mcp_control_agent_state_update_response(
+    request: McpControlAgentStateUpdateBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpControlAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_control_agent_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_control_agent_state_update_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "control": record.control.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+pub fn validate_mcp_servers_response(
+    request: McpServerValidationBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpServerValidationCore
+        .validate(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_server_validation_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_server_validation_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "ok": record.ok,
+        "issue_count": record.issue_count,
+        "warning_count": record.warning_count,
+        "issues": record.issues.clone(),
+        "warnings": record.warnings.clone(),
+    }))
+}
+
+pub fn project_mcp_server_validation_input_response(
+    request: McpServerValidationInputBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpServerValidationInputCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_server_validation_input_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_server_validation_input_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "workspace_root": record.workspace_root.clone(),
+        "server_count": record.server_count,
+        "servers": record.servers.clone(),
+    }))
+}
+
+pub fn plan_mcp_manager_status_projection_response(
+    request: McpManagerStatusProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpManagerStatusProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_manager_status_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_manager_status_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "server_count": record.server_count,
+        "tool_count": record.tool_count,
+        "resource_count": record.resource_count,
+        "prompt_count": record.prompt_count,
+        "enabled_server_count": record.enabled_server_count,
+        "enabled_tool_count": record.enabled_tool_count,
+        "servers": record.servers.clone(),
+        "tools": record.tools.clone(),
+        "resources": record.resources.clone(),
+        "prompts": record.prompts.clone(),
+        "validation": record.validation.clone(),
+        "routes": record.routes.clone(),
+    }))
+}
+
+pub fn plan_mcp_manager_validation_projection_response(
+    request: McpManagerValidationProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpManagerValidationProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_manager_validation_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_manager_validation_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "ok": record.ok,
+        "status": record.status.clone(),
+        "server_count": record.server_count,
+        "tool_count": record.tool_count,
+        "resource_count": record.resource_count,
+        "prompt_count": record.prompt_count,
+        "issue_count": record.issue_count,
+        "warning_count": record.warning_count,
+        "issues": record.issues.clone(),
+        "warnings": record.warnings.clone(),
+        "servers": record.servers.clone(),
+        "tools": record.tools.clone(),
+        "resources": record.resources.clone(),
+        "prompts": record.prompts.clone(),
+    }))
+}
+
+pub fn plan_memory_manager_status_projection_response(
+    request: MemoryManagerStatusProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = MemoryManagerStatusProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("memory_manager_status_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_memory_manager_status_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "disabled": record.disabled,
+        "injection_enabled": record.injection_enabled,
+        "read_only": record.read_only,
+        "write_requires_approval": record.write_requires_approval,
+        "write_blocked_reason": record.write_blocked_reason.clone(),
+        "record_count": record.record_count,
+        "scope_count": record.scope_count,
+        "memory_key_count": record.memory_key_count,
+        "scopes": record.scopes.clone(),
+        "memory_keys": record.memory_keys.clone(),
+        "policy": record.policy.clone(),
+        "paths": record.paths.clone(),
+        "filters": record.filters.clone(),
+        "records": record.records.clone(),
+        "validation": record.validation.clone(),
+        "routes": record.routes.clone(),
+        "evidence_refs": record.evidence_refs.clone(),
+    }))
+}
+
+pub fn plan_memory_manager_validation_projection_response(
+    request: MemoryManagerValidationProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = MemoryManagerValidationProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("memory_manager_validation_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_memory_manager_validation_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "ok": record.ok,
+        "status": record.status.clone(),
+        "issue_count": record.issue_count,
+        "warning_count": record.warning_count,
+        "record_count": record.record_count,
+        "issues": record.issues.clone(),
+        "warnings": record.warnings.clone(),
+        "policy": record.policy.clone(),
+        "paths": record.paths.clone(),
+        "filters": record.filters.clone(),
+        "records": record.records.clone(),
+    }))
+}
+
+pub fn plan_mcp_manager_catalog_projection_response(
+    request: McpManagerCatalogProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpManagerCatalogProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("mcp_manager_catalog_projection_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_manager_catalog_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "server_count": record.server_count,
+        "tool_count": record.tool_count,
+        "resource_count": record.resource_count,
+        "prompt_count": record.prompt_count,
+        "enabled_tool_count": record.enabled_tool_count,
+        "servers": record.servers.clone(),
+        "tools": record.tools.clone(),
+        "resources": record.resources.clone(),
+        "prompts": record.prompts.clone(),
+        "enabled_tools": record.enabled_tools.clone(),
+    }))
+}
+
+pub fn plan_mcp_manager_catalog_summary_projection_response(
+    request: McpManagerCatalogSummaryProjectionBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = McpManagerCatalogSummaryProjectionCore
+        .project(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug(
+                "mcp_manager_catalog_summary_projection_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_mcp_manager_catalog_summary_projection_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "schema_version": record.schema_version.clone(),
+        "object": record.object.clone(),
+        "status": record.status.clone(),
+        "server_id": record.server_id.clone(),
+        "server_label": record.server_label.clone(),
+        "transport": record.transport.clone(),
+        "execution_mode": record.execution_mode.clone(),
+        "catalog_hash": record.catalog_hash.clone(),
+        "tool_count": record.tool_count,
+        "resource_count": record.resource_count,
+        "prompt_count": record.prompt_count,
+        "namespace_count": record.namespace_count,
+        "namespaces": record.namespaces.clone(),
+        "preview_limit": record.preview_limit,
+        "preview_tool_names": record.preview_tool_names.clone(),
+        "deferred": record.deferred,
+        "full_catalog_included": record.full_catalog_included,
+        "error_code": record.error_code.clone(),
+        "search_route": record.search_route.clone(),
+        "fetch_route": record.fetch_route.clone(),
+    }))
+}
+
+pub fn plan_thread_memory_agent_state_update_response(
+    request: ThreadMemoryAgentStateUpdateBridgeRequest,
+) -> Result<Value, McpMemoryCommandError> {
+    let record = ThreadMemoryAgentStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            McpMemoryCommandError::from_debug("thread_memory_agent_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_thread_memory_agent_state_update_command",
+        "backend": mcp_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "control": record.control.clone(),
+        "agent": record.agent.clone(),
+    }))
+}
+
+fn mcp_policy_backend(backend: Option<String>) -> String {
+    backend.unwrap_or_else(|| "rust_policy".to_string())
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct McpControlAgentStateUpdateCore;
 

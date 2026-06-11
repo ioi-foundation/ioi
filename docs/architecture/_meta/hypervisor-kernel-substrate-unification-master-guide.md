@@ -6337,6 +6337,25 @@ expected-head and state-root truth, wallet.network authority where applicable,
 receipt/event materialization, replay, projection, and stable IDE/CLI/SDK
 surfaces end to end.
 
+Slice 1127 moves MCP/memory command request/response shaping out of the
+temporary Node MCP/memory bridge and into Rust `policy/mcp_memory.rs`. Rust
+core now owns the bridge request structs, response envelopes, canonical command
+source markers, bridge-facing error codes, and policy facade exports for MCP
+control agent updates, MCP server validation, MCP validation-input projection,
+MCP manager status/catalog/catalog-summary/validation projection, memory
+manager status/validation projection, and thread-memory agent updates.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, runtime context-policy
+runner, MCP catalog/control surfaces, and thread-memory surfaces still exist.
+The remaining `ioi_step_module_bridge/mcp_memory_command.rs` file is a
+temporary delegate to Rust core, not a durable MCP or memory boundary. The
+long-term target remains direct Rust daemon-core MCP and memory
+admission/projection APIs over wallet.network authority for external exits,
+Agentgres expected-head and state-root truth, receipt/event materialization,
+transport containment, replay, projection, and stable IDE/CLI/SDK surfaces end
+to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

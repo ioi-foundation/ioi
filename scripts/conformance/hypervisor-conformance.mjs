@@ -6573,6 +6573,57 @@ function runBridge() {
     ],
     "Phase 10/11 migration guard: thread lifecycle command request/response envelopes and source markers live in Rust policy core; Node remains a temporary transport delegate only",
   );
+  assertCheck(
+    result,
+    "mcp-memory-command-envelope-owned-by-rust-core",
+    /pub struct McpMemoryCommandError/.test(policyMcpMemoryCore) &&
+      /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
+      /pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
+      /pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
+      /pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
+      /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
+        policyMcpMemoryCore,
+      ) &&
+      /pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
+      /pub fn plan_memory_manager_status_projection_response/.test(policyMcpMemoryCore) &&
+      /pub fn plan_memory_manager_validation_projection_response/.test(
+        policyMcpMemoryCore,
+      ) &&
+      /pub fn plan_thread_memory_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_catalog_projection_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
+      /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      /core_plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
+      /core_validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
+      /core_project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
+      /core_plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
+      /core_plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
+      /core_plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
+      /core_plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
+      /core_plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
+      /core_plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
+      /core_plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
+      !/serde::Deserialize|serde_json::json/.test(mcpMemoryCommandBridge) &&
+      !/mcp_control_agent_state_update_invalid/.test(mcpMemoryCommandBridge) &&
+      !/rust_mcp_control_agent_state_update_command/.test(mcpMemoryCommandBridge) &&
+      !/rust_mcp_server_validation_command/.test(mcpMemoryCommandBridge) &&
+      !/rust_memory_manager_status_projection_command/.test(mcpMemoryCommandBridge) &&
+      !/rust_thread_memory_agent_state_update_command/.test(mcpMemoryCommandBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 migration guard: MCP/memory command request/response envelopes and source markers live in Rust policy core; Node remains a temporary transport delegate only",
+  );
   const policyLifecycleMemoryCommandWrappers = [
     contextPolicyCommandBridge,
     runtimeControlCommandBridge,
@@ -9277,33 +9328,49 @@ function runBridge() {
         mcpControlAgentStateUpdateCoreBlock,
       ) &&
       /mod mcp_memory_command;/.test(bridgeModule) &&
+      /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      /core_plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
       /fn plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
       /McpControlAgentStateUpdateBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_control_agent_state_update_command/.test(mcpMemoryCommandBridge) &&
       /bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
+      /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
+      /core_validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
       /fn validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
       /McpServerValidationBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_server_validation_command/.test(mcpMemoryCommandBridge) &&
       /bridge_validates_mcp_servers_through_rust_core/.test(bridgeModule) &&
+      /pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
+      /core_project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
       /fn project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
       /McpServerValidationInputBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_server_validation_input_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_server_validation_input_through_rust_core/.test(bridgeModule) &&
+      /pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
+      /core_plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
       /fn plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
       /McpManagerStatusProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_manager_status_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_status_through_rust_core/.test(bridgeModule) &&
+      /pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_catalog_projection_command/.test(policyMcpMemoryCore) &&
+      /core_plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
       /fn plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
       /McpManagerCatalogProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_manager_catalog_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_catalog_through_rust_core/.test(bridgeModule) &&
+      /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
+        policyMcpMemoryCore,
+      ) &&
+      /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
+      /core_plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
       /fn plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
       /McpManagerCatalogSummaryProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_manager_catalog_summary_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_catalog_summary_through_rust_core/.test(bridgeModule) &&
+      /pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
+      /rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
+      /core_plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
       /fn plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
       /McpManagerValidationProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_mcp_manager_validation_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_validation_through_rust_core/.test(bridgeModule) &&
       !/fn plan_mcp_control_agent_state_update/.test(bridgeModule) &&
       !/struct McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
@@ -9560,9 +9627,11 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         threadMemoryAgentStateUpdateCoreBlock,
       ) &&
+      /pub fn plan_thread_memory_agent_state_update_response/.test(policyMcpMemoryCore) &&
+      /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
+      /core_plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
       /fn plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
       /ThreadMemoryAgentStateUpdateBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_thread_memory_agent_state_update_command/.test(mcpMemoryCommandBridge) &&
       /bridge_plans_thread_memory_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -21063,6 +21132,11 @@ function runCompositor() {
     ? read("crates/services/src/agentic/runtime/kernel/projection.rs")
     : "";
   const policyCore = readRustPolicyCore();
+  const policyMcpMemoryCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
+    : "";
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
@@ -23370,12 +23444,18 @@ function runCompositor() {
       !/json_string_value\(paths,\s*"recordsPath"\)/.test(policyCore) &&
       !/json_string_value\(paths,\s*"effectivePolicyId"\)/.test(policyCore) &&
       !/json_string_value\(policy,\s*"subagentInheritance"\)/.test(policyCore) &&
+      /pub fn plan_memory_manager_status_projection_response/.test(policyMcpMemoryCore) &&
+      /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
+      /core_plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
       /fn plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
       /MemoryManagerStatusProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_memory_manager_status_projection_command/.test(mcpMemoryCommandBridge) &&
+      /pub fn plan_memory_manager_validation_projection_response/.test(
+        policyMcpMemoryCore,
+      ) &&
+      /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
+      /core_plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
       /fn plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
       /MemoryManagerValidationProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
-      /rust_memory_manager_validation_projection_command/.test(mcpMemoryCommandBridge) &&
       !/fn plan_memory_manager_status_projection/.test(bridgeModule) &&
       !/struct MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_validation_projection/.test(bridgeModule) &&

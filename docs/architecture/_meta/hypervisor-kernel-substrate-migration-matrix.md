@@ -15697,6 +15697,46 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1127
+
+Slice 1127 moves MCP/memory daemon-core command request/response shaping out of
+the temporary Node
+`crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs` transport
+and into Rust
+`crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs`. Rust policy
+core now owns the bridge request structs, response envelopes, canonical command
+source markers, bridge-facing error codes, and policy facade exports for MCP
+control agent state updates, MCP server validation, MCP validation-input
+projection, MCP manager status projection, MCP manager catalog projection, MCP
+manager catalog-summary projection, MCP manager validation projection, memory
+manager status projection, memory manager validation projection, and
+thread-memory agent state updates. The Node MCP/memory bridge is now a thin
+temporary delegate that converts `McpMemoryCommandError` into the local
+`BridgeError`; it no longer owns `serde::Deserialize`, `serde_json::json`,
+source markers, or local error-code shaping.
+
+This is Rust-core ownership progress, not terminal MCP or memory migration. The
+current Node command bridge, command dispatch table, shared daemon-core command
+runner, JS command callers, runtime context-policy runner, MCP catalog/control
+surfaces, and thread-memory surfaces remain scaffolding until direct Rust
+daemon-core MCP/memory admission/persistence/projection APIs own wallet.network
+authority for external exits, Agentgres expected-head and state-root
+persistence, receipts/events, transport containment, replay, projection, and
+stable IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services mcp_memory --lib` | passed |
+| `cargo test -p ioi-node mcp --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1126
 
 Slice 1126 moves thread lifecycle daemon-core command request/response shaping
