@@ -5,6 +5,7 @@ import {
   MODEL_MOUNT_ADMISSION_COMMAND_ENV,
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
+  RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
   createModelMountAdmissionRunnerFromEnv,
   RustModelMountAdmissionRunner,
 } from "./model-mount-admission-runner.mjs";
@@ -234,6 +235,22 @@ function backendProcessPlanRequest() {
       identifier: "llama profile",
       embeddings: true,
     },
+  };
+}
+
+function backendLifecycleRequiredRequest() {
+  return {
+    schema_version: "ioi.model_mount.backend_lifecycle_required.v1",
+    operation: "model_mount.backend_lifecycle",
+    operation_kind: "model_mount.backend.start",
+    backend_id: "backend.llama_cpp",
+    backend_kind: null,
+    source: "runtime-daemon.model_mounting.backend_lifecycle",
+    evidence_refs: [
+      "public_backend_lifecycle_js_facade_retired",
+      "rust_daemon_core_lifecycle_required",
+      "agentgres_backend_lifecycle_truth_required",
+    ],
   };
 }
 
@@ -750,6 +767,89 @@ test("Rust model_mount admission runner sends backend process plan request", () 
   assert.equal(result.plan_hash, "sha256:backend-process-plan");
   assert.equal(Object.hasOwn(result, "spawnStatus"), false);
   assert.equal(Object.hasOwn(result, "publicArgs"), false);
+});
+
+test("Rust model_mount admission runner sends backend lifecycle required request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_backend_lifecycle_required_command",
+            backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+            record: {
+              schema_version: "ioi.model_mount.backend_lifecycle_required_result.v1",
+              object: "ioi.model_mount_backend_lifecycle_required",
+              status: "rust_core_required",
+              status_code: 501,
+              code: "model_mount_backend_lifecycle_rust_core_required",
+              message:
+                "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+              rust_core_boundary: "model_mount.backend_lifecycle",
+              operation: request.request.operation,
+              operation_kind: request.request.operation_kind,
+              backend_id: request.request.backend_id,
+              backend_kind: request.request.backend_kind,
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+              details: {
+                backend_id: request.request.backend_id,
+                backend_kind: request.request.backend_kind,
+                operation: request.request.operation,
+                operation_kind: request.request.operation_kind,
+                rust_core_boundary: "model_mount.backend_lifecycle",
+                source: request.request.source,
+                evidence_refs: request.request.evidence_refs,
+              },
+              generated_at: "rust_model_mount_core",
+            },
+            status: "rust_core_required",
+            status_code: 501,
+            code: "model_mount_backend_lifecycle_rust_core_required",
+            message:
+              "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+            rust_core_boundary: "model_mount.backend_lifecycle",
+            operation_kind: request.request.operation_kind,
+            details: {
+              backend_id: request.request.backend_id,
+              backend_kind: request.request.backend_kind,
+              operation: request.request.operation,
+              operation_kind: request.request.operation_kind,
+              rust_core_boundary: "model_mount.backend_lifecycle",
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planBackendLifecycleRequired(backendLifecycleRequiredRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_backend_lifecycle_required");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.backend_lifecycle_required.v1");
+  assert.equal(calls[0].request.request.backend_id, "backend.llama_cpp");
+  assert.equal(calls[0].request.request.backend_kind, null);
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.backend.start");
+  assert.equal(result.status, "rust_core_required");
+  assert.equal(result.status_code, 501);
+  assert.equal(result.code, "model_mount_backend_lifecycle_rust_core_required");
+  assert.equal(result.details.backend_id, "backend.llama_cpp");
+  assert.equal(result.details.backend_kind, null);
+  assert.equal(result.details.operation_kind, "model_mount.backend.start");
+  assert.equal(Object.hasOwn(result.details, "backendId"), false);
+  assert.equal(Object.hasOwn(result.details, "operationKind"), false);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

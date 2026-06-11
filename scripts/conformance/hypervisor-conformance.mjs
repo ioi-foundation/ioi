@@ -13129,9 +13129,10 @@ function runReceipts() {
     ? read("packages/runtime-daemon/src/model-mounting/catalog-provider-oauth.test.mjs")
     : "";
   const backendLifecycle = [
+    modelMountingState.match(/\n\s+backendLifecycleRequired\(operation_kind, backendId\) \{[\s\S]*?\n\s+testRoute\(routeId, body = \{\}\) \{/)?.[0] ?? "",
     modelMountingState.match(/\n\s+listBackends\(\) \{[\s\S]*?\n\s+\}/)?.[0] ?? "",
     modelMountingState.match(/\n\s+ensureBackendProcess\(backendId,[\s\S]*?\n\s+writeBackendLog\(endpointId, event\) \{/)?.[0] ?? "",
-    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(operation_kind, backend\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
+    modelMountingState.match(/function throwBackendLifecycleRustCoreRequired\(record = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProjectionRustCoreRequired\(operation_kind\) \{[\s\S]*?\n\}\n\nfunction backendProcessSupervisorRetiredError\(operation_kind, backend = \{\}, details = \{\}\) \{[\s\S]*?\n\}\n\nfunction throwBackendProcessSupervisorRetired\(operation_kind, backend, details = \{\}\) \{[\s\S]*?\n\}/)?.[0] ?? "",
   ].join("\n");
   const backendLifecycleTest = exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs")
@@ -15790,19 +15791,30 @@ function runReceipts() {
       !exists("packages/runtime-daemon/src/model-mounting/backend-lifecycle.mjs") &&
       /throwBackendLifecycleRustCoreRequired/.test(backendLifecycle) &&
       /model_mount_backend_lifecycle_rust_core_required/.test(backendLifecycle) &&
-      /operation_kind,\s*[\r\n]\s*rust_core_boundary:\s*"model_mount\.backend_lifecycle"/.test(backendLifecycle) &&
+      /backendLifecycleRequired\(operation_kind,\s*backendId\)/.test(backendLifecycle) &&
+      /this\.modelMountAdmissionRunner\.planBackendLifecycleRequired/.test(backendLifecycle) &&
+      /planBackendLifecycleRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
+      /plan_backend_lifecycle_required/.test(modelMountCore) &&
+      /backend_lifecycle_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /ModelMountBackendLifecycleRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_model_mount_backend_lifecycle_required/.test(bridgeModule) &&
+      /bridge_plans_model_mount_backend_lifecycle_required_through_rust_core/.test(bridgeModule) &&
+      /agentgres_backend_lifecycle_truth_required/.test(backendLifecycle) &&
       /public_backend_lifecycle_js_facade_retired/.test(backendLifecycle) &&
       /rust_daemon_core_lifecycle_required/.test(backendLifecycle) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.health",\s*\{\s*id:\s*backendId\s*\}\)/.test(
+      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.health",\s*backendId\)\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.start",\s*\{\s*id:\s*backendId\s*\}\)/.test(
+      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.start",\s*backendId\)\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.stop",\s*\{\s*id:\s*backendId\s*\}\)/.test(
+      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.stop",\s*backendId\)\)/.test(
         backendLifecycle,
       ) &&
-      /throwBackendLifecycleRustCoreRequired\("model_mount\.backend\.logs_read",\s*\{\s*id:\s*backendId\s*\}\)/.test(
+      /throwBackendLifecycleRustCoreRequired\(this\.backendLifecycleRequired\("model_mount\.backend\.logs_read",\s*backendId\)\)/.test(
         backendLifecycle,
       ) &&
       /model_mount_backend_process_supervisor_retired/.test(backendLifecycle) &&
@@ -15866,6 +15878,11 @@ function runReceipts() {
       /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
         backendLifecycleTest,
       ) &&
+      /Rust model_mount admission runner sends backend lifecycle required request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /state\.lifecycleRequiredRequests\[0\]\.schema_version/.test(backendLifecycleTest) &&
+      /state\.lifecycleRequiredRequests\[0\]\.operation_kind/.test(backendLifecycleTest) &&
       /public backend lifecycle must not read JS backend registry/.test(backendLifecycleTest) &&
       /assert\.equal\(error\.details\.backend_kind,\s*null\)/.test(backendLifecycleTest) &&
       /public backend list delegates to Rust projection without JS backend registry input/.test(
@@ -15911,10 +15928,14 @@ function runReceipts() {
       /Object\.hasOwn\(error\.details,\s*"rustCoreBoundary"\),\s*false/.test(backendLifecycleTest) &&
       /Object\.hasOwn\(error\.details,\s*"evidenceRefs"\),\s*false/.test(backendLifecycleTest),
     [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "packages/runtime-daemon/src/model-mounting/backend-lifecycle.test.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.mjs",
       "packages/runtime-daemon/src/model-mounting/backend-registry-state.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/receipt-operations.test.mjs",
     ],
     "Phase 10/11 is pending: public backend lifecycle facade control must fail closed until Rust daemon-core model_mount owns lifecycle receipts and control semantics",

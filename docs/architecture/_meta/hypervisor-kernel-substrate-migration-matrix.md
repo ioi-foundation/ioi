@@ -20366,6 +20366,24 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 999
+
+Slice 999 moved public backend lifecycle Rust-core-required refusal authoring
+into the Rust model_mount core. `backendHealth()`, `startBackend()`,
+`stopBackend()`, and `backendLogs()` now call
+`plan_model_mount_backend_lifecycle_required` through the daemon-core command
+bridge and only translate the Rust-authored failure record at the JS edge, so
+the public refusal envelope no longer originates from JS detail construction.
+
+This is still non-terminal migration work: the Node command bridge remains
+transitional transport and direct Agentgres-backed Rust backend lifecycle,
+process control, projection, replay, and stable SDK/IDE/CLI protocol APIs
+remain required before backend lifecycle reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 999 | Public backend lifecycle health/start/stop/log refusal envelopes are planned by Rust model_mount and translated by JS only at the edge. | Direct Agentgres-backed Rust backend lifecycle/control/projection replaces private JS backend registry/process scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 998
 
 Slice 998 retired public backend lifecycle preflight reads from the JS backend

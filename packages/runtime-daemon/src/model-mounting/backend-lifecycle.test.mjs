@@ -60,6 +60,7 @@ function fakeState() {
     receipts: [],
     writes: [],
     now: "2026-06-03T20:00:00.000Z",
+    lifecycleRequiredRequests: [],
     backend(backendId) {
       return this.backends.get(backendId);
     },
@@ -68,6 +69,9 @@ function fakeState() {
     },
     backendSupportsSupervision(backend) {
       return ["native_local", "llama_cpp", "ollama", "vllm"].includes(backend.kind);
+    },
+    backendLifecycleRequired(operationKind, backendId) {
+      return ModelMountingState.prototype.backendLifecycleRequired.call(this, operationKind, backendId);
     },
     ensureBackendProcess(backendId, details) {
       return ensureBackendProcess(this, backendId, details);
@@ -97,6 +101,29 @@ function fakeState() {
     },
     writeBackendLog(backendId, event) {
       this.logs.push({ backendId, ...event });
+    },
+  };
+  state.modelMountAdmissionRunner = {
+    planBackendLifecycleRequired(request) {
+      state.lifecycleRequiredRequests.push(request);
+      return {
+        status: "rust_core_required",
+        status_code: 501,
+        code: "model_mount_backend_lifecycle_rust_core_required",
+        message: "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+        rust_core_boundary: "model_mount.backend_lifecycle",
+        operation_kind: request.operation_kind,
+        evidence_refs: request.evidence_refs,
+        details: {
+          backend_id: request.backend_id,
+          backend_kind: request.backend_kind ?? null,
+          operation: request.operation,
+          operation_kind: request.operation_kind,
+          rust_core_boundary: "model_mount.backend_lifecycle",
+          source: request.source,
+          evidence_refs: request.evidence_refs,
+        },
+      };
     },
   };
   return state;
@@ -207,6 +234,7 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
       assert.deepEqual(error.details.evidence_refs, [
         "public_backend_lifecycle_js_facade_retired",
         "rust_daemon_core_lifecycle_required",
+        "agentgres_backend_lifecycle_truth_required",
       ]);
       assert.equal(Object.hasOwn(error.details, "backendId"), false);
       assert.equal(Object.hasOwn(error.details, "backendKind"), false);
@@ -216,6 +244,17 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
       return true;
     },
   );
+  assert.equal(state.lifecycleRequiredRequests.length, 1);
+  assert.equal(
+    state.lifecycleRequiredRequests[0].schema_version,
+    "ioi.model_mount.backend_lifecycle_required.v1",
+  );
+  assert.equal(state.lifecycleRequiredRequests[0].operation, "model_mount.backend_lifecycle");
+  assert.equal(state.lifecycleRequiredRequests[0].backend_id, "backend.native");
+  assert.equal(state.lifecycleRequiredRequests[0].backend_kind, null);
+  assert.equal(state.lifecycleRequiredRequests[0].operation_kind, "model_mount.backend.health");
+  assert.equal(Object.hasOwn(state.lifecycleRequiredRequests[0], "backendId"), false);
+  assert.equal(Object.hasOwn(state.lifecycleRequiredRequests[0], "operationKind"), false);
 
   assert.throws(
     () => startBackend(state, "backend.native", { loadOptions: { contextLength: 1024 } }, deps),
@@ -225,6 +264,7 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
       return true;
     },
   );
+  assert.equal(state.lifecycleRequiredRequests[1].operation_kind, "model_mount.backend.start");
 
   assert.throws(
     () => stopBackend(state, "backend.native"),
@@ -234,6 +274,7 @@ test("public backend lifecycle facade fails closed until Rust core owns lifecycl
       return true;
     },
   );
+  assert.equal(state.lifecycleRequiredRequests[2].operation_kind, "model_mount.backend.stop");
 
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.logs, []);
@@ -271,6 +312,7 @@ test("blocked backend public lifecycle start still fails at Rust-core boundary b
       assert.equal(error.details.backend_id, "backend.blocked");
       assert.equal(error.details.backend_kind, null);
       assert.equal(error.details.operation_kind, "model_mount.backend.start");
+      assert.equal(error.details.source, "runtime-daemon.model_mounting.backend_lifecycle");
       assert.equal(Object.hasOwn(error.details, "backendId"), false);
       assert.equal(Object.hasOwn(error.details, "backendKind"), false);
       assert.equal(Object.hasOwn(error.details, "operationKind"), false);
@@ -278,6 +320,9 @@ test("blocked backend public lifecycle start still fails at Rust-core boundary b
       return true;
     },
   );
+  assert.equal(state.lifecycleRequiredRequests.length, 1);
+  assert.equal(state.lifecycleRequiredRequests[0].backend_id, "backend.blocked");
+  assert.equal(state.lifecycleRequiredRequests[0].backend_kind, null);
 });
 
 test("public backend logs facade fails closed before reading local logs or writing a receipt", () => {
@@ -313,5 +358,7 @@ test("public backend logs facade fails closed before reading local logs or writi
   );
 
   assert.equal(listFilesCalled, false);
+  assert.equal(state.lifecycleRequiredRequests.length, 1);
+  assert.equal(state.lifecycleRequiredRequests[0].operation_kind, "model_mount.backend.logs_read");
   assert.deepEqual(state.receipts, []);
 });

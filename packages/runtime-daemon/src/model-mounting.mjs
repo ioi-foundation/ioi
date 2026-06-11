@@ -1179,6 +1179,22 @@ export class ModelMountingState {
     return this.modelMountAdmissionRunner.bindInvocationReceipt(request);
   }
 
+  backendLifecycleRequired(operation_kind, backendId) {
+    return this.modelMountAdmissionRunner.planBackendLifecycleRequired({
+      schema_version: "ioi.model_mount.backend_lifecycle_required.v1",
+      operation: "model_mount.backend_lifecycle",
+      operation_kind,
+      backend_id: backendId ?? "",
+      backend_kind: null,
+      source: "runtime-daemon.model_mounting.backend_lifecycle",
+      evidence_refs: [
+        "public_backend_lifecycle_js_facade_retired",
+        "rust_daemon_core_lifecycle_required",
+        "agentgres_backend_lifecycle_truth_required",
+      ],
+    });
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }
@@ -1707,20 +1723,20 @@ export class ModelMountingState {
   }
 
   backendHealth(backendId) {
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.health", { id: backendId });
+    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.health", backendId));
   }
 
   startBackend(backendId, body = {}) {
     void body;
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.start", { id: backendId });
+    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.start", backendId));
   }
 
   stopBackend(backendId) {
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.stop", { id: backendId });
+    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.stop", backendId));
   }
 
   backendLogs(backendId) {
-    throwBackendLifecycleRustCoreRequired("model_mount.backend.logs_read", { id: backendId });
+    throwBackendLifecycleRustCoreRequired(this.backendLifecycleRequired("model_mount.backend.logs_read", backendId));
   }
 
   writeBackendLog(endpointId, event) {
@@ -1752,20 +1768,29 @@ function throwRuntimeSurveyRustCoreRequired(details = {}) {
   throw error;
 }
 
-function throwBackendLifecycleRustCoreRequired(operation_kind, backend) {
+function throwBackendLifecycleRustCoreRequired(record = {}) {
+  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
+    ? record.details
+    : {};
+  const evidenceRefs = Array.isArray(details.evidence_refs)
+    ? details.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [
+          "public_backend_lifecycle_js_facade_retired",
+          "rust_daemon_core_lifecycle_required",
+          "agentgres_backend_lifecycle_truth_required",
+        ];
   throw runtimeError({
-    status: 501,
-    code: "model_mount_backend_lifecycle_rust_core_required",
-    message: "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+    status: record.status_code ?? 501,
+    code: record.code ?? "model_mount_backend_lifecycle_rust_core_required",
+    message:
+      record.message ??
+      "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
     details: {
-      backend_id: backend.id,
-      backend_kind: backend.kind ?? null,
-      operation_kind,
-      rust_core_boundary: "model_mount.backend_lifecycle",
-      evidence_refs: [
-        "public_backend_lifecycle_js_facade_retired",
-        "rust_daemon_core_lifecycle_required",
-      ],
+      ...details,
+      rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.backend_lifecycle",
+      evidence_refs: evidenceRefs,
     },
   });
 }

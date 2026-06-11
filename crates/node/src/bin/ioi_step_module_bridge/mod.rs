@@ -25,11 +25,12 @@ use ioi_services::agentic::runtime::kernel::marketplace::{
 };
 use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountAcceptedReceiptHeadRequest, ModelMountAcceptedReceiptTransition,
-    ModelMountAcceptedReceiptTransitionRequest, ModelMountBackendProcessPlanRequest,
-    ModelMountCore, ModelMountInstanceLifecycleRequest, ModelMountInvocationAdmissionRequest,
-    ModelMountProviderExecutionRequest, ModelMountProviderInventoryRequest,
-    ModelMountProviderInvocationRequest, ModelMountProviderLifecycleRequest,
-    ModelMountProviderResultAdmissionRequest, ModelMountRouteDecisionRequest,
+    ModelMountAcceptedReceiptTransitionRequest, ModelMountBackendLifecycleRequiredRequest,
+    ModelMountBackendProcessPlanRequest, ModelMountCore, ModelMountInstanceLifecycleRequest,
+    ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
+    ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
+    ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
+    ModelMountRouteDecisionRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -227,6 +228,16 @@ struct ModelMountBackendProcessPlanBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountBackendProcessPlanRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountBackendLifecycleRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountBackendLifecycleRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -940,6 +951,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_model_mount_backend_process(request)
         }
+        "plan_model_mount_backend_lifecycle_required" => {
+            let request: ModelMountBackendLifecycleRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_backend_lifecycle_required(request)
+        }
         "plan_model_mount_accepted_receipt_head" => {
             let request: ModelMountAcceptedReceiptHeadBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1317,6 +1334,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_model_mount_instance_lifecycle"
             | "admit_model_mount_provider_result"
             | "plan_model_mount_backend_process"
+            | "plan_model_mount_backend_lifecycle_required"
             | "plan_model_mount_accepted_receipt_head"
             | "plan_model_mount_accepted_receipt_transition"
             | "bind_model_mount_invocation_receipt"
@@ -1940,6 +1958,46 @@ fn plan_model_mount_backend_process(
         "spawn_status": plan.spawn_status,
         "plan_hash": plan.plan_hash,
         "evidence_refs": plan.evidence_refs,
+    }))
+}
+
+fn plan_model_mount_backend_lifecycle_required(
+    request: ModelMountBackendLifecycleRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_backend_lifecycle_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ModelMountCore
+        .plan_backend_lifecycle_required(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_backend_lifecycle_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_backend_lifecycle_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_backend_lifecycle_required".to_string()),
+        "record": record.clone(),
+        "status": record.status,
+        "status_code": record.status_code,
+        "code": record.code,
+        "message": record.message,
+        "rust_core_boundary": record.rust_core_boundary,
+        "operation_kind": record.operation_kind,
+        "details": record.details,
     }))
 }
 
@@ -8515,6 +8573,51 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_backend_process_plan"));
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_backend_lifecycle_required_through_rust_core() {
+        let request: ModelMountBackendLifecycleRequiredBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_backend_lifecycle_required",
+                "backend": "rust_model_mount_backend_lifecycle_required",
+                "request": {
+                    "schema_version": "ioi.model_mount.backend_lifecycle_required.v1",
+                    "operation": "model_mount.backend_lifecycle",
+                    "operation_kind": "model_mount.backend.start",
+                    "backend_id": "backend.llama_cpp",
+                    "source": "runtime-daemon.model_mounting.backend_lifecycle"
+                }
+            }))
+            .expect("backend lifecycle required bridge request");
+
+        let response = plan_model_mount_backend_lifecycle_required(request)
+            .expect("backend lifecycle required planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_backend_lifecycle_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_backend_lifecycle_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_backend_lifecycle_rust_core_required"
+        );
+        assert_eq!(response["operation_kind"], "model_mount.backend.start");
+        assert_eq!(
+            response["rust_core_boundary"],
+            "model_mount.backend_lifecycle"
+        );
+        assert_eq!(response["details"]["backend_id"], "backend.llama_cpp");
+        assert_eq!(response["details"]["backend_kind"], Value::Null);
+        assert!(response["details"].get("backendId").is_none());
+        assert!(response["details"].get("operationKind").is_none());
     }
 
     #[test]

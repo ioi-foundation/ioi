@@ -7,6 +7,7 @@ export const RUST_MODEL_MOUNT_FIXTURE_BACKEND = "rust_model_mount_fixture";
 export const RUST_MODEL_MOUNT_FIXTURE_INVENTORY_BACKEND = "rust_model_mount_fixture_inventory";
 export const RUST_MODEL_MOUNT_FIXTURE_LIFECYCLE_BACKEND = "rust_model_mount_fixture_lifecycle";
 export const RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND = "rust_model_mount_backend_process";
+export const RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND = "rust_model_mount_backend_lifecycle_required";
 export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_BACKEND = "rust_model_mount_accepted_receipt_head";
 export const RUST_MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_BACKEND = "rust_model_mount_accepted_receipt_transition";
 export const RUST_MODEL_MOUNT_INSTANCE_LIFECYCLE_BACKEND = "rust_model_mount_instance_lifecycle";
@@ -140,6 +141,16 @@ export class RustModelMountAdmissionRunner {
       request,
     };
     return normalizeBackendProcessPlanBridgeResult(this.invokeBridge(bridgeRequest));
+  }
+
+  planBackendLifecycleRequired(request) {
+    const bridgeRequest = {
+      schema_version: MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
+      operation: "plan_model_mount_backend_lifecycle_required",
+      backend: RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+      request,
+    };
+    return normalizeBackendLifecycleRequiredBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
   planAcceptedReceiptHead(request) {
@@ -459,6 +470,35 @@ function normalizeBackendProcessPlanBridgeResult(value = {}) {
     spawn_status: result.spawn_status ?? record.spawn_status ?? null,
     plan_hash: result.plan_hash ?? record.plan_hash ?? null,
     evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+  };
+}
+
+function normalizeBackendLifecycleRequiredBridgeResult(value = {}) {
+  const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const record = result.record && typeof result.record === "object" && !Array.isArray(result.record)
+    ? result.record
+    : {};
+  const details = result.details && typeof result.details === "object" && !Array.isArray(result.details)
+    ? result.details
+    : record.details && typeof record.details === "object" && !Array.isArray(record.details)
+      ? record.details
+      : {};
+  return {
+    source: result.source ?? "rust_model_mount_backend_lifecycle_required_command",
+    backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+    record,
+    status: result.status ?? record.status ?? "rust_core_required",
+    status_code: result.status_code ?? record.status_code ?? 501,
+    code: result.code ?? record.code ?? "model_mount_backend_lifecycle_rust_core_required",
+    message:
+      result.message ??
+      record.message ??
+      "Backend lifecycle facade control requires Rust daemon-core model_mount lifecycle ownership.",
+    rust_core_boundary:
+      result.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.backend_lifecycle",
+    operation_kind: result.operation_kind ?? record.operation_kind ?? details.operation_kind ?? null,
+    details,
+    evidence_refs: Array.isArray(record.evidence_refs) ? record.evidence_refs : details.evidence_refs ?? [],
   };
 }
 
