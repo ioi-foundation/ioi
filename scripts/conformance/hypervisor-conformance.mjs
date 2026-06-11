@@ -3507,6 +3507,32 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "coding-tool-result-event-js-append-retired",
+    /admitCodingToolResultEvent = requireRustCoreCodingToolResultEventAdmission/.test(
+      runtimeCodingToolInvocationSurface,
+    ) &&
+      /runtime_coding_tool_invocation_rust_core_required/.test(runtimeCodingToolInvocationSurface) &&
+      /rust_core_boundary:\s*"runtime\.coding_tool_invocation"/.test(runtimeCodingToolInvocationSurface) &&
+      /operation:\s*"coding_tool_result_event_admission"/.test(runtimeCodingToolInvocationSurface) &&
+      /operation_kind:\s*"runtime\.coding_tool_result_event"/.test(runtimeCodingToolInvocationSurface) &&
+      /coding_tool_result_event_js_append_retired/.test(runtimeCodingToolInvocationSurface) &&
+      /rust_daemon_core_coding_tool_result_event_admission_required/.test(
+        runtimeCodingToolInvocationSurface,
+      ) &&
+      /agentgres_coding_tool_expected_head_required/.test(runtimeCodingToolInvocationSurface) &&
+      /coding tool invocation surface fails closed before default JS result event append/.test(
+        runtimeCodingToolInvocationSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.events\.length,\s*0\)/.test(runtimeCodingToolInvocationSurfaceTest) &&
+      !/store\.appendRuntimeEvent\(/.test(runtimeCodingToolInvocationSurface),
+    [
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
+      "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: coding-tool invocation must not append accepted result events through JS once Rust workload execution returns",
+  );
+  assertCheck(
+    result,
     "computer-use-request-lease-lane-alias-retired",
     /computer_use_lane_for_input/.test(computerUseBridge) &&
       /optional_json_string\(input,\s*&\["lane",\s*"computer_use_lane"\]\)/.test(

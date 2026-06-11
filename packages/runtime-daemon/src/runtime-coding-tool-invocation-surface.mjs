@@ -1,5 +1,5 @@
 import { eventStreamIdForThread } from "./runtime-identifiers.mjs";
-import { notFound, policyError } from "./runtime-http-utils.mjs";
+import { notFound, policyError, runtimeError } from "./runtime-http-utils.mjs";
 import {
   doctorHash,
   normalizeArray,
@@ -51,6 +51,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
     codingToolResultWithoutDrafts,
     diagnosticsRepairContextForRequest,
     diagnosticsRepairContextForToolPack,
+    admitCodingToolResultEvent = requireRustCoreCodingToolResultEventAdmission,
     stepModuleRunner = createStepModuleRunnerFromEnv(),
   } = deps;
 
@@ -360,7 +361,7 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
       receiptRefs,
       artifactRefs,
     });
-    const event = store.appendRuntimeEvent({
+    const event = admitCodingToolResultEvent(store, {
       event_stream_id: eventStreamIdForThread(threadId),
       thread_id: threadId,
       turn_id: turnId,
@@ -435,6 +436,33 @@ export function createRuntimeCodingToolInvocationSurface(deps = {}) {
   return {
     invokeThreadTool,
   };
+}
+
+function requireRustCoreCodingToolResultEventAdmission(_store, event = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "runtime_coding_tool_invocation_rust_core_required",
+    message: "Runtime coding-tool result event admission requires direct Rust daemon-core admission and persistence.",
+    details: {
+      rust_core_boundary: "runtime.coding_tool_invocation",
+      operation: "coding_tool_result_event_admission",
+      operation_kind: "runtime.coding_tool_result_event",
+      thread_id: event.thread_id ?? null,
+      turn_id: event.turn_id ?? null,
+      tool_name: event.payload_summary?.tool_name ?? null,
+      tool_call_id: event.tool_call_id ?? null,
+      workflow_graph_id: event.workflow_graph_id ?? null,
+      workflow_node_id: event.workflow_node_id ?? null,
+      status: event.status ?? null,
+      receipt_refs: uniqueStrings(event.receipt_refs),
+      artifact_refs: uniqueStrings(event.artifact_refs),
+      evidence_refs: [
+        "coding_tool_result_event_js_append_retired",
+        "rust_daemon_core_coding_tool_result_event_admission_required",
+        "agentgres_coding_tool_expected_head_required",
+      ],
+    },
+  });
 }
 
 function rustLiveInputForCodingTool(store, threadId, toolId, input = {}) {

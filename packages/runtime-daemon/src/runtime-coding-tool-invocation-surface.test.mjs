@@ -22,6 +22,9 @@ function createSurface(overrides = {}) {
     },
     diagnosticsRepairContextForRequest: (request = {}) => request.diagnosticsRepairContext ?? null,
     diagnosticsRepairContextForToolPack: (_request, _input, toolId) => ({ source: "tool_pack", toolId }),
+    admitCodingToolResultEvent(store, event) {
+      return store.appendRuntimeEvent(event);
+    },
     stepModuleRunner: createRetiredNonLiveStepModuleRunner(),
     ...overrides,
   });
@@ -213,6 +216,94 @@ test("coding tool invocation surface rejects non-live coding-tool runners before
   assert.ok(!store.calls.some((call) => call.name === "materializeArtifacts"));
   assert.ok(!store.calls.some((call) => call.name === "commandStream"));
   assert.ok(!store.calls.some((call) => call.name === "prepareSnapshot"));
+});
+
+test("coding tool invocation surface fails closed before default JS result event append", () => {
+  const liveRunner = {
+    backend: "rust_workload_live",
+    blocksDaemonJsExecution: true,
+    runCodingTool() {
+      return {
+        backend: "rust_workload_live",
+        mode: "live",
+        blocking: true,
+        source: "rust_workload_command",
+        invocation: {
+          schema_version: "ioi.step_module_invocation.v1",
+          invocation_id: "invocation://rust-live/workspace.status",
+        },
+        result: {
+          schema_version: "ioi.step_module_result.v1",
+          invocation_id: "invocation://rust-live/workspace.status",
+          status: "success",
+          receipt_refs: ["receipt://rust-live/workspace.status"],
+          artifact_refs: [],
+          payload_refs: [],
+          agentgres_operation_refs: [],
+          state_root_after: null,
+          resulting_head: null,
+          workflow_projection: { status: "live" },
+        },
+        bridge_result: {
+          router_admission: {
+            schema_version: "ioi.step_module_router_admission.v1",
+            backend: "workload_grpc",
+          },
+          workload_observation: {
+            tool: "workspace.status",
+            result: {
+              schema_version: "ioi.runtime.coding-tool-result.v1",
+              workspace_root: "/tmp/workspace",
+              git: { available: true },
+              changed_files: [],
+              counts: { changed: 0, untracked: 0, ignored: 0 },
+              shell_fallback_used: false,
+            },
+          },
+        },
+      };
+    },
+  };
+  const surface = createRuntimeCodingToolInvocationSurface({
+    codingToolApprovalManifestForThread: () => null,
+    codingToolBudgetPolicyForRequest: () => ({ status: "allowed" }),
+    codingToolInvocationResultFromEvent: () => {
+      throw new Error("duplicate replay should not be used");
+    },
+    codingToolResultWithoutDrafts: (result = {}) => result,
+    diagnosticsRepairContextForRequest: () => null,
+    diagnosticsRepairContextForToolPack: () => null,
+    stepModuleRunner: liveRunner,
+  });
+  const store = createStore();
+
+  assert.throws(
+    () =>
+      surface.invokeThreadTool(store, "thread_alpha", "workspace.status", {
+        tool_call_id: "tool_status_core_required",
+        workflow_graph_id: "graph_alpha",
+        workflow_node_id: "node_status",
+        input: {},
+      }),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "runtime_coding_tool_invocation_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.coding_tool_invocation");
+      assert.equal(error.details.operation, "coding_tool_result_event_admission");
+      assert.equal(error.details.operation_kind, "runtime.coding_tool_result_event");
+      assert.equal(error.details.thread_id, "thread_alpha");
+      assert.equal(error.details.tool_name, "workspace.status");
+      assert.equal(error.details.tool_call_id, "tool_status_core_required");
+      assert.deepEqual(error.details.evidence_refs, [
+        "coding_tool_result_event_js_append_retired",
+        "rust_daemon_core_coding_tool_result_event_admission_required",
+        "agentgres_coding_tool_expected_head_required",
+      ]);
+      assertNoRetiredInvocationErrorDetailAliases(error.details);
+      return true;
+    },
+  );
+  assert.equal(store.events.length, 0);
 });
 
 test("coding tool invocation surface replays duplicate idempotent tool events", () => {

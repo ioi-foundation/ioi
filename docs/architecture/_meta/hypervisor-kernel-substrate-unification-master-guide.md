@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 991, public runtime account, runtime-node, tool
+Current lane note: after Slice 992, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4563,7 +4563,13 @@ public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,
 and the doctor aggregate reads mounted tool and skill-hook surfaces instead of
-daemon-store catalog wrappers;
+rediscovering public registry truth through daemon-store catalog wrappers;
+Rust-live coding-tool invocation can still shape workload results through a
+test-injected admission boundary, but the production-default invocation surface
+now fails closed before appending an accepted coding-tool result event from JS.
+Direct Rust daemon-core result-event admission over Agentgres expected
+heads/state roots remains required before the coding-tool lane can be considered
+terminal;
 the route-facing skill/hook, model catalog/capability, repository workflow,
 runtime account/node/tool, and doctor-report daemon-store delegates have been
 deleted rather than preserved as inert compatibility wrappers;
