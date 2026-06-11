@@ -5298,6 +5298,26 @@ Rust daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
 admission, receipt/state-root binding, replay, projection, wallet.network
 authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1067 makes the Rust kernel command protocol own the typed operation
+family catalog instead of leaving that catalog implicit in the temporary bridge
+dispatch table. `command_protocol.rs` now exposes `CommandFamily`,
+`STEP_MODULE_OPERATIONS`, `DAEMON_CORE_OPERATIONS`, and `command_family()`;
+the daemon-core catalog includes the full temporary bridge operation surface,
+including workflow-edit admission and MCP/memory projection commands that were
+previously dispatchable but not cataloged by Rust classification. The bridge
+intake resolves the Rust-owned family before schema validation, and
+`command_dispatch.rs` now dispatches on `(CommandFamily, operation)` so the
+remaining Node command table consumes Rust protocol classification instead of
+acting as an independent admissibility list. Rust tests prove every cataloged
+operation has the expected schema family, and bridge tests prove unknown
+operations have no Rust family. This is still not terminal bridge retirement:
+the operation catalog belongs in Rust now, but the temporary Node dispatch
+table, StepModule command helper, and shared daemon-core command helper still
+must be replaced by direct Rust daemon-core/workload protocol APIs over
+Rust/WASM execution, Agentgres admission, receipt/state-root binding, replay,
+projection, wallet.network authority, cTEE custody, and stable IDE/CLI/SDK
+protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

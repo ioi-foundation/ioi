@@ -2352,10 +2352,17 @@ function runBridge() {
       /mod command_envelope;/.test(bridgeModule) &&
       /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
-      /dispatch_bridge_operation\(envelope\.operation\.as_str\(\),\s*raw_request\)/.test(bridgeDispatch) &&
+      /command_family\(&envelope\.operation\)/.test(bridgeDispatch) &&
+      /dispatch_bridge_operation\(envelope\.operation\.as_str\(\),\s*command_family,\s*raw_request\)/.test(
+        bridgeDispatch,
+      ) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
-      /pub\(super\) fn dispatch_bridge_operation/.test(bridgeCommandDispatch) &&
-      /match operation/.test(bridgeCommandDispatch) &&
+      /pub\(super\) fn dispatch_bridge_operation\(\s*operation: &str,\s*command_family: CommandFamily,\s*raw_request: Value,\s*\)/.test(
+        bridgeCommandDispatch,
+      ) &&
+      /match \(command_family, operation\)/.test(bridgeCommandDispatch) &&
+      /\(CommandFamily::StepModule, "run_coding_tool_step_module"\)/.test(bridgeCommandDispatch) &&
+      /\(CommandFamily::DaemonCore, "admit_model_mount_route_decision"\)/.test(bridgeCommandDispatch) &&
       /expected_command_schema_version/.test(bridgeDispatch) &&
       /operation_unknown/.test(bridgeDispatch) &&
       !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
@@ -2366,16 +2373,25 @@ function runBridge() {
       !/pub\(super\) fn is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
       /pub const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       /pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
+      /pub const STEP_MODULE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
+      /pub const DAEMON_CORE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
+      /pub enum CommandFamily/.test(commandProtocolCore) &&
+      /pub fn command_family\(operation: &str\) -> Option<CommandFamily>/.test(commandProtocolCore) &&
       /pub fn expected_command_schema_version\(operation: &str\) -> Option<&'static str>/.test(commandProtocolCore) &&
+      /command_family\(operation\)\.map\(CommandFamily::schema_version\)/.test(commandProtocolCore) &&
       /pub fn is_step_module_operation/.test(commandProtocolCore) &&
       /pub fn is_daemon_core_operation/.test(commandProtocolCore) &&
       /daemon_core_operations_use_daemon_core_command_schema/.test(commandProtocolCore) &&
       /step_module_operation_uses_step_module_command_schema/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
+      /command_catalog_operations_have_schema_families/.test(commandProtocolCore) &&
+      /"validate_mcp_servers"/.test(commandProtocolCore) &&
+      /"plan_workflow_edit_admission_required"/.test(commandProtocolCore) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
       !/fn is_daemon_core_operation/.test(bridgeModule) &&
       /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
       /bridge_unknown_operation_has_no_command_schema_family/.test(bridgeModule) &&
+      /command_family\("unknown_operation"\)/.test(bridgeModule) &&
       /"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",

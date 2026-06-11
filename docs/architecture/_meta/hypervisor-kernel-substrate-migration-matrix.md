@@ -15698,6 +15698,51 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1067
+
+Slice 1067 moves the bridge operation-family catalog into Rust kernel protocol
+ownership instead of leaving the temporary Node dispatch table as the only
+complete list. `crates/services/src/agentic/runtime/kernel/command_protocol.rs`
+now exposes `CommandFamily`, `STEP_MODULE_OPERATIONS`, `DAEMON_CORE_OPERATIONS`,
+and `command_family()`. The daemon-core catalog includes every operation still
+accepted by the temporary bridge dispatch surface, including workflow-edit
+admission and MCP/memory validation/projection commands that had drifted from
+the previous Rust classifier.
+
+`crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs` now resolves the
+Rust-owned command family before schema validation, and
+`crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs` dispatches on
+`(CommandFamily, operation)` so the remaining Node table consumes Rust protocol
+classification instead of acting as an independent admissibility source. The
+bridge remains migration transport only; this slice does not canonize
+`ioi-step-module-bridge` as terminal architecture.
+
+This is a Rust protocol-ownership cut, not terminal bridge retirement. The
+remaining Node command dispatch table, adapter-only command envelope,
+StepModule command helper, and shared daemon-core command helper must still be
+replaced by direct Rust daemon-core/workload protocol APIs over Rust/WASM
+execution, Agentgres admission, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1047
 
 Slice 1047 splits the thread-control, runtime-bridge thread-start,
