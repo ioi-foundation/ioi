@@ -20985,18 +20985,6 @@ function runCompositor() {
   )
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs")
     : "";
-  const runtimeBridgeThreadStartNormalizerBlock =
-    runtimeBridgeThread.match(
-      /export function normalizeRuntimeBridgeThreadStart\([\s\S]*?(?=\n\nexport function normalizeRuntimeBridgeTurnSubmit)/,
-    )?.[0] ?? "";
-  const runtimeBridgeTurnSubmitNormalizerBlock =
-    runtimeBridgeThread.match(
-      /export function normalizeRuntimeBridgeTurnSubmit\([\s\S]*?(?=\n\nexport function normalizeRuntimeBridgeLiveEvent)/,
-    )?.[0] ?? "";
-  const runtimeBridgeLiveEventNormalizerBlock =
-    runtimeBridgeThread.match(
-      /export function normalizeRuntimeBridgeLiveEvent\([\s\S]*?\n\}/,
-    )?.[0] ?? "";
   const runtimeMcpHelpers = exists("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     ? read("packages/runtime-daemon/src/runtime-mcp-helpers.mjs")
     : "";

@@ -15784,6 +15784,29 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1091
+
+Slice 1091 removes stale conformance-parser scaffolding for the already deleted
+runtime-service bridge normalizers. `hypervisor-conformance.mjs` no longer
+extracts `normalizeRuntimeBridgeThreadStart()`,
+`normalizeRuntimeBridgeTurnSubmit()`, or `normalizeRuntimeBridgeLiveEvent()`
+bodies from `runtime-bridge-thread.mjs`; conformance instead proves those names
+remain absent from the runtime bridge module, daemon index, and focused tests.
+
+This is not terminal runtime-service migration. It keeps the verifier from
+encoding deleted JS bridge projection bodies as parse targets while direct Rust
+daemon-core runtime-service admission, Agentgres binding, replay, projection,
+and stable protocol APIs remain the replacement path.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1090
 
 Slice 1090 removes stale runtime-service bridge success-path fixtures from the

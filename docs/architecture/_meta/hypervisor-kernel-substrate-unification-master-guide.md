@@ -5727,6 +5727,16 @@ into that negative-boundary proof. Positive runtime-service evidence must come
 from the future direct Rust daemon-core path, not from resurrected JS bridge
 success fixtures inside tests.
 
+Slice 1091 removes stale conformance-parser scaffolding for the deleted
+runtime-service bridge normalizers. The conformance suite no longer extracts
+`normalizeRuntimeBridgeThreadStart()`, `normalizeRuntimeBridgeTurnSubmit()`, or
+`normalizeRuntimeBridgeLiveEvent()` bodies from `runtime-bridge-thread.mjs`;
+instead, the existing checks prove those names remain absent from the runtime
+bridge module, daemon index, and focused tests.
+
+This keeps the verifier aligned with the target architecture: deleted JS bridge
+projection bodies must not remain encoded as parse targets inside conformance.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
