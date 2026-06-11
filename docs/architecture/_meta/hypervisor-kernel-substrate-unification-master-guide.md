@@ -4652,6 +4652,12 @@ module-local Rust proof that caller-supplied JS artifacts, providers,
 endpoints, instances, routes, capabilities, downloads, backends,
 provider-health rows, runtime catalog rows, and OpenAI-compatible model-list
 rows cannot become projection truth;
+model-mount direct catalog-status and OAuth session/state readback refusals now
+live in dedicated Rust `model_mount/read_projection/catalog.rs` and
+`model_mount/read_projection/oauth.rs` modules, with module-local Rust proof
+that these public direct readback surfaces fail closed at their Rust owner
+boundaries until direct catalog-provider and wallet/cTEE projection APIs own
+Agentgres-backed truth;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

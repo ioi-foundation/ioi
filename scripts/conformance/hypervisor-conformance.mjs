@@ -2326,6 +2326,12 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/oauth.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/oauth.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           : "",
@@ -9847,7 +9853,11 @@ function runBridge() {
       /"model_route_decisions" => Ok\(receipt::route_decisions\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"server_status" => Ok\(status::server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"catalog_status" => Err\(ModelMountReadProjectionError::new\(\s*"model_catalog_status_js_readback_retired"/.test(modelMountReadProjectionEvidence) &&
+      /mod catalog;/.test(modelMountReadProjectionEvidence) &&
+      /"catalog_status" => catalog::status\(\)/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
+      /direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountReadProjectionEvidence) &&
       /"latest_provider_health" => receipt::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_vault_health" => receipt::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"latest_runtime_survey" => Ok\(receipt::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
@@ -9860,8 +9870,13 @@ function runBridge() {
       /"routes" => Ok\(topology::routes\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"model_capabilities" => Ok\(topology::model_capabilities\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"downloads" => Ok\(topology::downloads\(\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"oauth_sessions" => Err\(ModelMountReadProjectionError::new\(\s*"model_mount_oauth_read_projection_js_retired"/.test(modelMountReadProjectionEvidence) &&
-      /"oauth_states" => Err\(ModelMountReadProjectionError::new\(\s*"model_mount_oauth_read_projection_js_retired"/.test(modelMountReadProjectionEvidence) &&
+      /mod oauth;/.test(modelMountReadProjectionEvidence) &&
+      /"oauth_sessions" => oauth::sessions\(\)/.test(modelMountReadProjectionEvidence) &&
+      /"oauth_states" => oauth::states\(\)/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn sessions/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn states/.test(modelMountReadProjectionEvidence) &&
+      /oauth_session_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
+      /oauth_state_read_projection_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       /"provider_health" => Ok\(topology::provider_health\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"backends" => Ok\(topology::backends\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn artifacts/.test(modelMountReadProjectionEvidence) &&
@@ -13565,6 +13580,12 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/oauth.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/oauth.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           : "",
@@ -16090,9 +16111,10 @@ function runReceipts() {
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"catalog_status_input"\),\s*false/.test(
         modelMountingReadProjectionFacadeTest,
       ) &&
-      /"catalog_status" => Err\(ModelMountReadProjectionError::new\(\s*"model_catalog_status_js_readback_retired"/.test(
-        modelMountCore,
-      ) &&
+      /mod catalog;/.test(modelMountCore) &&
+      /"catalog_status" => catalog::status\(\)/.test(modelMountCore) &&
+      /direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountCore) &&
+      !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountCore) &&
       !/fn model_mount_catalog_status(?:(?!\nfn ).)*request\.state\.get\("catalog_status_input"\)/s.test(
         modelMountCore,
       ),

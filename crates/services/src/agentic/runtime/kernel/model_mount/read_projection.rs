@@ -6,6 +6,8 @@ use super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 mod adapter_boundary;
 mod aggregate;
 mod authority;
+mod catalog;
+mod oauth;
 mod receipt;
 mod runtime;
 mod status;
@@ -86,14 +88,8 @@ pub(super) fn model_mount_read_projection(
         "model_capabilities" => Ok(topology::model_capabilities()),
         "downloads" => Ok(topology::downloads()),
         "backends" => Ok(topology::backends()),
-        "oauth_sessions" => Err(ModelMountReadProjectionError::new(
-            "model_mount_oauth_read_projection_js_retired",
-            "OAuth session read projection requires Rust daemon-core wallet/cTEE projection",
-        )),
-        "oauth_states" => Err(ModelMountReadProjectionError::new(
-            "model_mount_oauth_read_projection_js_retired",
-            "OAuth state read projection requires Rust daemon-core wallet/cTEE projection",
-        )),
+        "oauth_sessions" => oauth::sessions(),
+        "oauth_states" => oauth::states(),
         "provider_health" => Ok(topology::provider_health()),
         "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
         "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),
@@ -108,10 +104,7 @@ pub(super) fn model_mount_read_projection(
         "latest_provider_health" => receipt::latest_provider_health(request),
         "latest_vault_health" => receipt::latest_vault_health(request),
         "latest_runtime_survey" => Ok(receipt::latest_runtime_survey(request)),
-        "catalog_status" => Err(ModelMountReadProjectionError::new(
-            "model_catalog_status_js_readback_retired",
-            "Model catalog status readback requires Rust daemon-core catalog projection",
-        )),
+        "catalog_status" => catalog::status(),
         other => Err(ModelMountReadProjectionError::new(
             "model_mount_read_projection_kind_unsupported",
             format!("unsupported model_mount read projection kind {other}"),

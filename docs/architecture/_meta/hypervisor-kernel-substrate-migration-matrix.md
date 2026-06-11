@@ -20371,6 +20371,30 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1027
+
+Slice 1027 split the model_mount direct catalog-status and OAuth session/state
+readback fail-closed boundaries out of the broad
+`model_mount/read_projection.rs` dispatcher and into dedicated Rust
+`model_mount/read_projection/catalog.rs` and
+`model_mount/read_projection/oauth.rs` modules. Public direct `catalog_status`,
+`oauth_sessions`, and `oauth_states` readback now have Rust owner modules and
+module-local proof tests for their Rust-boundary refusals instead of inline
+dispatcher error construction.
+
+This is still non-terminal migration work: catalog/OAuth direct readbacks fail
+closed in dedicated Rust modules, but direct Rust daemon-core catalog-provider
+and wallet/cTEE projection APIs over Agentgres-backed receipt/state-root truth
+must still replace command transport, JS state materialization, and JS edge
+error-envelope translation before terminal projection ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1027 | Moved direct `catalog_status`, `oauth_sessions`, and `oauth_states` fail-closed read-projection boundaries from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs` and `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/oauth.rs`; conformance now requires module proof tests and delegated dispatcher arms instead of root `ModelMountReadProjectionError::new(...)` bodies for those readbacks. | Direct Rust daemon-core catalog-provider and wallet/cTEE projection APIs over Agentgres-backed model_mount receipt/state-root truth replace command bridge, JS state materialization, and JS edge error translation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1026
 
 Slice 1026 split the model_mount topology/product-catalog default read-projection
