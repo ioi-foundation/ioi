@@ -20371,6 +20371,32 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1011
+
+Slice 1011 split the model_mount provider execution and provider-result cluster
+out of the broad `model_mount.rs` kernel file into
+`model_mount/provider_execution.rs`. Provider execution admission request/result
+types, fixture/native-local provider invocation request/result types,
+native-local stream invocation result/chunk planning, provider-result admission
+types, backend validation, provider-execution binding checks, deterministic
+fixture/native-local output, evidence refs, and execution/result hashes now live
+in the dedicated Rust module, while `ModelMountCore` remains the public facade
+and forwards to that module.
+
+This is still non-terminal migration work: provider execution and result
+admission still cross migration command transport and JS edge translation until
+direct Rust daemon-core execution/projection APIs own backend execution,
+Agentgres-backed truth, replay, and stable protocol surfaces. The dedicated
+Rust module is the provider-execution ownership boundary for that retirement
+work, not a canonical long-term bridge.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1011 | Moved provider execution admission, fixture/native-local provider invocation execution, native-local stream invocation chunk planning, provider-result admission, backend validation, execution binding checks, evidence refs, and hashes into `crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs`; `ModelMountCore` forwards to the module. | Direct Rust daemon-core execution/projection APIs replace command transport and JS edge translation for provider execution, invocation, stream output, and provider-result admission over Agentgres-backed truth. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1010
 
 Slice 1010 split the model_mount provider lifecycle, provider inventory, and

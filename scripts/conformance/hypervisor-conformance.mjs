@@ -2317,6 +2317,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
+          : "",
       ].join("\n")
     : "";
   const modelMountReadProjectionEvidence = [bridgeModule, modelMountCore].join("\n");
@@ -13452,6 +13455,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
+          : "",
       ].join("\n")
     : "";
   const marketplaceCore = exists("crates/services/src/agentic/runtime/kernel/marketplace.rs")
@@ -13601,14 +13607,22 @@ function runReceipts() {
     result,
     "model-mount-provider-execution-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
       /MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderExecutionRequest/.test(
+      /mod provider_execution;/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /pub use provider_execution::/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /MissingProviderExecutionRouteReceiptRef/.test(
+      /provider_execution::admit_provider_execution\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderExecutionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /MissingProviderExecutionRouteReceiptRef/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /admit_model_mount_provider_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -13618,6 +13632,7 @@ function runReceipts() {
       !retiredModelInvocationFacadeBodyPattern.test(modelStreamFacadeBlock),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
@@ -13627,26 +13642,30 @@ function runReceipts() {
     result,
     "model-mount-local-provider-invocation-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
       /MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderInvocationRequest/.test(
+      /provider_execution::invoke_provider\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderInvocationRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /MissingProviderExecutionAdmission/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /UnsupportedProviderInvocationBackend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /StreamProviderInvocationUnsupported/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /rust_model_mount_native_local/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /deterministic_native_local_fixture/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /invoke_model_mount_provider/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -13655,6 +13674,7 @@ function runReceipts() {
       !/model_mount_provider_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
@@ -13664,18 +13684,21 @@ function runReceipts() {
     result,
     "model-mount-native-local-stream-invocation-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
       /MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderStreamInvocationResult/.test(
+      /provider_execution::invoke_provider_stream\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /invoke_provider_stream/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /ModelMountProviderStreamInvocationResult/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
       /rust_model_mount_native_local_stream/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /native_local_stream_chunks/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /invoke_model_mount_provider_stream/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -13684,6 +13707,7 @@ function runReceipts() {
       !/model_mount_provider_stream_invocation_execution_required/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
@@ -15263,26 +15287,30 @@ function runReceipts() {
     result,
     "model-mount-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
       /MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderResultAdmissionRequest/.test(
+      /provider_execution::admit_provider_result\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountProviderResultAdmissionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /ProviderResultOutputHashMismatch/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /UnsupportedProviderResultBackend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /is_rust_provider_result_backend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /rust_model_mount_provider_result_backend_bound/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       !/js_provider_driver_observation_bound"\.to_string/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /admit_model_mount_provider_result/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -15308,6 +15336,7 @@ function runReceipts() {
       /schema_version:\s*"ioi\.model_mount\.provider_result\.v1"/.test(modelInvocationOps),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/provider-ollama-driver.mjs",
@@ -15318,15 +15347,19 @@ function runReceipts() {
     result,
     "model-mount-stream-provider-result-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
       /admits_stream_start_rust_provider_result_bound_to_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /stream_status/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /stream_status/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
       /ProviderExecutionRefMismatch/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 9/10 is pending: stream-start provider result admission must bind to the same stream-status provider execution record",

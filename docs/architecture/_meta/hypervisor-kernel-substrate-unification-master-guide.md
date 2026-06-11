@@ -4591,6 +4591,12 @@ evidence refs, and transition hashes now live in the dedicated Rust
 `model_mount/lifecycle.rs` module behind `ModelMountCore`, making local
 provider and model-instance lifecycle planning a distinct Rust core boundary
 for the next direct daemon-core API cut;
+model-mount provider execution admission, fixture/native-local provider
+invocation execution, native-local stream invocation chunk planning, and
+provider-result admission now live in the dedicated Rust
+`model_mount/provider_execution.rs` module behind `ModelMountCore`, making
+provider execution and result binding a distinct Rust core boundary for the
+next direct daemon-core API cut;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,
