@@ -5805,6 +5805,21 @@ computer-use admission, wallet.network authority, cTEE custody policy where
 applicable, Agentgres expected-head/state-root binding, event materialization,
 replay, and projection own the positive path.
 
+Slice 1096 retires the unused approval decision JS readback facade. The mounted
+approval control surface no longer exports `latestApprovalDecisionEvent()`, and
+the daemon store no longer exposes a pass-through method for approval decision
+event lookup. Approval request, decision, and revoke routes already fail closed
+at the mounted approval surface; this slice removes the stale duplicate
+decision-readback shape so approval decision truth cannot be reintroduced as a
+daemon-local event scan while Rust daemon-core authority admission, Agentgres
+expected-head/state-root binding, wallet.network approval grants, receipt
+materialization, replay, and projection remain the target owner.
+
+Conformance now fails if the approval decision readback facade returns on the
+approval surface or daemon store. The remaining approval-request event readback
+is explicitly limited to the current coding-tool approval-satisfaction helper
+until that helper receives a direct Rust daemon-core replacement.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -40,23 +40,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
     );
   }
 
-  function latestApprovalDecisionEvent(store, threadId, approvalId) {
-    const normalizedApprovalId = optionalString(approvalId);
-    if (!normalizedApprovalId) return null;
-    const stream = store.runtimeEventStream(eventStreamIdForThread(threadId));
-    return (
-      stream.events
-        .filter(
-          (event) =>
-            event.approval_id === normalizedApprovalId &&
-            (event.event_kind === "approval.approved" ||
-              event.event_kind === "approval.rejected" ||
-              event.event_kind === "approval.revoked"),
-        )
-        .at(-1) ?? null
-    );
-  }
-
   function throwApprovalControlRustCoreRequired(operation, operationKind, details = {}) {
     throw runtimeError({
       status: 501,
@@ -121,7 +104,6 @@ export function createRuntimeApprovalSurface(deps = {}) {
 
   return {
     decideThreadApproval,
-    latestApprovalDecisionEvent,
     latestApprovalRequestEvent,
     requestThreadApproval,
     revokeThreadApproval,

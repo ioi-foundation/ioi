@@ -6781,6 +6781,14 @@ function runBridge() {
       /approval_decision_js_facade_retired/.test(runtimeApprovalSurface) &&
       /rust_daemon_core_approval_decision_required/.test(runtimeApprovalSurface) &&
       /agentgres_approval_decision_state_truth_required/.test(runtimeApprovalSurface) &&
+      /approval decision readback facade is retired from the JS approval surface/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      /Object\.hasOwn\(surface,\s*"latestApprovalDecisionEvent"\),\s*false/.test(
+        runtimeApprovalControlFacadeTest,
+      ) &&
+      !/latestApprovalDecisionEvent/.test(runtimeApprovalSurface) &&
+      !/latestApprovalDecisionEvent\(threadId, approvalId\)/.test(runtimeDaemonIndex) &&
       !/approvalStateRunnerDep\.planApprovalDecisionStateUpdate/.test(approvalDecisionFacadeBody) &&
       !/store\.agentForThread|resolveApprovalTarget|latestApprovalRequestEvent|store\.appendRuntimeEvent|store\.runs\.set|store\.agents\.set|store\.writeRun|store\.writeAgent/.test(
         approvalDecisionFacadeBody,

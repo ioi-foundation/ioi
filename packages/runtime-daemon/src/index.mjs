@@ -1155,10 +1155,6 @@ export class AgentgresRuntimeStateStore {
     return this.threadEventSurface.turnForRun(this, run);
   }
 
-  latestApprovalDecisionEvent(threadId, approvalId) {
-    return this.approvalSurface.latestApprovalDecisionEvent(this, threadId, approvalId);
-  }
-
   latestCodingToolBudgetBlockedEventForRun(runId, sourceEventId = null) {
     return this.codingToolBudgetRecoverySurface.latestCodingToolBudgetBlockedEventForRun(
       this,

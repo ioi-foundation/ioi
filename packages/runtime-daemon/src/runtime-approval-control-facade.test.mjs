@@ -81,6 +81,12 @@ test("requestThreadApproval surface fails closed before agent lookup, event appe
   assert.equal(store.runs.size, 0);
 });
 
+test("approval decision readback facade is retired from the JS approval surface", () => {
+  const { surface } = createStore();
+  assert.equal(Object.hasOwn(surface, "latestApprovalDecisionEvent"), false);
+  assert.equal(surface.latestApprovalDecisionEvent, undefined);
+});
+
 test("decideThreadApproval surface fails closed before lookup, event append, Rust planning, or JS persistence", () => {
   const { store, surface } = createStore();
   assert.throws(

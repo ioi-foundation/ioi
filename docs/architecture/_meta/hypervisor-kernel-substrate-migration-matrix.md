@@ -15784,6 +15784,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1096
+
+Slice 1096 retires the unused approval decision JS readback facade. The mounted
+approval control surface no longer exports `latestApprovalDecisionEvent()`, and
+the daemon store no longer exposes the pass-through method. Approval
+request/decision/revoke routes already fail closed through the mounted approval
+surface, so this removes a stale duplicate decision-readback shape rather than
+preserving it as compatibility scaffolding.
+
+Conformance now fails if `latestApprovalDecisionEvent()` returns on the approval
+surface or daemon store. The remaining `latestApprovalRequestEvent()` readback
+is still present only because current coding-tool approval satisfaction uses it
+as a non-terminal helper; direct Rust daemon-core approval admission,
+wallet.network grants, Agentgres expected-head/state-root binding, receipt
+materialization, replay, and projection remain the target owner.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-approval-surface.mjs packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs scripts/conformance/hypervisor-conformance.mjs packages/runtime-daemon/src/index.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-approval-control-facade.test.mjs packages/runtime-daemon/src/runtime-approval-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-governance-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1095
 
 Slice 1095 deletes the dead computer-use JS invocation bodies that remained
