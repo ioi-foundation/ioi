@@ -2353,6 +2353,21 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
           : "",
@@ -9147,11 +9162,15 @@ function runBridge() {
       /operation:\s*"plan_model_mount_route_control_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
       /mod required;/.test(modelMountCore) &&
+      /mod route_control;/.test(modelMountCore) &&
       /pub use required::/.test(modelMountCore) &&
       /ModelMountRouteControlRequiredRequest/.test(modelMountCore) &&
       /required::plan_route_control_required\(request\)/.test(modelMountCore) &&
-      /plan_route_control_required/.test(modelMountCore) &&
+      /route_control::plan_route_control_required\(request\)/.test(modelMountCore) &&
       /route_control_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs"),
+      ) &&
+      !/fn route_control_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
       ) &&
       !/fn route_control_required_is_planned_in_rust_model_mount/.test(
@@ -13652,6 +13671,21 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/required/route_control.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs")
           : "",
@@ -14615,10 +14649,14 @@ function runReceipts() {
       /planTokenizerRequired\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_tokenizer_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /mod tokenizer;/.test(modelMountCore) &&
       /ModelMountTokenizerRequiredRequest/.test(modelMountCore) &&
       /required::plan_tokenizer_required\(request\)/.test(modelMountCore) &&
-      /plan_tokenizer_required/.test(modelMountCore) &&
+      /tokenizer::plan_tokenizer_required\(request\)/.test(modelMountCore) &&
       /tokenizer_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required/tokenizer.rs"),
+      ) &&
+      !/fn tokenizer_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
       ) &&
       !/fn tokenizer_required_is_planned_in_rust_model_mount/.test(
@@ -15392,10 +15430,14 @@ function runReceipts() {
       /planRuntimeEngineRequired\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_runtime_engine_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /mod runtime_engine;/.test(modelMountCore) &&
       /ModelMountRuntimeEngineRequiredRequest/.test(modelMountCore) &&
       /required::plan_runtime_engine_required\(request\)/.test(modelMountCore) &&
-      /plan_runtime_engine_required/.test(modelMountCore) &&
+      /runtime_engine::plan_runtime_engine_required\(request\)/.test(modelMountCore) &&
       /runtime_engine_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required/runtime_engine.rs"),
+      ) &&
+      !/fn runtime_engine_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
       ) &&
       !/fn runtime_engine_required_is_planned_in_rust_model_mount/.test(
@@ -15556,10 +15598,14 @@ function runReceipts() {
       /planServerControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_server_control_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /mod server_control;/.test(modelMountCore) &&
       /ModelMountServerControlRequiredRequest/.test(modelMountCore) &&
       /required::plan_server_control_required\(request\)/.test(modelMountCore) &&
-      /plan_server_control_required/.test(modelMountCore) &&
+      /server_control::plan_server_control_required\(request\)/.test(modelMountCore) &&
       /server_control_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required/server_control.rs"),
+      ) &&
+      !/fn server_control_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
       ) &&
       !/fn server_control_required_is_planned_in_rust_model_mount/.test(
@@ -16500,10 +16546,14 @@ function runReceipts() {
       /planBackendLifecycleRequired\(request\)/.test(modelMountAdmissionRunner) &&
       /operation:\s*"plan_model_mount_backend_lifecycle_required"/.test(modelMountAdmissionRunner) &&
       /RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /mod backend_lifecycle;/.test(modelMountCore) &&
       /ModelMountBackendLifecycleRequiredRequest/.test(modelMountCore) &&
       /required::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
-      /plan_backend_lifecycle_required/.test(modelMountCore) &&
+      /backend_lifecycle::plan_backend_lifecycle_required\(request\)/.test(modelMountCore) &&
       /backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/required/backend_lifecycle.rs"),
+      ) &&
+      !/fn backend_lifecycle_required_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs"),
       ) &&
       !/fn backend_lifecycle_required_is_planned_in_rust_model_mount/.test(

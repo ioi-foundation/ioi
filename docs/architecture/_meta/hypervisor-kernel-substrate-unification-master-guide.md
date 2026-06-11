@@ -4571,10 +4571,12 @@ request-level `base_url` into Rust, and the deleted JS
 `serverStatusProjectionInput()` helper can no longer materialize public server
 truth from volatile server-control state;
 model-mount backend-lifecycle, server-control, runtime-engine, tokenizer, and
-route-control Rust-core-required planner records now live in the dedicated
-Rust `model_mount/required.rs` module behind the stable `ModelMountCore`
-facade, and the required-record Rust tests now live beside those planners
-instead of accumulating in the broad model-mount kernel file;
+route-control Rust-core-required planner records now live in dedicated Rust
+`model_mount/required/{backend_lifecycle,server_control,runtime_engine,tokenizer,route_control}.rs`
+owner modules behind the facade-only `model_mount/required.rs` and stable
+`ModelMountCore` facade, and the required-record Rust tests now live beside
+those child owners instead of accumulating in the broad model-mount kernel file
+or in the required facade;
 model-mount schema constants, `ModelMountError`, receipt-ref validation,
 non-empty/string helpers, evidence-ref de-duplication, and SHA-256 helper logic
 now live in the dedicated Rust `model_mount/common.rs` module, giving the split

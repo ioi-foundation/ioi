@@ -12,8 +12,9 @@ the bridge-scaffolding guardrail, and the non-terminal status of JS facades,
 readback projections, daemon-store pass-through wrappers, command transport,
 Agentgres-backed truth, wallet.network authority where applicable,
 receipt/state-root binding, replay, and stable protocol APIs.
-No matrix-compaction pass is pending until the next larger Rust-core extraction
-or facade-retirement seam lands; avoid encoding the command bridge as terminal
+A matrix-compaction pass is now scheduled after Slice 1033 because the
+model-mount required-record Rust owner split clarified the next extraction
+seam; until that compaction runs, avoid encoding the command bridge as terminal
 shape, and do not encode JS transport wrappers, readback projections, or
 fail-closed JS facades as terminal architecture.
 
@@ -20370,6 +20371,29 @@ Verification commands for this slice:
 
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
+
+## Implementation Slice Evidence: 1033
+
+Slice 1033 split the model_mount required-record Rust boundary into explicit
+backend-lifecycle, server-control, runtime-engine, tokenizer, and route-control
+child owners. The parent `model_mount/required.rs` is now only a
+facade/re-export/delegation layer, while each child module owns its
+request/record types, schema validation, canonical snake_case detail shaping,
+evidence refs, Rust-core boundary metadata, and module-local proof test.
+
+This is still non-terminal migration work: required-record planning is split
+into clearer Rust owners, but direct Rust daemon-core protocol APIs,
+Agentgres-backed truth, receipt/state-root binding, projection, command
+transport retirement, and stable protocol APIs must still replace JS edge
+translation before terminal backend/server/runtime/tokenizer/route-control
+ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1033 | Split required-record planners out of `crates/services/src/agentic/runtime/kernel/model_mount/required.rs` into `required/backend_lifecycle.rs`, `required/server_control.rs`, `required/runtime_engine.rs`, `required/tokenizer.rs`, and `required/route_control.rs`; conformance now requires child owner modules, facade delegation, and module-local proof tests while failing if the required facade regrows proof tests. | Direct Rust daemon-core backend/server/runtime/tokenizer/route-control APIs over Agentgres-backed truth replace command bridge, JS edge translation, and migration facades. |
+
+Schedule the matrix-compaction pass now that this Rust-core extraction seam has
+landed and its non-terminal target is clear.
 
 ## Implementation Slice Evidence: 1032
 
