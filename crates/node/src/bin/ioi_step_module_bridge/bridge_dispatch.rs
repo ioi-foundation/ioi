@@ -1,8 +1,8 @@
 use serde_json::{json, Value};
 use std::io::{self, Read};
 
-use super::command_dispatch::dispatch_bridge_operation;
 use super::BridgeError;
+use ioi_services::agentic::runtime::kernel::command_dispatch::dispatch_command_operation_response;
 use ioi_services::agentic::runtime::kernel::command_protocol::{
     validate_command_envelope_payload, CommandEnvelope,
 };
@@ -34,5 +34,6 @@ pub(super) fn run_bridge() -> Result<Value, BridgeError> {
         BridgeError::new(code, message)
     })?;
 
-    dispatch_bridge_operation(validated.command_operation, raw_request)
+    dispatch_command_operation_response(validated.command_operation, raw_request)
+        .map_err(|error| BridgeError::new(error.code(), error.message().to_string()))
 }

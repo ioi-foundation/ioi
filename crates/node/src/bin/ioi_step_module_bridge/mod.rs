@@ -13,7 +13,6 @@ mod approval_command;
 mod authority_command;
 mod bridge_dispatch;
 mod coding_tool_helpers;
-mod command_dispatch;
 mod context_policy_command;
 mod governed_admission_command;
 mod governed_receipt_command;
@@ -65,14 +64,13 @@ use ioi_services::agentic::runtime::kernel::coding_tool_step_module::{
     artifact_read_response as core_artifact_read_response,
     computer_use_request_lease_response as core_computer_use_request_lease_response,
     file_apply_patch_response as core_file_apply_patch_response,
-    run_coding_tool_step_module_response as core_run_coding_tool_step_module,
     tool_retrieve_result_response as core_tool_retrieve_result_response,
     CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest, CodingToolStepModuleCommandError,
 };
 use ioi_services::agentic::runtime::kernel::command_protocol::{
     command_family, expected_command_schema_version, is_step_module_operation,
-    validate_command_envelope, CommandOperation, COMMAND_SCHEMA_VERSION,
-    DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
+    validate_command_envelope, COMMAND_SCHEMA_VERSION, DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+    STEP_MODULE_COMMAND_SCHEMA_VERSION,
 };
 use mcp_memory_command::{
     plan_mcp_control_agent_state_update, plan_mcp_manager_catalog_projection,
@@ -146,9 +144,8 @@ use thread_lifecycle_command::{
 };
 use workspace_restore_command::{
     apply_workspace_restore_operations, capture_workspace_snapshot_files,
-    plan_workspace_restore_apply_policy, preview_workspace_restore_operations,
-    WorkspaceRestoreApplyPolicyBridgeRequest, WorkspaceRestoreOperationsBridgeRequest,
-    WorkspaceSnapshotCaptureBridgeRequest,
+    plan_workspace_restore_apply_policy, WorkspaceRestoreApplyPolicyBridgeRequest,
+    WorkspaceRestoreOperationsBridgeRequest, WorkspaceSnapshotCaptureBridgeRequest,
 };
 
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
@@ -164,10 +161,6 @@ impl BridgeError {
     fn new(code: &'static str, message: String) -> Self {
         Self { code, message }
     }
-}
-
-fn run_coding_tool_step_module(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
-    core_run_coding_tool_step_module(request).map_err(coding_tool_bridge_error)
 }
 
 fn file_apply_patch_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {

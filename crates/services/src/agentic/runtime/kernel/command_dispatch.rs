@@ -1,0 +1,388 @@
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+
+use super::{
+    agentgres_command::*, approval::*, authority::*, coding_tool_step_module::*,
+    command_protocol::CommandOperation, governed_admission::*, governed_receipt::*, model_mount::*,
+    model_mount_receipt::*, policy::*, workspace_restore::*,
+};
+
+#[derive(Debug, Clone)]
+pub struct CommandDispatchError {
+    code: &'static str,
+    message: String,
+}
+
+impl CommandDispatchError {
+    pub fn new(code: &'static str, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+        }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+pub fn dispatch_command_operation_response(
+    command_operation: CommandOperation,
+    raw_request: Value,
+) -> Result<Value, CommandDispatchError> {
+    match command_operation {
+        CommandOperation::RunCodingToolStepModule => {
+            run_coding_tool_step_module_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AdmitModelMountRouteDecision => {
+            admit_model_mount_route_decision_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "model_mount_route_decision_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::AdmitModelMountInvocation => {
+            admit_model_mount_invocation_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new("model_mount_invocation_rejected", format!("{error:?}"))
+            })
+        }
+        CommandOperation::AdmitModelMountProviderExecution => {
+            admit_model_mount_provider_execution_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "model_mount_provider_execution_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::ExecuteModelMountProviderInvocation => {
+            execute_model_mount_provider_invocation_response(decode(raw_request)?).map_err(
+                |error| {
+                    CommandDispatchError::new(
+                        "model_mount_provider_invocation_rejected",
+                        format!("{error:?}"),
+                    )
+                },
+            )
+        }
+        CommandOperation::ExecuteModelMountProviderStreamInvocation => {
+            execute_model_mount_provider_stream_invocation_response(decode(raw_request)?).map_err(
+                |error| {
+                    CommandDispatchError::new(
+                        "model_mount_provider_stream_invocation_rejected",
+                        format!("{error:?}"),
+                    )
+                },
+            )
+        }
+        CommandOperation::PlanModelMountProviderLifecycle => {
+            plan_model_mount_provider_lifecycle_response(decode(raw_request)?).map_err(|error| {
+                model_mount_error("model_mount_provider_lifecycle_rejected", error)
+            })
+        }
+        CommandOperation::PlanModelMountProviderInventory => {
+            plan_model_mount_provider_inventory_response(decode(raw_request)?).map_err(|error| {
+                model_mount_error("model_mount_provider_inventory_rejected", error)
+            })
+        }
+        CommandOperation::PlanModelMountInstanceLifecycle => {
+            plan_model_mount_instance_lifecycle_response(decode(raw_request)?).map_err(|error| {
+                model_mount_error("model_mount_instance_lifecycle_rejected", error)
+            })
+        }
+        CommandOperation::AdmitModelMountProviderResult => {
+            admit_model_mount_provider_result_response(decode(raw_request)?).map_err(|error| {
+                CommandDispatchError::new(
+                    "model_mount_provider_result_rejected",
+                    format!("{error:?}"),
+                )
+            })
+        }
+        CommandOperation::PlanModelMountBackendProcess => {
+            plan_model_mount_backend_process_response(decode(raw_request)?).map_err(|error| {
+                model_mount_error("model_mount_backend_process_plan_rejected", error)
+            })
+        }
+        CommandOperation::PlanModelMountBackendLifecycleRequired => {
+            plan_model_mount_backend_lifecycle_required_response(decode(raw_request)?).map_err(
+                |error| model_mount_error("model_mount_backend_lifecycle_required_invalid", error),
+            )
+        }
+        CommandOperation::PlanModelMountServerControlRequired => {
+            plan_model_mount_server_control_required_response(decode(raw_request)?).map_err(
+                |error| model_mount_error("model_mount_server_control_required_invalid", error),
+            )
+        }
+        CommandOperation::PlanModelMountRuntimeEngineRequired => {
+            plan_model_mount_runtime_engine_required_response(decode(raw_request)?).map_err(
+                |error| model_mount_error("model_mount_runtime_engine_required_invalid", error),
+            )
+        }
+        CommandOperation::PlanModelMountTokenizerRequired => {
+            plan_model_mount_tokenizer_required_response(decode(raw_request)?)
+                .map_err(|error| model_mount_error("model_mount_tokenizer_required_invalid", error))
+        }
+        CommandOperation::PlanModelMountRouteControlRequired => {
+            plan_model_mount_route_control_required_response(decode(raw_request)?).map_err(
+                |error| model_mount_error("model_mount_route_control_required_invalid", error),
+            )
+        }
+        CommandOperation::PlanModelMountAcceptedReceiptHead => {
+            plan_model_mount_accepted_receipt_head_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanModelMountAcceptedReceiptTransition => {
+            plan_model_mount_accepted_receipt_transition_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::BindModelMountInvocationReceipt => {
+            bind_model_mount_invocation_receipt_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanModelMountReadProjection => {
+            plan_model_mount_read_projection_response(decode(raw_request)?)
+                .map_err(CommandDispatchError::from)
+        }
+        CommandOperation::ExecutePrivateWorkspaceCteeAction => {
+            execute_private_workspace_ctee_action_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AdmitWorkerServicePackageInvocation => {
+            admit_worker_service_package_invocation_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::AdmitL1SettlementAttempt => {
+            admit_l1_settlement_attempt_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AdmitGovernedRuntimeImprovementProposal => {
+            admit_governed_runtime_improvement_proposal_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanWorkspaceRestoreApplyPolicy => {
+            plan_workspace_restore_apply_policy_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PreviewWorkspaceRestoreOperations => {
+            preview_workspace_restore_operations_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ApplyWorkspaceRestoreOperations => {
+            apply_workspace_restore_operations_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CaptureWorkspaceSnapshotFiles => {
+            capture_workspace_snapshot_files_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanCodingToolApprovalManifest => {
+            plan_coding_tool_approval_manifest_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanApprovalRequestStateUpdate => {
+            plan_approval_request_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanApprovalDecisionStateUpdate => {
+            plan_approval_decision_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanApprovalRevokeStateUpdate => {
+            plan_approval_revoke_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AuthorizeExternalCapabilityExit => {
+            authorize_external_capability_exit_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::EvaluateContextBudgetPolicy => {
+            evaluate_context_budget_policy_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::EvaluateCodingToolBudgetPolicy => {
+            evaluate_coding_tool_budget_policy_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::EvaluateCompactionPolicy => {
+            evaluate_compaction_policy_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanContextCompaction => {
+            plan_context_compaction_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanContextCompactionStateUpdate => {
+            plan_context_compaction_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanCodingToolBudgetRecoveryStateUpdate => {
+            plan_coding_tool_budget_recovery_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanCodingToolBudgetRecoveryAdmissionRequired => {
+            plan_coding_tool_budget_recovery_admission_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanWorkflowEditAdmissionRequired => {
+            plan_workflow_edit_admission_required_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanDiagnosticsRepairAdmissionRequired => {
+            plan_diagnostics_repair_admission_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanDiagnosticsOperatorOverrideStateUpdate => {
+            plan_diagnostics_operator_override_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanOperatorTurnControlAdmissionRequired => {
+            plan_operator_turn_control_admission_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanOperatorInterruptStateUpdate => {
+            plan_operator_interrupt_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanOperatorSteerStateUpdate => {
+            plan_operator_steer_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRunCancelStateUpdate => {
+            plan_run_cancel_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRunCancelAdmissionRequired => {
+            plan_run_cancel_admission_required_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanSkillHookRegistryProjectionRequired => {
+            plan_skill_hook_registry_projection_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRepositoryWorkflowProjectionRequired => {
+            plan_repository_workflow_projection_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeToolCatalogProjectionRequired => {
+            plan_runtime_tool_catalog_projection_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeLifecycleProjectionRequired => {
+            plan_runtime_lifecycle_projection_required_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanLifecycleAdmissionRequired => {
+            plan_lifecycle_admission_required_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanThreadTurnAdmissionRequired => {
+            plan_thread_turn_admission_required_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanThreadControlAgentStateUpdate => {
+            plan_thread_control_agent_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanMcpControlAgentStateUpdate => {
+            plan_mcp_control_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ValidateMcpServers => {
+            validate_mcp_servers_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::ProjectMcpServerValidationInput => {
+            project_mcp_server_validation_input_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanMcpManagerStatusProjection => {
+            plan_mcp_manager_status_projection_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanMcpManagerValidationProjection => {
+            plan_mcp_manager_validation_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanMemoryManagerStatusProjection => {
+            plan_memory_manager_status_projection_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanMemoryManagerValidationProjection => {
+            plan_memory_manager_validation_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanMcpManagerCatalogProjection => {
+            plan_mcp_manager_catalog_projection_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanMcpManagerCatalogSummaryProjection => {
+            plan_mcp_manager_catalog_summary_projection_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanThreadMemoryAgentStateUpdate => {
+            plan_thread_memory_agent_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeBridgeThreadStartAgentStateUpdate => {
+            plan_runtime_bridge_thread_start_agent_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanRuntimeBridgeTurnRunStateUpdate => {
+            plan_runtime_bridge_turn_run_state_update_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::PlanSubagentRecordStateUpdate => {
+            plan_subagent_record_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanAgentCreateStateUpdate => {
+            plan_agent_create_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanAgentStatusStateUpdate => {
+            plan_agent_status_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::PlanRunCreateStateUpdate => {
+            plan_run_create_state_update_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::AdmitStorageBackendWrite => {
+            admit_storage_backend_write_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeRunState => {
+            commit_runtime_run_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeAgentState => {
+            commit_runtime_agent_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeMemoryState => {
+            commit_runtime_memory_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeSubagentState => {
+            commit_runtime_subagent_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeArtifactState => {
+            commit_runtime_artifact_state_response(decode(raw_request)?).map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeModelMountRecordState => {
+            commit_runtime_model_mount_record_state_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+        CommandOperation::CommitRuntimeModelMountReceiptState => {
+            commit_runtime_model_mount_receipt_state_response(decode(raw_request)?)
+                .map_err(Into::into)
+        }
+    }
+}
+
+fn decode<T: DeserializeOwned>(raw_request: Value) -> Result<T, CommandDispatchError> {
+    serde_json::from_value(raw_request)
+        .map_err(|error| CommandDispatchError::new("request_json_invalid", error.to_string()))
+}
+
+fn model_mount_error(code: &'static str, error: ModelMountError) -> CommandDispatchError {
+    CommandDispatchError::new(code, format!("{error:?}"))
+}
+
+macro_rules! command_error_from {
+    ($error_type:ty) => {
+        impl From<$error_type> for CommandDispatchError {
+            fn from(error: $error_type) -> Self {
+                Self::new(error.code(), error.message().to_string())
+            }
+        }
+    };
+}
+
+command_error_from!(AgentgresCommandError);
+command_error_from!(ApprovalCommandError);
+command_error_from!(AuthorityCommandError);
+command_error_from!(CodingToolStepModuleCommandError);
+command_error_from!(GovernedAdmissionError);
+command_error_from!(GovernedReceiptError);
+command_error_from!(ModelMountReceiptError);
+command_error_from!(AdmissionRequiredCommandError);
+command_error_from!(ProjectionRequiredCommandError);
+command_error_from!(ContextPolicyCommandError);
+command_error_from!(CodingToolBudgetRecoveryCommandError);
+command_error_from!(OperatorControlCommandError);
+command_error_from!(RunCancelCommandError);
+command_error_from!(ThreadLifecycleCommandError);
+command_error_from!(McpMemoryCommandError);
+command_error_from!(WorkspaceRestoreCommandError);
+
+impl From<ModelMountReadProjectionError> for CommandDispatchError {
+    fn from(error: ModelMountReadProjectionError) -> Self {
+        Self::new(error.code, error.message)
+    }
+}

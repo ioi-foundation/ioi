@@ -15697,6 +15697,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1136
+
+Slice 1136 moves the shared temporary command-operation dispatch table out of
+the Node bridge and into Rust kernel code. The deleted
+`crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs` file is
+replaced by `crates/services/src/agentic/runtime/kernel/command_dispatch.rs`,
+where Rust core owns typed `CommandOperation` dispatch, request decoding,
+response selection, and bridge-facing error mapping for the current StepModule
+and daemon-core command surfaces. `bridge_dispatch.rs` remains only stdin/JSON
+transport plus Rust `CommandEnvelope` validation before it calls
+`dispatch_command_operation_response()`.
+
+This is a larger Rust-core extraction, not terminal bridge retirement. The
+Node bridge binary, shared JS daemon-core command runner, StepModule command
+runner, JS command callers, and remaining proof-test delegate modules are still
+temporary migration scaffolding until direct Rust daemon-core and Rust/WASM
+workload protocol APIs replace them. Future resumes must not treat
+`ioi_step_module_bridge/command_dispatch.rs` or any Node-owned dispatch table
+as canonical long-term architecture.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_dispatch --lib` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1135
 
 Slice 1135 retires the remaining coding-tool StepModule command wrapper module

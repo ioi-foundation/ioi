@@ -2,7 +2,6 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
     apply_workspace_restore_operations_response as core_apply_workspace_restore_operations,
     capture_workspace_snapshot_files_response as core_capture_workspace_snapshot_files,
     plan_workspace_restore_apply_policy_response as core_plan_workspace_restore_apply_policy,
-    preview_workspace_restore_operations_response as core_preview_workspace_restore_operations,
     WorkspaceRestoreCommandError,
 };
 use serde_json::Value;
@@ -17,12 +16,6 @@ pub(super) fn plan_workspace_restore_apply_policy(
     request: WorkspaceRestoreApplyPolicyBridgeRequest,
 ) -> Result<Value, BridgeError> {
     core_plan_workspace_restore_apply_policy(request).map_err(bridge_error)
-}
-
-pub(super) fn preview_workspace_restore_operations(
-    request: WorkspaceRestoreOperationsBridgeRequest,
-) -> Result<Value, BridgeError> {
-    core_preview_workspace_restore_operations(request).map_err(bridge_error)
 }
 
 pub(super) fn apply_workspace_restore_operations(

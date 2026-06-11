@@ -2266,8 +2266,12 @@ function runBridge() {
   const bridgeDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     : "";
-  const bridgeCommandDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs")
+  const bridgeCommandDispatchExists = exists("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs");
+  const bridgeCommandDispatch = bridgeCommandDispatchExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs")
+    : "";
+  const coreCommandDispatch = exists("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/command_dispatch.rs")
     : "";
   const bridgeCommandEnvelopeExists = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs");
   const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
@@ -2383,12 +2387,15 @@ function runBridge() {
     result,
     "bridge-command-schema-version-alias-retired",
     /mod bridge_dispatch;/.test(bridgeModule) &&
-      /mod command_dispatch;/.test(bridgeModule) &&
+      !/mod command_dispatch;/.test(bridgeModule) &&
       !/mod command_envelope;/.test(bridgeModule) &&
       !bridgeCommandEnvelopeExists &&
+      !bridgeCommandDispatchExists &&
+      /pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
       !/struct BridgeEnvelope/.test(bridgeDispatch) &&
       !/#\[derive\(Debug, Deserialize\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
+      /dispatch_command_operation_response/.test(bridgeDispatch) &&
       /use ioi_services::agentic::runtime::kernel::command_protocol::\{\s*validate_command_envelope_payload,\s*CommandEnvelope,\s*\};/.test(
         bridgeDispatch,
       ) &&
@@ -2396,18 +2403,19 @@ function runBridge() {
       /let envelope: CommandEnvelope = serde_json::from_value\(raw_request\.clone\(\)\)/.test(bridgeDispatch) &&
       /validate_command_envelope_payload\(&envelope\)/.test(bridgeDispatch) &&
       /error\.into_parts\(\)/.test(bridgeDispatch) &&
-      /dispatch_bridge_operation\(validated\.command_operation,\s*raw_request\)/.test(
+      /dispatch_command_operation_response\(validated\.command_operation,\s*raw_request\)/.test(
         bridgeDispatch,
       ) &&
       !/expected_schema_version/.test(bridgeDispatch) &&
       !/schema_version_invalid/.test(bridgeDispatch) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
-      /pub\(super\) fn dispatch_bridge_operation\(\s*command_operation: CommandOperation,\s*raw_request: Value,\s*\)/.test(
-        bridgeCommandDispatch,
+      /pub fn dispatch_command_operation_response\(\s*command_operation: CommandOperation,\s*raw_request: Value,\s*\)/.test(
+        coreCommandDispatch,
       ) &&
-      /match command_operation/.test(bridgeCommandDispatch) &&
-      /CommandOperation::RunCodingToolStepModule/.test(bridgeCommandDispatch) &&
-      /CommandOperation::AdmitModelMountRouteDecision/.test(bridgeCommandDispatch) &&
+      /pub struct CommandDispatchError/.test(coreCommandDispatch) &&
+      /match command_operation/.test(coreCommandDispatch) &&
+      /CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
+      /CommandOperation::AdmitModelMountRouteDecision/.test(coreCommandDispatch) &&
       !/match \(command_family, operation\)/.test(bridgeCommandDispatch) &&
       !/\(CommandFamily::StepModule, "run_coding_tool_step_module"\)/.test(bridgeCommandDispatch) &&
       !/\(CommandFamily::DaemonCore, "admit_model_mount_route_decision"\)/.test(bridgeCommandDispatch) &&
@@ -2459,7 +2467,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
     ],
     "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
@@ -3740,10 +3748,10 @@ function runBridge() {
       /mod coding_tool_helpers;/.test(bridgeModule) &&
       !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
       !/mod computer_use;/.test(bridgeModule) &&
-      /run_coding_tool_step_module/.test(bridgeCommandDispatch) &&
+      /run_coding_tool_step_module_response/.test(coreCommandDispatch) &&
       /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
-      /fn run_coding_tool_step_module/.test(bridgeModule) &&
-      /core_run_coding_tool_step_module/.test(bridgeModule) &&
+      !/fn run_coding_tool_step_module/.test(bridgeModule) &&
+      !/core_run_coding_tool_step_module/.test(bridgeModule) &&
       !/fn workspace_status_response/.test(bridgeModule) &&
       !/fn inspect_workspace_status/.test(bridgeModule) &&
       !/fn apply_workspace_patch/.test(bridgeModule) &&
@@ -4101,14 +4109,14 @@ function runBridge() {
       !/schema_version_invalid/.test(codingToolReceiptCommandBridge) &&
       !/operation_unsupported/.test(codingToolCommandBridge) &&
       !/operation_unsupported/.test(codingToolReceiptCommandBridge) &&
-      /CommandOperation::RunCodingToolStepModule/.test(bridgeCommandDispatch) &&
+      /CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
       /validate_command_envelope\(\s*"run_coding_tool_step_module",[\s\n]*DAEMON_CORE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
       /coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
       /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
-      /fn run_coding_tool_step_module/.test(bridgeModule) &&
-      /core_run_coding_tool_step_module/.test(bridgeModule) &&
+      !/fn run_coding_tool_step_module/.test(bridgeModule) &&
+      !/core_run_coding_tool_step_module/.test(bridgeModule) &&
       /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       !/StepModuleRouterCore/.test(codingToolCommandBridge) &&
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
@@ -4118,9 +4126,9 @@ function runBridge() {
       /WorkloadClient::plan_step_module_dispatch/.test(codingToolStepModuleCore),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/client/src/workload_client/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
@@ -6509,7 +6517,8 @@ function runBridge() {
       /pub\(super\) fn plan_workspace_restore_apply_policy/.test(
         workspaceRestoreCommandBridge,
       ) &&
-      /pub\(super\) fn preview_workspace_restore_operations/.test(
+      /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
+      !/pub\(super\) fn preview_workspace_restore_operations/.test(
         workspaceRestoreCommandBridge,
       ) &&
       /pub\(super\) fn apply_workspace_restore_operations/.test(
@@ -14264,9 +14273,9 @@ function runBridge() {
       /pub fn apply_workspace_restore_operations_response/.test(workspaceRestoreKernel) &&
       /rust_workspace_restore_operations_command/.test(workspaceRestoreKernel) &&
       /workspace_restore_operations_invalid/.test(workspaceRestoreKernel) &&
-      /core_preview_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
+      /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       /core_apply_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
-      /fn preview_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
+      !/fn preview_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
       /fn apply_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
       !/WorkspaceRestoreOperationsCore/.test(workspaceRestoreCommandBridge) &&
       !/WorkspaceRestoreOperationsRequest\b/.test(workspaceRestoreCommandBridge) &&

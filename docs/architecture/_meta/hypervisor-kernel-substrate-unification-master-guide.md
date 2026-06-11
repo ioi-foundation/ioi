@@ -6526,6 +6526,25 @@ next larger cut should replace the remaining command transport and JS caller
 path with direct Rust daemon-core and Rust/WASM workload APIs once that seam is
 clear enough to remove without preserving compatibility behavior.
 
+Slice 1136 moves the remaining temporary command-operation dispatch table out
+of the Node bridge and into Rust kernel code. The deleted
+`ioi_step_module_bridge/command_dispatch.rs` file is replaced by
+`crates/services/src/agentic/runtime/kernel/command_dispatch.rs`, where Rust
+core now owns typed `CommandOperation` dispatch, request decoding, response
+selection, and bridge-facing error mapping for the current StepModule and
+daemon-core command surfaces. The Node `bridge_dispatch.rs` module now only
+reads stdin JSON, validates the canonical Rust `CommandEnvelope`, and calls
+Rust `dispatch_command_operation_response()`.
+
+This remains non-terminal because the Node bridge binary, JS daemon-core
+command runner, StepModule command runner, JS command callers, and several
+proof-test delegate modules still exist as migration scaffolding. The deleted
+Node dispatch table must not be recreated or treated as canonical; the next
+larger cuts should retire the shared JS command runner/caller path and replace
+the remaining bridge transport with direct Rust daemon-core and Rust/WASM
+workload protocol APIs once the seam is clear enough to remove without
+preserving compatibility behavior.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
