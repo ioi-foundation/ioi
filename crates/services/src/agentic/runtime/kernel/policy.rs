@@ -27,14 +27,19 @@ pub use coding_tool_budget_recovery::{
     CodingToolBudgetRecoveryStateUpdateRequest,
 };
 pub use context_lifecycle::{
-    CompactionPolicyActions, CompactionPolicyApproval, CompactionPolicyCompact,
+    evaluate_coding_tool_budget_policy_response, evaluate_compaction_policy_response,
+    evaluate_context_budget_policy_response, plan_context_compaction_response,
+    plan_context_compaction_state_update_response, CompactionPolicyActions,
+    CompactionPolicyApproval, CompactionPolicyBridgeRequest, CompactionPolicyCompact,
     CompactionPolicyCore, CompactionPolicyError, CompactionPolicyRecord, CompactionPolicyRequest,
-    ContextBudgetCheck, ContextBudgetDecision, ContextBudgetPolicyCore, ContextBudgetPolicyError,
-    ContextBudgetPolicyRecord, ContextBudgetPolicyRequest, ContextBudgetThresholds,
-    ContextBudgetUsageSummary, ContextCompactionPlanCore, ContextCompactionPlanError,
-    ContextCompactionPlanRecord, ContextCompactionPlanRequest, ContextCompactionStateUpdateCore,
+    ContextBudgetCheck, ContextBudgetDecision, ContextBudgetPolicyBridgeRequest,
+    ContextBudgetPolicyCore, ContextBudgetPolicyError, ContextBudgetPolicyRecord,
+    ContextBudgetPolicyRequest, ContextBudgetThresholds, ContextBudgetUsageSummary,
+    ContextCompactionPlanBridgeRequest, ContextCompactionPlanCore, ContextCompactionPlanError,
+    ContextCompactionPlanRecord, ContextCompactionPlanRequest,
+    ContextCompactionStateUpdateBridgeRequest, ContextCompactionStateUpdateCore,
     ContextCompactionStateUpdateError, ContextCompactionStateUpdateRecord,
-    ContextCompactionStateUpdateRequest,
+    ContextCompactionStateUpdateRequest, ContextPolicyCommandError,
 };
 pub use mcp_memory::{
     McpControlAgentStateUpdateCore, McpControlAgentStateUpdateError,

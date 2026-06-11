@@ -15784,6 +15784,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1124
+
+Slice 1124 moves context budget, coding-tool budget, compaction policy,
+context-compaction plan, and context-compaction state-update command
+request/response shaping out of the temporary
+`ioi_step_module_bridge/context_policy_command.rs` bridge module into Rust
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`.
+The Rust policy child module now owns the bridge request structs, response
+envelopes, canonical command source markers, and bridge-facing error codes for
+rejected context lifecycle command bodies.
+
+The context-policy bridge command module is now a thin delegate that maps
+`ContextPolicyCommandError` into `BridgeError`. It no longer imports or owns
+the context lifecycle planner cores, raw request types, response envelopes,
+command source markers, or bridge-facing rejection codes.
+
+This is Rust-core extraction and bridge-shape retirement progress, not
+terminal context-policy migration. The Node daemon-core command transport,
+command dispatch table, shared command runner, JS command callers,
+context-policy runners, and public fail-closed surfaces remain migration
+scaffolding until direct Rust daemon-core context admission/projection APIs own
+Agentgres expected-head and state-root truth, policy receipts, context
+compaction event materialization, replay, projection, and stable protocol APIs
+end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services context_lifecycle --lib` | passed |
+| `cargo test -p ioi-node context --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1123
 
 Slice 1123 moves workflow-edit and diagnostics-repair admission-required

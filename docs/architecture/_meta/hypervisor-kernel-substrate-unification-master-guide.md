@@ -6281,6 +6281,23 @@ wallet.network authority where applicable, Agentgres-backed expected-head and
 state-root truth, receipt/event materialization, replay, projection, and stable
 IDE/CLI/SDK surfaces end to end.
 
+Slice 1124 moves context budget, coding-tool budget, compaction policy,
+context-compaction plan, and context-compaction state-update command
+request/response shaping out of the temporary Node context-policy bridge and
+into Rust `policy/context_lifecycle.rs`. Rust core now owns the bridge request
+structs, response envelopes, canonical command source markers, and
+bridge-facing error codes for rejected context lifecycle command bodies.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, context-policy runners,
+and public fail-closed surfaces still exist. The remaining
+`ioi_step_module_bridge/context_policy_command.rs` file is a temporary delegate
+to Rust core, not a durable context policy boundary. The long-term target
+remains direct Rust daemon-core context admission/projection protocol APIs over
+Agentgres expected-head and state-root truth, policy receipts, context
+compaction event materialization, replay, projection, and stable IDE/CLI/SDK
+surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

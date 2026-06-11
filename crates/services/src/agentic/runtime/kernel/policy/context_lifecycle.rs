@@ -49,6 +49,26 @@ pub enum ContextCompactionStateUpdateError {
     MissingField(&'static str),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ContextPolicyCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl ContextPolicyCommandError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ContextBudgetPolicyRequest {
     pub schema_version: String,
@@ -394,6 +414,34 @@ pub struct ContextCompactionStateUpdateRecord {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub agent: Option<Value>,
     pub generated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContextBudgetPolicyBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ContextBudgetPolicyRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CompactionPolicyBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: CompactionPolicyRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContextCompactionPlanBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ContextCompactionPlanRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ContextCompactionStateUpdateBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ContextCompactionStateUpdateRequest,
 }
 #[derive(Debug, Default, Clone)]
 pub struct ContextBudgetPolicyCore;
@@ -910,6 +958,216 @@ impl ContextCompactionStateUpdateCore {
             agent,
             generated_at: "rust_policy_core".to_string(),
         })
+    }
+}
+
+pub fn evaluate_context_budget_policy_response(
+    request: ContextBudgetPolicyBridgeRequest,
+) -> Result<Value, ContextPolicyCommandError> {
+    evaluate_context_budget_policy_response_with(
+        request,
+        "rust_context_budget_policy_command",
+        "context_budget_policy_invalid",
+    )
+}
+
+pub fn evaluate_coding_tool_budget_policy_response(
+    request: ContextBudgetPolicyBridgeRequest,
+) -> Result<Value, ContextPolicyCommandError> {
+    evaluate_context_budget_policy_response_with(
+        request,
+        "rust_coding_tool_budget_policy_command",
+        "coding_tool_budget_policy_invalid",
+    )
+}
+
+fn evaluate_context_budget_policy_response_with(
+    request: ContextBudgetPolicyBridgeRequest,
+    source: &'static str,
+    error_code: &'static str,
+) -> Result<Value, ContextPolicyCommandError> {
+    let record = ContextBudgetPolicyCore
+        .evaluate(&request.request)
+        .map_err(|error| ContextPolicyCommandError::new(error_code, format!("{error:?}")))?;
+    Ok(policy_record_response(
+        source,
+        request.backend,
+        record,
+        &[
+            "status",
+            "mode",
+            "usage_telemetry",
+            "usage_summary",
+            "policy_decision_id",
+            "policy_decision",
+            "receipt_refs",
+            "policy_decision_refs",
+            "warnings",
+            "violations",
+            "would_block",
+            "runtime_event_kind",
+            "runtime_event_status",
+            "runtime_event_item_id",
+            "runtime_event_idempotency_key",
+            "summary",
+        ],
+    ))
+}
+
+pub fn evaluate_compaction_policy_response(
+    request: CompactionPolicyBridgeRequest,
+) -> Result<Value, ContextPolicyCommandError> {
+    let record = CompactionPolicyCore
+        .evaluate(&request.request)
+        .map_err(|error| {
+            ContextPolicyCommandError::new("compaction_policy_invalid", format!("{error:?}"))
+        })?;
+    Ok(policy_record_response(
+        "rust_compaction_policy_command",
+        request.backend,
+        record,
+        &[
+            "status",
+            "action",
+            "selected_action",
+            "budget_status",
+            "policy_decision_id",
+            "receipt_refs",
+            "policy_decision_refs",
+            "approval_id",
+            "approval_required",
+            "approval_granted",
+            "approval_satisfied",
+            "execute_compaction",
+            "compaction_requested",
+            "compact_reason",
+            "compact_scope",
+            "runtime_event_kind",
+            "runtime_event_status",
+            "runtime_event_item_id",
+            "runtime_event_idempotency_key",
+            "compact_idempotency_key",
+            "compact_workflow_node_id",
+            "continuation_allowed",
+            "summary",
+        ],
+    ))
+}
+
+pub fn plan_context_compaction_response(
+    request: ContextCompactionPlanBridgeRequest,
+) -> Result<Value, ContextPolicyCommandError> {
+    let record = ContextCompactionPlanCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ContextPolicyCommandError::new("context_compaction_plan_invalid", format!("{error:?}"))
+        })?;
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    let mut response = command_response_base(
+        "rust_context_compaction_plan_command",
+        request.backend,
+        record_value.clone(),
+    );
+    copy_fields(
+        &mut response,
+        &record_value,
+        &[
+            "status",
+            "actor",
+            "item_id",
+            "idempotency_key",
+            "compact_hash",
+            "source_event_kind",
+            "event_kind",
+            "component_kind",
+            "payload_schema_version",
+            "payload",
+            "receipt_refs",
+            "policy_decision_refs",
+            "artifact_refs",
+            "rollback_refs",
+            "redaction_profile",
+            "reason",
+            "scope",
+            "requested_by",
+            "previous_latest_seq",
+        ],
+    );
+    response.insert(
+        "event_source".to_string(),
+        record_value.get("source").cloned().unwrap_or(Value::Null),
+    );
+    Ok(Value::Object(response))
+}
+
+pub fn plan_context_compaction_state_update_response(
+    request: ContextCompactionStateUpdateBridgeRequest,
+) -> Result<Value, ContextPolicyCommandError> {
+    let record = ContextCompactionStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ContextPolicyCommandError::new(
+                "context_compaction_state_update_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(policy_record_response(
+        "rust_context_compaction_state_update_command",
+        request.backend,
+        record,
+        &[
+            "status",
+            "target_kind",
+            "operation_kind",
+            "updated_at",
+            "operator_control",
+            "context_compaction",
+            "run",
+            "agent",
+        ],
+    ))
+}
+
+fn policy_record_response<T>(
+    source: &'static str,
+    backend: Option<String>,
+    record: T,
+    fields: &[&str],
+) -> Value
+where
+    T: Serialize + Clone,
+{
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    let mut response = command_response_base(source, backend, record_value.clone());
+    copy_fields(&mut response, &record_value, fields);
+    Value::Object(response)
+}
+
+fn command_response_base(
+    source: &'static str,
+    backend: Option<String>,
+    record_value: Value,
+) -> serde_json::Map<String, Value> {
+    let mut response = serde_json::Map::new();
+    response.insert("source".to_string(), Value::String(source.to_string()));
+    response.insert(
+        "backend".to_string(),
+        Value::String(backend.unwrap_or_else(|| "rust_policy".to_string())),
+    );
+    response.insert("record".to_string(), record_value);
+    response
+}
+
+fn copy_fields(
+    response: &mut serde_json::Map<String, Value>,
+    record_value: &Value,
+    fields: &[&str],
+) {
+    for field in fields {
+        response.insert(
+            (*field).to_string(),
+            record_value.get(*field).cloned().unwrap_or(Value::Null),
+        );
     }
 }
 
