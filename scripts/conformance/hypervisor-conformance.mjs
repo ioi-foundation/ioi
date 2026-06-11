@@ -2263,6 +2263,9 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const bridgeDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
+    : "";
   const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     : "";
@@ -2335,11 +2338,19 @@ function runBridge() {
   assertCheck(
     result,
     "bridge-command-schema-version-alias-retired",
-    /#\[serde\(rename = "schema_version"\)\]/.test(bridgeModule) &&
-      !/alias = "schemaVersion"/.test(bridgeModule) &&
+    /mod bridge_dispatch;/.test(bridgeModule) &&
+      /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
+      !/alias = "schemaVersion"/.test(bridgeDispatch) &&
+      /match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
+      /pub\(super\) fn is_daemon_core_operation/.test(bridgeDispatch) &&
+      !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
+      !/fn is_daemon_core_operation/.test(bridgeModule) &&
       /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
       /"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
-    ["crates/node/src/bin/ioi_step_module_bridge/mod.rs"],
+    [
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
+    ],
     "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
   );
   const modelMountingState = exists("packages/runtime-daemon/src/model-mounting.mjs")
@@ -6647,7 +6658,7 @@ function runBridge() {
       /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
       /ContextBudgetPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
       /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(contextPolicyCommandBridge) &&
-      /is_daemon_core_operation/.test(bridgeModule) &&
+      /is_daemon_core_operation/.test(bridgeDispatch) &&
       /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(contextPolicyCommandBridge) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&

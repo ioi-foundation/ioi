@@ -5143,9 +5143,10 @@ diagnostic subprocess, test-run, and patch helper plumbing out of the
 monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
 transport into
 `crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs`. The broad
-bridge root now retains operation dispatch, the stdin/stdout transport
-envelope, proof tests, and child-module wiring, while the coding-tool command
-transport imports helper plumbing from a dedicated Rust sibling module.
+bridge root now retains proof tests and child-module wiring, while the
+coding-tool command transport imports helper plumbing from a dedicated Rust
+sibling module and Slice 1057 moves temporary operation dispatch to
+`bridge_dispatch.rs`.
 Conformance now fails if the helper function bodies return to the root bridge.
 This is still not terminal coding-tool migration and must not canonize the
 Node bridge shape. Resume by moving this helper plumbing behind direct Rust
@@ -5153,6 +5154,19 @@ daemon-core coding-tool execution/admission APIs and Rust/WASM workload modules,
 then retiring the command transport, JS invocation facade, readback shims,
 duplicate truth paths, and any compatibility wrappers that survive the verified
 Rust-core boundary.
+
+Slice 1057 moves the StepModule/daemon-core command dispatch table and
+schema-family classifier out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs`. The root
+bridge now re-exports only the stdin response entry point and keeps child-module
+wiring plus proof tests, while conformance fails if the operation match or
+`is_daemon_core_operation` classifier returns to the root. This is still a
+command-transport boundary, not terminal Rust daemon-core API ownership.
+Resume by replacing the dispatch table with direct daemon-core protocol/API
+entry points, retiring JS command callers/facades/readbacks, and binding
+accepted work through Rust/WASM modules, Agentgres admission, receipt/state-root
+binding, replay, projection, wallet.network authority, and cTEE custody.
 
 ## Final Doctrine
 

@@ -15965,8 +15965,9 @@ wrapper out of the monolithic Rust
 `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
 `crates/node/src/bin/ioi_step_module_bridge/authority_command.rs`. This removes
 the authority request struct and wallet.network authority handler body from the
-broad bridge module. The broad bridge keeps operation dispatch and proof tests;
-the canonical authority owner remains
+broad bridge module. Slice 1057 moves temporary operation dispatch to
+`crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs`, so the broad
+bridge keeps child-module wiring and proof tests; the canonical authority owner remains
 `crates/services/src/agentic/runtime/kernel/authority.rs`.
 
 This is a Rust transport-boundary cleanup, not terminal authority migration.
@@ -15998,8 +15999,10 @@ workspace status, git diff, file inspect/apply patch, test run, LSP
 diagnostics, artifact read, tool-result retrieval, computer-use lease response
 wrappers, workload dispatch planning, StepModuleRouter admission, receipt
 binding, Agentgres admission, and projection binding from the broad bridge
-module. The broad bridge keeps operation dispatch, lower-level workspace
-filesystem/process helper plumbing, and proof tests.
+module. Slice 1056 moves the lower-level workspace filesystem/process helper
+plumbing to `coding_tool_helpers.rs`, and Slice 1057 moves temporary operation
+dispatch to `bridge_dispatch.rs`, so the broad bridge keeps child-module
+wiring and proof tests.
 
 This is a larger Rust transport-boundary cleanup, not terminal coding-tool
 migration. The current JS invocation surface, Node command bridge, and remaining
@@ -16038,9 +16041,9 @@ transport and into
 coding-tool command wrapper module now imports the helper boundary directly,
 and bridge conformance proves the root bridge has child-module wiring only for
 these helpers instead of retaining their function bodies. The broad bridge
-root remains responsible for operation dispatch, stdin/stdout envelope
-transport, and proof tests while this migration transport is still being
-retired.
+root remains responsible for child-module wiring and proof tests while
+`bridge_dispatch.rs` owns temporary command dispatch and this migration
+transport is still being retired.
 
 This is a Rust transport-boundary cleanup, not terminal coding-tool migration.
 The current JS invocation surface, Node command bridge, command/helper sibling
@@ -16063,6 +16066,42 @@ Focused evidence:
 | `cargo test -p ioi-node git_diff --bin ioi-step-module-bridge` | passed |
 | `cargo test -p ioi-node file_inspect --bin ioi-step-module-bridge` | passed |
 | `cargo test -p ioi-node lsp_diagnostics --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+## Implementation Slice Evidence: 1057
+
+Slice 1057 splits the StepModule/daemon-core command dispatch table,
+schema-version intake, and daemon-core operation classifier out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport
+and into `crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs`. The
+root bridge now re-exports only `run_bridge_response_from_stdin`, keeps
+child-module wiring and proof tests, and no longer owns the operation match or
+`is_daemon_core_operation` classifier. Bridge conformance proves the dispatch
+table lives in the dedicated Rust sibling module and fails if those dispatch
+bodies return to the root.
+
+This is a Rust transport-boundary cleanup, not terminal command migration. The
+Node command binary, dispatch table, JS command callers, JS facades, readback
+projections, and compatibility wrappers remain scaffolding until direct Rust
+daemon-core protocol/API entry points own execution/admission, Rust/WASM
+workload modules execute admitted work, Agentgres records admitted truth,
+receipt/state-root binding and replay are authoritative, wallet.network gates
+authority, and cTEE governs private workspace custody.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node bridge_command_schema_version --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node workspace_status --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node external_capability --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node policy --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node model_mount --bin ioi-step-module-bridge` | passed |
 | `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
 | `npm run hypervisor-conformance:bridge` | passed |
 | `npm run hypervisor-conformance:docs` | passed |
