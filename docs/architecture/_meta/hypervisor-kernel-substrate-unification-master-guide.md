@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 989, public runtime account, runtime-node, tool
+Current lane note: after Slice 990, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4564,6 +4564,9 @@ directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,
 and the doctor aggregate reads mounted tool and skill-hook surfaces instead of
 daemon-store catalog wrappers;
+the route-facing skill/hook, model catalog/capability, repository workflow,
+runtime account/node/tool, and doctor-report daemon-store delegates have been
+deleted rather than preserved as inert compatibility wrappers;
 public usage, public authority-evidence, and `/api/v1` authority-evidence /
 workflow-capability preflight routes call the mounted run-read surface directly;
 and reload no longer reads JS agent state before fail-closed admission;

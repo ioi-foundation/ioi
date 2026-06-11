@@ -7059,7 +7059,8 @@ function runBridge() {
       ) &&
       /createRuntimeSkillHookSurface\(\{\s*defaultCwd:\s*this\.defaultCwd,\s*skillHookRunner:\s*this\.contextPolicyRunner,/s.test(
         runtimeDaemonIndex,
-      ),
+      ) &&
+      !/^\s+(?:skillHookCatalog|listSkills|listHooks)\(/m.test(runtimeDaemonIndex),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -7141,6 +7142,9 @@ function runBridge() {
       ) &&
       !/store\.(?:listRepositories|repositoryContext|branchPolicy|githubContext|prAttempts|issueContext|reviewGate|githubPrCreatePlan)\(/.test(
         publicRuntimeRoutes,
+      ) &&
+      !/^\s+(?:listRepositories|repositoryContext|branchPolicy|githubContext|prAttempts|issueContext|reviewGate|githubPrCreatePlan)\(/m.test(
+        runtimeDaemonIndex,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
@@ -9511,6 +9515,7 @@ function runBridge() {
       /store\.modelMounting\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
       !/store\.listModels\(\)/.test(publicRuntimeRoutes) &&
       !/store\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
+      !/^\s+(?:listModels|listModelCapabilities)\(/m.test(runtimeDaemonIndex) &&
       /public runtime model catalog routes use mounted model projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
@@ -11488,7 +11493,8 @@ function runBridge() {
         modelMountingReadProjectionFacade,
       ].join("\n"),
     ) &&
-      /runtimeModelCatalogList/.test(runtimeDaemonIndex) &&
+      /store\.modelMounting\.runtimeModelCatalogList\(\)/.test(publicRuntimeRoutes) &&
+      !/^\s+(?:listModels|runtimeModelCatalogList)\(/m.test(runtimeDaemonIndex) &&
       /runtimeModelCatalogList/.test(modelMountingState) &&
       /runtimeModelCatalogList/.test(modelMountingReadProjectionFacade) &&
       !exists("packages/runtime-daemon/src/model-mounting/read-model.mjs") &&
@@ -16709,6 +16715,7 @@ function runReceipts() {
         publicRuntimeRoutesTest,
       ) &&
       !/store\.(?:getAccount|listRuntimeNodes|listTools)\(/.test(publicRuntimeRoutes) &&
+      !/^\s+(?:getAccount|listRuntimeNodes|listTools)\(/m.test(runtimeDaemonIndex) &&
       /store\.runtimeDoctorReport\.doctorReport\(store, \{ baseUrl: baseUrlForRequest\(request\) \}\)/.test(
         publicRuntimeRoutes,
       ) &&

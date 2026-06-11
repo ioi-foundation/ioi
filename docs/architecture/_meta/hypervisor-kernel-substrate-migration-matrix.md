@@ -20366,6 +20366,40 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 990
+
+Slice 990 deleted the now-dead route-facing daemon-store catalog/readback
+delegates after the public route layer and doctor aggregate were moved onto
+mounted surfaces. `RuntimeDaemonStore` no longer exposes the compatibility
+wrappers for skill/hook catalog, model catalog/capability list, repository
+workflow projections, runtime account/node/tool catalog projections, or doctor
+report routing. Conformance now forbids those store-level wrapper methods in
+addition to the earlier route-level bans.
+
+This is still non-terminal migration work: mounted JS surfaces and command
+transport remain migration scaffolding until direct Rust daemon-core APIs own
+catalog, repository, diagnostic/readiness, model projection, authority, receipt,
+replay, Agentgres truth, and stable IDE/CLI/SDK protocols end to end.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 990 | Deleted dead route-facing daemon-store delegates for skill/hook, model catalog, repository workflow, runtime tool/account/node, and doctor report surfaces. | Direct Rust daemon-core projection/admission APIs over Agentgres truth with wallet/cTEE authority where needed, receipt/state-root binding, replay, command-transport retirement, and stable protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/read-projection-facade.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-doctor-report.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 989
 
 Slice 989 removed the final public runtime route daemon-store pass-through

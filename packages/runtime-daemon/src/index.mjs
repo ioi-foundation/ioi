@@ -1204,18 +1204,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  skillHookCatalog({ cwd = this.defaultCwd } = {}) {
-    return this.skillHookSurface.skillHookCatalog({ cwd });
-  }
-
-  listSkills({ cwd = this.defaultCwd } = {}) {
-    return this.skillHookSurface.listSkills({ cwd });
-  }
-
-  listHooks({ cwd = this.defaultCwd } = {}) {
-    return this.skillHookSurface.listHooks({ cwd });
-  }
-
   async createTurn(threadId, request = {}) {
     return this.threadTurnSurface.createTurn(this, threadId, request);
   }
@@ -1465,58 +1453,6 @@ export class AgentgresRuntimeStateStore {
 
   canonicalProjection(runId) {
     return this.runReadSurface.canonicalProjection(this, runId);
-  }
-
-  listModels() {
-    return this.modelMounting.runtimeModelCatalogList();
-  }
-
-  listModelCapabilities() {
-    return this.modelMounting.listModelCapabilities();
-  }
-
-  listRepositories() {
-    return this.repositorySurface.listRepositories(this);
-  }
-
-  repositoryContext() {
-    return this.repositorySurface.repositoryContext(this);
-  }
-
-  branchPolicy() {
-    return this.repositorySurface.branchPolicy(this);
-  }
-
-  githubContext() {
-    return this.repositorySurface.githubContext(this);
-  }
-
-  prAttempts() {
-    return this.repositorySurface.prAttempts(this);
-  }
-
-  issueContext() {
-    return this.repositorySurface.issueContext(this);
-  }
-
-  reviewGate() {
-    return this.repositorySurface.reviewGate(this);
-  }
-
-  githubPrCreatePlan() {
-    return this.repositorySurface.githubPrCreatePlan(this);
-  }
-
-  getAccount() {
-    return this.toolSurface.getAccount();
-  }
-
-  listRuntimeNodes() {
-    return this.toolSurface.listRuntimeNodes();
-  }
-
-  listTools(options = {}) {
-    return this.toolSurface.listTools(options);
   }
 
   invokeComputerUseBrowserDiscoveryTool(threadId, toolId, request = {}) {
