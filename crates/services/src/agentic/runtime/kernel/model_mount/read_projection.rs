@@ -16,6 +16,8 @@ pub struct ModelMountReadProjectionRequest {
     pub engine_id: Option<String>,
     #[serde(default)]
     pub provider_id: Option<String>,
+    #[serde(default)]
+    pub base_url: Option<String>,
     pub state: Value,
 }
 
@@ -289,20 +291,7 @@ fn model_mount_workflow_bindings() -> Value {
 }
 
 fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value {
-    let input = request
-        .state
-        .get("server_status_input")
-        .unwrap_or(&Value::Null);
-    let control_state = input.get("control_state").unwrap_or(&Value::Null);
-    let loaded_instances = input
-        .get("loaded_instances")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    let mounted_endpoints = input
-        .get("mounted_endpoints")
-        .and_then(Value::as_u64)
-        .unwrap_or(0);
-    let base_url = json_string_field(input, "base_url");
+    let base_url = request.base_url.clone();
     let native_base_url = base_url
         .as_ref()
         .map(|url| format!("{url}/api/v1"))
@@ -312,32 +301,28 @@ fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value
         .map(|url| format!("{url}/v1"))
         .unwrap_or_else(|| "/v1".to_string());
     json!({
-        "schemaVersion": json_string_field(input, "schema_version")
-            .unwrap_or_else(|| model_mount_projection_schema_version(request)),
-        "status": if loaded_instances > 0 { "running" } else { "stopped" },
-        "gatewayStatus": json_string_field(control_state, "gateway_status")
-            .unwrap_or_else(|| "running".to_string()),
-        "controlStatus": json_string_field(control_state, "status")
-            .unwrap_or_else(|| "running".to_string()),
-        "lastServerOperation": json_string_field(control_state, "operation")
-            .unwrap_or_else(|| "server_status".to_string()),
-        "lastServerOperationAt": control_state.get("updated_at").cloned().unwrap_or(Value::Null),
-        "lastServerReceiptId": control_state.get("receipt_id").cloned().unwrap_or(Value::Null),
+        "schemaVersion": model_mount_projection_schema_version(request),
+        "status": "stopped",
+        "gatewayStatus": "running",
+        "controlStatus": "running",
+        "lastServerOperation": "server_status",
+        "lastServerOperationAt": Value::Null,
+        "lastServerReceiptId": Value::Null,
         "nativeBaseUrl": native_base_url,
         "openAiCompatibleBaseUrl": open_ai_compatible_base_url,
-        "loadedInstances": loaded_instances,
-        "mountedEndpoints": mounted_endpoints,
+        "loadedInstances": 0,
+        "mountedEndpoints": 0,
         "providerStates": {
-            "available": status_count(input, "provider_statuses", &["available", "configured", "running"]),
-            "degraded": status_count(input, "provider_statuses", &["blocked", "absent", "stopped"]),
+            "available": 0,
+            "degraded": 0,
         },
         "backendStates": {
-            "available": status_count(input, "backend_statuses", &["available", "configured", "running"]),
-            "degraded": status_count(input, "backend_statuses", &["blocked", "absent", "stopped", "degraded"]),
+            "available": 0,
+            "degraded": 0,
         },
         "idleTtlSeconds": 900,
         "autoEvict": true,
-        "checkedAt": input.get("checked_at").cloned().unwrap_or(Value::Null),
+        "checkedAt": Value::Null,
     })
 }
 
@@ -364,20 +349,6 @@ fn model_mount_catalog_adapter_boundary() -> Value {
         "operations": ["search", "resolveVariant", "importUrl", "download", "health"],
         "evidenceRefs": ["provider_neutral_model_catalog_adapter_boundary"],
     })
-}
-
-fn status_count(input: &Value, key: &str, statuses: &[&str]) -> usize {
-    input
-        .get(key)
-        .and_then(Value::as_array)
-        .map(|values| {
-            values
-                .iter()
-                .filter_map(Value::as_str)
-                .filter(|status| statuses.contains(status))
-                .count()
-        })
-        .unwrap_or(0)
 }
 
 fn model_mount_runtime_engine_detail(
@@ -774,6 +745,7 @@ mod tests {
             receipt_id: None,
             engine_id: None,
             provider_id: None,
+            base_url: None,
             state: serde_json::json!({
                 "receipts": [
                     {"id": "receipt_1", "kind": "model_route_selection", "details": {}}

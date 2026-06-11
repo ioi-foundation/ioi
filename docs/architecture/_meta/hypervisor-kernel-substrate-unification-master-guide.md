@@ -1183,6 +1183,11 @@ model_mount read-projection path. The runtime-daemon now sends only primitive
 objects through a shared planner helper. This still does not claim terminal
 server-control migration: direct Rust daemon-core server-control/state/log/event
 APIs still need to replace JS volatile-state collection and command transport.
+Slice 1006 later retired that intermediate `server_status_input` transport:
+Rust now authors the public `server_status` projection from empty request state
+plus request-level `base_url`, and direct Rust server-control/state/log/event
+projection APIs still need to replace the remaining command transport and
+Agentgres-backed server truth gaps.
 
 Slice 814 retired the JS-authored latest runtime-survey public envelope from
 the model_mount read-projection path. The runtime-daemon sends primitive
@@ -1703,10 +1708,12 @@ through the broad Rust projection envelope.
 Slice 856 retired broad snapshot/projection server-status input from JS. The
 default model_mount read-projection input no longer sends
 `server_status_input: serverStatusProjectionInput(...)` for broad `snapshot`
-and `projection` requests. The dedicated `server_status` read projection and
-authority snapshot still use their explicit narrow server-status input, but JS
-volatile server-control state can no longer become public server truth through
-the broad Rust projection envelope.
+and `projection` requests. Later Slice 1006 retired the remaining dedicated
+`server_status_input` transport: the dedicated `server_status` read projection
+now sends empty state and request-level `base_url`, while authority snapshot
+remains receipt-only. JS volatile server-control state can no longer become
+public server truth through either the broad Rust projection envelope or the
+dedicated server-status readback.
 
 Slice 857 retired dedicated authority and adapter-boundary JS read-projection
 input. The `adapter_boundaries` read projection now sends an empty state object
@@ -4538,7 +4545,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 1005, public runtime account, runtime-node, tool
+Current lane note: after Slice 1006, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4559,6 +4566,10 @@ public repository workflow routes call the mounted repository surface directly;
 public skill and hook catalog routes call the mounted skill-hook registry
 surface directly; public model catalog and model-capability routes call the
 mounted model-mount read-projection surface directly;
+model-mount `server_status` read projection now sends empty request state plus
+request-level `base_url` into Rust, and the deleted JS
+`serverStatusProjectionInput()` helper can no longer materialize public server
+truth from volatile server-control state;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

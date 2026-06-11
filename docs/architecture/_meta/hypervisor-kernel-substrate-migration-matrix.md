@@ -17612,6 +17612,11 @@ authority snapshot still use their explicit narrow server-status input. The
 focused test asserts `server_status_input` is absent from broad
 snapshot/projection request state.
 
+Later Slice 1006 retired that remaining dedicated server-status migration
+payload: `server_status` now sends empty request state plus request-level
+`base_url`, and Rust authors the public default server-status envelope without
+reading JS volatile server-control input.
+
 Focused evidence:
 
 | Check | Result |
@@ -20362,6 +20367,28 @@ Verification commands for this slice:
 | `npm run hypervisor-conformance:docs` | passed |
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
+## Implementation Slice Evidence: 1006
+
+Slice 1006 retired the remaining dedicated model-mount server-status
+`server_status_input` migration payload from the runtime-daemon read-projection
+facade. `serverStatus()` still routes through Rust `plan_model_mount_read_projection`
+kind `server_status`, but the JS edge now sends empty request state plus
+request-level `base_url`; Rust authors the default server-status envelope from
+the read-projection core instead of reading volatile JS server-control material.
+
+This is still non-terminal migration work: the server-status readback no longer
+depends on a JS input helper, but direct Rust daemon-core server-control
+state/log/event/projection APIs over Agentgres-admitted server/backend/provider
+truth, stable protocol APIs, and command-transport retirement remain required
+before server control reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1006 | Deleted `serverStatusProjectionInput()` / `serverControlStateInput()` and made dedicated `server_status` read projection send `{}` with request-level `base_url`; Rust returns the default public server-status envelope. | Direct Rust daemon-core server-control projection over Agentgres-backed server/backend/provider truth replaces command-transport migration plumbing, local volatile state, and edge translation. |
 
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.

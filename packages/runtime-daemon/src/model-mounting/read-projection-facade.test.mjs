@@ -265,7 +265,7 @@ function rustProjectionFixture(request) {
     });
   }
   if (request.projection_kind === "provider_health") return [];
-  if (request.projection_kind === "server_status") return serverStatusFromRustState(state, request.schema_version);
+  if (request.projection_kind === "server_status") return serverStatusFromRustRequest(request);
   if (request.projection_kind === "workflow_bindings") return workflowBindingsFromRust();
   if (request.projection_kind === "adapter_boundaries") return adapterBoundariesFromState(state);
   if (request.projection_kind === "runtime_engines") return [];
@@ -329,7 +329,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "snapshot") {
     return {
       schemaVersion: request.schema_version,
-      server: serverStatusFromRustState(state, request.schema_version),
+      server: serverStatusFromRustRequest(request),
       catalog: catalogStatusFromRustState(state, request.schema_version),
       oauthSessions: state.oauth_sessions,
       oauthStates: state.oauth_states,
@@ -391,7 +391,7 @@ function rustProjectionFixture(request) {
       schemaVersion: "ioi.wallet-core-lite.authority.v1",
       source: "agentgres_wallet_authority_projection",
       generatedAt: request.generated_at,
-      server: serverStatusFromRustState(state, request.schema_version),
+      server: serverStatusFromRustRequest(request),
       wallet: state.wallet ?? null,
       vault: state.vault ?? null,
       grants: state.grants ?? [],
@@ -499,35 +499,31 @@ function latestRuntimeSurveyFromRustState(state) {
   };
 }
 
-function serverStatusFromRustState(state, schemaVersion) {
-  const input = state.server_status_input ?? {};
-  const controlState = input.control_state ?? {};
-  const loadedInstances = input.loaded_instances ?? 0;
-  const baseUrl = input.base_url ?? null;
-  const countStatuses = (statuses = [], accepted = []) => statuses.filter((status) => accepted.includes(status)).length;
+function serverStatusFromRustRequest(request) {
+  const baseUrl = request.base_url ?? null;
   return {
-    schemaVersion: input.schema_version ?? schemaVersion,
-    status: loadedInstances > 0 ? "running" : "stopped",
-    gatewayStatus: controlState.gateway_status ?? "running",
-    controlStatus: controlState.status ?? "running",
-    lastServerOperation: controlState.operation ?? "server_status",
-    lastServerOperationAt: controlState.updated_at ?? null,
-    lastServerReceiptId: controlState.receipt_id ?? null,
+    schemaVersion: request.schema_version,
+    status: "stopped",
+    gatewayStatus: "running",
+    controlStatus: "running",
+    lastServerOperation: "server_status",
+    lastServerOperationAt: null,
+    lastServerReceiptId: null,
     nativeBaseUrl: baseUrl ? `${baseUrl}/api/v1` : "/api/v1",
     openAiCompatibleBaseUrl: baseUrl ? `${baseUrl}/v1` : "/v1",
-    loadedInstances,
-    mountedEndpoints: input.mounted_endpoints ?? 0,
+    loadedInstances: 0,
+    mountedEndpoints: 0,
     providerStates: {
-      available: countStatuses(input.provider_statuses, ["available", "configured", "running"]),
-      degraded: countStatuses(input.provider_statuses, ["blocked", "absent", "stopped"]),
+      available: 0,
+      degraded: 0,
     },
     backendStates: {
-      available: countStatuses(input.backend_statuses, ["available", "configured", "running"]),
-      degraded: countStatuses(input.backend_statuses, ["blocked", "absent", "stopped", "degraded"]),
+      available: 0,
+      degraded: 0,
     },
     idleTtlSeconds: 900,
     autoEvict: true,
-    checkedAt: input.checked_at ?? null,
+    checkedAt: null,
   };
 }
 
@@ -935,14 +931,10 @@ test("read projection facade delegates server status through Rust projection", (
   assert.equal(status.nativeBaseUrl, "http://127.0.0.1:3200/api/v1");
   assert.equal(status.openAiCompatibleBaseUrl, "http://127.0.0.1:3200/v1");
   assert.equal(status.loadedInstances, 0);
-  assert.equal(status.mountedEndpoints, 1);
+  assert.equal(status.mountedEndpoints, 0);
   assert.deepEqual(readProjectionRequests.map((request) => request.projection_kind), ["server_status"]);
-  assert.deepEqual(Object.keys(readProjectionRequests[0].state), ["server_status_input"]);
-  assert.equal(readProjectionRequests[0].state.server_status_input.loaded_instances, 0);
-  assert.equal(readProjectionRequests[0].state.server_status_input.mounted_endpoints, 1);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.server_status_input, "status"), false);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.server_status_input, "provider_statuses"), false);
-  assert.equal(Object.hasOwn(readProjectionRequests[0].state.server_status_input, "backend_statuses"), false);
+  assert.deepEqual(readProjectionRequests[0].state, {});
+  assert.equal(Object.hasOwn(readProjectionRequests[0].state, "server_status_input"), false);
   assert.equal(readProjectionRequests[0].base_url, "http://127.0.0.1:3200");
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "receipts"), false);
   assert.equal(Object.hasOwn(readProjectionRequests[0].state, "projection"), false);

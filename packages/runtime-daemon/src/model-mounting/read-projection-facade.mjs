@@ -1,7 +1,5 @@
 import { notFound } from "./io.mjs";
 
-const SERVER_CONTROL_RECORD_ID = "server-control.default";
-
 export function createModelMountingReadProjectionFacade({
   modelMountSchemaVersion,
   notFound: notFoundDep = notFound,
@@ -319,9 +317,7 @@ export function createModelMountingReadProjectionFacade({
       };
     }
     if (projectionKind === "server_status") {
-      return {
-        server_status_input: serverStatusProjectionInput(state, baseUrl, { schema_version: modelMountSchemaVersion }),
-      };
+      return {};
     }
     if (projectionKind === "catalog_status") return {};
     if (projectionKind === "receipt_replay") {
@@ -410,39 +406,5 @@ export function createModelMountingReadProjectionFacade({
     runtimeModelCatalogList,
     snapshot,
     workflowNodeBindings,
-  };
-}
-
-function serverStatusProjectionInput(state, baseUrl, { schema_version } = {}) {
-  state.evictExpiredInstances();
-  state.coalesceLoadedInstances();
-  const runningInstances = [...state.instances.values()].filter((instance) => instance.status === "loaded");
-  const controlState = serverControlStateInput(schema_version);
-  return {
-    schema_version,
-    base_url: baseUrl ?? null,
-    loaded_instances: runningInstances.length,
-    mounted_endpoints: state.endpoints.size,
-    control_state: {
-      status: controlState.status,
-      gateway_status: controlState.gatewayStatus,
-      operation: controlState.operation,
-      updated_at: controlState.updatedAt,
-      receipt_id: controlState.receiptId,
-    },
-    checked_at: state.nowIso(),
-  };
-}
-
-function serverControlStateInput(schema_version) {
-  return {
-    id: SERVER_CONTROL_RECORD_ID,
-    schemaVersion: schema_version,
-    status: "running",
-    gatewayStatus: "running",
-    operation: "server_status",
-    updatedAt: null,
-    receiptId: null,
-    evidenceRefs: ["ioi_daemon_public_runtime_api"],
   };
 }

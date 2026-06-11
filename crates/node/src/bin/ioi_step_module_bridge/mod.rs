@@ -8523,22 +8523,6 @@ mod tests {
             "wallet": {"port": "WalletAuthorityPort"},
             "vault": {"port": "VaultPort"},
             "agentgres_store": {"port": "AgentgresStorePort"},
-            "server_status_input": {
-                "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
-                "base_url": "http://127.0.0.1:3200",
-                "loaded_instances": 1,
-                "mounted_endpoints": 1,
-                "provider_statuses": ["running"],
-                "backend_statuses": ["running"],
-                "control_state": {
-                    "status": "running",
-                    "gateway_status": "running",
-                    "operation": "server_status",
-                    "updated_at": null,
-                    "receipt_id": null
-                },
-                "checked_at": "2026-06-08T00:00:00.000Z"
-            },
             "receipts": [
                 {
                     "id": "receipt-route",
@@ -8836,46 +8820,30 @@ mod tests {
                     "projection_kind": "server_status",
                     "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
                     "generated_at": "2026-06-08T00:00:00.000Z",
-                    "state": {
-                        "server_status_input": {
-                            "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
-                            "base_url": "http://127.0.0.1:3200",
-                            "loaded_instances": 1,
-                            "mounted_endpoints": 1,
-                            "provider_statuses": ["available", "blocked"],
-                            "backend_statuses": ["running", "degraded"],
-                            "control_state": {
-                                "status": "running",
-                                "gateway_status": "running",
-                                "operation": "server_status",
-                                "updated_at": null,
-                                "receipt_id": null
-                            },
-                            "checked_at": "2026-06-08T00:00:00.000Z"
-                        }
-                    }
+                    "base_url": "http://127.0.0.1:3200",
+                    "state": {}
                 }
             }))
             .expect("model_mount server status request");
         let server_status_response = plan_model_mount_read_projection(server_status_request)
             .expect("server status projected in Rust");
         assert_eq!(server_status_response["projection_kind"], "server_status");
-        assert_eq!(server_status_response["projection"]["status"], "running");
+        assert_eq!(server_status_response["projection"]["status"], "stopped");
         assert_eq!(
             server_status_response["projection"]["nativeBaseUrl"],
             "http://127.0.0.1:3200/api/v1"
         );
         assert_eq!(
             server_status_response["projection"]["providerStates"]["available"],
-            1
+            0
         );
         assert_eq!(
             server_status_response["projection"]["providerStates"]["degraded"],
-            1
+            0
         );
         assert_eq!(
             server_status_response["projection"]["backendStates"]["degraded"],
-            1
+            0
         );
 
         let catalog_status_request: ModelMountReadProjectionBridgeRequest =
