@@ -17,6 +17,7 @@ pub mod command_protocol;
 pub mod ctee;
 pub mod deadline;
 pub mod evidence;
+pub mod governed_admission;
 pub mod governed_receipt;
 pub mod inference;
 pub mod intent;

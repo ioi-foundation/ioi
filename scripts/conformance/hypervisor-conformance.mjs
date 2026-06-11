@@ -2309,6 +2309,9 @@ function runBridge() {
   const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     : "";
+  const governedAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/governed_admission.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/governed_admission.rs")
+    : "";
   const governedReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     : "";
@@ -6396,6 +6399,8 @@ function runBridge() {
       ) &&
       !/ReceiptBinder/.test(governedAdmissionCommandBridge) &&
       !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
+      !/L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
+      !/GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
       /pub\(super\) fn execute_private_workspace_ctee_action/.test(
         governedReceiptCommandBridge,
       ) &&
@@ -6424,9 +6429,17 @@ function runBridge() {
       ) &&
       /pub\(super\) fn admit_governed_runtime_improvement_proposal/.test(
         governedAdmissionCommandBridge,
-      ),
+      ) &&
+      /pub mod governed_admission;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn admit_l1_settlement_attempt_response/.test(governedAdmissionCore) &&
+      /pub fn admit_governed_runtime_improvement_proposal_response/.test(
+        governedAdmissionCore,
+      ) &&
+      /L1SettlementTriggerGuard/.test(governedAdmissionCore) &&
+      /GovernedEvolutionCore/.test(governedAdmissionCore),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/governed_admission.rs",
       "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
@@ -14092,18 +14105,19 @@ function runBridge() {
       /admit_l1_settlement_attempt/.test(bridgeModule) &&
       !/struct L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
       !/fn admit_l1_settlement_attempt/.test(bridgeModule) &&
-      /pub\(super\) struct L1SettlementAdmissionBridgeRequest/.test(
-        governedAdmissionCommandBridge,
-      ) &&
+      /L1SettlementAdmissionBridgeRequest/.test(governedAdmissionCommandBridge) &&
+      /pub struct L1SettlementAdmissionBridgeRequest/.test(governedAdmissionCore) &&
       /pub\(super\) fn admit_l1_settlement_attempt/.test(governedAdmissionCommandBridge) &&
-      /L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
-      /rust_l1_settlement_guard_command/.test(governedAdmissionCommandBridge) &&
-      /l1_settlement_guard/.test(governedAdmissionCommandBridge) &&
-      /l1_settlement_admission_invalid/.test(governedAdmissionCommandBridge) &&
+      !/L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
+      /L1SettlementTriggerGuard/.test(governedAdmissionCore) &&
+      /rust_l1_settlement_guard_command/.test(governedAdmissionCore) &&
+      /l1_settlement_guard/.test(governedAdmissionCore) &&
+      /l1_settlement_admission_invalid/.test(governedAdmissionCore) &&
       /l1_settlement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_admits_l1_settlement_attempt_through_rust_core/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/governed_admission.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
     ],
     "Phase 8/11 is pending: L1 settlement attempts must be admitted through the Rust trigger guard before any product surface can settle",
@@ -14370,20 +14384,22 @@ function runBridge() {
       /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
       !/struct GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
       !/fn admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
-      /pub\(super\) struct GovernedRuntimeImprovementBridgeRequest/.test(
-        governedAdmissionCommandBridge,
-      ) &&
+      /GovernedRuntimeImprovementBridgeRequest/.test(governedAdmissionCommandBridge) &&
+      /pub struct GovernedRuntimeImprovementBridgeRequest/.test(governedAdmissionCore) &&
       /pub\(super\) fn admit_governed_runtime_improvement_proposal/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /GovernedRuntimeImprovementProposal/.test(governedAdmissionCommandBridge) &&
-      /GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
-      /rust_governed_meta_improvement_command/.test(governedAdmissionCommandBridge) &&
+      !/GovernedRuntimeImprovementProposal/.test(governedAdmissionCommandBridge) &&
+      !/GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
+      /GovernedRuntimeImprovementProposal/.test(governedAdmissionCore) &&
+      /GovernedEvolutionCore/.test(governedAdmissionCore) &&
+      /rust_governed_meta_improvement_command/.test(governedAdmissionCore) &&
       /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule) &&
       /governed_improvement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /agentgres:\/\/runtime-improvement\/head\/current/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/governed_admission.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
     ],
     "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",

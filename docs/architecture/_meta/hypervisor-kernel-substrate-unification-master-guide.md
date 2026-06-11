@@ -6202,6 +6202,25 @@ receipt/state-root truth, replay, projection, wallet.network authority where
 applicable, cTEE custody where applicable, and stable IDE/CLI/SDK surfaces end
 to end.
 
+Slice 1120 moves L1 settlement and governed runtime-improvement command
+response shaping out of the temporary Node governed-admission command bridge
+and into Rust `governed_admission.rs` under the kernel service crate. Rust core
+now owns the governed admission bridge request structs, L1 trigger-guard
+wrapping, governed-evolution proposal admission wrapping, canonical
+`rust_l1_settlement_guard_command` and
+`rust_governed_meta_improvement_command` response envelopes, and the error
+codes returned to the bridge boundary.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, L1 settlement runner,
+and governed-improvement runner still exist. The remaining
+`ioi_step_module_bridge/governed_admission_command.rs` file is a temporary
+delegate to Rust core, not a durable governed-admission boundary. The long-term
+target remains direct Rust daemon-core governed-admission protocol APIs over
+settlement trigger guards, governed proposal admission, Agentgres-backed
+receipt/state-root truth where applicable, replay, projection, wallet.network
+authority where applicable, and stable IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
