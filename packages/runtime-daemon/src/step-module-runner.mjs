@@ -1,8 +1,7 @@
-import { spawnSync } from "node:child_process";
-
 import {
   createCodingToolStepModuleProjection,
 } from "./step-module-abi.mjs";
+import { createStepModuleCommandInvoker } from "./step-module-command-runner.mjs";
 
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
@@ -65,11 +64,18 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
     assertNoStepModuleBackendSelection(options.backend);
     assertNoStepModuleCommandArgs(options.args);
     super();
-    this.command = optionalString(options.command);
     this.grpcAddr = optionalString(options.grpcAddr);
     this.shmemId = optionalString(options.shmemId);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeCommand = createStepModuleCommandInvoker({
+      command: options.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      ErrorClass: StepModuleRunnerError,
+      backend: this.backend,
+      env: STEP_MODULE_COMMAND_ENV,
+      workloadGrpcAddrEnv: WORKLOAD_GRPC_ADDR_ENV,
+      shmemIdEnv: WORKLOAD_SHMEM_ID_ENV,
+    });
   }
 
   get blocksDaemonJsExecution() {
@@ -112,65 +118,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
   }
 
   invokeBridge(request) {
-    if (this.mockResult) {
-      return normalizeBridgeResult(this.mockResult, {
-        source: "rust_workload_mock",
-        invocation: request.invocation,
-      });
-    }
-    if (!this.command) {
-      throw new StepModuleRunnerError(
-        "Rust workload StepModule runner requires IOI_STEP_MODULE_COMMAND for command-bridge execution.",
-        "rust_workload_bridge_unconfigured",
-        {
-          backend: this.backend,
-          env: STEP_MODULE_COMMAND_ENV,
-          workloadGrpcAddrEnv: WORKLOAD_GRPC_ADDR_ENV,
-          shmemIdEnv: WORKLOAD_SHMEM_ID_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new StepModuleRunnerError(
-        "Failed to spawn Rust workload StepModule bridge command.",
-        "rust_workload_bridge_spawn_failed",
-        { backend: this.backend, error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new StepModuleRunnerError(
-        "Rust workload StepModule bridge command failed.",
-        "rust_workload_bridge_failed",
-        {
-          backend: this.backend,
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new StepModuleRunnerError(
-        "Rust workload StepModule bridge command returned invalid JSON.",
-        "rust_workload_bridge_invalid_json",
-        { backend: this.backend, error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new StepModuleRunnerError(
-        parsed.error?.message ?? "Rust workload StepModule bridge rejected the invocation.",
-        parsed.error?.code ?? "rust_workload_bridge_rejected",
-        { backend: this.backend, error: parsed.error },
-      );
-    }
-    return normalizeBridgeResult(parsed.result ?? parsed, {
+    return normalizeBridgeResult(this.invokeCommand(request), {
       source: "rust_workload_command",
       invocation: request.invocation,
     });

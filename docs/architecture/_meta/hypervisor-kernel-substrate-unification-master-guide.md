@@ -5220,6 +5220,23 @@ Resume by making the StepModuleRouter/Rust workload boundary a deliberate
 Rust-core cut, then replacing the shared daemon-core command helper and Node
 command bridge with direct Rust daemon-core protocol/API ownership.
 
+Slice 1062 removes the final runner-local command spawn from the StepModule
+workload runner without treating the Node bridge as canonical architecture.
+`packages/runtime-daemon/src/step-module-runner.mjs` now delegates the
+temporary StepModule command-bridge transport to
+`packages/runtime-daemon/src/step-module-command-runner.mjs`; the runner keeps
+the Rust workload live contract, invocation projection, and fail-closed backend
+selection behavior, but no longer imports `node:child_process` or owns the
+spawn/JSON/Rust-rejection mechanics. Conformance now fails if the StepModule
+runner regains direct child-process ownership, while the helper is explicitly
+the remaining temporary process boundary for the distinct StepModule workload
+schema. This is still not terminal StepModuleRouter migration. Resume by
+replacing the StepModule command helper, the shared daemon-core command helper,
+and the Node bridge with direct Rust daemon-core/workload protocol APIs,
+Rust/WASM module execution, Agentgres admission, receipt/state-root binding,
+replay, projection, wallet.network authority, cTEE custody, and stable
+IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

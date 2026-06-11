@@ -16259,6 +16259,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1062
+
+Slice 1062 removes direct command-process ownership from the runtime-daemon
+StepModule workload runner. `packages/runtime-daemon/src/step-module-runner.mjs`
+now delegates fixed empty-argv command invocation, mock handling, JSON parsing,
+process failure mapping, and Rust rejection mapping to
+`packages/runtime-daemon/src/step-module-command-runner.mjs` instead of
+importing `node:child_process` directly. This helper is intentionally separate
+from `runtime-daemon-core-command-runner.mjs` because the StepModule workload
+schema remains distinct from the daemon-core command schema.
+
+This is a StepModule scaffolding collapse, not terminal Rust API ownership.
+The StepModule command helper, shared daemon-core command helper, and Node
+bridge remain temporary migration transport until direct Rust daemon-core and
+Rust/WASM workload APIs own StepModuleRouter dispatch, workload execution,
+Agentgres admission, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-command-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slice 1062 with the next larger
+Rust-core extraction or facade-retirement seam once the direct StepModuleRouter
+or daemon-core command-helper retirement boundary is clearer. Future resumes
+must not treat `step-module-command-runner.mjs`, the shared daemon-core command
+helper, or the Node bridge as canonical long-term architecture.
+
 Scheduled matrix-compaction obligation from Slice 788 is now satisfied. The
 next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after
