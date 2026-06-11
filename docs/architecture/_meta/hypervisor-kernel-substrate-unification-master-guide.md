@@ -5478,6 +5478,32 @@ APIs over Agentgres-admitted truth, receipt/state-root binding, replay,
 projection, wallet.network authority, cTEE custody, and stable IDE/CLI/SDK
 protocol surfaces.
 
+Slice 1077 retires duplicate bridge-local envelope identity checks from the
+model-mount command wrapper. `model_mount_command.rs` no longer carries local
+`schema_version` or `operation` fields and no longer owns local
+`schema_version_invalid` or `operation_unsupported` branches for route
+decision, invocation admission, provider execution, provider invocation and
+stream invocation, provider lifecycle and inventory, instance lifecycle,
+provider-result admission, backend-process planning, backend/server/runtime/
+tokenizer/route-control required records, accepted-receipt head and transition
+planning, invocation receipt binding, or read projection. The wrapper now
+deserializes only body-specific backend/request/invocation/result/head fields
+before entering the Rust model_mount core, StepModuleRouter, ReceiptBinder,
+Agentgres admission, and Rust projection cores. The model-mount runtime schema
+constant remains only for Rust-authored route-selection receipt payload output;
+it is no longer command-envelope identity.
+
+The representative StepModule-schema rejection proofs for model-mount route
+decision, provider invocation, receipt binding, and read projection now live at
+the Rust command protocol validator boundary. Conformance now fails if the
+model-mount child module regains local command-envelope identity. This is
+still not terminal bridge retirement: `command_dispatch.rs`, the shared
+daemon-core command helper, JS command callers, and model-mount JS facades must
+still be replaced by direct Rust daemon-core/model_mount protocol APIs over
+Rust/WASM workload execution, Agentgres-admitted truth, receipt/state-root
+binding, replay, projection, wallet.network authority, cTEE custody, and stable
+IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

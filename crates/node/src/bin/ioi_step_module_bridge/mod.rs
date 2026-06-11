@@ -278,34 +278,36 @@ mod tests {
 
     #[test]
     fn model_mount_route_decision_rejects_step_module_command_schema() {
-        let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_model_mount_route_decision",
-            "backend": "rust_model_mount_live",
-            "request": {
-                "schema_version": "ioi.model_mount.route_decision.v1",
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "policy_hash": "sha256:policy",
-                "idempotency_key": "model_route_decision:test",
-                "receipt_refs": ["receipt://route"],
-                "authority_grant_refs": [],
-                "authority_receipt_refs": [],
-                "privacy_profile": "local_private",
-                "node_plaintext_allowed": false
-            }
-        }))
-        .expect("bridge request");
+        assert_model_mount_command_rejects_step_module_schema("admit_model_mount_route_decision");
+    }
 
-        let error = admit_model_mount_route_decision(request)
-            .expect_err("daemon-core model_mount rejects StepModule command schema");
+    #[test]
+    fn model_mount_provider_invocation_rejects_step_module_command_schema() {
+        assert_model_mount_command_rejects_step_module_schema(
+            "execute_model_mount_provider_invocation",
+        );
+    }
 
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    #[test]
+    fn model_mount_receipt_binding_rejects_step_module_command_schema() {
+        assert_model_mount_command_rejects_step_module_schema(
+            "bind_model_mount_invocation_receipt",
+        );
+    }
+
+    #[test]
+    fn model_mount_read_projection_rejects_step_module_command_schema() {
+        assert_model_mount_command_rejects_step_module_schema("plan_model_mount_read_projection");
+    }
+
+    fn assert_model_mount_command_rejects_step_module_schema(operation: &str) {
+        let error = validate_command_envelope(operation, STEP_MODULE_COMMAND_SCHEMA_VERSION)
+            .expect_err(
+                "Rust command protocol rejects StepModule schema before model-mount dispatch",
+            );
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

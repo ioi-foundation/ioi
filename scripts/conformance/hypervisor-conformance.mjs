@@ -6229,6 +6229,89 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "bridge-model-mount-local-envelope-checks-retired",
+    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(modelMountCommandBridge) &&
+      !/schema_version:\s*String/.test(modelMountCommandBridge) &&
+      !/operation:\s*String/.test(modelMountCommandBridge) &&
+      !/schema_version_invalid/.test(modelMountCommandBridge) &&
+      !/operation_unsupported/.test(modelMountCommandBridge) &&
+      /fn assert_model_mount_command_rejects_step_module_schema/.test(bridgeModule) &&
+      /assert_model_mount_command_rejects_step_module_schema\(\s*"admit_model_mount_route_decision",?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /assert_model_mount_command_rejects_step_module_schema\(\s*"execute_model_mount_provider_invocation",?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /assert_model_mount_command_rejects_step_module_schema\(\s*"bind_model_mount_invocation_receipt",?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /assert_model_mount_command_rejects_step_module_schema\(\s*"plan_model_mount_read_projection",?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /pub\(super\) fn admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
+      /pub\(super\) fn admit_model_mount_invocation/.test(modelMountCommandBridge) &&
+      /pub\(super\) fn admit_model_mount_provider_execution/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn execute_model_mount_provider_invocation/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn execute_model_mount_provider_stream_invocation/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_provider_lifecycle/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_provider_inventory/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_instance_lifecycle/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn admit_model_mount_provider_result/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_backend_process/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_backend_lifecycle_required/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_server_control_required/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_runtime_engine_required/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_tokenizer_required/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_route_control_required/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_accepted_receipt_head/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_accepted_receipt_transition/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn bind_model_mount_invocation_receipt/.test(
+        modelMountCommandBridge,
+      ) &&
+      /pub\(super\) fn plan_model_mount_read_projection/.test(
+        modelMountCommandBridge,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 3/5/10/11 remains non-terminal: model-mount child wrappers must not regain local command-envelope identity while the next Rust-core extraction/facade-retirement slice replaces the temporary Node bridge with direct daemon-core model_mount protocol APIs",
+  );
+  assertCheck(
+    result,
     "external-capability-exit-authority-daemon-runner",
     /EXTERNAL_CAPABILITY_AUTHORITY_COMMAND_ENV/.test(externalCapabilityAuthorityRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(externalCapabilityAuthorityRunner) &&
@@ -10688,7 +10771,7 @@ function runBridge() {
       /pub struct ModelMountReadProjectionRequest/.test(modelMountCore) &&
       /pub fn plan_read_projection/.test(modelMountCore) &&
       /read_projection_is_planned_in_rust_model_mount_core/.test(modelMountCore) &&
-      !/fn model_mount_read_projection/.test(modelMountCommandSurface) &&
+      !/fn model_mount_read_projection\(/.test(modelMountCommandSurface) &&
       /mod aggregate;/.test(modelMountReadProjectionEvidence) &&
       /"snapshot" => Ok\(aggregate::snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"projection" => Ok\(aggregate::projection\(request\)\)/.test(modelMountReadProjectionEvidence) &&

@@ -15785,6 +15785,51 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1077
+
+Slice 1077 retires duplicate bridge-local command-envelope identity checks from
+the model-mount command wrapper. `model_mount_command.rs` now deserializes only
+body-specific backend/request/invocation/result/head fields before entering the
+Rust model_mount core, StepModuleRouter, ReceiptBinder, Agentgres admission,
+and Rust projection cores. It no longer carries local `schema_version`/
+`operation` fields or local `schema_version_invalid`/`operation_unsupported`
+branches for route decision, invocation admission, provider execution,
+provider invocation and stream invocation, provider lifecycle and inventory,
+instance lifecycle, provider-result admission, backend-process planning,
+backend/server/runtime/tokenizer/route-control required records,
+accepted-receipt head and transition planning, invocation receipt binding, or
+read projection.
+
+The representative fail-closed schema-family proofs for model-mount route
+decision, provider invocation, receipt binding, and read projection now live at
+the Rust command protocol boundary through `validate_command_envelope()`.
+Conformance now fails if the model-mount child wrapper regains local envelope
+identity. This is not terminal bridge retirement: `command_dispatch.rs`, the
+shared daemon-core command helper, JS command callers, and model-mount JS
+facades still must be replaced by direct Rust daemon-core model_mount protocol
+APIs over Rust/WASM workload execution, Agentgres-admitted truth,
+receipt/state-root binding, replay, projection, wallet.network authority,
+cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node rejects_step_module_command_schema --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1076
 
 Slice 1076 retires duplicate bridge-local command-envelope identity checks from

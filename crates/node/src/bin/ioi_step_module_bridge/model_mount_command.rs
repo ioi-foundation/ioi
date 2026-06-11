@@ -24,13 +24,10 @@ use ioi_services::agentic::runtime::kernel::step_router::StepModuleRouterCore;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION, MODEL_MOUNT_RUNTIME_SCHEMA_VERSION};
+use super::{BridgeError, MODEL_MOUNT_RUNTIME_SCHEMA_VERSION};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountRouteDecisionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountRouteDecisionRequest,
@@ -38,9 +35,6 @@ pub(super) struct ModelMountRouteDecisionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountInvocationAdmissionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountInvocationAdmissionRequest,
@@ -48,9 +42,6 @@ pub(super) struct ModelMountInvocationAdmissionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountProviderExecutionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountProviderExecutionRequest,
@@ -58,9 +49,6 @@ pub(super) struct ModelMountProviderExecutionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountProviderInvocationBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountProviderInvocationRequest,
@@ -68,9 +56,6 @@ pub(super) struct ModelMountProviderInvocationBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountProviderLifecycleBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountProviderLifecycleRequest,
@@ -78,9 +63,6 @@ pub(super) struct ModelMountProviderLifecycleBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountProviderInventoryBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountProviderInventoryRequest,
@@ -88,9 +70,6 @@ pub(super) struct ModelMountProviderInventoryBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountInstanceLifecycleBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountInstanceLifecycleRequest,
@@ -98,9 +77,6 @@ pub(super) struct ModelMountInstanceLifecycleBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountProviderResultAdmissionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountProviderResultAdmissionRequest,
@@ -108,9 +84,6 @@ pub(super) struct ModelMountProviderResultAdmissionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountBackendProcessPlanBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountBackendProcessPlanRequest,
@@ -118,9 +91,6 @@ pub(super) struct ModelMountBackendProcessPlanBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountBackendLifecycleRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountBackendLifecycleRequiredRequest,
@@ -128,9 +98,6 @@ pub(super) struct ModelMountBackendLifecycleRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountServerControlRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountServerControlRequiredRequest,
@@ -138,9 +105,6 @@ pub(super) struct ModelMountServerControlRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountRuntimeEngineRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountRuntimeEngineRequiredRequest,
@@ -148,9 +112,6 @@ pub(super) struct ModelMountRuntimeEngineRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountTokenizerRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountTokenizerRequiredRequest,
@@ -158,9 +119,6 @@ pub(super) struct ModelMountTokenizerRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountRouteControlRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountRouteControlRequiredRequest,
@@ -168,9 +126,6 @@ pub(super) struct ModelMountRouteControlRequiredBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountAcceptedReceiptHeadBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountAcceptedReceiptHeadRequest,
@@ -178,9 +133,6 @@ pub(super) struct ModelMountAcceptedReceiptHeadBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountAcceptedReceiptTransitionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountAcceptedReceiptTransitionRequest,
@@ -188,9 +140,6 @@ pub(super) struct ModelMountAcceptedReceiptTransitionBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountInvocationReceiptBindingBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     invocation: StepModuleInvocation,
@@ -205,9 +154,6 @@ pub(super) struct ModelMountInvocationReceiptBindingBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct ModelMountReadProjectionBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountReadProjectionRequest,
@@ -216,21 +162,6 @@ pub(super) struct ModelMountReadProjectionBridgeRequest {
 pub(super) fn admit_model_mount_route_decision(
     request: ModelMountRouteDecisionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_model_mount_route_decision" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .admit_route_decision(&request.request)
         .map_err(|error| {
@@ -326,21 +257,6 @@ fn rust_authored_route_selection_receipt(
 pub(super) fn admit_model_mount_invocation(
     request: ModelMountInvocationAdmissionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_model_mount_invocation" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .admit_invocation(&request.request)
         .map_err(|error| {
@@ -363,21 +279,6 @@ pub(super) fn admit_model_mount_invocation(
 pub(super) fn admit_model_mount_provider_execution(
     request: ModelMountProviderExecutionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_model_mount_provider_execution" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .admit_provider_execution(&request.request)
         .map_err(|error| {
@@ -403,21 +304,6 @@ pub(super) fn admit_model_mount_provider_execution(
 pub(super) fn execute_model_mount_provider_invocation(
     request: ModelMountProviderInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "execute_model_mount_provider_invocation" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let result = ModelMountCore
         .invoke_provider(&request.request)
         .map_err(|error| {
@@ -460,21 +346,6 @@ pub(super) fn execute_model_mount_provider_invocation(
 pub(super) fn execute_model_mount_provider_stream_invocation(
     request: ModelMountProviderInvocationBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "execute_model_mount_provider_stream_invocation" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let result = ModelMountCore
         .invoke_provider_stream(&request.request)
         .map_err(|error| {
@@ -526,21 +397,6 @@ pub(super) fn execute_model_mount_provider_stream_invocation(
 pub(super) fn plan_model_mount_provider_lifecycle(
     request: ModelMountProviderLifecycleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_provider_lifecycle" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let result = ModelMountCore
         .plan_provider_lifecycle(&request.request)
         .map_err(|error| {
@@ -573,21 +429,6 @@ pub(super) fn plan_model_mount_provider_lifecycle(
 pub(super) fn plan_model_mount_provider_inventory(
     request: ModelMountProviderInventoryBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_provider_inventory" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let result = ModelMountCore
         .plan_provider_inventory(&request.request)
         .map_err(|error| {
@@ -624,21 +465,6 @@ pub(super) fn plan_model_mount_provider_inventory(
 pub(super) fn plan_model_mount_instance_lifecycle(
     request: ModelMountInstanceLifecycleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_instance_lifecycle" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let result = ModelMountCore
         .plan_instance_lifecycle(&request.request)
         .map_err(|error| {
@@ -672,21 +498,6 @@ pub(super) fn plan_model_mount_instance_lifecycle(
 pub(super) fn admit_model_mount_provider_result(
     request: ModelMountProviderResultAdmissionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_model_mount_provider_result" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .admit_provider_result(&request.request)
         .map_err(|error| {
@@ -710,21 +521,6 @@ pub(super) fn admit_model_mount_provider_result(
 pub(super) fn plan_model_mount_backend_process(
     request: ModelMountBackendProcessPlanBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_backend_process" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let plan = ModelMountCore
         .plan_backend_process(&request.request)
         .map_err(|error| {
@@ -751,21 +547,6 @@ pub(super) fn plan_model_mount_backend_process(
 pub(super) fn plan_model_mount_backend_lifecycle_required(
     request: ModelMountBackendLifecycleRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_backend_lifecycle_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .plan_backend_lifecycle_required(&request.request)
         .map_err(|error| {
@@ -791,21 +572,6 @@ pub(super) fn plan_model_mount_backend_lifecycle_required(
 pub(super) fn plan_model_mount_server_control_required(
     request: ModelMountServerControlRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_server_control_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .plan_server_control_required(&request.request)
         .map_err(|error| {
@@ -831,21 +597,6 @@ pub(super) fn plan_model_mount_server_control_required(
 pub(super) fn plan_model_mount_runtime_engine_required(
     request: ModelMountRuntimeEngineRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_runtime_engine_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .plan_runtime_engine_required(&request.request)
         .map_err(|error| {
@@ -871,21 +622,6 @@ pub(super) fn plan_model_mount_runtime_engine_required(
 pub(super) fn plan_model_mount_tokenizer_required(
     request: ModelMountTokenizerRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_tokenizer_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .plan_tokenizer_required(&request.request)
         .map_err(|error| {
@@ -911,21 +647,6 @@ pub(super) fn plan_model_mount_tokenizer_required(
 pub(super) fn plan_model_mount_route_control_required(
     request: ModelMountRouteControlRequiredBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_route_control_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = ModelMountCore
         .plan_route_control_required(&request.request)
         .map_err(|error| {
@@ -952,21 +673,6 @@ pub(super) fn plan_model_mount_route_control_required(
 pub(super) fn plan_model_mount_accepted_receipt_head(
     request: ModelMountAcceptedReceiptHeadBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_accepted_receipt_head" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let head = ModelMountCore
         .plan_accepted_receipt_head(&request.request)
         .map_err(|error| {
@@ -991,21 +697,6 @@ pub(super) fn plan_model_mount_accepted_receipt_head(
 pub(super) fn plan_model_mount_accepted_receipt_transition(
     request: ModelMountAcceptedReceiptTransitionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_accepted_receipt_transition" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let transition = ModelMountCore
         .plan_accepted_receipt_transition(&request.request)
         .map_err(|error| {
@@ -1033,21 +724,6 @@ pub(super) fn plan_model_mount_accepted_receipt_transition(
 pub(super) fn bind_model_mount_invocation_receipt(
     request: ModelMountInvocationReceiptBindingBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "bind_model_mount_invocation_receipt" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     if request.invocation.module_ref.kind != StepModuleKind::ModelMount
         || request.invocation.execution.backend != StepModuleBackend::ModelMount
     {
@@ -1192,21 +868,6 @@ pub(super) fn bind_model_mount_invocation_receipt(
 pub(super) fn plan_model_mount_read_projection(
     request: ModelMountReadProjectionBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_model_mount_read_projection" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let plan = ModelMountCore
         .plan_read_projection(&request.request)
         .map_err(|error| BridgeError::new(error.code, error.message))?;
