@@ -6439,6 +6439,28 @@ model-mount lifecycle/projection APIs over Agentgres expected-head and
 state-root truth, receipt-bound topology, wallet.network/cTEE authority where
 applicable, replay, projection, and stable IDE/CLI/SDK surfaces end to end.
 
+Slice 1132 moves model-mount route-decision and invocation-admission command
+request/response shaping out of the temporary Node model-mount bridge and into
+Rust `model_mount/admission.rs`. Rust core now owns the bridge request structs,
+response envelopes, canonical command source markers, backend defaults, and
+bridge-facing error propagation for `admit_model_mount_route_decision` and
+`admit_model_mount_invocation`. The Rust admission owner also authors the
+accepted `model_route_selection` receipt detail envelope, including canonical
+snake_case route/model/provider/workflow fields and the
+`rust_daemon_core_model_route_selection_receipt` evidence marker. The remaining
+Node functions only delegate to the Rust response functions.
+
+This remains non-terminal because model-mount command transport, command
+dispatch, the shared daemon-core command runner, JS command callers,
+model-mount admission runner, provider execution/provider-result wrapper
+delegates, local materialization, and mounted JS facades still exist. The
+remaining `ioi_step_module_bridge/model_mount_command.rs` file is temporary
+transport scaffolding, not a durable model-mount admission boundary. The
+long-term target remains direct Rust daemon-core model-mount admission,
+provider execution, receipt/state-root binding, Agentgres truth, wallet.network
+and cTEE authority checks where applicable, replay, projection, and stable
+IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

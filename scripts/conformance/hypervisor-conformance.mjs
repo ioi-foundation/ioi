@@ -2616,6 +2616,7 @@ function runBridge() {
   const modelRouteSelectionDetailsObject =
     modelRoutes.match(/const payload = \{[\s\S]*?details: \{([\s\S]*?)\n    \},\n  \};/)?.[1] ??
     modelMountCommandBridge.match(/"details": \{([\s\S]*?)\n        \},\n        "schemaVersion"/)?.[1] ??
+    modelMountCore.match(/"details": \{([\s\S]*?)\n        \},\n        "schemaVersion"/)?.[1] ??
     "";
   const modelRouteDecisionPath = "packages/runtime-daemon/src/model-mounting/route-decision.mjs";
   const modelRouteDecisionTestPath = "packages/runtime-daemon/src/model-mounting/route-decision.test.mjs";
@@ -6895,6 +6896,40 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "model-mount-admission-command-envelopes-owned-by-rust-core",
+    /pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
+      /rust_authored_route_selection_receipt/.test(modelMountCore) &&
+      /rust_daemon_core_model_route_selection_receipt/.test(modelMountCore) &&
+      /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
+      /rust_model_mount_invocation_command/.test(modelMountCore) &&
+      /core_admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
+      /core_admit_model_mount_invocation/.test(modelMountCommandBridge) &&
+      /fn admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
+      /fn admit_model_mount_invocation/.test(modelMountCommandBridge) &&
+      /ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
+      /ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountRouteDecisionRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountInvocationAdmissionRequest/.test(modelMountCommandBridge) &&
+      !/rust_authored_route_selection_receipt/.test(modelMountCommandBridge) &&
+      !/rust_daemon_core_model_route_selection_receipt/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_command/.test(modelMountCommandBridge) &&
+      !/rust_model_mount_invocation_command/.test(modelMountCommandBridge) &&
+      !/model_mount_route_decision_source/.test(modelMountCommandBridge) &&
+      !/model_mount_route_decision_receipt_refs/.test(modelMountCommandBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount/admission.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 migration guard: model-mount route-decision and invocation-admission command envelopes, including Rust-authored route-selection receipt details, live in Rust model_mount core; Node remains a temporary transport delegate only",
+  );
+  assertCheck(
+    result,
     "model-mount-planning-command-envelopes-owned-by-rust-core",
     /pub struct ModelMountBackendProcessPlanBridgeRequest/.test(modelMountCore) &&
       /pub fn plan_model_mount_backend_process_response/.test(modelMountCore) &&
@@ -11079,11 +11114,14 @@ function runBridge() {
     /mod model_mount_command;/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
       !/fn admit_model_mount_route_decision/.test(bridgeModule) &&
-      /pub\(super\) struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
+      /pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
+      /core_admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
+      /ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
       /pub\(super\) fn admit_model_mount_route_decision/.test(modelMountCommandBridge) &&
       /admit_model_mount_route_decision/.test(modelMountCommandSurface) &&
-      /ModelMountCore/.test(modelMountCommandSurface) &&
-      /ModelMountRouteDecisionRequest/.test(modelMountCommandSurface) &&
+      /ModelMountRouteDecisionRequest/.test(modelMountCore) &&
       /bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
       /model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
       /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
@@ -11134,16 +11172,16 @@ function runBridge() {
       /route_selection_boundary:\s*details\.route_selection_boundary \?\? "model_mount\.route_selection"/.test(
         modelRoutes,
       ) &&
-      /rust_authored_route_selection_receipt/.test(modelMountCommandSurface) &&
-      /accepted_receipt_record/.test(modelMountCommandSurface) &&
+      /rust_authored_route_selection_receipt/.test(modelMountCore) &&
+      /accepted_receipt_record/.test(modelMountCore) &&
       /accepted_receipt_record/.test(modelMountAdmissionRunner) &&
       /persistRustAuthoredReceipt/.test(modelMountingState) &&
       !exists("packages/runtime-daemon/src/model-mounting/receipt-operations.mjs") &&
       /model_mount_js_receipt_creation_retired/.test(modelMountReceiptOperationsBridge) &&
       !/modelMountRouteDecision(?:SchemaVersion|Ref|Hash|Source|Backend|ReceiptRefs)?\s*:/.test(modelRoutes) &&
-      /model_route_decision_schema_version/.test(modelRoutes + modelMountCommandSurface) &&
-      /model_route_decision_event_kind/.test(modelRoutes + modelMountCommandSurface) &&
-      /model_route_decision_id/.test(modelRoutes + modelMountCommandSurface) &&
+      /model_route_decision_schema_version/.test(modelRoutes + modelMountCore) &&
+      /model_route_decision_event_kind/.test(modelRoutes + modelMountCore) &&
+      /model_route_decision_id/.test(modelRoutes + modelMountCore) &&
       !/model_route_decision:\s*modelRouteDecision/.test(modelRoutes) &&
       !/modelRouteDecision(?:SchemaVersion|EventKind|Id)/.test(modelRoutes) &&
       !exists(modelRouteDecisionPath) &&
@@ -11302,9 +11340,9 @@ function runBridge() {
     "model-mount-route-decision-identity-aliases-retired",
     !exists(modelRouteDecisionPath) &&
       !exists(modelRouteDecisionTestPath) &&
-      /"model_route_decision_schema_version": record\.schema_version/.test(modelMountCommandSurface) &&
-      /"model_route_decision_event_kind": "model_route_decision"/.test(modelMountCommandSurface) &&
-      /"model_route_decision_id": record\.idempotency_key/.test(modelMountCommandSurface) &&
+      /"model_route_decision_schema_version": record\.schema_version/.test(modelMountCore) &&
+      /"model_route_decision_event_kind": "model_route_decision"/.test(modelMountCore) &&
+      /"model_route_decision_id": record\.idempotency_key/.test(modelMountCore) &&
       !/schemaVersion\s*:/.test(modelRouteDecisionModule + modelRoutes) &&
       !/eventKind\s*:/.test(modelRouteDecisionModule + modelRoutes) &&
       !/decisionId\s*:/.test(modelRouteDecisionModule + modelRoutes) &&
@@ -11316,7 +11354,7 @@ function runBridge() {
       !/schemaVersion/.test(agentSdkModelRouteDecisionType) &&
       !/eventKind/.test(agentSdkModelRouteDecisionType) &&
       !/decisionId/.test(agentSdkModelRouteDecisionType) &&
-      /"model_route_decision_id": record\.idempotency_key/.test(modelMountCommandSurface) &&
+      /"model_route_decision_id": record\.idempotency_key/.test(modelMountCore) &&
       /modelRouteDecision\?\.decision_id/.test(runtimeRecordProjections) &&
       /modelRouteDecision\?\.decision_id/.test(threadTurnProjection) &&
       !/formatModelRouteDecision/.test(threadTurnProjection) &&
@@ -11341,10 +11379,10 @@ function runBridge() {
     "model-mount-route-decision-route-model-aliases-retired",
     !exists(modelRouteDecisionPath) &&
       !exists(modelRouteDecisionTestPath) &&
-      /"route_id": record\.route_ref/.test(modelMountCommandSurface) &&
-      /"selected_model": record\.model_ref/.test(modelMountCommandSurface) &&
-      /"selected_endpoint_id": record\.endpoint_ref/.test(modelMountCommandSurface) &&
-      /"provider_id": record\.provider_ref/.test(modelMountCommandSurface) &&
+      /"route_id": record\.route_ref/.test(modelMountCore) &&
+      /"selected_model": record\.model_ref/.test(modelMountCore) &&
+      /"selected_endpoint_id": record\.endpoint_ref/.test(modelMountCore) &&
+      /"provider_id": record\.provider_ref/.test(modelMountCore) &&
       !/^ {4}(?:routeId|requestedModel|requestedModelMode|autoResolved|selectedModel|upstreamModel|neverSendAutoUpstream|endpointId|providerId|providerKind|providerLabel)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + modelMountCommandSurface) &&
       /^\s*route_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*requested_model:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
@@ -11448,8 +11486,8 @@ function runBridge() {
     "model-mount-route-decision-workflow-aliases-retired",
     !exists(modelRouteDecisionPath) &&
       !exists(modelRouteDecisionTestPath) &&
-      /"workflow_graph_id": record\.workflow_graph_ref/.test(modelMountCommandSurface) &&
-      /"workflow_node_id": record\.workflow_node_ref/.test(modelMountCommandSurface) &&
+      /"workflow_graph_id": record\.workflow_graph_ref/.test(modelMountCore) &&
+      /"workflow_node_id": record\.workflow_node_ref/.test(modelMountCore) &&
       !/^ {4}(?:workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + modelMountCommandSurface) &&
       /^\s*workflow_graph_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*workflow_node_id:\s*string \| null;/m.test(agentSdkModelRouteDecisionType) &&
@@ -11483,8 +11521,8 @@ function runBridge() {
     "model-mount-route-decision-ref-aliases-retired",
     !exists(modelRouteDecisionPath) &&
       !exists(modelRouteDecisionTestPath) &&
-      /"policy_hash": record\.policy_hash/.test(modelMountCommandSurface) &&
-      /"model_mount_route_decision_receipt_refs": record\.receipt_refs/.test(modelMountCommandSurface) &&
+      /"policy_hash": record\.policy_hash/.test(modelMountCore) &&
+      /"model_mount_route_decision_receipt_refs": record\.receipt_refs/.test(modelMountCore) &&
       !/^ {4}(?:policyHash|evidenceRefs)\s*[:,]/m.test(modelRouteDecisionModule + modelRoutes + modelMountCommandSurface) &&
       /^\s*policy_hash\?:\s*string;/m.test(agentSdkModelRouteDecisionType) &&
       /^\s*evidence_refs:\s*string\[\];/m.test(agentSdkModelRouteDecisionType) &&
@@ -12159,14 +12197,14 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-selection-detail-aliases-retired",
-      /"route_id": record\.route_ref/.test(modelMountCommandSurface) &&
-      /"selected_model": record\.model_ref/.test(modelMountCommandSurface) &&
-      /"endpoint_id": record\.endpoint_ref/.test(modelMountCommandSurface) &&
-      /"provider_id": record\.provider_ref/.test(modelMountCommandSurface) &&
-      /"policy_hash": record\.policy_hash/.test(modelMountCommandSurface) &&
-      /"workflow_graph_id": record\.workflow_graph_ref/.test(modelMountCommandSurface) &&
-      /"workflow_node_id": record\.workflow_node_ref/.test(modelMountCommandSurface) &&
-      /"workflow_node_type": null/.test(modelMountCommandSurface) &&
+      /"route_id": record\.route_ref/.test(modelMountCore) &&
+      /"selected_model": record\.model_ref/.test(modelMountCore) &&
+      /"endpoint_id": record\.endpoint_ref/.test(modelMountCore) &&
+      /"provider_id": record\.provider_ref/.test(modelMountCore) &&
+      /"policy_hash": record\.policy_hash/.test(modelMountCore) &&
+      /"workflow_graph_id": record\.workflow_graph_ref/.test(modelMountCore) &&
+      /"workflow_node_id": record\.workflow_node_ref/.test(modelMountCore) &&
+      /"workflow_node_type": null/.test(modelMountCore) &&
       !/^ {6}(?:routeId|selectedModel|endpointId|providerId|policyHash|workflowGraphId|workflowNodeId|workflowNodeType)\s*[:,]/m.test(
         modelRouteSelectionDetailsObject,
       ) &&
@@ -13178,7 +13216,12 @@ function runBridge() {
     result,
     "model-mount-invocation-admission-live-bridge",
     /admit_model_mount_invocation/.test(modelMountCommandSurface) &&
-      /ModelMountInvocationAdmissionRequest/.test(modelMountCommandSurface) &&
+      /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
+      /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
+      /ModelMountInvocationAdmissionRequest/.test(modelMountCore) &&
+      /core_admit_model_mount_invocation/.test(modelMountCommandBridge) &&
+      !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
+      !/ModelMountInvocationAdmissionRequest/.test(modelMountCommandBridge) &&
       /bridge_admits_model_mount_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /admitInvocation/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_invocation_command/.test(modelMountAdmissionRunner) &&

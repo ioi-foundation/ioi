@@ -15697,6 +15697,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1132
+
+Slice 1132 moves the model-mount route-decision and invocation-admission
+daemon-core command response envelopes out of the temporary Rust Node bridge
+transport and into
+`crates/services/src/agentic/runtime/kernel/model_mount/admission.rs`. The
+canonical model_mount admission owner now contains the bridge request structs,
+response-envelope builders, backend defaults, command source markers, and the
+Rust-authored route-selection receipt details for
+`admit_model_mount_route_decision` and `admit_model_mount_invocation`. The
+remaining `crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs`
+functions are thin delegates to Rust `admit_model_mount_route_decision_response`
+and `admit_model_mount_invocation_response`; they no longer own the route
+selection receipt helper or the route/invocation admission bridge request
+types.
+
+This is a Rust-core ownership cut across model_mount admission command
+envelopes, not terminal model_mount migration. The current Node command bridge,
+shared daemon-core command runner, JS model-mount admission runner, JS
+model-mount facades, provider execution/provider result command wrappers, and
+local materialization remain scaffolding until direct Rust daemon-core
+model_mount admission, provider execution, receipt/state-root binding,
+Agentgres truth, wallet.network/cTEE authority checks, replay, projection, and
+stable protocol APIs own the model_mount path end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services admission --lib` | passed |
+| `cargo test -p ioi-node model_mount --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1131
 
 Slice 1131 moves model-mount provider lifecycle, provider inventory, and

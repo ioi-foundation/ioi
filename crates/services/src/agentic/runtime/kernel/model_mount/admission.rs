@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::{
     require_non_empty, validate_receipt_refs, ModelMountError,
     MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION, MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION,
+    MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -149,6 +152,20 @@ pub struct ModelMountInvocationAdmissionRecord {
     pub invocation_admission_hash: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ModelMountRouteDecisionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountRouteDecisionRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ModelMountInvocationAdmissionBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountInvocationAdmissionRequest,
+}
+
 impl ModelMountRouteDecisionRequest {
     pub fn validate(&self) -> Result<(), ModelMountError> {
         if self.schema_version != MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION {
@@ -255,6 +272,30 @@ pub(super) fn admit_route_decision(
     Ok(record)
 }
 
+pub fn admit_model_mount_route_decision_response(
+    request: ModelMountRouteDecisionBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let record = admit_route_decision(&request.request)?;
+    let accepted_receipt_record = rust_authored_route_selection_receipt(&record)?;
+    let route_decision_ref = record.route_decision_ref.clone();
+    let route_decision_hash = record.route_decision_hash.clone();
+    let receipt_refs = record.receipt_refs.clone();
+
+    Ok(json!({
+        "source": "rust_model_mount_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "record": record,
+        "route_decision_ref": route_decision_ref,
+        "route_decision_hash": route_decision_hash,
+        "receipt_refs": receipt_refs,
+        "accepted_receipt_record": accepted_receipt_record,
+        "evidence_refs": [
+            "rust_model_mount_core",
+            route_decision_ref,
+        ],
+    }))
+}
+
 pub(super) fn admit_invocation(
     request: &ModelMountInvocationAdmissionRequest,
 ) -> Result<ModelMountInvocationAdmissionRecord, ModelMountError> {
@@ -303,6 +344,96 @@ pub(super) fn admit_invocation(
             .collect::<String>()
     );
     Ok(record)
+}
+
+pub fn admit_model_mount_invocation_response(
+    request: ModelMountInvocationAdmissionBridgeRequest,
+) -> Result<Value, ModelMountError> {
+    let record = admit_invocation(&request.request)?;
+    let invocation_admission_ref = record.invocation_admission_ref.clone();
+    let invocation_admission_hash = record.invocation_admission_hash.clone();
+    let receipt_refs = record.receipt_refs.clone();
+
+    Ok(json!({
+        "source": "rust_model_mount_invocation_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_live".to_string()),
+        "record": record,
+        "invocation_admission_ref": invocation_admission_ref,
+        "invocation_admission_hash": invocation_admission_hash,
+        "receipt_refs": receipt_refs,
+        "evidence_refs": [
+            "rust_model_mount_core",
+            invocation_admission_ref,
+        ],
+    }))
+}
+
+fn rust_authored_route_selection_receipt(
+    record: &ModelMountRouteDecisionRecord,
+) -> Result<Value, ModelMountError> {
+    let receipt_ref = record
+        .receipt_refs
+        .first()
+        .ok_or(ModelMountError::MissingReceiptRef)?;
+    let receipt_id = receipt_ref
+        .strip_prefix("receipt://")
+        .unwrap_or(receipt_ref.as_str())
+        .to_string();
+    let created_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
+        .as_secs();
+
+    Ok(json!({
+        "id": receipt_id,
+        "runId": null,
+        "kind": "model_route_selection",
+        "summary": format!("Route {} selected {}.", record.route_ref, record.model_ref),
+        "redaction": "none",
+        "evidenceRefs": [
+            "model_router",
+            "rust_model_mount_core",
+            "rust_daemon_core_model_route_selection_receipt",
+            record.route_ref,
+            record.endpoint_ref,
+            record.route_decision_ref,
+        ],
+        "createdAt": format!("unix:{created_at}"),
+        "details": {
+            "rust_daemon_core_receipt_author": "ModelMountCore.admit_route_decision",
+            "route_id": record.route_ref,
+            "selected_model": record.model_ref,
+            "endpoint_id": record.endpoint_ref,
+            "provider_id": record.provider_ref,
+            "capability": record.capability,
+            "policy_hash": record.policy_hash,
+            "response_id": null,
+            "previous_response_id": null,
+            "model_route_decision_schema_version": record.schema_version,
+            "model_route_decision_event_kind": "model_route_decision",
+            "model_route_decision_id": record.idempotency_key,
+            "model_route_decision": {
+                "decision_id": record.idempotency_key,
+                "route_id": record.route_ref,
+                "selected_model": record.model_ref,
+                "selected_endpoint_id": record.endpoint_ref,
+                "provider_id": record.provider_ref,
+                "capability": record.capability,
+                "policy_hash": record.policy_hash,
+            },
+            "model_mount_route_decision_schema_version": record.schema_version,
+            "model_mount_route_decision_ref": record.route_decision_ref,
+            "model_mount_route_decision_hash": record.route_decision_hash,
+            "model_mount_route_decision_source": "rust_model_mount_command",
+            "model_mount_route_decision_backend": "rust_model_mount_live",
+            "model_mount_route_decision_receipt_refs": record.receipt_refs,
+            "model_mount_route_decision": record,
+            "workflow_graph_id": record.workflow_graph_ref,
+            "workflow_node_id": record.workflow_node_ref,
+            "workflow_node_type": null,
+        },
+        "schemaVersion": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+    }))
 }
 
 fn validate_private_workspace(
