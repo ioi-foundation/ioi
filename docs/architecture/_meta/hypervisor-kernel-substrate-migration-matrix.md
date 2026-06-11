@@ -15784,6 +15784,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1086
+
+Slice 1086 retires the daemon-store lifecycle creation pass-throughs. The
+`RuntimeDaemonStore` class no longer exposes `createAgent()`, `createRun()`, or
+`createThread()` wrappers around the mounted agent/run lifecycle surface, and
+public agent/thread/run creation continues to enter through
+`agentRunLifecycleSurface` directly. Internal runtime-service fixture/proof
+callers that still need the temporary mounted surface now call it explicitly
+instead of relying on store-level compatibility methods.
+
+This is not terminal lifecycle migration. The mounted JS lifecycle surface
+remains temporary scaffolding until direct Rust daemon-core lifecycle admission,
+Agentgres expected-head/state-root binding, persistence, replay, projection,
+wallet/cTEE policy where applicable, and stable protocol APIs own the surface
+end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-thread-control.test.mjs scripts/lib/workflow-managed-session-reconnect-live-gui-proof.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1085
 
 Slice 1085 moves the public agent/run lifecycle admission-required refusal

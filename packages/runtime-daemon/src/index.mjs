@@ -170,11 +170,7 @@ import { createWorkerServicePackageRunnerFromEnv } from "./runtime-worker-servic
 import { createCteePrivateWorkspaceRunnerFromEnv } from "./runtime-ctee-private-workspace-runner.mjs";
 import { createL1SettlementRunnerFromEnv } from "./runtime-l1-settlement-runner.mjs";
 import { createWorkspaceRestoreRunnerFromEnv } from "./runtime-workspace-restore-runner.mjs";
-import {
-  createAgent as createAgentState,
-  createRuntimeAgentRunLifecycleSurface,
-  createRun as createRunState,
-} from "./runtime-agent-run-lifecycle.mjs";
+import { createRuntimeAgentRunLifecycleSurface } from "./runtime-agent-run-lifecycle.mjs";
 import { createRuntimeRepositorySurface } from "./runtime-repository-surface.mjs";
 import { startRuntimeDaemonServiceWithStore } from "./service/runtime-daemon-service.mjs";
 import {
@@ -912,10 +908,6 @@ export class AgentgresRuntimeStateStore {
     this.modelMounting.close();
   }
 
-  createAgent(options = {}) {
-    return createAgentState(this, options);
-  }
-
   listAgents() {
     return listAgentsState(this);
   }
@@ -936,10 +928,6 @@ export class AgentgresRuntimeStateStore {
     return deleteAgentState(this, agentId, {
       runtimeError,
     });
-  }
-
-  createRun(agentId, request = {}) {
-    return createRunState(this, agentId, request);
   }
 
   resolveModelRoute(options = {}, context = {}) {
@@ -1086,10 +1074,6 @@ export class AgentgresRuntimeStateStore {
       policyDecisionRefs,
       policyDecisionKind,
     });
-  }
-
-  async createThread(request = {}) {
-    return this.agentRunLifecycleSurface.createThread(this, request);
   }
 
   async createRuntimeBridgeThread({ request, options, runtimeProfile }) {

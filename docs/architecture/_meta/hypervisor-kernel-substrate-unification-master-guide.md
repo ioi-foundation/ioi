@@ -5652,6 +5652,24 @@ where applicable, Agentgres expected-head/state-root commit, replay,
 projection, and stable protocol APIs must still replace the temporary command
 transport.
 
+Slice 1086 retires the `RuntimeDaemonStore.createAgent()`,
+`RuntimeDaemonStore.createRun()`, and `RuntimeDaemonStore.createThread()`
+compatibility pass-throughs. Public agent creation, top-level thread creation,
+and agent-scoped run creation already enter through the mounted
+`agentRunLifecycleSurface`; the daemon store no longer exposes a second
+lifecycle creation method family that can be mistaken for the canonical
+authority boundary after context compaction. Internal runtime-service fixtures
+and proofs that still need the temporary mounted surface call it explicitly.
+
+Conformance now fails if the daemon store re-imports the retired
+`createAgentState`/`createRunState` helpers, reintroduces store-level
+`createAgent()`/`createRun()`/`createThread()` wrappers, or routes public
+agent/thread/run creation through the store compatibility layer instead of the
+mounted lifecycle surface. This remains non-terminal: the mounted JS surface is
+still migration scaffolding, and the next Rust-core cut must replace it with
+direct Rust daemon-core lifecycle admission, persistence, replay, projection,
+Agentgres expected-head/state-root binding, and stable protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

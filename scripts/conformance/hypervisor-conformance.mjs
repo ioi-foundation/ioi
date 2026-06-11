@@ -9591,11 +9591,11 @@ function runBridge() {
       /lifecycleAdmissionRunner:\s*this\.contextPolicyRunner/.test(
         runtimeDaemonIndex,
       ) &&
-      /return createAgentState\(this,\s*options\);/.test(runtimeDaemonIndex) &&
-      /return createRunState\(this,\s*agentId,\s*request\);/.test(runtimeDaemonIndex) &&
-      /return this\.agentRunLifecycleSurface\.createThread\(this,\s*request\);/.test(
-        runtimeDaemonIndex,
-      ) &&
+      !/createAgent as createAgentState/.test(runtimeDaemonIndex) &&
+      !/createRun as createRunState/.test(runtimeDaemonIndex) &&
+      !/\n\s*createAgent\(options = \{\}\)/.test(runtimeDaemonIndex) &&
+      !/\n\s*createRun\(agentId, request = \{\}\)/.test(runtimeDaemonIndex) &&
+      !/\n\s*async createThread\(request = \{\}\)/.test(runtimeDaemonIndex) &&
       /store\.agentRunLifecycleSurface\.createAgent\(store,/.test(publicRuntimeRoutes) &&
       /store\.agentRunLifecycleSurface\.createThread\(store,/.test(publicRuntimeRoutes) &&
       /store\.agentRunLifecycleSurface\.createRun\(store, agentId,/.test(runtimeRouteHandlers) &&
@@ -9614,8 +9614,8 @@ function runBridge() {
       !/store\.(?:createAgent|createRun|createThread|updateAgent|deleteAgent|getAgent)\(/.test(
         `${publicRuntimeRoutes}\n${runtimeRouteHandlers}`,
       ) &&
-      !/createAgentState\(this,\s*options,\s*\{/.test(runtimeDaemonIndex) &&
-      !/createRunState\(this,\s*agentId,\s*request,\s*\{/.test(runtimeDaemonIndex) &&
+      !/createAgentState\(this/.test(runtimeDaemonIndex) &&
+      !/createRunState\(this/.test(runtimeDaemonIndex) &&
       /createAgent facade fails closed before Rust planning or JS persistence/.test(
         runtimeAgentRunLifecycleTest,
       ) &&

@@ -148,21 +148,6 @@ function managedSessionReconnectBridge(calls, managedState) {
 }
 
 async function seedRuntimeControlModelRoute(store) {
-  store.modelMounting.importModel({
-    model_id: "runtime-control-test-model",
-    provider_id: "provider.local.folder",
-    capabilities: ["chat"],
-  });
-  store.modelMounting.mountEndpoint({
-    id: "endpoint.runtime-control-test",
-    model_id: "runtime-control-test-model",
-    provider_id: "provider.local.folder",
-    capabilities: ["chat"],
-  });
-  await store.modelMounting.loadModel({
-    endpoint_id: "endpoint.runtime-control-test",
-    load_policy: { mode: "eager" },
-  });
   store.modelMounting.upsertRoute({
     id: "route.local-first",
     role: "chat",
@@ -295,7 +280,7 @@ async function runProof(outputDir) {
     runtimeBridge: managedSessionReconnectBridge(calls, managedState),
   });
   await seedRuntimeControlModelRoute(daemon.store);
-  const thread = await daemon.store.createThread({
+  const thread = await daemon.store.agentRunLifecycleSurface.createThread(daemon.store, {
     runtime_profile: "runtime_service",
     options: {
       runtime_profile: "runtime_service",

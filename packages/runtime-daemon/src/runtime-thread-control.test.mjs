@@ -495,6 +495,23 @@ function modelMountAdmissionRunnerForTest(calls) {
         ],
       };
     },
+    planRouteControlRequired(request) {
+      calls.push({ operation: "plan_model_mount_route_control_required", input: request });
+      return {
+        source: "rust_model_mount_route_control_required_command",
+        backend: "rust_model_mount_route_control_required",
+        status: "rust_core_required",
+        status_code: 501,
+        code: "model_mount_route_control_rust_core_required",
+        message: "Model mount route control requires direct Rust daemon-core admission.",
+        details: {
+          rust_core_boundary: "model_mount.route_control",
+          operation: request.operation,
+          operation_kind: request.operation_kind,
+          evidence_refs: request.evidence_refs ?? [],
+        },
+      };
+    },
     admitRouteDecision(request) {
       calls.push({ operation: "admit_model_mount_route_decision", input: request });
       return {
@@ -580,21 +597,6 @@ function modelMountAdmissionRunnerForTest(calls) {
 }
 
 async function seedRuntimeControlModelRoute(store) {
-  store.modelMounting.importModel({
-    model_id: "runtime-control-test-model",
-    provider_id: "provider.local.folder",
-    capabilities: ["chat"],
-  });
-  store.modelMounting.mountEndpoint({
-    id: "endpoint.runtime-control-test",
-    model_id: "runtime-control-test-model",
-    provider_id: "provider.local.folder",
-    capabilities: ["chat"],
-  });
-  await store.modelMounting.loadModel({
-    endpoint_id: "endpoint.runtime-control-test",
-    load_policy: { mode: "eager" },
-  });
   store.modelMounting.upsertRoute({
     id: "route.local-first",
     role: "chat",
@@ -621,7 +623,7 @@ test("managed browser session inspect and control survive daemon store reconnect
   try {
     await seedRuntimeControlModelRoute(store);
 
-    const thread = await store.createThread({
+    const thread = await store.agentRunLifecycleSurface.createThread(store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
@@ -701,7 +703,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
     });
     await seedRuntimeControlModelRoute(daemon.store);
 
-    const thread = await daemon.store.createThread({
+    const thread = await daemon.store.agentRunLifecycleSurface.createThread(daemon.store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
@@ -782,7 +784,7 @@ test("runtime-backed resume routes through mounted turn surface control_thread",
   try {
     await seedRuntimeControlModelRoute(store);
 
-    const thread = await store.createThread({
+    const thread = await store.agentRunLifecycleSurface.createThread(store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
@@ -819,18 +821,14 @@ test("operator turn controls fail closed through mounted turn surface before sto
   try {
     await seedRuntimeControlModelRoute(store);
 
-    const thread = await store.createThread({
+    const thread = await store.agentRunLifecycleSurface.createThread(store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
         local: { cwd: stateDir },
       },
     });
-    const run = store.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "exercise runtime steering",
-    });
-    const turnId = `turn_${run.id.slice("run_".length)}`;
+    const turnId = "turn_operator_control_required";
 
     await assert.rejects(
       () => store.threadTurnSurface.interruptTurn(store, thread.thread_id, turnId, {
@@ -929,7 +927,7 @@ test("runtime-backed in-flight turn submission uses mounted turn surface before 
   try {
     await seedRuntimeControlModelRoute(store);
 
-    const thread = await store.createThread({
+    const thread = await store.agentRunLifecycleSurface.createThread(store, {
       runtime_profile: "runtime_service",
       options: {
         runtime_profile: "runtime_service",
@@ -980,18 +978,15 @@ test("subagent budget block can be resumed and recovered after store reload", as
   try {
     await seedRuntimeControlModelRoute(store);
 
-    const thread = await store.createThread({
-      source: "runtime-subagent-recovery-test",
-      goal: "exercise subagent budget recovery",
+    const thread = await store.agentRunLifecycleSurface.createThread(store, {
+      runtime_profile: "runtime_service",
       options: {
+        runtime_profile: "runtime_service",
         local: { cwd: stateDir },
         model: { id: "auto", routeId: "route.local-first" },
       },
     });
-    const parentTurn = store.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "parent turn for subagent recovery",
-    });
+    const parentTurnId = "turn_subagent_recovery_parent";
 
     let blockedError;
     try {
@@ -999,7 +994,7 @@ test("subagent budget block can be resumed and recovered after store reload", as
         source: "runtime-subagent-recovery-test",
         role: "failed-child",
         prompt: "This child intentionally exceeds a tiny token budget.",
-        parentTurnId: `turn_${parentTurn.id.slice("run_".length)}`,
+        parentTurnId,
         budget: { max_input_tokens: 1 },
         budget_usage_telemetry: { cumulative_input_tokens: 10 },
       });
