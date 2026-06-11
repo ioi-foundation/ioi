@@ -20479,3 +20479,38 @@ Scheduled matrix-compaction obligation: compact Slices 1035-1037 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1038
+
+Slice 1038 splits the Rust operator-control policy owner family out of the
+broad `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/operator_control.rs`. The
+child owner now contains diagnostics operator override, operator interrupt, and
+operator steer state-update request/record/error types, planner cores,
+validation, operator-control helper planning, and focused proof tests. The
+parent policy module only re-exports those surfaces.
+
+This is a Rust-core ownership cut across diagnostics repair and operator turn
+controls, not terminal operator-control migration. The current JS diagnostics
+repair facade, JS operator turn facade, JS context-policy runner, and Node
+command bridge remain migration transport/scaffolding until direct Rust
+daemon-core operator-control admission, wallet authority, runtime control
+custody, Agentgres expected-head/state-root persistence, receipts/events,
+replay, projection, and stable protocol APIs own the path end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services operator_control` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1035-1038 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.

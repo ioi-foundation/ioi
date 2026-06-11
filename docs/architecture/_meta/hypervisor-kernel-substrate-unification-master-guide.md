@@ -4827,6 +4827,21 @@ authority, Agentgres expected heads/state roots, policy receipts,
 retry-event materialization, replay, projection, and stable IDE/CLI/SDK
 protocol APIs.
 
+Slice 1038 moves the operator-control policy owner family out of the broad
+Rust `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/operator_control.rs`. The
+child module owns diagnostics operator override, operator interrupt, and
+operator steer state-update request/record/error types, planner cores,
+validation, helper operator-control planning, and focused proof tests; the
+parent facade only re-exports the surfaces. This is a larger Rust ownership
+cut across two public controls, not terminal operator-control migration. The
+current JS diagnostics repair facade, JS operator turn facade, JS
+context-policy runner, and Node command bridge remain temporary migration
+transport. Resume by replacing those transport paths with direct Rust
+daemon-core operator-control admission/persistence over wallet authority,
+runtime control custody, Agentgres expected heads/state roots, receipts/events,
+replay, projection, and stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

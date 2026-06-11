@@ -52,6 +52,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
+      : "",
     exists("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       : "",
@@ -2598,6 +2601,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
     : "";
+  const policyOperatorControlCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/operator_control.rs")
+    : "";
   const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     : "";
@@ -2611,16 +2619,16 @@ function runBridge() {
       /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryAdmissionRequiredCore;)/,
     )?.[0] ?? "";
   const diagnosticsOperatorOverrideStateUpdateCoreBlock =
-    policyCore.match(
+    policyOperatorControlCore.match(
       /impl DiagnosticsOperatorOverrideStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct OperatorInterruptStateUpdateCore;)/,
     )?.[0] ?? "";
   const operatorInterruptStateUpdateCoreBlock =
-    policyCore.match(
+    policyOperatorControlCore.match(
       /impl OperatorInterruptStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct OperatorSteerStateUpdateCore;)/,
     )?.[0] ?? "";
   const operatorSteerStateUpdateCoreBlock =
-    policyCore.match(
-      /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct ThreadControlAgentStateUpdateCore;)/,
+    policyOperatorControlCore.match(
+      /impl OperatorSteerStateUpdateCore \{[\s\S]*?(?=\n\nimpl DiagnosticsOperatorOverrideStateUpdateRequest \{)/,
     )?.[0] ?? "";
   const threadControlAgentStateUpdateCoreBlock =
     policyCore.match(
@@ -6957,6 +6965,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7043,6 +7052,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7117,6 +7127,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -7124,6 +7135,36 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Phase 9/10 is pending: public operator steer must fail closed until Rust daemon-core owns event admission and run-state persistence; bridge planner remains migration plumbing only",
+  );
+  assertCheck(
+    result,
+    "policy-operator-control-rust-owner-split",
+    /mod operator_control;/.test(policyFacade) &&
+      /pub use operator_control::/.test(policyFacade) &&
+      /pub struct DiagnosticsOperatorOverrideStateUpdateCore;/.test(
+        policyOperatorControlCore,
+      ) &&
+      /pub struct OperatorInterruptStateUpdateCore;/.test(policyOperatorControlCore) &&
+      /pub struct OperatorSteerStateUpdateCore;/.test(policyOperatorControlCore) &&
+      /append_operator_control/.test(policyOperatorControlCore) &&
+      /rust_policy_plans_diagnostics_operator_override_state_update/.test(
+        policyOperatorControlCore,
+      ) &&
+      /rust_policy_plans_operator_interrupt_state_update/.test(policyOperatorControlCore) &&
+      /rust_policy_plans_operator_steer_state_update/.test(policyOperatorControlCore) &&
+      /rust_policy_rejects_invalid_diagnostics_operator_override_state_update_schema/.test(
+        policyOperatorControlCore,
+      ) &&
+      !/pub struct DiagnosticsOperatorOverrideStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct OperatorInterruptStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct OperatorSteerStateUpdateCore;/.test(policyFacade) &&
+      !/rust_policy_plans_operator_interrupt_state_update/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: operator-control policy owners must stay in the Rust policy child module while direct Rust daemon-core operator admission/persistence replaces command transport",
   );
   assertCheck(
     result,
