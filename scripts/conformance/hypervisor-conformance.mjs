@@ -49,6 +49,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
+      : "",
     exists("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
       : "",
@@ -2599,6 +2602,11 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
     : "";
+  const policyContextLifecycleCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs")
+    : "";
   const policyCodingToolBudgetRecoveryCore = exists(
     "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
   )
@@ -2619,8 +2627,8 @@ function runBridge() {
     : "";
   const policyCore = readRustPolicyCore();
   const contextCompactionStateUpdateCoreBlock =
-    policyCore.match(
-      /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct WorkflowEditAdmissionRequiredCore;)/,
+    policyContextLifecycleCore.match(
+      /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\nimpl ContextBudgetPolicyRequest \{)/,
     )?.[0] ?? "";
   const codingToolBudgetRecoveryStateUpdateCoreBlock =
     policyCodingToolBudgetRecoveryCore.match(
@@ -6632,6 +6640,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -6672,6 +6681,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
@@ -6680,6 +6690,40 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/context-budget-policy.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool budget preflight must be evaluated by Rust policy core through the command bridge",
+  );
+  assertCheck(
+    result,
+    "policy-context-lifecycle-rust-owner-split",
+    /mod context_lifecycle;/.test(policyFacade) &&
+      /pub use context_lifecycle::/.test(policyFacade) &&
+      /pub struct ContextBudgetPolicyCore;/.test(policyContextLifecycleCore) &&
+      /pub struct CompactionPolicyCore;/.test(policyContextLifecycleCore) &&
+      /pub struct ContextCompactionPlanCore;/.test(policyContextLifecycleCore) &&
+      /pub struct ContextCompactionStateUpdateCore;/.test(policyContextLifecycleCore) &&
+      /rust_policy_blocks_context_budget_excess/.test(policyContextLifecycleCore) &&
+      /rust_policy_blocks_coding_tool_budget_excess/.test(policyContextLifecycleCore) &&
+      /rust_policy_requires_compaction_approval_before_compacting/.test(
+        policyContextLifecycleCore,
+      ) &&
+      /rust_policy_plans_context_compaction_event_record/.test(policyContextLifecycleCore) &&
+      /rust_policy_plans_context_compaction_run_state_update/.test(
+        policyContextLifecycleCore,
+      ) &&
+      /rust_policy_rejects_invalid_context_compaction_state_update_schema/.test(
+        policyContextLifecycleCore,
+      ) &&
+      !/pub struct ContextBudgetPolicyCore;/.test(policyFacade) &&
+      !/pub struct CompactionPolicyCore;/.test(policyFacade) &&
+      !/pub struct ContextCompactionPlanCore;/.test(policyFacade) &&
+      !/pub struct ContextCompactionStateUpdateCore;/.test(policyFacade) &&
+      !/rust_policy_blocks_context_budget_excess/.test(policyFacade) &&
+      !/rust_policy_plans_context_compaction_event_record/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 9/10 remains non-terminal: context-budget and compaction policy owners must stay in the Rust policy child module while direct Rust daemon-core context admission/persistence replaces command transport",
   );
   assertCheck(
     result,
@@ -7679,6 +7723,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -8138,6 +8183,7 @@ function runBridge() {
       /mcp_control_rust_core_required/.test(runtimeMcpControlSurfaceTest),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",

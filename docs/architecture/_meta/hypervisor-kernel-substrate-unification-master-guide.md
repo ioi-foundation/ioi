@@ -4861,6 +4861,24 @@ heads/state roots, receipts/events, replay, projection, and stable IDE/CLI/SDK
 protocol APIs. Schedule a matrix-compaction pass for Slices 1035-1039 once the
 next larger Rust-core extraction/facade-retirement seam is clear.
 
+Slice 1040 moves the context lifecycle policy owner family out of the broad
+Rust `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`. The
+child module owns context-budget policy, coding-tool budget policy,
+compaction-policy, context-compaction plan, and context-compaction state-update
+request/record/error types, planner/evaluator cores, validation, helper
+planning, canonical context-compaction payload shaping, and focused proof
+tests; the parent facade only re-exports the surfaces. This is a larger
+Rust ownership cut across context policy and compaction planning, not terminal
+context-policy migration. The current JS context-policy facade, JS
+context-policy runner, and Node command bridge remain temporary migration
+transport. Resume by replacing those transport paths with direct Rust
+daemon-core context admission/persistence over wallet authority where policy
+exits require it, Agentgres expected heads/state roots, policy receipts,
+context-compaction events, replay, projection, and stable IDE/CLI/SDK protocol
+APIs. Keep the scheduled matrix-compaction pass for Slices 1035-1040 pending
+until the next larger Rust-core extraction/facade-retirement seam is clear.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

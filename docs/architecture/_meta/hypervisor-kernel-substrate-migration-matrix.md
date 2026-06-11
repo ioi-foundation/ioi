@@ -20551,3 +20551,39 @@ Scheduled matrix-compaction obligation: compact Slices 1035-1039 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1040
+
+Slice 1040 splits the Rust context lifecycle policy owner family out of the
+broad `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`. The
+child owner now contains context-budget policy, coding-tool budget policy,
+compaction-policy, context-compaction plan, and context-compaction state-update
+request/record/error types, evaluator/planner cores, validation, canonical
+context-compaction payload shaping, helper planning, and focused proof tests.
+The parent policy module only re-exports those surfaces.
+
+This is a Rust-core ownership cut across context policy and compaction
+planning, not terminal context-policy migration. The current JS context-policy
+facade, JS context-policy runner, and Node command bridge remain migration
+transport/scaffolding until direct Rust daemon-core context admission, wallet
+authority where required, Agentgres expected-head/state-root persistence,
+policy receipts, context-compaction event materialization, replay, projection,
+and stable protocol APIs own the path end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services context_lifecycle` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1035-1040 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.
