@@ -2312,6 +2312,9 @@ function runBridge() {
   const governedReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     : "";
+  const governedReceiptCore = exists("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
+    : "";
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
@@ -6399,8 +6402,17 @@ function runBridge() {
       /pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedReceiptCommandBridge,
       ) &&
-      /ReceiptBinder/.test(governedReceiptCommandBridge) &&
-      /accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      !/ReceiptBinder/.test(governedReceiptCommandBridge) &&
+      !/accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      /pub mod governed_receipt;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn execute_private_workspace_ctee_action_response/.test(
+        governedReceiptCore,
+      ) &&
+      /pub fn admit_worker_service_package_invocation_response/.test(
+        governedReceiptCore,
+      ) &&
+      /ReceiptBinder/.test(governedReceiptCore) &&
+      /accepted_receipt_append/.test(governedReceiptCore) &&
       !/pub\(super\) fn execute_private_workspace_ctee_action/.test(
         governedAdmissionCommandBridge,
       ) &&
@@ -6415,6 +6427,7 @@ function runBridge() {
       ),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
@@ -13441,22 +13454,28 @@ function runBridge() {
       !/pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /pub\(super\) struct WorkerServicePackageInvocationBridgeRequest/.test(
+      /WorkerServicePackageInvocationBridgeRequest/.test(
         governedReceiptCommandBridge,
+      ) &&
+      /pub struct WorkerServicePackageInvocationBridgeRequest/.test(
+        governedReceiptCore,
       ) &&
       /pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedReceiptCommandBridge,
       ) &&
-      /WorkerServicePackageInvocationCore/.test(governedReceiptCommandBridge) &&
+      !/WorkerServicePackageInvocationCore/.test(governedReceiptCommandBridge) &&
+      /WorkerServicePackageInvocationCore/.test(governedReceiptCore) &&
       /rust_worker_service_package_invocation_command/.test(
-        governedReceiptCommandBridge,
+        governedReceiptCore,
       ) &&
-      /accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      !/accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      /accepted_receipt_append/.test(governedReceiptCore) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
       /worker_service_package_rejects_step_module_command_schema/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
@@ -20318,6 +20337,9 @@ function runCtee() {
   const governedReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     : "";
+  const governedReceiptCore = exists("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -20444,15 +20466,16 @@ function runCtee() {
       !/pub\(super\) fn execute_private_workspace_ctee_action/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /pub\(super\) struct CteePrivateWorkspaceBridgeRequest/.test(
-        governedReceiptCommandBridge,
-      ) &&
+      /CteePrivateWorkspaceBridgeRequest/.test(governedReceiptCommandBridge) &&
+      /pub struct CteePrivateWorkspaceBridgeRequest/.test(governedReceiptCore) &&
       /pub\(super\) fn execute_private_workspace_ctee_action/.test(
         governedReceiptCommandBridge,
       ) &&
-      /PrivateWorkspaceCteeModule/.test(governedReceiptCommandBridge) &&
-      /rust_ctee_private_workspace_command/.test(governedReceiptCommandBridge) &&
-      /accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      !/PrivateWorkspaceCteeModule/.test(governedReceiptCommandBridge) &&
+      /PrivateWorkspaceCteeModule/.test(governedReceiptCore) &&
+      /rust_ctee_private_workspace_command/.test(governedReceiptCore) &&
+      !/accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      /accepted_receipt_append/.test(governedReceiptCore) &&
       !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /ctee_private_workspace_rejects_step_module_command_schema/.test(
         bridgeModule,
@@ -20460,6 +20483,7 @@ function runCtee() {
       /bridge_executes_private_workspace_ctee_action_through_rust_core/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],

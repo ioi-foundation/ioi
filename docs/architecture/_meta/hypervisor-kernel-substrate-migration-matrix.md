@@ -15784,6 +15784,49 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1118
+
+Slice 1118 moves governed receipt command response shaping for cTEE private
+workspace execution and worker/service package invocation out of the temporary
+`ioi_step_module_bridge/governed_receipt_command.rs` bridge module into Rust
+`crates/services/src/agentic/runtime/kernel/governed_receipt.rs`. The Rust
+kernel service module now owns the governed receipt bridge request structs,
+cTEE StepModule kind/backend guard, caller-supplied expected-head rejection,
+private-workspace cTEE execution/admission wrapping, worker/service package
+invocation admission wrapping, accepted-receipt append through `ReceiptBinder`,
+and canonical `rust_ctee_private_workspace_command` and
+`rust_worker_service_package_invocation_command` response shaping.
+
+The governed receipt bridge module is now a thin delegate that maps
+`GovernedReceiptError` into `BridgeError`. It no longer imports or owns
+`ReceiptBinder`, `PrivateWorkspaceCteeModule`,
+`WorkerServicePackageInvocationCore`, or accepted-receipt append response
+construction.
+
+This is Rust-core extraction and bridge-shape retirement progress, not terminal
+cTEE or worker/service package migration. The Node daemon-core command
+transport, command dispatch table, JS command callers, cTEE runner, and
+worker/service package runner remain migration scaffolding until direct Rust
+daemon-core cTEE and worker/service package APIs own execution/admission,
+receipt/state-root binding, Agentgres admission, replay, projection,
+wallet.network authority, cTEE custody, and stable protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services governed_receipt --lib` | passed |
+| `cargo test -p ioi-node bridge_executes_private_workspace_ctee_action_through_rust_core --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node worker_service_package --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1117
 
 Slice 1117 moves model_mount accepted-receipt response shaping and invocation
@@ -16179,6 +16222,11 @@ This is bridge containment only. The module remains temporary command-transport
 scaffolding until direct Rust daemon-core cTEE and worker/service package
 execution/admission APIs replace the Node bridge, shared command runner, JS
 command callers, and remaining JS protocol facades.
+
+Superseded by Slice 1118 for owner shape: accepted-receipt append and governed
+receipt response construction for cTEE private workspace execution and
+worker/service package invocation now live in Rust `governed_receipt.rs`; the
+Node governed receipt command module is a thin temporary delegate.
 
 Focused evidence:
 

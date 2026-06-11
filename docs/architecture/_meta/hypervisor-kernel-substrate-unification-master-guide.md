@@ -6163,6 +6163,26 @@ Agentgres-backed receipt/state-root binding, replay, projection, wallet.network
 authority, cTEE custody where applicable, and stable IDE/CLI/SDK surfaces end
 to end.
 
+Slice 1118 moves governed receipt command response shaping for cTEE private
+workspace execution and worker/service package invocation out of the temporary
+Node receipt bridge and into Rust `governed_receipt.rs` under the kernel
+service crate. Rust core now owns the governed receipt bridge request structs,
+cTEE StepModule kind/backend guard, caller-supplied expected-head rejection,
+private-workspace cTEE execution/admission wrapping, worker/service package
+invocation admission wrapping, accepted-receipt append through `ReceiptBinder`,
+and the canonical `rust_ctee_private_workspace_command` and
+`rust_worker_service_package_invocation_command` response envelopes.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, cTEE runner, and
+worker/service package runner still exist. The remaining
+`ioi_step_module_bridge/governed_receipt_command.rs` file is a temporary
+delegate to Rust core, not a durable receipt/admission boundary. The long-term
+target remains direct Rust daemon-core cTEE and worker/service package protocol
+APIs over Agentgres-backed receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK surfaces end to
+end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
