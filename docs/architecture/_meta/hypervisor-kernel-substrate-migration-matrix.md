@@ -20371,6 +20371,27 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1013
+
+Slice 1013 split the shared model_mount foundation out of the broad
+`model_mount.rs` kernel file into `model_mount/common.rs`. Schema constants,
+`ModelMountError`, receipt-ref validation, non-empty/string helpers,
+evidence-ref de-duplication, and SHA-256 helper logic now live in the dedicated
+Rust module. `model_mount.rs` re-exports the public schema/error surface and
+shares the internal helpers with sibling Rust owner modules.
+
+This is still non-terminal migration work: the foundation extraction clarifies
+Rust ownership for the split model_mount modules, but direct Rust daemon-core
+protocol APIs must still replace command transport and JS edge translation for
+terminal execution/admission/projection ownership.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1013 | Moved model_mount schema constants, `ModelMountError`, receipt-ref validation, string helpers, evidence-ref de-duplication, and SHA-256 helper logic into `crates/services/src/agentic/runtime/kernel/model_mount/common.rs`; `model_mount.rs` re-exports the public schema/error surface and internal helpers for sibling modules. | Direct Rust daemon-core protocol/API cuts replace command transport and JS edge translation now that model_mount has explicit Rust owner modules over a shared foundation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1012
 
 Slice 1012 split the model_mount route-decision and invocation-admission gate

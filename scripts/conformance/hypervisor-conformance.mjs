@@ -2300,14 +2300,17 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
-      ? [
-          read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-          exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
-            ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
-            : "",
-          exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-            ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-            : "",
+    ? [
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -13441,14 +13444,17 @@ function runReceipts() {
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
-      ? [
-          read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-          exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
-            ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
-            : "",
-          exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-            ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-            : "",
+    ? [
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -13569,6 +13575,37 @@ function runReceipts() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
     "Phase 4 is pending: one Rust receipt/state-root binder must own accepted result binding",
+  );
+  assertCheck(
+    result,
+    "model-mount-common-foundation-core",
+    exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/common.rs") &&
+      /mod common;/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /pub use common::/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /pub\(super\) use common::/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /pub const MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs"),
+      ) &&
+      /pub enum ModelMountError/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs"),
+      ) &&
+      /pub\(crate\) fn validate_receipt_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs"),
+      ) &&
+      /pub\(crate\) fn sha256_hex/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/common.rs"),
+      ) &&
+      !/pub enum ModelMountError/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/common.rs",
+    ],
+    "Phase 10 is pending: model_mount schema constants, errors, and shared validation/hash helpers must have one Rust core foundation",
   );
   assertCheck(
     result,
