@@ -8,35 +8,29 @@ use std::{
     process::Command,
 };
 
-mod agentgres_command;
 mod bridge_dispatch;
 mod coding_tool_helpers;
-mod context_policy_command;
 mod mcp_memory_command;
 mod model_mount_command;
 mod model_mount_receipt_command;
-mod policy_command;
-mod projection_command;
 mod runtime_control_command;
 mod thread_lifecycle_command;
 
-use agentgres_command::{
-    admit_storage_backend_write, commit_runtime_agent_state, commit_runtime_artifact_state,
-    commit_runtime_memory_state, commit_runtime_model_mount_receipt_state,
-    commit_runtime_model_mount_record_state, commit_runtime_run_state,
-    commit_runtime_subagent_state, RuntimeAgentStateCommitBridgeRequest,
-    RuntimeArtifactStateCommitBridgeRequest, RuntimeMemoryStateCommitBridgeRequest,
-    RuntimeModelMountReceiptStateCommitBridgeRequest,
-    RuntimeModelMountRecordStateCommitBridgeRequest, RuntimeRunStateCommitBridgeRequest,
-    RuntimeSubagentStateCommitBridgeRequest, StorageBackendWriteBridgeRequest,
-};
 pub use bridge_dispatch::run_bridge_response_from_stdin;
 use coding_tool_helpers::*;
-use context_policy_command::{
-    evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
-    plan_context_compaction, plan_context_compaction_state_update, CompactionPolicyBridgeRequest,
-    ContextBudgetPolicyBridgeRequest, ContextCompactionPlanBridgeRequest,
-    ContextCompactionStateUpdateBridgeRequest,
+use ioi_services::agentic::runtime::kernel::agentgres_command::{
+    admit_storage_backend_write_response as admit_storage_backend_write,
+    commit_runtime_agent_state_response as commit_runtime_agent_state,
+    commit_runtime_artifact_state_response as commit_runtime_artifact_state,
+    commit_runtime_memory_state_response as commit_runtime_memory_state,
+    commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state,
+    commit_runtime_model_mount_record_state_response as commit_runtime_model_mount_record_state,
+    commit_runtime_run_state_response as commit_runtime_run_state,
+    commit_runtime_subagent_state_response as commit_runtime_subagent_state,
+    RuntimeAgentStateCommitBridgeRequest, RuntimeArtifactStateCommitBridgeRequest,
+    RuntimeMemoryStateCommitBridgeRequest, RuntimeModelMountReceiptStateCommitBridgeRequest,
+    RuntimeModelMountRecordStateCommitBridgeRequest, RuntimeRunStateCommitBridgeRequest,
+    RuntimeSubagentStateCommitBridgeRequest, StorageBackendWriteBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::approval::{
     plan_approval_decision_state_update_response as plan_approval_decision_state_update,
@@ -71,6 +65,26 @@ use ioi_services::agentic::runtime::kernel::governed_receipt::{
     admit_worker_service_package_invocation_response as admit_worker_service_package_invocation,
     execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action,
     CteePrivateWorkspaceBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::policy::{
+    evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy,
+    evaluate_compaction_policy_response as evaluate_compaction_policy,
+    evaluate_context_budget_policy_response as evaluate_context_budget_policy,
+    plan_context_compaction_response as plan_context_compaction,
+    plan_context_compaction_state_update_response as plan_context_compaction_state_update,
+    plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required,
+    plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required,
+    plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required,
+    plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required,
+    plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required,
+    plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required,
+    CompactionPolicyBridgeRequest, ContextBudgetPolicyBridgeRequest,
+    ContextCompactionPlanBridgeRequest, ContextCompactionStateUpdateBridgeRequest,
+    DiagnosticsRepairAdmissionRequiredBridgeRequest,
+    RepositoryWorkflowProjectionRequiredBridgeRequest,
+    RuntimeLifecycleProjectionRequiredBridgeRequest,
+    RuntimeToolCatalogProjectionRequiredBridgeRequest,
+    SkillHookRegistryProjectionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
     apply_workspace_restore_operations_response as apply_workspace_restore_operations,
@@ -114,18 +128,6 @@ use model_mount_receipt_command::{
     plan_model_mount_accepted_receipt_transition, ModelMountAcceptedReceiptHeadBridgeRequest,
     ModelMountAcceptedReceiptTransitionBridgeRequest,
     ModelMountInvocationReceiptBindingBridgeRequest,
-};
-use policy_command::{
-    plan_diagnostics_repair_admission_required, plan_workflow_edit_admission_required,
-    DiagnosticsRepairAdmissionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
-};
-use projection_command::{
-    plan_repository_workflow_projection_required, plan_runtime_lifecycle_projection_required,
-    plan_runtime_tool_catalog_projection_required, plan_skill_hook_registry_projection_required,
-    RepositoryWorkflowProjectionRequiredBridgeRequest,
-    RuntimeLifecycleProjectionRequiredBridgeRequest,
-    RuntimeToolCatalogProjectionRequiredBridgeRequest,
-    SkillHookRegistryProjectionRequiredBridgeRequest,
 };
 use runtime_control_command::{
     plan_coding_tool_budget_recovery_admission_required,

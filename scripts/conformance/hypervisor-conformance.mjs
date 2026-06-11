@@ -2309,7 +2309,8 @@ function runBridge() {
   const codingToolWorkspaceCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
     : "";
-  const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
+  const contextPolicyCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs");
+  const contextPolicyCommandBridge = contextPolicyCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
   const governedAdmissionCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs");
@@ -2348,10 +2349,12 @@ function runBridge() {
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs")
     : "";
   const computerUseCoreRuntime = computerUseCore.split("#[cfg(test)]")[0] ?? computerUseCore;
-  const policyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
+  const policyCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs");
+  const policyCommandBridge = policyCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     : "";
-  const projectionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
+  const projectionCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs");
+  const projectionCommandBridge = projectionCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
     : "";
   const runtimeControlCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
@@ -6370,29 +6373,19 @@ function runBridge() {
       ) &&
       !authorityCommandBridgeExists &&
       /authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
-      /pub\(super\) fn plan_workflow_edit_admission_required/.test(
-        policyCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_diagnostics_repair_admission_required/.test(
-        policyCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_skill_hook_registry_projection_required/.test(
-        projectionCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_repository_workflow_projection_required/.test(
-        projectionCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_runtime_tool_catalog_projection_required/.test(
-        projectionCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_runtime_lifecycle_projection_required/.test(
-        projectionCommandBridge,
-      ),
+      !policyCommandBridgeExists &&
+      !projectionCommandBridgeExists &&
+      /plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      /plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      /plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
+      /plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
+      /plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      /plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/policy_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/projection_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/admission_required.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
     ],
     "Phase 10/11 remains non-terminal: authority, admission-required, and projection-required child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before dispatch",
   );
@@ -6718,12 +6711,9 @@ function runBridge() {
       /validate_command_envelope\(\s*"validate_mcp_servers",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /pub\(super\) fn evaluate_context_budget_policy/.test(
-        contextPolicyCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_context_compaction_state_update/.test(
-        contextPolicyCommandBridge,
-      ) &&
+      !contextPolicyCommandBridgeExists &&
+      /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
+      /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
       /pub\(super\) fn plan_operator_interrupt_state_update/.test(
         runtimeControlCommandBridge,
       ) &&
@@ -6743,7 +6733,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs",
@@ -7772,7 +7762,8 @@ function runBridge() {
       /rust_policy_blocks_context_budget_excess/.test(policyCore) &&
       /runtime_event_item_id/.test(policyCore) &&
       /runtime_event_idempotency_key/.test(policyCore) &&
-      /mod context_policy_command;/.test(bridgeModule) &&
+      !/mod context_policy_command;/.test(bridgeModule) &&
+      !contextPolicyCommandBridgeExists &&
       /fn evaluate_context_budget_policy_response/.test(policyContextLifecycleCore) &&
       /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
       /is_daemon_core_operation/.test(commandProtocolCore) &&
@@ -7782,7 +7773,7 @@ function runBridge() {
       /context_budget_policy_invalid/.test(policyContextLifecycleCore) &&
       /policy_record_response/.test(policyContextLifecycleCore) &&
       /command_response_base/.test(policyContextLifecycleCore) &&
-      /core_evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
+      /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_context_budget_policy/.test(bridgeModule) &&
@@ -7879,7 +7870,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
@@ -7900,7 +7891,7 @@ function runBridge() {
       /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
       /rust_coding_tool_budget_policy_command/.test(policyContextLifecycleCore) &&
       /coding_tool_budget_policy_invalid/.test(policyContextLifecycleCore) &&
-      /core_evaluate_coding_tool_budget_policy/.test(contextPolicyCommandBridge) &&
+      /evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
       /bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
       !/fn evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
@@ -7924,7 +7915,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
@@ -7979,16 +7970,17 @@ function runBridge() {
       !/pub struct ContextCompactionStateUpdateCore;/.test(policyFacade) &&
       !/rust_policy_blocks_context_budget_excess/.test(policyFacade) &&
       !/rust_policy_plans_context_compaction_event_record/.test(policyFacade) &&
-      /mod context_policy_command;/.test(bridgeModule) &&
-      /core_evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
-      /core_evaluate_coding_tool_budget_policy/.test(contextPolicyCommandBridge) &&
-      /core_evaluate_compaction_policy/.test(contextPolicyCommandBridge) &&
-      /core_plan_context_compaction/.test(contextPolicyCommandBridge) &&
-      /core_plan_context_compaction_state_update/.test(contextPolicyCommandBridge) &&
-      /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
-      /fn evaluate_compaction_policy/.test(contextPolicyCommandBridge) &&
-      /fn plan_context_compaction/.test(contextPolicyCommandBridge) &&
-      /fn plan_context_compaction_state_update/.test(contextPolicyCommandBridge) &&
+      !/mod context_policy_command;/.test(bridgeModule) &&
+      !contextPolicyCommandBridgeExists &&
+      /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
+      /evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
+      /evaluate_compaction_policy_response as evaluate_compaction_policy/.test(bridgeModule) &&
+      /plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
+      /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
+      /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
+      /CompactionPolicyBridgeRequest/.test(bridgeModule) &&
+      /ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
+      /ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
       !/ContextBudgetPolicyCore/.test(contextPolicyCommandBridge) &&
       !/CompactionPolicyCore/.test(contextPolicyCommandBridge) &&
       !/ContextCompactionPlanCore/.test(contextPolicyCommandBridge) &&
@@ -8016,7 +8008,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Phase 9/10 remains non-terminal: context-budget and compaction policy owners must stay in the Rust policy child module while direct Rust daemon-core context admission/persistence replaces command transport",
@@ -8071,11 +8063,12 @@ function runBridge() {
       /diagnostics_repair_admission_required_invalid/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_workflow_edit_admission_required/.test(policyAdmissionRequiredCore) &&
       /rust_policy_plans_diagnostics_repair_admission_required/.test(policyAdmissionRequiredCore) &&
-      /mod policy_command;/.test(bridgeModule) &&
-      /plan_workflow_edit_admission_required/.test(policyCommandBridge) &&
-      /plan_diagnostics_repair_admission_required/.test(policyCommandBridge) &&
-      /WorkflowEditAdmissionRequiredBridgeRequest/.test(policyCommandBridge) &&
-      /DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(policyCommandBridge) &&
+      !/mod policy_command;/.test(bridgeModule) &&
+      !policyCommandBridgeExists &&
+      /plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required/.test(bridgeModule) &&
+      /plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required/.test(bridgeModule) &&
+      /WorkflowEditAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      /DiagnosticsRepairAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       !/WorkflowEditAdmissionRequiredCore/.test(policyCommandBridge) &&
       !/DiagnosticsRepairAdmissionRequiredCore/.test(policyCommandBridge) &&
       !/WorkflowEditAdmissionRequiredRequest/.test(policyCommandBridge) &&
@@ -9119,9 +9112,10 @@ function runBridge() {
       /rust_policy_plans_skill_hook_registry_projection_required/.test(policyCore) &&
       /pub fn plan_skill_hook_registry_projection_required_response/.test(policyProjectionRequiredCore) &&
       /rust_skill_hook_registry_projection_required_command/.test(policyProjectionRequiredCore) &&
-      /mod projection_command;/.test(bridgeModule) &&
-      /fn plan_skill_hook_registry_projection_required/.test(projectionCommandBridge) &&
-      /SkillHookRegistryProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
+      !/mod projection_command;/.test(bridgeModule) &&
+      !projectionCommandBridgeExists &&
+      /plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
+      /SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       !/rust_skill_hook_registry_projection_required_command/.test(projectionCommandBridge) &&
       /bridge_plans_skill_hook_registry_projection_required_through_rust_core/.test(
         bridgeModule,
@@ -9199,9 +9193,9 @@ function runBridge() {
       /rust_policy_plans_repository_workflow_projection_required/.test(policyCore) &&
       /pub fn plan_repository_workflow_projection_required_response/.test(policyProjectionRequiredCore) &&
       /rust_repository_workflow_projection_required_command/.test(policyProjectionRequiredCore) &&
-      /fn plan_repository_workflow_projection_required/.test(projectionCommandBridge) &&
-      /RepositoryWorkflowProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
-      !/rust_repository_workflow_projection_required_command/.test(projectionCommandBridge) &&
+      !projectionCommandBridgeExists &&
+      /plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required/.test(bridgeModule) &&
+      /RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_repository_workflow_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -10687,7 +10681,7 @@ function runBridge() {
       /CompactionPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
       /rust_compaction_policy_command/.test(policyContextLifecycleCore) &&
       /compaction_policy_invalid/.test(policyContextLifecycleCore) &&
-      /core_evaluate_compaction_policy/.test(contextPolicyCommandBridge) &&
+      /evaluate_compaction_policy_response as evaluate_compaction_policy/.test(bridgeModule) &&
       /bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
       /runtime_event_idempotency_key/.test(policyContextLifecycleCore) &&
       !/fn evaluate_compaction_policy/.test(bridgeModule) &&
@@ -10726,7 +10720,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
@@ -10996,7 +10990,7 @@ function runBridge() {
       /rust_context_compaction_plan_command/.test(policyContextLifecycleCore) &&
       /context_compaction_plan_invalid/.test(policyContextLifecycleCore) &&
       /"event_source"/.test(policyContextLifecycleCore) &&
-      /core_plan_context_compaction/.test(contextPolicyCommandBridge) &&
+      /plan_context_compaction_response as plan_context_compaction/.test(bridgeModule) &&
       /bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
       !/fn plan_context_compaction/.test(bridgeModule) &&
       !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
@@ -11021,7 +11015,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
@@ -11047,7 +11041,7 @@ function runBridge() {
       /ContextCompactionStateUpdateBridgeRequest/.test(policyContextLifecycleCore) &&
       /rust_context_compaction_state_update_command/.test(policyContextLifecycleCore) &&
       /context_compaction_state_update_invalid/.test(policyContextLifecycleCore) &&
-      /core_plan_context_compaction_state_update/.test(contextPolicyCommandBridge) &&
+      /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
       /bridge_plans_context_compaction_state_update_through_rust_core/.test(bridgeModule) &&
       /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(bridgeModule) &&
@@ -11105,7 +11099,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
@@ -15409,7 +15403,8 @@ function runReceipts() {
   const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     : "";
-  const agentgresCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs")
+  const agentgresCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs");
+  const agentgresCommandBridge = agentgresCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs")
     : "";
   const agentgresCommandCore = exists("crates/services/src/agentic/runtime/kernel/agentgres_command.rs")
@@ -15424,7 +15419,8 @@ function runReceipts() {
   const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     : "";
-  const projectionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
+  const projectionCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs");
+  const projectionCommandBridge = projectionCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
     : "";
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
@@ -19312,15 +19308,16 @@ function runReceipts() {
         agentgresAdmissionCore,
       ) &&
       /pub fn commit_runtime_model_mount_receipt_state/.test(runtimeKernelModule) &&
-      /mod agentgres_command;/.test(bridgeModule) &&
+      !/mod agentgres_command;/.test(bridgeModule) &&
+      !agentgresCommandBridgeExists &&
       /commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
       !/struct RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
-      /RuntimeModelMountReceiptStateCommitBridgeRequest/.test(agentgresCommandBridge) &&
+      /RuntimeModelMountReceiptStateCommitBridgeRequest/.test(bridgeModule) &&
       /pub struct RuntimeModelMountReceiptStateCommitBridgeRequest/.test(
         agentgresCommandCore,
       ) &&
-      /pub\(super\) fn commit_runtime_model_mount_receipt_state/.test(agentgresCommandBridge) &&
+      /commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state/.test(bridgeModule) &&
       /rust_agentgres_runtime_model_mount_receipt_state_commit_command/.test(
         agentgresCommandCore,
       ) &&
@@ -19528,8 +19525,8 @@ function runReceipts() {
       /commit_runtime_memory_state/.test(bridgeModule) &&
       !/struct RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_memory_state/.test(bridgeModule) &&
-      /RuntimeMemoryStateCommitBridgeRequest/.test(agentgresCommandBridge) && /pub struct RuntimeMemoryStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /pub\(super\) fn commit_runtime_memory_state/.test(agentgresCommandBridge) &&
+      /RuntimeMemoryStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeMemoryStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_memory_state_response as commit_runtime_memory_state/.test(bridgeModule) &&
       /rust_agentgres_runtime_memory_state_commit_command/.test(agentgresCommandCore) &&
       /bridge_commits_runtime_memory_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeMemoryState/.test(runtimeAgentgresRunner) &&
@@ -19587,9 +19584,9 @@ function runReceipts() {
       /commit_runtime_artifact_state/.test(bridgeModule) &&
       !/struct RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_artifact_state/.test(bridgeModule) &&
-      /RuntimeArtifactStateCommitBridgeRequest/.test(agentgresCommandBridge) &&
+      /RuntimeArtifactStateCommitBridgeRequest/.test(bridgeModule) &&
       /pub struct RuntimeArtifactStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /pub\(super\) fn commit_runtime_artifact_state/.test(agentgresCommandBridge) &&
+      /commit_runtime_artifact_state_response as commit_runtime_artifact_state/.test(bridgeModule) &&
       /rust_agentgres_runtime_artifact_state_commit_command/.test(agentgresCommandCore) &&
       /bridge_commits_runtime_artifact_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeArtifactState/.test(runtimeAgentgresRunner) &&
@@ -19831,10 +19828,10 @@ function runReceipts() {
       /pub fn plan_runtime_tool_catalog_projection_required_response/.test(policyCoreForState) &&
       /rust_runtime_tool_catalog_projection_required_command/.test(policyCoreForState) &&
       /plan_runtime_tool_catalog_projection_required/.test(runtimeKernelModule) &&
-      /mod projection_command;/.test(bridgeModule) &&
-      /RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
-      /fn plan_runtime_tool_catalog_projection_required/.test(projectionCommandBridge) &&
-      !/rust_runtime_tool_catalog_projection_required_command/.test(projectionCommandBridge) &&
+      !/mod projection_command;/.test(bridgeModule) &&
+      !projectionCommandBridgeExists &&
+      /plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      /RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_runtime_tool_catalog_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -19931,9 +19928,8 @@ function runReceipts() {
       /rust_runtime_lifecycle_projection_required_command/.test(policyCoreForState) &&
       /turn_id/.test(policyCoreForState) &&
       /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
-      /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
-      /fn plan_runtime_lifecycle_projection_required/.test(projectionCommandBridge) &&
-      !/rust_runtime_lifecycle_projection_required_command/.test(projectionCommandBridge) &&
+      /plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
+      /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_runtime_lifecycle_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -20268,13 +20264,14 @@ function runReceipts() {
       !/fn runtime_previous_state_root[\s\S]*?json_string\(transition,\s*"stateRootAfter"\)[\s\S]*?fn receipt_ids/.test(
         agentgresAdmissionCore,
       ) &&
-      /mod agentgres_command;/.test(bridgeModule) &&
+      !/mod agentgres_command;/.test(bridgeModule) &&
+      !agentgresCommandBridgeExists &&
       /commit_runtime_run_state/.test(bridgeModule) &&
       !/struct RuntimeRunStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_run_state/.test(bridgeModule) &&
-      /RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandBridge) && /pub struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /pub\(super\) fn commit_runtime_run_state/.test(agentgresCommandBridge) &&
-      !/commit_runtime_run_state_to_dir/.test(agentgresCommandBridge) && /commit_runtime_run_state_to_dir/.test(agentgresCommandCore) &&
+      /RuntimeRunStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
+      /commit_runtime_run_state_to_dir/.test(agentgresCommandCore) &&
       !/read_runtime_state_previous_transition/.test(agentgresCommandBridge) &&
       !/runtime_state_projection_watermark/.test(agentgresCommandBridge) &&
       !/runtime_state_record_path/.test(agentgresCommandBridge) &&
@@ -20397,8 +20394,8 @@ function runReceipts() {
       /commit_runtime_run_state/.test(bridgeModule) &&
       !/struct StorageBackendWriteBridgeRequest/.test(bridgeModule) &&
       !/fn admit_storage_backend_write/.test(bridgeModule) &&
-      /StorageBackendWriteBridgeRequest/.test(agentgresCommandBridge) && /pub struct StorageBackendWriteBridgeRequest/.test(agentgresCommandCore) &&
-      /pub\(super\) fn admit_storage_backend_write/.test(agentgresCommandBridge) &&
+      /StorageBackendWriteBridgeRequest/.test(bridgeModule) && /pub struct StorageBackendWriteBridgeRequest/.test(agentgresCommandCore) &&
+      /admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
       /runtime_agentgres_storage_rejects_step_module_command_schema/.test(bridgeModule) &&
       !/materialize_runtime_state_records/.test(bridgeModule) &&
       !/plan_runtime_state_storage_writes/.test(bridgeModule) &&
@@ -20508,24 +20505,21 @@ function runReceipts() {
       /validate_command_envelope\(\s*"commit_runtime_agent_state",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /pub\(super\) fn admit_storage_backend_write/.test(agentgresCommandBridge) &&
-      /pub\(super\) fn commit_runtime_run_state/.test(agentgresCommandBridge) &&
-      /pub\(super\) fn commit_runtime_agent_state/.test(agentgresCommandBridge) &&
-      /pub\(super\) fn commit_runtime_memory_state/.test(agentgresCommandBridge) &&
-      /pub\(super\) fn commit_runtime_subagent_state/.test(agentgresCommandBridge) &&
-      /pub\(super\) fn commit_runtime_artifact_state/.test(agentgresCommandBridge) &&
-      /pub\(super\) fn commit_runtime_model_mount_record_state/.test(
-        agentgresCommandBridge,
-      ) &&
-      /pub\(super\) fn commit_runtime_model_mount_receipt_state/.test(
-        agentgresCommandBridge,
-      ),
+      !agentgresCommandBridgeExists &&
+      /admit_storage_backend_write_response as admit_storage_backend_write/.test(bridgeModule) &&
+      /commit_runtime_run_state_response as commit_runtime_run_state/.test(bridgeModule) &&
+      /commit_runtime_agent_state_response as commit_runtime_agent_state/.test(bridgeModule) &&
+      /commit_runtime_memory_state_response as commit_runtime_memory_state/.test(bridgeModule) &&
+      /commit_runtime_subagent_state_response as commit_runtime_subagent_state/.test(bridgeModule) &&
+      /commit_runtime_artifact_state_response as commit_runtime_artifact_state/.test(bridgeModule) &&
+      /commit_runtime_model_mount_record_state_response as commit_runtime_model_mount_record_state/.test(bridgeModule) &&
+      /commit_runtime_model_mount_receipt_state_response as commit_runtime_model_mount_receipt_state/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
       "crates/services/src/agentic/runtime/kernel/agentgres_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs",
+      "crates/services/src/agentic/runtime/kernel/agentgres_command.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Phase 5/10/11 remains non-terminal: Agentgres child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before Agentgres admission or commit dispatch",
@@ -20577,8 +20571,8 @@ function runReceipts() {
       /commit_runtime_agent_state/.test(bridgeModule) &&
       !/struct RuntimeAgentStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_agent_state/.test(bridgeModule) &&
-      /RuntimeAgentStateCommitBridgeRequest/.test(agentgresCommandBridge) && /pub struct RuntimeAgentStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /pub\(super\) fn commit_runtime_agent_state/.test(agentgresCommandBridge) &&
+      /RuntimeAgentStateCommitBridgeRequest/.test(bridgeModule) && /pub struct RuntimeAgentStateCommitBridgeRequest/.test(agentgresCommandCore) &&
+      /commit_runtime_agent_state_response as commit_runtime_agent_state/.test(bridgeModule) &&
       /rust_agentgres_runtime_agent_state_commit_command/.test(agentgresCommandCore) &&
       /bridge_commits_runtime_agent_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeAgentState/.test(runtimeAgentgresRunner) &&
@@ -20648,9 +20642,9 @@ function runReceipts() {
       /commit_runtime_subagent_state/.test(bridgeModule) &&
       !/struct RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
       !/fn commit_runtime_subagent_state/.test(bridgeModule) &&
-      /RuntimeSubagentStateCommitBridgeRequest/.test(agentgresCommandBridge) &&
+      /RuntimeSubagentStateCommitBridgeRequest/.test(bridgeModule) &&
       /pub struct RuntimeSubagentStateCommitBridgeRequest/.test(agentgresCommandCore) &&
-      /pub\(super\) fn commit_runtime_subagent_state/.test(agentgresCommandBridge) &&
+      /commit_runtime_subagent_state_response as commit_runtime_subagent_state/.test(bridgeModule) &&
       /rust_agentgres_runtime_subagent_state_commit_command/.test(agentgresCommandCore) &&
       /bridge_commits_runtime_subagent_state_through_rust_core/.test(bridgeModule) &&
       /commitRuntimeSubagentState/.test(runtimeAgentgresRunner) &&

@@ -6566,6 +6566,27 @@ command-runner/caller path with direct Rust daemon-core and Rust/WASM workload
 protocol APIs once the seam is clear enough to remove without preserving
 compatibility behavior.
 
+Slice 1138 retires four more bridge child wrapper modules that had become
+pure Rust delegate shells. The deleted files are
+`ioi_step_module_bridge/agentgres_command.rs`,
+`ioi_step_module_bridge/context_policy_command.rs`,
+`ioi_step_module_bridge/policy_command.rs`, and
+`ioi_step_module_bridge/projection_command.rs`. The remaining bridge proof
+surface imports Rust response functions and request types directly from
+`agentgres_command.rs`, `policy/context_lifecycle.rs`,
+`policy/admission_required.rs`, and `policy/projection_required.rs`; runtime
+operation dispatch remains Rust `command_dispatch.rs` ownership.
+
+This remains non-terminal because the Node bridge binary, JS daemon-core
+command runner, StepModule command runner, JS command callers, and remaining
+bridge child delegates for runtime-control, thread lifecycle, MCP/memory, and
+model-mount families still exist as migration scaffolding. The deleted child
+wrappers must not be recreated or treated as canonical. The next larger cuts
+should either retire the remaining child delegates the same way where they are
+pure shells, or replace the JS command-runner/caller path with direct Rust
+daemon-core and Rust/WASM workload protocol APIs once that seam is clear enough
+to remove without preserving compatibility behavior.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
