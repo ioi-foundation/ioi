@@ -1122,18 +1122,6 @@ export class AgentgresRuntimeStateStore {
     return this.threadAuxiliarySurface.controlManagedSessionForThread(this, threadId, request);
   }
 
-  async resumeThread(threadId, request = {}) {
-    return this.threadTurnSurface.resumeThread(this, threadId, request);
-  }
-
-  updateThreadRuntimeControls(threadId, request = {}) {
-    return this.threadControlSurface.updateThreadRuntimeControls(this, threadId, request);
-  }
-
-  appendThreadRuntimeControlEvent(input) {
-    return this.threadControlSurface.appendThreadRuntimeControlEvent(this, input);
-  }
-
   appendWorkspaceTrustWarningEvent({
     agent,
     threadId,
@@ -1200,10 +1188,6 @@ export class AgentgresRuntimeStateStore {
       runIdForTurn,
       runtimeSessionIdForAgent,
     });
-  }
-
-  async createTurn(threadId, request = {}) {
-    return this.threadTurnSurface.createTurn(this, threadId, request);
   }
 
   async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
@@ -1296,14 +1280,6 @@ export class AgentgresRuntimeStateStore {
 
   turnForRun(run) {
     return this.threadEventSurface.turnForRun(this, run);
-  }
-
-  async interruptTurn(threadId, turnId, request = {}) {
-    return this.threadTurnSurface.interruptTurn(this, threadId, turnId, request);
-  }
-
-  steerTurn(threadId, turnId, request = {}) {
-    return this.threadTurnSurface.steerTurn(this, threadId, turnId, request);
   }
 
   latestApprovalDecisionEvent(threadId, approvalId) {

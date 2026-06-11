@@ -23,6 +23,21 @@ function createStore() {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-operator-control-facade-"));
   const store = new AgentgresRuntimeStateStore(stateDir, {
     cwd: stateDir,
+    modelMountAdmissionRunner: {
+      planReadProjection(request) {
+        return {
+          source: "rust_model_mount_read_projection_command",
+          backend: "rust_model_mount_read_projection",
+          projection_kind: request.projection_kind,
+          projection: { source: "agentgres_model_mounting_projection" },
+          evidence_refs: [
+            "rust_daemon_core_model_mount_projection",
+            "agentgres_model_mount_read_truth",
+            "model_mount_js_read_projection_authoring_retired",
+          ],
+        };
+      },
+    },
     contextPolicyRunner: {
       planOperatorInterruptStateUpdate() {
         throw new Error("JS operator interrupt facade must not invoke the Rust planner bridge.");
@@ -43,8 +58,9 @@ function createStore() {
 test("interruptTurn facade fails closed before runtime bridge, event append, Rust planning, or JS persistence", async () => {
   const { stateDir, store } = createStore();
   try {
+    assert.equal(typeof store.interruptTurn, "undefined");
     await assert.rejects(
-      () => store.interruptTurn("thread_one", "turn_one", {
+      () => store.threadTurnSurface.interruptTurn(store, "thread_one", "turn_one", {
         runtime_control_action: "cancel",
         controlAction: "cancel",
         workflowGraphId: "graph_retired",
@@ -79,8 +95,9 @@ test("interruptTurn facade fails closed before runtime bridge, event append, Rus
 test("steerTurn facade fails closed before agent/run lookup, event append, Rust planning, or JS persistence", () => {
   const { stateDir, store } = createStore();
   try {
+    assert.equal(typeof store.steerTurn, "undefined");
     assert.throws(
-      () => store.steerTurn("thread_one", "turn_one", {
+      () => store.threadTurnSurface.steerTurn(store, "thread_one", "turn_one", {
         guidance: "focus on Rust admission",
         idempotencyKey: "operator_steer_idempotency_retired",
       }),

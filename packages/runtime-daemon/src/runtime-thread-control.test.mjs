@@ -481,6 +481,20 @@ function appendOperatorControlForTest(value, control) {
 
 function modelMountAdmissionRunnerForTest(calls) {
   return {
+    planReadProjection(request) {
+      calls.push({ operation: "plan_model_mount_read_projection", input: request });
+      return {
+        source: "rust_model_mount_read_projection_command",
+        backend: "rust_model_mount_read_projection",
+        projection_kind: request.projection_kind,
+        projection: { source: "agentgres_model_mounting_projection" },
+        evidence_refs: [
+          "rust_daemon_core_model_mount_projection",
+          "agentgres_model_mount_read_truth",
+          "model_mount_js_read_projection_authoring_retired",
+        ],
+      };
+    },
     admitRouteDecision(request) {
       calls.push({ operation: "admit_model_mount_route_decision", input: request });
       return {
@@ -755,7 +769,7 @@ test("managed browser session HTTP routes survive daemon service reconnect", asy
   }
 });
 
-test("runtime-backed interrupt and resume route through control_thread", async () => {
+test("runtime-backed resume routes through mounted turn surface control_thread", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-control-"));
   const calls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
@@ -775,38 +789,16 @@ test("runtime-backed interrupt and resume route through control_thread", async (
         local: { cwd: stateDir },
       },
     });
-    const run = store.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "exercise runtime control",
-    });
-    const turnId = `turn_${run.id.slice("run_".length)}`;
-
-    const interrupted = await store.interruptTurn(thread.thread_id, turnId, {
-      source: "agent_studio",
-      reason: "operator_stop",
-      workflowGraphId: "graph_retired",
-      workflowNodeId: "node_retired",
-      requestedBy: "operator_retired",
-      runtimeControlAction: "cancel",
-      controlAction: "cancel",
-    });
-    const resumed = await store.resumeThread(thread.thread_id, {
+    const resumed = await store.threadTurnSurface.resumeThread(store, thread.thread_id, {
       source: "agent_studio",
       reason: "operator_resume",
     });
 
     const controls = calls.filter((call) => call.operation === "control_thread");
-    assert.equal(controls.length, 2);
-    assert.equal(controls[0].input.action, "stop");
+    assert.equal(controls.length, 1);
+    assert.equal(controls[0].input.action, "resume");
     assert.equal(controls[0].input.sessionId, "session_runtime_control_test");
     assert.equal(controls[0].input.threadId, thread.thread_id);
-    assert.equal(controls[1].input.action, "resume");
-    assert.equal(controls[1].input.sessionId, "session_runtime_control_test");
-    assert.equal(interrupted.runtime_control.action, "stop");
-    const interruptEvent = interrupted.events.find((event) => event.event_kind === "turn.interrupted");
-    assert.equal(interruptEvent.workflow_graph_id, null);
-    assert.equal(interruptEvent.workflow_node_id, "runtime.operator-interrupt");
-    assert.equal(interruptEvent.payload.requested_by, "operator");
     assert.equal(resumed.runtime_control.action, "resume");
   } finally {
     store.close();
@@ -814,7 +806,7 @@ test("runtime-backed interrupt and resume route through control_thread", async (
   }
 });
 
-test("runtime-backed steering routes run update through Rust policy planner", async () => {
+test("operator turn controls fail closed through mounted turn surface before store delegates or JS planning", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-steer-"));
   const calls = [];
   const store = new AgentgresRuntimeStateStore(stateDir, {
@@ -840,40 +832,44 @@ test("runtime-backed steering routes run update through Rust policy planner", as
     });
     const turnId = `turn_${run.id.slice("run_".length)}`;
 
-    const steered = store.steerTurn(thread.thread_id, turnId, {
-      source: "agent_studio",
-      guidance: "focus on the failing bridge assertion",
-      idempotencyKey: "operator_steer_idempotency_retired",
-      workflowGraphId: "graph_retired",
-      workflowNodeId: "node_retired",
-      requestedBy: "operator_retired",
-    });
-
-    const plannerCalls = calls.filter((call) => call.operation === "plan_operator_steer_state_update");
-    assert.equal(plannerCalls.length, 1);
-    assert.equal(plannerCalls[0].input.thread_id, thread.thread_id);
-    assert.equal(plannerCalls[0].input.turn_id, turnId);
-    assert.equal(plannerCalls[0].input.run_id, run.id);
-    assert.equal(plannerCalls[0].input.guidance, "focus on the failing bridge assertion");
-    const steerEvent = steered.events.find((event) => event.event_kind === "turn.steered");
-    assert.ok(steerEvent);
-    assert.equal(
-      steerEvent.idempotency_key,
-      `turn:${turnId}:operator.steer:1edfd37d46c5349e`,
+    await assert.rejects(
+      () => store.threadTurnSurface.interruptTurn(store, thread.thread_id, turnId, {
+        runtime_control_action: "cancel",
+        controlAction: "cancel",
+      }),
+      (error) => {
+        assert.equal(error.code, "runtime_operator_turn_control_rust_core_required");
+        assert.equal(error.details.operation_kind, "turn.interrupt");
+        assert.equal(error.details.thread_id, thread.thread_id);
+        assert.equal(error.details.turn_id, turnId);
+        assertNoRetiredOperatorControlDetailAliases(error.details);
+        return true;
+      },
     );
-    assert.equal(steerEvent.workflow_graph_id, null);
-    assert.equal(steerEvent.workflow_node_id, "runtime.operator-steer");
-    assert.equal(steerEvent.payload.requested_by, "operator");
 
-    const steerCommits = calls.filter(
-      (call) =>
-        call.operation === "commit_runtime_run_state" &&
-        call.input.operation_kind === "turn.steer",
+    assert.throws(
+      () => store.threadTurnSurface.steerTurn(store, thread.thread_id, turnId, {
+        guidance: "focus on Rust admission",
+      }),
+      (error) => {
+        assert.equal(error.code, "runtime_operator_turn_control_rust_core_required");
+        assert.equal(error.details.operation_kind, "turn.steer");
+        assert.equal(error.details.thread_id, thread.thread_id);
+        assert.equal(error.details.turn_id, turnId);
+        assertNoRetiredOperatorControlDetailAliases(error.details);
+        return true;
+      },
     );
-    assert.equal(steerCommits.length, 1);
+
+    assert.equal(typeof store.interruptTurn, "undefined");
+    assert.equal(typeof store.steerTurn, "undefined");
     assert.equal(
-      steerCommits[0].input.run.trace.operatorControls.at(-1).guidance,
-      "focus on the failing bridge assertion",
+      calls.some((call) => call.operation === "plan_operator_interrupt_state_update"),
+      false,
+    );
+    assert.equal(
+      calls.some((call) => call.operation === "plan_operator_steer_state_update"),
+      false,
     );
   } finally {
     store.close();
@@ -881,213 +877,7 @@ test("runtime-backed steering routes run update through Rust policy planner", as
   }
 });
 
-test("runtime-backed operator controls fail closed without Rust-planned runs", async () => {
-  const interruptStateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-interrupt-plan-"));
-  const interruptCalls = [];
-  const interruptStore = new AgentgresRuntimeStateStore(interruptStateDir, {
-    cwd: interruptStateDir,
-    contextPolicyRunner: contextPolicyRunner(interruptCalls, {
-      interruptStateUpdate: { status: "planned", operation_kind: "turn.interrupt", run: null },
-    }),
-    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(interruptCalls),
-    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(interruptCalls),
-    runtimeBridge: runtimeControlBridge(interruptCalls),
-  });
-  try {
-    await seedRuntimeControlModelRoute(interruptStore);
-    const thread = await interruptStore.createThread({
-      runtime_profile: "runtime_service",
-      options: { runtime_profile: "runtime_service", local: { cwd: interruptStateDir } },
-    });
-    const run = interruptStore.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "exercise failed interrupt planner",
-    });
-    const turnId = `turn_${run.id.slice("run_".length)}`;
-
-    await assert.rejects(
-      () => interruptStore.interruptTurn(thread.thread_id, turnId, { reason: "operator_stop" }),
-      (error) => {
-        assert.equal(error.code, "operator_control_state_update_planner_invalid");
-        assert.equal(error.details.thread_id, thread.thread_id);
-        assert.equal(error.details.run_id, run.id);
-        assert.equal(error.details.operation_kind, "turn.interrupt");
-        assertNoRetiredOperatorControlDetailAliases(error.details);
-        return true;
-      },
-    );
-    assert.equal(
-      interruptCalls.some(
-        (call) => call.operation === "commit_runtime_run_state" && call.input.operation_kind === "turn.interrupt",
-      ),
-      false,
-    );
-  } finally {
-    interruptStore.close();
-    rmSync(interruptStateDir, { recursive: true, force: true });
-  }
-
-  const steerStateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-steer-plan-"));
-  const steerCalls = [];
-  const steerStore = new AgentgresRuntimeStateStore(steerStateDir, {
-    cwd: steerStateDir,
-    contextPolicyRunner: contextPolicyRunner(steerCalls, {
-      steerStateUpdate: { status: "planned", operation_kind: "turn.steer", run: null },
-    }),
-    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(steerCalls),
-    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(steerCalls),
-    runtimeBridge: runtimeControlBridge(steerCalls),
-  });
-  try {
-    await seedRuntimeControlModelRoute(steerStore);
-    const thread = await steerStore.createThread({
-      runtime_profile: "runtime_service",
-      options: { runtime_profile: "runtime_service", local: { cwd: steerStateDir } },
-    });
-    const run = steerStore.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "exercise failed steer planner",
-    });
-    const turnId = `turn_${run.id.slice("run_".length)}`;
-
-    assert.throws(
-      () => steerStore.steerTurn(thread.thread_id, turnId, { guidance: "stay fail-closed" }),
-      (error) => {
-        assert.equal(error.code, "operator_control_state_update_planner_invalid");
-        assert.equal(error.details.thread_id, thread.thread_id);
-        assert.equal(error.details.run_id, run.id);
-        assert.equal(error.details.operation_kind, "turn.steer");
-        assertNoRetiredOperatorControlDetailAliases(error.details);
-        return true;
-      },
-    );
-    assert.equal(
-      steerCalls.some(
-        (call) => call.operation === "commit_runtime_run_state" && call.input.operation_kind === "turn.steer",
-      ),
-      false,
-    );
-  } finally {
-    steerStore.close();
-    rmSync(steerStateDir, { recursive: true, force: true });
-  }
-});
-
-test("runtime-backed operator controls fail closed without Rust-planned operation kinds", async () => {
-  const interruptStateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-interrupt-kind-"));
-  const interruptCalls = [];
-  const interruptStore = new AgentgresRuntimeStateStore(interruptStateDir, {
-    cwd: interruptStateDir,
-    contextPolicyRunner: contextPolicyRunner(interruptCalls, {
-      interruptStateUpdate: {
-        status: "planned",
-        operation_kind: null,
-        run: {
-          id: "run_interrupt_missing_kind",
-          agentId: "agent_missing_kind",
-          status: "canceled",
-          turnStatus: "interrupted",
-        },
-      },
-    }),
-    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(interruptCalls),
-    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(interruptCalls),
-    runtimeBridge: runtimeControlBridge(interruptCalls),
-  });
-  try {
-    await seedRuntimeControlModelRoute(interruptStore);
-    const thread = await interruptStore.createThread({
-      runtime_profile: "runtime_service",
-      options: { runtime_profile: "runtime_service", local: { cwd: interruptStateDir } },
-    });
-    const run = interruptStore.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "exercise missing interrupt operation kind",
-    });
-    const turnId = `turn_${run.id.slice("run_".length)}`;
-
-    await assert.rejects(
-      () => interruptStore.interruptTurn(thread.thread_id, turnId, { reason: "operator_stop" }),
-      (error) => {
-        assert.equal(error.code, "operator_control_state_update_operation_kind_missing");
-        assert.equal(error.details.thread_id, thread.thread_id);
-        assert.equal(error.details.run_id, run.id);
-        assert.equal(error.details.operation_kind, "turn.interrupt");
-        assertNoRetiredOperatorControlDetailAliases(error.details);
-        return true;
-      },
-    );
-    assert.equal(
-      interruptCalls.some(
-        (call) => call.operation === "commit_runtime_run_state" && call.input.operation_kind === "turn.interrupt",
-      ),
-      false,
-    );
-    assert.equal(interruptStore.getRun(run.id).id, run.id);
-    assert.equal(interruptStore.runs.has("run_interrupt_missing_kind"), false);
-  } finally {
-    interruptStore.close();
-    rmSync(interruptStateDir, { recursive: true, force: true });
-  }
-
-  const steerStateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-steer-kind-"));
-  const steerCalls = [];
-  const steerStore = new AgentgresRuntimeStateStore(steerStateDir, {
-    cwd: steerStateDir,
-    contextPolicyRunner: contextPolicyRunner(steerCalls, {
-      steerStateUpdate: {
-        status: "planned",
-        operation_kind: null,
-        run: {
-          id: "run_steer_missing_kind",
-          agentId: "agent_missing_kind",
-          status: "running",
-          turnStatus: "running",
-        },
-      },
-    }),
-    runtimeAgentgresAdmissionRunner: runtimeAgentgresAdmissionRunner(steerCalls),
-    modelMountAdmissionRunner: modelMountAdmissionRunnerForTest(steerCalls),
-    runtimeBridge: runtimeControlBridge(steerCalls),
-  });
-  try {
-    await seedRuntimeControlModelRoute(steerStore);
-    const thread = await steerStore.createThread({
-      runtime_profile: "runtime_service",
-      options: { runtime_profile: "runtime_service", local: { cwd: steerStateDir } },
-    });
-    const run = steerStore.createRun(thread.agent_id, {
-      mode: "send",
-      prompt: "exercise missing steer operation kind",
-    });
-    const turnId = `turn_${run.id.slice("run_".length)}`;
-
-    assert.throws(
-      () => steerStore.steerTurn(thread.thread_id, turnId, { guidance: "stay fail-closed" }),
-      (error) => {
-        assert.equal(error.code, "operator_control_state_update_operation_kind_missing");
-        assert.equal(error.details.thread_id, thread.thread_id);
-        assert.equal(error.details.run_id, run.id);
-        assert.equal(error.details.operation_kind, "turn.steer");
-        assertNoRetiredOperatorControlDetailAliases(error.details);
-        return true;
-      },
-    );
-    assert.equal(
-      steerCalls.some(
-        (call) => call.operation === "commit_runtime_run_state" && call.input.operation_kind === "turn.steer",
-      ),
-      false,
-    );
-    assert.equal(steerStore.getRun(run.id).id, run.id);
-    assert.equal(steerStore.runs.has("run_steer_missing_kind"), false);
-  } finally {
-    steerStore.close();
-    rmSync(steerStateDir, { recursive: true, force: true });
-  }
-});
-
-test("runtime-backed in-flight turn can be interrupted before durable run projection exists", async () => {
+test("runtime-backed in-flight turn submission uses mounted turn surface before durable run projection exists", async () => {
   const stateDir = mkdtempSync(join(tmpdir(), "ioi-runtime-thread-control-inflight-"));
   const calls = [];
   const turnId = "turn_inflight_runtime_control_test";
@@ -1152,7 +942,7 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
       approvalMode: "never_prompt",
       approval_mode: "human_required",
     };
-    const turnPromise = store.createTurn(thread.thread_id, {
+    const turnPromise = store.threadTurnSurface.createTurn(store, thread.thread_id, {
       prompt: "exercise in-flight runtime control",
       runtime_profile: "runtime_service",
       options: {
@@ -1163,22 +953,15 @@ test("runtime-backed in-flight turn can be interrupted before durable run projec
 
     await liveStarted;
     assert.equal(store.runs.has("run_inflight_runtime_control_test"), false);
-    const interrupted = await store.interruptTurn(thread.thread_id, turnId, {
-      source: "agent_studio",
-      reason: "operator_stop",
-    });
     releaseSubmit();
     const completed = await turnPromise;
 
     const controls = calls.filter((call) => call.operation === "control_thread");
-    assert.equal(controls.length, 1);
-    assert.equal(controls[0].input.action, "stop");
-    assert.equal(controls[0].input.threadId, thread.thread_id);
-    assert.equal(interrupted.status, "interrupted");
-    assert.equal(interrupted.approval_mode, "human_required");
-    assert.equal(interrupted.runtime_control.action, "stop");
+    assert.equal(controls.length, 0);
     assert.equal(completed.turn_id, turnId);
     assert.equal(store.runs.has("run_inflight_runtime_control_test"), true);
+    assert.equal(typeof store.createTurn, "undefined");
+    assert.equal(typeof store.interruptTurn, "undefined");
   } finally {
     store.close();
     rmSync(stateDir, { recursive: true, force: true });

@@ -5576,6 +5576,23 @@ transport until direct Rust daemon-core runtime thread/turn/control APIs own
 admission, execution dispatch, persistence, replay, projection, wallet/cTEE
 policy, and Agentgres expected-head/state-root binding.
 
+Slice 1082 retires the daemon-store thread-turn and thread-control compatibility
+delegates that remained after public routes moved to mounted surfaces. The
+store no longer exposes `resumeThread()`, `createTurn()`, `interruptTurn()`,
+`steerTurn()`, `updateThreadRuntimeControls()`, or
+`appendThreadRuntimeControlEvent()` as pass-through methods. Route handlers and
+tests now enter through `threadTurnSurface` or `threadControlSurface` directly,
+so runtime thread/turn/control admission cannot re-enter through a daemon-store
+compatibility API.
+
+Conformance now fails if those store delegates return in `index.mjs`, if
+operator turn-control tests stop proving the store methods are absent, or if
+runtime-backed turn tests stop using the mounted turn surface. This is still not
+terminal thread/turn/control migration: the mounted JS surfaces remain
+fail-closed or fixed transport scaffolding until direct Rust daemon-core
+admission, execution dispatch, persistence, replay, projection, wallet/cTEE
+policy, and Agentgres expected-head/state-root binding own the surface.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

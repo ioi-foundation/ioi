@@ -15784,6 +15784,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1082
+
+Slice 1082 retires daemon-store thread-turn and thread-control compatibility
+delegates that remained after public routes moved to mounted surfaces.
+`AgentgresRuntimeStateStore` no longer exposes `resumeThread()`,
+`createTurn()`, `interruptTurn()`, `steerTurn()`,
+`updateThreadRuntimeControls()`, or `appendThreadRuntimeControlEvent()` as
+pass-through methods. Route handlers and tests now enter through
+`threadTurnSurface` or `threadControlSurface` directly, so thread/turn/control
+admission cannot re-enter through daemon-store compatibility APIs.
+
+Conformance now fails if those store delegates return in `index.mjs`, if
+operator turn-control tests stop proving the store methods are absent, or if
+runtime-backed turn tests stop using the mounted turn surface. This is not
+terminal thread/turn/control migration: the mounted JS surfaces remain
+fail-closed or fixed-transport scaffolding until direct Rust daemon-core
+admission, execution dispatch, persistence, replay, projection, wallet/cTEE
+policy, and Agentgres expected-head/state-root binding own the surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1081
 
 Slice 1081 retires RuntimeAgentService bridge command/input alias tolerance at

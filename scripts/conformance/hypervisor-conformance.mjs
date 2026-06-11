@@ -3179,6 +3179,11 @@ function runBridge() {
   const runtimeThreadControlTest = exists("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control.test.mjs")
     : "";
+  const runtimeThreadSurfaceDelegatesRetiredTest = exists(
+    "packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs")
+    : "";
   const runtimeOperatorTurnControlFacadeTest = exists(
     "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
   )
@@ -7885,6 +7890,14 @@ function runBridge() {
       /error\.details\.thread_id/.test(runtimeOperatorTurnControlFacadeTest) &&
       /error\.details\.turn_id/.test(runtimeOperatorTurnControlFacadeTest) &&
       /error\.details\.operation_kind/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /store\.threadTurnSurface\.interruptTurn\(store,\s*"thread_one",\s*"turn_one"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /store\.threadTurnSurface\.steerTurn\(store,\s*"thread_one",\s*"turn_one"/.test(
+        runtimeOperatorTurnControlFacadeTest,
+      ) &&
+      /typeof store\.interruptTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
+      /typeof store\.steerTurn,\s*"undefined"/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\s*:/.test(
         runtimeThreadTurnSurface,
       ) &&
@@ -7912,6 +7925,21 @@ function runBridge() {
       !/store\.createRun\(agent\.id/.test(runtimeThreadTurnSurface) &&
       !/store\.turnForRun\(/.test(runtimeThreadTurnSurface) &&
       !/requestWithDiagnosticsFeedback/.test(runtimeThreadTurnSurface) &&
+      !/^\s*(?:resumeThread|createTurn|interruptTurn|steerTurn)\(threadId/m.test(
+        runtimeDaemonIndex,
+      ) &&
+      /daemon store thread turn and control pass-through delegates are retired/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"resumeThread"[\s\S]*"createTurn"[\s\S]*"interruptTurn"[\s\S]*"steerTurn"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"updateThreadRuntimeControls"[\s\S]*"appendThreadRuntimeControlEvent"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /Object\.hasOwn\(prototype, method\), false/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
       /thread turn surface fails closed for non-runtime resume before JS mutation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
@@ -7930,6 +7958,7 @@ function runBridge() {
     [
       "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs",
       "packages/runtime-daemon/src/runtime-route-handlers.mjs",
     ],
     "Phase 10/11 is pending: thread resume and turn creation must fail closed until Rust daemon-core owns admission, run/thread persistence, and Agentgres truth",
@@ -8465,6 +8494,12 @@ function runBridge() {
       ) &&
       !/^\s*(?:updateThreadMode|updateThreadModel|updateThreadThinking)\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
+      ) &&
+      !/^\s*(?:updateThreadRuntimeControls|appendThreadRuntimeControlEvent)\(/m.test(
+        runtimeDaemonIndex,
+      ) &&
+      /"updateThreadRuntimeControls"[\s\S]*"appendThreadRuntimeControlEvent"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
       /assertNoRetiredDetailAliases\(error\.details\)/.test(runtimeThreadControlSurfaceTest) &&
       /error\.details\.thread_id/.test(runtimeThreadControlSurfaceTest) &&
