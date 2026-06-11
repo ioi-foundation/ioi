@@ -4,8 +4,10 @@ use sha2::{Digest, Sha256};
 use super::{
     require_non_empty, sha256_hex, validate_receipt_refs, ModelMountError,
     MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION, MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION,
-    MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION,
 };
+
+mod invocation;
+mod stream;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ModelMountProviderExecutionRequest {
@@ -313,83 +315,13 @@ pub(super) fn admit_provider_execution(
 pub(super) fn invoke_provider(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderInvocationResult, ModelMountError> {
-    request.validate()?;
-    let output_text = deterministic_provider_output(request)?;
-    let token_count = estimate_tokens(&request.input, &output_text);
-    let backend = provider_invocation_backend(request);
-    let backend_id = provider_invocation_backend_id(request);
-    let mut result = ModelMountProviderInvocationResult {
-        schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
-        provider_execution_ref: request.provider_execution_ref.clone(),
-        provider_execution_hash: request.provider_execution_hash.clone(),
-        route_decision_ref: request.route_decision_ref.clone(),
-        route_receipt_ref: request.route_receipt_ref.clone(),
-        route_ref: request.route_ref.clone(),
-        provider_ref: request.provider_ref.clone(),
-        provider_kind: request.provider_kind.clone(),
-        endpoint_ref: request.endpoint_ref.clone(),
-        model_ref: request.model_ref.clone(),
-        capability: request.capability.clone(),
-        invocation_kind: request.invocation_kind.clone(),
-        request_hash: request.request_hash.clone(),
-        output_text,
-        token_count,
-        provider_response_kind: Some(provider_invocation_response_kind(request)),
-        backend,
-        backend_id,
-        execution_backend: request.execution_backend.clone(),
-        evidence_refs: provider_invocation_evidence_refs(request),
-        invocation_hash: String::new(),
-    };
-    result.invocation_hash = provider_invocation_hash(&result)?;
-    Ok(result)
+    invocation::invoke_provider(request)
 }
 
 pub(super) fn invoke_provider_stream(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<ModelMountProviderStreamInvocationResult, ModelMountError> {
-    request.validate_stream()?;
-    let output_text = deterministic_native_local_output(
-        &request.invocation_kind,
-        &request.input,
-        &request.model_ref,
-    )?;
-    let token_count = estimate_tokens(&request.input, &output_text);
-    let stream_chunks = native_local_stream_chunks(&output_text, &token_count)?;
-    let mut result = ModelMountProviderStreamInvocationResult {
-        schema_version: MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION.to_string(),
-        provider_execution_ref: request.provider_execution_ref.clone(),
-        provider_execution_hash: request.provider_execution_hash.clone(),
-        route_decision_ref: request.route_decision_ref.clone(),
-        route_receipt_ref: request.route_receipt_ref.clone(),
-        route_ref: request.route_ref.clone(),
-        provider_ref: request.provider_ref.clone(),
-        provider_kind: request.provider_kind.clone(),
-        endpoint_ref: request.endpoint_ref.clone(),
-        model_ref: request.model_ref.clone(),
-        capability: request.capability.clone(),
-        invocation_kind: request.invocation_kind.clone(),
-        request_hash: request.request_hash.clone(),
-        output_text,
-        token_count,
-        provider_response_kind: "rust_model_mount.native_local.stream".to_string(),
-        backend: "autopilot.native_local.fixture".to_string(),
-        backend_id: request
-            .backend_ref
-            .as_deref()
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .unwrap_or("backend.autopilot.native-local.fixture")
-            .to_string(),
-        execution_backend: request.execution_backend.clone(),
-        stream_format: "ioi_jsonl".to_string(),
-        stream_kind: native_local_stream_kind(&request.invocation_kind),
-        stream_chunks,
-        evidence_refs: provider_stream_invocation_evidence_refs(request),
-        invocation_hash: String::new(),
-    };
-    result.invocation_hash = provider_stream_invocation_hash(&result)?;
-    Ok(result)
+    stream::invoke_provider_stream(request)
 }
 
 fn validate_private_workspace(
@@ -471,12 +403,16 @@ fn validate_provider_execution_binding(
     Ok(())
 }
 
-fn is_migrated_provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> bool {
+pub(super) fn is_migrated_provider_invocation_backend(
+    request: &ModelMountProviderInvocationRequest,
+) -> bool {
     is_fixture_provider_invocation_backend(request)
         || is_native_local_provider_invocation_backend(request)
 }
 
-fn is_fixture_provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> bool {
+pub(super) fn is_fixture_provider_invocation_backend(
+    request: &ModelMountProviderInvocationRequest,
+) -> bool {
     if request.execution_backend.trim() != "rust_model_mount_fixture" {
         return false;
     }
@@ -486,7 +422,7 @@ fn is_fixture_provider_invocation_backend(request: &ModelMountProviderInvocation
     provider_kind == "local_folder" || driver == "fixture" || api_format == "ioi_fixture"
 }
 
-fn is_native_local_provider_invocation_backend(
+pub(super) fn is_native_local_provider_invocation_backend(
     request: &ModelMountProviderInvocationRequest,
 ) -> bool {
     if request.execution_backend.trim() != "rust_model_mount_native_local" {
@@ -498,7 +434,7 @@ fn is_native_local_provider_invocation_backend(
     provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
 }
 
-fn is_native_local_provider_stream_invocation_backend(
+pub(super) fn is_native_local_provider_stream_invocation_backend(
     request: &ModelMountProviderInvocationRequest,
 ) -> bool {
     if request.execution_backend.trim() != "rust_model_mount_native_local_stream" {
@@ -510,7 +446,7 @@ fn is_native_local_provider_stream_invocation_backend(
     provider_kind == "ioi_native_local" || driver == "native_local" || api_format == "ioi_native"
 }
 
-fn deterministic_provider_output(
+pub(super) fn deterministic_provider_output(
     request: &ModelMountProviderInvocationRequest,
 ) -> Result<String, ModelMountError> {
     if is_native_local_provider_invocation_backend(request) {
@@ -523,7 +459,7 @@ fn deterministic_provider_output(
     deterministic_fixture_output(&request.invocation_kind, &request.input, &request.model_ref)
 }
 
-fn deterministic_fixture_output(
+pub(super) fn deterministic_fixture_output(
     invocation_kind: &str,
     input: &str,
     model_ref: &str,
@@ -541,7 +477,7 @@ fn deterministic_fixture_output(
     ))
 }
 
-fn deterministic_native_local_output(
+pub(super) fn deterministic_native_local_output(
     invocation_kind: &str,
     input: &str,
     model_ref: &str,
@@ -559,7 +495,7 @@ fn deterministic_native_local_output(
     ))
 }
 
-fn provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> String {
+pub(super) fn provider_invocation_backend(request: &ModelMountProviderInvocationRequest) -> String {
     if is_native_local_provider_invocation_backend(request) {
         return "autopilot.native_local.fixture".to_string();
     }
@@ -572,7 +508,9 @@ fn provider_invocation_backend(request: &ModelMountProviderInvocationRequest) ->
         .to_string()
 }
 
-fn provider_invocation_backend_id(request: &ModelMountProviderInvocationRequest) -> String {
+pub(super) fn provider_invocation_backend_id(
+    request: &ModelMountProviderInvocationRequest,
+) -> String {
     if is_native_local_provider_invocation_backend(request) {
         return request
             .backend_ref
@@ -591,61 +529,16 @@ fn provider_invocation_backend_id(request: &ModelMountProviderInvocationRequest)
         .to_string()
 }
 
-fn provider_invocation_response_kind(request: &ModelMountProviderInvocationRequest) -> String {
+pub(super) fn provider_invocation_response_kind(
+    request: &ModelMountProviderInvocationRequest,
+) -> String {
     if is_native_local_provider_invocation_backend(request) {
         return "rust_model_mount.native_local".to_string();
     }
     "rust_model_mount.fixture".to_string()
 }
 
-fn native_local_stream_kind(invocation_kind: &str) -> String {
-    if invocation_kind == "responses" {
-        return "openai_responses_native_local".to_string();
-    }
-    "openai_chat_completions_native_local".to_string()
-}
-
-fn native_local_stream_chunks(
-    output_text: &str,
-    token_count: &ModelMountTokenCount,
-) -> Result<Vec<String>, ModelMountError> {
-    let mut text_chunks = Vec::new();
-    let chars: Vec<char> = output_text.chars().collect();
-    if chars.is_empty() {
-        text_chunks.push(String::new());
-    } else {
-        for chunk in chars.chunks(64) {
-            text_chunks.push(chunk.iter().collect::<String>());
-        }
-    }
-    let mut records = Vec::new();
-    for chunk in text_chunks {
-        let record = serde_json::json!({
-            "delta": chunk,
-            "done": false,
-        });
-        records.push(
-            serde_json::to_string(&record)
-                .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
-                + "\n",
-        );
-    }
-    let done = serde_json::json!({
-        "delta": "",
-        "done": true,
-        "done_reason": "stop",
-        "prompt_eval_count": token_count.prompt_tokens,
-        "eval_count": token_count.completion_tokens,
-    });
-    records.push(
-        serde_json::to_string(&done)
-            .map_err(|error| ModelMountError::HashFailed(error.to_string()))?
-            + "\n",
-    );
-    Ok(records)
-}
-
-fn estimate_tokens(input: &str, output: &str) -> ModelMountTokenCount {
+pub(super) fn estimate_tokens(input: &str, output: &str) -> ModelMountTokenCount {
     let prompt_tokens = estimated_token_count(input);
     let completion_tokens = estimated_token_count(output);
     ModelMountTokenCount {
@@ -660,7 +553,9 @@ fn estimated_token_count(value: &str) -> u64 {
     ((chars + 3) / 4).max(1)
 }
 
-fn provider_invocation_evidence_refs(request: &ModelMountProviderInvocationRequest) -> Vec<String> {
+pub(super) fn provider_invocation_evidence_refs(
+    request: &ModelMountProviderInvocationRequest,
+) -> Vec<String> {
     let mut refs = vec![
         "rust_model_mount_provider_invocation".to_string(),
         request.provider_execution_ref.clone(),
@@ -681,24 +576,6 @@ fn provider_invocation_evidence_refs(request: &ModelMountProviderInvocationReque
     refs
 }
 
-fn provider_stream_invocation_evidence_refs(
-    request: &ModelMountProviderInvocationRequest,
-) -> Vec<String> {
-    let mut refs = vec![
-        "rust_model_mount_provider_stream_invocation".to_string(),
-        "rust_model_mount_native_local_stream_backend".to_string(),
-        "autopilot_native_local_openai_compatible_serving".to_string(),
-        "deterministic_native_local_fixture".to_string(),
-        request.provider_execution_ref.clone(),
-    ];
-    for evidence_ref in &request.evidence_refs {
-        if !evidence_ref.trim().is_empty() && !refs.contains(evidence_ref) {
-            refs.push(evidence_ref.clone());
-        }
-    }
-    refs
-}
-
 fn provider_execution_hash(
     record: &ModelMountProviderExecutionRecord,
 ) -> Result<String, ModelMountError> {
@@ -710,7 +587,7 @@ fn provider_execution_hash(
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
-fn provider_invocation_hash(
+pub(super) fn provider_invocation_hash(
     result: &ModelMountProviderInvocationResult,
 ) -> Result<String, ModelMountError> {
     let mut canonical = result.clone();
@@ -720,7 +597,7 @@ fn provider_invocation_hash(
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
 
-fn provider_stream_invocation_hash(
+pub(super) fn provider_stream_invocation_hash(
     result: &ModelMountProviderStreamInvocationResult,
 ) -> Result<String, ModelMountError> {
     let mut canonical = result.clone();
@@ -733,6 +610,7 @@ fn provider_stream_invocation_hash(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::runtime::kernel::model_mount::MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION;
 
     fn provider_execution_request() -> ModelMountProviderExecutionRequest {
         ModelMountProviderExecutionRequest {

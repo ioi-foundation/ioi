@@ -20371,6 +20371,33 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1030
+
+Slice 1030 split the model_mount provider-execution Rust boundary into
+explicit execution-family owner modules. Admission record validation and
+provider-execution hashing remain in
+`model_mount/provider_execution.rs`; fixture/native-local non-stream provider
+invocation execution now lives in
+`model_mount/provider_execution/invocation.rs`; native-local stream invocation
+chunk planning, stream evidence, and stream result hashing now live in
+`model_mount/provider_execution/stream.rs`. `ModelMountCore` still exposes the
+same provider execution API surface, but the parent boundary delegates to the
+dedicated Rust owners and conformance now requires the delegated shape plus
+module-local proof tests.
+
+This is still non-terminal migration work: provider execution family ownership
+is more precise in Rust, but direct Rust daemon-core provider transport,
+provider lifecycle/inventory projection, command-transport retirement, and
+stable protocol APIs must still replace JS request shaping and edge translation
+before terminal provider execution ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1030 | Split provider invocation execution and native-local stream planning out of `crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs` into `provider_execution/invocation.rs` and `provider_execution/stream.rs`; conformance now requires child modules, parent delegation, and module-local proof tests. | Direct Rust daemon-core provider transports, provider lifecycle/inventory projection, receipt/state-root bound provider-result admission, command bridge retirement, and stable SDK/IDE/CLI protocol APIs replace JS request shaping and edge translation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1029
 
 Slice 1029 split the model_mount receipt-derived read-projection family into

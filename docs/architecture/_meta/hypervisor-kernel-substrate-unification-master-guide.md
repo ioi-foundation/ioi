@@ -4609,15 +4609,18 @@ provider and model-instance lifecycle planning a distinct Rust core boundary
 for the next direct daemon-core API cut, and the lifecycle/inventory/instance
 Rust tests now live beside that module instead of accumulating in the broad
 model-mount kernel file;
-model-mount provider execution admission, fixture/native-local provider
-invocation execution, and native-local stream invocation chunk planning now
-live in the dedicated Rust `model_mount/provider_execution.rs` module behind
-`ModelMountCore`, provider-result admission now lives in the dedicated Rust
+model-mount provider execution admission now lives in the Rust
+`model_mount/provider_execution.rs` boundary behind `ModelMountCore`, while
+fixture/native-local provider invocation execution lives in
+`model_mount/provider_execution/invocation.rs` and native-local stream
+invocation chunk planning lives in
+`model_mount/provider_execution/stream.rs`; provider-result admission now lives
+in the dedicated Rust
 `model_mount/provider_result.rs` module behind `ModelMountCore`, making
 provider execution and provider-result binding separate Rust core boundaries
-for the next direct daemon-core API cuts, and the provider execution/invocation
-and provider-result Rust tests now live beside their owning modules instead of
-accumulating in the broad model-mount kernel file;
+for the next direct daemon-core API cuts, and the provider execution,
+invocation, stream, and provider-result Rust tests now live beside their owning
+modules instead of accumulating in the broad model-mount kernel file;
 model-mount read-projection adapter-boundary and workflow-binding projection
 authors now live in the dedicated Rust
 `model_mount/read_projection/adapter_boundary.rs` module, with module-local

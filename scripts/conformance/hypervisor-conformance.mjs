@@ -2362,6 +2362,12 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs")
           : "",
@@ -13643,6 +13649,12 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs")
           : "",
@@ -13928,17 +13940,23 @@ function runReceipts() {
       /provider_execution::invoke_provider\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
+      /mod invocation;/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /invocation::invoke_provider\(request\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
       /ModelMountProviderInvocationRequest/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
-      /fixture_provider_invocation_executes_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      /fixture_provider_invocation_executes_in_dedicated_rust_owner/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
       ) &&
-      /native_local_provider_invocation_executes_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      /native_local_provider_invocation_executes_in_dedicated_rust_owner/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
       ) &&
-      /fixture_provider_invocation_requires_bound_provider_execution/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      /fixture_provider_invocation_requires_bound_provider_execution_in_owner/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
       ) &&
       !/fn fixture_provider_invocation_executes_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
@@ -13957,6 +13975,9 @@ function runReceipts() {
       ) &&
       /deterministic_native_local_fixture/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /pub\(super\) fn invoke_provider/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs"),
       ) &&
       /invoke_model_mount_provider/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -13982,14 +14003,20 @@ function runReceipts() {
       /provider_execution::invoke_provider_stream\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
+      /mod stream;/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /stream::invoke_provider_stream\(request\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
       /ModelMountProviderStreamInvocationResult/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
-      /native_local_provider_stream_invocation_executes_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      /native_local_provider_stream_invocation_executes_in_dedicated_rust_owner/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
       ) &&
-      /native_local_provider_stream_invocation_rejects_unstarted_or_wrong_backends/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      /native_local_provider_stream_invocation_rejects_unstarted_or_wrong_backends_in_owner/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
       ) &&
       !/fn native_local_provider_stream_invocation_executes_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
@@ -13998,7 +14025,10 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
       ) &&
       /native_local_stream_chunks/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
+      ) &&
+      /pub\(super\) fn invoke_provider_stream/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/stream.rs"),
       ) &&
       /invoke_model_mount_provider_stream/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
