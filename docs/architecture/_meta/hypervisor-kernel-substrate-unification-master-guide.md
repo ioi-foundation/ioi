@@ -5001,6 +5001,27 @@ where applicable, Agentgres expected heads/state roots, lifecycle
 receipts/events, replay, projection, StepModuleRouter dispatch where lifecycle
 work enters admitted module execution, and stable IDE/CLI/SDK protocol APIs.
 
+Slice 1048 moves the coding-tool budget recovery state-update and
+admission-required, diagnostics operator-override state-update, operator
+interrupt/steer state-update, and run-cancel state-update/admission-required
+daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs`. The
+policy owners remain
+`crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`,
+`crates/services/src/agentic/runtime/kernel/policy/operator_control.rs`, and
+`crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs`; the bridge
+child module is only fixed migration transport that translates Rust-authored
+runtime-control policy records at the process boundary. The conformance guard
+now proves the runtime-control command wrappers stay out of the broad bridge
+module. This is not terminal runtime-control migration. Resume by replacing
+this command transport with direct Rust daemon-core budget-recovery,
+operator-control, diagnostics-repair, and run-cancel
+admission/persistence/projection APIs over wallet authority where applicable,
+Agentgres expected heads/state roots, runtime-control receipts/events, replay,
+projection, StepModuleRouter dispatch where control work enters admitted
+module execution, and stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -15736,6 +15736,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1048
+
+Slice 1048 splits the coding-tool budget recovery state-update and
+admission-required, diagnostics operator-override state-update, operator
+interrupt/steer state-update, and run-cancel state-update/admission-required
+daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
+`crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs`. The
+canonical Rust policy owners remain
+`crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`,
+`crates/services/src/agentic/runtime/kernel/policy/operator_control.rs`, and
+`crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs`; the new
+bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge conformance guard now proves the
+runtime-control command wrappers are outside the broad bridge module while the
+existing bridge tests continue to prove the Rust policy path.
+
+This is a Rust transport-boundary cleanup, not terminal runtime-control
+migration. The current JS coding-tool budget recovery, diagnostics repair,
+operator turn, and run-cancel surfaces plus the JS context-policy runner and
+Node command bridge remain scaffolding until direct Rust daemon-core
+runtime-control admission/persistence/projection, wallet authority where
+applicable, Agentgres expected-head and state-root persistence,
+runtime-control receipts/events, replay, projection, StepModuleRouter dispatch
+where control work enters admitted module execution, and stable protocol APIs
+own runtime-control paths end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node budget --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node operator --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node cancel --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,

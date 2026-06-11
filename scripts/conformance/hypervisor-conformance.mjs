@@ -2281,6 +2281,9 @@ function runBridge() {
   const policyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     : "";
+  const runtimeControlCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
+    : "";
   const workloadClient = exists("crates/client/src/workload_client/mod.rs")
     ? read("crates/client/src/workload_client/mod.rs")
     : "";
@@ -6869,12 +6872,15 @@ function runBridge() {
       !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
         codingToolBudgetRecoveryStateUpdateCoreBlock,
       ) &&
-      /plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
-      /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_coding_tool_budget_recovery_state_update_command/.test(bridgeModule) &&
+      /mod runtime_control_command;/.test(bridgeModule) &&
+      /fn plan_coding_tool_budget_recovery_state_update/.test(runtimeControlCommandBridge) &&
+      /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_coding_tool_budget_recovery_state_update_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_coding_tool_budget_recovery_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
+      !/struct CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["operator_control"\]\["approval_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(bridgeModule) &&
       /planCodingToolBudgetRecoveryStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -6979,10 +6985,14 @@ function runBridge() {
       /rust_policy_plans_coding_tool_budget_recovery_admission_required/.test(
         policyCore,
       ) &&
-      /plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
+      /fn plan_coding_tool_budget_recovery_admission_required/.test(runtimeControlCommandBridge) &&
+      /CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_coding_tool_budget_recovery_admission_required_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
+      !/struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /planCodingToolBudgetRecoveryAdmissionRequired\(request = \{\}\)/.test(
         runtimeContextPolicyRunner,
       ) &&
@@ -7092,12 +7102,14 @@ function runBridge() {
       !/"decisionId": decision_id|"gateEventId": gate_event_id|"approvalRequired": request\.approval_required|"approvalSatisfied": request\.approval_satisfied|"approvalSource": approval_source|"snapshotId": snapshot_id|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         diagnosticsOperatorOverrideStateUpdateCoreBlock,
       ) &&
-      /plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
-      /DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_diagnostics_operator_override_state_update_command/.test(bridgeModule) &&
+      /fn plan_diagnostics_operator_override_state_update/.test(runtimeControlCommandBridge) &&
+      /DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_diagnostics_operator_override_state_update_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_diagnostics_operator_override_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
+      !/struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["operator_control"\]\["decision_id"\]/.test(bridgeModule) &&
       /"decisionId"[\s\S]*"createdAt"[\s\S]*response\["operator_control"\]\.get\(field\)\.is_none\(\)/.test(
         bridgeModule,
@@ -7163,12 +7175,14 @@ function runBridge() {
       !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         operatorInterruptStateUpdateCoreBlock,
       ) &&
-      /plan_operator_interrupt_state_update/.test(bridgeModule) &&
-      /OperatorInterruptStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_operator_interrupt_state_update_command/.test(bridgeModule) &&
+      /fn plan_operator_interrupt_state_update/.test(runtimeControlCommandBridge) &&
+      /OperatorInterruptStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_operator_interrupt_state_update_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_operator_interrupt_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_operator_interrupt_state_update/.test(bridgeModule) &&
+      !/struct OperatorInterruptStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
         bridgeModule,
@@ -7250,10 +7264,12 @@ function runBridge() {
       !/"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         operatorSteerStateUpdateCoreBlock,
       ) &&
-      /plan_operator_steer_state_update/.test(bridgeModule) &&
-      /OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_operator_steer_state_update_command/.test(bridgeModule) &&
+      /fn plan_operator_steer_state_update/.test(runtimeControlCommandBridge) &&
+      /OperatorSteerStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_operator_steer_state_update_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_operator_steer_state_update_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_operator_steer_state_update/.test(bridgeModule) &&
+      !/struct OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(
         bridgeModule,
@@ -7460,10 +7476,12 @@ function runBridge() {
       /RunCancelStateUpdateRequest/.test(policyCore) &&
       /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_run_cancel_state_update/.test(policyCore) &&
-      /plan_run_cancel_state_update/.test(bridgeModule) &&
-      /RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_run_cancel_state_update_command/.test(bridgeModule) &&
+      /fn plan_run_cancel_state_update/.test(runtimeControlCommandBridge) &&
+      /RunCancelStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_run_cancel_state_update_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_run_cancel_state_update_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_run_cancel_state_update/.test(bridgeModule) &&
+      !/struct RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planRunCancelStateUpdate/.test(runtimeContextPolicyRunner) &&
       /RUN_CANCEL_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /run cancel state update runner sends Rust state update bridge request/.test(
@@ -7472,8 +7490,12 @@ function runBridge() {
       /RunCancelAdmissionRequiredCore/.test(policyCore) &&
       /RUN_CANCEL_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_run_cancel_admission_required/.test(policyCore) &&
-      /plan_run_cancel_admission_required/.test(bridgeModule) &&
+      /fn plan_run_cancel_admission_required/.test(runtimeControlCommandBridge) &&
+      /RunCancelAdmissionRequiredBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /rust_run_cancel_admission_required_command/.test(runtimeControlCommandBridge) &&
       /bridge_plans_run_cancel_admission_required_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_run_cancel_admission_required/.test(bridgeModule) &&
+      !/struct RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /planRunCancelAdmissionRequired\(request = \{\}\)/.test(
         runtimeContextPolicyRunner,
       ) &&

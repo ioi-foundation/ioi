@@ -29,14 +29,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountServerControlRequiredRequest, ModelMountTokenizerRequiredRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
-    CodingToolBudgetRecoveryAdmissionRequiredCore,
-    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
-    CodingToolBudgetRecoveryStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
-    DiagnosticsOperatorOverrideStateUpdateRequest, OperatorInterruptStateUpdateCore,
-    OperatorInterruptStateUpdateRequest, OperatorSteerStateUpdateCore,
-    OperatorSteerStateUpdateRequest, RepositoryWorkflowProjectionRequiredCore,
-    RepositoryWorkflowProjectionRequiredRequest, RunCancelAdmissionRequiredCore,
-    RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
+    RepositoryWorkflowProjectionRequiredCore, RepositoryWorkflowProjectionRequiredRequest,
     RuntimeLifecycleProjectionRequiredCore, RuntimeLifecycleProjectionRequiredRequest,
     RuntimeToolCatalogProjectionRequiredCore, RuntimeToolCatalogProjectionRequiredRequest,
     SkillHookRegistryProjectionRequiredCore, SkillHookRegistryProjectionRequiredRequest,
@@ -75,6 +68,7 @@ mod computer_use;
 mod context_policy_command;
 mod mcp_memory_command;
 mod policy_command;
+mod runtime_control_command;
 mod thread_lifecycle_command;
 
 use approval_command::{
@@ -104,6 +98,17 @@ use mcp_memory_command::{
 use policy_command::{
     plan_diagnostics_repair_admission_required, plan_workflow_edit_admission_required,
     DiagnosticsRepairAdmissionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
+};
+use runtime_control_command::{
+    plan_coding_tool_budget_recovery_admission_required,
+    plan_coding_tool_budget_recovery_state_update, plan_diagnostics_operator_override_state_update,
+    plan_operator_interrupt_state_update, plan_operator_steer_state_update,
+    plan_run_cancel_admission_required, plan_run_cancel_state_update,
+    CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
+    CodingToolBudgetRecoveryStateUpdateBridgeRequest,
+    DiagnosticsOperatorOverrideStateUpdateBridgeRequest, OperatorInterruptStateUpdateBridgeRequest,
+    OperatorSteerStateUpdateBridgeRequest, RunCancelAdmissionRequiredBridgeRequest,
+    RunCancelStateUpdateBridgeRequest,
 };
 use thread_lifecycle_command::{
     plan_agent_create_state_update, plan_agent_status_state_update, plan_run_create_state_update,
@@ -417,76 +422,6 @@ struct WorkspaceSnapshotCaptureBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: WorkspaceSnapshotCaptureRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: CodingToolBudgetRecoveryStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: CodingToolBudgetRecoveryAdmissionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: DiagnosticsOperatorOverrideStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct OperatorInterruptStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: OperatorInterruptStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct OperatorSteerStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: OperatorSteerStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct RunCancelStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCancelStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct RunCancelAdmissionRequiredBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCancelAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2617,274 +2552,6 @@ fn authorize_external_capability_exit(
         "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
         "authority_receipt_refs": record.authority_receipt_refs.clone(),
         "authority_hash": record.authority_hash.clone(),
-    }))
-}
-
-fn plan_coding_tool_budget_recovery_state_update(
-    request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_coding_tool_budget_recovery_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = CodingToolBudgetRecoveryStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "coding_tool_budget_recovery_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_coding_tool_budget_recovery_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "operator_control": record.operator_control.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn plan_coding_tool_budget_recovery_admission_required(
-    request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_coding_tool_budget_recovery_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = CodingToolBudgetRecoveryAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "coding_tool_budget_recovery_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_coding_tool_budget_recovery_admission_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
-    }))
-}
-
-fn plan_diagnostics_operator_override_state_update(
-    request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_diagnostics_operator_override_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = DiagnosticsOperatorOverrideStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "diagnostics_operator_override_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_diagnostics_operator_override_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "operator_control": record.operator_control.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn plan_operator_interrupt_state_update(
-    request: OperatorInterruptStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_operator_interrupt_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = OperatorInterruptStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "operator_interrupt_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_operator_interrupt_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "operator_control": record.operator_control.clone(),
-        "stop_condition": record.stop_condition.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn plan_operator_steer_state_update(
-    request: OperatorSteerStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_operator_steer_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = OperatorSteerStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("operator_steer_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_operator_steer_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "operator_control": record.operator_control.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn plan_run_cancel_state_update(
-    request: RunCancelStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_run_cancel_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = RunCancelStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("run_cancel_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_run_cancel_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "stop_condition": record.stop_condition.clone(),
-        "runtime_task": record.runtime_task.clone(),
-        "runtime_job": record.runtime_job.clone(),
-        "runtime_checklist": record.runtime_checklist.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn plan_run_cancel_admission_required(
-    request: RunCancelAdmissionRequiredBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_run_cancel_admission_required" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = RunCancelAdmissionRequiredCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "run_cancel_admission_required_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_run_cancel_admission_required_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "status_code": record.status_code,
-        "code": record.code.clone(),
-        "message": record.message.clone(),
-        "rust_core_boundary": record.rust_core_boundary.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "details": record.details.clone(),
     }))
 }
 
