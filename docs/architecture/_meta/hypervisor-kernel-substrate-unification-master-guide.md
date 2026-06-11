@@ -4587,9 +4587,10 @@ distinct Rust core boundary rather than broad model-mount helper code;
 model-mount backend-process plan request/result types, validation, public/spawn
 argument shaping, readiness status, evidence refs, and plan hashing now live in
 the dedicated Rust `model_mount/backend_process.rs` module behind
-`ModelMountCore::plan_backend_process`, keeping backend-process ownership
-directional toward Rust core process/lifecycle APIs rather than a long-term
-Node bridge shape;
+`ModelMountCore::plan_backend_process`, and the backend-process Rust
+tests/fixtures now live beside that planner instead of in the broad parent
+facade, keeping backend-process ownership directional toward Rust core
+process/lifecycle APIs rather than a long-term Node bridge shape;
 model-mount accepted-receipt head/transition request/result types, validation,
 state-root derivation, operation/head refs, transition hashing, and tamper
 validation now live in the dedicated Rust `model_mount/accepted_receipt.rs`

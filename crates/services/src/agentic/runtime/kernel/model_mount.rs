@@ -486,54 +486,6 @@ mod tests {
         }
     }
 
-    fn backend_process_plan_request() -> ModelMountBackendProcessPlanRequest {
-        ModelMountBackendProcessPlanRequest {
-            schema_version: MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION.to_string(),
-            backend_ref: "backend.llama".to_string(),
-            backend_kind: "llama_cpp".to_string(),
-            base_url: Some("http://127.0.0.1:8091/v1".to_string()),
-            model_ref: Some("model://qwen/qwen3.5-9b".to_string()),
-            artifact_path: Some("/models/private/model.gguf".to_string()),
-            binary_configured: true,
-            load_options: ModelMountBackendProcessLoadOptions {
-                context_length: Some(4096),
-                parallel: Some(2),
-                gpu: Some("auto".to_string()),
-                identifier: Some("llama profile".to_string()),
-                embeddings: true,
-                ..Default::default()
-            },
-        }
-    }
-
-    #[test]
-    fn backend_process_plan_owns_supervision_args_and_readiness() {
-        let plan = ModelMountCore
-            .plan_backend_process(&backend_process_plan_request())
-            .expect("backend process planned");
-
-        assert_eq!(
-            plan.schema_version,
-            MODEL_MOUNT_BACKEND_PROCESS_PLAN_SCHEMA_VERSION
-        );
-        assert!(plan.supports_supervision);
-        assert_eq!(plan.supervisor_kind, "external_process");
-        assert_eq!(plan.spawn_status, "spawn_ready");
-        assert!(plan.spawn_required);
-        assert_eq!(plan.public_args[0], "llama-server");
-        assert_eq!(plan.public_args[1], "--model");
-        assert!(plan.public_args[2].starts_with("artifact:"));
-        assert!(plan.public_args.contains(&"--gpu-layers".to_string()));
-        assert!(plan.public_args.contains(&"-1".to_string()));
-        assert_eq!(plan.spawn_args[0], "--model");
-        assert_eq!(plan.spawn_args[1], "/models/private/model.gguf");
-        assert!(plan.spawn_args.contains(&"--embedding".to_string()));
-        assert!(plan
-            .evidence_refs
-            .contains(&"rust_model_mount_backend_process_plan".to_string()));
-        assert!(plan.plan_hash.starts_with("sha256:"));
-    }
-
     #[test]
     fn backend_lifecycle_required_is_planned_in_rust_model_mount() {
         let record = ModelMountCore
@@ -761,61 +713,6 @@ mod tests {
         assert!(record.details.get("routeId").is_none());
         assert!(record.details.get("selectedModel").is_none());
         assert!(record.details.get("receiptId").is_none());
-    }
-
-    #[test]
-    fn backend_process_plan_blocks_llama_spawn_without_model_artifact() {
-        let mut request = backend_process_plan_request();
-        request.artifact_path = None;
-        request.load_options.model_path = None;
-
-        let plan = ModelMountCore
-            .plan_backend_process(&request)
-            .expect("backend process planned");
-
-        assert!(plan.supports_supervision);
-        assert!(!plan.spawn_required);
-        assert_eq!(plan.spawn_status, "waiting_for_model");
-        assert!(!plan.spawn_args.contains(&"--model".to_string()));
-    }
-
-    #[test]
-    fn backend_process_plan_supports_vllm_bind_spawn_args() {
-        let mut request = backend_process_plan_request();
-        request.backend_ref = "backend.vllm".to_string();
-        request.backend_kind = "vllm".to_string();
-        request.base_url = Some("http://0.0.0.0:8092/v1".to_string());
-        request.artifact_path = None;
-        request.load_options = ModelMountBackendProcessLoadOptions {
-            model_path: Some("/models/raw/vllm".to_string()),
-            max_model_len: Some(16384),
-            tensor_parallel_size: Some(2),
-            dtype: Some("bfloat16".to_string()),
-            ..Default::default()
-        };
-
-        let plan = ModelMountCore
-            .plan_backend_process(&request)
-            .expect("vllm backend process planned");
-
-        assert_eq!(
-            plan.spawn_args,
-            vec![
-                "serve",
-                "/models/raw/vllm",
-                "--host",
-                "0.0.0.0",
-                "--port",
-                "8092",
-                "--max-model-len",
-                "16384",
-                "--tensor-parallel-size",
-                "2",
-                "--dtype",
-                "bfloat16"
-            ]
-        );
-        assert_eq!(plan.spawn_status, "spawn_ready");
     }
 
     #[test]

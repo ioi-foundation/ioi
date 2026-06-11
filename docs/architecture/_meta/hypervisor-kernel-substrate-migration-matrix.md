@@ -20371,6 +20371,28 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1015
+
+Slice 1015 moved the backend-process Rust proof surface out of the broad
+`model_mount.rs` facade and into `model_mount/backend_process.rs`. The
+backend-process planner fixture and tests now live beside the public/spawn
+argument shaping, readiness status, supervision support, evidence refs, and
+plan hashing they prove. `ModelMountCore` remains the public facade, but the
+backend-process module owns both implementation and module-local proof.
+
+This is still non-terminal migration work: backend-process implementation and
+proof ownership are now colocated in Rust, but direct Rust daemon-core backend
+process/lifecycle protocol APIs must still replace command transport and JS
+edge translation before terminal backend process/control ownership can be
+claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1015 | Moved backend-process fixtures/tests from `model_mount.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs`; conformance now requires those tests in the backend-process module and fails if the parent facade regrows the backend-process proof tail. | Direct Rust daemon-core backend process/lifecycle protocol APIs replace the command bridge and JS edge translation once the backend-process Rust boundary can own process control/projection end to end. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1014
 
 Slice 1014 moved the accepted-receipt Rust proof surface out of the broad

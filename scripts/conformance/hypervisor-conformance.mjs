@@ -13856,12 +13856,21 @@ function runReceipts() {
         read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /backend_process_plan_owns_supervision_args_and_readiness/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /backend_process_plan_blocks_llama_spawn_without_model_artifact/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
       ) &&
       /backend_process_plan_supports_vllm_bind_spawn_args/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/backend_process.rs"),
+      ) &&
+      !/fn backend_process_plan_request/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/fn backend_process_plan_owns_supervision_args_and_readiness/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/fn backend_process_plan_supports_vllm_bind_spawn_args/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ),
     [
