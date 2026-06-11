@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const CONTEXT_POLICY_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const CONTEXT_POLICY_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -98,8 +98,26 @@ export class RustContextPolicyRunner {
   constructor(options = {}) {
     assertNoContextPolicyCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_context_budget_policy_mock",
+      defaultBackend: RUST_CONTEXT_POLICY_BACKEND,
+      ErrorClass: ContextPolicyRunnerError,
+      env: CONTEXT_POLICY_COMMAND_ENV,
+      unconfiguredMessage:
+        "Context policy requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core policy evaluation.",
+      unconfiguredCode: "context_policy_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust context policy bridge command.",
+      spawnFailedCode: "context_policy_bridge_spawn_failed",
+      commandFailedMessage: "Rust context policy bridge command failed.",
+      commandFailedCode: "context_policy_bridge_failed",
+      invalidJsonMessage: "Rust context policy bridge command returned invalid JSON.",
+      invalidJsonCode: "context_policy_bridge_invalid_json",
+      rejectedMessage: "Rust context policy rejected the request.",
+      rejectedCode: "context_policy_bridge_rejected",
+    });
   }
 
   evaluateContextBudgetPolicy(request = {}) {
@@ -403,65 +421,6 @@ export class RustContextPolicyRunner {
     return this.invokeBridge(bridgeRequest);
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_context_budget_policy_mock",
-        backend: request.backend ?? RUST_CONTEXT_POLICY_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new ContextPolicyRunnerError(
-        "Context policy requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core policy evaluation.",
-        "context_policy_bridge_unconfigured",
-        {
-          env: CONTEXT_POLICY_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new ContextPolicyRunnerError(
-        "Failed to spawn Rust context policy bridge command.",
-        "context_policy_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new ContextPolicyRunnerError(
-        "Rust context policy bridge command failed.",
-        "context_policy_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new ContextPolicyRunnerError(
-        "Rust context policy bridge command returned invalid JSON.",
-        "context_policy_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new ContextPolicyRunnerError(
-        parsed.error?.message ?? "Rust context policy rejected the request.",
-        parsed.error?.code ?? "context_policy_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class ContextPolicyRunnerError extends Error {

@@ -16226,6 +16226,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1061
+
+Slice 1061 extends the shared temporary daemon-core command-runner helper to
+the large context-policy and model-mount admission runners. Those JS runners
+now delegate mock handling, fixed empty-argv command spawn, JSON parsing,
+process-failure mapping, and Rust rejection mapping to
+`packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs` instead of
+importing `node:child_process` and carrying local `invokeBridge` process
+implementations. Conformance now proves those runners use the helper and do
+not import `node:child_process` directly.
+
+This collapses the last broad daemon-core runner-local process mechanics. It
+does not make command transport terminal: context policy, model-mount
+admission, and the shared helper remain migration scaffolding until direct
+Rust daemon-core protocol/API entry points own the surfaces. The remaining
+direct command-runner holdout is `step-module-runner.mjs`, which should be
+handled as a deliberate StepModuleRouter/Rust workload cut because it uses the
+StepModule workload command schema rather than the daemon-core command schema.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 Scheduled matrix-compaction obligation from Slice 788 is now satisfied. The
 next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after

@@ -2542,7 +2542,7 @@ function runBridge() {
     modelMountCommandBridge.match(/fn bind_model_mount_invocation_receipt[\s\S]*?(?=\npub\(super\) fn plan_model_mount_read_projection)/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
-    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n\n  invokeBridge)/)?.[0] ??
+    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountAdmissionRunnerError)/)?.[0] ??
     "";
   const modelTokenizerOperationsTest = exists("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs")
@@ -6687,7 +6687,9 @@ function runBridge() {
       /assertNoContextPolicyCommandArgs/.test(runtimeContextPolicyRunner) &&
       /evaluateContextBudgetPolicy/.test(runtimeContextPolicyRunner) &&
       /context_policy_command_args_retired/.test(runtimeContextPolicyRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeContextPolicyRunner) &&
+      /createDaemonCoreCommandInvoker/.test(runtimeContextPolicyRunner) &&
+      !/from "node:child_process"/.test(runtimeContextPolicyRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /runtime_event_item_id/.test(runtimeContextPolicyRunner) &&
       /context policy runner env uses daemon-core command boundary/.test(
         runtimeContextPolicyRunnerTest,
@@ -9611,7 +9613,9 @@ function runBridge() {
       !/argsEnv/.test(modelMountAdmissionRunner) &&
       /assertNoModelMountAdmissionCommandArgs/.test(modelMountAdmissionRunner) &&
       /model_mount_admission_command_args_retired/.test(modelMountAdmissionRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(modelMountAdmissionRunner) &&
+      /createDaemonCoreCommandInvoker/.test(modelMountAdmissionRunner) &&
+      !/from "node:child_process"/.test(modelMountAdmissionRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       !/IOI_MODEL_MOUNT_ADMISSION_COMMAND/.test(modelMountAdmissionRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(modelMountAdmissionRunner) &&
       !retiredRouteDecisionEnvPattern.test(modelMountAdmissionRunner) &&
@@ -13816,7 +13820,7 @@ function runReceipts() {
     modelMountCommandBridge.match(/fn bind_model_mount_invocation_receipt[\s\S]*?(?=\npub\(super\) fn plan_model_mount_read_projection)/)?.[0] ??
     "";
   const modelMountInvocationReceiptRunnerBlock =
-    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n\n  invokeBridge)/)?.[0] ??
+    modelMountAdmissionRunner.match(/bindInvocationReceipt\(request = \{\}\)[\s\S]*?(?=\n}\n\nexport class ModelMountAdmissionRunnerError)/)?.[0] ??
     "";
   const conversationOps = modelMountingState;
   const conversationOpsTest = exists("packages/runtime-daemon/src/model-mounting/conversation-operations.test.mjs")

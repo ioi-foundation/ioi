@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "../runtime-daemon-core-command-runner.mjs";
 
 export const MODEL_MOUNT_ADMISSION_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -43,8 +43,26 @@ export class RustModelMountAdmissionRunner {
   constructor(options = {}) {
     assertNoModelMountAdmissionCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_model_mount_mock",
+      defaultBackend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
+      ErrorClass: ModelMountAdmissionRunnerError,
+      env: MODEL_MOUNT_ADMISSION_COMMAND_ENV,
+      unconfiguredMessage:
+        "Model mount admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core model_mount admission.",
+      unconfiguredCode: "model_mount_admission_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust model_mount admission bridge command.",
+      spawnFailedCode: "model_mount_admission_bridge_spawn_failed",
+      commandFailedMessage: "Rust model_mount admission bridge command failed.",
+      commandFailedCode: "model_mount_admission_bridge_failed",
+      invalidJsonMessage: "Rust model_mount admission bridge command returned invalid JSON.",
+      invalidJsonCode: "model_mount_admission_bridge_invalid_json",
+      rejectedMessage: "Rust model_mount core rejected the admission request.",
+      rejectedCode: "model_mount_admission_bridge_rejected",
+    });
   }
 
   admitRouteDecision(request) {
@@ -253,65 +271,6 @@ export class RustModelMountAdmissionRunner {
     return normalizeInvocationReceiptBindingBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_model_mount_mock",
-        backend: RUST_MODEL_MOUNT_ADMISSION_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new ModelMountAdmissionRunnerError(
-        "Model mount admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core model_mount admission.",
-        "model_mount_admission_bridge_unconfigured",
-        {
-          env: MODEL_MOUNT_ADMISSION_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new ModelMountAdmissionRunnerError(
-        "Failed to spawn Rust model_mount admission bridge command.",
-        "model_mount_admission_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new ModelMountAdmissionRunnerError(
-        "Rust model_mount admission bridge command failed.",
-        "model_mount_admission_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new ModelMountAdmissionRunnerError(
-        "Rust model_mount admission bridge command returned invalid JSON.",
-        "model_mount_admission_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new ModelMountAdmissionRunnerError(
-        parsed.error?.message ?? "Rust model_mount core rejected the admission request.",
-        parsed.error?.code ?? "model_mount_admission_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class ModelMountAdmissionRunnerError extends Error {

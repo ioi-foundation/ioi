@@ -5207,6 +5207,19 @@ model-mount admission, and StepModule command surfaces where helpful, then
 replace the shared helper and Node command bridge with direct Rust daemon-core
 protocol/API ownership.
 
+Slice 1061 extends the temporary helper to the remaining large daemon-core
+command runners: context policy and model-mount admission.
+`runtime-context-policy-runner.mjs` and
+`model-mounting/model-mount-admission-runner.mjs` now delegate fixed empty-argv
+command spawn, mock handling, JSON parsing, process failure mapping, and Rust
+rejection mapping to `runtime-daemon-core-command-runner.mjs` instead of
+importing `node:child_process` directly. This leaves the StepModule workload
+runner as the only direct command-runner holdout, because it uses the
+StepModule workload command schema rather than the daemon-core command schema.
+Resume by making the StepModuleRouter/Rust workload boundary a deliberate
+Rust-core cut, then replacing the shared daemon-core command helper and Node
+command bridge with direct Rust daemon-core protocol/API ownership.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
