@@ -20742,3 +20742,37 @@ Focused evidence:
 | `npm run hypervisor-conformance:docs` | passed |
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
+
+## Implementation Slice Evidence: 1045
+
+Slice 1045 splits the context-budget policy, coding-tool budget policy,
+compaction policy, context-compaction plan, and context-compaction
+state-update daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
+`crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs`. The
+canonical context lifecycle policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`; the
+new bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge conformance guard now proves the context
+lifecycle command wrappers are outside the broad bridge module while the
+existing bridge tests continue to prove the Rust policy path.
+
+This is a Rust transport-boundary cleanup, not terminal context-policy
+migration. The current JS context-policy surfaces, JS context-policy runner,
+and Node command bridge remain scaffolding until direct Rust daemon-core
+context admission/persistence/projection, wallet authority where applicable,
+Agentgres expected-head and state-root persistence, policy receipts/events,
+replay, projection, and stable protocol APIs own the context-policy paths end
+to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node policy --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |

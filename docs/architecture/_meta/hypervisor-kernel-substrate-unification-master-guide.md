@@ -4950,6 +4950,22 @@ APIs over wallet.network grants, Agentgres expected heads/state roots,
 approval receipts/events, replay, projection, and stable IDE/CLI/SDK protocol
 APIs.
 
+Slice 1045 moves the context-budget policy, coding-tool budget policy,
+compaction policy, context-compaction plan, and context-compaction state-update
+daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs`. The
+context lifecycle policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs`; the
+bridge child module is only fixed migration transport that translates
+Rust-authored context policy records at the process boundary. The conformance
+guard now proves the context lifecycle command wrappers stay out of the broad
+bridge module. This is not terminal context-policy migration. Resume by
+replacing this command transport with direct Rust daemon-core context
+admission/persistence/projection APIs over wallet authority where applicable,
+Agentgres expected heads/state roots, policy receipts/events, replay, and
+stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

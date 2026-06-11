@@ -2266,6 +2266,9 @@ function runBridge() {
   const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     : "";
+  const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
+    : "";
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
@@ -6581,14 +6584,17 @@ function runBridge() {
       /rust_policy_blocks_context_budget_excess/.test(policyCore) &&
       /runtime_event_item_id/.test(policyCore) &&
       /runtime_event_idempotency_key/.test(policyCore) &&
-      /evaluate_context_budget_policy/.test(bridgeModule) &&
-      /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /mod context_policy_command;/.test(bridgeModule) &&
+      /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
+      /ContextBudgetPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(contextPolicyCommandBridge) &&
       /is_daemon_core_operation/.test(bridgeModule) &&
       /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
-      /rust_context_budget_policy_command/.test(bridgeModule) &&
+      /rust_context_budget_policy_command/.test(contextPolicyCommandBridge) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
-      /runtime_event_idempotency_key/.test(bridgeModule) &&
+      /runtime_event_idempotency_key/.test(contextPolicyCommandBridge) &&
+      !/fn evaluate_context_budget_policy/.test(bridgeModule) &&
+      !/struct ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeContextPolicyRunner) &&
@@ -6679,6 +6685,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
@@ -6695,10 +6702,11 @@ function runBridge() {
       /ContextBudgetPolicyRequest/.test(policyCore) &&
       /CODING_TOOL_BUDGET_POLICY_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_blocks_coding_tool_budget_excess/.test(policyCore) &&
-      /evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
-      /ContextBudgetPolicyBridgeRequest/.test(bridgeModule) &&
-      /rust_coding_tool_budget_policy_command/.test(bridgeModule) &&
+      /fn evaluate_coding_tool_budget_policy/.test(contextPolicyCommandBridge) &&
+      /ContextBudgetPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
+      /rust_coding_tool_budget_policy_command/.test(contextPolicyCommandBridge) &&
       /bridge_evaluates_coding_tool_budget_policy_through_rust_core/.test(bridgeModule) &&
+      !/fn evaluate_coding_tool_budget_policy/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /evaluateCodingToolBudgetPolicy/.test(runtimeContextPolicyRunner) &&
@@ -6720,6 +6728,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
       "crates/services/src/agentic/runtime/kernel/policy/projection_required.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
@@ -6753,10 +6762,20 @@ function runBridge() {
       !/pub struct ContextCompactionPlanCore;/.test(policyFacade) &&
       !/pub struct ContextCompactionStateUpdateCore;/.test(policyFacade) &&
       !/rust_policy_blocks_context_budget_excess/.test(policyFacade) &&
-      !/rust_policy_plans_context_compaction_event_record/.test(policyFacade),
+      !/rust_policy_plans_context_compaction_event_record/.test(policyFacade) &&
+      /mod context_policy_command;/.test(bridgeModule) &&
+      /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
+      /fn evaluate_compaction_policy/.test(contextPolicyCommandBridge) &&
+      /fn plan_context_compaction/.test(contextPolicyCommandBridge) &&
+      /fn plan_context_compaction_state_update/.test(contextPolicyCommandBridge) &&
+      !/fn evaluate_context_budget_policy/.test(bridgeModule) &&
+      !/fn evaluate_compaction_policy/.test(bridgeModule) &&
+      !/fn plan_context_compaction/.test(bridgeModule) &&
+      !/fn plan_context_compaction_state_update/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
     "Phase 9/10 remains non-terminal: context-budget and compaction policy owners must stay in the Rust policy child module while direct Rust daemon-core context admission/persistence replaces command transport",
@@ -9012,11 +9031,13 @@ function runBridge() {
       /rust_policy_compacts_when_approval_is_granted/.test(policyCore) &&
       /runtime_event_item_id/.test(policyCore) &&
       /compact_idempotency_key/.test(policyCore) &&
-      /evaluate_compaction_policy/.test(bridgeModule) &&
-      /CompactionPolicyBridgeRequest/.test(bridgeModule) &&
-      /rust_compaction_policy_command/.test(bridgeModule) &&
+      /fn evaluate_compaction_policy/.test(contextPolicyCommandBridge) &&
+      /CompactionPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
+      /rust_compaction_policy_command/.test(contextPolicyCommandBridge) &&
       /bridge_evaluates_compaction_policy_through_rust_core/.test(bridgeModule) &&
-      /runtime_event_idempotency_key/.test(bridgeModule) &&
+      /runtime_event_idempotency_key/.test(contextPolicyCommandBridge) &&
+      !/fn evaluate_compaction_policy/.test(bridgeModule) &&
+      !/struct CompactionPolicyBridgeRequest/.test(bridgeModule) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeContextPolicyRunner) &&
       /RustContextPolicyRunner/.test(runtimeContextPolicyRunner) &&
       /evaluateCompactionPolicy/.test(runtimeContextPolicyRunner) &&
@@ -9051,6 +9072,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/threads/context-budget-policy.mjs",
@@ -9303,10 +9325,12 @@ function runBridge() {
       /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_context_compaction_event_record/.test(policyCore) &&
       /rust_policy_plans_runless_context_compaction_against_agent_ref/.test(policyCore) &&
-      /plan_context_compaction/.test(bridgeModule) &&
-      /ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
-      /rust_context_compaction_plan_command/.test(bridgeModule) &&
+      /fn plan_context_compaction/.test(contextPolicyCommandBridge) &&
+      /ContextCompactionPlanBridgeRequest/.test(contextPolicyCommandBridge) &&
+      /rust_context_compaction_plan_command/.test(contextPolicyCommandBridge) &&
       /bridge_plans_context_compaction_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_context_compaction/.test(bridgeModule) &&
+      !/struct ContextCompactionPlanBridgeRequest/.test(bridgeModule) &&
       /planContextCompaction/.test(runtimeContextPolicyRunner) &&
       /CONTEXT_COMPACTION_PLAN_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
       /context compaction runner sends Rust plan bridge request/.test(
@@ -9328,6 +9352,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
@@ -9349,9 +9374,9 @@ function runBridge() {
       !/"eventId": request\.event_id|"createdAt": request\.created_at|"compactedTokens": 0/.test(
         contextCompactionStateUpdateCoreBlock,
       ) &&
-      /plan_context_compaction_state_update/.test(bridgeModule) &&
-      /ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_context_compaction_state_update_command/.test(bridgeModule) &&
+      /fn plan_context_compaction_state_update/.test(contextPolicyCommandBridge) &&
+      /ContextCompactionStateUpdateBridgeRequest/.test(contextPolicyCommandBridge) &&
+      /rust_context_compaction_state_update_command/.test(contextPolicyCommandBridge) &&
       /bridge_plans_context_compaction_state_update_through_rust_core/.test(bridgeModule) &&
       /response\["operator_control"\]\["event_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("eventId"\)\.is_none\(\)/.test(bridgeModule) &&
@@ -9359,6 +9384,8 @@ function runBridge() {
       /response\["run"\]\["trace"\]\["contextCompaction"\][\s\S]*?\.get\("eventId"\)[\s\S]*?\.is_none\(\)/.test(
         bridgeModule,
       ) &&
+      !/fn plan_context_compaction_state_update/.test(bridgeModule) &&
+      !/struct ContextCompactionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planContextCompactionStateUpdate/.test(runtimeContextPolicyRunner) &&
       /CONTEXT_COMPACTION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
@@ -9407,6 +9434,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-surface.mjs",
