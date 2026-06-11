@@ -5071,6 +5071,22 @@ daemon-core APIs for custody, package invocation, settlement trigger guards,
 governed proposal admission, receipt/state-root binding, Agentgres admission,
 replay, projection, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1052 moves the Agentgres storage-write admission and runtime state commit
+daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs`. This also
+moves the runtime-state local persistence helper functions used by those commit
+wrappers out of the broad bridge module. The Agentgres owner remains
+`crates/services/src/agentic/runtime/kernel/agentgres_admission.rs`; the bridge
+child module is only fixed migration transport that translates Rust-owned
+admission and commit records at the process boundary. The conformance guard now
+proves Agentgres command wrappers and bridge-local runtime-state write helpers
+stay out of the broad bridge module. This is not terminal Agentgres migration.
+Resume by replacing this command transport with direct Rust daemon-core
+Agentgres admission, storage, persistence, replay, projection, and stable
+IDE/CLI/SDK protocol APIs over expected heads, state roots, ArtifactRefs,
+PayloadRefs, and receipts.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
