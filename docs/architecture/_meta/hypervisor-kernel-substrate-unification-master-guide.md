@@ -6545,6 +6545,27 @@ the remaining bridge transport with direct Rust daemon-core and Rust/WASM
 workload protocol APIs once the seam is clear enough to remove without
 preserving compatibility behavior.
 
+Slice 1137 retires five now-redundant bridge child wrapper modules instead of
+preserving them as compatibility shims. The deleted files are
+`ioi_step_module_bridge/approval_command.rs`,
+`ioi_step_module_bridge/authority_command.rs`,
+`ioi_step_module_bridge/governed_admission_command.rs`,
+`ioi_step_module_bridge/governed_receipt_command.rs`, and
+`ioi_step_module_bridge/workspace_restore_command.rs`. Their proof-test
+surfaces now import Rust response functions and request types directly from
+`approval.rs`, `authority.rs`, `governed_admission.rs`,
+`governed_receipt.rs`, and `workspace_restore.rs`, while runtime command
+dispatch remains Rust `command_dispatch.rs` ownership.
+
+This remains non-terminal because the Node bridge binary, JS daemon-core
+command runner, StepModule command runner, JS command callers, and remaining
+bridge child delegates still exist as migration scaffolding. The deleted child
+wrappers must not be recreated or treated as canonical. The next larger cuts
+should continue collapsing remaining bridge delegates and then replace the JS
+command-runner/caller path with direct Rust daemon-core and Rust/WASM workload
+protocol APIs once the seam is clear enough to remove without preserving
+compatibility behavior.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

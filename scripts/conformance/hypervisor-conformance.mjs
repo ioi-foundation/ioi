@@ -2280,10 +2280,12 @@ function runBridge() {
   const kernelModuleForBridgeChecks = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
-  const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
+  const approvalCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs");
+  const approvalCommandBridge = approvalCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     : "";
-  const authorityCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/authority_command.rs")
+  const authorityCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/authority_command.rs");
+  const authorityCommandBridge = authorityCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/authority_command.rs")
     : "";
   const codingToolCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs")
@@ -2310,13 +2312,15 @@ function runBridge() {
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
-  const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
+  const governedAdmissionCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs");
+  const governedAdmissionCommandBridge = governedAdmissionCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     : "";
   const governedAdmissionCore = exists("crates/services/src/agentic/runtime/kernel/governed_admission.rs")
     ? read("crates/services/src/agentic/runtime/kernel/governed_admission.rs")
     : "";
-  const governedReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
+  const governedReceiptCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs");
+  const governedReceiptCommandBridge = governedReceiptCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
     : "";
   const governedReceiptCore = exists("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
@@ -2353,7 +2357,8 @@ function runBridge() {
   const runtimeControlCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
     : "";
-  const workspaceRestoreCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs")
+  const workspaceRestoreCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs");
+  const workspaceRestoreCommandBridge = workspaceRestoreCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs")
     : "";
   const workloadClient = exists("crates/client/src/workload_client/mod.rs")
@@ -6255,13 +6260,10 @@ function runBridge() {
       /pub fn plan_coding_tool_approval_manifest_response/.test(approvalCore) &&
       /rust_coding_tool_approval_command/.test(approvalCore) &&
       /coding_tool_approval_manifest_invalid/.test(approvalCore) &&
-      /mod approval_command;/.test(bridgeModule) &&
-      /fn plan_coding_tool_approval_manifest/.test(approvalCommandBridge) &&
-      /CodingToolApprovalBridgeRequest/.test(approvalCommandBridge) &&
-      !/CodingToolApprovalCore/.test(approvalCommandBridge) &&
-      !/CodingToolApprovalRequest/.test(approvalCommandBridge) &&
-      !/rust_coding_tool_approval_command/.test(approvalCommandBridge) &&
-      !/coding_tool_approval_manifest_invalid/.test(approvalCommandBridge) &&
+      !/mod approval_command;/.test(bridgeModule) &&
+      !approvalCommandBridgeExists &&
+      /plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      /CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
       /approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
       !/fn plan_coding_tool_approval_manifest/.test(bridgeModule) &&
@@ -6310,7 +6312,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
@@ -6327,19 +6328,12 @@ function runBridge() {
       /pub fn authorize_external_capability_exit_response/.test(authorityCore) &&
       /EXTERNAL_CAPABILITY_EXIT_AUTHORITY_SCHEMA_VERSION/.test(authorityCore) &&
       /MissingWalletNetworkAuthority/.test(authorityCore) &&
-      /mod authority_command;/.test(bridgeModule) &&
-      /authorize_external_capability_exit/.test(bridgeModule) &&
+      !/mod authority_command;/.test(bridgeModule) &&
+      !authorityCommandBridgeExists &&
+      /authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
+      /ExternalCapabilityExitAuthorityBridgeRequest/.test(bridgeModule) &&
       !/struct ExternalCapabilityExitAuthorityBridgeRequest/.test(bridgeModule) &&
       !/fn authorize_external_capability_exit/.test(bridgeModule) &&
-      /ExternalCapabilityExitAuthorityBridgeRequest/.test(
-        authorityCommandBridge,
-      ) &&
-      /pub\(super\) fn authorize_external_capability_exit/.test(
-        authorityCommandBridge,
-      ) &&
-      !/WalletAuthorityCore/.test(authorityCommandBridge) &&
-      !/ExternalCapabilityExitRequest/.test(authorityCommandBridge) &&
-      !/external_capability_exit_authority_invalid/.test(authorityCommandBridge) &&
       /WalletAuthorityCore/.test(authorityCore) &&
       /rust_external_capability_exit_authority_command/.test(authorityCore) &&
       /external_capability_exit_authority_invalid/.test(authorityCore) &&
@@ -6355,7 +6349,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/authority.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/authority_command.rs",
     ],
     "Phase 9/10 is pending: external capability exits must authorize through Rust authority core and fail closed without wallet.network grants while the Node bridge remains a temporary delegate",
   );
@@ -6375,9 +6368,8 @@ function runBridge() {
       /validate_command_envelope\(\s*"authorize_external_capability_exit",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /pub\(super\) fn authorize_external_capability_exit/.test(
-        authorityCommandBridge,
-      ) &&
+      !authorityCommandBridgeExists &&
+      /authorize_external_capability_exit_response as authorize_external_capability_exit/.test(bridgeModule) &&
       /pub\(super\) fn plan_workflow_edit_admission_required/.test(
         policyCommandBridge,
       ) &&
@@ -6399,7 +6391,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/authority_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/policy_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/projection_command.rs",
     ],
@@ -6418,7 +6409,10 @@ function runBridge() {
       !/schema_version_invalid/.test(governedReceiptCommandBridge) &&
       !/operation_unsupported/.test(governedAdmissionCommandBridge) &&
       !/operation_unsupported/.test(governedReceiptCommandBridge) &&
-      /mod governed_receipt_command;/.test(bridgeModule) &&
+      !/mod governed_receipt_command;/.test(bridgeModule) &&
+      !/mod governed_admission_command;/.test(bridgeModule) &&
+      !governedAdmissionCommandBridgeExists &&
+      !governedReceiptCommandBridgeExists &&
       /validate_command_envelope\(\s*"execute_private_workspace_ctee_action",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
@@ -6435,14 +6429,8 @@ function runBridge() {
       !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       !/L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
       !/GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
-      /pub\(super\) fn execute_private_workspace_ctee_action/.test(
-        governedReceiptCommandBridge,
-      ) &&
-      /pub\(super\) fn admit_worker_service_package_invocation/.test(
-        governedReceiptCommandBridge,
-      ) &&
-      !/ReceiptBinder/.test(governedReceiptCommandBridge) &&
-      !/accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      /execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action/.test(bridgeModule) &&
+      /admit_worker_service_package_invocation_response as admit_worker_service_package_invocation/.test(bridgeModule) &&
       /pub mod governed_receipt;/.test(kernelModuleForBridgeChecks) &&
       /pub fn execute_private_workspace_ctee_action_response/.test(
         governedReceiptCore,
@@ -6458,12 +6446,8 @@ function runBridge() {
       !/pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /pub\(super\) fn admit_l1_settlement_attempt/.test(
-        governedAdmissionCommandBridge,
-      ) &&
-      /pub\(super\) fn admit_governed_runtime_improvement_proposal/.test(
-        governedAdmissionCommandBridge,
-      ) &&
+      /admit_l1_settlement_attempt_response as admit_l1_settlement_attempt/.test(bridgeModule) &&
+      /admit_governed_runtime_improvement_proposal_response as admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
       /pub mod governed_admission;/.test(kernelModuleForBridgeChecks) &&
       /pub fn admit_l1_settlement_attempt_response/.test(governedAdmissionCore) &&
       /pub fn admit_governed_runtime_improvement_proposal_response/.test(
@@ -6476,8 +6460,6 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/governed_admission.rs",
       "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
     "Phase 7/8/9/10 remains non-terminal: governed-admission child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before cTEE, package, L1, and governed-improvement dispatch",
   );
@@ -6502,36 +6484,23 @@ function runBridge() {
       /validate_command_envelope\(\s*"apply_workspace_restore_operations",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
-      /pub\(super\) fn plan_coding_tool_approval_manifest/.test(
-        approvalCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_approval_request_state_update/.test(
-        approvalCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_approval_decision_state_update/.test(
-        approvalCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_approval_revoke_state_update/.test(
-        approvalCommandBridge,
-      ) &&
-      /pub\(super\) fn plan_workspace_restore_apply_policy/.test(
-        workspaceRestoreCommandBridge,
-      ) &&
+      !approvalCommandBridgeExists &&
+      !workspaceRestoreCommandBridgeExists &&
+      /plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      /plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
+      /plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
+      /plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
+      /plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/pub\(super\) fn preview_workspace_restore_operations/.test(
         workspaceRestoreCommandBridge,
       ) &&
-      /pub\(super\) fn apply_workspace_restore_operations/.test(
-        workspaceRestoreCommandBridge,
-      ) &&
-      /pub\(super\) fn capture_workspace_snapshot_files/.test(
-        workspaceRestoreCommandBridge,
-      ),
+      /apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
+      /capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs",
+      "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
     ],
     "Phase 10/11 remains non-terminal: approval and workspace-restore child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before approval or restore dispatch",
   );
@@ -7415,12 +7384,9 @@ function runBridge() {
       !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
         approvalCore,
       ) &&
-      /fn plan_approval_request_state_update/.test(approvalCommandBridge) &&
-      /ApprovalRequestStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
-      !/ApprovalRequestStateUpdateCore/.test(approvalCommandBridge) &&
-      !/ApprovalRequestStateUpdateRequest/.test(approvalCommandBridge) &&
-      !/rust_approval_request_state_update_command/.test(approvalCommandBridge) &&
-      !/approval_request_state_update_invalid/.test(approvalCommandBridge) &&
+      !approvalCommandBridgeExists &&
+      /plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
+      /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
       /approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
       /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
@@ -7509,7 +7475,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
@@ -7535,12 +7500,9 @@ function runBridge() {
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": lease_status/.test(
         approvalCore,
       ) &&
-      /fn plan_approval_decision_state_update/.test(approvalCommandBridge) &&
-      /ApprovalDecisionStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
-      !/ApprovalDecisionStateUpdateCore/.test(approvalCommandBridge) &&
-      !/ApprovalDecisionStateUpdateRequest/.test(approvalCommandBridge) &&
-      !/rust_approval_decision_state_update_command/.test(approvalCommandBridge) &&
-      !/approval_decision_state_update_invalid/.test(approvalCommandBridge) &&
+      !approvalCommandBridgeExists &&
+      /plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
+      /ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
       /response\["operator_control"\]\["lease_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("leaseId"\)\.is_none\(\)/.test(bridgeModule) &&
@@ -7611,7 +7573,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
@@ -7637,12 +7598,9 @@ function runBridge() {
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": "revoked"/.test(
         approvalCore,
       ) &&
-      /fn plan_approval_revoke_state_update/.test(approvalCommandBridge) &&
-      /ApprovalRevokeStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
-      !/ApprovalRevokeStateUpdateCore/.test(approvalCommandBridge) &&
-      !/ApprovalRevokeStateUpdateRequest/.test(approvalCommandBridge) &&
-      !/rust_approval_revoke_state_update_command/.test(approvalCommandBridge) &&
-      !/approval_revoke_state_update_invalid/.test(approvalCommandBridge) &&
+      !approvalCommandBridgeExists &&
+      /plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
+      /ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
       /response\["operator_control"\]\["lease_status"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("leaseStatus"\)\.is_none\(\)/.test(bridgeModule) &&
@@ -7695,7 +7653,6 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
@@ -14136,8 +14093,10 @@ function runBridge() {
   assertCheck(
     result,
     "worker-service-package-invocation-live-bridge",
-    /mod governed_admission_command;/.test(bridgeModule) &&
-      /mod governed_receipt_command;/.test(bridgeModule) &&
+    !/mod governed_receipt_command;/.test(bridgeModule) &&
+      !/mod governed_admission_command;/.test(bridgeModule) &&
+      !governedAdmissionCommandBridgeExists &&
+      !governedReceiptCommandBridgeExists &&
       /admit_worker_service_package_invocation/.test(bridgeModule) &&
       !/struct WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
       !/fn admit_worker_service_package_invocation/.test(bridgeModule) &&
@@ -14147,21 +14106,16 @@ function runBridge() {
       !/pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /WorkerServicePackageInvocationBridgeRequest/.test(
-        governedReceiptCommandBridge,
-      ) &&
+      !governedReceiptCommandBridgeExists &&
+      /WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
       /pub struct WorkerServicePackageInvocationBridgeRequest/.test(
         governedReceiptCore,
       ) &&
-      /pub\(super\) fn admit_worker_service_package_invocation/.test(
-        governedReceiptCommandBridge,
-      ) &&
-      !/WorkerServicePackageInvocationCore/.test(governedReceiptCommandBridge) &&
+      /admit_worker_service_package_invocation_response as admit_worker_service_package_invocation/.test(bridgeModule) &&
       /WorkerServicePackageInvocationCore/.test(governedReceiptCore) &&
       /rust_worker_service_package_invocation_command/.test(
         governedReceiptCore,
       ) &&
-      !/accepted_receipt_append/.test(governedReceiptCommandBridge) &&
       /accepted_receipt_append/.test(governedReceiptCore) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
@@ -14169,8 +14123,6 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
   );
@@ -14237,20 +14189,14 @@ function runBridge() {
       /plan_apply_policy/.test(workspaceRestoreKernel) &&
       /WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /operation_apply_blocked_reason/.test(workspaceRestoreKernel) &&
-      /mod workspace_restore_command;/.test(bridgeModule) &&
+      !/mod workspace_restore_command;/.test(bridgeModule) &&
+      !workspaceRestoreCommandBridgeExists &&
       /pub struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(workspaceRestoreKernel) &&
       /pub struct WorkspaceRestoreCommandError/.test(workspaceRestoreKernel) &&
       /pub fn plan_workspace_restore_apply_policy_response/.test(workspaceRestoreKernel) &&
       /rust_workspace_restore_policy_command/.test(workspaceRestoreKernel) &&
       /workspace_restore_apply_policy_invalid/.test(workspaceRestoreKernel) &&
-      /core_plan_workspace_restore_apply_policy/.test(workspaceRestoreCommandBridge) &&
-      /fn plan_workspace_restore_apply_policy/.test(workspaceRestoreCommandBridge) &&
-      !/WorkspaceRestoreApplyPolicyCore/.test(workspaceRestoreCommandBridge) &&
-      !/WorkspaceRestoreApplyPolicyRequest\b/.test(workspaceRestoreCommandBridge) &&
-      !/rust_workspace_restore_policy_command/.test(workspaceRestoreCommandBridge) &&
-      !/workspace_restore_apply_policy_invalid/.test(workspaceRestoreCommandBridge) &&
-      !/serde::Deserialize/.test(workspaceRestoreCommandBridge) &&
-      !/serde_json::json/.test(workspaceRestoreCommandBridge) &&
+      /plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       !/struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(bridgeModule) &&
       !/fn plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       /bridge_plans_workspace_restore_apply_policy_through_rust_core/.test(bridgeModule),
@@ -14274,13 +14220,8 @@ function runBridge() {
       /rust_workspace_restore_operations_command/.test(workspaceRestoreKernel) &&
       /workspace_restore_operations_invalid/.test(workspaceRestoreKernel) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
-      /core_apply_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
-      !/fn preview_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
-      /fn apply_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
-      !/WorkspaceRestoreOperationsCore/.test(workspaceRestoreCommandBridge) &&
-      !/WorkspaceRestoreOperationsRequest\b/.test(workspaceRestoreCommandBridge) &&
-      !/rust_workspace_restore_operations_command/.test(workspaceRestoreCommandBridge) &&
-      !/workspace_restore_operations_invalid/.test(workspaceRestoreCommandBridge) &&
+      /apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
+      /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/struct WorkspaceRestoreOperationsBridgeRequest/.test(bridgeModule) &&
       !/fn preview_workspace_restore_operations/.test(bridgeModule) &&
       !/fn apply_workspace_restore_operations/.test(bridgeModule) &&
@@ -14303,12 +14244,7 @@ function runBridge() {
       /pub fn capture_workspace_snapshot_files_response/.test(workspaceRestoreKernel) &&
       /rust_workspace_snapshot_capture_command/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_invalid/.test(workspaceRestoreKernel) &&
-      /core_capture_workspace_snapshot_files/.test(workspaceRestoreCommandBridge) &&
-      /fn capture_workspace_snapshot_files/.test(workspaceRestoreCommandBridge) &&
-      !/WorkspaceSnapshotCaptureCore/.test(workspaceRestoreCommandBridge) &&
-      !/WorkspaceSnapshotCaptureRequest\b/.test(workspaceRestoreCommandBridge) &&
-      !/rust_workspace_snapshot_capture_command/.test(workspaceRestoreCommandBridge) &&
-      !/workspace_snapshot_capture_invalid/.test(workspaceRestoreCommandBridge) &&
+      /capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule) &&
       !/struct WorkspaceSnapshotCaptureBridgeRequest/.test(bridgeModule) &&
       !/fn capture_workspace_snapshot_files/.test(bridgeModule) &&
       /bridge_captures_workspace_snapshot_files_through_rust_core/.test(bridgeModule),
@@ -14804,14 +14740,14 @@ function runBridge() {
   assertCheck(
     result,
     "l1-settlement-admission-live-bridge",
-    /mod governed_admission_command;/.test(bridgeModule) &&
-      /admit_l1_settlement_attempt/.test(bridgeModule) &&
+    !/mod governed_admission_command;/.test(bridgeModule) &&
+      !governedAdmissionCommandBridgeExists &&
+      /admit_l1_settlement_attempt_response as admit_l1_settlement_attempt/.test(bridgeModule) &&
+      /L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
       !/struct L1SettlementAdmissionBridgeRequest/.test(bridgeModule) &&
       !/fn admit_l1_settlement_attempt/.test(bridgeModule) &&
-      /L1SettlementAdmissionBridgeRequest/.test(governedAdmissionCommandBridge) &&
       /pub struct L1SettlementAdmissionBridgeRequest/.test(governedAdmissionCore) &&
-      /pub\(super\) fn admit_l1_settlement_attempt/.test(governedAdmissionCommandBridge) &&
-      !/L1SettlementTriggerGuard/.test(governedAdmissionCommandBridge) &&
+
       /L1SettlementTriggerGuard/.test(governedAdmissionCore) &&
       /rust_l1_settlement_guard_command/.test(governedAdmissionCore) &&
       /l1_settlement_guard/.test(governedAdmissionCore) &&
@@ -14821,7 +14757,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/governed_admission.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
     "Phase 8/11 is pending: L1 settlement attempts must be admitted through the Rust trigger guard before any product surface can settle",
   );
@@ -15083,17 +15019,14 @@ function runBridge() {
   assertCheck(
     result,
     "governed-meta-improvement-proposal-live-bridge",
-    /mod governed_admission_command;/.test(bridgeModule) &&
-      /admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
+    !/mod governed_admission_command;/.test(bridgeModule) &&
+      !governedAdmissionCommandBridgeExists &&
+      /admit_governed_runtime_improvement_proposal_response as admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
+      /GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
       !/struct GovernedRuntimeImprovementBridgeRequest/.test(bridgeModule) &&
       !/fn admit_governed_runtime_improvement_proposal/.test(bridgeModule) &&
-      /GovernedRuntimeImprovementBridgeRequest/.test(governedAdmissionCommandBridge) &&
       /pub struct GovernedRuntimeImprovementBridgeRequest/.test(governedAdmissionCore) &&
-      /pub\(super\) fn admit_governed_runtime_improvement_proposal/.test(
-        governedAdmissionCommandBridge,
-      ) &&
-      !/GovernedRuntimeImprovementProposal/.test(governedAdmissionCommandBridge) &&
-      !/GovernedEvolutionCore/.test(governedAdmissionCommandBridge) &&
+
       /GovernedRuntimeImprovementProposal/.test(governedAdmissionCore) &&
       /GovernedEvolutionCore/.test(governedAdmissionCore) &&
       /rust_governed_meta_improvement_command/.test(governedAdmissionCore) &&
@@ -15103,7 +15036,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/governed_admission.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+      "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
     ],
     "Phase 9 is pending: governed meta-improvement proposal admission must be exposed through the daemon command bridge",
   );
@@ -21189,8 +21122,8 @@ function runCtee() {
   assertCheck(
     result,
     "ctee-execution-bridge-command",
-    /mod governed_admission_command;/.test(bridgeModule) &&
-      /mod governed_receipt_command;/.test(bridgeModule) &&
+    !/mod governed_receipt_command;/.test(bridgeModule) &&
+      !/mod governed_admission_command;/.test(bridgeModule) &&
       /execute_private_workspace_ctee_action/.test(bridgeModule) &&
       !/struct CteePrivateWorkspaceBridgeRequest/.test(bridgeModule) &&
       !/fn execute_private_workspace_ctee_action/.test(bridgeModule) &&
@@ -21200,15 +21133,11 @@ function runCtee() {
       !/pub\(super\) fn execute_private_workspace_ctee_action/.test(
         governedAdmissionCommandBridge,
       ) &&
-      /CteePrivateWorkspaceBridgeRequest/.test(governedReceiptCommandBridge) &&
+      /CteePrivateWorkspaceBridgeRequest/.test(bridgeModule) &&
       /pub struct CteePrivateWorkspaceBridgeRequest/.test(governedReceiptCore) &&
-      /pub\(super\) fn execute_private_workspace_ctee_action/.test(
-        governedReceiptCommandBridge,
-      ) &&
-      !/PrivateWorkspaceCteeModule/.test(governedReceiptCommandBridge) &&
+      /execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action/.test(bridgeModule) &&
       /PrivateWorkspaceCteeModule/.test(governedReceiptCore) &&
       /rust_ctee_private_workspace_command/.test(governedReceiptCore) &&
-      !/accepted_receipt_append/.test(governedReceiptCommandBridge) &&
       /accepted_receipt_append/.test(governedReceiptCore) &&
       !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /ctee_private_workspace_rejects_step_module_command_schema/.test(
@@ -21218,8 +21147,6 @@ function runCtee() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/governed_receipt.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
     "Phase 7 is pending: daemon command bridge must expose Rust cTEE execution with receipt/admission/projection artifacts",
   );

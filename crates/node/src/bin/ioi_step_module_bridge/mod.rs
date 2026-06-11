@@ -9,13 +9,9 @@ use std::{
 };
 
 mod agentgres_command;
-mod approval_command;
-mod authority_command;
 mod bridge_dispatch;
 mod coding_tool_helpers;
 mod context_policy_command;
-mod governed_admission_command;
-mod governed_receipt_command;
 mod mcp_memory_command;
 mod model_mount_command;
 mod model_mount_receipt_command;
@@ -23,7 +19,6 @@ mod policy_command;
 mod projection_command;
 mod runtime_control_command;
 mod thread_lifecycle_command;
-mod workspace_restore_command;
 
 use agentgres_command::{
     admit_storage_backend_write, commit_runtime_agent_state, commit_runtime_artifact_state,
@@ -35,15 +30,6 @@ use agentgres_command::{
     RuntimeModelMountRecordStateCommitBridgeRequest, RuntimeRunStateCommitBridgeRequest,
     RuntimeSubagentStateCommitBridgeRequest, StorageBackendWriteBridgeRequest,
 };
-use approval_command::{
-    plan_approval_decision_state_update, plan_approval_request_state_update,
-    plan_approval_revoke_state_update, plan_coding_tool_approval_manifest,
-    ApprovalDecisionStateUpdateBridgeRequest, ApprovalRequestStateUpdateBridgeRequest,
-    ApprovalRevokeStateUpdateBridgeRequest, CodingToolApprovalBridgeRequest,
-};
-use authority_command::{
-    authorize_external_capability_exit, ExternalCapabilityExitAuthorityBridgeRequest,
-};
 pub use bridge_dispatch::run_bridge_response_from_stdin;
 use coding_tool_helpers::*;
 use context_policy_command::{
@@ -52,13 +38,17 @@ use context_policy_command::{
     ContextBudgetPolicyBridgeRequest, ContextCompactionPlanBridgeRequest,
     ContextCompactionStateUpdateBridgeRequest,
 };
-use governed_admission_command::{
-    admit_governed_runtime_improvement_proposal, admit_l1_settlement_attempt,
-    GovernedRuntimeImprovementBridgeRequest, L1SettlementAdmissionBridgeRequest,
+use ioi_services::agentic::runtime::kernel::approval::{
+    plan_approval_decision_state_update_response as plan_approval_decision_state_update,
+    plan_approval_request_state_update_response as plan_approval_request_state_update,
+    plan_approval_revoke_state_update_response as plan_approval_revoke_state_update,
+    plan_coding_tool_approval_manifest_response as plan_coding_tool_approval_manifest,
+    ApprovalDecisionStateUpdateBridgeRequest, ApprovalRequestStateUpdateBridgeRequest,
+    ApprovalRevokeStateUpdateBridgeRequest, CodingToolApprovalBridgeRequest,
 };
-use governed_receipt_command::{
-    admit_worker_service_package_invocation, execute_private_workspace_ctee_action,
-    CteePrivateWorkspaceBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+use ioi_services::agentic::runtime::kernel::authority::{
+    authorize_external_capability_exit_response as authorize_external_capability_exit,
+    ExternalCapabilityExitAuthorityBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::coding_tool_step_module::{
     artifact_read_response as core_artifact_read_response,
@@ -71,6 +61,23 @@ use ioi_services::agentic::runtime::kernel::command_protocol::{
     command_family, expected_command_schema_version, is_step_module_operation,
     validate_command_envelope, COMMAND_SCHEMA_VERSION, DAEMON_CORE_COMMAND_SCHEMA_VERSION,
     STEP_MODULE_COMMAND_SCHEMA_VERSION,
+};
+use ioi_services::agentic::runtime::kernel::governed_admission::{
+    admit_governed_runtime_improvement_proposal_response as admit_governed_runtime_improvement_proposal,
+    admit_l1_settlement_attempt_response as admit_l1_settlement_attempt,
+    GovernedRuntimeImprovementBridgeRequest, L1SettlementAdmissionBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::governed_receipt::{
+    admit_worker_service_package_invocation_response as admit_worker_service_package_invocation,
+    execute_private_workspace_ctee_action_response as execute_private_workspace_ctee_action,
+    CteePrivateWorkspaceBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::workspace_restore::{
+    apply_workspace_restore_operations_response as apply_workspace_restore_operations,
+    capture_workspace_snapshot_files_response as capture_workspace_snapshot_files,
+    plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy,
+    WorkspaceRestoreApplyPolicyBridgeRequest, WorkspaceRestoreOperationsBridgeRequest,
+    WorkspaceSnapshotCaptureBridgeRequest,
 };
 use mcp_memory_command::{
     plan_mcp_control_agent_state_update, plan_mcp_manager_catalog_projection,
@@ -142,12 +149,6 @@ use thread_lifecycle_command::{
     RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
     ThreadControlAgentStateUpdateBridgeRequest, ThreadTurnAdmissionRequiredBridgeRequest,
 };
-use workspace_restore_command::{
-    apply_workspace_restore_operations, capture_workspace_snapshot_files,
-    plan_workspace_restore_apply_policy, WorkspaceRestoreApplyPolicyBridgeRequest,
-    WorkspaceRestoreOperationsBridgeRequest, WorkspaceSnapshotCaptureBridgeRequest,
-};
-
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
 
@@ -2918,8 +2919,8 @@ mod tests {
         let error = authorize_external_capability_exit(request)
             .expect_err("wallet.network authority is required");
 
-        assert_eq!(error.code, "external_capability_exit_authority_invalid");
-        assert!(error.message.contains("MissingWalletNetworkAuthority"));
+        assert_eq!(error.code(), "external_capability_exit_authority_invalid");
+        assert!(error.message().contains("MissingWalletNetworkAuthority"));
     }
 
     #[test]
