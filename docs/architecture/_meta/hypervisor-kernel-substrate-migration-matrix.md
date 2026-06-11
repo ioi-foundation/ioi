@@ -20366,6 +20366,26 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1003
+
+Slice 1003 moved public model-mount route-control Rust-core-required refusal
+authoring into the Rust model_mount core. Public route upsert/test,
+route-selection, explicit-model endpoint resolution, and retired
+route-selection receipt helper paths now call
+`plan_model_mount_route_control_required` through the daemon-core command
+bridge and only translate the Rust-authored failure record at the JS edge.
+
+This is still non-terminal migration work: the Node command bridge remains
+transitional transport and direct Rust daemon-core route-control/selection APIs,
+route record mutation, Agentgres-backed route truth, receipt/state-root
+binding, replay, projection, provider request shaping, stable SDK/IDE/CLI
+protocol APIs, and command-transport retirement remain required before route
+control reaches the pure Rust substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1003 | Public model-mount route-control refusal envelopes are planned by Rust model_mount and translated by JS only at the edge. | Direct Rust daemon-core route-control/selection, Agentgres route truth, receipt/state-root binding, replay, projection, provider request shaping, and stable protocol APIs replace JS route scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 1002
 
 Slice 1002 moved public model-mount tokenizer/count/context-fit

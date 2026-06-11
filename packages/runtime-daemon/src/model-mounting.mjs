@@ -1235,6 +1235,21 @@ export class ModelMountingState {
     });
   }
 
+  routeControlRequired(operation_kind, details = {}) {
+    return this.modelMountAdmissionRunner.planRouteControlRequired({
+      schema_version: "ioi.model_mount.route_control_required.v1",
+      operation: "model_mount.route_control",
+      operation_kind,
+      source: "runtime-daemon.model_mounting.route_control",
+      evidence_refs: [
+        "model_mount_route_control_js_facade_retired",
+        "rust_daemon_core_route_control_required",
+        "agentgres_route_truth_required",
+      ],
+      details,
+    });
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }
@@ -1552,19 +1567,23 @@ export class ModelMountingState {
   }
 
   endpointIdsForExplicitModel(route, modelId) {
-    throwModelRouteControlRustCoreRequired("model_mount.route.explicit_model_endpoints", {
-      route_id: route?.id ?? null,
-      model_id: modelId ?? null,
-    });
+    throwModelRouteControlRustCoreRequired(
+      this.routeControlRequired("model_mount.route.explicit_model_endpoints", {
+        route_id: route?.id ?? null,
+        model_id: modelId ?? null,
+      }),
+    );
   }
 
   selectRoute({ modelId, routeId, capability, policy }) {
     void policy;
-    throwModelRouteControlRustCoreRequired("model_mount.route.select", {
-      model_id: modelId ?? null,
-      route_id: routeId ?? null,
-      capability: capability ?? "chat",
-    });
+    throwModelRouteControlRustCoreRequired(
+      this.routeControlRequired("model_mount.route.select", {
+        model_id: modelId ?? null,
+        route_id: routeId ?? null,
+        capability: capability ?? "chat",
+      }),
+    );
   }
 
   async ensureLoaded(endpoint) {

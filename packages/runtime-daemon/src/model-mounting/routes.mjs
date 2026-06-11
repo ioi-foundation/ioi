@@ -49,23 +49,33 @@ export function upsertRoute(state, body = {}, deps = {}) {
   void state;
   void deps;
   assertCanonicalRouteUpsertRequestBody(body);
-  throwModelRouteControlRustCoreRequired("model_mount.route.write", {
-    route_id: routeIdFromUpsertBody(body),
-  });
+  throwModelRouteControlRustCoreRequired(
+    routeControlRequiredForState(state, "model_mount.route.write", {
+      route_id: routeIdFromUpsertBody(body),
+    }),
+  );
 }
 
 export function testRoute(state, routeId, body = {}) {
   void state;
   assertCanonicalRouteSelectionRequestBody(body);
-  throwModelRouteControlRustCoreRequired("model_mount.route.test", {
-    route_id: routeId,
-  });
+  throwModelRouteControlRustCoreRequired(
+    routeControlRequiredForState(state, "model_mount.route.test", {
+      route_id: routeId,
+    }),
+  );
 }
 
-export function throwModelRouteSelectionRustCoreRequired(operation_kind, details = {}) {
-  throwModelRouteControlRustCoreRequired(operation_kind, {
-    route_selection_boundary: "model_mount.route_selection",
-    ...details,
+export function throwModelRouteSelectionRustCoreRequired(record = {}) {
+  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
+    ? record.details
+    : {};
+  throwModelRouteControlRustCoreRequired({
+    ...record,
+    details: {
+      ...details,
+      route_selection_boundary: details.route_selection_boundary ?? "model_mount.route_selection",
+    },
   });
 }
 
@@ -73,21 +83,32 @@ export function assertCanonicalRouteSelectionRequest(body = {}) {
   assertCanonicalRouteSelectionRequestBody(body);
 }
 
-export function throwModelRouteControlRustCoreRequired(operation_kind, details = {}) {
-  const error = new Error("Model route control requires Rust daemon-core ownership.");
-  error.status = 501;
-  error.code = "model_mount_route_control_rust_core_required";
+export function throwModelRouteControlRustCoreRequired(record = {}) {
+  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
+    ? record.details
+    : {};
+  const evidenceRefs = Array.isArray(details.evidence_refs)
+    ? details.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : [
+          "model_mount_route_control_js_facade_retired",
+          "rust_daemon_core_route_control_required",
+          "agentgres_route_truth_required",
+        ];
+  const error = new Error(record.message ?? "Model route control requires Rust daemon-core ownership.");
+  error.status = record.status_code ?? 501;
+  error.code = record.code ?? "model_mount_route_control_rust_core_required";
   error.details = {
-    rust_core_boundary: "model_mount.route_control",
-    operation_kind,
     ...details,
-    evidence_refs: [
-      "model_mount_route_control_js_facade_retired",
-      "rust_daemon_core_route_control_required",
-      "agentgres_route_truth_required",
-    ],
+    rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.route_control",
+    evidence_refs: evidenceRefs,
   };
   throw error;
+}
+
+export function routeControlRequiredForState(state, operation_kind, details = {}) {
+  return state.routeControlRequired(operation_kind, details);
 }
 
 function routeIdFromUpsertBody(body = {}) {

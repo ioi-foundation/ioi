@@ -30,8 +30,9 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountInvocationAdmissionRequest, ModelMountProviderExecutionRequest,
     ModelMountProviderInventoryRequest, ModelMountProviderInvocationRequest,
     ModelMountProviderLifecycleRequest, ModelMountProviderResultAdmissionRequest,
-    ModelMountRouteDecisionRequest, ModelMountRuntimeEngineRequiredRequest,
-    ModelMountServerControlRequiredRequest, ModelMountTokenizerRequiredRequest,
+    ModelMountRouteControlRequiredRequest, ModelMountRouteDecisionRequest,
+    ModelMountRuntimeEngineRequiredRequest, ModelMountServerControlRequiredRequest,
+    ModelMountTokenizerRequiredRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
     AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
@@ -269,6 +270,16 @@ struct ModelMountTokenizerRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ModelMountTokenizerRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+struct ModelMountRouteControlRequiredBridgeRequest {
+    #[serde(rename = "schema_version")]
+    schema_version: String,
+    operation: String,
+    #[serde(default)]
+    backend: Option<String>,
+    request: ModelMountRouteControlRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -1006,6 +1017,12 @@ fn run_bridge() -> Result<Value, BridgeError> {
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_model_mount_tokenizer_required(request)
         }
+        "plan_model_mount_route_control_required" => {
+            let request: ModelMountRouteControlRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_model_mount_route_control_required(request)
+        }
         "plan_model_mount_accepted_receipt_head" => {
             let request: ModelMountAcceptedReceiptHeadBridgeRequest =
                 serde_json::from_value(raw_request)
@@ -1387,6 +1404,7 @@ fn is_daemon_core_operation(operation: &str) -> bool {
             | "plan_model_mount_server_control_required"
             | "plan_model_mount_runtime_engine_required"
             | "plan_model_mount_tokenizer_required"
+            | "plan_model_mount_route_control_required"
             | "plan_model_mount_accepted_receipt_head"
             | "plan_model_mount_accepted_receipt_transition"
             | "bind_model_mount_invocation_receipt"
@@ -2169,6 +2187,47 @@ fn plan_model_mount_tokenizer_required(
         "message": record.message,
         "rust_core_boundary": record.rust_core_boundary,
         "operation": record.operation,
+        "details": record.details,
+    }))
+}
+
+fn plan_model_mount_route_control_required(
+    request: ModelMountRouteControlRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
+        return Err(BridgeError::new(
+            "schema_version_invalid",
+            format!(
+                "expected {} but received {}",
+                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
+            ),
+        ));
+    }
+    if request.operation != "plan_model_mount_route_control_required" {
+        return Err(BridgeError::new(
+            "operation_unsupported",
+            format!("unsupported operation {}", request.operation),
+        ));
+    }
+    let record = ModelMountCore
+        .plan_route_control_required(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "model_mount_route_control_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_model_mount_route_control_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_model_mount_route_control_required".to_string()),
+        "record": record.clone(),
+        "status": record.status,
+        "status_code": record.status_code,
+        "code": record.code,
+        "message": record.message,
+        "rust_core_boundary": record.rust_core_boundary,
+        "operation": record.operation,
+        "operation_kind": record.operation_kind,
         "details": record.details,
     }))
 }
@@ -8925,6 +8984,58 @@ mod tests {
         assert_eq!(response["details"]["requested_scope"], "model.context:*");
         assert!(response["details"].get("routeId").is_none());
         assert!(response["details"].get("requestedScope").is_none());
+    }
+
+    #[test]
+    fn bridge_plans_model_mount_route_control_required_through_rust_core() {
+        let request: ModelMountRouteControlRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_model_mount_route_control_required",
+            "backend": "rust_model_mount_route_control_required",
+            "request": {
+                "schema_version": "ioi.model_mount.route_control_required.v1",
+                "operation": "model_mount.route_control",
+                "operation_kind": "model_mount.route.selection_update",
+                "source": "runtime-daemon.model_mounting.route_control",
+                "details": {
+                    "route_id": "route.local-first",
+                    "selected_model": "model.local",
+                    "receipt_id": "receipt-route-test",
+                    "route_selection_boundary": "model_mount.route_selection"
+                }
+            }
+        }))
+        .expect("route control required bridge request");
+
+        let response = plan_model_mount_route_control_required(request)
+            .expect("route control required planned in Rust");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_route_control_required_command"
+        );
+        assert_eq!(
+            response["backend"],
+            "rust_model_mount_route_control_required"
+        );
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "model_mount_route_control_rust_core_required"
+        );
+        assert_eq!(response["operation"], "model_mount.route_control");
+        assert_eq!(
+            response["operation_kind"],
+            "model_mount.route.selection_update"
+        );
+        assert_eq!(response["rust_core_boundary"], "model_mount.route_control");
+        assert_eq!(response["details"]["route_id"], "route.local-first");
+        assert_eq!(response["details"]["selected_model"], "model.local");
+        assert_eq!(response["details"]["receipt_id"], "receipt-route-test");
+        assert!(response["details"].get("routeId").is_none());
+        assert!(response["details"].get("selectedModel").is_none());
+        assert!(response["details"].get("receiptId").is_none());
     }
 
     #[test]

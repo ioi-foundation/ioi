@@ -18,6 +18,60 @@ function captureError(fn) {
   throw new Error("Expected function to throw.");
 }
 
+function routeControlRequiredForTest(requests = []) {
+  return (operationKind, details = {}) => {
+    const request = {
+      schema_version: "ioi.model_mount.route_control_required.v1",
+      operation: "model_mount.route_control",
+      operation_kind: operationKind,
+      source: "runtime-daemon.model_mounting.route_control",
+      evidence_refs: [
+        "model_mount_route_control_js_facade_retired",
+        "rust_daemon_core_route_control_required",
+        "agentgres_route_truth_required",
+      ],
+      details,
+    };
+    requests.push(request);
+    const recordDetails = {
+      operation: request.operation,
+      ...details,
+      operation_kind: operationKind,
+      rust_core_boundary: "model_mount.route_control",
+      source: request.source,
+      evidence_refs: request.evidence_refs,
+    };
+    return {
+      source: "rust_model_mount_route_control_required_command",
+      backend: "rust_model_mount_route_control_required",
+      status: "rust_core_required",
+      status_code: 501,
+      code: "model_mount_route_control_rust_core_required",
+      message: "Model route control requires Rust daemon-core ownership.",
+      rust_core_boundary: "model_mount.route_control",
+      operation: request.operation,
+      operation_kind: operationKind,
+      details: recordDetails,
+      evidence_refs: request.evidence_refs,
+      record: {
+        schema_version: "ioi.model_mount.route_control_required_result.v1",
+        object: "ioi.model_mount_route_control_required",
+        status: "rust_core_required",
+        status_code: 501,
+        code: "model_mount_route_control_rust_core_required",
+        message: "Model route control requires Rust daemon-core ownership.",
+        rust_core_boundary: "model_mount.route_control",
+        operation: request.operation,
+        operation_kind: operationKind,
+        source: request.source,
+        evidence_refs: request.evidence_refs,
+        details: recordDetails,
+        generated_at: "rust_model_mount_core",
+      },
+    };
+  };
+}
+
 test("model mounting route upsert rejects retired request aliases before Rust-required boundary", () => {
   const calls = [];
   const state = {
@@ -78,10 +132,12 @@ test("model mounting route upsert rejects retired request aliases before Rust-re
 test("model mounting route upsert fails closed without JS route-record normalization", () => {
   const calls = [];
   const routes = new Map();
+  const routeControlRequiredRequests = [];
   const error = captureError(() =>
     upsertRoute(
       {
         routes,
+        routeControlRequired: routeControlRequiredForTest(routeControlRequiredRequests),
         writeMap(...args) {
           calls.push(["writeMap", ...args]);
         },
@@ -111,6 +167,9 @@ test("model mounting route upsert fails closed without JS route-record normaliza
   assert.equal(error.details.route_id, "route:Research Route");
   assert.deepEqual(calls, []);
   assert.equal(routes.size, 0);
+  assert.equal(routeControlRequiredRequests.length, 1);
+  assert.equal(routeControlRequiredRequests[0].operation_kind, "model_mount.route.write");
+  assert.equal(routeControlRequiredRequests[0].details.route_id, "route:Research Route");
 });
 
 test("model mounting route selection rejects retired request aliases before Rust boundary", () => {
@@ -166,7 +225,9 @@ test("model mounting route selection rejects retired request aliases before Rust
 
 test("mounted route selection facades fail closed before JS endpoint policy evaluation", () => {
   const calls = [];
+  const routeControlRequiredRequests = [];
   const state = {
+    routeControlRequired: routeControlRequiredForTest(routeControlRequiredRequests),
     routes: new Map([["route.local-first", { id: "route.local-first" }]]),
     endpoints: new Map([["endpoint.local", { id: "endpoint.local" }]]),
     providers: new Map([["provider.local", { id: "provider.local" }]]),
@@ -203,6 +264,8 @@ test("mounted route selection facades fail closed before JS endpoint policy eval
   assert.equal(selectError.details.route_id, "route.local-first");
   assert.equal(selectError.details.capability, "chat");
   assert.deepEqual(calls, []);
+  assert.equal(routeControlRequiredRequests[0].operation_kind, "model_mount.route.select");
+  assert.equal(routeControlRequiredRequests[0].details.route_id, "route.local-first");
 
   const explicitError = captureError(() =>
     ModelMountingState.prototype.endpointIdsForExplicitModel.call(
@@ -216,10 +279,13 @@ test("mounted route selection facades fail closed before JS endpoint policy eval
   assert.equal(explicitError.details.operation_kind, "model_mount.route.explicit_model_endpoints");
   assert.equal(explicitError.details.model_id, "model.local");
   assert.deepEqual(calls, []);
+  assert.equal(routeControlRequiredRequests[1].operation_kind, "model_mount.route.explicit_model_endpoints");
+  assert.equal(routeControlRequiredRequests[1].details.model_id, "model.local");
 });
 
 test("model mounting public route control facades fail closed before selection, receipts, or state mutation", () => {
   const calls = [];
+  const routeControlRequiredRequests = [];
   const routes = new Map([["route.local-first", {
     id: "route.local-first",
     fallback: ["endpoint.local"],
@@ -230,6 +296,7 @@ test("model mounting public route control facades fail closed before selection, 
   }]]);
   const state = {
     routes,
+    routeControlRequired: routeControlRequiredForTest(routeControlRequiredRequests),
     route(routeId) {
       calls.push(["route", routeId]);
       return routes.get(routeId);
@@ -270,15 +337,22 @@ test("model mounting public route control facades fail closed before selection, 
   assert.deepEqual(calls, []);
   assert.equal(routes.has("route.review"), false);
   assert.equal(routes.get("route.local-first").lastReceiptId, undefined);
+  assert.equal(routeControlRequiredRequests.length, 2);
+  assert.equal(routeControlRequiredRequests[0].operation_kind, "model_mount.route.write");
+  assert.equal(routeControlRequiredRequests[1].operation_kind, "model_mount.route.test");
 });
 
 test("model mounting route-selection receipt helper is retired behind Rust core", () => {
+  const routeControlRequiredRequests = [];
   const error = captureError(() =>
-    throwModelRouteSelectionRustCoreRequired("model_mount.route.selection_update", {
-      route_id: "route.local-first",
-      selected_model: "model.local",
-      receipt_id: "receipt-route-test",
-    }),
+    throwModelRouteSelectionRustCoreRequired(
+      routeControlRequiredForTest(routeControlRequiredRequests)("model_mount.route.selection_update", {
+        route_id: "route.local-first",
+        selected_model: "model.local",
+        receipt_id: "receipt-route-test",
+        route_selection_boundary: "model_mount.route_selection",
+      }),
+    ),
   );
 
   assert.equal(error.status, 501);
@@ -292,6 +366,8 @@ test("model mounting route-selection receipt helper is retired behind Rust core"
   assert.equal(Object.hasOwn(error.details, "routeId"), false);
   assert.equal(Object.hasOwn(error.details, "receiptId"), false);
   assert.equal(Object.hasOwn(error.details, "selectedModel"), false);
+  assert.equal(routeControlRequiredRequests.length, 1);
+  assert.equal(routeControlRequiredRequests[0].operation_kind, "model_mount.route.selection_update");
 });
 
 test("model mounting route helpers test route rejects retired request aliases before route lookup", () => {

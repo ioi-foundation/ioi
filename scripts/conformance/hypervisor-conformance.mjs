@@ -2020,8 +2020,7 @@ function runDocs() {
       /dead catalog download policy\/risk\/recommendation helpers are deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
       /the orphan `download-helpers\.mjs` HTTP\/partial-file catalog download materializer is deleted/.test(implementationMatrix) &&
       /the dormant catalog import materializer helper tail is deleted from `catalog-helpers\.mjs`/.test(implementationMatrix) &&
-      /the direct JS route-selection policy engine, `model=auto` selector, and\s+explicit model endpoint resolver are retired/.test(implementationMatrix) &&
-      /mounted `selectRoute\(\)` and `endpointIdsForExplicitModel\(\)` fail closed\s+before route-map reads, endpoint\/provider reads, endpoint mounting, JS policy\s+evaluation, or candidate scoring/.test(implementationMatrix) &&
+      /public route upsert\/test, mounted route-selection, explicit-model endpoint resolution,\s+and retired route-selection receipt helper paths now request Rust-authored\s+`model_mount\.route_control` required records/.test(implementationMatrix) &&
       /Slice\s+755 workflow-edit read-helper facade-retirement compaction is complete/.test(
         guide,
       ) &&
@@ -2298,6 +2297,9 @@ function runBridge() {
     : "";
   const modelMountAdmissionRunnerTest = exists("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
+    : "";
+  const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/model_mount.rs")
     : "";
   const modelMountReceiptOperationsBridge = modelMountingState;
   const modelMountReceiptWriteGuardsBridge = exists("packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs")
@@ -9019,7 +9021,9 @@ function runBridge() {
       !/model_mount_route_decision_receipt_id_required/.test(modelRoutes) &&
       !/model_mount_route_selection_rust_receipt_required/.test(modelRoutes) &&
       /throwModelRouteSelectionRustCoreRequired/.test(modelRoutes) &&
-      /route_selection_boundary:\s*"model_mount\.route_selection"/.test(modelRoutes) &&
+      /route_selection_boundary:\s*details\.route_selection_boundary \?\? "model_mount\.route_selection"/.test(
+        modelRoutes,
+      ) &&
       /rust_authored_route_selection_receipt/.test(bridgeModule) &&
       /accepted_receipt_record/.test(bridgeModule) &&
       /accepted_receipt_record/.test(modelMountAdmissionRunner) &&
@@ -9049,9 +9053,21 @@ function runBridge() {
       !/export function selectRoute\b/.test(modelRoutes) &&
       !/export function selectRouteForState\b/.test(modelRoutes) &&
       !/selectRouteForState/.test(modelMountingState) &&
-      /throwModelRouteControlRustCoreRequired\("model_mount\.route\.select"/.test(modelMountingState) &&
-      /throwModelRouteControlRustCoreRequired\("model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
+      /routeControlRequired\(operation_kind,\s*details = \{\}\)/.test(modelMountingState) &&
+      /this\.modelMountAdmissionRunner\.planRouteControlRequired/.test(modelMountingState) &&
+      /planRouteControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_route_control_required"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /ModelMountRouteControlRequiredRequest/.test(modelMountCore) &&
+      /plan_route_control_required/.test(modelMountCore) &&
+      /route_control_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /ModelMountRouteControlRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_model_mount_route_control_required/.test(bridgeModule) &&
+      /bridge_plans_model_mount_route_control_required_through_rust_core/.test(bridgeModule) &&
+      /throwModelRouteControlRustCoreRequired\(\s*this\.routeControlRequired\("model_mount\.route\.select"/.test(modelMountingState) &&
+      /throwModelRouteControlRustCoreRequired\(\s*this\.routeControlRequired\("model_mount\.route\.explicit_model_endpoints"/.test(modelMountingState) &&
       /mounted route selection facades fail closed before JS endpoint policy evaluation/.test(modelRoutesTest) &&
+      /routeControlRequiredForTest/.test(modelRoutesTest) &&
       /assert\.deepEqual\(calls,\s*\[\]\)/.test(modelRoutesTest) &&
       /allow_hosted_fallback/.test(modelRoutesTest) &&
       !/allowHostedFallback/.test(modelRoutes) &&
@@ -9956,11 +9972,11 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-route-selection-request-aliases-retired",
-    /RETIRED_ROUTE_SELECTION_REQUEST_ALIASES/.test(modelRoutes) &&
+      /RETIRED_ROUTE_SELECTION_REQUEST_ALIASES/.test(modelRoutes) &&
       /model_mount_route_selection_request_aliases_retired/.test(modelRoutes) &&
       (modelRoutes.match(/assertCanonicalRouteSelectionRequestBody\(body\);/g) ?? []).length >= 2 &&
       /export function assertCanonicalRouteSelectionRequest\(body = \{\}\)/.test(modelRoutes) &&
-      /throwModelRouteControlRustCoreRequired\("model_mount\.route\.test"/.test(modelRoutes) &&
+      /routeControlRequiredForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
       !/modelMountRouteDecisionRequestForSelection/.test(modelRoutes) &&
       !/routeSelectionReceipt(?:ForState)?/.test(modelRoutes) &&
       !/modelId:\s*body\.model \?\? body\.model_id/.test(modelRoutes) &&
@@ -10017,9 +10033,15 @@ function runBridge() {
       !/deniedProviders:\s*normalizeScopes\(body\.denied_providers,\s*\[\]\)/.test(modelRoutes) &&
       !/lastSelectedModel:\s*body\.last_selected_model \?\? null/.test(modelRoutes) &&
       !/lastReceiptId:\s*body\.last_receipt_id \?\? null/.test(modelRoutes) &&
+      /routeControlRequiredForState\(state,\s*"model_mount\.route\.write"/.test(modelRoutes) &&
+      /routeControlRequiredForState\(state,\s*"model_mount\.route\.test"/.test(modelRoutes) &&
+      /routeControlRequiredForState\(state,\s*operation_kind,\s*details = \{\}\)/.test(modelRoutes) &&
+      /this\.modelMountAdmissionRunner\.planRouteControlRequired/.test(modelMountingState) &&
+      /planRouteControlRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /Rust model_mount admission runner sends route control required request/.test(modelMountAdmissionRunnerTest) &&
       /throwModelRouteControlRustCoreRequired/.test(modelRoutes) &&
       /model_mount_route_control_rust_core_required/.test(modelRoutes) &&
-      /rust_core_boundary:\s*"model_mount\.route_control"/.test(modelRoutes) &&
+      /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.route_control"/.test(modelRoutes) &&
       /model_mount_route_control_js_facade_retired/.test(modelRoutes) &&
       /rust_daemon_core_route_control_required/.test(modelRoutes) &&
       /agentgres_route_truth_required/.test(modelRoutes) &&
@@ -10050,6 +10072,7 @@ function runBridge() {
       /route upsert fails closed without JS route-record normalization/.test(modelRoutesTest) &&
       /public route control facades fail closed before selection, receipts, or state mutation/.test(modelRoutesTest) &&
       /route-selection receipt helper is retired behind Rust core/.test(modelRoutesTest) &&
+      /routeControlRequiredRequests\[0\]\.operation_kind/.test(modelRoutesTest) &&
       /does not fall back to JS route record-state commit/.test(modelTokenizerOperationsTest) &&
       /invokeModel public facade fails closed before JS route selection, provider execution, receipts, or projection mutation/.test(
         modelInvocationOpsTest,
@@ -10073,9 +10096,13 @@ function runBridge() {
       "packages/runtime-daemon/src/model-mounting/routes.mjs",
       "packages/runtime-daemon/src/model-mounting/routes.test.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.test.mjs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "scripts/lib/live-runtime-daemon-contract.test.mjs",
     ],
     "Phase 3/10 is pending: model route control JS facades must fail closed and invocation/tokenizer route selections must not write duplicate JS route truth",

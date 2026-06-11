@@ -6,6 +6,7 @@ import {
   MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION,
   ModelMountAdmissionRunnerError,
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
@@ -309,6 +310,26 @@ function tokenizerRequiredRequest() {
       model: "llama-test",
       route_id: "route.local-first",
       requested_scope: "model.context:*",
+    },
+  };
+}
+
+function routeControlRequiredRequest() {
+  return {
+    schema_version: "ioi.model_mount.route_control_required.v1",
+    operation: "model_mount.route_control",
+    operation_kind: "model_mount.route.selection_update",
+    source: "runtime-daemon.model_mounting.route_control",
+    evidence_refs: [
+      "model_mount_route_control_js_facade_retired",
+      "rust_daemon_core_route_control_required",
+      "agentgres_route_truth_required",
+    ],
+    details: {
+      route_id: "route.local-first",
+      selected_model: "model.local",
+      receipt_id: "receipt-route-test",
+      route_selection_boundary: "model_mount.route_selection",
     },
   };
 }
@@ -1140,6 +1161,85 @@ test("Rust model_mount admission runner sends tokenizer required request", () =>
   assert.equal(result.details.requested_scope, "model.context:*");
   assert.equal(Object.hasOwn(result.details, "routeId"), false);
   assert.equal(Object.hasOwn(result.details, "requestedScope"), false);
+});
+
+test("Rust model_mount admission runner sends route control required request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_route_control_required_command",
+            backend: RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND,
+            record: {
+              schema_version: "ioi.model_mount.route_control_required_result.v1",
+              object: "ioi.model_mount_route_control_required",
+              status: "rust_core_required",
+              status_code: 501,
+              code: "model_mount_route_control_rust_core_required",
+              message: "Model route control requires Rust daemon-core ownership.",
+              rust_core_boundary: "model_mount.route_control",
+              operation: request.request.operation,
+              operation_kind: request.request.operation_kind,
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+              details: {
+                operation: request.request.operation,
+                ...request.request.details,
+                operation_kind: request.request.operation_kind,
+                rust_core_boundary: "model_mount.route_control",
+                source: request.request.source,
+                evidence_refs: request.request.evidence_refs,
+              },
+              generated_at: "rust_model_mount_core",
+            },
+            status: "rust_core_required",
+            status_code: 501,
+            code: "model_mount_route_control_rust_core_required",
+            message: "Model route control requires Rust daemon-core ownership.",
+            rust_core_boundary: "model_mount.route_control",
+            operation: request.request.operation,
+            operation_kind: request.request.operation_kind,
+            details: {
+              operation: request.request.operation,
+              ...request.request.details,
+              operation_kind: request.request.operation_kind,
+              rust_core_boundary: "model_mount.route_control",
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planRouteControlRequired(routeControlRequiredRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_route_control_required");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_ROUTE_CONTROL_REQUIRED_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.route_control_required.v1");
+  assert.equal(calls[0].request.request.operation_kind, "model_mount.route.selection_update");
+  assert.equal(calls[0].request.request.details.route_id, "route.local-first");
+  assert.equal(result.status, "rust_core_required");
+  assert.equal(result.status_code, 501);
+  assert.equal(result.code, "model_mount_route_control_rust_core_required");
+  assert.equal(result.details.route_id, "route.local-first");
+  assert.equal(result.details.selected_model, "model.local");
+  assert.equal(result.details.receipt_id, "receipt-route-test");
+  assert.equal(result.details.route_selection_boundary, "model_mount.route_selection");
+  assert.equal(Object.hasOwn(result.details, "routeId"), false);
+  assert.equal(Object.hasOwn(result.details, "selectedModel"), false);
+  assert.equal(Object.hasOwn(result.details, "receiptId"), false);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {
