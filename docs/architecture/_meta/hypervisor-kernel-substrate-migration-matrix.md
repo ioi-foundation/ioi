@@ -16297,6 +16297,42 @@ or daemon-core command-helper retirement boundary is clearer. Future resumes
 must not treat `step-module-command-runner.mjs`, the shared daemon-core command
 helper, or the Node bridge as canonical long-term architecture.
 
+## Implementation Slice Evidence: 1063
+
+Slice 1063 moves bridge command-envelope schema-family ownership out of the
+temporary stdin dispatch module. `crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs`
+now owns the StepModule command schema version, daemon-core command schema
+version, expected-schema lookup, and daemon-core operation-family classifier.
+`bridge_dispatch.rs` still owns temporary process dispatch, but it consumes the
+Rust command-envelope owner instead of carrying schema-family truth locally.
+
+This is a Rust protocol-boundary extraction, not terminal bridge retirement.
+The Node bridge, StepModule command helper, shared daemon-core command helper,
+and JS command callers remain temporary migration transport until direct Rust
+daemon-core and Rust/WASM workload protocol APIs own execution/admission,
+Agentgres truth, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node bridge_command_schema_version --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1062-1063 with the next
+larger Rust-core extraction or facade-retirement seam once the direct
+StepModuleRouter, command-envelope, or daemon-core command-helper retirement
+boundary is clearer. Future resumes must not treat command-envelope transport,
+`step-module-command-runner.mjs`, the shared daemon-core command helper, or the
+Node bridge as canonical long-term architecture.
+
 Scheduled matrix-compaction obligation from Slice 788 is now satisfied. The
 next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after

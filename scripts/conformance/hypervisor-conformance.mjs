@@ -2266,6 +2266,9 @@ function runBridge() {
   const bridgeDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     : "";
+  const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
+    : "";
   const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     : "";
@@ -2339,10 +2342,16 @@ function runBridge() {
     result,
     "bridge-command-schema-version-alias-retired",
     /mod bridge_dispatch;/.test(bridgeModule) &&
+      /mod command_envelope;/.test(bridgeModule) &&
       /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
       /match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
-      /pub\(super\) fn is_daemon_core_operation/.test(bridgeDispatch) &&
+      /expected_command_schema_version/.test(bridgeDispatch) &&
+      !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
+      /pub\(super\) const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
+      /pub\(super\) const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
+      /pub\(super\) fn expected_command_schema_version/.test(bridgeCommandEnvelope) &&
+      /pub\(super\) fn is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
       !/fn is_daemon_core_operation/.test(bridgeModule) &&
       /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
@@ -2350,6 +2359,7 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs",
     ],
     "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
   );
@@ -3617,7 +3627,7 @@ function runBridge() {
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
       /mod coding_tool_command;/.test(bridgeModule) &&
       /mod coding_tool_helpers;/.test(bridgeModule) &&
-      /run_coding_tool_step_module/.test(bridgeModule) &&
+      /run_coding_tool_step_module/.test(bridgeDispatch) &&
       !/struct StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/fn workspace_status_response/.test(bridgeModule) &&
@@ -3651,7 +3661,7 @@ function runBridge() {
       /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
       /computer_use\.request_lease/.test(codingToolCommandBridge) &&
       /build_computer_use_lease_request/.test(computerUseBridge) &&
-      /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
+      /ioi\.step_module\.command_bridge\.v1/.test(bridgeCommandEnvelope) &&
       /StepModuleRouterCore/.test(codingToolCommandBridge) &&
       /router_admission/.test(codingToolCommandBridge) &&
       /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(runtimeCodingToolInvocationSurface) &&
@@ -6675,7 +6685,8 @@ function runBridge() {
       /fn evaluate_context_budget_policy/.test(contextPolicyCommandBridge) &&
       /ContextBudgetPolicyBridgeRequest/.test(contextPolicyCommandBridge) &&
       /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(contextPolicyCommandBridge) &&
-      /is_daemon_core_operation/.test(bridgeDispatch) &&
+      /is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
+      !/is_daemon_core_operation/.test(bridgeDispatch) &&
       /context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(contextPolicyCommandBridge) &&
       /bridge_evaluates_context_budget_policy_through_rust_core/.test(bridgeModule) &&
@@ -13789,6 +13800,9 @@ function runReceipts() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
+    : "";
   const agentgresCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs")
     : "";
@@ -18625,7 +18639,7 @@ function runReceipts() {
       !/fn commit_runtime_run_state/.test(bridgeModule) &&
       /pub\(super\) struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandBridge) &&
       /pub\(super\) fn commit_runtime_run_state/.test(agentgresCommandBridge) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
       /runtime_agentgres_commit_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(agentgresCommandBridge) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&

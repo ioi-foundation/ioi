@@ -5237,6 +5237,21 @@ Rust/WASM module execution, Agentgres admission, receipt/state-root binding,
 replay, projection, wallet.network authority, cTEE custody, and stable
 IDE/CLI/SDK protocol surfaces.
 
+Slice 1063 moves bridge command-envelope schema ownership out of the temporary
+stdin dispatch transport and into
+`crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs`. The new Rust
+owner module carries the StepModule command schema version, daemon-core command
+schema version, expected-schema lookup, and daemon-core operation-family
+classifier. `bridge_dispatch.rs` now consumes that owner while keeping only the
+temporary process dispatch match. Conformance now fails if schema-family truth
+returns to the dispatch module or broad bridge root. This still does not make
+the Node bridge canonical. Resume by replacing the command-envelope transport,
+the StepModule command helper, and the shared daemon-core command helper with
+direct Rust daemon-core/workload protocol APIs, while preserving Rust-owned
+StepModuleRouter dispatch, Agentgres admission, receipt/state-root binding,
+replay, projection, wallet.network authority, cTEE custody, and stable
+IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

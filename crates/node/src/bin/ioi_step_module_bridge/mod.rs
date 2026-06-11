@@ -15,6 +15,7 @@ mod authority_command;
 mod bridge_dispatch;
 mod coding_tool_command;
 mod coding_tool_helpers;
+mod command_envelope;
 mod computer_use;
 mod context_policy_command;
 mod governed_admission_command;
@@ -50,6 +51,9 @@ pub use bridge_dispatch::run_bridge_response_from_stdin;
 use bridge_dispatch::*;
 use coding_tool_command::*;
 use coding_tool_helpers::*;
+use command_envelope::{
+    COMMAND_SCHEMA_VERSION, DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
+};
 use context_policy_command::{
     evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
     plan_context_compaction, plan_context_compaction_state_update, CompactionPolicyBridgeRequest,
@@ -134,9 +138,6 @@ use workspace_restore_command::{
     WorkspaceSnapshotCaptureBridgeRequest,
 };
 
-const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
-const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
-const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
 const DEFAULT_PREVIEW_BYTES: u64 = 16 * 1024;
