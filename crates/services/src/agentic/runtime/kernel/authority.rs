@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 pub const EXTERNAL_CAPABILITY_EXIT_AUTHORITY_SCHEMA_VERSION: &str =
@@ -16,6 +17,26 @@ pub enum WalletAuthorityError {
     MissingWalletNetworkAuthority,
     MissingAuthorityReceipt,
     HashFailed(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuthorityCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl AuthorityCommandError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,6 +64,13 @@ pub struct ExternalCapabilityExitAuthorityRecord {
     pub wallet_network_grant_refs: Vec<String>,
     pub authority_receipt_refs: Vec<String>,
     pub authority_hash: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExternalCapabilityExitAuthorityBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: ExternalCapabilityExitRequest,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -79,6 +107,27 @@ impl WalletAuthorityCore {
         record.authority_hash = authority_hash(&record)?;
         Ok(record)
     }
+}
+
+pub fn authorize_external_capability_exit_response(
+    request: ExternalCapabilityExitAuthorityBridgeRequest,
+) -> Result<Value, AuthorityCommandError> {
+    let record = WalletAuthorityCore
+        .authorize_external_capability_exit(&request.request)
+        .map_err(|error| {
+            AuthorityCommandError::new(
+                "external_capability_exit_authority_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_external_capability_exit_authority_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
+        "authority": record.clone(),
+        "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
+        "authority_receipt_refs": record.authority_receipt_refs.clone(),
+        "authority_hash": record.authority_hash.clone(),
+    }))
 }
 
 impl ExternalCapabilityExitRequest {
@@ -187,5 +236,34 @@ mod tests {
             .expect_err("authority receipt is required");
 
         assert_eq!(error, WalletAuthorityError::MissingAuthorityReceipt);
+    }
+
+    #[test]
+    fn rust_core_shapes_external_capability_authority_response() {
+        let response = authorize_external_capability_exit_response(
+            ExternalCapabilityExitAuthorityBridgeRequest {
+                backend: Some("rust_authority".to_string()),
+                request: request(),
+            },
+        )
+        .expect("authority response");
+
+        assert_eq!(
+            response["source"],
+            "rust_external_capability_exit_authority_command"
+        );
+        assert_eq!(response["backend"], "rust_authority");
+        assert_eq!(
+            response["wallet_network_grant_refs"][0],
+            "wallet.network://grant/external-capability/slack"
+        );
+        assert_eq!(
+            response["authority_receipt_refs"][0],
+            "receipt://wallet.network/authority/slack"
+        );
+        assert!(response["authority_hash"]
+            .as_str()
+            .expect("authority hash")
+            .starts_with("sha256:"));
     }
 }

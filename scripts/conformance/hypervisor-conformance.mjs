@@ -6296,19 +6296,26 @@ function runBridge() {
     "external-capability-exit-authority-live-bridge",
     /WalletAuthorityCore/.test(authorityCore) &&
       /ExternalCapabilityExitRequest/.test(authorityCore) &&
+      /pub struct ExternalCapabilityExitAuthorityBridgeRequest/.test(authorityCore) &&
+      /pub fn authorize_external_capability_exit_response/.test(authorityCore) &&
       /EXTERNAL_CAPABILITY_EXIT_AUTHORITY_SCHEMA_VERSION/.test(authorityCore) &&
       /MissingWalletNetworkAuthority/.test(authorityCore) &&
       /mod authority_command;/.test(bridgeModule) &&
       /authorize_external_capability_exit/.test(bridgeModule) &&
       !/struct ExternalCapabilityExitAuthorityBridgeRequest/.test(bridgeModule) &&
       !/fn authorize_external_capability_exit/.test(bridgeModule) &&
-      /pub\(super\) struct ExternalCapabilityExitAuthorityBridgeRequest/.test(
+      /ExternalCapabilityExitAuthorityBridgeRequest/.test(
         authorityCommandBridge,
       ) &&
       /pub\(super\) fn authorize_external_capability_exit/.test(
         authorityCommandBridge,
       ) &&
-      /rust_external_capability_exit_authority_command/.test(authorityCommandBridge) &&
+      !/WalletAuthorityCore/.test(authorityCommandBridge) &&
+      !/ExternalCapabilityExitRequest/.test(authorityCommandBridge) &&
+      !/external_capability_exit_authority_invalid/.test(authorityCommandBridge) &&
+      /WalletAuthorityCore/.test(authorityCore) &&
+      /rust_external_capability_exit_authority_command/.test(authorityCore) &&
+      /external_capability_exit_authority_invalid/.test(authorityCore) &&
       /external_capability_authority_rejects_step_module_command_schema/.test(
         bridgeModule,
       ) &&
@@ -6323,7 +6330,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/authority_command.rs",
     ],
-    "Phase 9/10 is pending: external capability exits must authorize through Rust authority core and fail closed without wallet.network grants",
+    "Phase 9/10 is pending: external capability exits must authorize through Rust authority core and fail closed without wallet.network grants while the Node bridge remains a temporary delegate",
   );
   const authorityPolicyProjectionCommandWrappers = [
     authorityCommandBridge,

@@ -6221,6 +6221,24 @@ settlement trigger guards, governed proposal admission, Agentgres-backed
 receipt/state-root truth where applicable, replay, projection, wallet.network
 authority where applicable, and stable IDE/CLI/SDK surfaces end to end.
 
+Slice 1121 moves external capability exit authority command response shaping
+out of the temporary Node authority command bridge and into Rust `authority.rs`
+under the kernel service crate. Rust core now owns the bridge request struct,
+wallet.network authority wrapping, canonical
+`rust_external_capability_exit_authority_command` response envelope, authority
+grant/receipt/hash projection fields, and bridge-facing error code for rejected
+external exits.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command caller, and external capability
+authority runner still exist. The remaining
+`ioi_step_module_bridge/authority_command.rs` file is a temporary delegate to
+Rust core, not a durable wallet.network authority boundary. The long-term
+target remains direct Rust daemon-core authority protocol APIs over
+wallet.network grants, authority receipts, Agentgres-backed receipt/state-root
+truth where applicable, replay, projection, and stable IDE/CLI/SDK surfaces end
+to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
