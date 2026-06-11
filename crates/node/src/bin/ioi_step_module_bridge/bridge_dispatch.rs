@@ -35,7 +35,13 @@ pub(super) fn run_bridge() -> Result<Value, BridgeError> {
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
     let envelope: BridgeEnvelope = serde_json::from_value(raw_request.clone())
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
-    let expected_schema_version = expected_command_schema_version(&envelope.operation);
+    let expected_schema_version =
+        expected_command_schema_version(&envelope.operation).ok_or_else(|| {
+            BridgeError::new(
+                "operation_unknown",
+                format!("unknown bridge operation {}", envelope.operation),
+            )
+        })?;
     if envelope.schema_version != expected_schema_version {
         return Err(BridgeError::new(
             "schema_version_invalid",

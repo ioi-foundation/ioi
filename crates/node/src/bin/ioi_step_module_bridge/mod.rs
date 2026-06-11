@@ -53,7 +53,8 @@ use bridge_dispatch::*;
 use coding_tool_command::*;
 use coding_tool_helpers::*;
 use command_envelope::{
-    COMMAND_SCHEMA_VERSION, DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
+    expected_command_schema_version, is_step_module_operation, COMMAND_SCHEMA_VERSION,
+    DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
 };
 use context_policy_command::{
     evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
@@ -201,6 +202,12 @@ mod tests {
             retired_alias.is_err(),
             "Rust bridge command intake must require canonical schema_version"
         );
+    }
+
+    #[test]
+    fn bridge_unknown_operation_has_no_command_schema_family() {
+        assert_eq!(expected_command_schema_version("unknown_operation"), None);
+        assert!(!is_step_module_operation("unknown_operation"));
     }
 
     fn temp_workspace(name: &str) -> PathBuf {

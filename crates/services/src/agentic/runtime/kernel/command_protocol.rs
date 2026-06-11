@@ -2,12 +2,18 @@ pub const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_br
 pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
 pub const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
 
-pub fn expected_command_schema_version(operation: &str) -> &'static str {
+pub fn expected_command_schema_version(operation: &str) -> Option<&'static str> {
     if is_daemon_core_operation(operation) {
-        DAEMON_CORE_COMMAND_SCHEMA_VERSION
+        Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
+    } else if is_step_module_operation(operation) {
+        Some(STEP_MODULE_COMMAND_SCHEMA_VERSION)
     } else {
-        STEP_MODULE_COMMAND_SCHEMA_VERSION
+        None
     }
+}
+
+pub fn is_step_module_operation(operation: &str) -> bool {
+    matches!(operation, "run_coding_tool_step_module")
 }
 
 pub fn is_daemon_core_operation(operation: &str) -> bool {
@@ -90,8 +96,9 @@ mod tests {
     fn step_module_operation_uses_step_module_command_schema() {
         assert_eq!(
             expected_command_schema_version("run_coding_tool_step_module"),
-            STEP_MODULE_COMMAND_SCHEMA_VERSION
+            Some(STEP_MODULE_COMMAND_SCHEMA_VERSION)
         );
+        assert!(is_step_module_operation("run_coding_tool_step_module"));
         assert!(!is_daemon_core_operation("run_coding_tool_step_module"));
     }
 
@@ -106,9 +113,17 @@ mod tests {
         ] {
             assert_eq!(
                 expected_command_schema_version(operation),
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION
+                Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
             );
             assert!(is_daemon_core_operation(operation));
+            assert!(!is_step_module_operation(operation));
         }
+    }
+
+    #[test]
+    fn unknown_operation_has_no_command_schema_family() {
+        assert_eq!(expected_command_schema_version("unknown_operation"), None);
+        assert!(!is_step_module_operation("unknown_operation"));
+        assert!(!is_daemon_core_operation("unknown_operation"));
     }
 }

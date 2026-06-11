@@ -5282,6 +5282,22 @@ over Rust/WASM execution, Agentgres admission, receipt/state-root binding,
 replay, projection, wallet.network authority, cTEE custody, and stable
 IDE/CLI/SDK protocol surfaces.
 
+Slice 1066 makes Rust command protocol classification fail closed for unknown
+bridge operations. `command_protocol.rs` now explicitly distinguishes known
+StepModule operations, known daemon-core operations, and operations with no
+schema family. `expected_command_schema_version()` returns no schema for an
+unknown operation instead of implicitly treating it as a StepModule command, and
+`bridge_dispatch.rs` rejects that operation before the temporary dispatch table
+can run. Rust and bridge tests prove unknown operations have no schema family.
+Conformance now fails if the bridge stops rejecting unknown operations before
+dispatch or if Rust protocol ownership loses the StepModule/daemon-core/unknown
+classification split. This is still not terminal bridge retirement. Resume by
+replacing `command_dispatch.rs`, the adapter-only `command_envelope.rs`, the
+StepModule command helper, and the shared daemon-core command helper with direct
+Rust daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
