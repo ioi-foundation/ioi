@@ -10,11 +10,8 @@ use std::{
 
 mod bridge_dispatch;
 mod coding_tool_helpers;
-mod mcp_memory_command;
 mod model_mount_command;
 mod model_mount_receipt_command;
-mod runtime_control_command;
-mod thread_lifecycle_command;
 
 pub use bridge_dispatch::run_bridge_response_from_stdin;
 use coding_tool_helpers::*;
@@ -70,21 +67,60 @@ use ioi_services::agentic::runtime::kernel::policy::{
     evaluate_coding_tool_budget_policy_response as evaluate_coding_tool_budget_policy,
     evaluate_compaction_policy_response as evaluate_compaction_policy,
     evaluate_context_budget_policy_response as evaluate_context_budget_policy,
+    plan_agent_create_state_update_response as plan_agent_create_state_update,
+    plan_agent_status_state_update_response as plan_agent_status_state_update,
+    plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required,
+    plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update,
     plan_context_compaction_response as plan_context_compaction,
     plan_context_compaction_state_update_response as plan_context_compaction_state_update,
+    plan_diagnostics_operator_override_state_update_response as plan_diagnostics_operator_override_state_update,
     plan_diagnostics_repair_admission_required_response as plan_diagnostics_repair_admission_required,
+    plan_lifecycle_admission_required_response as plan_lifecycle_admission_required,
+    plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update,
+    plan_mcp_manager_catalog_projection_response as plan_mcp_manager_catalog_projection,
+    plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection,
+    plan_mcp_manager_status_projection_response as plan_mcp_manager_status_projection,
+    plan_mcp_manager_validation_projection_response as plan_mcp_manager_validation_projection,
+    plan_memory_manager_status_projection_response as plan_memory_manager_status_projection,
+    plan_memory_manager_validation_projection_response as plan_memory_manager_validation_projection,
+    plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update,
+    plan_operator_steer_state_update_response as plan_operator_steer_state_update,
+    plan_operator_turn_control_admission_required_response as plan_operator_turn_control_admission_required,
     plan_repository_workflow_projection_required_response as plan_repository_workflow_projection_required,
+    plan_run_cancel_admission_required_response as plan_run_cancel_admission_required,
+    plan_run_cancel_state_update_response as plan_run_cancel_state_update,
+    plan_run_create_state_update_response as plan_run_create_state_update,
+    plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update,
+    plan_runtime_bridge_turn_run_state_update_response as plan_runtime_bridge_turn_run_state_update,
     plan_runtime_lifecycle_projection_required_response as plan_runtime_lifecycle_projection_required,
     plan_runtime_tool_catalog_projection_required_response as plan_runtime_tool_catalog_projection_required,
     plan_skill_hook_registry_projection_required_response as plan_skill_hook_registry_projection_required,
+    plan_subagent_record_state_update_response as plan_subagent_record_state_update,
+    plan_thread_control_agent_state_update_response as plan_thread_control_agent_state_update,
+    plan_thread_memory_agent_state_update_response as plan_thread_memory_agent_state_update,
+    plan_thread_turn_admission_required_response as plan_thread_turn_admission_required,
     plan_workflow_edit_admission_required_response as plan_workflow_edit_admission_required,
-    CompactionPolicyBridgeRequest, ContextBudgetPolicyBridgeRequest,
-    ContextCompactionPlanBridgeRequest, ContextCompactionStateUpdateBridgeRequest,
-    DiagnosticsRepairAdmissionRequiredBridgeRequest,
-    RepositoryWorkflowProjectionRequiredBridgeRequest,
-    RuntimeLifecycleProjectionRequiredBridgeRequest,
+    project_mcp_server_validation_input_response as project_mcp_server_validation_input,
+    validate_mcp_servers_response as validate_mcp_servers, AgentCreateStateUpdateBridgeRequest,
+    AgentStatusStateUpdateBridgeRequest, CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
+    CodingToolBudgetRecoveryStateUpdateBridgeRequest, CompactionPolicyBridgeRequest,
+    ContextBudgetPolicyBridgeRequest, ContextCompactionPlanBridgeRequest,
+    ContextCompactionStateUpdateBridgeRequest, DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
+    DiagnosticsRepairAdmissionRequiredBridgeRequest, LifecycleAdmissionRequiredBridgeRequest,
+    McpControlAgentStateUpdateBridgeRequest, McpManagerCatalogProjectionBridgeRequest,
+    McpManagerCatalogSummaryProjectionBridgeRequest, McpManagerStatusProjectionBridgeRequest,
+    McpManagerValidationProjectionBridgeRequest, McpServerValidationBridgeRequest,
+    McpServerValidationInputBridgeRequest, MemoryManagerStatusProjectionBridgeRequest,
+    MemoryManagerValidationProjectionBridgeRequest, OperatorInterruptStateUpdateBridgeRequest,
+    OperatorSteerStateUpdateBridgeRequest, OperatorTurnControlAdmissionRequiredBridgeRequest,
+    RepositoryWorkflowProjectionRequiredBridgeRequest, RunCancelAdmissionRequiredBridgeRequest,
+    RunCancelStateUpdateBridgeRequest, RunCreateStateUpdateBridgeRequest,
+    RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+    RuntimeBridgeTurnRunStateUpdateBridgeRequest, RuntimeLifecycleProjectionRequiredBridgeRequest,
     RuntimeToolCatalogProjectionRequiredBridgeRequest,
-    SkillHookRegistryProjectionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
+    SkillHookRegistryProjectionRequiredBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
+    ThreadControlAgentStateUpdateBridgeRequest, ThreadMemoryAgentStateUpdateBridgeRequest,
+    ThreadTurnAdmissionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::workspace_restore::{
     apply_workspace_restore_operations_response as apply_workspace_restore_operations,
@@ -92,18 +128,6 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
     plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy,
     WorkspaceRestoreApplyPolicyBridgeRequest, WorkspaceRestoreOperationsBridgeRequest,
     WorkspaceSnapshotCaptureBridgeRequest,
-};
-use mcp_memory_command::{
-    plan_mcp_control_agent_state_update, plan_mcp_manager_catalog_projection,
-    plan_mcp_manager_catalog_summary_projection, plan_mcp_manager_status_projection,
-    plan_mcp_manager_validation_projection, plan_memory_manager_status_projection,
-    plan_memory_manager_validation_projection, plan_thread_memory_agent_state_update,
-    project_mcp_server_validation_input, validate_mcp_servers,
-    McpControlAgentStateUpdateBridgeRequest, McpManagerCatalogProjectionBridgeRequest,
-    McpManagerCatalogSummaryProjectionBridgeRequest, McpManagerStatusProjectionBridgeRequest,
-    McpManagerValidationProjectionBridgeRequest, McpServerValidationBridgeRequest,
-    McpServerValidationInputBridgeRequest, MemoryManagerStatusProjectionBridgeRequest,
-    MemoryManagerValidationProjectionBridgeRequest, ThreadMemoryAgentStateUpdateBridgeRequest,
 };
 use model_mount_command::{
     admit_model_mount_invocation, admit_model_mount_provider_execution,
@@ -128,28 +152,6 @@ use model_mount_receipt_command::{
     plan_model_mount_accepted_receipt_transition, ModelMountAcceptedReceiptHeadBridgeRequest,
     ModelMountAcceptedReceiptTransitionBridgeRequest,
     ModelMountInvocationReceiptBindingBridgeRequest,
-};
-use runtime_control_command::{
-    plan_coding_tool_budget_recovery_admission_required,
-    plan_coding_tool_budget_recovery_state_update, plan_diagnostics_operator_override_state_update,
-    plan_operator_interrupt_state_update, plan_operator_steer_state_update,
-    plan_operator_turn_control_admission_required, plan_run_cancel_admission_required,
-    plan_run_cancel_state_update, CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
-    CodingToolBudgetRecoveryStateUpdateBridgeRequest,
-    DiagnosticsOperatorOverrideStateUpdateBridgeRequest, OperatorInterruptStateUpdateBridgeRequest,
-    OperatorSteerStateUpdateBridgeRequest, OperatorTurnControlAdmissionRequiredBridgeRequest,
-    RunCancelAdmissionRequiredBridgeRequest, RunCancelStateUpdateBridgeRequest,
-};
-use thread_lifecycle_command::{
-    plan_agent_create_state_update, plan_agent_status_state_update,
-    plan_lifecycle_admission_required, plan_run_create_state_update,
-    plan_runtime_bridge_thread_start_agent_state_update, plan_runtime_bridge_turn_run_state_update,
-    plan_subagent_record_state_update, plan_thread_control_agent_state_update,
-    plan_thread_turn_admission_required, AgentCreateStateUpdateBridgeRequest,
-    AgentStatusStateUpdateBridgeRequest, LifecycleAdmissionRequiredBridgeRequest,
-    RunCreateStateUpdateBridgeRequest, RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
-    RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
-    ThreadControlAgentStateUpdateBridgeRequest, ThreadTurnAdmissionRequiredBridgeRequest,
 };
 const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
 const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";

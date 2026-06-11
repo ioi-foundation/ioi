@@ -15697,6 +15697,35 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1139
+
+Slice 1139 retires three more policy/lifecycle/MCP bridge child wrapper
+modules that had become pure Rust delegate shells after command dispatch moved
+into Rust `command_dispatch.rs`:
+`crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs`,
+`crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs`, and
+`crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs`. The broad
+bridge proof surface now imports Rust response functions and request types
+directly from `policy/coding_tool_budget_recovery.rs`,
+`policy/operator_control.rs`, `policy/run_cancel.rs`,
+`policy/thread_lifecycle.rs`, and `policy/mcp_memory.rs`.
+
+This is migration progress only. The Node bridge binary, shared JS command
+runner/caller path, StepModule command runner, model-mount bridge delegates,
+and broader JS facade/readback surfaces remain temporary scaffolding until
+direct Rust daemon-core and Rust/WASM workload APIs replace command transport.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1138
 
 Slice 1138 retires four additional bridge child wrapper modules that had become
@@ -15711,10 +15740,12 @@ directly from `agentgres_command.rs`, `policy/context_lifecycle.rs`,
 runtime command dispatch remains Rust `command_dispatch.rs` ownership.
 
 This is migration progress only. The Node bridge binary, shared JS command
-runner/caller path, StepModule command runner, and remaining runtime-control,
-thread-lifecycle, MCP/memory, model-mount, and model-mount receipt bridge
-delegates remain temporary scaffolding until direct Rust daemon-core and
-Rust/WASM workload APIs replace command transport.
+runner/caller path, StepModule command runner, and then-remaining
+runtime-control, thread-lifecycle, MCP/memory, model-mount, and model-mount
+receipt bridge delegates remained temporary scaffolding until direct Rust
+daemon-core and Rust/WASM workload APIs replace command transport. Slice 1139
+deleted the runtime-control, thread-lifecycle, and MCP/memory delegates; the
+model-mount delegates remain temporary scaffolding.
 
 | Check | Result |
 | --- | --- |

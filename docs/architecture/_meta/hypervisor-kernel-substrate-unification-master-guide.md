@@ -6329,13 +6329,13 @@ run-create updates.
 This remains non-terminal because the Node bridge, command dispatch table,
 shared daemon-core command runner, JS command callers, runtime context-policy
 runner, and public thread/agent/run/subagent lifecycle surfaces still exist.
-The remaining `ioi_step_module_bridge/thread_lifecycle_command.rs` file is a
-temporary delegate to Rust core, not a durable lifecycle boundary. The
-long-term target remains direct Rust daemon-core thread, turn, agent, run,
-subagent, and lifecycle admission/persistence APIs over Agentgres
-expected-head and state-root truth, wallet.network authority where applicable,
-receipt/event materialization, replay, projection, and stable IDE/CLI/SDK
-surfaces end to end.
+At this slice, the remaining `ioi_step_module_bridge/thread_lifecycle_command.rs`
+file was a temporary delegate to Rust core, not a durable lifecycle boundary;
+Slice 1139 later deleted it. The long-term target remains direct Rust
+daemon-core thread, turn, agent, run, subagent, and lifecycle
+admission/persistence APIs over Agentgres expected-head and state-root truth,
+wallet.network authority where applicable, receipt/event materialization,
+replay, projection, and stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1127 moves MCP/memory command request/response shaping out of the
 temporary Node MCP/memory bridge and into Rust `policy/mcp_memory.rs`. Rust
@@ -6348,13 +6348,13 @@ manager status/validation projection, and thread-memory agent updates.
 This remains non-terminal because the Node bridge, command dispatch table,
 shared daemon-core command runner, JS command callers, runtime context-policy
 runner, MCP catalog/control surfaces, and thread-memory surfaces still exist.
-The remaining `ioi_step_module_bridge/mcp_memory_command.rs` file is a
-temporary delegate to Rust core, not a durable MCP or memory boundary. The
-long-term target remains direct Rust daemon-core MCP and memory
-admission/projection APIs over wallet.network authority for external exits,
-Agentgres expected-head and state-root truth, receipt/event materialization,
-transport containment, replay, projection, and stable IDE/CLI/SDK surfaces end
-to end.
+At this slice, the remaining `ioi_step_module_bridge/mcp_memory_command.rs`
+file was a temporary delegate to Rust core, not a durable MCP or memory
+boundary; Slice 1139 later deleted it. The long-term target remains direct Rust
+daemon-core MCP and memory admission/projection APIs over wallet.network
+authority for external exits, Agentgres expected-head and state-root truth,
+receipt/event materialization, transport containment, replay, projection, and
+stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1128 moves runtime-control command request/response shaping out of the
 temporary Node runtime-control bridge and into the Rust policy owner modules:
@@ -6369,14 +6369,14 @@ run-cancel state updates and admission-required refusals.
 This remains non-terminal because the Node bridge, command dispatch table,
 shared daemon-core command runner, JS command callers, runtime context-policy
 runner, diagnostics repair surface, operator turn-control surface,
-coding-tool budget recovery surface, and run-cancel surface still exist. The
-remaining `ioi_step_module_bridge/runtime_control_command.rs` file is a
-temporary delegate to Rust core, not a durable runtime-control boundary. The
-long-term target remains direct Rust daemon-core runtime-control
-admission/persistence/projection APIs over wallet.network authority where
-approval or operator authority applies, Agentgres expected-head and state-root
-truth, receipt/event materialization, replay, projection, and stable
-IDE/CLI/SDK surfaces end to end.
+coding-tool budget recovery surface, and run-cancel surface still exist. At
+this slice, the remaining `ioi_step_module_bridge/runtime_control_command.rs`
+file was a temporary delegate to Rust core, not a durable runtime-control
+boundary; Slice 1139 later deleted it. The long-term target remains direct Rust
+daemon-core runtime-control admission/persistence/projection APIs over
+wallet.network authority where approval or operator authority applies,
+Agentgres expected-head and state-root truth, receipt/event materialization,
+replay, projection, and stable IDE/CLI/SDK surfaces end to end.
 
 Slice 1129 moves model-mount read-projection command request/response shaping
 out of the temporary Node model-mount bridge and into Rust
@@ -6586,6 +6586,28 @@ should either retire the remaining child delegates the same way where they are
 pure shells, or replace the JS command-runner/caller path with direct Rust
 daemon-core and Rust/WASM workload protocol APIs once that seam is clear enough
 to remove without preserving compatibility behavior.
+
+Slice 1139 retires the runtime-control, thread-lifecycle, and MCP/memory
+bridge child modules after runtime command dispatch had already moved into
+Rust `command_dispatch.rs` and those files had become proof-only delegate
+shells. The deleted files are
+`ioi_step_module_bridge/runtime_control_command.rs`,
+`ioi_step_module_bridge/thread_lifecycle_command.rs`, and
+`ioi_step_module_bridge/mcp_memory_command.rs`. The bridge proof surface now
+imports Rust response functions and request types directly from
+`policy/coding_tool_budget_recovery.rs`, `policy/operator_control.rs`,
+`policy/run_cancel.rs`, `policy/thread_lifecycle.rs`, and
+`policy/mcp_memory.rs`.
+
+This remains non-terminal because the Node bridge binary, JS daemon-core
+command runner, StepModule command runner, JS command callers, model-mount
+bridge delegates, and broader JS facade/readback surfaces still exist as
+migration scaffolding. The deleted policy/lifecycle/MCP wrapper files must not
+be recreated or treated as canonical. The next larger cuts should continue
+collapsing model-mount bridge delegates and then replace the JS
+command-runner/caller path with direct Rust daemon-core and Rust/WASM workload
+protocol APIs once that seam is clear enough to remove without preserving
+compatibility behavior.
 
 ## Final Doctrine
 

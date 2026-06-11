@@ -2327,7 +2327,8 @@ function runBridge() {
   const governedReceiptCore = exists("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
     ? read("crates/services/src/agentic/runtime/kernel/governed_receipt.rs")
     : "";
-  const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
+  const mcpMemoryCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs");
+  const mcpMemoryCommandBridge = mcpMemoryCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
   const modelMountCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs")
@@ -2339,7 +2340,8 @@ function runBridge() {
   const modelMountReceiptCore = exists("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     ? read("crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs")
     : "";
-  const threadLifecycleCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
+  const threadLifecycleCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs");
+  const threadLifecycleCommandBridge = threadLifecycleCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
     : "";
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
@@ -2357,7 +2359,8 @@ function runBridge() {
   const projectionCommandBridge = projectionCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
     : "";
-  const runtimeControlCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
+  const runtimeControlCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs");
+  const runtimeControlCommandBridge = runtimeControlCommandBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
     : "";
   const workspaceRestoreCommandBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/workspace_restore_command.rs");
@@ -6529,32 +6532,25 @@ function runBridge() {
       /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_run_create_state_update_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_runtime_bridge_thread_start_agent_state_update/.test(
-        threadLifecycleCommandBridge,
+      !threadLifecycleCommandBridgeExists &&
+      !/mod thread_lifecycle_command;/.test(bridgeModule) &&
+      /plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(
+        bridgeModule,
       ) &&
-      /core_plan_runtime_bridge_turn_run_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_subagent_record_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_thread_control_agent_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_thread_turn_admission_required/.test(threadLifecycleCommandBridge) &&
-      /core_plan_lifecycle_admission_required/.test(threadLifecycleCommandBridge) &&
-      /core_plan_agent_create_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_agent_status_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_run_create_state_update/.test(threadLifecycleCommandBridge) &&
-      !/serde::Deserialize|serde_json::json/.test(threadLifecycleCommandBridge) &&
-      !/runtime_bridge_thread_start_agent_state_update_invalid/.test(
-        threadLifecycleCommandBridge,
+      /plan_runtime_bridge_turn_run_state_update_response as plan_runtime_bridge_turn_run_state_update/.test(
+        bridgeModule,
       ) &&
-      !/rust_runtime_bridge_thread_start_agent_state_update_command/.test(
-        threadLifecycleCommandBridge,
+      /plan_thread_control_agent_state_update_response as plan_thread_control_agent_state_update/.test(
+        bridgeModule,
       ) &&
-      !/rust_thread_turn_admission_required_command/.test(threadLifecycleCommandBridge) &&
-      !/rust_run_create_state_update_command/.test(threadLifecycleCommandBridge),
+      /ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: thread lifecycle command request/response envelopes and source markers live in Rust policy core; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: thread lifecycle command request/response envelopes and source markers live in Rust policy core; the temporary Node delegate is retired",
   );
   assertCheck(
     result,
@@ -6584,28 +6580,26 @@ function runBridge() {
       /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
       /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
       /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /core_plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
-      /core_validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
-      /core_project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
-      /core_plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
-      /core_plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
-      /core_plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
-      /core_plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
-      /core_plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
-      /core_plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
-      /core_plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
-      !/serde::Deserialize|serde_json::json/.test(mcpMemoryCommandBridge) &&
-      !/mcp_control_agent_state_update_invalid/.test(mcpMemoryCommandBridge) &&
-      !/rust_mcp_control_agent_state_update_command/.test(mcpMemoryCommandBridge) &&
-      !/rust_mcp_server_validation_command/.test(mcpMemoryCommandBridge) &&
-      !/rust_memory_manager_status_projection_command/.test(mcpMemoryCommandBridge) &&
-      !/rust_thread_memory_agent_state_update_command/.test(mcpMemoryCommandBridge),
+      !mcpMemoryCommandBridgeExists &&
+      !/mod mcp_memory_command;/.test(bridgeModule) &&
+      /plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(
+        bridgeModule,
+      ) &&
+      /validate_mcp_servers_response as validate_mcp_servers/.test(bridgeModule) &&
+      /project_mcp_server_validation_input_response as project_mcp_server_validation_input/.test(
+        bridgeModule,
+      ) &&
+      /plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection/.test(
+        bridgeModule,
+      ) &&
+      /McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /McpServerValidationBridgeRequest/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: MCP/memory command request/response envelopes and source markers live in Rust policy core; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: MCP/memory command request/response envelopes and source markers live in Rust policy core; the temporary Node delegate is retired",
   );
   assertCheck(
     result,
@@ -6647,43 +6641,30 @@ function runBridge() {
       /pub fn plan_run_cancel_admission_required_response/.test(policyRunCancelCore) &&
       /rust_run_cancel_state_update_command/.test(policyRunCancelCore) &&
       /rust_run_cancel_admission_required_command/.test(policyRunCancelCore) &&
-      /core_plan_coding_tool_budget_recovery_state_update/.test(
-        runtimeControlCommandBridge,
+      !runtimeControlCommandBridgeExists &&
+      !/mod runtime_control_command;/.test(bridgeModule) &&
+      /plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(
+        bridgeModule,
       ) &&
-      /core_plan_coding_tool_budget_recovery_admission_required/.test(
-        runtimeControlCommandBridge,
+      /plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required/.test(
+        bridgeModule,
       ) &&
-      /core_plan_diagnostics_operator_override_state_update/.test(
-        runtimeControlCommandBridge,
+      /plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update/.test(
+        bridgeModule,
       ) &&
-      /core_plan_operator_turn_control_admission_required/.test(
-        runtimeControlCommandBridge,
+      /plan_run_cancel_state_update_response as plan_run_cancel_state_update/.test(
+        bridgeModule,
       ) &&
-      /core_plan_operator_interrupt_state_update/.test(runtimeControlCommandBridge) &&
-      /core_plan_operator_steer_state_update/.test(runtimeControlCommandBridge) &&
-      /core_plan_run_cancel_state_update/.test(runtimeControlCommandBridge) &&
-      /core_plan_run_cancel_admission_required/.test(runtimeControlCommandBridge) &&
-      !/serde::Deserialize|serde_json::json/.test(runtimeControlCommandBridge) &&
-      !/coding_tool_budget_recovery_state_update_invalid/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      !/rust_coding_tool_budget_recovery_state_update_command/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      !/rust_diagnostics_operator_override_state_update_command/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      !/rust_operator_interrupt_state_update_command/.test(runtimeControlCommandBridge) &&
-      !/rust_operator_steer_state_update_command/.test(runtimeControlCommandBridge) &&
-      !/rust_run_cancel_state_update_command/.test(runtimeControlCommandBridge),
+      /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
       "crates/services/src/agentic/runtime/kernel/policy/operator_control.rs",
       "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "scripts/conformance/hypervisor-conformance.mjs",
     ],
-    "Phase 10/11 migration guard: runtime-control command request/response envelopes and source markers live in Rust policy cores; Node remains a temporary transport delegate only",
+    "Phase 10/11 migration guard: runtime-control command request/response envelopes and source markers live in Rust policy cores; the temporary Node delegate is retired",
   );
   const policyLifecycleMemoryCommandWrappers = [
     contextPolicyCommandBridge,
@@ -6714,31 +6695,31 @@ function runBridge() {
       !contextPolicyCommandBridgeExists &&
       /evaluate_context_budget_policy_response as evaluate_context_budget_policy/.test(bridgeModule) &&
       /plan_context_compaction_state_update_response as plan_context_compaction_state_update/.test(bridgeModule) &&
-      /pub\(super\) fn plan_operator_interrupt_state_update/.test(
-        runtimeControlCommandBridge,
+      !runtimeControlCommandBridgeExists &&
+      !threadLifecycleCommandBridgeExists &&
+      !mcpMemoryCommandBridgeExists &&
+      /plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_run_cancel_admission_required/.test(
-        runtimeControlCommandBridge,
+      /plan_run_cancel_admission_required_response as plan_run_cancel_admission_required/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_runtime_bridge_thread_start_agent_state_update/.test(
-        threadLifecycleCommandBridge,
+      /plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn plan_run_create_state_update/.test(
-        threadLifecycleCommandBridge,
+      /plan_run_create_state_update_response as plan_run_create_state_update/.test(
+        bridgeModule,
       ) &&
-      /pub\(super\) fn validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
-      /pub\(super\) fn plan_thread_memory_agent_state_update/.test(
-        mcpMemoryCommandBridge,
+      /validate_mcp_servers_response as validate_mcp_servers/.test(bridgeModule) &&
+      /plan_thread_memory_agent_state_update_response as plan_thread_memory_agent_state_update/.test(
+        bridgeModule,
       ),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/policy/context_lifecycle.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs",
     ],
-    "Phase 10/11 remains non-terminal: policy, runtime-control, thread-lifecycle, and MCP/memory child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before dispatch",
+    "Phase 10/11 remains non-terminal: policy lifecycle and MCP/memory child wrappers must not be recreated now that Rust command protocol validates schema and operation before dispatch",
   );
   assertCheck(
     result,
@@ -8113,18 +8094,16 @@ function runBridge() {
       !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
         codingToolBudgetRecoveryStateUpdateCoreBlock,
       ) &&
-      /mod runtime_control_command;/.test(bridgeModule) &&
+      !runtimeControlCommandBridgeExists && !/mod runtime_control_command;/.test(bridgeModule) &&
       /pub fn plan_coding_tool_budget_recovery_state_update_response/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
       /rust_coding_tool_budget_recovery_state_update_command/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /core_plan_coding_tool_budget_recovery_state_update/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      /fn plan_coding_tool_budget_recovery_state_update/.test(runtimeControlCommandBridge) &&
-      /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
+      /plan_coding_tool_budget_recovery_state_update_response as plan_coding_tool_budget_recovery_state_update/.test(bridgeModule) &&
+      /CodingToolBudgetRecoveryStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_coding_tool_budget_recovery_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -8240,11 +8219,9 @@ function runBridge() {
       /rust_coding_tool_budget_recovery_admission_required_command/.test(
         policyCodingToolBudgetRecoveryCore,
       ) &&
-      /core_plan_coding_tool_budget_recovery_admission_required/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      /fn plan_coding_tool_budget_recovery_admission_required/.test(runtimeControlCommandBridge) &&
-      /CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
+      /plan_coding_tool_budget_recovery_admission_required_response as plan_coding_tool_budget_recovery_admission_required/.test(bridgeModule) &&
+      /CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_coding_tool_budget_recovery_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -8376,11 +8353,9 @@ function runBridge() {
       /rust_diagnostics_operator_override_state_update_command/.test(
         policyOperatorControlCore,
       ) &&
-      /core_plan_diagnostics_operator_override_state_update/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      /fn plan_diagnostics_operator_override_state_update/.test(runtimeControlCommandBridge) &&
-      /DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_diagnostics_operator_override_state_update_response as plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
+      /plan_diagnostics_operator_override_state_update_response as plan_diagnostics_operator_override_state_update/.test(bridgeModule) &&
+      /DiagnosticsOperatorOverrideStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_diagnostics_operator_override_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -8459,9 +8434,9 @@ function runBridge() {
         policyOperatorControlCore,
       ) &&
       /rust_operator_interrupt_state_update_command/.test(policyOperatorControlCore) &&
-      /core_plan_operator_interrupt_state_update/.test(runtimeControlCommandBridge) &&
-      /fn plan_operator_interrupt_state_update/.test(runtimeControlCommandBridge) &&
-      /OperatorInterruptStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update/.test(bridgeModule) &&
+      /plan_operator_interrupt_state_update_response as plan_operator_interrupt_state_update/.test(bridgeModule) &&
+      /OperatorInterruptStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_operator_interrupt_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -8480,11 +8455,9 @@ function runBridge() {
       /rust_operator_turn_control_admission_required_command/.test(
         policyOperatorControlCore,
       ) &&
-      /core_plan_operator_turn_control_admission_required/.test(
-        runtimeControlCommandBridge,
-      ) &&
-      /fn plan_operator_turn_control_admission_required/.test(runtimeControlCommandBridge) &&
-      /OperatorTurnControlAdmissionRequiredBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_operator_turn_control_admission_required_response as plan_operator_turn_control_admission_required/.test(bridgeModule) &&
+      /plan_operator_turn_control_admission_required_response as plan_operator_turn_control_admission_required/.test(bridgeModule) &&
+      /OperatorTurnControlAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_operator_turn_control_admission_required_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -8591,9 +8564,9 @@ function runBridge() {
       ) &&
       /pub fn plan_operator_steer_state_update_response/.test(policyOperatorControlCore) &&
       /rust_operator_steer_state_update_command/.test(policyOperatorControlCore) &&
-      /core_plan_operator_steer_state_update/.test(runtimeControlCommandBridge) &&
-      /fn plan_operator_steer_state_update/.test(runtimeControlCommandBridge) &&
-      /OperatorSteerStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_operator_steer_state_update_response as plan_operator_steer_state_update/.test(bridgeModule) &&
+      /plan_operator_steer_state_update_response as plan_operator_steer_state_update/.test(bridgeModule) &&
+      /OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_operator_steer_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_operator_steer_state_update/.test(bridgeModule) &&
       !/struct OperatorSteerStateUpdateBridgeRequest/.test(bridgeModule) &&
@@ -8802,9 +8775,9 @@ function runBridge() {
       /CommandOperation::PlanThreadTurnAdmissionRequired/.test(commandProtocolCore) &&
       /pub fn plan_thread_turn_admission_required_response/.test(policyThreadLifecycleCore) &&
       /rust_thread_turn_admission_required_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_thread_turn_admission_required/.test(threadLifecycleCommandBridge) &&
-      /fn plan_thread_turn_admission_required/.test(threadLifecycleCommandBridge) &&
-      /ThreadTurnAdmissionRequiredBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /plan_thread_turn_admission_required_response as plan_thread_turn_admission_required/.test(bridgeModule) &&
+      /plan_thread_turn_admission_required_response as plan_thread_turn_admission_required/.test(bridgeModule) &&
+      /ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_thread_turn_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_thread_turn_admission_required/.test(bridgeModule) &&
       !/struct ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
@@ -8914,9 +8887,9 @@ function runBridge() {
       /rust_policy_plans_run_cancel_state_update/.test(policyCore) &&
       /pub fn plan_run_cancel_state_update_response/.test(policyRunCancelCore) &&
       /rust_run_cancel_state_update_command/.test(policyRunCancelCore) &&
-      /core_plan_run_cancel_state_update/.test(runtimeControlCommandBridge) &&
-      /fn plan_run_cancel_state_update/.test(runtimeControlCommandBridge) &&
-      /RunCancelStateUpdateBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_run_cancel_state_update_response as plan_run_cancel_state_update/.test(bridgeModule) &&
+      /plan_run_cancel_state_update_response as plan_run_cancel_state_update/.test(bridgeModule) &&
+      /RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_run_cancel_state_update_through_rust_core/.test(bridgeModule) &&
       !/fn plan_run_cancel_state_update/.test(bridgeModule) &&
       !/struct RunCancelStateUpdateBridgeRequest/.test(bridgeModule) &&
@@ -8930,9 +8903,9 @@ function runBridge() {
       /rust_policy_plans_run_cancel_admission_required/.test(policyCore) &&
       /pub fn plan_run_cancel_admission_required_response/.test(policyRunCancelCore) &&
       /rust_run_cancel_admission_required_command/.test(policyRunCancelCore) &&
-      /core_plan_run_cancel_admission_required/.test(runtimeControlCommandBridge) &&
-      /fn plan_run_cancel_admission_required/.test(runtimeControlCommandBridge) &&
-      /RunCancelAdmissionRequiredBridgeRequest/.test(runtimeControlCommandBridge) &&
+      /plan_run_cancel_admission_required_response as plan_run_cancel_admission_required/.test(bridgeModule) &&
+      /plan_run_cancel_admission_required_response as plan_run_cancel_admission_required/.test(bridgeModule) &&
+      /RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_run_cancel_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_run_cancel_admission_required/.test(bridgeModule) &&
       !/struct RunCancelAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
@@ -9307,12 +9280,12 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at|"workspaceTrustWarningEventId": request\.workspace_trust_warning_event_id/.test(
         threadControlAgentStateUpdateCoreBlock,
       ) &&
-      /mod thread_lifecycle_command;/.test(bridgeModule) &&
+      !threadLifecycleCommandBridgeExists && !/mod thread_lifecycle_command;/.test(bridgeModule) &&
       /pub fn plan_thread_control_agent_state_update_response/.test(policyThreadLifecycleCore) &&
       /rust_thread_control_agent_state_update_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_thread_control_agent_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_thread_control_agent_state_update/.test(threadLifecycleCommandBridge) &&
-      /ThreadControlAgentStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /plan_thread_control_agent_state_update_response as plan_thread_control_agent_state_update/.test(bridgeModule) &&
+      /plan_thread_control_agent_state_update_response as plan_thread_control_agent_state_update/.test(bridgeModule) &&
+      /ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_thread_control_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -9601,50 +9574,50 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         mcpControlAgentStateUpdateCoreBlock,
       ) &&
-      /mod mcp_memory_command;/.test(bridgeModule) &&
+      !mcpMemoryCommandBridgeExists && !/mod mcp_memory_command;/.test(bridgeModule) &&
       /pub fn plan_mcp_control_agent_state_update_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_control_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /core_plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
-      /fn plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
-      /McpControlAgentStateUpdateBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(bridgeModule) &&
+      /plan_mcp_control_agent_state_update_response as plan_mcp_control_agent_state_update/.test(bridgeModule) &&
+      /McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
       /pub fn validate_mcp_servers_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_server_validation_command/.test(policyMcpMemoryCore) &&
-      /core_validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
-      /fn validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
-      /McpServerValidationBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /validate_mcp_servers_response as validate_mcp_servers/.test(bridgeModule) &&
+      /validate_mcp_servers_response as validate_mcp_servers/.test(bridgeModule) &&
+      /McpServerValidationBridgeRequest/.test(bridgeModule) &&
       /bridge_validates_mcp_servers_through_rust_core/.test(bridgeModule) &&
       /pub fn project_mcp_server_validation_input_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_server_validation_input_command/.test(policyMcpMemoryCore) &&
-      /core_project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
-      /fn project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
-      /McpServerValidationInputBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /project_mcp_server_validation_input_response as project_mcp_server_validation_input/.test(bridgeModule) &&
+      /project_mcp_server_validation_input_response as project_mcp_server_validation_input/.test(bridgeModule) &&
+      /McpServerValidationInputBridgeRequest/.test(bridgeModule) &&
       /bridge_projects_mcp_server_validation_input_through_rust_core/.test(bridgeModule) &&
       /pub fn plan_mcp_manager_status_projection_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_manager_status_projection_command/.test(policyMcpMemoryCore) &&
-      /core_plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
-      /fn plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
-      /McpManagerStatusProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_mcp_manager_status_projection_response as plan_mcp_manager_status_projection/.test(bridgeModule) &&
+      /plan_mcp_manager_status_projection_response as plan_mcp_manager_status_projection/.test(bridgeModule) &&
+      /McpManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       /bridge_projects_mcp_manager_status_through_rust_core/.test(bridgeModule) &&
       /pub fn plan_mcp_manager_catalog_projection_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_manager_catalog_projection_command/.test(policyMcpMemoryCore) &&
-      /core_plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
-      /fn plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
-      /McpManagerCatalogProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_mcp_manager_catalog_projection_response as plan_mcp_manager_catalog_projection/.test(bridgeModule) &&
+      /plan_mcp_manager_catalog_projection_response as plan_mcp_manager_catalog_projection/.test(bridgeModule) &&
+      /McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
       /bridge_projects_mcp_manager_catalog_through_rust_core/.test(bridgeModule) &&
       /pub fn plan_mcp_manager_catalog_summary_projection_response/.test(
         policyMcpMemoryCore,
       ) &&
       /rust_mcp_manager_catalog_summary_projection_command/.test(policyMcpMemoryCore) &&
-      /core_plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
-      /fn plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
-      /McpManagerCatalogSummaryProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
+      /plan_mcp_manager_catalog_summary_projection_response as plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
+      /McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
       /bridge_projects_mcp_manager_catalog_summary_through_rust_core/.test(bridgeModule) &&
       /pub fn plan_mcp_manager_validation_projection_response/.test(policyMcpMemoryCore) &&
       /rust_mcp_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
-      /core_plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
-      /fn plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
-      /McpManagerValidationProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_mcp_manager_validation_projection_response as plan_mcp_manager_validation_projection/.test(bridgeModule) &&
+      /plan_mcp_manager_validation_projection_response as plan_mcp_manager_validation_projection/.test(bridgeModule) &&
+      /McpManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
       /bridge_projects_mcp_manager_validation_through_rust_core/.test(bridgeModule) &&
       !/fn plan_mcp_control_agent_state_update/.test(bridgeModule) &&
       !/struct McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
@@ -9903,9 +9876,9 @@ function runBridge() {
       ) &&
       /pub fn plan_thread_memory_agent_state_update_response/.test(policyMcpMemoryCore) &&
       /rust_thread_memory_agent_state_update_command/.test(policyMcpMemoryCore) &&
-      /core_plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
-      /fn plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
-      /ThreadMemoryAgentStateUpdateBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_thread_memory_agent_state_update_response as plan_thread_memory_agent_state_update/.test(bridgeModule) &&
+      /plan_thread_memory_agent_state_update_response as plan_thread_memory_agent_state_update/.test(bridgeModule) &&
+      /ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_thread_memory_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -10167,14 +10140,12 @@ function runBridge() {
         policyThreadLifecycleCore,
       ) &&
       /rust_runtime_bridge_turn_run_state_update_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_runtime_bridge_thread_start_agent_state_update/.test(
-        threadLifecycleCommandBridge,
-      ) &&
-      /core_plan_runtime_bridge_turn_run_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_runtime_bridge_thread_start_agent_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_runtime_bridge_turn_run_state_update/.test(threadLifecycleCommandBridge) &&
-      /RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
-      /RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
+      /plan_runtime_bridge_turn_run_state_update_response as plan_runtime_bridge_turn_run_state_update/.test(bridgeModule) &&
+      /plan_runtime_bridge_thread_start_agent_state_update_response as plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
+      /plan_runtime_bridge_turn_run_state_update_response as plan_runtime_bridge_turn_run_state_update/.test(bridgeModule) &&
+      /RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_runtime_bridge_thread_start_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
@@ -10404,15 +10375,15 @@ function runBridge() {
       /rust_agent_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_run_create_state_update_command/.test(policyThreadLifecycleCore) &&
       /rust_agent_status_state_update_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_agent_create_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_run_create_state_update/.test(threadLifecycleCommandBridge) &&
-      /core_plan_agent_status_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_agent_create_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_run_create_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_agent_status_state_update/.test(threadLifecycleCommandBridge) &&
-      /AgentCreateStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
-      /RunCreateStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
-      /AgentStatusStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /plan_agent_create_state_update_response as plan_agent_create_state_update/.test(bridgeModule) &&
+      /plan_run_create_state_update_response as plan_run_create_state_update/.test(bridgeModule) &&
+      /plan_agent_status_state_update_response as plan_agent_status_state_update/.test(bridgeModule) &&
+      /plan_agent_create_state_update_response as plan_agent_create_state_update/.test(bridgeModule) &&
+      /plan_run_create_state_update_response as plan_run_create_state_update/.test(bridgeModule) &&
+      /plan_agent_status_state_update_response as plan_agent_status_state_update/.test(bridgeModule) &&
+      /AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      /AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_agent_create_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_run_create_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_agent_status_state_update_through_rust_core/.test(bridgeModule) &&
@@ -10437,9 +10408,9 @@ function runBridge() {
       /CommandOperation::PlanLifecycleAdmissionRequired/.test(commandProtocolCore) &&
       /pub fn plan_lifecycle_admission_required_response/.test(policyThreadLifecycleCore) &&
       /rust_lifecycle_admission_required_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_lifecycle_admission_required/.test(threadLifecycleCommandBridge) &&
-      /fn plan_lifecycle_admission_required/.test(threadLifecycleCommandBridge) &&
-      /LifecycleAdmissionRequiredBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /plan_lifecycle_admission_required_response as plan_lifecycle_admission_required/.test(bridgeModule) &&
+      /plan_lifecycle_admission_required_response as plan_lifecycle_admission_required/.test(bridgeModule) &&
+      /LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_lifecycle_admission_required_through_rust_core/.test(bridgeModule) &&
       !/fn plan_lifecycle_admission_required/.test(bridgeModule) &&
       !/struct LifecycleAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
@@ -23730,16 +23701,16 @@ function runCompositor() {
       !/json_string_value\(policy,\s*"subagentInheritance"\)/.test(policyCore) &&
       /pub fn plan_memory_manager_status_projection_response/.test(policyMcpMemoryCore) &&
       /rust_memory_manager_status_projection_command/.test(policyMcpMemoryCore) &&
-      /core_plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
-      /fn plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
-      /MemoryManagerStatusProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_memory_manager_status_projection_response as plan_memory_manager_status_projection/.test(bridgeModule) &&
+      /plan_memory_manager_status_projection_response as plan_memory_manager_status_projection/.test(bridgeModule) &&
+      /MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       /pub fn plan_memory_manager_validation_projection_response/.test(
         policyMcpMemoryCore,
       ) &&
       /rust_memory_manager_validation_projection_command/.test(policyMcpMemoryCore) &&
-      /core_plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
-      /fn plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
-      /MemoryManagerValidationProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /plan_memory_manager_validation_projection_response as plan_memory_manager_validation_projection/.test(bridgeModule) &&
+      /plan_memory_manager_validation_projection_response as plan_memory_manager_validation_projection/.test(bridgeModule) &&
+      /MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_status_projection/.test(bridgeModule) &&
       !/struct MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
       !/fn plan_memory_manager_validation_projection/.test(bridgeModule) &&
@@ -25687,9 +25658,9 @@ function runCompositor() {
       ) &&
       /pub fn plan_subagent_record_state_update_response/.test(policyThreadLifecycleCore) &&
       /rust_subagent_record_state_update_command/.test(policyThreadLifecycleCore) &&
-      /core_plan_subagent_record_state_update/.test(threadLifecycleCommandBridge) &&
-      /fn plan_subagent_record_state_update/.test(threadLifecycleCommandBridge) &&
-      /SubagentRecordStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /plan_subagent_record_state_update_response as plan_subagent_record_state_update/.test(bridgeModule) &&
+      /plan_subagent_record_state_update_response as plan_subagent_record_state_update/.test(bridgeModule) &&
+      /SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
       /bridge_plans_subagent_record_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
