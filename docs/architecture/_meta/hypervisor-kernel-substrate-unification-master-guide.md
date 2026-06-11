@@ -5138,22 +5138,23 @@ Rust daemon-core coding-tool execution/admission APIs, Rust/WASM workload
 module execution, Agentgres-backed persistence, receipt/state-root binding,
 replay, projection, and stable IDE/CLI/SDK protocol surfaces.
 
-Slice 1056 moves the lower-level coding-tool workspace filesystem, path,
+Slice 1056 moved the lower-level coding-tool workspace filesystem, path,
 diagnostic subprocess, test-run, and patch helper plumbing out of the
 monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
 transport into
 `crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs`. The broad
-bridge root now retains proof tests and child-module wiring, while the
+bridge root then retained proof tests and child-module wiring, while the
 coding-tool command transport imports helper plumbing from a dedicated Rust
 sibling module and Slice 1057 moves temporary operation dispatch to
 `bridge_dispatch.rs`.
-Conformance now fails if the helper function bodies return to the root bridge.
-This is still not terminal coding-tool migration and must not canonize the
-Node bridge shape. Resume by moving this helper plumbing behind direct Rust
-daemon-core coding-tool execution/admission APIs and Rust/WASM workload modules,
-then retiring the command transport, JS invocation facade, readback shims,
-duplicate truth paths, and any compatibility wrappers that survive the verified
-Rust-core boundary.
+Conformance then failed if the helper function bodies returned to the root
+bridge. Slice 1141 later retires this helper module entirely. This was still
+not terminal coding-tool migration and must not canonize the Node bridge shape.
+Resume by replacing the broad bridge transport and JS command runner/caller
+path with direct Rust daemon-core coding-tool execution/admission APIs and
+Rust/WASM workload modules, then retiring JS invocation facades, readback
+shims, duplicate truth paths, and any compatibility wrappers that survive the
+verified Rust-core boundary.
 
 Slice 1057 moves the StepModule/daemon-core command dispatch table and
 schema-family classifier out of the monolithic Rust
@@ -6634,6 +6635,23 @@ canonical. The next larger cuts should replace the broad bridge transport and
 JS command-runner/caller path with direct Rust daemon-core and Rust/WASM
 workload protocol APIs once that seam is clear enough to remove without
 preserving compatibility behavior.
+
+Slice 1141 retires the remaining `coding_tool_helpers.rs` bridge helper after
+coding-tool workspace execution semantics had already moved into Rust
+`coding_tool_workspace.rs`, Rust execution semantics had moved into
+`coding_tool_execution.rs`, and StepModule command dispatch had moved into
+Rust `command_dispatch.rs`. The broad bridge proof surface now imports the
+Rust workspace inspect/test/git/LSP helpers directly for proof tests instead
+of routing through a sibling helper module.
+
+This remains non-terminal because the Node bridge binary, JS StepModule
+command runner, JS daemon-core command runner, JS command callers, runtime
+coding-tool facades, and broad bridge stdin/JSON transport still exist as
+migration scaffolding. The deleted coding-tool helper must not be recreated or
+treated as canonical. The next larger cuts should replace the broad bridge
+transport and JS command-runner/caller path with direct Rust daemon-core and
+Rust/WASM workload protocol APIs once that seam is clear enough to remove
+without preserving compatibility behavior.
 
 ## Final Doctrine
 

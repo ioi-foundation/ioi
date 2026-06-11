@@ -9,10 +9,8 @@ use std::{
 };
 
 mod bridge_dispatch;
-mod coding_tool_helpers;
 
 pub use bridge_dispatch::run_bridge_response_from_stdin;
-use coding_tool_helpers::*;
 use ioi_services::agentic::runtime::kernel::agentgres_command::{
     admit_storage_backend_write_response as admit_storage_backend_write,
     commit_runtime_agent_state_response as commit_runtime_agent_state,
@@ -45,6 +43,10 @@ use ioi_services::agentic::runtime::kernel::coding_tool_step_module::{
     file_apply_patch_response as core_file_apply_patch_response,
     tool_retrieve_result_response as core_tool_retrieve_result_response,
     CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest, CodingToolStepModuleCommandError,
+};
+use ioi_services::agentic::runtime::kernel::coding_tool_workspace::{
+    inspect_git_diff, inspect_lsp_diagnostics, inspect_test_run, inspect_workspace_path,
+    inspect_workspace_status,
 };
 use ioi_services::agentic::runtime::kernel::command_protocol::{
     command_family, expected_command_schema_version, is_step_module_operation,
@@ -207,6 +209,10 @@ mod tests {
     use serde_json::json;
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+
+    fn sha256_hex(bytes: &[u8]) -> String {
+        hex::encode(ioi_crypto::algorithms::hash::sha256(bytes).expect("sha256"))
+    }
 
     #[test]
     fn bridge_command_schema_version_alias_is_retired() {
@@ -2328,10 +2334,7 @@ mod tests {
             .as_str()
             .expect("provider execution hash");
         let output_text = "fixture provider answer";
-        let output_hash = format!(
-            "sha256:{}",
-            sha256_hex(output_text.as_bytes()).expect("output hash")
-        );
+        let output_hash = format!("sha256:{}", sha256_hex(output_text.as_bytes()));
 
         let request: ModelMountProviderResultAdmissionBridgeRequest =
             serde_json::from_value(json!({
@@ -3082,8 +3085,8 @@ mod tests {
         let target = workspace.join("src/app.js");
         fs::create_dir_all(target.parent().expect("parent")).expect("mkdir");
         fs::write(&target, "new").expect("write current");
-        let old_hash = sha256_hex(b"old").expect("old hash");
-        let new_hash = sha256_hex(b"new").expect("new hash");
+        let old_hash = sha256_hex(b"old");
+        let new_hash = sha256_hex(b"new");
         let request: WorkspaceRestoreOperationsBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "apply_workspace_restore_operations",
@@ -3141,8 +3144,8 @@ mod tests {
 
     #[test]
     fn bridge_captures_workspace_snapshot_files_through_rust_core() {
-        let old_hash = sha256_hex(b"old").expect("old hash");
-        let new_hash = sha256_hex(b"new").expect("new hash");
+        let old_hash = sha256_hex(b"old");
+        let new_hash = sha256_hex(b"new");
         let request: WorkspaceSnapshotCaptureBridgeRequest = serde_json::from_value(json!({
             "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
             "operation": "capture_workspace_snapshot_files",
@@ -6319,7 +6322,7 @@ mod tests {
         )
         .expect_err("unknown command should fail closed");
 
-        assert_eq!(error.code, "test_run_command_not_allowed");
+        assert_eq!(error.code(), "test_run_command_not_allowed");
     }
 
     #[test]
@@ -7303,7 +7306,7 @@ mod tests {
         )
         .expect_err("outside path should fail");
 
-        assert_eq!(error.code, "path_outside_workspace");
+        assert_eq!(error.code(), "path_outside_workspace");
     }
 
     #[test]
@@ -7345,7 +7348,7 @@ mod tests {
         )
         .expect_err("outside path should fail");
 
-        assert_eq!(error.code, "path_outside_workspace");
+        assert_eq!(error.code(), "path_outside_workspace");
     }
 
     fn run_test_git(workspace: &Path, args: &[&str]) {

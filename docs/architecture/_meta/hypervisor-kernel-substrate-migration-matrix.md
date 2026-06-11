@@ -15697,6 +15697,35 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1141
+
+Slice 1141 retires the final coding-tool bridge helper module that had become
+thin proof/test plumbing after workspace execution semantics moved into Rust
+`coding_tool_workspace.rs`, bounded subprocess/git execution moved into Rust
+`coding_tool_execution.rs`, coding-tool StepModule response/admission ownership
+moved into Rust `coding_tool_step_module.rs`, and operation dispatch moved into
+Rust `command_dispatch.rs`:
+`crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs`.
+`ioi_step_module_bridge/mod.rs` now imports the Rust workspace inspect/test/git
+and LSP helper functions directly for the remaining broad bridge proof surface.
+
+This is migration progress only. The Node bridge binary, shared JS command
+runner/caller path, StepModule command runner, runtime coding-tool facades, and
+broad stdin/JSON bridge transport remain temporary scaffolding until direct
+Rust daemon-core and Rust/WASM workload APIs replace command transport. The
+retired coding-tool helper must not be recreated or treated as canonical
+architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1140
 
 Slice 1140 retires the final model-mount bridge child wrapper modules that had
@@ -15871,10 +15900,11 @@ Rust `coding_tool_step_module.rs` remains the owner for
 `CodingToolStepModuleBridgeRequest`, command validation, per-tool dispatch,
 workload observation envelopes, StepModule result construction, receipt
 binding, Agentgres admission, projection records, artifact data-plane evidence
-binding, and computer-use lease receipt/evidence binding. The remaining bridge
+binding, and computer-use lease receipt/evidence binding. At this slice,
 `command_dispatch.rs`, `bridge_dispatch.rs`, and `coding_tool_helpers.rs`
-surfaces are migration transport/test scaffolding only; they are not canonical
-coding-tool execution architecture.
+surfaces were migration transport/test scaffolding only; Slice 1141 later
+retires the coding-tool helper module. They are not canonical coding-tool
+execution architecture.
 
 This is still non-terminal. The StepModule command runner, JS caller path,
 runtime coding-tool invocation facades, shared command dispatch table, and
@@ -15911,11 +15941,12 @@ computer-use lease receipt/evidence binding. The remaining
 thin delegate to Rust response functions.
 
 The dead `ioi_step_module_bridge/coding_tool_receipt_command.rs` and
-`ioi_step_module_bridge/computer_use.rs` compatibility shims are deleted. The
-remaining `coding_tool_helpers.rs` bridge helper is limited to test/transport
-delegates for Rust workspace observation helpers and no longer carries
-file.apply_patch response glue, artifact/result binding helpers, or
-computer-use lease binding helpers.
+`ioi_step_module_bridge/computer_use.rs` compatibility shims are deleted. At
+this slice, the remaining `coding_tool_helpers.rs` bridge helper was limited
+to test/transport delegates for Rust workspace observation helpers and no
+longer carried file.apply_patch response glue, artifact/result binding
+helpers, or computer-use lease binding helpers; Slice 1141 later retires that
+helper module entirely.
 
 This is a Rust-core ownership cut across coding-tool StepModule command
 wrapping, not terminal coding-tool migration. The current StepModule command

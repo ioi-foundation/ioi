@@ -2294,7 +2294,8 @@ function runBridge() {
   const codingToolReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs")
     : "";
-  const codingToolHelpersBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs")
+  const codingToolHelpersBridgeExists = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs");
+  const codingToolHelpersBridge = codingToolHelpersBridgeExists
     ? read("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs")
     : "";
   const codingToolExecutionCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
@@ -3752,13 +3753,13 @@ function runBridge() {
       exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
-      exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs") &&
+      !codingToolHelpersBridgeExists &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
       !/mod coding_tool_command;/.test(bridgeModule) &&
-      /mod coding_tool_helpers;/.test(bridgeModule) &&
+      !/mod coding_tool_helpers;/.test(bridgeModule) &&
       !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
       !/mod computer_use;/.test(bridgeModule) &&
       /run_coding_tool_step_module_response/.test(coreCommandDispatch) &&
@@ -3766,6 +3767,11 @@ function runBridge() {
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/core_run_coding_tool_step_module/.test(bridgeModule) &&
       !/fn workspace_status_response/.test(bridgeModule) &&
+      /inspect_workspace_status/.test(bridgeModule) &&
+      /inspect_git_diff/.test(bridgeModule) &&
+      /inspect_workspace_path/.test(bridgeModule) &&
+      /inspect_test_run/.test(bridgeModule) &&
+      /inspect_lsp_diagnostics/.test(bridgeModule) &&
       !/fn inspect_workspace_status/.test(bridgeModule) &&
       !/fn apply_workspace_patch/.test(bridgeModule) &&
       !/fn inspect_test_run/.test(bridgeModule) &&
@@ -3774,7 +3780,6 @@ function runBridge() {
       !/pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
       !/core_run_coding_tool_step_module/.test(codingToolCommandBridge) &&
       /workspace\.status/.test(codingToolStepModuleCore) &&
-      /pub\(super\) fn inspect_workspace_status/.test(codingToolHelpersBridge) &&
       !/workspace_status_shadow_response/.test(codingToolCommandBridge) &&
       /git\.diff/.test(codingToolStepModuleCore) &&
       /file\.inspect/.test(codingToolStepModuleCore) &&
@@ -3787,12 +3792,10 @@ function runBridge() {
       !/AgentgresAdmissionCore/.test(codingToolReceiptCommandBridge) &&
       /AgentgresAdmissionCore/.test(codingToolStepModuleCore) &&
       /test\.run/.test(codingToolStepModuleCore) &&
-      /pub\(super\) fn inspect_test_run/.test(codingToolHelpersBridge) &&
       /npm\.test/.test(codingToolWorkspaceCore) &&
       /cargo\.test/.test(codingToolWorkspaceCore) &&
       /cargo\.check/.test(codingToolWorkspaceCore) &&
       /lsp\.diagnostics/.test(codingToolStepModuleCore) &&
-      /pub\(super\) fn inspect_lsp_diagnostics/.test(codingToolHelpersBridge) &&
       /typescript\.check/.test(codingToolWorkspaceCore) &&
       /fn run_typescript_check/.test(codingToolWorkspaceCore) &&
       /fn local_tsc_executable/.test(codingToolWorkspaceCore) &&
@@ -3893,6 +3896,7 @@ function runBridge() {
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
+      "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
       "packages/runtime-daemon/src/index.mjs",
@@ -3911,6 +3915,7 @@ function runBridge() {
       /Command::new\("git"\)/.test(codingToolExecutionCore) &&
       /safe_subprocess_env/.test(codingToolExecutionCore) &&
       /is_sensitive_env_key/.test(codingToolExecutionCore) &&
+      !codingToolHelpersBridgeExists &&
       !/run_core_command_with_timeout/.test(codingToolHelpersBridge) &&
       !/run_core_git_read_only/.test(codingToolHelpersBridge) &&
       !/use std::process/.test(codingToolHelpersBridge) &&
@@ -3921,9 +3926,9 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 remains non-terminal: coding-tool process/git execution and any generic subprocess wrappers must stay in the Rust kernel service crate while the bridge remains temporary StepModule protocol glue",
+    "Phase 10/11 remains non-terminal: coding-tool process/git execution and any generic subprocess wrappers must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule protocol glue",
   );
   assertCheck(
     result,
@@ -3940,6 +3945,7 @@ function runBridge() {
       /agentgres:\/\/operation\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
       /apply_workspace_patch\(&workspace_root, &request\.input\)/.test(codingToolStepModuleCore) &&
       /core_file_apply_patch_response/.test(bridgeModule) &&
+      !codingToolHelpersBridgeExists &&
       !/apply_core_workspace_patch/.test(codingToolHelpersBridge) &&
       !/fn normalize_patch_edits/.test(codingToolHelpersBridge) &&
       !/fn patch_transition/.test(codingToolHelpersBridge) &&
@@ -3951,10 +3957,9 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 remains non-terminal: file.apply_patch workspace mutation, path validation, diff preview, and transition derivation must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+    "Phase 10/11 remains non-terminal: file.apply_patch workspace mutation, path validation, diff preview, and transition derivation must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,
@@ -3968,7 +3973,8 @@ function runBridge() {
       /file_inspect_open_failed/.test(codingToolWorkspaceCore) &&
       /file_inspect_read_failed/.test(codingToolWorkspaceCore) &&
       /previewHash/.test(codingToolWorkspaceCore) &&
-      /inspect_core_workspace_path/.test(codingToolHelpersBridge) &&
+      /inspect_workspace_path/.test(bridgeModule) &&
+      !codingToolHelpersBridgeExists &&
       !/fn workspace_target/.test(codingToolHelpersBridge) &&
       !/file_inspect_read_dir_failed/.test(codingToolHelpersBridge) &&
       !/file_inspect_open_failed/.test(codingToolHelpersBridge) &&
@@ -3978,9 +3984,9 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 remains non-terminal: file.inspect workspace containment, directory listing, metadata, preview, and preview hashing must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+    "Phase 10/11 remains non-terminal: file.inspect workspace containment, directory listing, metadata, preview, and preview hashing must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,
@@ -3993,8 +3999,9 @@ function runBridge() {
       /workspace_diff_paths/.test(codingToolWorkspaceCore) &&
       /porcelainHash/.test(codingToolWorkspaceCore) &&
       /diffHash/.test(codingToolWorkspaceCore) &&
-      /inspect_core_workspace_status/.test(codingToolHelpersBridge) &&
-      /inspect_core_git_diff/.test(codingToolHelpersBridge) &&
+      /inspect_workspace_status/.test(bridgeModule) &&
+      /inspect_git_diff/.test(bridgeModule) &&
+      !codingToolHelpersBridgeExists &&
       !/fn workspace_diff_paths/.test(codingToolHelpersBridge) &&
       !/fn run_git_read_only/.test(codingToolHelpersBridge) &&
       !/fn nonempty_command_error/.test(codingToolHelpersBridge) &&
@@ -4005,10 +4012,9 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 remains non-terminal: workspace.status and git.diff git observation, path containment, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+    "Phase 10/11 remains non-terminal: workspace.status and git.diff git observation, path containment, output hashing, and response shaping must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,
@@ -4061,7 +4067,8 @@ function runBridge() {
       /cargo\.test/.test(codingToolWorkspaceCore) &&
       /cargo\.check/.test(codingToolWorkspaceCore) &&
       /outputHash/.test(codingToolWorkspaceCore) &&
-      /inspect_core_test_run/.test(codingToolHelpersBridge) &&
+      /inspect_test_run/.test(bridgeModule) &&
+      !codingToolHelpersBridgeExists &&
       !/fn test_command_for_input/.test(codingToolHelpersBridge) &&
       !/fn sanitize_test_env/.test(codingToolHelpersBridge) &&
       !/struct TestCommand/.test(codingToolHelpersBridge) &&
@@ -4071,10 +4078,9 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 remains non-terminal: test.run command allowlisting, command mapping, cwd/path containment, environment filtering, timeout/output bounding, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+    "Phase 10/11 remains non-terminal: test.run command allowlisting, command mapping, cwd/path containment, environment filtering, timeout/output bounding, output hashing, and response shaping must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,
@@ -4091,7 +4097,8 @@ function runBridge() {
       /node_check_output_diagnostics/.test(codingToolWorkspaceCore) &&
       /diagnostics_project_context/.test(codingToolWorkspaceCore) &&
       /outputHash/.test(codingToolWorkspaceCore) &&
-      /inspect_core_lsp_diagnostics/.test(codingToolHelpersBridge) &&
+      /inspect_lsp_diagnostics/.test(bridgeModule) &&
+      !codingToolHelpersBridgeExists &&
       !/fn run_typescript_check/.test(codingToolHelpersBridge) &&
       !/fn run_node_check/.test(codingToolHelpersBridge) &&
       !/fn local_tsc_executable/.test(codingToolHelpersBridge) &&
@@ -4104,10 +4111,9 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
     ],
-    "Phase 10/11 remains non-terminal: lsp.diagnostics backend selection, TypeScript/node diagnostic execution, project context, diagnostic parsing, path containment, output bounding, output hashing, and response shaping must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
+    "Phase 10/11 remains non-terminal: lsp.diagnostics backend selection, TypeScript/node diagnostic execution, project context, diagnostic parsing, path containment, output bounding, output hashing, and response shaping must stay in the Rust kernel service crate; the former bridge helper is retired while the broad bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,
