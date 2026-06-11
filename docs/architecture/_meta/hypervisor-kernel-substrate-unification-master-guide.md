@@ -5995,6 +5995,21 @@ daemon-core API instead of bridge-local persistence logic. Direct Rust
 daemon-core Agentgres protocol APIs must still replace the Node bridge, shared
 command runner, JS command callers, and remaining JS persistence facades.
 
+Slice 1108 moves coding-tool subprocess and git command execution out of the
+temporary StepModule bridge helper and into Rust
+`coding_tool_execution.rs` under the kernel service crate. Bounded command
+spawning, timeout enforcement, sanitized subprocess environment construction,
+and read-only git execution are now Rust daemon-core service APIs; the bridge
+helper delegates to them while keeping only workspace observation and
+StepModule response shaping.
+
+This is a larger Rust-core extraction cut, not terminal coding-tool migration.
+The coding-tool bridge helper still owns path/observation helpers for now, and
+the Node bridge, StepModule command runner, JS command callers, and remaining
+coding-tool JS facades remain temporary scaffolding until direct Rust
+daemon-core/workload APIs own coding-tool execution, admission, replay, and
+stable protocol projection end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

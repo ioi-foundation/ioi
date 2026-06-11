@@ -15784,6 +15784,36 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1108
+
+Slice 1108 moves coding-tool subprocess and git command execution out of the
+temporary `ioi_step_module_bridge/coding_tool_helpers.rs` helper and into Rust
+`crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs`. The new
+kernel service module owns bounded command spawning, timeout enforcement,
+sanitized subprocess environment construction, sensitive environment-key
+filtering, and read-only git command execution. The bridge helper now calls the
+Rust core APIs and translates their errors into temporary command-transport
+responses; it no longer imports `std::process`, calls `Command::new`, or spawns
+child processes locally.
+
+This is a Rust-core extraction cut, not terminal coding-tool migration. The
+bridge helper still owns workspace path/observation helpers for this leg, and
+the Node bridge, StepModule command runner, JS command callers, and coding-tool
+JS facades remain migration scaffolding until direct Rust daemon-core/workload
+APIs own coding-tool execution, admission, replay, projection, and stable
+protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo test -p ioi-services coding_tool_execution --lib` | passed |
+| `cargo test -p ioi-node coding_tool --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1107
 
 Slice 1107 moves durable Agentgres runtime-state persistence execution out of

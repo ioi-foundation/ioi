@@ -2273,6 +2273,9 @@ function runBridge() {
   const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     : "";
+  const kernelModuleForBridgeChecks = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
+    : "";
   const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
     : "";
@@ -2287,6 +2290,9 @@ function runBridge() {
     : "";
   const codingToolHelpersBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs")
+    : "";
+  const codingToolExecutionCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
     : "";
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
@@ -3833,6 +3839,31 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
     ],
     "Phase 3/10 is pending: route migrated coding tools through the Rust command bridge, StepModuleRouter, and live workload path without daemon_js",
+  );
+  assertCheck(
+    result,
+    "coding-tool-execution-rust-core-boundary",
+    /pub mod coding_tool_execution;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn run_command_with_timeout/.test(codingToolExecutionCore) &&
+      /pub fn run_git_read_only/.test(codingToolExecutionCore) &&
+      /Command::new\(command\)/.test(codingToolExecutionCore) &&
+      /\.spawn\(\)/.test(codingToolExecutionCore) &&
+      /Command::new\("git"\)/.test(codingToolExecutionCore) &&
+      /safe_subprocess_env/.test(codingToolExecutionCore) &&
+      /is_sensitive_env_key/.test(codingToolExecutionCore) &&
+      /run_core_command_with_timeout/.test(codingToolHelpersBridge) &&
+      /run_core_git_read_only/.test(codingToolHelpersBridge) &&
+      !/use std::process/.test(codingToolHelpersBridge) &&
+      !/Command::new/.test(codingToolHelpersBridge) &&
+      !/\.spawn\(\)/.test(codingToolHelpersBridge) &&
+      !/safe_subprocess_env/.test(codingToolHelpersBridge) &&
+      !/fn is_sensitive_env_key/.test(codingToolHelpersBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+    ],
+    "Phase 10/11 remains non-terminal: coding-tool process/git execution must stay in the Rust kernel service crate while the bridge remains temporary StepModule protocol glue",
   );
   assertCheck(
     result,

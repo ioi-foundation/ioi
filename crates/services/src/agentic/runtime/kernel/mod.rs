@@ -7,6 +7,7 @@ pub mod agentgres_admission;
 pub mod approval;
 pub mod authority;
 pub mod capability;
+pub mod coding_tool_execution;
 pub mod command_protocol;
 pub mod ctee;
 pub mod deadline;
