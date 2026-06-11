@@ -5459,6 +5459,25 @@ daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
 admission, receipt/state-root binding, replay, projection, wallet.network
 authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1076 retires duplicate bridge-local envelope identity checks from the
+Agentgres command wrapper. `agentgres_command.rs` no longer carries local
+`schema_version` or `operation` fields and no longer owns local
+`schema_version_invalid` or `operation_unsupported` branches for storage-backend
+write admission or runtime run/agent/memory/subagent/artifact/model-mount
+record and receipt state commits. The wrapper now deserializes only
+body-specific backend/state-dir/request fields before entering the Rust
+Agentgres admission core and persistence helpers. The representative
+StepModule-schema rejection proofs for Agentgres admission and commit
+operations now live at the Rust command protocol validator boundary.
+Conformance now fails if the Agentgres child module regains local
+command-envelope identity. This is still not terminal bridge retirement:
+Agentgres admission and persistence semantics are Rust-owned, but the remaining
+`command_dispatch.rs` function table, shared daemon-core command helper, and
+JS command callers must still be replaced by direct Rust daemon-core protocol
+APIs over Agentgres-admitted truth, receipt/state-root binding, replay,
+projection, wallet.network authority, cTEE custody, and stable IDE/CLI/SDK
+protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

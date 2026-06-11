@@ -5348,59 +5348,26 @@ mod tests {
 
     #[test]
     fn runtime_agentgres_storage_rejects_step_module_command_schema() {
-        let request: StorageBackendWriteBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_storage_backend_write",
-            "backend": "rust_agentgres_storage",
-            "request": {
-                "schema_version": "ioi.storage_backend_write_admission.v1",
-                "storage_backend_ref": "storage://runtime-agentgres/local-json",
-                "object_ref": "agentgres://runtime-state/runs/run_1/records/runs/run_1.json",
-                "content_hash": "sha256:runtime-state-write",
-                "artifact_refs": [],
-                "payload_refs": ["payload://runtime/runs/run_1/records/runs/run_1.json"],
-                "receipt_refs": ["receipt_policy"]
-            }
-        }))
-        .expect("storage write bridge request");
-
-        let error = admit_storage_backend_write(request)
-            .expect_err("runtime Agentgres storage admission must reject StepModule bridge schema");
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        let error = validate_command_envelope(
+            "admit_storage_backend_write",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before Agentgres admission");
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]
     fn runtime_agentgres_commit_rejects_step_module_command_schema() {
-        let temp = tempfile::tempdir().expect("tempdir");
-        let state_dir = temp.path().join("runtime-state");
-        let request: RuntimeAgentStateCommitBridgeRequest = serde_json::from_value(json!({
-            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            "operation": "commit_runtime_agent_state",
-            "backend": "rust_agentgres_storage",
-            "state_dir": state_dir,
-            "request": {
-                "schema_version": "ioi.runtime_agent_state_commit.v1",
-                "agent_id": "agent_1",
-                "operation_kind": "agent.create",
-                "storage_backend_ref": "storage://runtime-agentgres/local-json",
-                "agent": {
-                    "id": "agent_1",
-                    "status": "active",
-                    "runtime": "local",
-                    "updated_at": "2026-06-06T00:00:00.000Z",
-                    "receipt_refs": ["receipt_agent"]
-                }
-            }
-        }))
-        .expect("runtime agent-state commit bridge request");
-
-        let error = commit_runtime_agent_state(request)
-            .expect_err("runtime Agentgres commit must reject StepModule bridge schema");
-        assert_eq!(error.code, "schema_version_invalid");
-        assert!(error.message.contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message.contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        let error = validate_command_envelope(
+            "commit_runtime_agent_state",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects StepModule schema before Agentgres commit");
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
     }
 
     #[test]

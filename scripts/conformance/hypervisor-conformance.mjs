@@ -19097,6 +19097,41 @@ function runReceipts() {
   );
   assertCheck(
     result,
+    "bridge-agentgres-local-envelope-checks-retired",
+    !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(agentgresCommandBridge) &&
+      !/schema_version:\s*String/.test(agentgresCommandBridge) &&
+      !/operation:\s*String/.test(agentgresCommandBridge) &&
+      !/schema_version_invalid/.test(agentgresCommandBridge) &&
+      !/operation_unsupported/.test(agentgresCommandBridge) &&
+      /validate_command_envelope\(\s*"admit_storage_backend_write",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /validate_command_envelope\(\s*"commit_runtime_agent_state",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /pub\(super\) fn admit_storage_backend_write/.test(agentgresCommandBridge) &&
+      /pub\(super\) fn commit_runtime_run_state/.test(agentgresCommandBridge) &&
+      /pub\(super\) fn commit_runtime_agent_state/.test(agentgresCommandBridge) &&
+      /pub\(super\) fn commit_runtime_memory_state/.test(agentgresCommandBridge) &&
+      /pub\(super\) fn commit_runtime_subagent_state/.test(agentgresCommandBridge) &&
+      /pub\(super\) fn commit_runtime_artifact_state/.test(agentgresCommandBridge) &&
+      /pub\(super\) fn commit_runtime_model_mount_record_state/.test(
+        agentgresCommandBridge,
+      ) &&
+      /pub\(super\) fn commit_runtime_model_mount_receipt_state/.test(
+        agentgresCommandBridge,
+      ),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/services/src/agentic/runtime/kernel/agentgres_admission.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 5/10/11 remains non-terminal: Agentgres child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before Agentgres admission or commit dispatch",
+  );
+  assertCheck(
+    result,
     "thread-run-state-sidecar-storage-write-rust-admitted",
     /writeRunRecord/.test(writeRunRecordBody) &&
       !/\bwriteJson\(store\.pathFor/.test(writeRunRecordBody) &&

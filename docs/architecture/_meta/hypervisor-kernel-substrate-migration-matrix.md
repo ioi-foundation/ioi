@@ -15785,6 +15785,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1076
+
+Slice 1076 retires duplicate bridge-local command-envelope identity checks from
+the Agentgres command wrapper. `agentgres_command.rs` now deserializes only
+body-specific backend/state-dir/request fields before entering the Rust
+Agentgres admission core and runtime-state persistence helpers. It no longer
+carries local `schema_version`/`operation` fields or local
+`schema_version_invalid`/`operation_unsupported` branches for storage-backend
+write admission or runtime run/agent/memory/subagent/artifact/model-mount
+record and receipt state commits.
+
+The representative fail-closed schema-family proofs for Agentgres storage
+admission and commit operations now live at the Rust command protocol boundary
+through `validate_command_envelope()`. Conformance now fails if the Agentgres
+child wrapper regains local envelope identity. This is not terminal bridge
+retirement: `command_dispatch.rs`, the shared daemon-core command helper, and
+the JS command callers still must be replaced by direct Rust daemon-core
+protocol APIs over Agentgres-admitted truth, receipt/state-root binding, replay,
+projection, wallet.network authority, cTEE custody, and stable IDE/CLI/SDK
+protocol surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node rejects_step_module_command_schema --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1075
 
 Slice 1075 retires duplicate bridge-local command-envelope identity checks from

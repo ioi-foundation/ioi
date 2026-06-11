@@ -10,13 +10,10 @@ use serde_json::{json, Value};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 
-use super::{BridgeError, DAEMON_CORE_COMMAND_SCHEMA_VERSION};
+use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct StorageBackendWriteBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     request: StorageBackendWriteProposal,
@@ -24,9 +21,6 @@ pub(super) struct StorageBackendWriteBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeRunStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -35,9 +29,6 @@ pub(super) struct RuntimeRunStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeAgentStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -46,9 +37,6 @@ pub(super) struct RuntimeAgentStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeMemoryStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -57,9 +45,6 @@ pub(super) struct RuntimeMemoryStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeSubagentStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -68,9 +53,6 @@ pub(super) struct RuntimeSubagentStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeArtifactStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -79,9 +61,6 @@ pub(super) struct RuntimeArtifactStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeModelMountRecordStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -90,9 +69,6 @@ pub(super) struct RuntimeModelMountRecordStateCommitBridgeRequest {
 
 #[derive(Debug, Deserialize)]
 pub(super) struct RuntimeModelMountReceiptStateCommitBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
     #[serde(default)]
     backend: Option<String>,
     state_dir: String,
@@ -102,21 +78,6 @@ pub(super) struct RuntimeModelMountReceiptStateCommitBridgeRequest {
 pub(super) fn admit_storage_backend_write(
     request: StorageBackendWriteBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "admit_storage_backend_write" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .admit_storage_backend_write(&request.request)
         .map_err(|error| {
@@ -146,21 +107,6 @@ pub(super) fn admit_storage_backend_write(
 pub(super) fn commit_runtime_run_state(
     request: RuntimeRunStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_run_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let state_root = ensure_runtime_state_dir(&request.state_dir)?;
     let mut commit_request = request.request;
     if commit_request.previous_transition.is_none() {
@@ -206,21 +152,6 @@ pub(super) fn commit_runtime_run_state(
 pub(super) fn commit_runtime_agent_state(
     request: RuntimeAgentStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_agent_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .commit_runtime_agent_state(&request.request)
         .map_err(|error| {
@@ -256,21 +187,6 @@ pub(super) fn commit_runtime_agent_state(
 pub(super) fn commit_runtime_memory_state(
     request: RuntimeMemoryStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_memory_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .commit_runtime_memory_state(&request.request)
         .map_err(|error| {
@@ -307,21 +223,6 @@ pub(super) fn commit_runtime_memory_state(
 pub(super) fn commit_runtime_subagent_state(
     request: RuntimeSubagentStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_subagent_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .commit_runtime_subagent_state(&request.request)
         .map_err(|error| {
@@ -360,21 +261,6 @@ pub(super) fn commit_runtime_subagent_state(
 pub(super) fn commit_runtime_artifact_state(
     request: RuntimeArtifactStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_artifact_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .commit_runtime_artifact_state(&request.request)
         .map_err(|error| {
@@ -413,21 +299,6 @@ pub(super) fn commit_runtime_artifact_state(
 pub(super) fn commit_runtime_model_mount_record_state(
     request: RuntimeModelMountRecordStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_model_mount_record_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .commit_runtime_model_mount_record_state(&request.request)
         .map_err(|error| {
@@ -467,21 +338,6 @@ pub(super) fn commit_runtime_model_mount_record_state(
 pub(super) fn commit_runtime_model_mount_receipt_state(
     request: RuntimeModelMountReceiptStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "commit_runtime_model_mount_receipt_state" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     let record = AgentgresAdmissionCore
         .commit_runtime_model_mount_receipt_state(&request.request)
         .map_err(|error| {
