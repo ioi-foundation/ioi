@@ -104,7 +104,7 @@ function fakeStore(calls = []) {
   };
 }
 
-test("runtime event append records events once by idempotency key", () => {
+test("runtime event append fails closed before JS event stream mutation", () => {
   const calls = [];
   const store = fakeStore(calls);
   const event = {
@@ -115,30 +115,41 @@ test("runtime event append records events once by idempotency key", () => {
     event_kind: "turn.started",
   };
 
-  const first = appendRuntimeEvent(store, event, deps(calls));
-  const duplicate = appendRuntimeEvent(store, event, deps(calls));
-
-  assert.equal(first, duplicate);
-  assert.equal(first.seq, 1);
-  assert.equal(store.runtimeEventStream("stream:thread").events.length, 1);
-  assert.equal(calls.filter((call) => call.operation === "append_file").length, 1);
+  assert.throws(
+    () => appendRuntimeEvent(store, event, deps(calls)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_event_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "runtime.thread_event");
+      assert.equal(error.details.operation, "runtime_event_append");
+      assert.equal(error.details.event_stream_id, "stream:thread");
+      assert.equal(error.details.event_kind, "turn.started");
+      assert.equal(Object.hasOwn(error.details, "eventStreamId"), false);
+      return true;
+    },
+  );
+  assert.equal(store.runtimeEventStreams.size, 0);
+  assert.equal(calls.filter((call) => call.operation === "append_file").length, 0);
 });
 
 test("runtime events replay by stream and cursor", () => {
   const calls = [];
   const store = fakeStore(calls);
-  appendRuntimeEvent(store, {
+  registerRuntimeEvent(store, {
     event_stream_id: "stream:thread",
+    event_id: "evt_1",
     turn_id: "turn_1",
     idempotency_key: "idem_1",
     event_kind: "turn.started",
-  }, deps(calls));
-  appendRuntimeEvent(store, {
+    seq: 1,
+  });
+  registerRuntimeEvent(store, {
     event_stream_id: "stream:thread",
+    event_id: "evt_2",
     turn_id: "turn_1",
     idempotency_key: "idem_2",
     event_kind: "turn.completed",
-  }, deps(calls));
+    seq: 2,
+  });
 
   assert.deepEqual(runtimeEventsForStream(store, "stream:thread", { since_seq: 1 }).map((event) => event.seq), [2]);
   assert.deepEqual(runtimeEventsForTurn(store, "turn_1", "evt_1").map((event) => event.seq), [2]);
@@ -148,12 +159,14 @@ test("runtime events replay by stream and cursor", () => {
 test("runtime cursor rejects missing and future cursors", () => {
   const calls = [];
   const store = fakeStore(calls);
-  appendRuntimeEvent(store, {
+  registerRuntimeEvent(store, {
     event_stream_id: "stream:thread",
+    event_id: "evt_1",
     turn_id: "turn_1",
     idempotency_key: "idem_1",
     event_kind: "turn.started",
-  }, deps(calls));
+    seq: 1,
+  });
   const stream = store.runtimeEventStream("stream:thread");
 
   assert.throws(
@@ -202,24 +215,32 @@ test("runtime event stream path uses runtime event filename helper", () => {
   assert.equal(runtimeEventStreamPath(store, "stream:thread", deps()), "/state/events/stream_thread.jsonl");
 });
 
-test("thread replay projection appends thread started event", () => {
+test("thread replay thread-start projection fails closed before JS append", () => {
   const calls = [];
   const store = fakeStore(calls);
-  const event = ensureThreadStartedEvent(store, {
+  const agent = {
     id: "agent_1",
     status: "active",
     createdAt: "2026-06-03T00:00:00.000Z",
     cwd: "/workspace",
     modelRouteReceiptId: "receipt_model",
-  }, deps(calls));
+  };
 
-  assert.equal(event.event_kind, "thread.started");
-  assert.equal(event.event_stream_id, "stream_thread_agent_1");
-  assert.equal(event.payload_schema_version, "ioi.runtime.thread.v1");
-  assert.deepEqual(event.receipt_refs, ["receipt_model"]);
+  assert.throws(
+    () => ensureThreadStartedEvent(store, agent, deps(calls)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_event_rust_core_required");
+      assert.equal(error.details.operation, "thread_started_event_admission");
+      assert.equal(error.details.operation_kind, "thread.started");
+      assert.equal(error.details.agent_id, "agent_1");
+      assert.equal(error.details.model_route_receipt_id, "receipt_model");
+      return true;
+    },
+  );
+  assert.equal(store.runtimeEventStreams.size, 0);
 });
 
-test("thread replay projection appends run events for fixture threads", () => {
+test("thread replay projection fails closed before JS run-event append", () => {
   const calls = [];
   const store = fakeStore(calls);
   const agent = {
@@ -234,14 +255,27 @@ test("thread replay projection appends run events for fixture threads", () => {
     events: [{ event_kind: "turn.started" }, { event_kind: "turn.completed" }],
   }];
 
-  projectThreadEvents(store, agent, deps(calls));
-
-  const events = runtimeEventsForStream(store, "stream_thread_agent_1");
-  assert.deepEqual(events.map((event) => event.event_kind), [
-    "thread.started",
-    "turn.started",
-    "turn.completed",
-  ]);
+  assert.throws(
+    () => projectThreadEvents(store, agent, deps(calls)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_event_rust_core_required");
+      assert.equal(error.details.operation, "thread_event_projection");
+      assert.equal(error.details.agent_id, "agent_1");
+      return true;
+    },
+  );
+  assert.throws(
+    () => projectRunEvents(store, store.runs[0], agent, deps(calls)),
+    (error) => {
+      assert.equal(error.code, "runtime_thread_event_rust_core_required");
+      assert.equal(error.details.operation, "run_event_projection");
+      assert.equal(error.details.thread_id, "thread_agent_1");
+      assert.equal(error.details.turn_id, "turn_run_1");
+      assert.equal(error.details.event_count, 2);
+      return true;
+    },
+  );
+  assert.equal(store.runtimeEventStreams.size, 0);
 });
 
 test("thread replay projection skips runtime-backed agents", () => {

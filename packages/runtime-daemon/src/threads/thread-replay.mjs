@@ -1,105 +1,76 @@
 export function appendRuntimeEvent(store, event, deps = {}) {
-  const { fs, normalizeRuntimeEventEnvelope, runtimeError } = deps;
+  const { runtimeError } = deps;
   const streamId = event.event_stream_id;
-  if (!streamId) {
-    throw runtimeError({
-      status: 400,
-      code: "runtime_event_stream_required",
-      message: "Runtime events require event_stream_id.",
-      details: { eventKind: event.event_kind ?? event.event ?? null },
-    });
-  }
-  const stream = store.runtimeEventStream(streamId);
   const idempotencyKey = String(event.idempotency_key ?? event.event_id ?? "");
-  if (!idempotencyKey) {
-    throw runtimeError({
-      status: 400,
-      code: "runtime_event_idempotency_required",
-      message: "Runtime events require idempotency_key.",
-      details: { eventStreamId: streamId, eventKind: event.event_kind ?? event.event ?? null },
-    });
-  }
-  const duplicate = stream.idempotency.get(idempotencyKey);
-  if (duplicate) return duplicate;
-
-  const seq = stream.events.length + 1;
-  const record = normalizeRuntimeEventEnvelope(event, {
-    seq,
-    parentSeq: seq > 1 ? stream.events.at(-1).seq : null,
-    idempotencyKey,
+  throwRuntimeThreadEventRustCoreRequired(runtimeError, "runtime_event_append", "runtime.event.append", {
+    event_stream_id: streamId ?? null,
+    thread_id: event.thread_id ?? null,
+    turn_id: event.turn_id ?? null,
+    item_id: event.item_id ?? null,
+    event_kind: event.event_kind ?? event.event ?? null,
+    idempotency_key: idempotencyKey || null,
+    evidence_refs: [
+      "runtime_thread_event_js_append_retired",
+      "rust_daemon_core_thread_event_admission_required",
+      "agentgres_thread_event_truth_required",
+    ],
   });
-  stream.events.push(record);
-  stream.idempotency.set(record.idempotency_key, record);
-  fs.appendFileSync(store.runtimeEventStreamPath(streamId), `${JSON.stringify(record)}\n`);
-  return record;
 }
 
 export function ensureThreadStartedEvent(store, agent, deps = {}) {
   const {
-    DAEMON_FIXTURE_PROFILE,
-    RUNTIME_THREAD_SCHEMA_VERSION,
-    eventStreamIdForThread,
+    runtimeError,
     threadIdForAgent,
-    threadStatusForAgent,
   } = deps;
   const threadId = threadIdForAgent(agent.id);
-  return store.appendRuntimeEvent({
-    event_stream_id: eventStreamIdForThread(threadId),
+  throwRuntimeThreadEventRustCoreRequired(runtimeError, "thread_started_event_admission", "thread.started", {
+    agent_id: agent.id,
     thread_id: threadId,
-    turn_id: "",
-    item_id: `${threadId}:item:thread-started`,
-    idempotency_key: `agent:${agent.id}:thread.started`,
-    source: "daemon_bridge",
-    source_event_kind: "agent.create",
-    event_kind: "thread.started",
-    status: threadStatusForAgent(agent.status),
-    actor: "runtime",
-    created_at: agent.createdAt,
-    workspace_root: agent.cwd,
-    component_kind: "runtime_thread",
-    workflow_node_id: "runtime.runtime-thread",
-    payload_schema_version: RUNTIME_THREAD_SCHEMA_VERSION,
-    payload: {
-      event_kind: "ThreadStarted",
-      agent_id: agent.id,
-      thread_id: threadId,
-      status: threadStatusForAgent(agent.status),
-    },
-    artifact_refs: [],
-    receipt_refs: [agent.modelRouteReceiptId].filter(Boolean),
-    fixture_profile: DAEMON_FIXTURE_PROFILE,
+    status: agent.status ?? null,
+    model_route_receipt_id: agent.modelRouteReceiptId ?? null,
+    evidence_refs: [
+      "runtime_thread_started_js_projection_retired",
+      "rust_daemon_core_thread_started_event_required",
+      "agentgres_thread_event_truth_required",
+    ],
   });
 }
 
 export function projectThreadEvents(store, agent, deps = {}) {
-  const { isRuntimeBackedAgent } = deps;
+  const { isRuntimeBackedAgent, runtimeError } = deps;
   if (isRuntimeBackedAgent(agent)) return;
-  store.ensureThreadStartedEvent(agent);
-  for (const run of store.listRuns(agent.id)) {
-    store.projectRunEvents(run, agent);
-  }
+  throwRuntimeThreadEventRustCoreRequired(runtimeError, "thread_event_projection", "runtime.thread_event_projection", {
+    agent_id: agent.id,
+    evidence_refs: [
+      "runtime_thread_event_js_projection_retired",
+      "rust_daemon_core_thread_event_projection_required",
+      "agentgres_thread_event_truth_required",
+    ],
+  });
 }
 
 export function projectRunEvents(store, run, agent, deps = {}) {
   const {
     isRuntimeBackedAgent,
+    runtimeError,
     threadIdForAgent,
-    ttiEnvelopeForRunEvent,
     turnIdForRun,
   } = deps;
   if (isRuntimeBackedAgent(agent)) return;
   const threadId = threadIdForAgent(agent.id);
   const turnId = turnIdForRun(run.id);
-  for (const event of run.events) {
-    store.appendRuntimeEvent(
-      ttiEnvelopeForRunEvent({
-        event,
-        threadId,
-        turnId,
-        workspaceRoot: agent.cwd,
-      }),
-    );
-  }
+  throwRuntimeThreadEventRustCoreRequired(runtimeError, "run_event_projection", "runtime.run_event_projection", {
+    agent_id: agent.id,
+    run_id: run.id,
+    thread_id: threadId,
+    turn_id: turnId,
+    event_count: Array.isArray(run.events) ? run.events.length : 0,
+    evidence_refs: [
+      "runtime_run_event_js_projection_retired",
+      "rust_daemon_core_run_event_projection_required",
+      "agentgres_thread_event_truth_required",
+    ],
+  });
 }
 
 export function runtimeEventsForStream(store, eventStreamId, cursor = {}) {
@@ -197,4 +168,18 @@ export function registerRuntimeEvent(store, record) {
 export function runtimeEventStreamPath(store, eventStreamId, deps = {}) {
   const { runtimeEventStreamFileName } = deps;
   return store.pathFor("events", `${runtimeEventStreamFileName(eventStreamId)}.jsonl`);
+}
+
+function throwRuntimeThreadEventRustCoreRequired(runtimeError, operation, operationKind, details = {}) {
+  throw runtimeError({
+    status: 501,
+    code: "runtime_thread_event_rust_core_required",
+    message: "Runtime thread event admission requires direct Rust daemon-core admission and persistence.",
+    details: {
+      rust_core_boundary: "runtime.thread_event",
+      operation,
+      operation_kind: operationKind,
+      ...details,
+    },
+  });
 }

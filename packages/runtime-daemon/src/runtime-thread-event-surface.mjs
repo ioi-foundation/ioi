@@ -80,16 +80,18 @@ export function createRuntimeThreadEventSurface({
         DAEMON_FIXTURE_PROFILE: daemonFixtureProfile,
         RUNTIME_THREAD_SCHEMA_VERSION: runtimeThreadSchemaVersion,
         eventStreamIdForThread,
+        runtimeError,
         threadIdForAgent,
         threadStatusForAgent,
       });
     },
     projectThreadEvents(store, agent) {
-      return projectThreadEventsDep(store, agent, { isRuntimeBackedAgent });
+      return projectThreadEventsDep(store, agent, { isRuntimeBackedAgent, runtimeError });
     },
     projectRunEvents(store, run, agent = store.getAgent(run.agentId)) {
       return projectRunEventsDep(store, run, agent, {
         isRuntimeBackedAgent,
+        runtimeError,
         threadIdForAgent,
         ttiEnvelopeForRunEvent,
         turnIdForRun,

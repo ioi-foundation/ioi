@@ -18783,6 +18783,35 @@ function runCompositor() {
   const threadReplay = exists("packages/runtime-daemon/src/threads/thread-replay.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-replay.mjs")
     : "";
+  const threadReplayTest = exists("packages/runtime-daemon/src/threads/thread-replay.test.mjs")
+    ? read("packages/runtime-daemon/src/threads/thread-replay.test.mjs")
+    : "";
+  const runtimeThreadEventSurface = exists(
+    "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-thread-event-surface.mjs")
+    : "";
+  const runtimeThreadEventSurfaceTest = exists(
+    "packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs",
+  )
+    ? read("packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs")
+    : "";
+  const appendRuntimeEventBlock =
+    threadReplay.match(
+      /export function appendRuntimeEvent\(store, event, deps = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const ensureThreadStartedEventBlock =
+    threadReplay.match(
+      /export function ensureThreadStartedEvent\(store, agent, deps = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const projectThreadEventsBlock =
+    threadReplay.match(
+      /export function projectThreadEvents\(store, agent, deps = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const projectRunEventsBlock =
+    threadReplay.match(
+      /export function projectRunEvents\(store, run, agent, deps = \{\}\) \{[\s\S]*?\n\}/,
+    )?.[0] ?? "";
   const threadTurnProjection = exists("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-turn-projection.mjs")
     : "";
@@ -25938,6 +25967,39 @@ function runCompositor() {
       "packages/agent-sdk/test/sdk.test.mjs",
     ],
     "Phase 10/11 is pending: runtime event cursors must use canonical since_seq/last_event_id and ignore retired lastEventId/sinceSeq request aliases before replay/SSE projection",
+  );
+  assertCheck(
+    result,
+    "runtime-thread-event-js-admission-retired",
+    appendRuntimeEventBlock.length > 0 &&
+      ensureThreadStartedEventBlock.length > 0 &&
+      projectThreadEventsBlock.length > 0 &&
+      projectRunEventsBlock.length > 0 &&
+      /runtime_thread_event_rust_core_required/.test(threadReplay) &&
+      /rust_core_boundary:\s*"runtime\.thread_event"/.test(threadReplay) &&
+      /runtime_thread_event_js_append_retired/.test(appendRuntimeEventBlock) &&
+      /runtime_thread_started_js_projection_retired/.test(ensureThreadStartedEventBlock) &&
+      /runtime_thread_event_js_projection_retired/.test(projectThreadEventsBlock) &&
+      /runtime_run_event_js_projection_retired/.test(projectRunEventsBlock) &&
+      /agentgres_thread_event_truth_required/.test(threadReplay) &&
+      !/store\.runtimeEventStream\(/.test(appendRuntimeEventBlock) &&
+      !/normalizeRuntimeEventEnvelope/.test(appendRuntimeEventBlock) &&
+      !/fs\.appendFileSync/.test(appendRuntimeEventBlock) &&
+      !/store\.appendRuntimeEvent\(/.test(
+        `${ensureThreadStartedEventBlock}\n${projectThreadEventsBlock}\n${projectRunEventsBlock}`,
+      ) &&
+      /runtime event append fails closed before JS event stream mutation/.test(threadReplayTest) &&
+      /thread replay thread-start projection fails closed before JS append/.test(threadReplayTest) &&
+      /thread replay projection fails closed before JS run-event append/.test(threadReplayTest) &&
+      /runtimeError/.test(runtimeThreadEventSurface) &&
+      /runtimeError/.test(runtimeThreadEventSurfaceTest),
+    [
+      "packages/runtime-daemon/src/threads/thread-replay.mjs",
+      "packages/runtime-daemon/src/threads/thread-replay.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-event-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-event-surface.test.mjs",
+    ],
+    "Phase 10/11 is pending: daemon runtime thread-event append and projection must fail closed before JS can author accepted event truth",
   );
   assertCheck(
     result,

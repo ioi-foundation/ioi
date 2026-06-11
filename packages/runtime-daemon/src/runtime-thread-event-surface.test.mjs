@@ -195,11 +195,13 @@ test("runtime thread event surface delegates replay and projection helpers", () 
     DAEMON_FIXTURE_PROFILE: "daemon-fixture",
     RUNTIME_THREAD_SCHEMA_VERSION: "thread-schema",
     eventStreamIdForThread: calls.find((call) => call.name === "ensureThreadStartedEvent").deps.eventStreamIdForThread,
+    runtimeError: calls.find((call) => call.name === "ensureThreadStartedEvent").deps.runtimeError,
     threadIdForAgent: calls.find((call) => call.name === "ensureThreadStartedEvent").deps.threadIdForAgent,
     threadStatusForAgent: calls.find((call) => call.name === "ensureThreadStartedEvent").deps.threadStatusForAgent,
   });
   assert.deepEqual(calls.find((call) => call.name === "projectRunEvents").depKeys, [
     "isRuntimeBackedAgent",
+    "runtimeError",
     "threadIdForAgent",
     "ttiEnvelopeForRunEvent",
     "turnIdForRun",

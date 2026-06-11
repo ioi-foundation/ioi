@@ -20366,6 +20366,26 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 994
+
+Slice 994 retired daemon JS runtime thread-event admission. The default
+`appendRuntimeEvent`, synthetic `thread.started` projection, and legacy
+run-event-to-runtime-event projection paths now fail closed with
+`runtime_thread_event_rust_core_required` before JS event-stream idempotency
+lookup, sequence assignment, envelope normalization, stream mutation, or JSONL
+persistence can author accepted replay truth.
+
+This is still non-terminal migration work: readback helpers and persisted-record
+registration remain temporary replay scaffolding while direct Rust daemon-core
+thread-event admission/projection over Agentgres expected heads/state roots,
+receipt/state-root binding, projection watermarks, replay, and stable
+IDE/CLI/SDK event APIs are extracted. The thread-event surface must not be
+documented as a canonical Node bridge.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 994 | Retired JS runtime thread-event append and legacy projection admission by failing closed before JS event-stream mutation or JSONL persistence. | Direct Rust daemon-core thread-event admission/projection over Agentgres expected heads/state roots with receipt/state-root binding, replay watermarks, command-transport retirement, and stable SDK/IDE/CLI APIs. |
+
 ## Implementation Slice Evidence: 993
 
 Slice 993 retired daemon JS computer-use invocation facades for browser

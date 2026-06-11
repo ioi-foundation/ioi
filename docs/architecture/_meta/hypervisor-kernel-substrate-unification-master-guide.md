@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 993, public runtime account, runtime-node, tool
+Current lane note: after Slice 994, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4575,7 +4575,11 @@ closed at entry before JS agent/thread lookup, local execution/projection, or
 runtime-event append can author accepted truth; direct Rust daemon-core
 computer-use invocation admission over wallet.network authority and Agentgres
 expected heads/state roots remains required before that lane can be considered
-terminal;
+terminal; daemon JS runtime thread-event append and legacy thread/run event
+projection now fail closed before JS event-stream mutation or JSONL persistence
+can author accepted replay truth; direct Rust daemon-core thread-event
+admission/projection over Agentgres expected heads/state roots remains required
+before replay is terminal;
 the route-facing skill/hook, model catalog/capability, repository workflow,
 runtime account/node/tool, and doctor-report daemon-store delegates have been
 deleted rather than preserved as inert compatibility wrappers;
