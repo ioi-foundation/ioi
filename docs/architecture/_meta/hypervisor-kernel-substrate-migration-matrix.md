@@ -15784,6 +15784,34 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1105
+
+Slice 1105 splits the Rust coding-tool StepModule workload dispatch,
+StepModuleRouter admission, receipt binding, Agentgres admission, and projection
+binding path out of `ioi_step_module_bridge/coding_tool_command.rs` into
+`ioi_step_module_bridge/coding_tool_receipt_command.rs`. The coding-tool command
+wrapper now owns operation selection and workload observation shaping only; the
+new receipt command module owns `WorkloadClient::plan_step_module_dispatch`,
+`StepModuleRouterCore`, `ReceiptBinder`, `AgentgresAdmissionCore`, and
+`RustProjectionCore`.
+
+This is bridge containment only. The module remains temporary command-transport
+scaffolding until direct Rust daemon-core coding-tool execution/admission APIs
+and Rust/WASM workload module execution replace the Node bridge, JS StepModule
+command helper, JS command callers, and remaining coding-tool JS protocol
+facades.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `rustfmt crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs crates/node/src/bin/ioi_step_module_bridge/mod.rs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-node file_apply_patch_writes_and_binds_agentgres_admission --bin ioi-step-module-bridge` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1104
 
 Slice 1104 splits the Rust model_mount accepted-receipt planning and invocation

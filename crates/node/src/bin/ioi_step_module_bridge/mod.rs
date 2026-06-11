@@ -15,6 +15,7 @@ mod authority_command;
 mod bridge_dispatch;
 mod coding_tool_command;
 mod coding_tool_helpers;
+mod coding_tool_receipt_command;
 mod command_dispatch;
 mod computer_use;
 mod computer_use_provider;

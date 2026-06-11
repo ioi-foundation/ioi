@@ -5951,6 +5951,21 @@ daemon-core API. It exists only to keep receipt/state-root ownership explicit
 until direct Rust daemon-core model_mount protocol APIs replace the Node command
 bridge and remaining JS model_mount facades.
 
+Slice 1105 splits the Rust coding-tool StepModule workload dispatch,
+StepModuleRouter admission, receipt binding, Agentgres admission, and projection
+binding path out of `ioi_step_module_bridge/coding_tool_command.rs` into
+`ioi_step_module_bridge/coding_tool_receipt_command.rs`. The coding-tool command
+wrapper now owns operation selection and workload observation shaping only; the
+new receipt boundary owns `WorkloadClient::plan_step_module_dispatch`,
+`StepModuleRouterCore`, `ReceiptBinder`, `AgentgresAdmissionCore`, and
+`RustProjectionCore`.
+
+This is still bridge containment, not terminal architecture. The receipt module
+is temporary command-transport scaffolding until direct Rust daemon-core
+coding-tool execution/admission APIs and Rust/WASM workload module execution
+replace the Node bridge, JS StepModule command helper, JS command callers, and
+remaining coding-tool JS protocol facades.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
