@@ -2272,6 +2272,9 @@ function runBridge() {
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
+  const threadLifecycleCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
+    : "";
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
@@ -7778,12 +7781,15 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at|"workspaceTrustWarningEventId": request\.workspace_trust_warning_event_id/.test(
         threadControlAgentStateUpdateCoreBlock,
       ) &&
-      /plan_thread_control_agent_state_update/.test(bridgeModule) &&
-      /ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_thread_control_agent_state_update_command/.test(bridgeModule) &&
+      /mod thread_lifecycle_command;/.test(bridgeModule) &&
+      /fn plan_thread_control_agent_state_update/.test(threadLifecycleCommandBridge) &&
+      /ThreadControlAgentStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /rust_thread_control_agent_state_update_command/.test(threadLifecycleCommandBridge) &&
       /bridge_plans_thread_control_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_thread_control_agent_state_update/.test(bridgeModule) &&
+      !/struct ThreadControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["control"\]\["control_kind"\]/.test(bridgeModule) &&
       /response\["control"\]\["event_id"\]/.test(bridgeModule) &&
       /"controlKind"[\s\S]*"workspaceTrustWarningEventId"[\s\S]*response\["control"\]\.get\(field\)\.is_none\(\)/.test(
@@ -8601,18 +8607,22 @@ function runBridge() {
       !/"runtimeProfile": request\.runtime_profile|"sessionId": request\.session_id|"bridgeId": request\.bridge_id|"updatedAt": request\.updated_at/.test(
         runtimeBridgeThreadStartAgentStateUpdateCoreBlock,
       ) &&
-      /plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
-      /plan_runtime_bridge_turn_run_state_update/.test(bridgeModule) &&
-      /RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_runtime_bridge_thread_start_agent_state_update_command/.test(bridgeModule) &&
-      /rust_runtime_bridge_turn_run_state_update_command/.test(bridgeModule) &&
+      /fn plan_runtime_bridge_thread_start_agent_state_update/.test(threadLifecycleCommandBridge) &&
+      /fn plan_runtime_bridge_turn_run_state_update/.test(threadLifecycleCommandBridge) &&
+      /RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /rust_runtime_bridge_thread_start_agent_state_update_command/.test(threadLifecycleCommandBridge) &&
+      /rust_runtime_bridge_turn_run_state_update_command/.test(threadLifecycleCommandBridge) &&
       /bridge_plans_runtime_bridge_thread_start_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
       /bridge_plans_runtime_bridge_turn_run_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_runtime_bridge_thread_start_agent_state_update/.test(bridgeModule) &&
+      !/fn plan_runtime_bridge_turn_run_state_update/.test(bridgeModule) &&
+      !/struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct RuntimeBridgeTurnRunStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["bridge_start"\]\["session_id"\]/.test(bridgeModule) &&
       /response\["bridge_start"\]\["bridge_id"\]/.test(bridgeModule) &&
       /"runtimeProfile"[\s\S]*"updatedAt"[\s\S]*response\["bridge_start"\]\.get\(field\)\.is_none\(\)/.test(
@@ -8813,18 +8823,24 @@ function runBridge() {
       /rust_policy_plans_agent_create_state_update/.test(policyCore) &&
       /rust_policy_plans_run_create_state_update/.test(policyCore) &&
       /rust_policy_plans_agent_status_state_update/.test(policyCore) &&
-      /plan_agent_create_state_update/.test(bridgeModule) &&
-      /plan_run_create_state_update/.test(bridgeModule) &&
-      /plan_agent_status_state_update/.test(bridgeModule) &&
-      /AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_agent_create_state_update_command/.test(bridgeModule) &&
-      /rust_run_create_state_update_command/.test(bridgeModule) &&
-      /rust_agent_status_state_update_command/.test(bridgeModule) &&
+      /fn plan_agent_create_state_update/.test(threadLifecycleCommandBridge) &&
+      /fn plan_run_create_state_update/.test(threadLifecycleCommandBridge) &&
+      /fn plan_agent_status_state_update/.test(threadLifecycleCommandBridge) &&
+      /AgentCreateStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /RunCreateStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /AgentStatusStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /rust_agent_create_state_update_command/.test(threadLifecycleCommandBridge) &&
+      /rust_run_create_state_update_command/.test(threadLifecycleCommandBridge) &&
+      /rust_agent_status_state_update_command/.test(threadLifecycleCommandBridge) &&
       /bridge_plans_agent_create_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_run_create_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_agent_status_state_update_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_agent_create_state_update/.test(bridgeModule) &&
+      !/fn plan_run_create_state_update/.test(bridgeModule) &&
+      !/fn plan_agent_status_state_update/.test(bridgeModule) &&
+      !/struct AgentCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct RunCreateStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/struct AgentStatusStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planAgentCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planRunCreateStateUpdate/.test(runtimeContextPolicyRunner) &&
       /planAgentStatusStateUpdate/.test(runtimeContextPolicyRunner) &&
@@ -19446,6 +19462,9 @@ function runCompositor() {
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
+  const threadLifecycleCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs")
+    : "";
   const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     : "";
@@ -23792,12 +23811,14 @@ function runCompositor() {
       /rust_policy_rejects_subagent_record_state_update_thread_mismatch/.test(
         policyCore,
       ) &&
-      /plan_subagent_record_state_update/.test(bridgeModule) &&
-      /SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_subagent_record_state_update_command/.test(bridgeModule) &&
+      /fn plan_subagent_record_state_update/.test(threadLifecycleCommandBridge) &&
+      /SubagentRecordStateUpdateBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /rust_subagent_record_state_update_command/.test(threadLifecycleCommandBridge) &&
       /bridge_plans_subagent_record_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_subagent_record_state_update/.test(bridgeModule) &&
+      !/struct SubagentRecordStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planSubagentRecordStateUpdate/.test(runtimeContextPolicyRunner) &&
       /SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,

@@ -29,8 +29,7 @@ use ioi_services::agentic::runtime::kernel::model_mount::{
     ModelMountServerControlRequiredRequest, ModelMountTokenizerRequiredRequest,
 };
 use ioi_services::agentic::runtime::kernel::policy::{
-    AgentCreateStateUpdateCore, AgentCreateStateUpdateRequest, AgentStatusStateUpdateCore,
-    AgentStatusStateUpdateRequest, CodingToolBudgetRecoveryAdmissionRequiredCore,
+    CodingToolBudgetRecoveryAdmissionRequiredCore,
     CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
     CodingToolBudgetRecoveryStateUpdateRequest, DiagnosticsOperatorOverrideStateUpdateCore,
     DiagnosticsOperatorOverrideStateUpdateRequest, OperatorInterruptStateUpdateCore,
@@ -38,14 +37,9 @@ use ioi_services::agentic::runtime::kernel::policy::{
     OperatorSteerStateUpdateRequest, RepositoryWorkflowProjectionRequiredCore,
     RepositoryWorkflowProjectionRequiredRequest, RunCancelAdmissionRequiredCore,
     RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore, RunCancelStateUpdateRequest,
-    RunCreateStateUpdateCore, RunCreateStateUpdateRequest,
-    RuntimeBridgeThreadStartAgentStateUpdateCore, RuntimeBridgeThreadStartAgentStateUpdateRequest,
-    RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
     RuntimeLifecycleProjectionRequiredCore, RuntimeLifecycleProjectionRequiredRequest,
     RuntimeToolCatalogProjectionRequiredCore, RuntimeToolCatalogProjectionRequiredRequest,
     SkillHookRegistryProjectionRequiredCore, SkillHookRegistryProjectionRequiredRequest,
-    SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
-    ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
 };
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::{
@@ -81,6 +75,7 @@ mod computer_use;
 mod context_policy_command;
 mod mcp_memory_command;
 mod policy_command;
+mod thread_lifecycle_command;
 
 use approval_command::{
     plan_approval_decision_state_update, plan_approval_request_state_update,
@@ -109,6 +104,15 @@ use mcp_memory_command::{
 use policy_command::{
     plan_diagnostics_repair_admission_required, plan_workflow_edit_admission_required,
     DiagnosticsRepairAdmissionRequiredBridgeRequest, WorkflowEditAdmissionRequiredBridgeRequest,
+};
+use thread_lifecycle_command::{
+    plan_agent_create_state_update, plan_agent_status_state_update, plan_run_create_state_update,
+    plan_runtime_bridge_thread_start_agent_state_update, plan_runtime_bridge_turn_run_state_update,
+    plan_subagent_record_state_update, plan_thread_control_agent_state_update,
+    AgentCreateStateUpdateBridgeRequest, AgentStatusStateUpdateBridgeRequest,
+    RunCreateStateUpdateBridgeRequest, RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+    RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
+    ThreadControlAgentStateUpdateBridgeRequest,
 };
 
 const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
@@ -523,76 +527,6 @@ struct RuntimeLifecycleProjectionRequiredBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: RuntimeLifecycleProjectionRequiredRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct ThreadControlAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: ThreadControlAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeThreadStartAgentStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct RuntimeBridgeTurnRunStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: RuntimeBridgeTurnRunStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct SubagentRecordStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: SubagentRecordStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct AgentCreateStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentCreateStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct AgentStatusStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: AgentStatusStateUpdateRequest,
-}
-
-#[derive(Debug, Deserialize)]
-struct RunCreateStateUpdateBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: RunCreateStateUpdateRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -2686,115 +2620,6 @@ fn authorize_external_capability_exit(
     }))
 }
 
-fn plan_runtime_bridge_thread_start_agent_state_update(
-    request: RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_runtime_bridge_thread_start_agent_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = RuntimeBridgeThreadStartAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "runtime_bridge_thread_start_agent_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_thread_start_agent_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "bridge_start": record.bridge_start.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-fn plan_runtime_bridge_turn_run_state_update(
-    request: RuntimeBridgeTurnRunStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_runtime_bridge_turn_run_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = RuntimeBridgeTurnRunStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "runtime_bridge_turn_run_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_runtime_bridge_turn_run_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "run": record.run.clone(),
-    }))
-}
-
-fn plan_subagent_record_state_update(
-    request: SubagentRecordStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_subagent_record_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = SubagentRecordStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("subagent_record_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_subagent_record_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "subagent": record.subagent.clone(),
-    }))
-}
-
 fn plan_coding_tool_budget_recovery_state_update(
     request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
 ) -> Result<Value, BridgeError> {
@@ -3220,148 +3045,6 @@ fn plan_runtime_lifecycle_projection_required(
         "rust_core_boundary": record.rust_core_boundary.clone(),
         "operation_kind": record.operation_kind.clone(),
         "details": record.details.clone(),
-    }))
-}
-
-fn plan_thread_control_agent_state_update(
-    request: ThreadControlAgentStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_thread_control_agent_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = ThreadControlAgentStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "thread_control_agent_state_update_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_thread_control_agent_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "control": record.control.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-fn plan_agent_create_state_update(
-    request: AgentCreateStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_agent_create_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = AgentCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("agent_create_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_agent_create_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-fn plan_agent_status_state_update(
-    request: AgentStatusStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_agent_status_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = AgentStatusStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("agent_status_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_agent_status_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "updated_at": record.updated_at.clone(),
-        "agent": record.agent.clone(),
-    }))
-}
-
-fn plan_run_create_state_update(
-    request: RunCreateStateUpdateBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "plan_run_create_state_update" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = RunCreateStateUpdateCore
-        .plan(&request.request)
-        .map_err(|error| {
-            BridgeError::new("run_create_state_update_invalid", format!("{error:?}"))
-        })?;
-    Ok(json!({
-        "source": "rust_run_create_state_update_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
-        "record": record.clone(),
-        "status": record.status.clone(),
-        "operation_kind": record.operation_kind.clone(),
-        "created_at": record.created_at.clone(),
-        "updated_at": record.updated_at.clone(),
-        "run": record.run.clone(),
     }))
 }
 

@@ -4984,6 +4984,23 @@ exits, cTEE custody where private workspace memory is involved, Agentgres
 expected heads/state roots, MCP/memory receipts/events, replay, projection,
 and stable IDE/CLI/SDK protocol APIs.
 
+Slice 1047 moves the thread-control, runtime-bridge thread-start, runtime
+bridge turn-run, subagent record, agent create, agent status, and run create
+state-update daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs`. The
+thread/run lifecycle policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs`; the
+bridge child module is only fixed migration transport that translates
+Rust-authored lifecycle policy records at the process boundary. The
+conformance guard now proves the thread lifecycle command wrappers stay out of
+the broad bridge module. This is not terminal lifecycle migration. Resume by
+replacing this command transport with direct Rust daemon-core lifecycle
+admission/persistence/projection APIs over wallet authority and cTEE policy
+where applicable, Agentgres expected heads/state roots, lifecycle
+receipts/events, replay, projection, StepModuleRouter dispatch where lifecycle
+work enters admitted module execution, and stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

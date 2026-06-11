@@ -15698,6 +15698,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1047
+
+Slice 1047 splits the thread-control, runtime-bridge thread-start,
+runtime-bridge turn-run, subagent record, agent create, agent status, and run
+create state-update daemon-core command wrappers out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
+`crates/node/src/bin/ioi_step_module_bridge/thread_lifecycle_command.rs`. The
+canonical thread lifecycle policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/thread_lifecycle.rs`; the
+new bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge conformance guard now proves the thread
+lifecycle command wrappers are outside the broad bridge module while the
+existing bridge tests continue to prove the Rust policy path.
+
+This is a Rust transport-boundary cleanup, not terminal lifecycle migration.
+The current JS thread-control, runtime thread/turn, agent/run lifecycle, and
+subagent surfaces plus the JS context-policy runner and Node command bridge
+remain scaffolding until direct Rust daemon-core lifecycle
+admission/persistence/projection, wallet authority and cTEE policy where
+applicable, Agentgres expected-head and state-root persistence, lifecycle
+receipts/events, replay, projection, StepModuleRouter dispatch where lifecycle
+work enters admitted module execution, and stable protocol APIs own lifecycle
+paths end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node thread --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node agent --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node subagent --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
