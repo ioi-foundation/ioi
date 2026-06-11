@@ -20371,6 +20371,31 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1018
+
+Slice 1018 moved the model_mount provider execution proof surface out of the
+broad `model_mount.rs` facade and into `model_mount/provider_execution.rs`.
+Provider-execution admission, fixture/native-local provider invocation,
+native-local stream invocation, and provider-result admission tests now live
+beside the request/result types, backend validation, execution binding checks,
+deterministic output/chunk shaping, evidence refs, and hashes they prove.
+`ModelMountCore` remains the public facade, but the provider-execution module
+owns both implementation and module-local proof for provider execution,
+invocation, streaming, and result admission.
+
+This is still non-terminal migration work: provider execution implementation
+and proof ownership are now colocated in Rust, but direct Rust daemon-core
+provider execution/invocation/result protocol APIs must still replace command
+transport and JS edge translation before terminal provider execution ownership
+can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1018 | Moved provider-execution, provider-invocation, provider-stream, and provider-result tests from `model_mount.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs`; conformance now requires those tests in the provider-execution module and fails if the parent facade regrows the provider proof tail. | Direct Rust daemon-core provider execution/invocation/result protocol APIs replace the command bridge and JS edge translation once the provider-execution Rust boundary can own execution/projection end to end. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1017
 
 Slice 1017 moved the model_mount admission proof surface out of the broad

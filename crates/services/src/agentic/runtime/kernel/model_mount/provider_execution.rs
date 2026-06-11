@@ -953,3 +953,505 @@ fn provider_result_hash(
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn provider_execution_request() -> ModelMountProviderExecutionRequest {
+        ModelMountProviderExecutionRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION.to_string(),
+            invocation_ref: "model-provider-execution://response/test".to_string(),
+            route_decision_ref: "model_mount://route_decision/test".to_string(),
+            route_receipt_ref: "receipt://route/test".to_string(),
+            route_ref: "model-route://default/local-first".to_string(),
+            provider_ref: "provider://ioi-native-local".to_string(),
+            endpoint_ref: "endpoint://ioi-native-local/qwen3".to_string(),
+            model_ref: "model://qwen/qwen3.5-9b".to_string(),
+            capability: "chat".to_string(),
+            invocation_kind: "responses".to_string(),
+            policy_hash: "sha256:model-route-policy".to_string(),
+            input_hash: "sha256:input".to_string(),
+            request_hash: "sha256:request".to_string(),
+            idempotency_key: "model-provider-execution:thread:test".to_string(),
+            receipt_refs: vec!["receipt://route/test".to_string()],
+            authority_grant_refs: vec!["grant://wallet/model-chat".to_string()],
+            authority_receipt_refs: vec!["receipt://wallet/model-chat".to_string()],
+            provider_auth_evidence_refs: vec![],
+            backend_evidence_refs: vec!["backend://native-local".to_string()],
+            tool_receipt_refs: vec![],
+            custody_ref: None,
+            privacy_profile: Some("internal".to_string()),
+            node_plaintext_allowed: false,
+            workflow_graph_ref: Some("workflow://graph".to_string()),
+            workflow_node_ref: Some("workflow://node/model-provider-execution".to_string()),
+            response_ref: Some("response://test".to_string()),
+            previous_response_ref: None,
+            stream_status: None,
+        }
+    }
+
+    fn provider_invocation_request() -> ModelMountProviderInvocationRequest {
+        let admission = admit_provider_execution(&provider_execution_request())
+            .expect("provider execution admitted");
+        ModelMountProviderInvocationRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "local_folder".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            input: "user: hello".to_string(),
+            request_hash: admission.request_hash.clone(),
+            execution_backend: "rust_model_mount_fixture".to_string(),
+            api_format: Some("ioi_fixture".to_string()),
+            driver: Some("fixture".to_string()),
+            backend_ref: Some("backend.fixture".to_string()),
+            stream_status: None,
+            receipt_refs: admission.receipt_refs.clone(),
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        }
+    }
+
+    fn provider_stream_invocation_request() -> ModelMountProviderInvocationRequest {
+        let mut execution_request = provider_execution_request();
+        execution_request.stream_status = Some("started".to_string());
+        let admission = admit_provider_execution(&execution_request)
+            .expect("stream provider execution admitted");
+        ModelMountProviderInvocationRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "ioi_native_local".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            input: "user: hello".to_string(),
+            request_hash: admission.request_hash.clone(),
+            execution_backend: "rust_model_mount_native_local_stream".to_string(),
+            api_format: Some("ioi_native".to_string()),
+            driver: Some("native_local".to_string()),
+            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        }
+    }
+
+    fn provider_result_admission_request() -> ModelMountProviderResultAdmissionRequest {
+        let admission = admit_provider_execution(&provider_execution_request())
+            .expect("provider execution admitted");
+        let output_text = "fixture provider answer".to_string();
+        let output_hash = format!(
+            "sha256:{}",
+            sha256_hex(output_text.as_bytes()).expect("output hash")
+        );
+        ModelMountProviderResultAdmissionRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "local_folder".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            request_hash: admission.request_hash.clone(),
+            output_text,
+            output_hash,
+            token_count: ModelMountTokenCount {
+                prompt_tokens: 1,
+                completion_tokens: 2,
+                total_tokens: 3,
+            },
+            provider_response_kind: Some("rust_model_mount.fixture".to_string()),
+            execution_backend: "rust_model_mount_fixture".to_string(),
+            backend_ref: Some("backend.fixture".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            provider_auth_evidence_refs: vec![],
+            backend_evidence_refs: vec!["rust_model_mount_fixture_backend".to_string()],
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        }
+    }
+
+    #[test]
+    fn admits_provider_execution_with_route_receipt_before_driver_call() {
+        let record = admit_provider_execution(&provider_execution_request())
+            .expect("provider execution admitted");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            record.route_decision_ref,
+            "model_mount://route_decision/test"
+        );
+        assert_eq!(record.route_receipt_ref, "receipt://route/test");
+        assert_eq!(record.request_hash, "sha256:request");
+        assert!(record.provider_execution_hash.starts_with("sha256:"));
+        assert!(record
+            .provider_execution_ref
+            .starts_with("model_mount://provider_execution/"));
+    }
+
+    #[test]
+    fn provider_execution_requires_route_receipt_binding() {
+        let mut request = provider_execution_request();
+        request.receipt_refs.clear();
+
+        let error =
+            admit_provider_execution(&request).expect_err("provider execution requires receipts");
+
+        assert_eq!(error, ModelMountError::MissingReceiptRef);
+
+        request.receipt_refs = vec!["receipt://other".to_string()];
+        let error = admit_provider_execution(&request)
+            .expect_err("provider execution requires the route receipt");
+
+        assert_eq!(
+            error,
+            ModelMountError::MissingProviderExecutionRouteReceiptRef
+        );
+    }
+
+    #[test]
+    fn provider_execution_rejects_auto_model_before_driver_call() {
+        let mut request = provider_execution_request();
+        request.model_ref = "auto".to_string();
+
+        let error = admit_provider_execution(&request)
+            .expect_err("auto must be resolved before provider execution");
+
+        assert_eq!(error, ModelMountError::UnresolvedAutoModel);
+    }
+
+    #[test]
+    fn private_workspace_provider_execution_requires_ctee_custody_without_plaintext() {
+        let mut request = provider_execution_request();
+        request.privacy_profile = Some("private_workspace_ctee".to_string());
+        request.node_plaintext_allowed = true;
+
+        let error = admit_provider_execution(&request)
+            .expect_err("private workspace provider execution requires custody ref first");
+
+        assert_eq!(error, ModelMountError::PrivateWorkspaceMissingCustodyRef);
+
+        request.custody_ref = Some("ctee://custody/private-workspace".to_string());
+        let error = admit_provider_execution(&request)
+            .expect_err("private workspace provider execution cannot allow plaintext");
+
+        assert_eq!(error, ModelMountError::PrivateWorkspacePlaintextNotAllowed);
+    }
+
+    #[test]
+    fn fixture_provider_invocation_executes_in_rust_model_mount() {
+        let result = invoke_provider(&provider_invocation_request())
+            .expect("fixture provider invocation executes in Rust");
+
+        assert_eq!(
+            result.schema_version,
+            MODEL_MOUNT_PROVIDER_INVOCATION_SCHEMA_VERSION
+        );
+        assert_eq!(result.execution_backend, "rust_model_mount_fixture");
+        assert_eq!(result.backend, "ioi_fixture");
+        assert_eq!(result.backend_id, "backend.fixture");
+        assert!(result
+            .output_text
+            .starts_with("IOI model router fixture response from model://qwen/qwen3.5-9b."));
+        assert_eq!(
+            result.token_count.total_tokens,
+            result.token_count.prompt_tokens + result.token_count.completion_tokens
+        );
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_invocation".to_string()));
+        assert!(result.invocation_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn native_local_provider_invocation_executes_in_rust_model_mount() {
+        let mut request = provider_invocation_request();
+        request.execution_backend = "rust_model_mount_native_local".to_string();
+        request.provider_kind = "ioi_native_local".to_string();
+        request.api_format = Some("ioi_native".to_string());
+        request.driver = Some("native_local".to_string());
+        request.backend_ref = Some("backend.autopilot.native-local.fixture".to_string());
+        request.admitted_provider_execution = Some(ModelMountProviderExecutionRecord {
+            provider_ref: request.provider_ref.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            capability: request.capability.clone(),
+            invocation_kind: request.invocation_kind.clone(),
+            request_hash: request.request_hash.clone(),
+            ..request
+                .admitted_provider_execution
+                .clone()
+                .expect("admission")
+        });
+
+        let result =
+            invoke_provider(&request).expect("native-local provider invocation executes in Rust");
+
+        assert_eq!(result.execution_backend, "rust_model_mount_native_local");
+        assert_eq!(result.backend, "autopilot.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert_eq!(
+            result.provider_response_kind.as_deref(),
+            Some("rust_model_mount.native_local")
+        );
+        assert!(result
+            .output_text
+            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_backend".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"deterministic_native_local_fixture".to_string()));
+    }
+
+    #[test]
+    fn native_local_provider_stream_invocation_executes_in_rust_model_mount() {
+        let request = provider_stream_invocation_request();
+        let result = invoke_provider_stream(&request)
+            .expect("native-local provider stream executes in Rust");
+
+        assert_eq!(
+            result.schema_version,
+            MODEL_MOUNT_PROVIDER_STREAM_INVOCATION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            result.execution_backend,
+            "rust_model_mount_native_local_stream"
+        );
+        assert_eq!(result.stream_format, "ioi_jsonl");
+        assert_eq!(result.stream_kind, "openai_responses_native_local");
+        assert_eq!(
+            result.provider_response_kind,
+            "rust_model_mount.native_local.stream"
+        );
+        assert_eq!(result.backend, "autopilot.native_local.fixture");
+        assert_eq!(result.backend_id, "backend.autopilot.native-local.fixture");
+        assert!(result
+            .output_text
+            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
+        assert!(result.stream_chunks.len() >= 2);
+        assert!(result.stream_chunks[0].contains("\"done\":false"));
+        assert!(result
+            .stream_chunks
+            .last()
+            .expect("done chunk")
+            .contains("\"done\":true"));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_stream_invocation".to_string()));
+        assert!(result
+            .evidence_refs
+            .contains(&"rust_model_mount_native_local_stream_backend".to_string()));
+        assert!(result.invocation_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn fixture_provider_invocation_requires_bound_provider_execution() {
+        let mut request = provider_invocation_request();
+        request.admitted_provider_execution = None;
+
+        let error = invoke_provider(&request)
+            .expect_err("provider invocation requires the full admission record");
+
+        assert_eq!(error, ModelMountError::MissingProviderExecutionAdmission);
+
+        request = provider_invocation_request();
+        let admitted_ref = request.provider_execution_ref.clone();
+        request.provider_execution_ref = "model_mount://provider_execution/drifted".to_string();
+
+        let error =
+            invoke_provider(&request).expect_err("provider execution ref must match admission");
+
+        assert_eq!(error, ModelMountError::ProviderExecutionRefMismatch);
+
+        request.provider_execution_ref = admitted_ref;
+        request.provider_execution_hash = "sha256:drifted".to_string();
+        let error =
+            invoke_provider(&request).expect_err("provider execution hash must match admission");
+
+        assert_eq!(error, ModelMountError::ProviderExecutionHashMismatch);
+    }
+
+    #[test]
+    fn provider_invocation_rejects_unmigrated_or_stream_backends() {
+        let mut request = provider_invocation_request();
+        request.provider_kind = "openai".to_string();
+        request.driver = Some("openai_compatible".to_string());
+        request.api_format = Some("openai".to_string());
+
+        let error =
+            invoke_provider(&request).expect_err("only migrated provider backends execute in Rust");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
+
+        let mut request = provider_invocation_request();
+        request.stream_status = Some("started".to_string());
+        let error = invoke_provider(&request)
+            .expect_err("streaming provider execution remains a later slice");
+
+        assert_eq!(error, ModelMountError::StreamProviderInvocationUnsupported);
+    }
+
+    #[test]
+    fn native_local_provider_stream_invocation_rejects_unstarted_or_wrong_backends() {
+        let mut request = provider_stream_invocation_request();
+        request.stream_status = None;
+        let error = invoke_provider_stream(&request)
+            .expect_err("stream invocation requires started admission");
+
+        assert_eq!(error, ModelMountError::StreamProviderInvocationUnsupported);
+
+        let mut request = provider_stream_invocation_request();
+        request.execution_backend = "js_provider_driver_observation".to_string();
+        let error = invoke_provider_stream(&request)
+            .expect_err("stream invocation requires Rust native-local stream backend");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderInvocationBackend);
+    }
+
+    #[test]
+    fn admits_rust_provider_result_bound_to_execution() {
+        let record = admit_provider_result(&provider_result_admission_request())
+            .expect("Rust provider result admitted");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.execution_backend, "rust_model_mount_fixture");
+        assert_eq!(
+            record.provider_response_kind.as_deref(),
+            Some("rust_model_mount.fixture")
+        );
+        assert_eq!(record.output_hash.len(), "sha256:".len() + 64);
+        assert!(record
+            .provider_result_ref
+            .starts_with("model_mount://provider_result/"));
+        assert!(record.provider_result_hash.starts_with("sha256:"));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_result_admission".to_string()));
+        assert!(record
+            .evidence_refs
+            .contains(&"rust_model_mount_provider_result_backend_bound".to_string()));
+        assert!(!record
+            .evidence_refs
+            .iter()
+            .any(|value| value == "js_provider_driver_observation_bound"));
+    }
+
+    #[test]
+    fn admits_stream_start_rust_provider_result_bound_to_execution() {
+        let mut execution_request = provider_execution_request();
+        execution_request.stream_status = Some("started".to_string());
+        let admission = admit_provider_execution(&execution_request)
+            .expect("stream provider execution admitted");
+        let output_text = String::new();
+        let output_hash = format!(
+            "sha256:{}",
+            sha256_hex(output_text.as_bytes()).expect("output hash")
+        );
+        let request = ModelMountProviderResultAdmissionRequest {
+            schema_version: MODEL_MOUNT_PROVIDER_RESULT_SCHEMA_VERSION.to_string(),
+            provider_execution_ref: admission.provider_execution_ref.clone(),
+            provider_execution_hash: admission.provider_execution_hash.clone(),
+            route_decision_ref: admission.route_decision_ref.clone(),
+            route_receipt_ref: admission.route_receipt_ref.clone(),
+            route_ref: admission.route_ref.clone(),
+            provider_ref: admission.provider_ref.clone(),
+            provider_kind: "ioi_native_local".to_string(),
+            endpoint_ref: admission.endpoint_ref.clone(),
+            model_ref: admission.model_ref.clone(),
+            capability: admission.capability.clone(),
+            invocation_kind: admission.invocation_kind.clone(),
+            request_hash: admission.request_hash.clone(),
+            output_text,
+            output_hash,
+            token_count: ModelMountTokenCount {
+                prompt_tokens: 1,
+                completion_tokens: 0,
+                total_tokens: 1,
+            },
+            provider_response_kind: Some("rust_model_mount.native_local.stream".to_string()),
+            execution_backend: "rust_model_mount_native_local_stream".to_string(),
+            backend_ref: Some("backend.autopilot.native-local.fixture".to_string()),
+            stream_status: admission.stream_status.clone(),
+            receipt_refs: admission.receipt_refs.clone(),
+            provider_auth_evidence_refs: vec![],
+            backend_evidence_refs: vec!["autopilot_native_local_provider_native_stream".to_string()],
+            evidence_refs: vec![admission.provider_execution_ref.clone()],
+            admitted_provider_execution: Some(admission),
+        };
+
+        let record = admit_provider_result(&request).expect("stream Rust provider result admitted");
+
+        assert_eq!(record.stream_status.as_deref(), Some("started"));
+        assert_eq!(
+            record.provider_response_kind.as_deref(),
+            Some("rust_model_mount.native_local.stream")
+        );
+        assert_eq!(
+            record.execution_backend,
+            "rust_model_mount_native_local_stream"
+        );
+    }
+
+    #[test]
+    fn provider_result_admission_requires_bound_provider_execution() {
+        let mut request = provider_result_admission_request();
+        request.admitted_provider_execution = None;
+
+        let error = admit_provider_result(&request)
+            .expect_err("provider result requires the full admission record");
+
+        assert_eq!(error, ModelMountError::MissingProviderExecutionAdmission);
+
+        request = provider_result_admission_request();
+        request.provider_execution_ref = "model_mount://provider_execution/drifted".to_string();
+        let error =
+            admit_provider_result(&request).expect_err("provider result ref must match admission");
+
+        assert_eq!(error, ModelMountError::ProviderExecutionRefMismatch);
+    }
+
+    #[test]
+    fn provider_result_admission_rejects_hash_drift_or_wrong_backend() {
+        let mut request = provider_result_admission_request();
+        request.output_hash = "sha256:drifted".to_string();
+        let error = admit_provider_result(&request).expect_err("output hash must bind output text");
+
+        assert_eq!(error, ModelMountError::ProviderResultOutputHashMismatch);
+
+        let mut request = provider_result_admission_request();
+        request.execution_backend = "js_provider_driver_observation".to_string();
+        let error = admit_provider_result(&request)
+            .expect_err("JS provider result observations are retired");
+
+        assert_eq!(error, ModelMountError::UnsupportedProviderResultBackend);
+    }
+}

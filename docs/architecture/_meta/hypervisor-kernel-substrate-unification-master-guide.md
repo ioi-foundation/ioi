@@ -4612,7 +4612,9 @@ invocation execution, native-local stream invocation chunk planning, and
 provider-result admission now live in the dedicated Rust
 `model_mount/provider_execution.rs` module behind `ModelMountCore`, making
 provider execution and result binding a distinct Rust core boundary for the
-next direct daemon-core API cut;
+next direct daemon-core API cut, and the provider execution/invocation/result
+Rust tests now live beside that module instead of accumulating in the broad
+model-mount kernel file;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,
