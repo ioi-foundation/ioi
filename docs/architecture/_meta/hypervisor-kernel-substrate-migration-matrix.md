@@ -15697,6 +15697,50 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1134
+
+Slice 1134 moves coding-tool StepModule command request/response ownership out
+of the temporary Node bridge command wrapper and into
+`crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs`. Rust
+core now owns `CodingToolStepModuleBridgeRequest`, command validation,
+per-tool dispatch for `workspace.status`, `git.diff`, `file.inspect`,
+`file.apply_patch`, `test.run`, `lsp.diagnostics`, `artifact.read`,
+`tool.retrieve_result`, and `computer_use.request_lease`, workload observation
+envelopes, StepModule result construction, receipt binding, Agentgres
+admission, projection records, artifact data-plane evidence binding, and
+computer-use lease receipt/evidence binding. The remaining
+`crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs` file is a
+thin delegate to Rust response functions.
+
+The dead `ioi_step_module_bridge/coding_tool_receipt_command.rs` and
+`ioi_step_module_bridge/computer_use.rs` compatibility shims are deleted. The
+remaining `coding_tool_helpers.rs` bridge helper is limited to test/transport
+delegates for Rust workspace observation helpers and no longer carries
+file.apply_patch response glue, artifact/result binding helpers, or
+computer-use lease binding helpers.
+
+This is a Rust-core ownership cut across coding-tool StepModule command
+wrapping, not terminal coding-tool migration. The current StepModule command
+transport, JS runner/caller surfaces, coding-tool JS facades, and direct Rust
+daemon-core protocol/API extraction remain scaffolding until direct Rust
+daemon-core and Rust/WASM workload APIs own coding-tool admission, execution,
+receipt/state-root binding, Agentgres truth, wallet.network/cTEE authority
+checks where applicable, replay, projection, and stable protocol surfaces end
+to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_step_module --lib` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1133
 
 Slice 1133 moves the remaining model-mount provider daemon-core command

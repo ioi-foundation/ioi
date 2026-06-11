@@ -3732,12 +3732,14 @@ function runBridge() {
       exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs") &&
-      exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
+      !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
+      !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
       /mod coding_tool_command;/.test(bridgeModule) &&
       /mod coding_tool_helpers;/.test(bridgeModule) &&
-      /mod coding_tool_receipt_command;/.test(bridgeModule) &&
+      !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
+      !/mod computer_use;/.test(bridgeModule) &&
       /run_coding_tool_step_module/.test(bridgeCommandDispatch) &&
       !/struct StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
@@ -3747,36 +3749,40 @@ function runBridge() {
       !/fn apply_workspace_patch/.test(bridgeModule) &&
       !/fn inspect_test_run/.test(bridgeModule) &&
       !/fn inspect_lsp_diagnostics/.test(bridgeModule) &&
-      /pub\(super\) struct StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
+      /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
       /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
-      /workspace\.status/.test(codingToolCommandBridge) &&
+      /core_run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      /workspace\.status/.test(codingToolStepModuleCore) &&
       /pub\(super\) fn inspect_workspace_status/.test(codingToolHelpersBridge) &&
       !/workspace_status_shadow_response/.test(codingToolCommandBridge) &&
-      /git\.diff/.test(codingToolCommandBridge) &&
-      /file\.inspect/.test(codingToolCommandBridge) &&
-      /file\.apply_patch/.test(codingToolCommandBridge) &&
-      /pub\(super\) fn apply_workspace_patch/.test(codingToolHelpersBridge) &&
+      /git\.diff/.test(codingToolStepModuleCore) &&
+      /file\.inspect/.test(codingToolStepModuleCore) &&
+      /file\.apply_patch/.test(codingToolStepModuleCore) &&
+      /pub fn file_apply_patch_response/.test(codingToolStepModuleCore) &&
+      /apply_workspace_patch\(&workspace_root, &request\.input\)/.test(codingToolStepModuleCore) &&
+      !/pub\(super\) fn apply_workspace_patch/.test(codingToolHelpersBridge) &&
       !/AgentgresAdmissionCore/.test(codingToolCommandBridge) &&
       !/AgentgresAdmissionCore/.test(codingToolReceiptCommandBridge) &&
       /AgentgresAdmissionCore/.test(codingToolStepModuleCore) &&
-      /test\.run/.test(codingToolCommandBridge) &&
+      /test\.run/.test(codingToolStepModuleCore) &&
       /pub\(super\) fn inspect_test_run/.test(codingToolHelpersBridge) &&
       /npm\.test/.test(codingToolWorkspaceCore) &&
       /cargo\.test/.test(codingToolWorkspaceCore) &&
       /cargo\.check/.test(codingToolWorkspaceCore) &&
-      /lsp\.diagnostics/.test(codingToolCommandBridge) &&
+      /lsp\.diagnostics/.test(codingToolStepModuleCore) &&
       /pub\(super\) fn inspect_lsp_diagnostics/.test(codingToolHelpersBridge) &&
       /typescript\.check/.test(codingToolWorkspaceCore) &&
       /fn run_typescript_check/.test(codingToolWorkspaceCore) &&
       /fn local_tsc_executable/.test(codingToolWorkspaceCore) &&
-      /artifact\.read/.test(codingToolCommandBridge) &&
-      /tool\.retrieve_result/.test(codingToolCommandBridge) &&
-      /normalize_artifact_read/.test(codingToolCommandBridge) &&
-      /normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
+      /artifact\.read/.test(codingToolStepModuleCore) &&
+      /tool\.retrieve_result/.test(codingToolStepModuleCore) &&
+      /normalize_artifact_read/.test(codingToolStepModuleCore) &&
+      /normalize_tool_retrieve_result/.test(codingToolStepModuleCore) &&
+      !/normalize_artifact_read/.test(codingToolCommandBridge) &&
+      !/normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
       !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
-      /computer_use\.request_lease/.test(codingToolCommandBridge) &&
-      /build_computer_use_lease_request/.test(computerUseBridge) &&
-      /build_core_computer_use_lease_request/.test(computerUseBridge) &&
+      /computer_use\.request_lease/.test(codingToolStepModuleCore) &&
+      /build_computer_use_lease_request/.test(codingToolStepModuleCore) &&
       /computer_use_provider_for_lane/.test(computerUseCore) &&
       /computer_use_provider_registry_report/.test(computerUseCore) &&
       /struct ComputerUseProvider/.test(computerUseCore) &&
@@ -3791,6 +3797,8 @@ function runBridge() {
       !/ReceiptBinder/.test(codingToolReceiptCommandBridge) &&
       !/RustProjectionCore/.test(codingToolReceiptCommandBridge) &&
       /pub mod coding_tool_step_module;/.test(kernelModuleForBridgeChecks) &&
+      /pub struct CodingToolStepModuleBridgeRequest/.test(codingToolStepModuleCore) &&
+      /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       /pub fn successful_coding_tool_step_module_result/.test(codingToolStepModuleCore) &&
       /pub fn coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       /StepModuleRouterCore/.test(codingToolStepModuleCore) &&
@@ -3863,8 +3871,6 @@ function runBridge() {
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_computer_use.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
@@ -3911,7 +3917,9 @@ function runBridge() {
       /path_outside_workspace/.test(codingToolWorkspaceCore) &&
       /payload:\/\/workspace\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
       /agentgres:\/\/operation\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
-      /apply_core_workspace_patch/.test(codingToolHelpersBridge) &&
+      /apply_workspace_patch\(&workspace_root, &request\.input\)/.test(codingToolStepModuleCore) &&
+      /core_file_apply_patch_response/.test(codingToolCommandBridge) &&
+      !/apply_core_workspace_patch/.test(codingToolHelpersBridge) &&
       !/fn normalize_patch_edits/.test(codingToolHelpersBridge) &&
       !/fn patch_transition/.test(codingToolHelpersBridge) &&
       !/fn text_diff_preview/.test(codingToolHelpersBridge) &&
@@ -3996,8 +4004,12 @@ function runBridge() {
       /shell_fallback_used/.test(codingToolArtifactCore) &&
       /content_hash/.test(codingToolArtifactCore) &&
       /artifact_refs/.test(codingToolArtifactCore) &&
-      /normalize_artifact_read/.test(codingToolCommandBridge) &&
-      /normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
+      /normalize_artifact_read/.test(codingToolStepModuleCore) &&
+      /normalize_tool_retrieve_result/.test(codingToolStepModuleCore) &&
+      /core_artifact_read_response/.test(codingToolCommandBridge) &&
+      /core_tool_retrieve_result_response/.test(codingToolCommandBridge) &&
+      !/normalize_artifact_read/.test(codingToolCommandBridge) &&
+      !/normalize_tool_retrieve_result/.test(codingToolCommandBridge) &&
       !/fn normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
       !/rustWorkloadDataPlane"\)/.test(codingToolCommandBridge) &&
       !/dataPlaneSource/.test(codingToolCommandBridge) &&
@@ -4095,8 +4107,9 @@ function runBridge() {
         bridgeModule,
       ) &&
       /coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
-      /pub\(super\) struct StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
+      /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
       /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      /pub fn run_coding_tool_step_module_response/.test(codingToolStepModuleCore) &&
       !/StepModuleRouterCore/.test(codingToolCommandBridge) &&
       !/WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
       !/StepModuleRouterCore/.test(codingToolReceiptCommandBridge) &&
@@ -4316,14 +4329,15 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-binding-output-aliases-retired",
-    /computer_use_request_lease_response/.test(codingToolCommandBridge) &&
-      /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(codingToolCommandBridge) &&
-      /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(codingToolCommandBridge) &&
+    /computer_use_request_lease_response/.test(codingToolStepModuleCore) &&
+      /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(codingToolStepModuleCore) &&
+      /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(codingToolStepModuleCore) &&
+      /core_computer_use_request_lease_response/.test(codingToolCommandBridge) &&
       !/json_string_refs\(\s*&lease_request,\s*&\["receiptRefs",\s*"receipt_refs"\]/.test(
-        codingToolCommandBridge,
+        codingToolStepModuleCore,
       ) &&
       !/optional_json_string\(&lease_request,\s*&\["requestRef",\s*"request_ref"\]\)/.test(
-        codingToolCommandBridge,
+        codingToolStepModuleCore,
       ) &&
       /computer_use_request_lease_binds_canonical_receipt_and_request_refs/.test(
         bridgeModule,

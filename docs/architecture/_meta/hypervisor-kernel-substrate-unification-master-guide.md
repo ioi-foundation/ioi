@@ -6484,6 +6484,27 @@ provider-result admission, receipt/state-root binding, Agentgres truth,
 wallet.network and cTEE authority checks where applicable, replay, projection,
 and stable IDE/CLI/SDK surfaces end to end.
 
+Slice 1134 moves coding-tool StepModule command request/response shaping out
+of the temporary Node coding-tool bridge and into Rust
+`coding_tool_step_module.rs`. Rust core now owns the bridge request struct,
+command validation, per-tool dispatch, workload observation envelopes,
+StepModule result construction, receipt binding, Agentgres admission,
+projection records, artifact data-plane binding, and computer-use lease
+receipt/evidence binding for the Rust-live coding-tool set. The remaining
+`ioi_step_module_bridge/coding_tool_command.rs` file only delegates to Rust
+response functions, while the dead `coding_tool_receipt_command.rs` and
+`computer_use.rs` bridge shims are deleted.
+
+This remains non-terminal because StepModule command transport, command
+dispatch, JS command callers, runtime coding-tool invocation facades, and
+direct daemon-core/workload protocol/API extraction still exist. The remaining
+coding-tool Node bridge files are temporary transport/test scaffolding, not a
+durable coding-tool execution boundary. The long-term target remains direct
+Rust daemon-core and Rust/WASM coding-tool admission, execution,
+receipt/state-root binding, Agentgres truth, wallet.network and cTEE authority
+checks where applicable, replay, projection, and stable IDE/CLI/SDK surfaces
+end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

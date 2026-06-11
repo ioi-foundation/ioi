@@ -1,10 +1,17 @@
 use ioi_client::workload_client::{
     WorkloadClient, WorkloadStepModuleDispatchRequest, WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION,
 };
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use super::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
+};
+use super::coding_tool_artifact::{normalize_artifact_read, normalize_tool_retrieve_result};
+use super::coding_tool_computer_use::build_computer_use_lease_request;
+use super::coding_tool_workspace::{
+    apply_workspace_patch, inspect_git_diff, inspect_lsp_diagnostics, inspect_test_run,
+    inspect_workspace_path, inspect_workspace_status,
 };
 use super::projection::RustProjectionCore;
 use super::receipt_binder::ReceiptBinder;
@@ -18,6 +25,311 @@ use super::step_router::StepModuleRouterCore;
 pub struct CodingToolStepModuleRequest {
     pub backend: String,
     pub invocation: StepModuleInvocation,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct CodingToolStepModuleBridgeRequest {
+    pub backend: String,
+    pub invocation: StepModuleInvocation,
+    #[serde(default)]
+    pub workspace_root: Option<String>,
+    #[serde(default)]
+    pub input: Value,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CodingToolStepModuleCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl CodingToolStepModuleCommandError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+pub fn run_coding_tool_step_module_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    request.invocation.validate().map_err(|errors| {
+        CodingToolStepModuleCommandError::new("invocation_invalid", format!("{errors:?}"))
+    })?;
+
+    match request.invocation.module_ref.id.as_str() {
+        "workspace.status" => workspace_status_response(request),
+        "git.diff" => git_diff_response(request),
+        "file.inspect" => file_inspect_response(request),
+        "file.apply_patch" => file_apply_patch_response(request),
+        "test.run" => test_run_response(request),
+        "lsp.diagnostics" => lsp_diagnostics_response(request),
+        "artifact.read" => artifact_read_response(request),
+        "tool.retrieve_result" => tool_retrieve_result_response(request),
+        "computer_use.request_lease" => computer_use_request_lease_response(request),
+        other => Err(CodingToolStepModuleCommandError::new(
+            "tool_unsupported",
+            format!("unsupported StepModule tool {other}"),
+        )),
+    }
+}
+
+pub fn workspace_status_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let status_result =
+        inspect_workspace_status(&workspace_root, &request.input).map_err(workspace_error)?;
+    let result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "workspace.status",
+        "CodingToolNode",
+    );
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "workspace.status",
+            "result": status_result,
+        }),
+    ))
+}
+
+pub fn git_diff_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let diff_result = inspect_git_diff(&workspace_root, &request.input).map_err(workspace_error)?;
+    let result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "git.diff",
+        "GitToolNode",
+    );
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "git.diff",
+            "result": diff_result,
+        }),
+    ))
+}
+
+pub fn file_inspect_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let selected_path = request
+        .input
+        .get("path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| {
+            CodingToolStepModuleCommandError::new(
+                "file_inspect_path_required",
+                "file.inspect requires path".to_string(),
+            )
+        })?;
+    let inspected = inspect_workspace_path(&workspace_root, selected_path, &request.input)
+        .map_err(workspace_error)?;
+    let result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "file.inspect",
+        "FilesystemToolNode",
+    );
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "file.inspect",
+            "result": inspected,
+        }),
+    ))
+}
+
+pub fn file_apply_patch_response(
+    mut request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let patch = apply_workspace_patch(&workspace_root, &request.input).map_err(workspace_error)?;
+    let mut expected_heads = vec![];
+    if let Some(transition) = patch.transition.as_ref() {
+        request.invocation.input.state_root_before = Some(transition.state_root_before.clone());
+        request.invocation.input.projection_watermark = Some(format!(
+            "projection://agentgres/{}",
+            transition.resulting_head
+        ));
+        expected_heads = transition.expected_heads.clone();
+    }
+    let mut result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "file.apply_patch",
+        "FilesystemPatchNode",
+    );
+    if let Some(transition) = patch.transition.as_ref() {
+        result.agentgres_operation_refs = vec![transition.operation_ref.clone()];
+        result.payload_refs = vec![transition.payload_ref.clone()];
+        result.state_root_after = Some(transition.state_root_after.clone());
+        result.resulting_head = Some(transition.resulting_head.clone());
+        result.workflow_projection.evidence_refs.push(format!(
+            "evidence://agentgres/{}",
+            safe_ref_path(&transition.operation_ref)
+        ));
+    }
+    Ok(coding_tool_step_module_response_with_expected_heads(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "file.apply_patch",
+            "result": patch.observation,
+        }),
+        expected_heads,
+    ))
+}
+
+pub fn test_run_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let test_result = inspect_test_run(&workspace_root, &request.input).map_err(workspace_error)?;
+    let result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "test.run",
+        "TestRunNode",
+    );
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "test.run",
+            "result": test_result,
+        }),
+    ))
+}
+
+pub fn lsp_diagnostics_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let diagnostics_result =
+        inspect_lsp_diagnostics(&workspace_root, &request.input).map_err(workspace_error)?;
+    let result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "lsp.diagnostics",
+        "LspDiagnosticsNode",
+    );
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "lsp.diagnostics",
+            "result": diagnostics_result,
+        }),
+    ))
+}
+
+pub fn artifact_read_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let read_result = normalize_artifact_read(&request.input).map_err(artifact_error)?;
+    let mut result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "artifact.read",
+        "ArtifactReadNode",
+    );
+    result.artifact_refs = read_result.artifact_refs.clone();
+    result.receipt_refs = unique_string_refs(
+        result
+            .receipt_refs
+            .into_iter()
+            .chain(read_result.receipt_refs.clone())
+            .collect(),
+    );
+    result.workflow_projection.evidence_refs.push(format!(
+        "evidence://rust-workload/artifact.read/{}",
+        read_result.evidence_ref
+    ));
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "artifact.read",
+            "result": read_result.observation,
+        }),
+    ))
+}
+
+pub fn tool_retrieve_result_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let retrieve_result = normalize_tool_retrieve_result(&request.input).map_err(artifact_error)?;
+    let mut result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "tool.retrieve_result",
+        "ToolRetrieveResultNode",
+    );
+    result.artifact_refs = retrieve_result.artifact_refs.clone();
+    result.receipt_refs = unique_string_refs(
+        result
+            .receipt_refs
+            .into_iter()
+            .chain(retrieve_result.receipt_refs.clone())
+            .collect(),
+    );
+    result.workflow_projection.evidence_refs.push(format!(
+        "evidence://rust-workload/tool.retrieve_result/{}",
+        retrieve_result.evidence_ref
+    ));
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "tool.retrieve_result",
+            "result": retrieve_result.observation,
+        }),
+    ))
+}
+
+pub fn computer_use_request_lease_response(
+    request: CodingToolStepModuleBridgeRequest,
+) -> Result<Value, CodingToolStepModuleCommandError> {
+    let workspace_root = required_workspace_root(&request)?;
+    let lease_request = build_computer_use_lease_request(&workspace_root, &request.input)
+        .map_err(computer_use_error)?;
+    let mut result = successful_coding_tool_step_module_result(
+        &request.core_request(),
+        "computer_use.request_lease",
+        "ComputerUseLeaseRequestNode",
+    );
+    result.receipt_refs = unique_string_refs(
+        result
+            .receipt_refs
+            .into_iter()
+            .chain(json_string_refs(&lease_request, &["receipt_refs"]))
+            .collect(),
+    );
+    result.workflow_projection.evidence_refs.push(format!(
+        "evidence://rust-workload/computer_use.request_lease/{}",
+        optional_json_string(&lease_request, &["request_ref"])
+            .map(|value| safe_ref_path(&value))
+            .unwrap_or_else(|| "unknown".to_string())
+    ));
+    Ok(coding_tool_step_module_response(
+        request.core_request(),
+        result,
+        json!({
+            "tool": "computer_use.request_lease",
+            "result": lease_request,
+        }),
+    ))
 }
 
 pub fn successful_coding_tool_step_module_result(
@@ -245,6 +557,94 @@ fn unique_string_refs(values: Vec<String>) -> Vec<String> {
         }
     }
     refs
+}
+
+fn required_workspace_root(
+    request: &CodingToolStepModuleBridgeRequest,
+) -> Result<String, CodingToolStepModuleCommandError> {
+    request.workspace_root.clone().ok_or_else(|| {
+        CodingToolStepModuleCommandError::new(
+            "workspace_root_required",
+            "workspace_root is required".to_string(),
+        )
+    })
+}
+
+fn json_string_refs(value: &Value, keys: &[&str]) -> Vec<String> {
+    for key in keys {
+        let refs = value
+            .get(*key)
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .take(100)
+                    .map(ToOwned::to_owned)
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        if !refs.is_empty() {
+            return refs;
+        }
+    }
+    Vec::new()
+}
+
+fn optional_json_string(value: &Value, keys: &[&str]) -> Option<String> {
+    keys.iter()
+        .find_map(|key| value.get(*key).and_then(Value::as_str))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+fn safe_ref_path(value: &str) -> String {
+    let safe = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .take(48)
+        .collect::<String>();
+    if safe.is_empty() {
+        "file".to_string()
+    } else {
+        safe
+    }
+}
+
+fn workspace_error(
+    error: super::coding_tool_workspace::CodingToolWorkspaceError,
+) -> CodingToolStepModuleCommandError {
+    CodingToolStepModuleCommandError::new(error.code(), error.message().to_string())
+}
+
+fn artifact_error(
+    error: super::coding_tool_artifact::CodingToolArtifactError,
+) -> CodingToolStepModuleCommandError {
+    CodingToolStepModuleCommandError::new(error.code(), error.message().to_string())
+}
+
+fn computer_use_error(
+    error: super::coding_tool_computer_use::CodingToolComputerUseError,
+) -> CodingToolStepModuleCommandError {
+    CodingToolStepModuleCommandError::new(error.code(), error.message().to_string())
+}
+
+impl CodingToolStepModuleBridgeRequest {
+    fn core_request(&self) -> CodingToolStepModuleRequest {
+        CodingToolStepModuleRequest {
+            backend: self.backend.clone(),
+            invocation: self.invocation.clone(),
+        }
+    }
 }
 
 fn short_suffix(value: &str) -> String {
