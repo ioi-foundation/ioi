@@ -5195,6 +5195,18 @@ and retiring JS command facades, readback adapters, and compatibility wrappers
 once Rust admission, Agentgres truth, receipt/state-root binding, replay,
 projection, wallet.network authority, and cTEE custody are verified.
 
+Slice 1060 extends the same temporary helper to runtime Agentgres admission and
+workspace restore. `runtime-agentgres-admission-runner.mjs` and
+`runtime-workspace-restore-runner.mjs` now delegate fixed empty-argv command
+spawn, mock handling, JSON parsing, process failure mapping, and Rust rejection
+mapping to `runtime-daemon-core-command-runner.mjs` instead of importing
+`node:child_process` directly. This reduces duplicated JS command transport on
+the Agentgres truth path and restore planning/execution path, but it remains
+migration scaffolding. Resume by collapsing the remaining large context-policy,
+model-mount admission, and StepModule command surfaces where helpful, then
+replace the shared helper and Node command bridge with direct Rust daemon-core
+protocol/API ownership.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

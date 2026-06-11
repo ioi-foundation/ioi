@@ -12654,7 +12654,9 @@ function runBridge() {
       /rust_workspace_restore/.test(workspaceRestoreRunner) &&
       /workspace_restore_bridge_unconfigured/.test(workspaceRestoreRunner) &&
       /workspace_restore_command_args_retired/.test(workspaceRestoreRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(workspaceRestoreRunner) &&
+      /createDaemonCoreCommandInvoker/.test(workspaceRestoreRunner) &&
+      !/from "node:child_process"/.test(workspaceRestoreRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /workspace restore runner sends apply policy bridge request/.test(
         workspaceRestoreRunnerTest,
       ) &&
@@ -14174,6 +14176,9 @@ function runReceipts() {
     : "";
   const runtimeAgentgresRunner = exists("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs")
+    : "";
+  const daemonCoreCommandRunner = exists("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
+    ? read("packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs")
     : "";
   const runtimeCodingToolArtifactSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs")
@@ -17680,7 +17685,9 @@ function runReceipts() {
       !/argsEnv/.test(runtimeAgentgresRunner) &&
       /assertNoRuntimeAgentgresCommandArgs/.test(runtimeAgentgresRunner) &&
       /runtime_agentgres_command_args_retired/.test(runtimeAgentgresRunner) &&
-      /spawnSyncImpl\(this\.command,\s*\[\]/.test(runtimeAgentgresRunner) &&
+      /createDaemonCoreCommandInvoker/.test(runtimeAgentgresRunner) &&
+      !/from "node:child_process"/.test(runtimeAgentgresRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /runtime Agentgres runner command args env fails closed/.test(
         read("packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs"),
       ) &&

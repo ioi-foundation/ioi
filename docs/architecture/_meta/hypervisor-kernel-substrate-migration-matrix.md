@@ -16189,6 +16189,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1060
+
+Slice 1060 extends the shared temporary daemon-core command-runner helper to
+runtime Agentgres admission and workspace restore. Those JS runners now
+delegate mock handling, fixed empty-argv command spawn, JSON parsing,
+process-failure mapping, and Rust rejection mapping to
+`packages/runtime-daemon/src/runtime-daemon-core-command-runner.mjs` instead of
+importing `node:child_process` and carrying local `invokeBridge` process
+implementations. Conformance now proves those runners use the helper and do
+not import `node:child_process` directly.
+
+This is important because Agentgres admission is the admitted truth path and
+workspace restore is a high-impact runtime-control surface, but it is still a
+transport-scaffolding reduction rather than terminal Rust daemon-core API
+ownership. The remaining path is to collapse the large context-policy,
+model-mount admission, and StepModule command surfaces where useful, then
+replace the shared helper and Node command bridge with direct Rust daemon-core
+protocol/API entry points over Rust/WASM module execution, Agentgres
+expected-head/state-root admission, receipt binding, replay, projection,
+wallet.network authority gates, cTEE custody, and stable IDE/CLI/SDK protocol
+access.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-agentgres-admission-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-agentgres-admission-runner.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 Scheduled matrix-compaction obligation from Slice 788 is now satisfied. The
 next resume should continue with the next concrete Rust-core extraction or
 JS-facade retirement seam; schedule the next matrix-compaction pass only after

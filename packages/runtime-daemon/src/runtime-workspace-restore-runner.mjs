@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const WORKSPACE_RESTORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -36,8 +36,26 @@ export class RustWorkspaceRestoreRunner {
   constructor(options = {}) {
     assertNoWorkspaceRestoreCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_workspace_restore_mock",
+      defaultBackend: RUST_WORKSPACE_RESTORE_BACKEND,
+      ErrorClass: WorkspaceRestoreRunnerError,
+      env: WORKSPACE_RESTORE_COMMAND_ENV,
+      unconfiguredMessage:
+        "Workspace restore requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core restore planning and execution.",
+      unconfiguredCode: "workspace_restore_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust workspace restore bridge command.",
+      spawnFailedCode: "workspace_restore_bridge_spawn_failed",
+      commandFailedMessage: "Rust workspace restore bridge command failed.",
+      commandFailedCode: "workspace_restore_bridge_failed",
+      invalidJsonMessage: "Rust workspace restore bridge command returned invalid JSON.",
+      invalidJsonCode: "workspace_restore_bridge_invalid_json",
+      rejectedMessage: "Rust workspace restore core rejected the request.",
+      rejectedCode: "workspace_restore_bridge_rejected",
+    });
   }
 
   planApplyPolicy(request) {
@@ -96,65 +114,6 @@ export class RustWorkspaceRestoreRunner {
     return normalizeWorkspaceSnapshotCaptureBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_workspace_restore_mock",
-        backend: request.backend ?? RUST_WORKSPACE_RESTORE_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new WorkspaceRestoreRunnerError(
-        "Workspace restore requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core restore planning and execution.",
-        "workspace_restore_bridge_unconfigured",
-        {
-          env: WORKSPACE_RESTORE_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new WorkspaceRestoreRunnerError(
-        "Failed to spawn Rust workspace restore bridge command.",
-        "workspace_restore_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new WorkspaceRestoreRunnerError(
-        "Rust workspace restore bridge command failed.",
-        "workspace_restore_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new WorkspaceRestoreRunnerError(
-        "Rust workspace restore bridge command returned invalid JSON.",
-        "workspace_restore_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new WorkspaceRestoreRunnerError(
-        parsed.error?.message ?? "Rust workspace restore core rejected the request.",
-        parsed.error?.code ?? "workspace_restore_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class WorkspaceRestoreRunnerError extends Error {

@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const RUNTIME_AGENTGRES_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const RUNTIME_AGENTGRES_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
@@ -29,8 +29,26 @@ export class RustRuntimeAgentgresAdmissionRunner {
   constructor(options = {}) {
     assertNoRuntimeAgentgresCommandArgs(options.args);
     this.command = optionalString(options.command);
-    this.spawnSyncImpl = options.spawnSyncImpl ?? spawnSync;
-    this.mockResult = options.mockResult;
+    this.invokeBridge = createDaemonCoreCommandInvoker({
+      command: this.command,
+      spawnSyncImpl: options.spawnSyncImpl,
+      mockResult: options.mockResult,
+      mockSource: "rust_runtime_agentgres_mock",
+      defaultBackend: RUST_RUNTIME_AGENTGRES_BACKEND,
+      ErrorClass: RuntimeAgentgresAdmissionRunnerError,
+      env: RUNTIME_AGENTGRES_COMMAND_ENV,
+      unconfiguredMessage:
+        "Runtime Agentgres admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core admission.",
+      unconfiguredCode: "runtime_agentgres_admission_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust runtime Agentgres admission bridge command.",
+      spawnFailedCode: "runtime_agentgres_admission_bridge_spawn_failed",
+      commandFailedMessage: "Rust runtime Agentgres admission bridge command failed.",
+      commandFailedCode: "runtime_agentgres_admission_bridge_failed",
+      invalidJsonMessage: "Rust runtime Agentgres admission bridge command returned invalid JSON.",
+      invalidJsonCode: "runtime_agentgres_admission_bridge_invalid_json",
+      rejectedMessage: "Rust runtime Agentgres core rejected the transition request.",
+      rejectedCode: "runtime_agentgres_admission_bridge_rejected",
+    });
   }
 
   admitStorageBackendWrite(request) {
@@ -120,65 +138,6 @@ export class RustRuntimeAgentgresAdmissionRunner {
     return normalizeRuntimeModelMountReceiptStateCommitBridgeResult(this.invokeBridge(bridgeRequest));
   }
 
-  invokeBridge(request) {
-    if (this.mockResult) {
-      const value = typeof this.mockResult === "function" ? this.mockResult(request) : this.mockResult;
-      return {
-        source: "rust_runtime_agentgres_mock",
-        backend: request.backend ?? RUST_RUNTIME_AGENTGRES_BACKEND,
-        ...value,
-      };
-    }
-    if (!this.command) {
-      throw new RuntimeAgentgresAdmissionRunnerError(
-        "Runtime Agentgres admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core admission.",
-        "runtime_agentgres_admission_bridge_unconfigured",
-        {
-          env: RUNTIME_AGENTGRES_COMMAND_ENV,
-        },
-      );
-    }
-    const output = this.spawnSyncImpl(this.command, [], {
-      input: `${JSON.stringify(request)}\n`,
-      encoding: "utf8",
-      windowsHide: true,
-    });
-    if (output.error) {
-      throw new RuntimeAgentgresAdmissionRunnerError(
-        "Failed to spawn Rust runtime Agentgres admission bridge command.",
-        "runtime_agentgres_admission_bridge_spawn_failed",
-        { error: String(output.error?.message ?? output.error) },
-      );
-    }
-    if (output.status !== 0) {
-      throw new RuntimeAgentgresAdmissionRunnerError(
-        "Rust runtime Agentgres admission bridge command failed.",
-        "runtime_agentgres_admission_bridge_failed",
-        {
-          status: output.status,
-          stderr: String(output.stderr ?? "").slice(0, 4096),
-        },
-      );
-    }
-    let parsed = null;
-    try {
-      parsed = JSON.parse(String(output.stdout ?? ""));
-    } catch (error) {
-      throw new RuntimeAgentgresAdmissionRunnerError(
-        "Rust runtime Agentgres admission bridge command returned invalid JSON.",
-        "runtime_agentgres_admission_bridge_invalid_json",
-        { error: String(error?.message ?? error) },
-      );
-    }
-    if (parsed?.ok === false) {
-      throw new RuntimeAgentgresAdmissionRunnerError(
-        parsed.error?.message ?? "Rust runtime Agentgres core rejected the transition request.",
-        parsed.error?.code ?? "runtime_agentgres_admission_bridge_rejected",
-        { error: parsed.error },
-      );
-    }
-    return parsed.result ?? parsed;
-  }
 }
 
 export class RuntimeAgentgresAdmissionRunnerError extends Error {
