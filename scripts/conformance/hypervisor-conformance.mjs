@@ -2269,6 +2269,9 @@ function runBridge() {
   const authorityCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/authority_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/authority_command.rs")
     : "";
+  const codingToolCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs")
+    : "";
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
@@ -3583,34 +3586,43 @@ function runBridge() {
     "migrated-coding-tools-rust-command-bridge",
     exists("crates/node/src/bin/ioi-step-module-bridge.rs") &&
       exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs") &&
+      exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
       /run_bridge_response_from_stdin/.test(bridgeBin) &&
-      /workspace\.status/.test(bridgeModule) &&
+      /mod coding_tool_command;/.test(bridgeModule) &&
+      /run_coding_tool_step_module/.test(bridgeModule) &&
+      !/struct StepModuleBridgeRequest/.test(bridgeModule) &&
+      !/fn run_coding_tool_step_module/.test(bridgeModule) &&
+      !/fn workspace_status_response/.test(bridgeModule) &&
+      !/fn file_apply_patch_response/.test(bridgeModule) &&
+      /pub\(super\) struct StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
+      /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      /workspace\.status/.test(codingToolCommandBridge) &&
       /inspect_workspace_status/.test(bridgeModule) &&
-      !/workspace_status_shadow_response/.test(bridgeModule) &&
-      /git\.diff/.test(bridgeModule) &&
-      /file\.inspect/.test(bridgeModule) &&
-      /file\.apply_patch/.test(bridgeModule) &&
+      !/workspace_status_shadow_response/.test(codingToolCommandBridge) &&
+      /git\.diff/.test(codingToolCommandBridge) &&
+      /file\.inspect/.test(codingToolCommandBridge) &&
+      /file\.apply_patch/.test(codingToolCommandBridge) &&
       /apply_workspace_patch/.test(bridgeModule) &&
-      /AgentgresAdmissionCore/.test(bridgeModule) &&
-      /test\.run/.test(bridgeModule) &&
+      /AgentgresAdmissionCore/.test(codingToolCommandBridge) &&
+      /test\.run/.test(codingToolCommandBridge) &&
       /inspect_test_run/.test(bridgeModule) &&
       /npm\.test/.test(bridgeModule) &&
       /cargo\.test/.test(bridgeModule) &&
       /cargo\.check/.test(bridgeModule) &&
-      /lsp\.diagnostics/.test(bridgeModule) &&
+      /lsp\.diagnostics/.test(codingToolCommandBridge) &&
       /inspect_lsp_diagnostics/.test(bridgeModule) &&
       /typescript\.check/.test(bridgeModule) &&
       /run_typescript_check/.test(bridgeModule) &&
       /local_tsc_executable/.test(bridgeModule) &&
-      /artifact\.read/.test(bridgeModule) &&
-      /tool\.retrieve_result/.test(bridgeModule) &&
-      /normalize_prefetched_artifact_result/.test(bridgeModule) &&
-      /computer_use\.request_lease/.test(bridgeModule) &&
-      /build_computer_use_lease_request/.test(bridgeModule) &&
+      /artifact\.read/.test(codingToolCommandBridge) &&
+      /tool\.retrieve_result/.test(codingToolCommandBridge) &&
+      /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
+      /computer_use\.request_lease/.test(codingToolCommandBridge) &&
+      /build_computer_use_lease_request/.test(computerUseBridge) &&
       /ioi\.step_module\.command_bridge\.v1/.test(bridgeModule) &&
-      /StepModuleRouterCore/.test(bridgeModule) &&
-      /router_admission/.test(bridgeModule) &&
+      /StepModuleRouterCore/.test(codingToolCommandBridge) &&
+      /router_admission/.test(codingToolCommandBridge) &&
       /RUST_WORKLOAD_LIVE_TOOL_IDS/.test(runtimeCodingToolInvocationSurface) &&
       /workspace\.status/.test(runtimeCodingToolInvocationSurface) &&
       /git\.diff/.test(runtimeCodingToolInvocationSurface) &&
@@ -3675,6 +3687,8 @@ function runBridge() {
     [
       "crates/node/src/bin/ioi-step-module-bridge.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
@@ -3690,10 +3704,10 @@ function runBridge() {
       /plan_step_module_dispatch/.test(workloadClient) &&
       /DaemonJsBackendRetired/.test(workloadClient) &&
       /workload_client_rejects_daemon_js_dispatch/.test(workloadClient) &&
-      /WorkloadClient::plan_step_module_dispatch/.test(bridgeModule) &&
-      /workload_step_module_dispatch_request/.test(bridgeModule) &&
-      /"workload_dispatch": workload_dispatch/.test(bridgeModule) &&
-      /"workload_observation": workload_observation/.test(bridgeModule) &&
+      /WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge) &&
+      /workload_step_module_dispatch_request/.test(codingToolCommandBridge) &&
+      /"workload_dispatch": workload_dispatch/.test(codingToolCommandBridge) &&
+      /"workload_observation": workload_observation/.test(codingToolCommandBridge) &&
       /rust_workload_client_step_module_dispatch/.test(bridgeModule) &&
       /bridge_result\?\.workload_observation/.test(runtimeCodingToolInvocationSurface) &&
       /Object\.hasOwn\(result\.step_module\.bridge_result,\s*"shadow_observation"\),\s*false/.test(
@@ -3704,6 +3718,7 @@ function runBridge() {
     [
       "crates/client/src/workload_client/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs",
     ],
@@ -3864,20 +3879,21 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-request-lease-binding-output-aliases-retired",
-    /computer_use_request_lease_response/.test(bridgeModule) &&
-      /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(bridgeModule) &&
-      /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(bridgeModule) &&
+    /computer_use_request_lease_response/.test(codingToolCommandBridge) &&
+      /json_string_refs\(\s*&lease_request,\s*&\["receipt_refs"\],?\s*\)/.test(codingToolCommandBridge) &&
+      /optional_json_string\(&lease_request,\s*&\["request_ref"\]\)/.test(codingToolCommandBridge) &&
       !/json_string_refs\(\s*&lease_request,\s*&\["receiptRefs",\s*"receipt_refs"\]/.test(
-        bridgeModule,
+        codingToolCommandBridge,
       ) &&
       !/optional_json_string\(&lease_request,\s*&\["requestRef",\s*"request_ref"\]\)/.test(
-        bridgeModule,
+        codingToolCommandBridge,
       ) &&
       /computer_use_request_lease_binds_canonical_receipt_and_request_refs/.test(
         bridgeModule,
       ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
     ],
     "Phase 10/11 is pending: Rust computer-use request-lease StepModule receipt/evidence binding must consume canonical receipt_refs/request_ref rather than retired receiptRefs/requestRef output aliases",
@@ -19067,9 +19083,9 @@ function runReceipts() {
   assertCheck(
     result,
     "model-mount-invocation-agentgres-admission-core",
-    /bind_model_mount_invocation_receipt/.test(bridgeModule) &&
-      /AgentgresAdmissionCore/.test(bridgeModule) &&
-      /agentgres_admission/.test(bridgeModule) &&
+    /bind_model_mount_invocation_receipt/.test(modelMountCommandBridge) &&
+      /AgentgresAdmissionCore/.test(modelMountCommandBridge) &&
+      /agentgres_admission/.test(modelMountCommandBridge) &&
       /modelMountInvocationAgentgresTransitionForReceipt/.test(modelInvocationOps) &&
       /model_mount_agentgres_expected_heads/.test(modelInvocationOps) &&
       /model_mount_agentgres_state_root_before/.test(modelInvocationOps) &&
@@ -19083,7 +19099,7 @@ function runReceipts() {
         modelInvocationOps,
       ),
     [
-      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 4 is pending: model invocation receipt operations must pass through Rust Agentgres admission with expected heads and state-root binding",

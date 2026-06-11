@@ -5121,6 +5121,23 @@ authority receipts, Agentgres/state-root binding where capability exits become
 meaningful transitions, replay, projection, and stable IDE/CLI/SDK protocol
 surfaces.
 
+Slice 1055 moves the coding-tool StepModule command wrapper family out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
+transport into
+`crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs`. This
+includes the StepModule bridge request, `run_coding_tool_step_module`, the
+workspace status, git diff, file inspect/apply patch, test run, LSP
+diagnostics, artifact read, tool-result retrieval, computer-use lease response
+wrappers, and the Rust workload/StepModuleRouter/receipt-binder/Agentgres
+admission/projection response binding. The lower-level workspace filesystem,
+diagnostic subprocess, patch, and path helpers remain temporary bridge helper
+plumbing in the root module until the next direct Rust daemon-core execution
+API extraction. This is not terminal coding-tool migration. Resume by replacing
+both the command transport and the remaining bridge helper plumbing with direct
+Rust daemon-core coding-tool execution/admission APIs, Rust/WASM workload
+module execution, Agentgres-backed persistence, receipt/state-root binding,
+replay, projection, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

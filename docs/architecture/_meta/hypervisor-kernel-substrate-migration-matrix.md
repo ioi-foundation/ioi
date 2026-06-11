@@ -15988,6 +15988,46 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1055
+
+Slice 1055 splits the coding-tool StepModule command wrapper family out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport
+and into `crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs`.
+This removes the StepModule bridge request, coding-tool command router,
+workspace status, git diff, file inspect/apply patch, test run, LSP
+diagnostics, artifact read, tool-result retrieval, computer-use lease response
+wrappers, workload dispatch planning, StepModuleRouter admission, receipt
+binding, Agentgres admission, and projection binding from the broad bridge
+module. The broad bridge keeps operation dispatch, lower-level workspace
+filesystem/process helper plumbing, and proof tests.
+
+This is a larger Rust transport-boundary cleanup, not terminal coding-tool
+migration. The current JS invocation surface, Node command bridge, and remaining
+bridge-local filesystem/process helpers remain scaffolding until direct Rust
+daemon-core coding-tool execution/admission APIs, Rust/WASM workload module
+execution, Agentgres-backed persistence, receipt/state-root binding, replay,
+projection, and stable IDE/CLI/SDK protocol surfaces own those paths end to
+end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node workspace_status --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node test_run --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node file_apply_patch --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node computer_use_request_lease --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node artifact --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node git_diff --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node file_inspect --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node lsp_diagnostics --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,
