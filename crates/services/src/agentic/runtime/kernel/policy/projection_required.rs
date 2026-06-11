@@ -48,6 +48,26 @@ pub enum RuntimeLifecycleProjectionRequiredError {
     MissingField(&'static str),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectionRequiredCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl ProjectionRequiredCommandError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SkillHookRegistryProjectionRequiredRequest {
     pub schema_version: String,
@@ -218,6 +238,34 @@ pub struct RuntimeLifecycleProjectionRequiredRecord {
     pub evidence_refs: Vec<String>,
     pub details: Value,
     pub generated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SkillHookRegistryProjectionRequiredBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: SkillHookRegistryProjectionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RepositoryWorkflowProjectionRequiredBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: RepositoryWorkflowProjectionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeToolCatalogProjectionRequiredBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: RuntimeToolCatalogProjectionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeLifecycleProjectionRequiredBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: RuntimeLifecycleProjectionRequiredRequest,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -462,6 +510,107 @@ impl RuntimeLifecycleProjectionRequiredCore {
     }
 }
 
+pub fn plan_skill_hook_registry_projection_required_response(
+    request: SkillHookRegistryProjectionRequiredBridgeRequest,
+) -> Result<Value, ProjectionRequiredCommandError> {
+    let record = SkillHookRegistryProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ProjectionRequiredCommandError::new(
+                "skill_hook_registry_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(projection_required_response(
+        "rust_skill_hook_registry_projection_required_command",
+        request.backend,
+        record,
+    ))
+}
+
+pub fn plan_repository_workflow_projection_required_response(
+    request: RepositoryWorkflowProjectionRequiredBridgeRequest,
+) -> Result<Value, ProjectionRequiredCommandError> {
+    let record = RepositoryWorkflowProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ProjectionRequiredCommandError::new(
+                "repository_workflow_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(projection_required_response(
+        "rust_repository_workflow_projection_required_command",
+        request.backend,
+        record,
+    ))
+}
+
+pub fn plan_runtime_tool_catalog_projection_required_response(
+    request: RuntimeToolCatalogProjectionRequiredBridgeRequest,
+) -> Result<Value, ProjectionRequiredCommandError> {
+    let record = RuntimeToolCatalogProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ProjectionRequiredCommandError::new(
+                "runtime_tool_catalog_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(projection_required_response(
+        "rust_runtime_tool_catalog_projection_required_command",
+        request.backend,
+        record,
+    ))
+}
+
+pub fn plan_runtime_lifecycle_projection_required_response(
+    request: RuntimeLifecycleProjectionRequiredBridgeRequest,
+) -> Result<Value, ProjectionRequiredCommandError> {
+    let record = RuntimeLifecycleProjectionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            ProjectionRequiredCommandError::new(
+                "runtime_lifecycle_projection_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(projection_required_response(
+        "rust_runtime_lifecycle_projection_required_command",
+        request.backend,
+        record,
+    ))
+}
+
+fn projection_required_response<T>(
+    source: &'static str,
+    backend: Option<String>,
+    record: T,
+) -> Value
+where
+    T: Serialize + Clone,
+{
+    let record_value = serde_json::to_value(record.clone()).unwrap_or(Value::Null);
+    json!({
+        "source": source,
+        "backend": backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record_value.clone(),
+        "status": record_value.get("status").cloned().unwrap_or(Value::Null),
+        "status_code": record_value.get("status_code").cloned().unwrap_or(Value::Null),
+        "code": record_value.get("code").cloned().unwrap_or(Value::Null),
+        "message": record_value.get("message").cloned().unwrap_or(Value::Null),
+        "rust_core_boundary": record_value
+            .get("rust_core_boundary")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "operation_kind": record_value
+            .get("operation_kind")
+            .cloned()
+            .unwrap_or(Value::Null),
+        "details": record_value.get("details").cloned().unwrap_or(Value::Null),
+    })
+}
+
 impl SkillHookRegistryProjectionRequiredRequest {
     pub fn validate(&self) -> Result<(), SkillHookRegistryProjectionRequiredError> {
         if self.schema_version != SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION {
@@ -608,6 +757,46 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_skill_hook_registry_projection_required_command_response() {
+        let response =
+            plan_skill_hook_registry_projection_required_response(
+                SkillHookRegistryProjectionRequiredBridgeRequest {
+                    backend: Some("rust_policy".to_string()),
+                    request: SkillHookRegistryProjectionRequiredRequest {
+                        schema_version:
+                            SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                                .to_string(),
+                        operation: "skill_hook_registry_skills".to_string(),
+                        operation_kind: "skill_hook.registry.skills".to_string(),
+                        registry_kind: Some("skills".to_string()),
+                        workspace_root: Some("/workspace/project".to_string()),
+                        source: Some("runtime.skill_hook_surface".to_string()),
+                        evidence_refs: vec![
+                            "rust_daemon_core_skill_hook_registry_required".to_string()
+                        ],
+                    },
+                },
+            )
+            .expect("skill hook projection command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_skill_hook_registry_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(
+            response["code"],
+            "runtime_skill_hook_registry_rust_core_required"
+        );
+        assert_eq!(response["details"]["registry_kind"], "skills");
+        assert_eq!(
+            response["record"]["schema_version"],
+            SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_repository_workflow_projection_required() {
         let record = RepositoryWorkflowProjectionRequiredCore
             .plan(&RepositoryWorkflowProjectionRequiredRequest {
@@ -652,6 +841,44 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_repository_workflow_projection_required_command_response() {
+        let response = plan_repository_workflow_projection_required_response(
+            RepositoryWorkflowProjectionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: RepositoryWorkflowProjectionRequiredRequest {
+                    schema_version: REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    operation: "repository_workflow_pr_attempts".to_string(),
+                    operation_kind: "repository_workflow.projection.pr_attempts".to_string(),
+                    projection_kind: Some("pr_attempts".to_string()),
+                    workspace_root: Some("/workspace/project".to_string()),
+                    source: Some("runtime.repository_surface".to_string()),
+                    evidence_refs: vec![
+                        "rust_daemon_core_repository_workflow_projection_required".to_string()
+                    ],
+                },
+            },
+        )
+        .expect("repository workflow projection command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_repository_workflow_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(
+            response["code"],
+            "runtime_repository_workflow_projection_rust_core_required"
+        );
+        assert_eq!(response["details"]["projection_kind"], "pr_attempts");
+        assert_eq!(
+            response["record"]["schema_version"],
+            REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_runtime_tool_catalog_projection_required() {
         let record = RuntimeToolCatalogProjectionRequiredCore
             .plan(&RuntimeToolCatalogProjectionRequiredRequest {
@@ -689,6 +916,42 @@ mod tests {
         assert_eq!(record.details["workspace_root"], "/workspace/project");
         assert!(record.details.get("projectionKind").is_none());
         assert!(record.details.get("workspaceRoot").is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_runtime_tool_catalog_projection_required_command_response() {
+        let response = plan_runtime_tool_catalog_projection_required_response(
+            RuntimeToolCatalogProjectionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: RuntimeToolCatalogProjectionRequiredRequest {
+                    schema_version: RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    operation: "runtime_tool_catalog".to_string(),
+                    operation_kind: "runtime.tool_catalog.projection.tools".to_string(),
+                    projection_kind: Some("tools".to_string()),
+                    pack: Some("coding".to_string()),
+                    workspace_root: Some("/workspace/project".to_string()),
+                    source: Some("runtime.tool_surface".to_string()),
+                    evidence_refs: vec![
+                        "rust_daemon_core_runtime_tool_catalog_required".to_string()
+                    ],
+                },
+            },
+        )
+        .expect("runtime tool catalog projection command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_tool_catalog_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["code"], "runtime_tool_catalog_rust_core_required");
+        assert_eq!(response["details"]["pack"], "coding");
+        assert_eq!(
+            response["record"]["schema_version"],
+            RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
     }
 
     #[test]
@@ -744,5 +1007,48 @@ mod tests {
         assert!(record.details.get("turnId").is_none());
         assert!(record.details.get("artifactRef").is_none());
         assert!(record.details.get("workspaceRoot").is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_runtime_lifecycle_projection_required_command_response() {
+        let response = plan_runtime_lifecycle_projection_required_response(
+            RuntimeLifecycleProjectionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: RuntimeLifecycleProjectionRequiredRequest {
+                    schema_version: RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    operation: "runtime_lifecycle_projection".to_string(),
+                    operation_kind: "runtime.lifecycle_projection.agent_runs".to_string(),
+                    projection_kind: Some("agent_runs".to_string()),
+                    agent_id: Some("agent_123".to_string()),
+                    thread_id: Some("thread_123".to_string()),
+                    turn_id: Some("turn_123".to_string()),
+                    run_id: Some("run_123".to_string()),
+                    artifact_ref: Some("artifact_123".to_string()),
+                    workspace_root: Some("/workspace/project".to_string()),
+                    source: Some("runtime.lifecycle_projection_surface".to_string()),
+                    evidence_refs: vec![
+                        "rust_daemon_core_runtime_lifecycle_projection_required".to_string()
+                    ],
+                },
+            },
+        )
+        .expect("runtime lifecycle projection command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_runtime_lifecycle_projection_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(
+            response["code"],
+            "runtime_lifecycle_projection_rust_core_required"
+        );
+        assert_eq!(response["details"]["agent_id"], "agent_123");
+        assert_eq!(
+            response["record"]["schema_version"],
+            RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
     }
 }

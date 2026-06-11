@@ -11,8 +11,11 @@ mod run_cancel;
 mod thread_lifecycle;
 
 pub use admission_required::{
-    DiagnosticsRepairAdmissionRequiredCore, DiagnosticsRepairAdmissionRequiredError,
-    DiagnosticsRepairAdmissionRequiredRecord, DiagnosticsRepairAdmissionRequiredRequest,
+    plan_diagnostics_repair_admission_required_response,
+    plan_workflow_edit_admission_required_response, AdmissionRequiredCommandError,
+    DiagnosticsRepairAdmissionRequiredBridgeRequest, DiagnosticsRepairAdmissionRequiredCore,
+    DiagnosticsRepairAdmissionRequiredError, DiagnosticsRepairAdmissionRequiredRecord,
+    DiagnosticsRepairAdmissionRequiredRequest, WorkflowEditAdmissionRequiredBridgeRequest,
     WorkflowEditAdmissionRequiredCore, WorkflowEditAdmissionRequiredError,
     WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
 };
@@ -65,12 +68,18 @@ pub use operator_control::{
     OperatorTurnControlAdmissionRequiredRequest,
 };
 pub use projection_required::{
-    RepositoryWorkflowProjectionRequiredCore, RepositoryWorkflowProjectionRequiredError,
-    RepositoryWorkflowProjectionRequiredRecord, RepositoryWorkflowProjectionRequiredRequest,
+    plan_repository_workflow_projection_required_response,
+    plan_runtime_lifecycle_projection_required_response,
+    plan_runtime_tool_catalog_projection_required_response,
+    plan_skill_hook_registry_projection_required_response, ProjectionRequiredCommandError,
+    RepositoryWorkflowProjectionRequiredBridgeRequest, RepositoryWorkflowProjectionRequiredCore,
+    RepositoryWorkflowProjectionRequiredError, RepositoryWorkflowProjectionRequiredRecord,
+    RepositoryWorkflowProjectionRequiredRequest, RuntimeLifecycleProjectionRequiredBridgeRequest,
     RuntimeLifecycleProjectionRequiredCore, RuntimeLifecycleProjectionRequiredError,
     RuntimeLifecycleProjectionRequiredRecord, RuntimeLifecycleProjectionRequiredRequest,
-    RuntimeToolCatalogProjectionRequiredCore, RuntimeToolCatalogProjectionRequiredError,
-    RuntimeToolCatalogProjectionRequiredRecord, RuntimeToolCatalogProjectionRequiredRequest,
+    RuntimeToolCatalogProjectionRequiredBridgeRequest, RuntimeToolCatalogProjectionRequiredCore,
+    RuntimeToolCatalogProjectionRequiredError, RuntimeToolCatalogProjectionRequiredRecord,
+    RuntimeToolCatalogProjectionRequiredRequest, SkillHookRegistryProjectionRequiredBridgeRequest,
     SkillHookRegistryProjectionRequiredCore, SkillHookRegistryProjectionRequiredError,
     SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredRequest,
 };

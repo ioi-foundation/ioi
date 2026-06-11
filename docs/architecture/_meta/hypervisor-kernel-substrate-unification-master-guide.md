@@ -6260,6 +6260,27 @@ wallet.network grants, Agentgres-backed expected-head/state-root truth,
 receipt/event materialization, replay, projection, cTEE custody policy where
 relevant, and stable IDE/CLI/SDK surfaces end to end.
 
+Slice 1123 moves workflow-edit and diagnostics-repair admission-required
+command request/response shaping plus skill-hook registry, repository
+workflow, runtime tool catalog, and runtime lifecycle projection-required
+command request/response shaping out of the temporary Node policy/projection
+command bridge files and into Rust `policy/admission_required.rs` and
+`policy/projection_required.rs`. Rust core now owns those bridge request
+structs, Rust-core-required response envelopes, canonical command source
+markers, and bridge-facing error codes for rejected policy/projection command
+bodies.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, policy/projection
+runners, and public fail-closed surfaces still exist. The remaining
+`ioi_step_module_bridge/policy_command.rs` and
+`ioi_step_module_bridge/projection_command.rs` files are temporary delegates
+to Rust core, not durable admission or projection boundaries. The long-term
+target remains direct Rust daemon-core admission/projection protocol APIs over
+wallet.network authority where applicable, Agentgres-backed expected-head and
+state-root truth, receipt/event materialization, replay, projection, and stable
+IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

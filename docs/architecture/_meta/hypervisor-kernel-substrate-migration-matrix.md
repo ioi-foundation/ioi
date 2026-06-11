@@ -15784,6 +15784,50 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1123
+
+Slice 1123 moves workflow-edit and diagnostics-repair admission-required
+command request/response shaping plus skill-hook registry, repository
+workflow, runtime tool catalog, and runtime lifecycle projection-required
+command request/response shaping out of the temporary
+`ioi_step_module_bridge/policy_command.rs` and
+`ioi_step_module_bridge/projection_command.rs` bridge modules into Rust
+`crates/services/src/agentic/runtime/kernel/policy/admission_required.rs` and
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`.
+The Rust policy child modules now own the bridge request structs,
+Rust-core-required response envelopes, canonical command source markers, and
+bridge-facing error codes for rejected admission/projection command bodies.
+
+The policy and projection bridge command modules are now thin delegates that
+map `AdmissionRequiredCommandError` and `ProjectionRequiredCommandError` into
+`BridgeError`. They no longer import or own the policy/projection planner
+cores, request types, response envelopes, command source markers, or
+bridge-facing rejection codes.
+
+This is Rust-core extraction and bridge-shape retirement progress, not
+terminal admission/projection migration. The Node daemon-core command
+transport, command dispatch table, shared command runner, JS command callers,
+policy/projection runners, and public fail-closed surfaces remain migration
+scaffolding until direct Rust daemon-core admission/projection APIs own
+wallet.network authority where applicable, Agentgres expected-head and
+state-root truth, receipts/events, replay, projection, and stable protocol APIs
+end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services admission_required --lib` | passed |
+| `cargo test -p ioi-services projection_required --lib` | passed |
+| `cargo test -p ioi-node admission_required_through_rust_core --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node projection_required --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1122
 
 Slice 1122 moves coding-tool approval manifest and approval
