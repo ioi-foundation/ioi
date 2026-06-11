@@ -1,10 +1,10 @@
 use serde_json::{json, Value};
 
-use super::{
-    adapter_boundary, array_field, model_mount_projection_generated_at,
-    model_mount_projection_schema_version, receipt, receipts_by_kind, status,
-    ModelMountReadProjectionRequest,
+use super::common::{
+    array_field, model_mount_projection_generated_at, model_mount_projection_schema_version,
+    receipts_by_kind,
 };
+use super::{adapter_boundary, receipt, status, ModelMountReadProjectionRequest};
 
 pub(super) fn snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let state = &request.state;

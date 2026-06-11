@@ -2326,6 +2326,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
           : "",
@@ -9853,6 +9856,22 @@ function runBridge() {
       /"model_route_decisions" => Ok\(receipt::route_decisions\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"server_status" => Ok\(status::server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /mod common;/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn model_mount_projection_schema_version/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn model_mount_projection_generated_at/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn array_field/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn object_or_null/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn receipts_by_kind/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn json_string_field/.test(modelMountReadProjectionEvidence) &&
+      /projection_common_defaults_live_outside_root_dispatcher/.test(modelMountReadProjectionEvidence) &&
+      /projection_common_extracts_arrays_objects_and_receipt_kinds/.test(modelMountReadProjectionEvidence) &&
+      /use super::common::/.test(modelMountReadProjectionEvidence) &&
+      !/\nfn model_mount_projection_schema_version/.test(modelMountReadProjectionEvidence) &&
+      !/\nfn model_mount_projection_generated_at/.test(modelMountReadProjectionEvidence) &&
+      !/\nfn array_field/.test(modelMountReadProjectionEvidence) &&
+      !/\nfn object_or_null/.test(modelMountReadProjectionEvidence) &&
+      !/\nfn receipts_by_kind/.test(modelMountReadProjectionEvidence) &&
+      !/\nfn json_string_field/.test(modelMountReadProjectionEvidence) &&
       /mod catalog;/.test(modelMountReadProjectionEvidence) &&
       /"catalog_status" => catalog::status\(\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
@@ -13579,6 +13598,9 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/catalog.rs")

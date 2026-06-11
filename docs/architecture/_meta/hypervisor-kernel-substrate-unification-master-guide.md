@@ -4658,6 +4658,10 @@ live in dedicated Rust `model_mount/read_projection/catalog.rs` and
 that these public direct readback surfaces fail closed at their Rust owner
 boundaries until direct catalog-provider and wallet/cTEE projection APIs own
 Agentgres-backed truth;
+model-mount read-projection shared helpers now live in the dedicated Rust
+`model_mount/read_projection/common.rs` module, with module-local Rust proof
+that schema/generation defaults, array/object extraction, and receipt-kind
+filtering are owned outside the broad dispatcher;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

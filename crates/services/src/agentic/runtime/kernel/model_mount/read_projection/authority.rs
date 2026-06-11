@@ -1,9 +1,9 @@
 use serde_json::{json, Value};
 
-use super::{
-    array_field, json_string_field, model_mount_projection_generated_at, object_or_null, status,
-    ModelMountReadProjectionRequest,
+use super::common::{
+    array_field, json_string_field, model_mount_projection_generated_at, object_or_null,
 };
+use super::{status, ModelMountReadProjectionRequest};
 
 pub(super) fn authority_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let state = &request.state;

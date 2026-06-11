@@ -20371,6 +20371,28 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1028
+
+Slice 1028 split the model_mount read-projection shared helper cluster out of
+the broad `model_mount/read_projection.rs` dispatcher and into dedicated Rust
+`model_mount/read_projection/common.rs`. Projection schema/generation defaults,
+array/object extraction, receipt-kind filtering, and JSON string-field
+extraction now have a dedicated Rust owner module and module-local proof tests
+instead of living beside the dispatcher match.
+
+This is still non-terminal migration work: read-projection helper ownership is
+isolated in Rust, but direct Rust daemon-core projection APIs over
+Agentgres-backed receipt/state-root truth must still replace command transport,
+JS state materialization, and JS edge translation before terminal projection
+ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1028 | Moved shared read-projection helpers from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/common.rs`; conformance now requires common-module proof tests and bans helper function bodies from the root dispatcher. | Direct Rust daemon-core projection APIs over Agentgres-backed model_mount receipt/state-root truth replace command bridge, JS state materialization, and JS edge translation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1027
 
 Slice 1027 split the model_mount direct catalog-status and OAuth session/state

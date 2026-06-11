@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
-
 mod adapter_boundary;
 mod aggregate;
 mod authority;
 mod catalog;
+mod common;
 mod oauth;
 mod receipt;
 mod runtime;
@@ -112,50 +111,9 @@ pub(super) fn model_mount_read_projection(
     }
 }
 
-fn model_mount_projection_schema_version(request: &ModelMountReadProjectionRequest) -> String {
-    request
-        .schema_version
-        .clone()
-        .unwrap_or_else(|| MODEL_MOUNT_RUNTIME_SCHEMA_VERSION.to_string())
-}
-
-fn model_mount_projection_generated_at(request: &ModelMountReadProjectionRequest) -> String {
-    request
-        .generated_at
-        .clone()
-        .unwrap_or_else(|| "1970-01-01T00:00:00.000Z".to_string())
-}
-
-fn array_field(value: &Value, key: &str) -> Vec<Value> {
-    value
-        .get(key)
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default()
-}
-
-fn object_or_null(value: Option<&Value>) -> Value {
-    match value {
-        Some(Value::Object(_)) => value.cloned().unwrap_or(Value::Null),
-        Some(Value::Null) | None => Value::Null,
-        Some(other) => other.clone(),
-    }
-}
-
-fn receipts_by_kind(receipts: &[Value], kind: &str) -> Vec<Value> {
-    receipts
-        .iter()
-        .filter(|receipt| json_string_field(receipt, "kind").as_deref() == Some(kind))
-        .cloned()
-        .collect()
-}
-
-fn json_string_field(value: &Value, key: &str) -> Option<String> {
-    value.get(key).and_then(Value::as_str).map(str::to_string)
-}
-
 #[cfg(test)]
 mod tests {
+    use super::super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
     use super::*;
 
     #[test]

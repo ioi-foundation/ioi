@@ -1,10 +1,10 @@
 use serde_json::{json, Value};
 
-use super::{
+use super::common::{
     array_field, json_string_field, model_mount_projection_generated_at,
-    model_mount_projection_schema_version, ModelMountReadProjectionError,
-    ModelMountReadProjectionRequest,
+    model_mount_projection_schema_version,
 };
+use super::{ModelMountReadProjectionError, ModelMountReadProjectionRequest};
 
 pub(super) fn projection_summary(request: &ModelMountReadProjectionRequest) -> Value {
     let receipts = array_field(&request.state, "receipts");

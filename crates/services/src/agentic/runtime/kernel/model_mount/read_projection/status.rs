@@ -1,6 +1,7 @@
 use serde_json::{json, Value};
 
-use super::{model_mount_projection_schema_version, ModelMountReadProjectionRequest};
+use super::common::model_mount_projection_schema_version;
+use super::ModelMountReadProjectionRequest;
 
 pub(super) fn server_status(request: &ModelMountReadProjectionRequest) -> Value {
     let base_url = request.base_url.clone();
