@@ -5701,6 +5701,20 @@ live GUI proof for these scenarios must be introduced only after the Rust
 daemon core owns the runtime-service/subagent execution path end to end and the
 proof drives stable protocol APIs over the unified substrate.
 
+Slice 1089 retires the remaining JS runtime-service bridge result and live-event
+normalizers after the start, turn-submit, and control facades were already made
+fail-closed. `RuntimeDaemonService` no longer exposes
+`normalizeRuntimeBridgeThreadStart()`, `normalizeRuntimeBridgeTurnSubmit()`, or
+`normalizeRuntimeBridgeLiveEvent()` pass-through methods, and
+`runtime-bridge-thread.mjs` no longer carries the old bridge-result projection
+helpers or camelCase payload scrubber.
+
+Conformance now proves the runtime-service bridge normalizers stay absent
+instead of treating them as compatibility evidence. The next positive
+runtime-service proof must be Rust daemon-core admission, Agentgres
+expected-head/state-root binding, replay, and projection over stable protocol
+APIs; it must not restore JS bridge result shaping.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

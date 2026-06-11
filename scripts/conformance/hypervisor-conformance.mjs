@@ -24151,103 +24151,73 @@ function runCompositor() {
     !/bridgeResult\?\.(?:usageTelemetry|runtime_usage|runtimeUsage)/.test(
       runtimeBridgeThread,
     ) &&
-      /retiredRuntimeBridgeTurnUsageAliasKeys/.test(runtimeBridgeThreadTest) &&
-      /runtime bridge turn submit normalization ignores retired usage aliases/.test(
-        runtimeBridgeThreadTest,
-      ),
+      !/normalizeRuntimeBridgeTurnSubmit/.test(runtimeBridgeThread) &&
+      !/retiredRuntimeBridgeTurnUsageAliasKeys/.test(runtimeBridgeThreadTest),
     [
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge turn normalization must not read retired usage telemetry aliases",
+    "Phase 10/11 is pending: retired runtime bridge turn normalization must stay absent instead of preserving usage telemetry alias handling",
   );
   assertCheck(
     result,
     "runtime-bridge-thread-start-result-aliases-retired",
-    !/bridgeResult\?\.(?:sessionId|bridgeId|updatedAt)/.test(
-      runtimeBridgeThreadStartNormalizerBlock,
-    ) &&
-      /runtime bridge thread start normalization ignores retired result aliases/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /sessionId: "session_retired"/.test(runtimeBridgeThreadTest) &&
-      /bridgeId: "bridge_retired"/.test(runtimeBridgeThreadTest) &&
-      /updatedAt: "1999-01-01T00:00:00\.000Z"/.test(runtimeBridgeThreadTest),
+    !/normalizeRuntimeBridgeThreadStart/.test(runtimeBridgeThread) &&
+      !/normalizeRuntimeBridgeThreadStart/.test(runtimeDaemonIndex) &&
+      !/runtime bridge thread start normalization/.test(runtimeBridgeThreadTest) &&
+      !/bridgeResult\?\.(?:sessionId|bridgeId|updatedAt)/.test(runtimeBridgeThread),
     [
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge thread-start normalization must not read retired result identity/timestamp aliases",
+    "Phase 10/11 is pending: retired runtime bridge thread-start result normalizer must stay absent rather than preserving result identity/timestamp compatibility",
   );
   assertCheck(
     result,
     "runtime-bridge-turn-result-aliases-retired",
-    !/bridgeResult\?\.(?:turnId|runId|createdAt|updatedAt|stopReason)/.test(
-      runtimeBridgeTurnSubmitNormalizerBlock,
-    ) &&
-      /runtime bridge turn submit normalization ignores retired result aliases/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /turnId: "turn_retired"/.test(runtimeBridgeThreadTest) &&
-      /runId: "run_retired"/.test(runtimeBridgeThreadTest) &&
-      /stopReason: "retired_stop"/.test(runtimeBridgeThreadTest),
+    !/normalizeRuntimeBridgeTurnSubmit/.test(runtimeBridgeThread) &&
+      !/normalizeRuntimeBridgeTurnSubmit/.test(runtimeDaemonIndex) &&
+      !/runtime bridge turn submit normalization/.test(runtimeBridgeThreadTest) &&
+      !/bridgeResult\?\.(?:turnId|runId|createdAt|updatedAt|stopReason)/.test(
+        runtimeBridgeThread,
+      ),
     [
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge turn normalization must not read retired result identity/timestamp aliases",
+    "Phase 10/11 is pending: retired runtime bridge turn result normalizer must stay absent rather than preserving result identity/timestamp compatibility",
   );
   assertCheck(
     result,
     "runtime-bridge-live-event-identity-aliases-retired",
-    !/event\?\.(?:turnId|runId)/.test(runtimeBridgeLiveEventNormalizerBlock) &&
-      !/normalized\.turnId/.test(runtimeBridgeThread) &&
-      /runtime bridge live event normalization ignores retired identity aliases/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /turnId: "turn_retired"/.test(runtimeBridgeThreadTest) &&
-      /runId: "run_retired"/.test(runtimeBridgeThreadTest) &&
-      /Object\.hasOwn\(normalized,\s*"turnId"\),\s*false/.test(runtimeBridgeThreadTest) &&
-      /Object\.hasOwn\(normalized,\s*"runId"\),\s*false/.test(runtimeBridgeThreadTest),
+    !/normalizeRuntimeBridgeLiveEvent/.test(runtimeBridgeThread) &&
+      !/normalizeRuntimeBridgeLiveEvent/.test(runtimeDaemonIndex) &&
+      !/runtime bridge live event normalization/.test(runtimeBridgeThreadTest) &&
+      !/event\?\.(?:turnId|runId)/.test(runtimeBridgeThread) &&
+      !/normalized\.turnId/.test(runtimeBridgeThread),
     [
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge live-event normalization must not read or emit retired turnId/runId aliases",
+    "Phase 10/11 is pending: retired runtime bridge live-event normalizer must stay absent rather than preserving turnId/runId compatibility",
   );
   assertCheck(
     result,
     "runtime-bridge-event-payload-aliases-retired",
-    /function canonicalRuntimeBridgeEventPayload/.test(runtimeBridgeThread) &&
-      /canonicalRuntimeBridgeEventPayload\(event\)/.test(runtimeBridgeTurnSubmitNormalizerBlock) &&
-      /canonicalRuntimeBridgeEventPayload\(eventRecord\)/.test(
-        runtimeBridgeLiveEventNormalizerBlock,
-      ) &&
-      !/\.\.\.\(event\.payload \?\? event\.payload_summary \?\? \{\}\)/.test(
-        runtimeBridgeTurnSubmitNormalizerBlock,
-      ) &&
-      !/\.\.\.\(eventRecord\.payload \?\? eventRecord\.payload_summary \?\? \{\}\)/.test(
-        runtimeBridgeLiveEventNormalizerBlock,
-      ) &&
-      /"eventKind",\s*[\r\n\s]*"workflowGraphId",\s*[\r\n\s]*"workflowNodeId"/.test(
-        runtimeBridgeThread,
-      ) &&
-      /retiredRuntimeBridgeEventPayloadAliasKeys/.test(runtimeBridgeThreadTest) &&
-      /runtime bridge live event normalization scrubs retired payload aliases/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /workflowGraphId: "graph-retired"/.test(runtimeBridgeThreadTest) &&
-      /assertNoRetiredRuntimeBridgeEventPayloadAliases\(normalized\.payload\)/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /assertNoRetiredRuntimeBridgeEventPayloadAliases\(projection\.events\[0\]\.payload\)/.test(
+    !/function canonicalRuntimeBridgeEventPayload/.test(runtimeBridgeThread) &&
+      !/canonicalRuntimeBridgeEventPayload/.test(runtimeBridgeThread) &&
+      !/retiredRuntimeBridgeEventPayloadAliasKeys/.test(runtimeBridgeThreadTest) &&
+      !/runtime bridge live event normalization scrubs retired payload aliases/.test(
         runtimeBridgeThreadTest,
       ),
     [
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge turn/live event payload normalization must scrub retired camelCase payload aliases",
+    "Phase 10/11 is pending: retired runtime bridge event payload normalizer must stay absent rather than preserving camelCase payload compatibility",
   );
   assertCheck(
     result,
@@ -24255,9 +24225,10 @@ function runCompositor() {
     !/request\.(?:usageTelemetry|runtime_usage|runtimeUsage)/.test(runtimeDaemonIndex) &&
       !/^\s*usageTelemetry,?\s*$/m.test(runtimeDaemonIndex) &&
       !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeDaemonIndex) &&
+      !/normalizeRuntimeBridge(?:TurnSubmit|ThreadStart|LiveEvent)/.test(runtimeDaemonIndex) &&
       /model_route_decision:\s*modelRouteDecision/.test(runtimeDaemonIndex),
     ["packages/runtime-daemon/src/index.mjs"],
-    "Phase 10/11 is pending: monolithic daemon run/trace assembly must not accept or emit retired usage telemetry aliases",
+    "Phase 10/11 is pending: monolithic daemon run/trace assembly must not accept retired usage telemetry aliases or expose retired runtime bridge normalizer pass-throughs",
   );
   assertCheck(
     result,

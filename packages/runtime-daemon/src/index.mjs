@@ -219,9 +219,6 @@ import { createRuntimeThreadAuxiliarySurface } from "./runtime-thread-auxiliary-
 import {
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
   createRuntimeBridgeTurn as createRuntimeBridgeTurnState,
-  normalizeRuntimeBridgeLiveEvent as normalizeRuntimeBridgeLiveEventState,
-  normalizeRuntimeBridgeThreadStart as normalizeRuntimeBridgeThreadStartState,
-  normalizeRuntimeBridgeTurnSubmit as normalizeRuntimeBridgeTurnSubmitState,
 } from "./threads/runtime-bridge-thread.mjs";
 import { createModelRouteSelection } from "./threads/model-route-selection.mjs";
 import { createRunMemoryResolution } from "./threads/run-memory-resolution.mjs";
@@ -1150,34 +1147,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  normalizeRuntimeBridgeThreadStart({ bridgeResult, agent, threadId, runtimeProfile }) {
-    return normalizeRuntimeBridgeThreadStartState({ bridgeResult, agent, threadId, runtimeProfile }, {
-      bridgeId: this.runtimeBridge.bridgeId,
-      eventStreamIdForThread,
-      normalizeArray,
-      runtimeError,
-    });
-  }
-
-  normalizeRuntimeBridgeTurnSubmit({ bridgeResult, agent, threadId, request }) {
-    return normalizeRuntimeBridgeTurnSubmitState({ bridgeResult, agent, threadId, request }, {
-      eventStreamIdForThread,
-      normalizeArray,
-      runIdForTurn,
-      runtimeError,
-      runtimeSessionIdForAgent,
-    });
-  }
-
-  normalizeRuntimeBridgeLiveEvent({ event, agent, threadId }) {
-    return normalizeRuntimeBridgeLiveEventState({ event, agent, threadId }, {
-      eventStreamIdForThread,
-      optionalString,
-      runIdForTurn,
-      runtimeSessionIdForAgent,
-    });
-  }
-
   async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
     return createRuntimeBridgeTurnState(this, { agent, threadId, request, diagnosticsFeedback }, {
       RuntimeApiBridgeUnavailableError,
@@ -1187,8 +1156,6 @@ export class AgentgresRuntimeStateStore {
       insertRuntimeBridgeDiagnosticsInjectionEvent,
       insertRuntimeBridgeUsageDeltaEvents,
       normalizeArray,
-      normalizeRuntimeBridgeLiveEvent: (input) => this.normalizeRuntimeBridgeLiveEvent(input),
-      normalizeRuntimeBridgeTurnSubmit: (input) => this.normalizeRuntimeBridgeTurnSubmit(input),
       optionalPositiveInteger,
       optionalString,
       runIdForTurn,

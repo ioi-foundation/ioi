@@ -13724,7 +13724,7 @@ The expanded Slice 727-732 ledger was compacted on 2026-06-08 after Slice 732 ve
 
 The expanded Slice 733-740 ledger was compacted on 2026-06-08 after Slice 740 verified the agent lifecycle/status-control facade-retirement seam. These slices remain active migration evidence, not terminal architecture. The route-family owner map, implementation matrix, conformance command contract, and terminal blockers above remain authoritative for current and target ownership.
 
-- Slice 733 retired runtime bridge thread start and turn-submit JS authority: `createRuntimeBridgeThread` and `createRuntimeBridgeTurn` now fail closed before bridge probing or dispatch, max-step compatibility shaping, live-event normalization append, in-flight registration, Rust planner invocation from the JS facade, agent/run map mutation, `writeAgent`/`writeRun`, or runtime-event append. Existing bridge control and normalization helpers remain migration/projection plumbing only until direct Rust daemon-core runtime bridge admission, execution dispatch, persistence, replay, and projection replace them.
+- Slice 733 retired runtime bridge thread start and turn-submit JS authority: `createRuntimeBridgeThread` and `createRuntimeBridgeTurn` now fail closed before bridge probing or dispatch, max-step compatibility shaping, live-event append, in-flight registration, Rust planner invocation from the JS facade, agent/run map mutation, `writeAgent`/`writeRun`, or runtime-event append. Later slices also retired bridge control dispatch and the remaining JS bridge result/live-event normalizers; direct Rust daemon-core runtime bridge admission, execution dispatch, persistence, replay, and projection still need to replace the fail-closed surface.
 - Slices 734-735 retired runtime subagent lifecycle JS authority and then deleted its unreachable legacy bodies: spawn, wait lifecycle update, send-input, resume, assign, cancel, cancellation propagation, and direct subagent control-event append fail closed before child-agent/run creation, run cancellation, runtime-event append, Rust planner invocation from the JS facade, `writeSubagent`, or duplicate receipt/policy evidence synthesis. Slice 949 later retired the remaining subagent list/get/result JS readback facades, so public subagent projection now fails closed until direct Rust daemon-core subagent admission, event materialization, persistence, replay, and projection APIs land.
 - Slice 736 retired runtime task/job lifecycle JS authority: `createTask`, `cancelTask`, and `cancelJob` fail closed before JS agent lookup/synthesis, `createAgent`, `createRun`, public-id-to-run cancellation resolution, `cancelRun`, or task/job lifecycle projection as accepted mutation truth. Slice 950 later retired the remaining task/job list/get JS readback facades, so public task/job projection now fails closed until direct Rust daemon-core task/job admission and projection APIs land.
 - Slice 737 retired runtime thread-fork JS authority: `forkThread` fails closed before source-thread/source-agent lookup, runtime-event idempotency lookup, `createAgent`, fork-thread projection, `appendRuntimeEvent`, or JS-created fork receipt/policy evidence. Direct Rust daemon-core thread-fork admission and projection APIs are still pending.
@@ -15781,6 +15781,33 @@ Focused evidence:
 | `npm run hypervisor-conformance:compositor` | passed |
 | `npm run hypervisor-conformance:negative` | passed |
 | `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+## Implementation Slice Evidence: 1089
+
+Slice 1089 retires the remaining runtime-service bridge result and live-event
+normalizers after thread start, turn submit, and control already failed closed
+before JS bridge dispatch. `RuntimeDaemonService` no longer exposes
+`normalizeRuntimeBridgeThreadStart()`, `normalizeRuntimeBridgeTurnSubmit()`, or
+`normalizeRuntimeBridgeLiveEvent()` pass-throughs, and
+`runtime-bridge-thread.mjs` no longer preserves the old JS bridge-result
+projection helpers or camelCase payload scrubber as migration scaffolding.
+
+This is not terminal runtime-service migration. It removes obsolete JS shaping
+for a path that is currently fail-closed; the replacement positive proof must be
+direct Rust daemon-core runtime-service admission, Agentgres expected-head/state
+root binding, replay, projection, and stable protocol APIs.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs` | passed |
+| `node --check packages/runtime-daemon/src/index.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
