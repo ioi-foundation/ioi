@@ -21,6 +21,7 @@ mod computer_use;
 mod computer_use_provider;
 mod context_policy_command;
 mod governed_admission_command;
+mod governed_receipt_command;
 mod mcp_memory_command;
 mod model_mount_command;
 mod model_mount_receipt_command;
@@ -60,9 +61,11 @@ use context_policy_command::{
 };
 use governed_admission_command::{
     admit_governed_runtime_improvement_proposal, admit_l1_settlement_attempt,
+    GovernedRuntimeImprovementBridgeRequest, L1SettlementAdmissionBridgeRequest,
+};
+use governed_receipt_command::{
     admit_worker_service_package_invocation, execute_private_workspace_ctee_action,
-    CteePrivateWorkspaceBridgeRequest, GovernedRuntimeImprovementBridgeRequest,
-    L1SettlementAdmissionBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+    CteePrivateWorkspaceBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
 };
 use ioi_services::agentic::runtime::kernel::command_protocol::{
     command_family, expected_command_schema_version, is_step_module_operation,

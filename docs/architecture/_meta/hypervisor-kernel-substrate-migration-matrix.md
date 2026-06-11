@@ -15784,6 +15784,34 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1106
+
+Slice 1106 splits receipt-bearing governed command execution out of
+`ioi_step_module_bridge/governed_admission_command.rs` into
+`ioi_step_module_bridge/governed_receipt_command.rs`. The governed-admission
+wrapper now owns L1 settlement and governed-improvement proposal admission only;
+cTEE private workspace execution and worker/service package invocation live in
+the governed receipt command module, where accepted-receipt append via
+`ReceiptBinder` remains explicit beside Rust cTEE/marketplace admission records.
+
+This is bridge containment only. The module remains temporary command-transport
+scaffolding until direct Rust daemon-core cTEE and worker/service package
+execution/admission APIs replace the Node bridge, shared command runner, JS
+command callers, and remaining JS protocol facades.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `rustfmt --check crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs crates/node/src/bin/ioi_step_module_bridge/mod.rs` | passed |
+| `cargo test -p ioi-node bridge_executes_private_workspace_ctee_action_through_rust_core --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node worker_service_package --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1105
 
 Slice 1105 splits the Rust coding-tool StepModule workload dispatch,

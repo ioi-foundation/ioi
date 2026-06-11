@@ -5966,6 +5966,21 @@ coding-tool execution/admission APIs and Rust/WASM workload module execution
 replace the Node bridge, JS StepModule command helper, JS command callers, and
 remaining coding-tool JS protocol facades.
 
+Slice 1106 splits receipt-bearing governed command execution out of
+`ioi_step_module_bridge/governed_admission_command.rs` into
+`ioi_step_module_bridge/governed_receipt_command.rs`. The governed-admission
+wrapper now owns lighter L1 settlement and governed-improvement proposal
+admission only; cTEE private workspace execution and worker/service package
+invocation live in the governed receipt boundary, where accepted-receipt append
+via `ReceiptBinder` remains explicit beside Rust cTEE/marketplace admission
+records.
+
+This is still bridge containment, not terminal architecture. The governed
+receipt module is temporary command-transport scaffolding until direct Rust
+daemon-core cTEE and worker/service package execution/admission APIs replace the
+Node bridge, shared command runner, JS command callers, and remaining JS
+protocol facades.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

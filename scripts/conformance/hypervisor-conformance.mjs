@@ -2294,6 +2294,9 @@ function runBridge() {
   const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     : "";
+  const governedReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
+    : "";
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";
@@ -6110,10 +6113,16 @@ function runBridge() {
     result,
     "bridge-governed-admission-local-envelope-checks-retired",
     !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(governedAdmissionCommandBridge) &&
+      !/DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(governedReceiptCommandBridge) &&
       !/schema_version:\s*String/.test(governedAdmissionCommandBridge) &&
+      !/schema_version:\s*String/.test(governedReceiptCommandBridge) &&
       !/operation:\s*String/.test(governedAdmissionCommandBridge) &&
+      !/operation:\s*String/.test(governedReceiptCommandBridge) &&
       !/schema_version_invalid/.test(governedAdmissionCommandBridge) &&
+      !/schema_version_invalid/.test(governedReceiptCommandBridge) &&
       !/operation_unsupported/.test(governedAdmissionCommandBridge) &&
+      !/operation_unsupported/.test(governedReceiptCommandBridge) &&
+      /mod governed_receipt_command;/.test(bridgeModule) &&
       /validate_command_envelope\(\s*"execute_private_workspace_ctee_action",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
@@ -6126,10 +6135,20 @@ function runBridge() {
       /validate_command_envelope\(\s*"admit_governed_runtime_improvement_proposal",[\s\n]*STEP_MODULE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
         bridgeModule,
       ) &&
+      !/ReceiptBinder/.test(governedAdmissionCommandBridge) &&
+      !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /pub\(super\) fn execute_private_workspace_ctee_action/.test(
-        governedAdmissionCommandBridge,
+        governedReceiptCommandBridge,
       ) &&
       /pub\(super\) fn admit_worker_service_package_invocation/.test(
+        governedReceiptCommandBridge,
+      ) &&
+      /ReceiptBinder/.test(governedReceiptCommandBridge) &&
+      /accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      !/pub\(super\) fn execute_private_workspace_ctee_action/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      !/pub\(super\) fn admit_worker_service_package_invocation/.test(
         governedAdmissionCommandBridge,
       ) &&
       /pub\(super\) fn admit_l1_settlement_attempt/.test(
@@ -6142,6 +6161,7 @@ function runBridge() {
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
     "Phase 7/8/9/10 remains non-terminal: governed-admission child wrappers must not regain local command-envelope identity now that Rust command protocol validates schema and operation before cTEE, package, L1, and governed-improvement dispatch",
   );
@@ -13145,26 +13165,34 @@ function runBridge() {
     result,
     "worker-service-package-invocation-live-bridge",
     /mod governed_admission_command;/.test(bridgeModule) &&
+      /mod governed_receipt_command;/.test(bridgeModule) &&
       /admit_worker_service_package_invocation/.test(bridgeModule) &&
       !/struct WorkerServicePackageInvocationBridgeRequest/.test(bridgeModule) &&
       !/fn admit_worker_service_package_invocation/.test(bridgeModule) &&
-      /pub\(super\) struct WorkerServicePackageInvocationBridgeRequest/.test(
+      !/pub\(super\) struct WorkerServicePackageInvocationBridgeRequest/.test(
         governedAdmissionCommandBridge,
+      ) &&
+      !/pub\(super\) fn admit_worker_service_package_invocation/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) struct WorkerServicePackageInvocationBridgeRequest/.test(
+        governedReceiptCommandBridge,
       ) &&
       /pub\(super\) fn admit_worker_service_package_invocation/.test(
-        governedAdmissionCommandBridge,
+        governedReceiptCommandBridge,
       ) &&
-      /WorkerServicePackageInvocationCore/.test(governedAdmissionCommandBridge) &&
+      /WorkerServicePackageInvocationCore/.test(governedReceiptCommandBridge) &&
       /rust_worker_service_package_invocation_command/.test(
-        governedAdmissionCommandBridge,
+        governedReceiptCommandBridge,
       ) &&
-      /accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
+      /accepted_receipt_append/.test(governedReceiptCommandBridge) &&
       /agentgres:\/\/worker-service-package\/head\/current/.test(bridgeModule) &&
       /bridge_admits_worker_service_package_invocation_through_rust_core/.test(bridgeModule) &&
       /worker_service_package_rejects_step_module_command_schema/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
     "Phase 8 is pending: worker/service package invocation admission must be exposed through the daemon command bridge",
   );
@@ -19985,6 +20013,9 @@ function runCtee() {
   const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     : "";
+  const governedReceiptCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs")
+    : "";
   const runtimeDaemonIndex = exists("packages/runtime-daemon/src/index.mjs")
     ? read("packages/runtime-daemon/src/index.mjs")
     : "";
@@ -20101,18 +20132,26 @@ function runCtee() {
     result,
     "ctee-execution-bridge-command",
     /mod governed_admission_command;/.test(bridgeModule) &&
+      /mod governed_receipt_command;/.test(bridgeModule) &&
       /execute_private_workspace_ctee_action/.test(bridgeModule) &&
       !/struct CteePrivateWorkspaceBridgeRequest/.test(bridgeModule) &&
       !/fn execute_private_workspace_ctee_action/.test(bridgeModule) &&
-      /pub\(super\) struct CteePrivateWorkspaceBridgeRequest/.test(
+      !/pub\(super\) struct CteePrivateWorkspaceBridgeRequest/.test(
         governedAdmissionCommandBridge,
+      ) &&
+      !/pub\(super\) fn execute_private_workspace_ctee_action/.test(
+        governedAdmissionCommandBridge,
+      ) &&
+      /pub\(super\) struct CteePrivateWorkspaceBridgeRequest/.test(
+        governedReceiptCommandBridge,
       ) &&
       /pub\(super\) fn execute_private_workspace_ctee_action/.test(
-        governedAdmissionCommandBridge,
+        governedReceiptCommandBridge,
       ) &&
-      /PrivateWorkspaceCteeModule/.test(governedAdmissionCommandBridge) &&
-      /rust_ctee_private_workspace_command/.test(governedAdmissionCommandBridge) &&
-      /accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
+      /PrivateWorkspaceCteeModule/.test(governedReceiptCommandBridge) &&
+      /rust_ctee_private_workspace_command/.test(governedReceiptCommandBridge) &&
+      /accepted_receipt_append/.test(governedReceiptCommandBridge) &&
+      !/accepted_receipt_append/.test(governedAdmissionCommandBridge) &&
       /ctee_private_workspace_rejects_step_module_command_schema/.test(
         bridgeModule,
       ) &&
@@ -20120,6 +20159,7 @@ function runCtee() {
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/governed_receipt_command.rs",
     ],
     "Phase 7 is pending: daemon command bridge must expose Rust cTEE execution with receipt/admission/projection artifacts",
   );
