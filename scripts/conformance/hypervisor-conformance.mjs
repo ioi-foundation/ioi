@@ -2323,6 +2323,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
@@ -9826,13 +9829,17 @@ function runBridge() {
       !/fn model_mount_read_projection/.test(bridgeModule) &&
       /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /mod authority;/.test(modelMountReadProjectionEvidence) &&
+      /mod receipt;/.test(modelMountReadProjectionEvidence) &&
       /mod status;/.test(modelMountReadProjectionEvidence) &&
+      /"projection_summary" => Ok\(receipt::projection_summary\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"receipt_replay" => receipt::receipt_replay\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"model_route_decisions" => Ok\(receipt::route_decisions\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"server_status" => Ok\(status::server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"catalog_status" => Err\(ModelMountReadProjectionError::new\(\s*"model_catalog_status_js_readback_retired"/.test(modelMountReadProjectionEvidence) &&
-      /"latest_provider_health" => model_mount_latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"latest_vault_health" => model_mount_latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"latest_runtime_survey" => Ok\(model_mount_latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_provider_health" => receipt::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_vault_health" => receipt::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_runtime_survey" => Ok\(receipt::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"product_artifacts" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
       /"artifacts" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
       /"providers" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
@@ -9868,21 +9875,36 @@ function runBridge() {
       !/fn model_mount_model_capabilities/.test(modelMountReadProjectionEvidence) &&
       !/MODEL_CAPABILITY_SCHEMA_VERSION/.test(modelMountReadProjectionEvidence) &&
       /"adapterBoundaries": adapter_boundary::adapter_boundaries\(state\)/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_projection_summary/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn projection_summary/.test(modelMountReadProjectionEvidence) &&
       !/"catalogProviderConfigs"/.test(modelMountReadProjectionEvidence) &&
       !/"catalog_provider_configs"/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_projection_summary(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_receipt_replay_context/.test(modelMountReadProjectionEvidence) &&
+      /fn receipt_replay_context/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn receipt_replay/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn route_decisions/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_receipt_replay\((?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(modelMountReadProjectionEvidence) &&
       !/fn projection_lookup/.test(modelMountReadProjectionEvidence) &&
       !/"routes": array_field\(state,\s*"routes"\)/.test(modelMountReadProjectionEvidence) &&
       !/"endpoints": array_field\(state,\s*"endpoints"\)/.test(modelMountReadProjectionEvidence) &&
       !/"instances": array_field\(state,\s*"instances"\)/.test(modelMountReadProjectionEvidence) &&
       !/"providers": array_field\(state,\s*"providers"\)/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_latest_provider_health/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_latest_vault_health/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_latest_runtime_survey/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_runtime_survey_not_checked/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn latest_provider_health/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn latest_vault_health/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn latest_runtime_survey/.test(modelMountReadProjectionEvidence) &&
+      /fn runtime_survey_not_checked/.test(modelMountReadProjectionEvidence) &&
+      /projection_summary_is_planned_from_receipt_truth/.test(modelMountReadProjectionEvidence) &&
+      /receipt_replay_is_planned_from_receipt_only_context/.test(modelMountReadProjectionEvidence) &&
+      /route_decisions_are_planned_from_route_selection_receipts/.test(modelMountReadProjectionEvidence) &&
+      /latest_health_projections_are_planned_from_receipts_only/.test(modelMountReadProjectionEvidence) &&
+      /runtime_survey_is_planned_from_runtime_survey_receipts/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_projection_summary/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_receipt_replay_context/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_receipt_replay_projection/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_route_decisions/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_latest_provider_health/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_latest_vault_health/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_latest_runtime_survey/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_runtime_survey_not_checked/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn adapter_boundaries/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn workflow_bindings/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_adapter_boundaries/.test(modelMountReadProjectionEvidence) &&
@@ -13499,6 +13521,9 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/authority.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")

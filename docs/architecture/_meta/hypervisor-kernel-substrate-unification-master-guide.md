@@ -4630,6 +4630,12 @@ live in dedicated Rust `model_mount/read_projection/status.rs` and
 proof that server status ignores retired JS status inputs, catalog status
 ignores retired catalog-status inputs, and wallet authority summary/readback
 metadata is owned outside the broad read-projection dispatcher;
+model-mount receipt-derived read projections now live in the dedicated Rust
+`model_mount/read_projection/receipt.rs` module, with module-local Rust proof
+that projection summaries, receipt replay, route-decision readback, latest
+provider/vault health, and runtime-survey status are derived from admitted
+receipt truth instead of JS topology, provider-health, or runtime-survey
+materialization;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,
