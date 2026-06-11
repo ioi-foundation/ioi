@@ -5106,6 +5106,21 @@ replacing this command transport with direct Rust daemon-core model_mount APIs,
 Agentgres-backed persistence/replay/projection, provider lifecycle/control,
 and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1054 moves the external capability exit authority daemon-core command
+wrapper out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/authority_command.rs`. The Rust
+owner remains `crates/services/src/agentic/runtime/kernel/authority.rs`; the
+bridge child module is only fixed migration transport that translates the
+Rust-owned wallet.network authority record at the process boundary. The
+conformance guard now proves the authority command struct and handler stay out
+of the broad bridge module while the bridge root keeps dispatch and proof
+tests. This is not terminal authority migration. Resume by replacing this
+command transport with direct Rust daemon-core wallet.network authority APIs,
+authority receipts, Agentgres/state-root binding where capability exits become
+meaningful transitions, replay, projection, and stable IDE/CLI/SDK protocol
+surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

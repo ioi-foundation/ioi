@@ -15958,6 +15958,36 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1054
+
+Slice 1054 splits the external capability exit authority daemon-core command
+wrapper out of the monolithic Rust
+`crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
+`crates/node/src/bin/ioi_step_module_bridge/authority_command.rs`. This removes
+the authority request struct and wallet.network authority handler body from the
+broad bridge module. The broad bridge keeps operation dispatch and proof tests;
+the canonical authority owner remains
+`crates/services/src/agentic/runtime/kernel/authority.rs`.
+
+This is a Rust transport-boundary cleanup, not terminal authority migration.
+The current JS authority runner, Node command bridge, and process-boundary
+translation remain scaffolding until direct Rust daemon-core wallet.network
+authority APIs own external capability exit authorization, authority receipts,
+Agentgres/state-root binding where exits become meaningful transitions,
+replay, projection, and stable IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node external_capability --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,

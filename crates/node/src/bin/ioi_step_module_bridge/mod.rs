@@ -4,9 +4,6 @@ use ioi_client::workload_client::{
 use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, AgentgresOperationProposal, AGENTGRES_ADMISSION_SCHEMA_VERSION,
 };
-use ioi_services::agentic::runtime::kernel::authority::{
-    ExternalCapabilityExitRequest, WalletAuthorityCore,
-};
 use ioi_services::agentic::runtime::kernel::projection::RustProjectionCore;
 use ioi_services::agentic::runtime::kernel::receipt_binder::ReceiptBinder;
 use ioi_services::agentic::runtime::kernel::step_module::{
@@ -26,6 +23,7 @@ use std::time::{Duration, Instant};
 
 mod agentgres_command;
 mod approval_command;
+mod authority_command;
 mod computer_use;
 mod context_policy_command;
 mod governed_admission_command;
@@ -52,6 +50,9 @@ use approval_command::{
     plan_approval_revoke_state_update, plan_coding_tool_approval_manifest,
     ApprovalDecisionStateUpdateBridgeRequest, ApprovalRequestStateUpdateBridgeRequest,
     ApprovalRevokeStateUpdateBridgeRequest, CodingToolApprovalBridgeRequest,
+};
+use authority_command::{
+    authorize_external_capability_exit, ExternalCapabilityExitAuthorityBridgeRequest,
 };
 use context_policy_command::{
     evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
@@ -179,16 +180,6 @@ struct StepModuleBridgeRequest {
     workspace_root: Option<String>,
     #[serde(default)]
     input: Value,
-}
-
-#[derive(Debug, Deserialize)]
-struct ExternalCapabilityExitAuthorityBridgeRequest {
-    #[serde(rename = "schema_version")]
-    schema_version: String,
-    operation: String,
-    #[serde(default)]
-    backend: Option<String>,
-    request: ExternalCapabilityExitRequest,
 }
 
 pub fn run_bridge_response_from_stdin() -> Value {
@@ -790,42 +781,6 @@ fn run_coding_tool_step_module(request: StepModuleBridgeRequest) -> Result<Value
             format!("unsupported StepModule tool {}", other),
         )),
     }
-}
-
-fn authorize_external_capability_exit(
-    request: ExternalCapabilityExitAuthorityBridgeRequest,
-) -> Result<Value, BridgeError> {
-    if request.schema_version != DAEMON_CORE_COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                DAEMON_CORE_COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "authorize_external_capability_exit" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
-    let record = WalletAuthorityCore
-        .authorize_external_capability_exit(&request.request)
-        .map_err(|error| {
-            BridgeError::new(
-                "external_capability_exit_authority_invalid",
-                format!("{error:?}"),
-            )
-        })?;
-    Ok(json!({
-        "source": "rust_external_capability_exit_authority_command",
-        "backend": request.backend.unwrap_or_else(|| "rust_authority".to_string()),
-        "authority": record.clone(),
-        "wallet_network_grant_refs": record.wallet_network_grant_refs.clone(),
-        "authority_receipt_refs": record.authority_receipt_refs.clone(),
-        "authority_hash": record.authority_hash.clone(),
-    }))
 }
 
 fn workspace_status_response(request: StepModuleBridgeRequest) -> Result<Value, BridgeError> {
