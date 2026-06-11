@@ -5924,6 +5924,18 @@ daemon-core target: direct Rust APIs must own wallet/cTEE workspace authority,
 Agentgres expected-head/state-root binding, receipt/event materialization,
 replay, and projection before the mounted protocol-edge surface can be retired.
 
+Slice 1103 splits the Rust StepModule bridge computer-use provider registry and
+provider-selection helper out of `ioi_step_module_bridge/computer_use.rs` into
+`ioi_step_module_bridge/computer_use_provider.rs`. The request-lease builder no
+longer owns provider catalog records, provider hint matching, registry
+projection, or fail-closed unavailable-provider selection.
+
+This is bridge containment, not terminal architecture. The new provider module
+is still temporary command-transport scaffolding for `computer_use.request_lease`
+until direct Rust daemon-core computer-use admission, wallet.network authority,
+cTEE/workspace custody, Agentgres expected-head/state-root binding,
+receipt/event materialization, replay, and projection APIs replace the bridge.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -2303,6 +2303,9 @@ function runBridge() {
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
+  const computerUseProviderBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs")
+    : "";
   const policyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     : "";
@@ -3732,6 +3735,9 @@ function runBridge() {
       /normalize_prefetched_artifact_result/.test(codingToolCommandBridge) &&
       /computer_use\.request_lease/.test(codingToolCommandBridge) &&
       /build_computer_use_lease_request/.test(computerUseBridge) &&
+      /computer_use_provider_for_lane/.test(computerUseProviderBridge) &&
+      /computer_use_provider_registry_report/.test(computerUseProviderBridge) &&
+      !/struct ComputerUseProvider/.test(computerUseBridge) &&
       /ioi\.step_module\.command_bridge\.v1/.test(commandProtocolCore) &&
       /StepModuleRouterCore/.test(codingToolCommandBridge) &&
       /router_admission/.test(codingToolCommandBridge) &&
@@ -3801,6 +3807,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
       "crates/node/src/bin/ioi_step_module_bridge/computer_use.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs",
       "packages/runtime-daemon/src/coding-tools.mjs",
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs",

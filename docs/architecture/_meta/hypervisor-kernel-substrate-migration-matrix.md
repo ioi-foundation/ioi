@@ -15784,6 +15784,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1103
+
+Slice 1103 splits the Rust StepModule bridge computer-use provider registry and
+provider-selection helper out of `ioi_step_module_bridge/computer_use.rs` into
+`ioi_step_module_bridge/computer_use_provider.rs`. The request-lease builder no
+longer owns provider catalog records, provider hint matching, registry
+projection, or fail-closed unavailable-provider selection.
+
+This is bridge containment, not terminal architecture. The new provider module
+is still temporary command-transport scaffolding for
+`computer_use.request_lease` until direct Rust daemon-core computer-use
+admission, wallet.network authority, cTEE/workspace custody, Agentgres
+expected-head/state-root binding, receipt/event materialization, replay, and
+projection APIs replace the bridge.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `rustfmt --check crates/node/src/bin/ioi_step_module_bridge/computer_use.rs crates/node/src/bin/ioi_step_module_bridge/computer_use_provider.rs crates/node/src/bin/ioi_step_module_bridge/mod.rs` | passed |
+| `cargo test -p ioi-node computer_use_request_lease --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1102
 
 Slice 1102 retires the daemon-store workspace-trust warning pass-through

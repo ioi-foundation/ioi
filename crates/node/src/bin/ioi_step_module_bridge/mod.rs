@@ -17,6 +17,7 @@ mod coding_tool_command;
 mod coding_tool_helpers;
 mod command_dispatch;
 mod computer_use;
+mod computer_use_provider;
 mod context_policy_command;
 mod governed_admission_command;
 mod mcp_memory_command;
