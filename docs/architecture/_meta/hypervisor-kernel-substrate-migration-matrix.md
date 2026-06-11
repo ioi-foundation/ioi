@@ -15925,6 +15925,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1053
+
+Slice 1053 splits the model_mount daemon-core command wrappers out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport
+and into `crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs`.
+This removes route-decision, invocation-admission, provider-execution,
+provider-invocation, native stream, lifecycle, inventory, backend-process,
+required-record, accepted-receipt, receipt-binding, and read-projection command
+handler bodies from the broad bridge module. The broad bridge keeps operation
+dispatch and proof tests; the canonical model_mount owner remains
+`crates/services/src/agentic/runtime/kernel/model_mount.rs` plus its child
+modules.
+
+This is a larger Rust transport-boundary cleanup, not terminal model_mount
+migration. The current JS admission runner, JS model_mount store/facade edges,
+Node command bridge, and local state materialization remain scaffolding until
+direct Rust daemon-core model_mount APIs own provider control/execution,
+Agentgres-backed persistence, receipt/state-root binding, replay, projection,
+and stable IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node model_mount --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,

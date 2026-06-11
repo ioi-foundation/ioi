@@ -5087,6 +5087,25 @@ Agentgres admission, storage, persistence, replay, projection, and stable
 IDE/CLI/SDK protocol APIs over expected heads, state roots, ArtifactRefs,
 PayloadRefs, and receipts.
 
+Slice 1053 moves the model_mount daemon-core command wrappers out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
+transport into
+`crates/node/src/bin/ioi_step_module_bridge/model_mount_command.rs`. This
+includes route-decision admission, invocation admission, provider execution,
+provider invocation and stream planning, lifecycle/inventory/backend-process
+planning, required-record planners, accepted-receipt head/transition planning,
+invocation receipt binding, and read-projection command wrappers. The Rust
+owner remains `crates/services/src/agentic/runtime/kernel/model_mount.rs` and
+its child modules, with receipt binding, StepModuleRouter admission,
+Agentgres admission, and projection still called from Rust. The bridge child
+module is only fixed migration transport that translates Rust-owned records at
+the process boundary; it is not the long-term API. The conformance guard now
+proves model_mount command structs and handlers stay out of the broad bridge
+module while the bridge root keeps dispatch and proof tests. Resume by
+replacing this command transport with direct Rust daemon-core model_mount APIs,
+Agentgres-backed persistence/replay/projection, provider lifecycle/control,
+and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
