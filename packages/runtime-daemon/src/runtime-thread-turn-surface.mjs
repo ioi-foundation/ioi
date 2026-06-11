@@ -22,7 +22,6 @@ export function createRuntimeThreadTurnSurface({
   isRuntimeBackedAgent: isRuntimeBackedAgentDep = isRuntimeBackedAgent,
   isRuntimeServiceProfile: isRuntimeServiceProfileDep = isRuntimeServiceProfile,
   optionalString: optionalStringDep = optionalString,
-  requestWithDiagnosticsFeedback,
   requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
   runtimeError: runtimeErrorDep = runtimeError,
   runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
@@ -30,9 +29,8 @@ export function createRuntimeThreadTurnSurface({
   return {
     async resumeThread(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
-      let runtimeControl = null;
       if (isRuntimeBackedAgentDep(agent)) {
-        runtimeControl = await controlRuntimeBridgeThreadDep(
+        return controlRuntimeBridgeThreadDep(
           store,
           {
             agent,
@@ -49,41 +47,29 @@ export function createRuntimeThreadTurnSurface({
           },
         );
       }
-      const updated = store.updateAgent(agent.id, "active", "thread.resume");
-      const thread = store.threadForAgent(updated);
-      return runtimeControl
-        ? {
-            ...thread,
-            runtime_control: runtimeControl,
-            runtimeControl,
-          }
-        : thread;
+      throwThreadTurnRustCoreRequired({
+        operation: "thread_resume",
+        operationKind: "thread.resume",
+        threadId,
+        agentId: agent?.id ?? null,
+        runtimeProfile: agent?.runtimeProfile ?? null,
+        evidenceRefs: [
+          "thread_resume_js_state_mutation_retired",
+          "rust_daemon_core_thread_resume_required",
+          "agentgres_thread_resume_truth_required",
+        ],
+      });
     },
 
     async createTurn(store, threadId, request = {}) {
       const agent = store.agentForThread(threadId);
       const controlledRequest = requestWithThreadRuntimeControlsDep(agent, request);
-      const diagnosticsFeedback = store.pendingDiagnosticsFeedbackForNextTurn(threadId, controlledRequest);
-      if (diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) {
-        const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
-        const run = store.createRun(agent.id, {
-          mode: controlledRequest.mode ?? "send",
-          threadMode: controlledRequest.threadMode,
-          approvalMode: controlledRequest.approvalMode,
-          prompt,
-          options: controlledRequest.options ?? {},
-          memory: controlledRequest.memory,
-          remember: controlledRequest.remember,
-          diagnosticsFeedback,
-        });
-        return store.turnForRun(run);
-      }
       if (isRuntimeBackedAgentDep(agent)) {
         return store.createRuntimeBridgeTurn({
           agent,
           threadId,
-          request: requestWithDiagnosticsFeedback(controlledRequest, diagnosticsFeedback),
-          diagnosticsFeedback,
+          request: controlledRequest,
+          diagnosticsFeedback: null,
         });
       }
       const requestedRuntimeProfile = runtimeProfileForRequestDep(
@@ -105,18 +91,25 @@ export function createRuntimeThreadTurnSurface({
           },
         });
       }
-      const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
-      const run = store.createRun(agent.id, {
-        mode: controlledRequest.mode ?? "send",
-        threadMode: controlledRequest.threadMode,
-        approvalMode: controlledRequest.approvalMode,
-        prompt,
-        options: controlledRequest.options ?? {},
-        memory: controlledRequest.memory,
-        remember: controlledRequest.remember,
-        diagnosticsFeedback,
+      const diagnosticsFeedback = store.pendingDiagnosticsFeedbackForNextTurn?.(threadId, controlledRequest) ?? null;
+      throwThreadTurnRustCoreRequired({
+        operation: diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
+          ? "thread_turn_diagnostics_block"
+          : "thread_turn_create",
+        operationKind: diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
+          ? "turn.diagnostics_block"
+          : "turn.create",
+        threadId,
+        agentId: agent?.id ?? null,
+        runtimeProfile: agent?.runtimeProfile ?? null,
+        evidenceRefs: [
+          diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)
+            ? "thread_turn_diagnostics_block_js_run_creation_retired"
+            : "thread_turn_create_js_run_creation_retired",
+          "rust_daemon_core_thread_turn_create_required",
+          "agentgres_thread_turn_create_truth_required",
+        ],
       });
-      return store.turnForRun(run);
     },
 
     async interruptTurn(store, threadId, turnId, request = {}) {
@@ -171,6 +164,30 @@ export function createRuntimeThreadTurnSurface({
             ? "agentgres_operator_interrupt_state_truth_required"
             : "agentgres_operator_steer_state_truth_required",
         ],
+      },
+    });
+  }
+
+  function throwThreadTurnRustCoreRequired({
+    operation,
+    operationKind,
+    threadId,
+    agentId,
+    runtimeProfile,
+    evidenceRefs,
+  }) {
+    throw runtimeErrorDep({
+      status: 501,
+      code: "runtime_thread_turn_rust_core_required",
+      message: "Thread resume and turn creation require direct Rust daemon-core admission and persistence.",
+      details: {
+        rust_core_boundary: "runtime.thread_turn",
+        operation,
+        operation_kind: operationKind,
+        thread_id: threadId,
+        agent_id: agentId,
+        runtime_profile: runtimeProfile,
+        evidence_refs: evidenceRefs,
       },
     });
   }

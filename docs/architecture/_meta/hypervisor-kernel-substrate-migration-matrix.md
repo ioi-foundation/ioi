@@ -20366,6 +20366,40 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 991
+
+Slice 991 retired the remaining JS-authoritative thread-turn create/resume
+branches in the mounted `RuntimeThreadTurn` surface. Non-runtime resume,
+non-runtime turn creation, and diagnostics-blocked turn creation now fail closed
+before `updateAgent()`, `createRun()`, or `turnForRun()` can mutate or project
+JS-authored agent/run truth. Runtime-service turn submission still enters the
+existing runtime-bridge Rust-core-required path instead of falling back to a
+fixture run.
+
+This is still non-terminal migration work: the route is deliberately closed
+until direct Rust daemon-core thread-turn admission, run/thread persistence,
+receipt/state-root binding, Agentgres truth, replay, and stable protocol APIs own
+the live create/resume path.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 991 | Retired JS run creation and agent status mutation from thread resume/create paths in the mounted turn surface. | Direct Rust daemon-core thread-turn admission and persistence over Agentgres truth with receipt/state-root binding, replay, wallet/cTEE policy where needed, and stable IDE/CLI/SDK APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-thread-turn-surface.mjs packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 990
 
 Slice 990 deleted the now-dead route-facing daemon-store catalog/readback

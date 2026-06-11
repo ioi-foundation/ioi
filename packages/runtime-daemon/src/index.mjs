@@ -569,7 +569,6 @@ const {
   insertRuntimeBridgeDiagnosticsInjectionEvent,
   postEditDiagnosticsConfig,
   promptWithDiagnosticsFeedback,
-  requestWithDiagnosticsFeedback,
 } = createDiagnosticsFeedbackHelpers({
   diagnosticsRepairContextForPayload,
   diagnosticsRepairPolicyConfig,
@@ -864,7 +863,6 @@ export class AgentgresRuntimeStateStore {
     });
     this.threadTurnSurface = createRuntimeThreadTurnSurface({
       diagnosticsFeedbackBlocksContinuation,
-      requestWithDiagnosticsFeedback,
       runtimeError,
     });
     this.subagentSurface = createRuntimeSubagentSurface();

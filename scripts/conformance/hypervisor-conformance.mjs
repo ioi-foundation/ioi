@@ -6917,6 +6917,42 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "thread-turn-create-js-facade-retired",
+    /runtime_thread_turn_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /rust_core_boundary:\s*"runtime\.thread_turn"/.test(runtimeThreadTurnSurface) &&
+      /thread_resume_js_state_mutation_retired/.test(runtimeThreadTurnSurface) &&
+      /thread_turn_create_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
+      /thread_turn_diagnostics_block_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_thread_turn_create_required/.test(runtimeThreadTurnSurface) &&
+      /agentgres_thread_turn_create_truth_required/.test(runtimeThreadTurnSurface) &&
+      !/store\.updateAgent\(/.test(runtimeThreadTurnSurface) &&
+      !/store\.createRun\(agent\.id/.test(runtimeThreadTurnSurface) &&
+      !/store\.turnForRun\(/.test(runtimeThreadTurnSurface) &&
+      !/requestWithDiagnosticsFeedback/.test(runtimeThreadTurnSurface) &&
+      /thread turn surface fails closed for non-runtime resume before JS mutation/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /thread turn surface fails closed for non-runtime turns before JS run creation/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /thread turn surface fails closed for diagnostics-blocked turns before JS run creation/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.calls\.some\(\(call\) => call\.method === "createRun"\), false\)/.test(
+        runtimeThreadTurnSurfaceTest,
+      ) &&
+      /assert\.equal\(store\.calls\.some\(\(call\) => call\.method === "updateAgent"\), false\)/.test(
+        runtimeThreadTurnSurfaceTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/runtime-route-handlers.mjs",
+    ],
+    "Phase 10/11 is pending: thread resume and turn creation must fail closed until Rust daemon-core owns admission, run/thread persistence, and Agentgres truth",
+  );
+  assertCheck(
+    result,
     "run-cancel-state-update-live-bridge",
     /RunCancelStateUpdateCore/.test(policyCore) &&
       /RunCancelStateUpdateRequest/.test(policyCore) &&

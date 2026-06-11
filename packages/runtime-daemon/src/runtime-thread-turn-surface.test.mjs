@@ -54,7 +54,29 @@ function createStore(overrides = {}) {
   };
 }
 
-test("thread turn surface resumes through mounted runtime bridge control path", async () => {
+function assertThreadTurnRustCoreRequired(error, {
+  operation,
+  operationKind,
+  threadId = "thread_alpha",
+  agentId = "agent_alpha",
+  runtimeProfile = "fixture",
+} = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_thread_turn_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.thread_turn");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.thread_id, threadId);
+  assert.equal(error.details.agent_id, agentId);
+  assert.equal(error.details.runtime_profile, runtimeProfile);
+  assert.equal(Array.isArray(error.details.evidence_refs), true);
+  assert.equal(Object.hasOwn(error.details, "threadId"), false);
+  assert.equal(Object.hasOwn(error.details, "agentId"), false);
+  assert.equal(Object.hasOwn(error.details, "runtimeProfile"), false);
+  return true;
+}
+
+test("thread turn surface resumes runtime threads through mounted runtime bridge control path", async () => {
   const controlCalls = [];
   const surface = createRuntimeThreadTurnSurface({
     controlRuntimeBridgeThread(_store, input) {
@@ -63,7 +85,6 @@ test("thread turn surface resumes through mounted runtime bridge control path", 
     },
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
-    requestWithDiagnosticsFeedback: (request) => request,
     runtimeError,
   });
   const store = createStore({
@@ -72,38 +93,86 @@ test("thread turn surface resumes through mounted runtime bridge control path", 
 
   const result = await surface.resumeThread(store, "thread_alpha", { reason: "continue" });
 
-  assert.equal(result.status, "active");
-  assert.equal(result.runtime_control.status, "accepted");
+  assert.equal(result.status, "accepted");
   assert.deepEqual(controlCalls, [{
     agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
     threadId: "thread_alpha",
     action: "resume",
     reason: "continue",
   }]);
+  assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
+  assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
 });
 
-test("thread turn surface creates non-runtime turns without runtime bridge dispatch", async () => {
+test("thread turn surface fails closed for non-runtime resume before JS mutation", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
-    requestWithDiagnosticsFeedback: (request) => request,
     runtimeError,
   });
   const store = createStore();
 
-  const result = await surface.createTurn(store, "thread_alpha", {
-    prompt: "ship it",
-    options: {},
+  await assert.rejects(
+    () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
+    (error) => assertThreadTurnRustCoreRequired(error, {
+      operation: "thread_resume",
+      operationKind: "thread.resume",
+    }),
+  );
+
+  assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
+  assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
+});
+
+test("thread turn surface fails closed for non-runtime turns before JS run creation", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    runtimeError,
+  });
+  const store = createStore();
+
+  await assert.rejects(
+    () => surface.createTurn(store, "thread_alpha", {
+      prompt: "ship it",
+      options: {},
+    }),
+    (error) => assertThreadTurnRustCoreRequired(error, {
+      operation: "thread_turn_create",
+      operationKind: "turn.create",
+    }),
+  );
+
+  assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
+  assert.equal(store.calls.some((call) => call.method === "createRun"), false);
+  assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
+});
+
+test("thread turn surface fails closed for diagnostics-blocked turns before JS run creation", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => true,
+    runtimeError,
+  });
+  const store = createStore({
+    diagnosticsFeedback: { status: "blocked" },
   });
 
-  assert.equal(result.turn_id, "turn_alpha");
-  assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
-  assert.equal(store.calls.find((call) => call.method === "createRun").request.prompt, "ship it");
+  await assert.rejects(
+    () => surface.createTurn(store, "thread_alpha", {
+      prompt: "ship it",
+      options: {},
+    }),
+    (error) => assertThreadTurnRustCoreRequired(error, {
+      operation: "thread_turn_diagnostics_block",
+      operationKind: "turn.diagnostics_block",
+    }),
+  );
+
+  assert.equal(store.calls.some((call) => call.method === "createRun"), false);
+  assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
 test("thread turn surface fails closed for operator turn controls", async () => {
   const surface = createRuntimeThreadTurnSurface({
     diagnosticsFeedbackBlocksContinuation: () => false,
-    requestWithDiagnosticsFeedback: (request) => request,
     runtimeError,
   });
   const store = createStore();
