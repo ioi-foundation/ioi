@@ -49,6 +49,9 @@ function readRustPolicyCore() {
     exists("crates/services/src/agentic/runtime/kernel/policy.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy.rs")
       : "",
+    exists("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
+      ? read("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
+      : "",
     exists("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
       : "",
@@ -2590,17 +2593,22 @@ function runBridge() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/projection_required.rs")
     : "";
+  const policyCodingToolBudgetRecoveryCore = exists(
+    "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
+  )
+    ? read("crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs")
+    : "";
   const policyRunCancelCore = exists("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     ? read("crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs")
     : "";
   const policyCore = readRustPolicyCore();
   const contextCompactionStateUpdateCoreBlock =
     policyCore.match(
-      /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryStateUpdateCore;)/,
+      /impl ContextCompactionStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct WorkflowEditAdmissionRequiredCore;)/,
     )?.[0] ?? "";
   const codingToolBudgetRecoveryStateUpdateCoreBlock =
-    policyCore.match(
-      /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct DiagnosticsOperatorOverrideStateUpdateCore;)/,
+    policyCodingToolBudgetRecoveryCore.match(
+      /impl CodingToolBudgetRecoveryStateUpdateCore \{[\s\S]*?(?=\n\n#\[derive\(Debug, Default, Clone\)\]\npub struct CodingToolBudgetRecoveryAdmissionRequiredCore;)/,
     )?.[0] ?? "";
   const diagnosticsOperatorOverrideStateUpdateCoreBlock =
     policyCore.match(
@@ -6725,7 +6733,7 @@ function runBridge() {
       !/appendOperatorControl/.test(runtimeCodingToolBudgetRecoverySurface),
     [
       "crates/services/src/agentic/runtime/kernel/policy.rs",
-      "crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
@@ -6733,6 +6741,39 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-coding-tool-budget-recovery-surface.test.mjs",
     ],
     "Phase 9/10 is pending: coding-tool budget recovery retry state updates must be planned by Rust policy core through the command bridge while the public JS facade fails closed before JS state planning or JS persistence",
+  );
+  assertCheck(
+    result,
+    "policy-coding-tool-budget-recovery-rust-owner-split",
+    /mod coding_tool_budget_recovery;/.test(policyFacade) &&
+      /pub use coding_tool_budget_recovery::/.test(policyFacade) &&
+      /pub struct CodingToolBudgetRecoveryStateUpdateCore;/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /pub struct CodingToolBudgetRecoveryAdmissionRequiredCore;/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /pub struct CodingToolBudgetRecoveryStateUpdateRequest/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /pub struct CodingToolBudgetRecoveryAdmissionRequiredRequest/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /append_operator_control/.test(policyCodingToolBudgetRecoveryCore) &&
+      /rust_policy_plans_coding_tool_budget_recovery_state_update/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      /rust_policy_plans_coding_tool_budget_recovery_admission_required/.test(
+        policyCodingToolBudgetRecoveryCore,
+      ) &&
+      !/pub struct CodingToolBudgetRecoveryStateUpdateCore;/.test(policyFacade) &&
+      !/rust_policy_plans_coding_tool_budget_recovery_state_update/.test(policyFacade),
+    [
+      "crates/services/src/agentic/runtime/kernel/policy.rs",
+      "crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 10/11 remains non-terminal: coding-tool budget recovery policy owners must stay in the Rust policy child module while direct Rust daemon-core recovery admission/persistence replaces command transport",
   );
   assertCheck(
     result,

@@ -4812,6 +4812,21 @@ daemon-core cancellation admission/persistence over Agentgres expected
 heads/state roots, receipt/event materialization, replay, projection, and
 stable IDE/CLI/SDK protocol APIs.
 
+Slice 1037 moves the coding-tool budget recovery policy owner family out of
+the broad Rust `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`.
+The child module owns budget-recovery state-update and admission-required
+request/record/error types, planner cores, validation, helper operator-control
+planning, and focused proof tests; the parent facade only re-exports the
+surface. This is an extraction toward the pure Rust daemon-core substrate, not
+the terminal budget recovery architecture. The current JS coding-tool budget
+recovery facade, JS context-policy runner, and Node command bridge remain
+temporary migration transport. Resume by replacing that transport path with
+direct Rust daemon-core budget recovery admission/persistence over wallet
+authority, Agentgres expected heads/state roots, policy receipts,
+retry-event materialization, replay, projection, and stable IDE/CLI/SDK
+protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

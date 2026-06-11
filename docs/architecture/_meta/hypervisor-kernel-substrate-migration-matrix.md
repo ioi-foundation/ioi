@@ -20444,3 +20444,38 @@ Scheduled matrix-compaction obligation: compact Slices 1035-1036 with the next
 larger Rust-core extraction or facade-retirement seam once the next pure-Rust
 projection/admission boundary is clearer. Future resumes must not treat the
 current Node bridge or JS edge translation as canonical long-term shape.
+
+## Implementation Slice Evidence: 1037
+
+Slice 1037 splits the Rust coding-tool budget recovery policy owner family out
+of the broad `policy.rs` facade into
+`crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`.
+The child owner now contains budget-recovery state-update and
+admission-required request/record/error types, planner cores, validation,
+operator-control helper planning, and focused proof tests. The parent policy
+module only re-exports those surfaces.
+
+This is a Rust-core ownership cut, not terminal coding-tool budget recovery
+migration. The current JS coding-tool budget recovery facade, JS context-policy
+runner, and Node command bridge remain migration transport/scaffolding until
+direct Rust daemon-core budget recovery admission, wallet authority, Agentgres
+expected-head/state-root persistence, policy receipts, retry-event
+materialization, replay, projection, and stable protocol APIs own the path end
+to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_budget_recovery` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Scheduled matrix-compaction obligation: compact Slices 1035-1037 with the next
+larger Rust-core extraction or facade-retirement seam once the next pure-Rust
+projection/admission boundary is clearer. Future resumes must not treat the
+current Node bridge or JS edge translation as canonical long-term shape.
