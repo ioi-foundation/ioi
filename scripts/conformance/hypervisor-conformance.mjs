@@ -3802,6 +3802,33 @@ function runBridge() {
   );
   assertCheck(
     result,
+    "bridge-coding-tool-local-envelope-checks-retired",
+    !/COMMAND_SCHEMA_VERSION/.test(codingToolCommandBridge) &&
+      !/schema_version:\s*String/.test(codingToolCommandBridge) &&
+      !/operation:\s*String/.test(codingToolCommandBridge) &&
+      !/schema_version_invalid/.test(codingToolCommandBridge) &&
+      !/operation_unsupported/.test(codingToolCommandBridge) &&
+      /CommandOperation::RunCodingToolStepModule/.test(bridgeCommandDispatch) &&
+      /validate_command_envelope\(\s*"run_coding_tool_step_module",[\s\n]*DAEMON_CORE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
+        bridgeModule,
+      ) &&
+      /coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
+      /pub\(super\) struct StepModuleBridgeRequest/.test(codingToolCommandBridge) &&
+      /pub\(super\) fn run_coding_tool_step_module/.test(codingToolCommandBridge) &&
+      /StepModuleRouterCore/.test(codingToolCommandBridge) &&
+      /WorkloadClient::plan_step_module_dispatch/.test(codingToolCommandBridge),
+    [
+      "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
+      "crates/client/src/workload_client/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_command.rs",
+      "scripts/conformance/hypervisor-conformance.mjs",
+    ],
+    "Phase 3/10/11 remains non-terminal: coding-tool StepModule wrappers must not regain local command-envelope identity while the next Rust-core extraction/facade-retirement slice replaces temporary Node command transport with direct Rust daemon-core/workload APIs",
+  );
+  assertCheck(
+    result,
     "rust-workload-client-step-module-dispatch-contract",
     /WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(workloadClient) &&
       /WorkloadStepModuleDispatchRequest/.test(workloadClient) &&

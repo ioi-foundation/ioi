@@ -227,6 +227,19 @@ mod tests {
         assert_eq!(error.code(), "schema_version_invalid");
     }
 
+    #[test]
+    fn coding_tool_step_module_rejects_daemon_core_command_schema() {
+        let error = validate_command_envelope(
+            "run_coding_tool_step_module",
+            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects daemon-core schema before StepModule dispatch");
+
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+    }
+
     fn temp_workspace(name: &str) -> PathBuf {
         let path = std::env::temp_dir().join(format!(
             "ioi-step-module-bridge-workspace-restore-{}-{}",
@@ -7169,8 +7182,6 @@ mod tests {
         }))
         .expect("test invocation");
         StepModuleBridgeRequest {
-            schema_version: COMMAND_SCHEMA_VERSION.to_string(),
-            operation: "run_coding_tool_step_module".to_string(),
             backend: "rust_workload_live".to_string(),
             invocation,
             workspace_root: Some(workspace_root.to_string()),

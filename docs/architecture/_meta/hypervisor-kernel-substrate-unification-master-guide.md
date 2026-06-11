@@ -5504,6 +5504,28 @@ Rust/WASM workload execution, Agentgres-admitted truth, receipt/state-root
 binding, replay, projection, wallet.network authority, cTEE custody, and stable
 IDE/CLI/SDK protocol surfaces.
 
+Slice 1078 retires duplicate bridge-local envelope identity checks from the
+coding-tool StepModule command wrapper. `coding_tool_command.rs` no longer
+carries local `schema_version` or `operation` fields and no longer owns local
+`schema_version_invalid` or `operation_unsupported` branches for
+`run_coding_tool_step_module`. The wrapper now deserializes only
+body-specific backend, invocation, workspace-root, and input fields before
+entering StepModule invocation validation, StepModuleRouter admission,
+Rust workload-client dispatch planning, receipt binding, Agentgres admission,
+projection binding, and the Rust-live coding-tool handlers.
+
+The StepModule schema-family rejection proof for coding-tool execution now
+lives at the Rust command protocol validator boundary:
+`validate_command_envelope()` rejects `run_coding_tool_step_module` when it is
+sent with the daemon-core command schema. Conformance now fails if the
+coding-tool StepModule wrapper regains local command-envelope identity. This is
+still not terminal bridge retirement: `command_dispatch.rs`, the StepModule
+command helper, JS command callers, and coding-tool JS facades must still be
+replaced by direct Rust daemon-core/workload protocol APIs over Rust/WASM
+module execution, Agentgres-admitted truth, receipt/state-root binding, replay,
+projection, wallet.network authority where applicable, cTEE custody where
+applicable, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

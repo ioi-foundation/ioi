@@ -19,13 +19,10 @@ use super::coding_tool_helpers::{
     inspect_workspace_path, inspect_workspace_status, json_string_refs, optional_json_string,
     safe_ref_path, sha256_hex, unique_string_refs,
 };
-use super::{computer_use, BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION, COMMAND_SCHEMA_VERSION};
+use super::{computer_use, BridgeError, CODING_TOOL_RESULT_SCHEMA_VERSION};
 
 #[derive(Debug, Deserialize)]
 pub(super) struct StepModuleBridgeRequest {
-    #[serde(rename = "schema_version")]
-    pub(super) schema_version: String,
-    pub(super) operation: String,
     pub(super) backend: String,
     pub(super) invocation: StepModuleInvocation,
     #[serde(default)]
@@ -37,21 +34,6 @@ pub(super) struct StepModuleBridgeRequest {
 pub(super) fn run_coding_tool_step_module(
     request: StepModuleBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    if request.schema_version != COMMAND_SCHEMA_VERSION {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                COMMAND_SCHEMA_VERSION, request.schema_version
-            ),
-        ));
-    }
-    if request.operation != "run_coding_tool_step_module" {
-        return Err(BridgeError::new(
-            "operation_unsupported",
-            format!("unsupported operation {}", request.operation),
-        ));
-    }
     request
         .invocation
         .validate()
