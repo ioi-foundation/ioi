@@ -5335,6 +5335,23 @@ daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
 admission, receipt/state-root binding, replay, projection, wallet.network
 authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1069 retires the adapter-only bridge command-envelope wrapper. After
+Slices 1065-1068 moved schema versions, operation-family cataloging, and
+envelope validation into `command_protocol.rs`,
+`crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs` only
+re-exported Rust protocol symbols and had become compatibility scaffolding.
+The wrapper file and `mod command_envelope` declaration are now removed, and
+the remaining bridge transport imports `validate_command_envelope()` and
+command protocol symbols directly from
+`ioi_services::agentic::runtime::kernel::command_protocol`. Conformance now
+fails if the adapter-only wrapper returns or if the bridge stops using the
+Rust protocol module directly. This is still not terminal bridge retirement:
+the remaining Node command dispatch table, StepModule command helper, and
+shared daemon-core command helper must still be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

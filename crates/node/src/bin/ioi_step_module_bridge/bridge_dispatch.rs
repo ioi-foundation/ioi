@@ -3,8 +3,8 @@ use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::command_dispatch::dispatch_bridge_operation;
-use super::command_envelope::validate_command_envelope;
 use super::BridgeError;
+use ioi_services::agentic::runtime::kernel::command_protocol::validate_command_envelope;
 
 #[derive(Debug, Deserialize)]
 pub(super) struct BridgeEnvelope {

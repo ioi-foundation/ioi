@@ -2269,9 +2269,7 @@ function runBridge() {
   const bridgeCommandDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs")
     : "";
-  const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
-    ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
-    : "";
+  const bridgeCommandEnvelopeExists = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs");
   const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     : "";
@@ -2349,9 +2347,14 @@ function runBridge() {
     "bridge-command-schema-version-alias-retired",
     /mod bridge_dispatch;/.test(bridgeModule) &&
       /mod command_dispatch;/.test(bridgeModule) &&
-      /mod command_envelope;/.test(bridgeModule) &&
+      !/mod command_envelope;/.test(bridgeModule) &&
+      !bridgeCommandEnvelopeExists &&
       /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
+      /use ioi_services::agentic::runtime::kernel::command_protocol::validate_command_envelope;/.test(
+        bridgeDispatch,
+      ) &&
+      /use ioi_services::agentic::runtime::kernel::command_protocol::/.test(bridgeModule) &&
       /validate_command_envelope\(&envelope\.operation,\s*&envelope\.schema_version\)/.test(bridgeDispatch) &&
       /error\.into_parts\(\)/.test(bridgeDispatch) &&
       /dispatch_bridge_operation\(validated\.operation,\s*validated\.command_family,\s*raw_request\)/.test(
@@ -2369,11 +2372,6 @@ function runBridge() {
       /expected_command_schema_version/.test(commandProtocolCore) &&
       /operation_unknown/.test(commandProtocolCore) &&
       !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
-      /pub\(super\) use ioi_services::agentic::runtime::kernel::command_protocol/.test(bridgeCommandEnvelope) &&
-      !/pub\(super\) const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
-      !/pub\(super\) const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
-      !/pub\(super\) fn expected_command_schema_version/.test(bridgeCommandEnvelope) &&
-      !/pub\(super\) fn is_daemon_core_operation/.test(bridgeCommandEnvelope) &&
       /pub const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       /pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       /pub const STEP_MODULE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
@@ -2408,7 +2406,6 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
       "crates/node/src/bin/ioi_step_module_bridge/command_dispatch.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
     ],
     "Phase 10/11 is pending: Rust command bridge intake must require canonical schema_version and reject retired schemaVersion aliases before operation dispatch",
@@ -13849,9 +13846,6 @@ function runReceipts() {
   const result = createTierResult("receipts");
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    : "";
-  const bridgeCommandEnvelope = exists("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
-    ? read("crates/node/src/bin/ioi_step_module_bridge/command_envelope.rs")
     : "";
   const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")

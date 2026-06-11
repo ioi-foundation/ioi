@@ -16,7 +16,6 @@ mod bridge_dispatch;
 mod coding_tool_command;
 mod coding_tool_helpers;
 mod command_dispatch;
-mod command_envelope;
 mod computer_use;
 mod context_policy_command;
 mod governed_admission_command;
@@ -52,11 +51,6 @@ pub use bridge_dispatch::run_bridge_response_from_stdin;
 use bridge_dispatch::*;
 use coding_tool_command::*;
 use coding_tool_helpers::*;
-use command_envelope::{
-    command_family, expected_command_schema_version, is_step_module_operation,
-    validate_command_envelope, CommandFamily, COMMAND_SCHEMA_VERSION,
-    DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
-};
 use context_policy_command::{
     evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
     plan_context_compaction, plan_context_compaction_state_update, CompactionPolicyBridgeRequest,
@@ -68,6 +62,11 @@ use governed_admission_command::{
     admit_worker_service_package_invocation, execute_private_workspace_ctee_action,
     CteePrivateWorkspaceBridgeRequest, GovernedRuntimeImprovementBridgeRequest,
     L1SettlementAdmissionBridgeRequest, WorkerServicePackageInvocationBridgeRequest,
+};
+use ioi_services::agentic::runtime::kernel::command_protocol::{
+    command_family, expected_command_schema_version, is_step_module_operation,
+    validate_command_envelope, CommandFamily, COMMAND_SCHEMA_VERSION,
+    DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
 };
 use mcp_memory_command::{
     plan_mcp_control_agent_state_update, plan_mcp_manager_catalog_projection,
