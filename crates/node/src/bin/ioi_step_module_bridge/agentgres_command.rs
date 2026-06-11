@@ -2,13 +2,11 @@ use ioi_services::agentic::runtime::kernel::agentgres_admission::{
     AgentgresAdmissionCore, RuntimeAgentStateCommitRequest, RuntimeArtifactStateCommitRequest,
     RuntimeMemoryStateCommitRequest, RuntimeModelMountReceiptStateCommitRequest,
     RuntimeModelMountRecordStateCommitRequest, RuntimeRunStateCommitRequest,
-    RuntimeStatePersistenceRecord, RuntimeStateStorageWriteRecord,
-    RuntimeSubagentStateCommitRequest, StorageBackendWriteProposal,
+    RuntimeStateStorageWriteRecord, RuntimeStateWrittenRecord, RuntimeSubagentStateCommitRequest,
+    StorageBackendWriteProposal,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
-use std::fs;
-use std::path::{Component, Path, PathBuf};
 
 use super::BridgeError;
 
@@ -107,25 +105,12 @@ pub(super) fn admit_storage_backend_write(
 pub(super) fn commit_runtime_run_state(
     request: RuntimeRunStateCommitBridgeRequest,
 ) -> Result<Value, BridgeError> {
-    let state_root = ensure_runtime_state_dir(&request.state_dir)?;
-    let mut commit_request = request.request;
-    if commit_request.previous_transition.is_none() {
-        commit_request.previous_transition =
-            read_runtime_state_previous_transition(&state_root, &commit_request.run_id)?;
-    }
-    if commit_request.projection_watermark.is_none() {
-        commit_request.projection_watermark = Some(runtime_state_projection_watermark(
-            &state_root,
-            &commit_request.run_id,
-        )?);
-    }
-    let record = AgentgresAdmissionCore
-        .commit_runtime_run_state(&commit_request)
+    let persisted = AgentgresAdmissionCore
+        .commit_runtime_run_state_to_dir(&request.state_dir, &request.request)
         .map_err(|error| {
             BridgeError::new("runtime_run_state_commit_invalid", format!("{error:?}"))
         })?;
-    let written_records =
-        write_runtime_state_persistence_records(&request.state_dir, &record.persistence)?;
+    let record = persisted.commit;
     Ok(json!({
         "source": "rust_agentgres_runtime_run_state_commit_command",
         "backend": request.backend.unwrap_or_else(|| "rust_agentgres_storage".to_string()),
@@ -141,7 +126,7 @@ pub(super) fn commit_runtime_run_state(
         "persistence_hash": record.persistence.persistence_hash.clone(),
         "commit_hash": record.commit_hash.clone(),
         "records": record.persistence.storage_write_set.records.clone(),
-        "written_records": written_records,
+        "written_records": persisted.written_records,
         "evidence_refs": [
             "rust_agentgres_runtime_run_state_commit",
             record.commit_hash,
@@ -157,10 +142,11 @@ pub(super) fn commit_runtime_agent_state(
         .map_err(|error| {
             BridgeError::new("runtime_agent_state_commit_invalid", format!("{error:?}"))
         })?;
-    let written_record = write_runtime_state_storage_record(
+    let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
         &record.record,
         &request.request.agent,
+        "runtime_agent_state_commit_invalid",
     )?;
     Ok(json!({
         "source": "rust_agentgres_runtime_agent_state_commit_command",
@@ -192,10 +178,11 @@ pub(super) fn commit_runtime_memory_state(
         .map_err(|error| {
             BridgeError::new("runtime_memory_state_commit_invalid", format!("{error:?}"))
         })?;
-    let written_record = write_runtime_state_storage_record(
+    let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
         &record.record,
         &request.request.payload,
+        "runtime_memory_state_commit_invalid",
     )?;
     Ok(json!({
         "source": "rust_agentgres_runtime_memory_state_commit_command",
@@ -231,10 +218,11 @@ pub(super) fn commit_runtime_subagent_state(
                 format!("{error:?}"),
             )
         })?;
-    let written_record = write_runtime_state_storage_record(
+    let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
         &record.record,
         &request.request.subagent,
+        "runtime_subagent_state_commit_invalid",
     )?;
     Ok(json!({
         "source": "rust_agentgres_runtime_subagent_state_commit_command",
@@ -269,10 +257,11 @@ pub(super) fn commit_runtime_artifact_state(
                 format!("{error:?}"),
             )
         })?;
-    let written_record = write_runtime_state_storage_record(
+    let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
         &record.record,
         &request.request.artifact,
+        "runtime_artifact_state_commit_invalid",
     )?;
     Ok(json!({
         "source": "rust_agentgres_runtime_artifact_state_commit_command",
@@ -307,10 +296,11 @@ pub(super) fn commit_runtime_model_mount_record_state(
                 format!("{error:?}"),
             )
         })?;
-    let written_record = write_runtime_state_storage_record(
+    let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
         &record.record,
         &request.request.record,
+        "runtime_model_mount_record_state_commit_invalid",
     )?;
     Ok(json!({
         "source": "rust_agentgres_runtime_model_mount_record_state_commit_command",
@@ -346,10 +336,11 @@ pub(super) fn commit_runtime_model_mount_receipt_state(
                 format!("{error:?}"),
             )
         })?;
-    let written_record = write_runtime_state_storage_record(
+    let written_record = persist_runtime_state_storage_record(
         &request.state_dir,
         &record.record,
         &request.request.receipt,
+        "runtime_model_mount_receipt_state_commit_invalid",
     )?;
     Ok(json!({
         "source": "rust_agentgres_runtime_model_mount_receipt_state_commit_command",
@@ -373,174 +364,16 @@ pub(super) fn commit_runtime_model_mount_receipt_state(
     }))
 }
 
-fn write_runtime_state_persistence_records(
-    state_dir: &str,
-    record: &RuntimeStatePersistenceRecord,
-) -> Result<Vec<Value>, BridgeError> {
-    let state_root = ensure_runtime_state_dir(state_dir)?;
-    let mut written_records = Vec::with_capacity(record.materialization.records.len());
-    for materialized in &record.materialization.records {
-        let planned = record
-            .storage_write_set
-            .records
-            .iter()
-            .find(|entry| entry.record_path == materialized.record_path)
-            .ok_or_else(|| {
-                BridgeError::new(
-                    "runtime_state_storage_plan_missing_record",
-                    format!(
-                        "storage write set is missing record {}",
-                        materialized.record_path
-                    ),
-                )
-            })?;
-        let target = runtime_state_record_path(&state_root, &materialized.record_path)?;
-        if let Some(parent) = target.parent() {
-            fs::create_dir_all(parent).map_err(|error| {
-                BridgeError::new("runtime_state_record_dir_create_failed", error.to_string())
-            })?;
-        }
-        let payload = serde_json::to_string_pretty(&materialized.payload).map_err(|error| {
-            BridgeError::new("runtime_state_record_json_failed", error.to_string())
-        })?;
-        let file_content = format!("{payload}\n");
-        fs::write(&target, file_content.as_bytes()).map_err(|error| {
-            BridgeError::new("runtime_state_record_write_failed", error.to_string())
-        })?;
-        written_records.push(json!({
-            "record_path": materialized.record_path,
-            "absolute_path": target.to_string_lossy(),
-            "object_ref": planned.object_ref,
-            "content_hash": planned.content_hash,
-            "payload_refs": planned.payload_refs,
-            "receipt_refs": planned.receipt_refs,
-            "admission_hash": planned.admission.admission_hash,
-        }));
-    }
-    Ok(written_records)
-}
-
-fn write_runtime_state_storage_record(
+fn persist_runtime_state_storage_record(
     state_dir: &str,
     record: &RuntimeStateStorageWriteRecord,
     payload: &Value,
-) -> Result<Value, BridgeError> {
-    let state_root = ensure_runtime_state_dir(state_dir)?;
-    let target = runtime_state_record_path(&state_root, &record.record_path)?;
-    if let Some(parent) = target.parent() {
-        fs::create_dir_all(parent).map_err(|error| {
-            BridgeError::new("runtime_state_record_dir_create_failed", error.to_string())
-        })?;
-    }
-    let payload = serde_json::to_string_pretty(payload)
-        .map_err(|error| BridgeError::new("runtime_state_record_json_failed", error.to_string()))?;
-    let file_content = format!("{payload}\n");
-    fs::write(&target, file_content.as_bytes()).map_err(|error| {
-        BridgeError::new("runtime_state_record_write_failed", error.to_string())
-    })?;
-    Ok(json!({
-        "record_path": record.record_path,
-        "absolute_path": target.to_string_lossy(),
-        "object_ref": record.object_ref,
-        "content_hash": record.content_hash,
-        "payload_refs": record.payload_refs,
-        "receipt_refs": record.receipt_refs,
-        "admission_hash": record.admission.admission_hash,
-    }))
-}
-
-fn ensure_runtime_state_dir(state_dir: &str) -> Result<PathBuf, BridgeError> {
-    let state_root_input = Path::new(state_dir);
-    fs::create_dir_all(state_root_input)
-        .map_err(|error| BridgeError::new("runtime_state_dir_create_failed", error.to_string()))?;
-    fs::canonicalize(state_root_input)
-        .map_err(|error| BridgeError::new("runtime_state_dir_invalid", error.to_string()))
-}
-
-fn read_runtime_state_previous_transition(
-    state_root: &Path,
-    run_id: &str,
-) -> Result<Option<Value>, BridgeError> {
-    let task_path = runtime_state_record_path(state_root, &format!("tasks/{run_id}.json"))?;
-    if !task_path.exists() {
-        return Ok(None);
-    }
-    let content = fs::read_to_string(&task_path).map_err(|error| {
-        BridgeError::new(
-            "runtime_state_previous_transition_read_failed",
-            error.to_string(),
-        )
-    })?;
-    let task_record: Value = serde_json::from_str(&content).map_err(|error| {
-        BridgeError::new(
-            "runtime_state_previous_transition_json_invalid",
-            error.to_string(),
-        )
-    })?;
-    match task_record.get("agentgresTransition") {
-        Some(value) if value.is_object() => Ok(Some(value.clone())),
-        _ => Ok(None),
-    }
-}
-
-fn runtime_state_projection_watermark(
-    state_root: &Path,
-    run_id: &str,
-) -> Result<String, BridgeError> {
-    let runs_dir = state_root.join("runs");
-    let mut run_count = 0usize;
-    if runs_dir.exists() {
-        for entry in fs::read_dir(&runs_dir).map_err(|error| {
-            BridgeError::new("runtime_state_runs_dir_read_failed", error.to_string())
-        })? {
-            let entry = entry.map_err(|error| {
-                BridgeError::new("runtime_state_runs_dir_entry_failed", error.to_string())
-            })?;
-            if entry
-                .file_type()
-                .map_err(|error| {
-                    BridgeError::new("runtime_state_runs_dir_entry_failed", error.to_string())
-                })?
-                .is_file()
-                && entry.path().extension().and_then(|value| value.to_str()) == Some("json")
-            {
-                run_count += 1;
-            }
-        }
-    }
-    let watermark = run_count.max(if run_id.trim().is_empty() { 0 } else { 1 });
-    Ok(format!("runtime-state:{watermark}"))
-}
-
-fn runtime_state_record_path(root: &Path, record_path: &str) -> Result<PathBuf, BridgeError> {
-    if record_path.trim().is_empty() {
-        return Err(BridgeError::new(
-            "runtime_state_record_path_invalid",
-            "runtime state record path is required".to_string(),
-        ));
-    }
-    let mut target = root.to_path_buf();
-    let mut saw_component = false;
-    for component in Path::new(record_path).components() {
-        match component {
-            Component::Normal(segment) => {
-                target.push(segment);
-                saw_component = true;
-            }
-            Component::CurDir => {}
-            _ => {
-                return Err(BridgeError::new(
-                    "runtime_state_record_path_invalid",
-                    format!("runtime state record path cannot escape state dir: {record_path}"),
-                ));
-            }
-        }
-    }
-    if !saw_component || !target.starts_with(root) {
-        return Err(BridgeError::new(
-            "runtime_state_record_path_invalid",
-            format!("runtime state record path cannot escape state dir: {record_path}"),
-        ));
-    }
-    Ok(target)
+    error_code: &'static str,
+) -> Result<RuntimeStateWrittenRecord, BridgeError> {
+    let state_root = AgentgresAdmissionCore
+        .ensure_runtime_state_dir(state_dir)
+        .map_err(|error| BridgeError::new(error_code, format!("{error:?}")))?;
+    AgentgresAdmissionCore
+        .persist_runtime_state_storage_record(&state_root, record, payload)
+        .map_err(|error| BridgeError::new(error_code, format!("{error:?}")))
 }

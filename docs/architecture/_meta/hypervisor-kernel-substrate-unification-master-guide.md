@@ -5981,6 +5981,20 @@ daemon-core cTEE and worker/service package execution/admission APIs replace the
 Node bridge, shared command runner, JS command callers, and remaining JS
 protocol facades.
 
+Slice 1107 moves durable Agentgres runtime-state persistence execution out of
+`ioi_step_module_bridge/agentgres_command.rs` and into Rust
+`AgentgresAdmissionCore`. The bridge no longer owns filesystem path
+canonicalization, previous-transition lookup, projection-watermark derivation,
+or admitted-record materialization writes for runtime state commits; it calls
+Rust core `commit_runtime_run_state_to_dir` / persistence helpers and formats
+the temporary command-transport response only.
+
+This remains non-terminal because command transport and JS command callers still
+exist, but the Agentgres durable-write side-effect boundary is now a Rust
+daemon-core API instead of bridge-local persistence logic. Direct Rust
+daemon-core Agentgres protocol APIs must still replace the Node bridge, shared
+command runner, JS command callers, and remaining JS persistence facades.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

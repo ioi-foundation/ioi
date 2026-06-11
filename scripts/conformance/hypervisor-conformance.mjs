@@ -19292,6 +19292,10 @@ function runReceipts() {
       /RuntimeStateRecordAgentIdMismatch/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_transition/.test(agentgresAdmissionCore) &&
       /commit_runtime_run_state/.test(agentgresAdmissionCore) &&
+      /commit_runtime_run_state_to_dir/.test(agentgresAdmissionCore) &&
+      /RuntimeRunStatePersistedCommitRecord/.test(agentgresAdmissionCore) &&
+      /RuntimeStateWrittenRecord/.test(agentgresAdmissionCore) &&
+      /persist_runtime_state_storage_record/.test(agentgresAdmissionCore) &&
       /runtime_run_state_hash/.test(agentgresAdmissionCore) &&
       /runtime_task_state_hash/.test(agentgresAdmissionCore) &&
       /runtime_task_record_for_run/.test(agentgresAdmissionCore) &&
@@ -19303,6 +19307,8 @@ function runReceipts() {
       /commits_runtime_run_state_with_rust_derived_transition_and_persistence/.test(agentgresAdmissionCore) &&
       /commits_runtime_run_state_from_previous_transition_head/.test(agentgresAdmissionCore) &&
       /runtime_run_state_commit_ignores_retired_previous_transition_aliases/.test(agentgresAdmissionCore) &&
+      /persists_runtime_run_state_to_dir_through_rust_core/.test(agentgresAdmissionCore) &&
+      /runtime_state_persistence_rejects_record_path_escape_in_rust_core/.test(agentgresAdmissionCore) &&
       !/fn runtime_previous_resulting_head[\s\S]*?json_string\(transition,\s*"resultingHead"\)[\s\S]*?fn runtime_previous_state_root/.test(
         agentgresAdmissionCore,
       ) &&
@@ -19315,6 +19321,11 @@ function runReceipts() {
       !/fn commit_runtime_run_state/.test(bridgeModule) &&
       /pub\(super\) struct RuntimeRunStateCommitBridgeRequest/.test(agentgresCommandBridge) &&
       /pub\(super\) fn commit_runtime_run_state/.test(agentgresCommandBridge) &&
+      /commit_runtime_run_state_to_dir/.test(agentgresCommandBridge) &&
+      !/read_runtime_state_previous_transition/.test(agentgresCommandBridge) &&
+      !/runtime_state_projection_watermark/.test(agentgresCommandBridge) &&
+      !/runtime_state_record_path/.test(agentgresCommandBridge) &&
+      !/from "std::fs"|use std::fs|fs::/.test(agentgresCommandBridge) &&
       /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       /runtime_agentgres_commit_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(agentgresCommandBridge) &&
@@ -19398,6 +19409,10 @@ function runReceipts() {
       /RuntimeStatePersistenceRequest/.test(agentgresAdmissionCore) &&
       /RuntimeStatePersistenceRecord/.test(agentgresAdmissionCore) &&
       /plan_runtime_state_persistence/.test(agentgresAdmissionCore) &&
+      /RuntimeRunStatePersistedCommitRecord/.test(agentgresAdmissionCore) &&
+      /RuntimeStateWrittenRecord/.test(agentgresAdmissionCore) &&
+      /commit_runtime_run_state_to_dir/.test(agentgresAdmissionCore) &&
+      /persist_runtime_state_storage_record/.test(agentgresAdmissionCore) &&
       /RuntimeStateRecordMaterializationRequest/.test(runtimeKernelModule) &&
       /RuntimeStateRecordMaterializationRecord/.test(runtimeKernelModule) &&
       /pub fn materialize_runtime_state_records/.test(runtimeKernelModule) &&
@@ -19407,6 +19422,10 @@ function runReceipts() {
       /RuntimeStatePersistenceRequest/.test(runtimeKernelModule) &&
       /RuntimeStatePersistenceRecord/.test(runtimeKernelModule) &&
       /pub fn plan_runtime_state_persistence/.test(runtimeKernelModule) &&
+      /RuntimeRunStatePersistedCommitRecord/.test(runtimeKernelModule) &&
+      /RuntimeStateWrittenRecord/.test(runtimeKernelModule) &&
+      /pub fn commit_runtime_run_state_to_dir/.test(runtimeKernelModule) &&
+      /pub fn persist_runtime_state_storage_record/.test(runtimeKernelModule) &&
       /materializes_runtime_state_records_in_rust/.test(agentgresAdmissionCore) &&
       /"primitive_capabilities":\s*\["prim:model\.invoke"\]/.test(agentgresAdmissionCore) &&
       /"authority_scopes":\s*\[\]/.test(agentgresAdmissionCore) &&
@@ -19419,6 +19438,8 @@ function runReceipts() {
       !/record\.records\[7\]\.payload\["receiptId"\]/.test(agentgresAdmissionCore) &&
       /plans_runtime_state_storage_write_set_with_rust_content_hash_and_admissions/.test(agentgresAdmissionCore) &&
       /plans_runtime_state_persistence_with_materialization_and_storage_write_set/.test(agentgresAdmissionCore) &&
+      /persists_runtime_run_state_to_dir_through_rust_core/.test(agentgresAdmissionCore) &&
+      /runtime_state_persistence_rejects_record_path_escape_in_rust_core/.test(agentgresAdmissionCore) &&
       /admit_storage_backend_write/.test(bridgeModule) &&
       /commit_runtime_run_state/.test(bridgeModule) &&
       !/struct StorageBackendWriteBridgeRequest/.test(bridgeModule) &&
@@ -19430,6 +19451,10 @@ function runReceipts() {
       !/plan_runtime_state_storage_writes/.test(bridgeModule) &&
       !/persist_runtime_state_records/.test(bridgeModule) &&
       !/plan_runtime_run_state_transition/.test(bridgeModule) &&
+      !/read_runtime_state_previous_transition/.test(agentgresCommandBridge) &&
+      !/runtime_state_projection_watermark/.test(agentgresCommandBridge) &&
+      !/runtime_state_record_path/.test(agentgresCommandBridge) &&
+      !/use std::fs|fs::|Component::/.test(agentgresCommandBridge) &&
       /rust_agentgres_storage_write_admission_command/.test(agentgresCommandBridge) &&
       /rust_agentgres_runtime_run_state_commit_command/.test(agentgresCommandBridge) &&
       !/rust_agentgres_runtime_state_record_materialization_command/.test(bridgeModule) &&

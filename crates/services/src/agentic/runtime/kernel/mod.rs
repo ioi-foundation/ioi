@@ -36,13 +36,14 @@ use agentgres_admission::{
     RuntimeMemoryStateCommitRecord, RuntimeMemoryStateCommitRequest,
     RuntimeModelMountReceiptStateCommitRecord, RuntimeModelMountReceiptStateCommitRequest,
     RuntimeModelMountRecordStateCommitRecord, RuntimeModelMountRecordStateCommitRequest,
-    RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest, RuntimeStatePersistenceRecord,
+    RuntimeRunStateCommitRecord, RuntimeRunStateCommitRequest,
+    RuntimeRunStatePersistedCommitRecord, RuntimeStatePersistenceRecord,
     RuntimeStatePersistenceRequest, RuntimeStateRecordMaterializationRecord,
-    RuntimeStateRecordMaterializationRequest, RuntimeStateStorageWriteSetRecord,
-    RuntimeStateStorageWriteSetRequest, RuntimeStateTransitionRecord,
-    RuntimeStateTransitionRequest, RuntimeSubagentStateCommitRecord,
-    RuntimeSubagentStateCommitRequest, StorageBackendWriteAdmissionRecord,
-    StorageBackendWriteProposal,
+    RuntimeStateRecordMaterializationRequest, RuntimeStateStorageWriteRecord,
+    RuntimeStateStorageWriteSetRecord, RuntimeStateStorageWriteSetRequest,
+    RuntimeStateTransitionRecord, RuntimeStateTransitionRequest, RuntimeStateWrittenRecord,
+    RuntimeSubagentStateCommitRecord, RuntimeSubagentStateCommitRequest,
+    StorageBackendWriteAdmissionRecord, StorageBackendWriteProposal,
 };
 use approval::{
     ApprovalDecisionStateUpdateCore, ApprovalDecisionStateUpdateError,
@@ -662,6 +663,23 @@ impl RuntimeKernelService {
         request: &RuntimeRunStateCommitRequest,
     ) -> Result<RuntimeRunStateCommitRecord, AgentgresAdmissionError> {
         AgentgresAdmissionCore.commit_runtime_run_state(request)
+    }
+
+    pub fn commit_runtime_run_state_to_dir(
+        &self,
+        state_dir: &str,
+        request: &RuntimeRunStateCommitRequest,
+    ) -> Result<RuntimeRunStatePersistedCommitRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.commit_runtime_run_state_to_dir(state_dir, request)
+    }
+
+    pub fn persist_runtime_state_storage_record(
+        &self,
+        state_root: &std::path::Path,
+        record: &RuntimeStateStorageWriteRecord,
+        payload: &serde_json::Value,
+    ) -> Result<RuntimeStateWrittenRecord, AgentgresAdmissionError> {
+        AgentgresAdmissionCore.persist_runtime_state_storage_record(state_root, record, payload)
     }
 
     pub fn commit_runtime_agent_state(

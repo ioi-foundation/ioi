@@ -15784,6 +15784,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1107
+
+Slice 1107 moves durable Agentgres runtime-state persistence execution out of
+`ioi_step_module_bridge/agentgres_command.rs` and into Rust
+`AgentgresAdmissionCore`. The bridge no longer owns filesystem path
+canonicalization, previous-transition lookup, projection-watermark derivation,
+or admitted-record materialization writes for runtime state commits; it calls
+Rust core `commit_runtime_run_state_to_dir` and persistence helpers, then
+formats the temporary command-transport response.
+
+This is Rust daemon-core ownership progress, but not terminal architecture.
+The Node bridge, shared command runner, JS command callers, and remaining JS
+persistence facades remain migration scaffolding until direct Rust daemon-core
+Agentgres protocol APIs replace them.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `rustfmt --check crates/services/src/agentic/runtime/kernel/agentgres_admission.rs crates/services/src/agentic/runtime/kernel/mod.rs crates/node/src/bin/ioi_step_module_bridge/agentgres_command.rs` | passed |
+| `cargo test -p ioi-services agentgres --lib` | passed |
+| `cargo test -p ioi-node runtime_agentgres --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1106
 
 Slice 1106 splits receipt-bearing governed command execution out of

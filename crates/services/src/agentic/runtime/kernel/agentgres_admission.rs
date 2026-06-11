@@ -2,6 +2,8 @@ use super::receipt_binder::StepModuleReceiptBinding;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
+use std::fs;
+use std::path::{Component, Path, PathBuf};
 
 pub const AGENTGRES_ADMISSION_SCHEMA_VERSION: &str = "ioi.agentgres_admission.v1";
 pub const STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION: &str =
@@ -54,6 +56,7 @@ pub enum AgentgresAdmissionError {
     StorageBackendWriteMissingAgentgresRef,
     StorageBackendWriteMissingReceipt,
     MissingStorageWriteRecords,
+    RuntimeStatePersistenceFailed(String),
     HashFailed(String),
 }
 
@@ -205,6 +208,17 @@ pub struct RuntimeStateStorageWriteRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeStateWrittenRecord {
+    pub record_path: String,
+    pub absolute_path: String,
+    pub object_ref: String,
+    pub content_hash: String,
+    pub payload_refs: Vec<String>,
+    pub receipt_refs: Vec<String>,
+    pub admission_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RuntimeStateRecordMaterializationRequest {
     pub schema_version: String,
     pub run_id: String,
@@ -275,6 +289,12 @@ pub struct RuntimeRunStateCommitRecord {
     pub transition: RuntimeStateTransitionRecord,
     pub persistence: RuntimeStatePersistenceRecord,
     pub commit_hash: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RuntimeRunStatePersistedCommitRecord {
+    pub commit: RuntimeRunStateCommitRecord,
+    pub written_records: Vec<RuntimeStateWrittenRecord>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -411,6 +431,13 @@ pub struct RuntimeModelMountReceiptStateCommitRecord {
 pub struct AgentgresAdmissionCore;
 
 impl AgentgresAdmissionCore {
+    pub fn ensure_runtime_state_dir(
+        &self,
+        state_dir: &str,
+    ) -> Result<PathBuf, AgentgresAdmissionError> {
+        ensure_runtime_state_dir(state_dir)
+    }
+
     pub fn admit(
         &self,
         proposal: &AgentgresOperationProposal,
@@ -842,6 +869,90 @@ impl AgentgresAdmissionCore {
         };
         record.commit_hash = runtime_run_state_commit_hash(&record)?;
         Ok(record)
+    }
+
+    pub fn commit_runtime_run_state_to_dir(
+        &self,
+        state_dir: &str,
+        request: &RuntimeRunStateCommitRequest,
+    ) -> Result<RuntimeRunStatePersistedCommitRecord, AgentgresAdmissionError> {
+        let state_root = ensure_runtime_state_dir(state_dir)?;
+        let mut commit_request = request.clone();
+        if commit_request.previous_transition.is_none() {
+            commit_request.previous_transition =
+                read_runtime_state_previous_transition(&state_root, &commit_request.run_id)?;
+        }
+        if commit_request.projection_watermark.is_none() {
+            commit_request.projection_watermark = Some(runtime_state_projection_watermark(
+                &state_root,
+                &commit_request.run_id,
+            )?);
+        }
+        let commit = self.commit_runtime_run_state(&commit_request)?;
+        let written_records =
+            self.persist_runtime_state_records(&state_root, &commit.persistence)?;
+        Ok(RuntimeRunStatePersistedCommitRecord {
+            commit,
+            written_records,
+        })
+    }
+
+    pub fn persist_runtime_state_records(
+        &self,
+        state_root: &Path,
+        record: &RuntimeStatePersistenceRecord,
+    ) -> Result<Vec<RuntimeStateWrittenRecord>, AgentgresAdmissionError> {
+        let mut written_records = Vec::with_capacity(record.materialization.records.len());
+        for materialized in &record.materialization.records {
+            let planned = record
+                .storage_write_set
+                .records
+                .iter()
+                .find(|entry| entry.record_path == materialized.record_path)
+                .ok_or_else(|| {
+                    AgentgresAdmissionError::RuntimeStatePersistenceFailed(format!(
+                        "storage write set is missing record {}",
+                        materialized.record_path
+                    ))
+                })?;
+            let written = self.persist_runtime_state_storage_record(
+                state_root,
+                planned,
+                &materialized.payload,
+            )?;
+            written_records.push(written);
+        }
+        Ok(written_records)
+    }
+
+    pub fn persist_runtime_state_storage_record(
+        &self,
+        state_root: &Path,
+        record: &RuntimeStateStorageWriteRecord,
+        payload: &Value,
+    ) -> Result<RuntimeStateWrittenRecord, AgentgresAdmissionError> {
+        let target = runtime_state_record_path(state_root, &record.record_path)?;
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|error| {
+                AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+            })?;
+        }
+        let payload = serde_json::to_string_pretty(payload).map_err(|error| {
+            AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+        })?;
+        let file_content = format!("{payload}\n");
+        fs::write(&target, file_content.as_bytes()).map_err(|error| {
+            AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+        })?;
+        Ok(RuntimeStateWrittenRecord {
+            record_path: record.record_path.clone(),
+            absolute_path: target.to_string_lossy().into_owned(),
+            object_ref: record.object_ref.clone(),
+            content_hash: record.content_hash.clone(),
+            payload_refs: record.payload_refs.clone(),
+            receipt_refs: record.receipt_refs.clone(),
+            admission_hash: record.admission.admission_hash.clone(),
+        })
     }
 
     pub fn commit_runtime_agent_state(
@@ -2336,6 +2447,95 @@ fn safe_agentgres_path(value: &str) -> String {
         .join("/")
 }
 
+fn ensure_runtime_state_dir(state_dir: &str) -> Result<PathBuf, AgentgresAdmissionError> {
+    let state_root_input = Path::new(state_dir);
+    fs::create_dir_all(state_root_input).map_err(|error| {
+        AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+    })?;
+    fs::canonicalize(state_root_input)
+        .map_err(|error| AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string()))
+}
+
+fn read_runtime_state_previous_transition(
+    state_root: &Path,
+    run_id: &str,
+) -> Result<Option<Value>, AgentgresAdmissionError> {
+    let task_path = runtime_state_record_path(state_root, &format!("tasks/{run_id}.json"))?;
+    if !task_path.exists() {
+        return Ok(None);
+    }
+    let content = fs::read_to_string(&task_path).map_err(|error| {
+        AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+    })?;
+    let task_record: Value = serde_json::from_str(&content).map_err(|error| {
+        AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+    })?;
+    match task_record.get("agentgresTransition") {
+        Some(value) if value.is_object() => Ok(Some(value.clone())),
+        _ => Ok(None),
+    }
+}
+
+fn runtime_state_projection_watermark(
+    state_root: &Path,
+    run_id: &str,
+) -> Result<String, AgentgresAdmissionError> {
+    let runs_dir = state_root.join("runs");
+    let mut run_count = 0usize;
+    if runs_dir.exists() {
+        for entry in fs::read_dir(&runs_dir).map_err(|error| {
+            AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+        })? {
+            let entry = entry.map_err(|error| {
+                AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+            })?;
+            if entry
+                .file_type()
+                .map_err(|error| {
+                    AgentgresAdmissionError::RuntimeStatePersistenceFailed(error.to_string())
+                })?
+                .is_file()
+                && entry.path().extension().and_then(|value| value.to_str()) == Some("json")
+            {
+                run_count += 1;
+            }
+        }
+    }
+    let watermark = run_count.max(if run_id.trim().is_empty() { 0 } else { 1 });
+    Ok(format!("runtime-state:{watermark}"))
+}
+
+fn runtime_state_record_path(
+    root: &Path,
+    record_path: &str,
+) -> Result<PathBuf, AgentgresAdmissionError> {
+    if record_path.trim().is_empty() {
+        return Err(AgentgresAdmissionError::MissingField("record_path"));
+    }
+    let mut target = root.to_path_buf();
+    let mut saw_component = false;
+    for component in Path::new(record_path).components() {
+        match component {
+            Component::Normal(segment) => {
+                target.push(segment);
+                saw_component = true;
+            }
+            Component::CurDir => {}
+            _ => {
+                return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(
+                    format!("runtime state record path cannot escape state dir: {record_path}"),
+                ));
+            }
+        }
+    }
+    if !saw_component || !target.starts_with(root) {
+        return Err(AgentgresAdmissionError::RuntimeStatePersistenceFailed(
+            format!("runtime state record path cannot escape state dir: {record_path}"),
+        ));
+    }
+    Ok(target)
+}
+
 fn json_field(value: &Value, field: &str) -> Value {
     value.get(field).cloned().unwrap_or(Value::Null)
 }
@@ -2404,6 +2604,7 @@ fn receipt_id_for_kind(run: &Value, kind: &str) -> Value {
 mod tests {
     use super::*;
     use serde_json::json;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn binding() -> StepModuleReceiptBinding {
         StepModuleReceiptBinding {
@@ -3810,5 +4011,94 @@ mod tests {
             "sha256:retired-previous-state-root"
         );
         assert!(record.transition.state_root_before.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn persists_runtime_run_state_to_dir_through_rust_core() {
+        let state_dir = unique_state_dir("agentgres-run-persist");
+        std::fs::create_dir_all(state_dir.join("tasks")).expect("tasks dir");
+        std::fs::create_dir_all(state_dir.join("runs")).expect("runs dir");
+        std::fs::write(state_dir.join("runs/existing.json"), "{}\n").expect("seed run");
+        std::fs::write(
+            state_dir.join("tasks/run_1.json"),
+            serde_json::to_string_pretty(&json!({
+                "agentgresTransition": {
+                    "state_root_after": "sha256:previous-core-state-root",
+                    "resulting_head": "agentgres://runtime-state/runs/run_1/head/core-previous"
+                }
+            }))
+            .expect("previous transition json"),
+        )
+        .expect("seed task");
+        let mut request = runtime_run_state_commit();
+        request.operation_kind = "run.cancel".to_string();
+        request.previous_transition = None;
+        request.projection_watermark = None;
+
+        let persisted = AgentgresAdmissionCore
+            .commit_runtime_run_state_to_dir(state_dir.to_str().unwrap(), &request)
+            .expect("runtime run state persisted by Rust core");
+
+        assert_eq!(
+            persisted.commit.transition.expected_heads,
+            vec!["agentgres://runtime-state/runs/run_1/head/core-previous"]
+        );
+        assert_eq!(
+            persisted.commit.transition.state_root_before,
+            "sha256:previous-core-state-root"
+        );
+        assert_eq!(
+            persisted.commit.transition.projection_watermark,
+            "runtime-state:1"
+        );
+        assert!(persisted.written_records.len() >= 14);
+        assert!(state_dir.join("runs/run_1.json").exists());
+        assert!(state_dir.join("tasks/run_1.json").exists());
+        std::fs::remove_dir_all(state_dir).expect("cleanup state dir");
+    }
+
+    #[test]
+    fn runtime_state_persistence_rejects_record_path_escape_in_rust_core() {
+        let state_dir = unique_state_dir("agentgres-run-escape");
+        let state_root = AgentgresAdmissionCore
+            .ensure_runtime_state_dir(state_dir.to_str().unwrap())
+            .expect("state dir");
+        let record = RuntimeStateStorageWriteRecord {
+            record_path: "../escape.json".to_string(),
+            object_ref: "agentgres://runtime-state/runs/run_1/records/escape".to_string(),
+            content_hash: "sha256:escape".to_string(),
+            artifact_refs: vec![],
+            payload_refs: vec!["payload://runtime/escape".to_string()],
+            receipt_refs: vec!["receipt_policy".to_string()],
+            admission: StorageBackendWriteAdmissionRecord {
+                schema_version: STORAGE_BACKEND_WRITE_ADMISSION_SCHEMA_VERSION.to_string(),
+                storage_backend_ref: "storage://runtime-agentgres/local-json".to_string(),
+                object_ref: "agentgres://runtime-state/runs/run_1/records/escape".to_string(),
+                content_hash: "sha256:escape".to_string(),
+                artifact_refs: vec![],
+                payload_refs: vec!["payload://runtime/escape".to_string()],
+                receipt_refs: vec!["receipt_policy".to_string()],
+                admission_hash: "sha256:admission".to_string(),
+            },
+        };
+
+        let error = AgentgresAdmissionCore
+            .persist_runtime_state_storage_record(&state_root, &record, &json!({}))
+            .expect_err("escaping record path must fail closed");
+
+        assert!(matches!(
+            error,
+            AgentgresAdmissionError::RuntimeStatePersistenceFailed(_)
+        ));
+        assert!(!state_root.join("../escape.json").exists());
+        std::fs::remove_dir_all(state_dir).expect("cleanup state dir");
+    }
+
+    fn unique_state_dir(label: &str) -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos();
+        std::env::temp_dir().join(format!("{label}-{nanos}"))
     }
 }
