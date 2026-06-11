@@ -40,6 +40,7 @@ import {
   SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION,
   SUBAGENT_RECORD_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+  THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   THREAD_MEMORY_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
   WORKFLOW_EDIT_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
   createContextPolicyRunnerFromEnv,
@@ -1448,6 +1449,67 @@ test("thread control agent state update runner sends Rust state update bridge re
     assert.equal(Object.hasOwn(result.control, field), false);
   }
   assert.equal(result.agent.modelId, "local-model");
+});
+
+test("thread turn admission-required runner sends Rust daemon-core request", () => {
+  let captured = null;
+  const runner = new RustContextPolicyRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      captured = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_thread_turn_admission_required_command",
+            backend: "rust_policy",
+            record: {
+              status: "rust_core_required",
+              status_code: 501,
+              code: "runtime_thread_turn_rust_core_required",
+              message:
+                "Thread resume and turn creation require direct Rust daemon-core admission and persistence.",
+              details: {
+                rust_core_boundary: "runtime.thread_turn",
+                operation: "thread_turn_create",
+                operation_kind: "turn.create",
+                thread_id: "thread_1",
+                agent_id: "agent_1",
+                runtime_profile: "fixture",
+                evidence_refs: ["thread_turn_create_js_run_creation_retired"],
+              },
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planThreadTurnAdmissionRequired({
+    operation: "thread_turn_create",
+    operation_kind: "turn.create",
+    thread_id: "thread_1",
+    agent_id: "agent_1",
+    runtime_profile: "fixture",
+    evidence_refs: ["thread_turn_create_js_run_creation_retired"],
+  });
+
+  assert.equal(captured.schema_version, CONTEXT_POLICY_COMMAND_SCHEMA_VERSION);
+  assert.equal(captured.operation, "plan_thread_turn_admission_required");
+  assert.equal(captured.backend, "rust_policy");
+  assert.equal(
+    captured.request.schema_version,
+    THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+  );
+  assert.equal(captured.request.operation_kind, "turn.create");
+  assert.equal(result.source, "rust_thread_turn_admission_required_command");
+  assert.equal(result.record.code, "runtime_thread_turn_rust_core_required");
+  assert.equal(result.record.details.thread_id, "thread_1");
+  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "operationKind"), false);
+  assert.equal(Object.hasOwn(result.record.details, "runtimeProfile"), false);
 });
 
 test("mcp control agent state update runner sends Rust state update bridge request", () => {

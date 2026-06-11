@@ -66,6 +66,7 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_repository_workflow_projection_required",
     "plan_runtime_tool_catalog_projection_required",
     "plan_runtime_lifecycle_projection_required",
+    "plan_thread_turn_admission_required",
     "plan_thread_control_agent_state_update",
     "plan_mcp_control_agent_state_update",
     "validate_mcp_servers",
@@ -162,6 +163,7 @@ pub enum CommandOperation {
     PlanRepositoryWorkflowProjectionRequired,
     PlanRuntimeToolCatalogProjectionRequired,
     PlanRuntimeLifecycleProjectionRequired,
+    PlanThreadTurnAdmissionRequired,
     PlanThreadControlAgentStateUpdate,
     PlanMcpControlAgentStateUpdate,
     ValidateMcpServers,
@@ -270,6 +272,7 @@ impl CommandOperation {
             Self::PlanRuntimeLifecycleProjectionRequired => {
                 "plan_runtime_lifecycle_projection_required"
             }
+            Self::PlanThreadTurnAdmissionRequired => "plan_thread_turn_admission_required",
             Self::PlanThreadControlAgentStateUpdate => "plan_thread_control_agent_state_update",
             Self::PlanMcpControlAgentStateUpdate => "plan_mcp_control_agent_state_update",
             Self::ValidateMcpServers => "validate_mcp_servers",
@@ -505,6 +508,9 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
         "plan_runtime_lifecycle_projection_required" => {
             Some(CommandOperation::PlanRuntimeLifecycleProjectionRequired)
         }
+        "plan_thread_turn_admission_required" => {
+            Some(CommandOperation::PlanThreadTurnAdmissionRequired)
+        }
         "plan_thread_control_agent_state_update" => {
             Some(CommandOperation::PlanThreadControlAgentStateUpdate)
         }
@@ -625,6 +631,7 @@ mod tests {
             "validate_mcp_servers",
             "plan_mcp_manager_catalog_summary_projection",
             "commit_runtime_run_state",
+            "plan_thread_turn_admission_required",
             "plan_thread_control_agent_state_update",
             "plan_operator_turn_control_admission_required",
         ] {

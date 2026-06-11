@@ -311,6 +311,12 @@ pub(super) fn dispatch_bridge_operation(
                     .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
             plan_runtime_lifecycle_projection_required(request)
         }
+        CommandOperation::PlanThreadTurnAdmissionRequired => {
+            let request: ThreadTurnAdmissionRequiredBridgeRequest =
+                serde_json::from_value(raw_request)
+                    .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
+            plan_thread_turn_admission_required(request)
+        }
         CommandOperation::PlanThreadControlAgentStateUpdate => {
             let request: ThreadControlAgentStateUpdateBridgeRequest =
                 serde_json::from_value(raw_request)

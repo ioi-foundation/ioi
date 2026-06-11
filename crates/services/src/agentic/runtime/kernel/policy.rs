@@ -92,7 +92,9 @@ pub use thread_lifecycle::{
     SubagentRecordStateUpdateError, SubagentRecordStateUpdateRecord,
     SubagentRecordStateUpdateRequest, ThreadControlAgentStateUpdateCore,
     ThreadControlAgentStateUpdateError, ThreadControlAgentStateUpdateRecord,
-    ThreadControlAgentStateUpdateRequest,
+    ThreadControlAgentStateUpdateRequest, ThreadTurnAdmissionRequiredCore,
+    ThreadTurnAdmissionRequiredError, ThreadTurnAdmissionRequiredRecord,
+    ThreadTurnAdmissionRequiredRequest,
 };
 
 pub const CONTEXT_BUDGET_POLICY_REQUEST_SCHEMA_VERSION: &str =
@@ -153,6 +155,10 @@ pub const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update-request.v1";
 pub const THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =
     "ioi.runtime.thread-control-agent-state-update.v1";
+pub const THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION: &str =
+    "ioi.runtime.thread-turn-admission-required-request.v1";
+pub const THREAD_TURN_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION: &str =
+    "ioi.runtime.thread-turn-admission-required.v1";
 pub const AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION: &str =
     "ioi.runtime.agent-create-state-update-request.v1";
 pub const AGENT_CREATE_STATE_UPDATE_RESULT_SCHEMA_VERSION: &str =

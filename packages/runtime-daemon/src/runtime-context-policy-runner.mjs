@@ -36,6 +36,8 @@ export const RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.lifecycle-projection-required-request.v1";
 export const THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.thread-control-agent-state-update-request.v1";
+export const THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION =
+  "ioi.runtime.thread-turn-admission-required-request.v1";
 export const MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.mcp-control-agent-state-update-request.v1";
 export const MCP_SERVER_VALIDATION_REQUEST_SCHEMA_VERSION =
@@ -280,6 +282,14 @@ export class RustContextPolicyRunner {
       schemaVersion: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
       request,
     }));
+  }
+
+  planThreadTurnAdmissionRequired(request = {}) {
+    return this.evaluateRawPolicy({
+      operation: "plan_thread_turn_admission_required",
+      schemaVersion: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+      request,
+    });
   }
 
   planMcpControlAgentStateUpdate(request = {}) {

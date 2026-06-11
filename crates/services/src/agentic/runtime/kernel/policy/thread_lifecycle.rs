@@ -15,6 +15,8 @@ use super::{
     SUBAGENT_RECORD_STATE_UPDATE_RESULT_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
     THREAD_CONTROL_AGENT_STATE_UPDATE_RESULT_SCHEMA_VERSION,
+    THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+    THREAD_TURN_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -25,6 +27,16 @@ pub enum ThreadControlAgentStateUpdateError {
     },
     MissingField(&'static str),
     UnsupportedControlKind(String),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ThreadTurnAdmissionRequiredError {
+    InvalidSchemaVersion {
+        expected: &'static str,
+        actual: String,
+    },
+    MissingField(&'static str),
+    UnsupportedOperationKind(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -122,6 +134,36 @@ pub struct ThreadControlAgentStateUpdateRecord {
     pub updated_at: String,
     pub control: Value,
     pub agent: Value,
+    pub generated_at: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadTurnAdmissionRequiredRequest {
+    pub schema_version: String,
+    pub operation: String,
+    pub operation_kind: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
+    #[serde(default)]
+    pub runtime_profile: Option<String>,
+    #[serde(default)]
+    pub evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ThreadTurnAdmissionRequiredRecord {
+    pub schema_version: String,
+    pub object: String,
+    pub status: String,
+    pub status_code: u16,
+    pub code: String,
+    pub message: String,
+    pub rust_core_boundary: String,
+    pub operation: String,
+    pub operation_kind: String,
+    pub details: Value,
     pub generated_at: String,
 }
 
@@ -258,6 +300,51 @@ pub struct SubagentRecordStateUpdateRecord {
 
 #[derive(Debug, Default, Clone)]
 pub struct ThreadControlAgentStateUpdateCore;
+
+#[derive(Debug, Default, Clone)]
+pub struct ThreadTurnAdmissionRequiredCore;
+
+impl ThreadTurnAdmissionRequiredCore {
+    pub fn plan(
+        &self,
+        request: &ThreadTurnAdmissionRequiredRequest,
+    ) -> Result<ThreadTurnAdmissionRequiredRecord, ThreadTurnAdmissionRequiredError> {
+        request.validate()?;
+        let operation = optional_trimmed(Some(request.operation.as_str())).unwrap();
+        let operation_kind = optional_trimmed(Some(request.operation_kind.as_str())).unwrap();
+        let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let agent_id = optional_trimmed(request.agent_id.as_deref());
+        let runtime_profile = optional_trimmed(request.runtime_profile.as_deref());
+        let evidence_refs = if request.evidence_refs.is_empty() {
+            default_thread_turn_evidence_refs(operation.as_str())
+        } else {
+            request.evidence_refs.clone()
+        };
+        let details = json!({
+            "rust_core_boundary": "runtime.thread_turn",
+            "operation": operation,
+            "operation_kind": operation_kind,
+            "thread_id": thread_id,
+            "agent_id": agent_id,
+            "runtime_profile": runtime_profile,
+            "evidence_refs": evidence_refs,
+        });
+
+        Ok(ThreadTurnAdmissionRequiredRecord {
+            schema_version: THREAD_TURN_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION.to_string(),
+            object: "ioi.runtime_thread_turn_admission_required".to_string(),
+            status: "rust_core_required".to_string(),
+            status_code: 501,
+            code: "runtime_thread_turn_rust_core_required".to_string(),
+            message: "Thread resume and turn creation require direct Rust daemon-core admission and persistence.".to_string(),
+            rust_core_boundary: "runtime.thread_turn".to_string(),
+            operation,
+            operation_kind,
+            details,
+            generated_at: "rust_policy_core".to_string(),
+        })
+    }
+}
 
 impl ThreadControlAgentStateUpdateCore {
     pub fn plan(
@@ -636,6 +723,35 @@ impl ThreadControlAgentStateUpdateRequest {
     }
 }
 
+impl ThreadTurnAdmissionRequiredRequest {
+    pub fn validate(&self) -> Result<(), ThreadTurnAdmissionRequiredError> {
+        if self.schema_version != THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION {
+            return Err(ThreadTurnAdmissionRequiredError::InvalidSchemaVersion {
+                expected: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
+                actual: self.schema_version.clone(),
+            });
+        }
+        if optional_trimmed(Some(self.operation.as_str())).is_none() {
+            return Err(ThreadTurnAdmissionRequiredError::MissingField("operation"));
+        }
+        let operation_kind = optional_trimmed(Some(self.operation_kind.as_str())).ok_or(
+            ThreadTurnAdmissionRequiredError::MissingField("operation_kind"),
+        )?;
+        if operation_kind != "thread.resume"
+            && operation_kind != "turn.create"
+            && operation_kind != "turn.diagnostics_block"
+        {
+            return Err(ThreadTurnAdmissionRequiredError::UnsupportedOperationKind(
+                operation_kind,
+            ));
+        }
+        if optional_trimmed(self.thread_id.as_deref()).is_none() {
+            return Err(ThreadTurnAdmissionRequiredError::MissingField("thread_id"));
+        }
+        Ok(())
+    }
+}
+
 impl AgentCreateStateUpdateRequest {
     pub fn validate(&self) -> Result<(), AgentCreateStateUpdateError> {
         if self.schema_version != AGENT_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION {
@@ -940,6 +1056,26 @@ fn normalized_thread_control_kind(
     }
 }
 
+fn default_thread_turn_evidence_refs(operation: &str) -> Vec<String> {
+    match operation {
+        "thread_resume" => vec![
+            "thread_resume_js_state_mutation_retired".to_string(),
+            "rust_daemon_core_thread_resume_required".to_string(),
+            "agentgres_thread_resume_truth_required".to_string(),
+        ],
+        "thread_turn_diagnostics_block" => vec![
+            "thread_turn_diagnostics_block_js_run_creation_retired".to_string(),
+            "rust_daemon_core_thread_turn_create_required".to_string(),
+            "agentgres_thread_turn_create_truth_required".to_string(),
+        ],
+        _ => vec![
+            "thread_turn_create_js_run_creation_retired".to_string(),
+            "rust_daemon_core_thread_turn_create_required".to_string(),
+            "agentgres_thread_turn_create_truth_required".to_string(),
+        ],
+    }
+}
+
 fn json_string_value(value: &Value, key: &str) -> Option<String> {
     value
         .get(key)
@@ -1025,6 +1161,18 @@ mod tests {
                 "createdAt": "2026-06-06T05:15:00.000Z",
                 "updatedAt": "2026-06-06T05:15:00.000Z"
             }),
+        }
+    }
+
+    fn thread_turn_admission_required_request() -> ThreadTurnAdmissionRequiredRequest {
+        ThreadTurnAdmissionRequiredRequest {
+            schema_version: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION.to_string(),
+            operation: "thread_turn_create".to_string(),
+            operation_kind: "turn.create".to_string(),
+            thread_id: Some("thread_1".to_string()),
+            agent_id: Some("agent_1".to_string()),
+            runtime_profile: Some("fixture".to_string()),
+            evidence_refs: vec![],
         }
     }
 
@@ -1188,6 +1336,42 @@ mod tests {
             record.agent["modelRouteDecision"]["workflow_node_id"],
             "runtime.model-router.custom"
         );
+    }
+
+    #[test]
+    fn rust_policy_plans_thread_turn_admission_required() {
+        let record = ThreadTurnAdmissionRequiredCore
+            .plan(&thread_turn_admission_required_request())
+            .expect("thread turn admission-required record");
+
+        assert_eq!(
+            record.schema_version,
+            THREAD_TURN_ADMISSION_REQUIRED_RESULT_SCHEMA_VERSION
+        );
+        assert_eq!(record.status, "rust_core_required");
+        assert_eq!(record.status_code, 501);
+        assert_eq!(record.code, "runtime_thread_turn_rust_core_required");
+        assert_eq!(record.operation, "thread_turn_create");
+        assert_eq!(record.operation_kind, "turn.create");
+        assert_eq!(record.details["rust_core_boundary"], "runtime.thread_turn");
+        assert_eq!(record.details["thread_id"], "thread_1");
+        assert_eq!(record.details["agent_id"], "agent_1");
+        assert_eq!(record.details["runtime_profile"], "fixture");
+        assert!(record.details["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "thread_turn_create_js_run_creation_retired"));
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "threadId",
+            "agentId",
+            "runtimeProfile",
+            "evidenceRefs",
+        ] {
+            assert!(record.details.get(field).is_none());
+        }
     }
 
     #[test]
@@ -1406,6 +1590,24 @@ mod tests {
             error,
             ThreadControlAgentStateUpdateError::InvalidSchemaVersion {
                 expected: THREAD_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+                actual: "legacy.schema".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn rust_policy_rejects_invalid_thread_turn_admission_required_schema() {
+        let mut request = thread_turn_admission_required_request();
+        request.schema_version = "legacy.schema".to_string();
+
+        let error = ThreadTurnAdmissionRequiredCore
+            .plan(&request)
+            .expect_err("schema should fail");
+
+        assert_eq!(
+            error,
+            ThreadTurnAdmissionRequiredError::InvalidSchemaVersion {
+                expected: THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION,
                 actual: "legacy.schema".to_string(),
             }
         );

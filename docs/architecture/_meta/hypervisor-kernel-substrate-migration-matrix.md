@@ -15784,6 +15784,37 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1084
+
+Slice 1084 moves the public non-runtime thread-turn admission-required refusal
+contract into the Rust thread-lifecycle policy core. Rust now owns
+`ThreadTurnAdmissionRequiredCore`, the canonical
+`runtime_thread_turn_rust_core_required` envelope, and the
+`plan_thread_turn_admission_required` daemon-core command operation.
+`RuntimeThreadTurn` consumes that Rust-authored refusal record for non-runtime
+resume, non-runtime turn creation, and diagnostics-blocked turn creation while
+still failing closed before JS `updateAgent()`, `createRun()`, `turnForRun()`,
+runtime-event append, run/agent persistence, or Agentgres commit.
+
+This is not terminal thread-turn migration. The command bridge remains
+temporary transport until direct Rust daemon-core thread-turn admission,
+runtime dispatch, Agentgres expected-head/state-root binding, replay,
+projection, and stable protocol APIs own the surface end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-thread-turn-surface.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs` | passed |
+| `node --check packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo test -p ioi-services thread_turn_admission_required` | passed |
+| `cargo test -p ioi-node bridge_plans_thread_turn_admission_required_through_rust_core` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1083
 
 Slice 1083 moves the public operator turn-control admission-required refusal

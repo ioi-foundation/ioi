@@ -126,10 +126,11 @@ use thread_lifecycle_command::{
     plan_agent_create_state_update, plan_agent_status_state_update, plan_run_create_state_update,
     plan_runtime_bridge_thread_start_agent_state_update, plan_runtime_bridge_turn_run_state_update,
     plan_subagent_record_state_update, plan_thread_control_agent_state_update,
-    AgentCreateStateUpdateBridgeRequest, AgentStatusStateUpdateBridgeRequest,
-    RunCreateStateUpdateBridgeRequest, RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
+    plan_thread_turn_admission_required, AgentCreateStateUpdateBridgeRequest,
+    AgentStatusStateUpdateBridgeRequest, RunCreateStateUpdateBridgeRequest,
+    RuntimeBridgeThreadStartAgentStateUpdateBridgeRequest,
     RuntimeBridgeTurnRunStateUpdateBridgeRequest, SubagentRecordStateUpdateBridgeRequest,
-    ThreadControlAgentStateUpdateBridgeRequest,
+    ThreadControlAgentStateUpdateBridgeRequest, ThreadTurnAdmissionRequiredBridgeRequest,
 };
 use workspace_restore_command::{
     apply_workspace_restore_operations, capture_workspace_snapshot_files,
@@ -4689,6 +4690,56 @@ mod tests {
         );
         assert_eq!(response["agent"]["modelId"], "local-model");
         assert_eq!(response["agent"]["modelRouteReceiptId"], "receipt_route_1");
+    }
+
+    #[test]
+    fn bridge_plans_thread_turn_admission_required_through_rust_core() {
+        let request: ThreadTurnAdmissionRequiredBridgeRequest = serde_json::from_value(json!({
+            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+            "operation": "plan_thread_turn_admission_required",
+            "backend": "rust_policy",
+            "request": {
+                "schema_version": "ioi.runtime.thread-turn-admission-required-request.v1",
+                "operation": "thread_turn_create",
+                "operation_kind": "turn.create",
+                "thread_id": "thread_1",
+                "agent_id": "agent_1",
+                "runtime_profile": "fixture",
+                "evidence_refs": ["thread_turn_create_js_run_creation_retired"]
+            }
+        }))
+        .expect("thread turn admission-required bridge request");
+
+        let response = plan_thread_turn_admission_required(request)
+            .expect("thread turn admission-required planned");
+
+        assert_eq!(
+            response["source"],
+            "rust_thread_turn_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(response["code"], "runtime_thread_turn_rust_core_required");
+        assert_eq!(response["operation"], "thread_turn_create");
+        assert_eq!(response["operation_kind"], "turn.create");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.thread_turn"
+        );
+        assert_eq!(response["details"]["thread_id"], "thread_1");
+        assert_eq!(response["details"]["agent_id"], "agent_1");
+        assert_eq!(response["details"]["runtime_profile"], "fixture");
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "threadId",
+            "agentId",
+            "runtimeProfile",
+            "evidenceRefs",
+        ] {
+            assert!(response["details"].get(field).is_none());
+        }
     }
 
     #[test]

@@ -5,6 +5,7 @@ use ioi_services::agentic::runtime::kernel::policy::{
     RuntimeBridgeTurnRunStateUpdateCore, RuntimeBridgeTurnRunStateUpdateRequest,
     SubagentRecordStateUpdateCore, SubagentRecordStateUpdateRequest,
     ThreadControlAgentStateUpdateCore, ThreadControlAgentStateUpdateRequest,
+    ThreadTurnAdmissionRequiredCore, ThreadTurnAdmissionRequiredRequest,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -16,6 +17,13 @@ pub(super) struct ThreadControlAgentStateUpdateBridgeRequest {
     #[serde(default)]
     backend: Option<String>,
     request: ThreadControlAgentStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub(super) struct ThreadTurnAdmissionRequiredBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: ThreadTurnAdmissionRequiredRequest,
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,6 +152,32 @@ pub(super) fn plan_thread_control_agent_state_update(
         "updated_at": record.updated_at.clone(),
         "control": record.control.clone(),
         "agent": record.agent.clone(),
+    }))
+}
+
+pub(super) fn plan_thread_turn_admission_required(
+    request: ThreadTurnAdmissionRequiredBridgeRequest,
+) -> Result<Value, BridgeError> {
+    let record = ThreadTurnAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            BridgeError::new(
+                "thread_turn_admission_required_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_thread_turn_admission_required_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_policy".to_string()),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation": record.operation.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
     }))
 }
 

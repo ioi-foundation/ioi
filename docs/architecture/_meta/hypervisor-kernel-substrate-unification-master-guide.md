@@ -5613,6 +5613,25 @@ operator control admission, runtime control, Agentgres expected-head/state-root
 commit, replay, and projection must still replace the temporary command
 transport.
 
+Slice 1084 moves the public non-runtime thread-turn admission-required refusal
+contract into the Rust thread-lifecycle policy core. The Rust
+`ThreadTurnAdmissionRequiredCore` now owns the canonical
+`runtime_thread_turn_rust_core_required` record and the daemon-core command
+protocol exposes it as `plan_thread_turn_admission_required`. The JS
+`RuntimeThreadTurn` surface consumes this Rust-authored record for non-runtime
+resume, non-runtime turn creation, and diagnostics-blocked turn creation while
+still failing closed before JS `updateAgent()`, `createRun()`, `turnForRun()`,
+runtime-event append, run/agent persistence, or Agentgres commit.
+
+Conformance now fails if the thread-turn required-boundary envelope is authored
+only in JS, if the new daemon-core command operation is removed from Rust typed
+command dispatch, if the temporary Node command wrapper drifts back into the
+broad bridge module, or if the public surface stops proving it called the Rust
+admission-required planner before any JS mutation path. This remains
+non-terminal: direct Rust daemon-core thread-turn admission, runtime dispatch,
+Agentgres expected-head/state-root commit, replay, projection, and stable
+protocol APIs must still replace the temporary command transport.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

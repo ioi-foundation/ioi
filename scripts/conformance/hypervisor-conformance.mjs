@@ -7884,6 +7884,7 @@ function runBridge() {
       /pub struct AgentCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct RunCreateStateUpdateCore;/.test(policyThreadLifecycleCore) &&
       /pub struct AgentStatusStateUpdateCore;/.test(policyThreadLifecycleCore) &&
+      /pub struct ThreadTurnAdmissionRequiredCore;/.test(policyThreadLifecycleCore) &&
       /pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(
         policyThreadLifecycleCore,
       ) &&
@@ -7893,6 +7894,7 @@ function runBridge() {
       /rust_policy_plans_agent_create_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_run_create_state_update/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_agent_status_state_update/.test(policyThreadLifecycleCore) &&
+      /rust_policy_plans_thread_turn_admission_required/.test(policyThreadLifecycleCore) &&
       /rust_policy_plans_runtime_bridge_thread_start_agent_state_update/.test(
         policyThreadLifecycleCore,
       ) &&
@@ -7911,6 +7913,7 @@ function runBridge() {
         policyThreadLifecycleCore,
       ) &&
       !/pub struct ThreadControlAgentStateUpdateCore;/.test(policyFacade) &&
+      !/pub struct ThreadTurnAdmissionRequiredCore;/.test(policyFacade) &&
       !/pub struct AgentCreateStateUpdateCore;/.test(policyFacade) &&
       !/pub struct RuntimeBridgeThreadStartAgentStateUpdateCore;/.test(policyFacade) &&
       !/pub struct SubagentRecordStateUpdateCore;/.test(policyFacade) &&
@@ -7964,7 +7967,29 @@ function runBridge() {
   assertCheck(
     result,
     "thread-turn-create-js-facade-retired",
-    /runtime_thread_turn_rust_core_required/.test(runtimeThreadTurnSurface) &&
+    /ThreadTurnAdmissionRequiredCore/.test(policyCore) &&
+      /ThreadTurnAdmissionRequiredRequest/.test(policyCore) &&
+      /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
+      /rust_policy_plans_thread_turn_admission_required/.test(policyCore) &&
+      /plan_thread_turn_admission_required/.test(commandProtocolCore) &&
+      /CommandOperation::PlanThreadTurnAdmissionRequired/.test(commandProtocolCore) &&
+      /fn plan_thread_turn_admission_required/.test(threadLifecycleCommandBridge) &&
+      /ThreadTurnAdmissionRequiredBridgeRequest/.test(threadLifecycleCommandBridge) &&
+      /rust_thread_turn_admission_required_command/.test(threadLifecycleCommandBridge) &&
+      /bridge_plans_thread_turn_admission_required_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_thread_turn_admission_required/.test(bridgeModule) &&
+      !/struct ThreadTurnAdmissionRequiredBridgeRequest/.test(bridgeModule) &&
+      /planThreadTurnAdmissionRequired/.test(runtimeContextPolicyRunner) &&
+      /THREAD_TURN_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(runtimeContextPolicyRunner) &&
+      /thread turn admission-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /captured\.operation,\s*"plan_thread_turn_admission_required"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /runtime_thread_turn_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /planThreadTurnAdmissionRequired/.test(runtimeThreadTurnSurface) &&
+      /threadTurnAdmissionRunner/.test(runtimeThreadTurnSurface) &&
       /rust_core_boundary:\s*"runtime\.thread_turn"/.test(runtimeThreadTurnSurface) &&
       /thread_resume_js_state_mutation_retired/.test(runtimeThreadTurnSurface) &&
       /thread_turn_create_js_run_creation_retired/.test(runtimeThreadTurnSurface) &&
@@ -7993,12 +8018,16 @@ function runBridge() {
       /thread turn surface fails closed for non-runtime resume before JS mutation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
+      /admissionRequiredCalls\.length,\s*1/.test(runtimeThreadTurnSurfaceTest) &&
+      /operation:\s*"thread_resume"/.test(runtimeThreadTurnSurfaceTest) &&
       /thread turn surface fails closed for non-runtime turns before JS run creation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
+      /operation:\s*"thread_turn_create"/.test(runtimeThreadTurnSurfaceTest) &&
       /thread turn surface fails closed for diagnostics-blocked turns before JS run creation/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&
+      /operation:\s*"thread_turn_diagnostics_block"/.test(runtimeThreadTurnSurfaceTest) &&
       /assert\.equal\(store\.calls\.some\(\(call\) => call\.method === "createRun"\), false\)/.test(
         runtimeThreadTurnSurfaceTest,
       ) &&

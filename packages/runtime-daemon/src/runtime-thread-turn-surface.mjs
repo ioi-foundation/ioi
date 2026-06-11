@@ -27,6 +27,7 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     requestWithThreadRuntimeControls: requestWithThreadRuntimeControlsDep = requestWithThreadRuntimeControls,
     runtimeError: runtimeErrorDep = runtimeError,
     runtimeProfileForRequest: runtimeProfileForRequestDep = runtimeProfileForRequest,
+    threadTurnAdmissionRunner = deps.contextPolicyRunner ?? null,
   } = deps;
   return {
     async resumeThread(store, threadId, request = {}) {
@@ -212,6 +213,34 @@ export function createRuntimeThreadTurnSurface(deps = {}) {
     runtimeProfile,
     evidenceRefs,
   }) {
+    if (threadTurnAdmissionRunner?.planThreadTurnAdmissionRequired) {
+      const record = threadTurnAdmissionRunner.planThreadTurnAdmissionRequired({
+        operation,
+        operation_kind: operationKind,
+        thread_id: threadId,
+        agent_id: agentId,
+        runtime_profile: runtimeProfile,
+        evidence_refs: evidenceRefs,
+      });
+      const planned = record?.record ?? record;
+      throw runtimeErrorDep({
+        status: Number(planned?.status_code ?? record?.status_code ?? 501),
+        code: optionalStringDep(planned?.code ?? record?.code) ??
+          "runtime_thread_turn_rust_core_required",
+        message:
+          optionalStringDep(planned?.message ?? record?.message) ??
+          "Thread resume and turn creation require direct Rust daemon-core admission and persistence.",
+        details: planned?.details ?? record?.details ?? {
+          rust_core_boundary: "runtime.thread_turn",
+          operation,
+          operation_kind: operationKind,
+          thread_id: threadId,
+          agent_id: agentId,
+          runtime_profile: runtimeProfile,
+          evidence_refs: evidenceRefs,
+        },
+      });
+    }
     throw runtimeErrorDep({
       status: 501,
       code: "runtime_thread_turn_rust_core_required",
