@@ -20366,6 +20366,25 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1002
+
+Slice 1002 moved public model-mount tokenizer/count/context-fit
+Rust-core-required refusal authoring into the Rust model_mount core.
+`tokenizeModel()`, `countModelTokens()`, and `fitModelContext()` now call
+`plan_model_mount_tokenizer_required` through the daemon-core command bridge
+and only translate the Rust-authored failure record at the JS edge.
+
+This is still non-terminal migration work: the Node command bridge remains
+transitional transport and direct Rust daemon-core tokenizer/context-fit
+admission, receipt/state-root binding, Agentgres truth, replay, projection,
+stable SDK/IDE/CLI protocol APIs, and command-transport retirement remain
+required before tokenizer/context-fit control reaches the pure Rust substrate
+target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1002 | Public model-mount tokenizer/count/context-fit refusal envelopes are planned by Rust model_mount and translated by JS only at the edge. | Direct Rust daemon-core tokenizer/context-fit admission, receipt/state-root binding, Agentgres truth, replay, and projection replace JS tokenizer scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 1001
 
 Slice 1001 moved public model-mount runtime-engine Rust-core-required refusal

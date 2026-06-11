@@ -8,6 +8,7 @@ import {
   RUST_MODEL_MOUNT_BACKEND_LIFECYCLE_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_RUNTIME_ENGINE_REQUIRED_BACKEND,
   RUST_MODEL_MOUNT_SERVER_CONTROL_REQUIRED_BACKEND,
+  RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
   createModelMountAdmissionRunnerFromEnv,
   RustModelMountAdmissionRunner,
 } from "./model-mount-admission-runner.mjs";
@@ -288,6 +289,26 @@ function runtimeEngineRequiredRequest() {
     ],
     details: {
       engine_id: "backend.llama-cpp",
+    },
+  };
+}
+
+function tokenizerRequiredRequest() {
+  return {
+    schema_version: "ioi.model_mount.tokenizer_required.v1",
+    operation: "context_fit",
+    source: "runtime-daemon.model_mounting.tokenizer",
+    evidence_refs: [
+      "model_mount_tokenizer_js_facade_retired",
+      "model_mount_context_fit_js_facade_retired",
+      "rust_daemon_core_model_tokenizer_required",
+      "rust_daemon_core_model_context_fit_required",
+      "agentgres_model_tokenizer_truth_required",
+    ],
+    details: {
+      model: "llama-test",
+      route_id: "route.local-first",
+      requested_scope: "model.context:*",
     },
   };
 }
@@ -1043,6 +1064,82 @@ test("Rust model_mount admission runner sends runtime engine required request", 
   assert.equal(result.details.operation_kind, "model_mount.runtime_engine_profile.write");
   assert.equal(Object.hasOwn(result.details, "engineId"), false);
   assert.equal(Object.hasOwn(result.details, "operationKind"), false);
+});
+
+test("Rust model_mount admission runner sends tokenizer required request", () => {
+  const calls = [];
+  const runner = new RustModelMountAdmissionRunner({
+    command: "mock-model-mount-bridge",
+    spawnSyncImpl(command, args, options) {
+      const request = JSON.parse(options.input);
+      calls.push({ command, args, request });
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            source: "rust_model_mount_tokenizer_required_command",
+            backend: RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND,
+            record: {
+              schema_version: "ioi.model_mount.tokenizer_required_result.v1",
+              object: "ioi.model_mount_tokenizer_required",
+              status: "rust_core_required",
+              status_code: 501,
+              code: "model_mount_tokenizer_rust_core_required",
+              message:
+                "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+              rust_core_boundary: "model_mount.tokenizer",
+              operation: request.request.operation,
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+              details: {
+                operation: request.request.operation,
+                ...request.request.details,
+                rust_core_boundary: "model_mount.tokenizer",
+                source: request.request.source,
+                evidence_refs: request.request.evidence_refs,
+              },
+              generated_at: "rust_model_mount_core",
+            },
+            status: "rust_core_required",
+            status_code: 501,
+            code: "model_mount_tokenizer_rust_core_required",
+            message:
+              "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+            rust_core_boundary: "model_mount.tokenizer",
+            operation: request.request.operation,
+            details: {
+              operation: request.request.operation,
+              ...request.request.details,
+              rust_core_boundary: "model_mount.tokenizer",
+              source: request.request.source,
+              evidence_refs: request.request.evidence_refs,
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.planTokenizerRequired(tokenizerRequiredRequest());
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].request.schema_version, MODEL_MOUNT_ADMISSION_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].request.operation, "plan_model_mount_tokenizer_required");
+  assert.equal(calls[0].request.backend, RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND);
+  assert.equal(calls[0].request.request.schema_version, "ioi.model_mount.tokenizer_required.v1");
+  assert.equal(calls[0].request.request.operation, "context_fit");
+  assert.equal(calls[0].request.request.details.route_id, "route.local-first");
+  assert.equal(result.status, "rust_core_required");
+  assert.equal(result.status_code, 501);
+  assert.equal(result.code, "model_mount_tokenizer_rust_core_required");
+  assert.equal(result.details.operation, "context_fit");
+  assert.equal(result.details.model, "llama-test");
+  assert.equal(result.details.route_id, "route.local-first");
+  assert.equal(result.details.requested_scope, "model.context:*");
+  assert.equal(Object.hasOwn(result.details, "routeId"), false);
+  assert.equal(Object.hasOwn(result.details, "requestedScope"), false);
 });
 
 test("Rust model_mount admission runner sends invocation receipt binding request", () => {

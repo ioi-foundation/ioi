@@ -1519,7 +1519,7 @@ function runDocs() {
       /the fail-closed `vault-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /public vault bind\/remove, health-receipt mutation, and vault list\/status\/metadata projection facades now fail closed/.test(implementationMatrix) &&
       /the fail-closed `tokenizer-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
-      /mounted public `ModelMountingState` tokenizer\/context-fit methods now own canonical tokenizer request alias rejection/.test(implementationMatrix) &&
+      /public tokenize\/count\/context-fit utility facades now request Rust-authored `model_mount\.tokenizer` required records/.test(implementationMatrix) &&
       /the fail-closed `artifact-endpoint-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
       /mounted public `ModelMountingState` artifact\/endpoint methods now own canonical import, endpoint mount, and endpoint unmount request alias rejection/.test(implementationMatrix) &&
       /the fail-closed `catalog-download-operations\.mjs` helper module is deleted/.test(implementationMatrix) &&
@@ -14027,7 +14027,18 @@ function runReceipts() {
       ) &&
       /modelTokenizerRustCoreRequiredError/.test(modelMountingState) &&
       /model_mount_tokenizer_rust_core_required/.test(modelMountingState) &&
-      /rust_core_boundary:\s*"model_mount\.tokenizer"/.test(modelMountingState) &&
+      /tokenizerRequired\(operation,\s*details = \{\}\)/.test(modelMountingState) &&
+      /this\.modelMountAdmissionRunner\.planTokenizerRequired/.test(modelMountingState) &&
+      /planTokenizerRequired\(request\)/.test(modelMountAdmissionRunner) &&
+      /operation:\s*"plan_model_mount_tokenizer_required"/.test(modelMountAdmissionRunner) &&
+      /RUST_MODEL_MOUNT_TOKENIZER_REQUIRED_BACKEND/.test(modelMountAdmissionRunner) &&
+      /ModelMountTokenizerRequiredRequest/.test(modelMountCore) &&
+      /plan_tokenizer_required/.test(modelMountCore) &&
+      /tokenizer_required_is_planned_in_rust_model_mount/.test(modelMountCore) &&
+      /ModelMountTokenizerRequiredBridgeRequest/.test(bridgeModule) &&
+      /plan_model_mount_tokenizer_required/.test(bridgeModule) &&
+      /bridge_plans_model_mount_tokenizer_required_through_rust_core/.test(bridgeModule) &&
+      /rust_core_boundary:\s*details\.rust_core_boundary \?\? record\.rust_core_boundary \?\? "model_mount\.tokenizer"/.test(modelMountingState) &&
       /model_mount_tokenizer_js_facade_retired/.test(modelMountingState) &&
       /model_mount_context_fit_js_facade_retired/.test(modelMountingState) &&
       /rust_daemon_core_model_tokenizer_required/.test(modelMountingState) &&
@@ -14068,13 +14079,22 @@ function runReceipts() {
       /fitModelContext fails closed before JS context-fit receipt or truncation envelope/.test(
         modelTokenizerOperationsTest,
       ) &&
+      /Rust model_mount admission runner sends tokenizer required request/.test(
+        modelMountAdmissionRunnerTest,
+      ) &&
+      /state\.tokenizerRequiredRequests\[0\]\.schema_version/.test(modelTokenizerOperationsTest) &&
+      /state\.tokenizerRequiredRequests\[0\]\.operation/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.authorizationCalls,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.receipts,\s*\[\]\)/.test(modelTokenizerOperationsTest) &&
       /assert\.equal\(state\.routeReceiptCount,\s*0\)/.test(modelTokenizerOperationsTest) &&
       /assert\.deepEqual\(state\.recordStateCommits,\s*\[\]\)/.test(modelTokenizerOperationsTest),
     [
       "packages/runtime-daemon/src/model-mounting.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
       "packages/runtime-daemon/src/model-mounting/tokenizer-operations.test.mjs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount.rs",
     ],
     "Phase 9/11 is pending: tokenizer and context-fit public JS facades must fail closed before JS authorization, route selection, receipt synthesis, route mutation, or response-envelope shaping",
   );

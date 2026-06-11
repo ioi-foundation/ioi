@@ -28,6 +28,50 @@ function fakeState() {
     receipts: [],
     routeReceiptCount: 0,
     recordStateCommits,
+    tokenizerRequiredRequests: [],
+    modelMountAdmissionRunner: {
+      planTokenizerRequired: (request) => {
+        const details = {
+          operation: request.operation,
+          ...request.details,
+          rust_core_boundary: "model_mount.tokenizer",
+          source: request.source,
+          evidence_refs: request.evidence_refs,
+        };
+        fakeState.current.tokenizerRequiredRequests.push(request);
+        return {
+          source: "rust_model_mount_tokenizer_required_command",
+          backend: "rust_model_mount_tokenizer_required",
+          status: "rust_core_required",
+          status_code: 501,
+          code: "model_mount_tokenizer_rust_core_required",
+          message:
+            "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+          rust_core_boundary: "model_mount.tokenizer",
+          operation: request.operation,
+          details,
+          evidence_refs: request.evidence_refs,
+          record: {
+            schema_version: "ioi.model_mount.tokenizer_required_result.v1",
+            object: "ioi.model_mount_tokenizer_required",
+            status: "rust_core_required",
+            status_code: 501,
+            code: "model_mount_tokenizer_rust_core_required",
+            message:
+              "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+            rust_core_boundary: "model_mount.tokenizer",
+            operation: request.operation,
+            source: request.source,
+            evidence_refs: request.evidence_refs,
+            details,
+            generated_at: "rust_model_mount_core",
+          },
+        };
+      },
+    },
+    tokenizerRequired(operation, details = {}) {
+      return ModelMountingState.prototype.tokenizerRequired.call(this, operation, details);
+    },
     routes: new Map([[route.id, route]]),
     writes: [],
     authorize(authorization, requiredScope) {
@@ -78,6 +122,7 @@ function fakeState() {
 
 test("modelTokenizerUtility fails closed before JS tokenization receipt or route mutation", () => {
   const state = fakeState();
+  fakeState.current = state;
 
   assert.throws(
     () =>
@@ -111,10 +156,19 @@ test("modelTokenizerUtility fails closed before JS tokenization receipt or route
   assert.equal(state.routes.get("route.local-first").lastSelectedModel, undefined);
   assert.deepEqual(state.writes, []);
   assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.tokenizerRequiredRequests.length, 1);
+  assert.equal(state.tokenizerRequiredRequests[0].schema_version, "ioi.model_mount.tokenizer_required.v1");
+  assert.equal(state.tokenizerRequiredRequests[0].operation, "tokenize");
+  assert.equal(state.tokenizerRequiredRequests[0].details.model, "llama-test");
+  assert.equal(state.tokenizerRequiredRequests[0].details.route_id, "route.local-first");
+  assert.equal(state.tokenizerRequiredRequests[0].details.requested_scope, "model.tokenize:*");
+  assert.equal(Object.hasOwn(state.tokenizerRequiredRequests[0].details, "routeId"), false);
+  assert.equal(Object.hasOwn(state.tokenizerRequiredRequests[0].details, "requestedScope"), false);
 });
 
 test("modelTokenizerUtility does not fall back to JS route record-state commit", () => {
   const state = fakeState();
+  fakeState.current = state;
   delete state.commitRuntimeModelMountRecordState;
 
   assert.throws(
@@ -134,10 +188,13 @@ test("modelTokenizerUtility does not fall back to JS route record-state commit",
   assert.equal(state.routes.get("route.local-first").lastReceiptId, undefined);
   assert.deepEqual(state.recordStateCommits, []);
   assert.deepEqual(state.receipts, []);
+  assert.equal(state.tokenizerRequiredRequests.length, 1);
+  assert.equal(state.tokenizerRequiredRequests[0].operation, "count_tokens");
 });
 
 test("modelTokenizerUtility rejects retired request aliases before authorization", () => {
   const state = fakeState();
+  fakeState.current = state;
 
   assert.throws(
     () =>
@@ -184,10 +241,12 @@ test("modelTokenizerUtility rejects retired request aliases before authorization
   assert.deepEqual(state.authorizationCalls, []);
   assert.deepEqual(state.receipts, []);
   assert.deepEqual(state.writes, []);
+  assert.deepEqual(state.tokenizerRequiredRequests, []);
 });
 
 test("tokenizeModel and countModelTokens fail closed before public JS response envelopes", () => {
   const state = fakeState();
+  fakeState.current = state;
 
   assert.throws(
     () =>
@@ -218,10 +277,14 @@ test("tokenizeModel and countModelTokens fail closed before public JS response e
   assert.deepEqual(state.receipts, []);
   assert.equal(state.routeReceiptCount, 0);
   assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.tokenizerRequiredRequests.length, 2);
+  assert.equal(state.tokenizerRequiredRequests[0].operation, "tokenize");
+  assert.equal(state.tokenizerRequiredRequests[1].operation, "count_tokens");
 });
 
 test("fitModelContext fails closed before JS context-fit receipt or truncation envelope", () => {
   const state = fakeState();
+  fakeState.current = state;
 
   assert.throws(
     () =>
@@ -243,10 +306,13 @@ test("fitModelContext fails closed before JS context-fit receipt or truncation e
   assert.deepEqual(state.receipts, []);
   assert.equal(state.routeReceiptCount, 0);
   assert.deepEqual(state.recordStateCommits, []);
+  assert.equal(state.tokenizerRequiredRequests.length, 1);
+  assert.equal(state.tokenizerRequiredRequests[0].operation, "context_fit");
 });
 
 test("contextWindowForEndpoint honors explicit, artifact, metadata, and default fallbacks", () => {
   const state = fakeState();
+  fakeState.current = state;
 
   assert.equal(
     ModelMountingState.prototype.contextWindowForEndpoint.call(state, { modelId: "missing" }, { context_length: 16 }),

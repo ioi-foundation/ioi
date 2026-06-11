@@ -1225,6 +1225,16 @@ export class ModelMountingState {
     });
   }
 
+  tokenizerRequired(operation, details = {}) {
+    return this.modelMountAdmissionRunner.planTokenizerRequired({
+      schema_version: "ioi.model_mount.tokenizer_required.v1",
+      operation,
+      source: "runtime-daemon.model_mounting.tokenizer",
+      evidence_refs: MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+      details,
+    });
+  }
+
   testRoute(routeId, body = {}) {
     return testRouteState(this, routeId, body);
   }
@@ -1236,12 +1246,13 @@ export class ModelMountingState {
   modelTokenizerUtility({ authorization, requiredScope, body = {}, operation }) {
     void authorization;
     assertCanonicalModelTokenizerRequestBody(body);
-    throw modelTokenizerRustCoreRequiredError({
-      operation,
-      model: body.model ?? null,
-      route_id: body.route_id ?? null,
-      requested_scope: requiredScope ?? null,
-    });
+    throw modelTokenizerRustCoreRequiredError(
+      this.tokenizerRequired(operation, {
+        model: body.model ?? null,
+        route_id: body.route_id ?? null,
+        requested_scope: requiredScope ?? null,
+      }),
+    );
   }
 
   tokenizeModel({ authorization, requiredScope = "model.tokenize:*", body = {} }) {
@@ -2291,16 +2302,25 @@ function assertCanonicalModelTokenizerRequestBody(body = {}) {
   throw error;
 }
 
-function modelTokenizerRustCoreRequiredError(details = {}) {
+function modelTokenizerRustCoreRequiredError(record = {}) {
+  const details = record.details && typeof record.details === "object" && !Array.isArray(record.details)
+    ? record.details
+    : {};
+  const evidenceRefs = Array.isArray(details.evidence_refs)
+    ? details.evidence_refs
+    : Array.isArray(record.evidence_refs)
+      ? record.evidence_refs
+      : MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS;
   const error = new Error(
-    "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
+    record.message ??
+      "Model tokenization and context-fit utilities require direct Rust daemon-core admission and projection.",
   );
-  error.status = 501;
-  error.code = "model_mount_tokenizer_rust_core_required";
+  error.status = record.status_code ?? 501;
+  error.code = record.code ?? "model_mount_tokenizer_rust_core_required";
   error.details = {
-    rust_core_boundary: "model_mount.tokenizer",
     ...details,
-    evidence_refs: MODEL_TOKENIZER_RUST_CORE_REQUIRED_EVIDENCE_REFS,
+    rust_core_boundary: details.rust_core_boundary ?? record.rust_core_boundary ?? "model_mount.tokenizer",
+    evidence_refs: evidenceRefs,
   };
   return error;
 }

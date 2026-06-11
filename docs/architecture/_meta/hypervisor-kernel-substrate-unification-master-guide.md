@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 1001, public runtime account, runtime-node, tool
+Current lane note: after Slice 1002, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4603,6 +4603,11 @@ public runtime-engine preference/profile mutation refusals now request a Rust
 bridge and JS only translates that Rust-authored failure envelope before
 runtime preference/profile record writes, map mutation, projection writes, or
 receipt creation can run;
+public tokenizer/count/context-fit utility refusals now request a Rust
+`model_mount.tokenizer` required record through the daemon-core command bridge
+and JS only translates that Rust-authored failure envelope before JS
+authorization, route selection, tokenization/context-fit receipt synthesis,
+route-state mutation, truncation, or response-envelope shaping can run;
 the route-facing skill/hook, model catalog/capability, repository workflow,
 runtime account/node/tool, and doctor-report daemon-store delegates have been
 deleted rather than preserved as inert compatibility wrappers;
