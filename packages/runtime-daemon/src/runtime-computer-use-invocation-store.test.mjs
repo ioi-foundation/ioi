@@ -147,3 +147,21 @@ test("computer-use sandboxed hosted JS facade fails closed before JS truth looku
     );
   });
 });
+
+test("computer-use visual GUI observe JS facade fails closed before local capture or JS truth lookup", async () => {
+  await withStore(async (store) => {
+    poisonJsComputerUseTruthPaths(store);
+    store.pathFor = () => {
+      throw new Error("pathFor must not be called by retired visual GUI observe facade");
+    };
+    await assert.rejects(
+      () =>
+        store.invokeComputerUseVisualGuiObserveTool("thread_alpha", "ioi.computer_use.visual_gui.observe", {
+          tool_call_id: "tool_alpha",
+          workflow_graph_id: "graph_alpha",
+          workflow_node_id: "node_alpha",
+        }),
+      (error) => assertComputerUseRustCoreRequired(error, "computer_use.visual_gui.observe"),
+    );
+  });
+});

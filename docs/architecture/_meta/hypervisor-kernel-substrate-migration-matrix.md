@@ -15784,6 +15784,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1095
+
+Slice 1095 deletes the dead computer-use JS invocation bodies that remained
+behind the Rust-core-required guards. Browser discovery, control,
+native-browser action, visual GUI action, sandboxed-hosted action, and visual
+GUI observe now return `requireComputerUseInvocationRustCore(...)` directly.
+The daemon index no longer imports the request metadata helpers, local browser
+discovery sync helper, controlled native-browser launcher, CDP executor, visual
+GUI local capture helper, or visual GUI local executor from those invocation
+surfaces. Visual GUI observe now fails closed before `pathFor()` or local
+capture artifact reads.
+
+Conformance now treats those deleted JS invocation bodies as the invariant. The
+bridge tier proves the methods stay guard-only and that stale checks no longer
+require canonical payload/request/projection metadata construction inside the
+retired daemon JS bodies. Remaining helper and replay contracts still prove
+retired camelCase aliases are ignored where non-authoritative projection helpers
+exist, but future positive computer-use invocation must land as direct Rust
+daemon-core admission with wallet.network authority, cTEE custody policy where
+applicable, Agentgres expected-head/state-root binding, event materialization,
+replay, and projection.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1094
 
 Slice 1094 deletes the standalone runtime bridge thread/turn/control JS facade

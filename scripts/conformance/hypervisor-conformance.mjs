@@ -3201,6 +3201,11 @@ function runBridge() {
     runtimeDaemonIndex.match(/async invokeComputerUseSandboxedHostedTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  async invokeComputerUseVisualGuiObserveTool/)?.[0] ?? "",
     runtimeDaemonIndex.match(/async invokeComputerUseVisualGuiObserveTool\(threadId, toolId, request = \{\}\) \{[\s\S]*?\n  appendCodingToolCommandStreamEvents/)?.[0] ?? "",
   ];
+  const computerUseInvocationBodiesGuardOnly =
+    computerUseToolIdentityBodies.every((body) =>
+      /return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
+      !/(?:payloadSummary|appendRuntimeEvent|runtimeEventStream|agentForThread|admitComputerUseRuntimeEvent|computerUseProjectionForRun|captureLocalVisualGuiObservation|executeLocalVisualGuiAction|executeNativeBrowserCdpAction|launchControlledNativeBrowser|discoverComputerUseBrowsersSync)/.test(body)
+    );
   const runtimeRunCancellation = exists("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     ? read("packages/runtime-daemon/src/runtime-run-cancellation.mjs")
     : "";
@@ -4414,9 +4419,12 @@ function runBridge() {
       /agentgres_computer_use_expected_head_required/.test(runtimeDaemonIndex) &&
       /operation_kind:\s*event\.event_kind \?\? "computer_use\.event"/.test(runtimeDaemonIndex) &&
       /computer_use_event_js_append_retired/.test(runtimeDaemonIndex) &&
-      computerUseToolIdentityBodies.slice(0, 5).every((body) =>
+      computerUseToolIdentityBodies.every((body) =>
         /return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
-        !/this\.appendRuntimeEvent\(/.test(body),
+        !/this\.appendRuntimeEvent\(|this\.runtimeEventStream\(|this\.agentForThread\(|this\.admitComputerUseRuntimeEvent\(|computerUseProjectionForRun\(|captureLocalVisualGuiObservation\(|executeLocalVisualGuiAction\(|executeNativeBrowserCdpAction\(|launchControlledNativeBrowser\(|discoverComputerUseBrowsersSync\(/.test(body),
+      ) &&
+      !/discoverComputerUseBrowsersSync|computerUseControlActionForInput|computerUseObservationRetentionModeForInput|computerUseWorkflowNodeIdsForInput|nativeBrowserActionKindForInput|nativeBrowserActionShouldUseCdpExecutor|nativeBrowserApprovalRefForInput|nativeBrowserCdpTimeoutMs|nativeBrowserControlledRelaunchApprovalRefForInput|nativeBrowserExecutionUnavailableFromControlledRelaunchLaunch|nativeBrowserHasExplicitCdpEndpoint|nativeBrowserSessionModeForInput|sandboxedHostedSessionModeForInput|visualGuiObservationMetadataForInput|visualGuiSessionModeForInput|captureLocalVisualGuiObservation|visualGuiLocalCaptureRequested|visualGuiLocalCaptureUnavailablePatch|executeLocalVisualGuiAction|visualGuiLocalExecutorRequested|launchControlledNativeBrowser|executeNativeBrowserCdpAction/.test(
+        runtimeDaemonIndex,
       ) &&
       /agentForThread must not be called by retired computer-use JS facade/.test(
         runtimeComputerUseInvocationStoreTest,
@@ -4441,37 +4449,24 @@ function runBridge() {
       ) &&
       /assertComputerUseRustCoreRequired\(error, "computer_use\.sandboxed_hosted"\)/.test(
         runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /pathFor must not be called by retired visual GUI observe facade/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /assertComputerUseRustCoreRequired\(error, "computer_use\.visual_gui\.observe"\)/.test(
+        runtimeComputerUseInvocationStoreTest,
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use invocation facades must fail closed before JS event/projection truth and direct append",
+    "Phase 10/11 is pending: computer-use invocation facades must stay guard-only and fail closed before JS event/projection truth, local capture/execution, or direct append",
   );
   assertCheck(
     result,
     "computer-use-browser-discovery-payload-aliases-retired",
-    /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(
-      computerUseBrowserDiscoveryPayloadSummaryBlock,
-    ) &&
-      /computer_use:\s*true/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /computer_use_step:\s*"discover_browser"/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /computer_use_lane:\s*"native_browser"/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /computer_use_session_mode:\s*"discovery_only"/.test(
-        computerUseBrowserDiscoveryPayloadSummaryBlock,
-      ) &&
-      /computer_use_lease_id:\s*leaseId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /computer_use_browser_discovery_ref:\s*report\.discovery_ref \?\? report\.receipt_ref/.test(
-        computerUseBrowserDiscoveryPayloadSummaryBlock,
-      ) &&
-      /tool_ref:\s*toolId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /workflow_graph_id:\s*workflowGraphId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /workflow_node_id:\s*workflowNodeId/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /authority_scopes:\s*\["computer_use\.browser_discovery\.read"\]/.test(
-        computerUseBrowserDiscoveryPayloadSummaryBlock,
-      ) &&
-      /fail_closed_when_unavailable:\s*true/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
-      /browser_discovery_report:\s*report/.test(computerUseBrowserDiscoveryPayloadSummaryBlock) &&
+    computerUseInvocationBodiesGuardOnly &&
+      computerUseBrowserDiscoveryPayloadSummaryBlock === "" &&
       /const result = objectRecord\(payload\.browser_discovery_report\);/.test(
         runtimeInvocationResults,
       ) &&
@@ -4483,7 +4478,7 @@ function runBridge() {
       ) &&
       /assert\.equal\(result\.result,\s*null\)/.test(runtimeInvocationResultsTest) &&
       !/^\s*(?:schemaVersion|computerUse|computerUseStep|computerUseLane|computerUseSessionMode|computerUseLeaseId|computerUseBrowserDiscoveryRef|toolRef|workflowGraphId|workflowNodeId|authorityScopes|failClosedWhenUnavailable|browserDiscoveryReport|receiptId)\s*[:,]/m.test(
-        computerUseBrowserDiscoveryPayloadSummaryBlock,
+        computerUseToolIdentityBodies[0],
       ) &&
       !/payload\.browserDiscoveryReport\b/.test(runtimeInvocationResults),
     [
@@ -4491,13 +4486,12 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-invocation-results.mjs",
       "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use browser discovery payloads and replay projections must use canonical snake_case fields without retired camelCase aliases",
+    "Phase 10/11 is pending: computer-use browser discovery JS payload construction must stay retired while replay projections ignore retired camelCase aliases",
   );
   assertCheck(
     result,
     "computer-use-browser-discovery-request-aliases-retired",
-    /includeTabMetadata:\s*Boolean\(input\.include_tabs\)/.test(runtimeDaemonIndex) &&
-      /revealTabTitles:\s*Boolean\(input\.reveal_tab_titles\)/.test(runtimeDaemonIndex) &&
+    computerUseInvocationBodiesGuardOnly &&
       /include_tabs\?: boolean;/.test(agentSdkSubstrateClient) &&
       /reveal_tab_titles\?: boolean;/.test(agentSdkSubstrateClient) &&
       /params\.set\("include_tabs",\s*String\(options\.include_tabs\)\)/.test(
@@ -4511,6 +4505,7 @@ function runBridge() {
       /include_tabs: false/.test(agentIdeWorkflowNodeRegistry) &&
       /reveal_tab_titles: false/.test(agentIdeWorkflowNodeRegistry) &&
       !/input\.(?:includeTabs|revealTabTitles)\b/.test(runtimeDaemonIndex) &&
+      !/(?:includeTabMetadata|revealTabTitles):\s*Boolean\(input\./.test(runtimeDaemonIndex) &&
       !/includeTabs\?: boolean|revealTabTitles\?: boolean|options\.(?:includeTabs|revealTabTitles)\b/.test(
         agentSdkSubstrateClient,
       ) &&
@@ -4522,7 +4517,7 @@ function runBridge() {
       "packages/agent-sdk/test/computer-use.test.mjs",
       "packages/agent-ide/src/runtime/workflow-node-registry.ts",
     ],
-    "Phase 10/11 is pending: browser-discovery request inputs must use canonical snake_case tab options without retired camelCase aliases",
+    "Phase 10/11 is pending: browser-discovery JS request construction must stay retired while SDK/IDE contracts use canonical snake_case tab options",
   );
   assertCheck(
     result,
@@ -4903,8 +4898,9 @@ function runBridge() {
       /assert\.deepEqual\(retiredOnlyMetadata,\s*\{\}\)/.test(computerUseInputsTest) &&
       /const canonicalMetadata = visualGuiObservationMetadataForInput/.test(computerUseInputsTest) &&
       /assert\.equal\(canonicalMetadata\.screenshot_ref,\s*"canonical-shot"\)/.test(computerUseInputsTest) &&
-      /"screenshot_ref"/.test(runtimeDaemonIndex) &&
-      /"visual_targets"/.test(runtimeDaemonIndex) &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/visualGuiObservationMetadataForInput/.test(runtimeDaemonIndex) &&
+      !/"visual_targets"/.test(runtimeDaemonIndex) &&
       !/metadata\[camelKey\]\s*=\s*value/.test(computerUseInputs) &&
       !/\binput\.(?:computerUseVisualObservation|visualGuiObservation|visualObservation|screenshotRef|somRef|axRef|accessibilityTreeRef|appName|windowTitle|coordinateSpaceId|redactionReportRef|viewportWidth|viewportHeight|visualTargets|visualAffordances|detectedPatterns)\b/.test(
         computerUseInputs,
@@ -4918,7 +4914,7 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use visual metadata helpers must consume and emit canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: computer-use visual metadata helpers must consume canonical snake_case fields and daemon JS invocation bodies must not construct visual metadata",
   );
   assertCheck(
     result,
@@ -4992,9 +4988,10 @@ function runBridge() {
       /metadata\.computer_use_sandbox_provider/.test(computerUseSandboxFixture) &&
       /metadata\.sandbox_provider/.test(computerUseSandboxFixture) &&
       /metadata\.computer_use_sandbox_image_ref/.test(computerUseSandboxFixture) &&
-      /computer_use_sandbox_provider:\s*sandboxProvider/.test(runtimeDaemonIndex) &&
-      /computer_use_sandbox_fixture:\s*sandboxFixture/.test(runtimeDaemonIndex) &&
-      /computer_use_sandbox_image_ref:/.test(runtimeDaemonIndex) &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/computer_use_sandbox_provider:\s*sandboxProvider/.test(runtimeDaemonIndex) &&
+      !/computer_use_sandbox_fixture:\s*sandboxFixture/.test(runtimeDaemonIndex) &&
+      !/computer_use_sandbox_image_ref:/.test(runtimeDaemonIndex) &&
       /sandbox fixture contracts ignore retired camelCase aliases/.test(agentSdkComputerUseTest) &&
       /sandbox fixture helper ignores retired camelCase aliases/.test(computerUseSandboxFixtureTest) &&
       /computerUseSandboxProvider:\s*"local_fixture"/.test(agentSdkComputerUseTest) &&
@@ -5020,7 +5017,7 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-sandbox-fixture.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: sandboxed computer-use fixture contracts must ignore retired camelCase aliases",
+    "Phase 10/11 is pending: sandboxed computer-use fixture contracts must ignore retired camelCase aliases and daemon JS invocation bodies must not author sandbox fixture metadata",
   );
   assertCheck(
     result,
@@ -5123,9 +5120,10 @@ function runBridge() {
     ) &&
       /return cleanString\(metadata\.computer_use_target_ref\)/.test(computerUseProjection) &&
       /return cleanString\(metadata\.computer_use_approval_ref\)/.test(computerUseProjection) &&
-      /computer_use_action_kind: requestedActionKind/.test(runtimeDaemonIndex) &&
-      /computer_use_approval_ref: requestedApprovalRef/.test(runtimeDaemonIndex) &&
-      /computer_use_target_ref: requestedTargetRef/.test(runtimeDaemonIndex) &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/computer_use_action_kind: requestedActionKind/.test(runtimeDaemonIndex) &&
+      !/computer_use_approval_ref: requestedApprovalRef/.test(runtimeDaemonIndex) &&
+      !/computer_use_target_ref: requestedTargetRef/.test(runtimeDaemonIndex) &&
       !/computerUseActionKind: requestedActionKind/.test(runtimeDaemonIndex) &&
       !/computerUseApprovalRef: requestedApprovalRef/.test(runtimeDaemonIndex) &&
       !/computerUseTargetRef: requestedTargetRef/.test(runtimeDaemonIndex) &&
@@ -5162,7 +5160,7 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-projection.mjs",
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use projection target, action, and approval selection must use canonical selector metadata and ignore retired selector aliases",
+    "Phase 10/11 is pending: computer-use projection selectors must use canonical metadata while daemon JS invocation bodies no longer author selector metadata",
   );
   assertCheck(
     result,
@@ -5180,9 +5178,10 @@ function runBridge() {
       /metadata\.computer_use_controlled_relaunch_launch_receipt \?\?[\r\n\s]*metadata\.controlled_relaunch_launch_receipt/.test(
         computerUseProjection,
       ) &&
-      /computer_use_controlled_relaunch_broker:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      /controlled_relaunch_broker_ref:/.test(runtimeDaemonIndex) &&
-      /controlled_relaunch_launch_plan_ref:/.test(runtimeDaemonIndex) &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/computer_use_controlled_relaunch_broker:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      !/controlled_relaunch_broker_ref:/.test(runtimeDaemonIndex) &&
+      !/controlled_relaunch_launch_plan_ref:/.test(runtimeDaemonIndex) &&
       /computer-use projection accepts canonical controlled relaunch metadata/.test(
         computerUseProjectionTest,
       ) &&
@@ -5225,7 +5224,7 @@ function runBridge() {
       "packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.mjs",
       "packages/runtime-daemon/src/native-browser-controlled-relaunch-broker.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use controlled relaunch metadata must use canonical snake_case broker, receipt, launch-plan, and retention fields without retired camelCase aliases",
+    "Phase 10/11 is pending: computer-use controlled relaunch projection must use canonical snake_case metadata and daemon JS invocation bodies must not author relaunch metadata",
   );
   assertCheck(
     result,
@@ -5299,11 +5298,12 @@ function runBridge() {
       /metadata\.computer_use_browser_observation_artifacts \?\?[\r\n\s]*metadata\.browser_observation_artifacts/.test(
         computerUseProjection,
       ) &&
-      /computer_use_observation_bundle:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      /computer_use_target_index:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      /computer_use_affordance_graph:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      /computer_use_adapter_contract:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
-      /computer_use_cleanup_receipt:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/computer_use_observation_bundle:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      !/computer_use_target_index:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      !/computer_use_affordance_graph:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      !/computer_use_adapter_contract:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
+      !/computer_use_cleanup_receipt:\s*[\r\n\s]*objectRecord/.test(runtimeDaemonIndex) &&
       /computer-use projection accepts canonical contract override metadata/.test(
         computerUseProjectionTest,
       ) &&
@@ -5330,7 +5330,7 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-projection.mjs",
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use projection contract overrides must use canonical snake_case metadata without retired camelCase override aliases",
+    "Phase 10/11 is pending: computer-use projection contract overrides must use canonical snake_case metadata and daemon JS invocation bodies must not author contract override metadata",
   );
   assertCheck(
     result,
@@ -5353,15 +5353,9 @@ function runBridge() {
       /computerUseLane: "visual_gui"/.test(computerUseProjectionTest) &&
       /workflowGraphId: "graph_retired"/.test(computerUseProjectionTest) &&
       /failClosedWhenUnavailable: false/.test(computerUseProjectionTest) &&
-      /computer_use: true,\s*[\r\n\s]*computer_use_lane: "native_browser",\s*[\r\n\s]*computer_use_session_mode: requestedSessionMode,\s*[\r\n\s]*workflow_graph_id: workflowGraphId,\s*[\r\n\s]*workflow_node_id: workflowNodeId,\s*[\r\n\s]*workflow_node_ids: uniqueStrings/.test(
-        runtimeDaemonIndex,
-      ) &&
-      /computer_use: true,\s*[\r\n\s]*computer_use_lane: "visual_gui",\s*[\r\n\s]*computer_use_session_mode: requestedSessionMode,\s*[\r\n\s]*workflow_graph_id: workflowGraphId,\s*[\r\n\s]*workflow_node_id: workflowNodeId,\s*[\r\n\s]*workflow_node_ids: uniqueStrings/.test(
-        runtimeDaemonIndex,
-      ) &&
-      /computer_use: true,\s*[\r\n\s]*computer_use_lane: "sandboxed_hosted",\s*[\r\n\s]*computer_use_session_mode: requestedSessionMode,\s*[\r\n\s]*workflow_graph_id: workflowGraphId,\s*[\r\n\s]*workflow_node_id: workflowNodeId,\s*[\r\n\s]*workflow_node_ids: uniqueStrings/.test(
-        runtimeDaemonIndex,
-      ) &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/computer_use_lane: "(?:native_browser|visual_gui|sandboxed_hosted)"/.test(runtimeDaemonIndex) &&
+      !/workflow_node_ids: uniqueStrings/.test(runtimeDaemonIndex) &&
       !/metadata\.(?:computerUse|computerUseLane|computerUseSessionMode|workflowGraphId|workflowNodeId|workflowNodeIds|toolRef|authorityScopes|failClosedWhenUnavailable)\b/.test(
         computerUseProjection,
       ),
@@ -5370,7 +5364,7 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-projection.mjs",
       "packages/runtime-daemon/src/computer-use-projection.test.mjs",
     ],
-    "Phase 10/11 is pending: computer-use projection workflow binding and lane/session metadata must use canonical snake_case fields without retired camelCase aliases",
+    "Phase 10/11 is pending: computer-use projection workflow binding must use canonical snake_case fields and daemon JS invocation bodies must not author workflow binding metadata",
   );
   assertCheck(
     result,
@@ -5638,75 +5632,51 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-control-payload-aliases-retired",
-    /schema_version:\s*COMPUTER_USE_CONTRACT_SCHEMA_VERSION/.test(computerUseControlPayloadSummaryBlock) &&
-      /computer_use:\s*true/.test(computerUseControlPayloadSummaryBlock) &&
-      /computer_use_step:\s*action === "cleanup" \? "cleanup" : "commit_or_handoff"/.test(
-        computerUseControlPayloadSummaryBlock,
-      ) &&
-      /tool_ref:\s*toolId/.test(computerUseControlPayloadSummaryBlock) &&
-      /workflow_graph_id:\s*workflowGraphId/.test(computerUseControlPayloadSummaryBlock) &&
-      /workflow_node_id:\s*workflowNodeId/.test(computerUseControlPayloadSummaryBlock) &&
-      /authority_scopes:\s*\[`computer_use\.control\.\$\{action\}`\]/.test(computerUseControlPayloadSummaryBlock) &&
-      /fail_closed_when_unavailable:\s*true/.test(computerUseControlPayloadSummaryBlock) &&
-      /control_receipt:\s*controlReceipt/.test(computerUseControlPayloadSummaryBlock) &&
-      /human_handoff_state:\s*humanHandoffState/.test(computerUseControlPayloadSummaryBlock) &&
-      /cleanup_receipt:\s*cleanupReceipt/.test(computerUseControlPayloadSummaryBlock) &&
-      /receipt_id:\s*receiptRef/.test(computerUseControlPayloadSummaryBlock) &&
+    computerUseInvocationBodiesGuardOnly &&
+      computerUseControlPayloadSummaryBlock === "" &&
       !/^\s*(?:schemaVersion|computerUse|computerUseStep|toolRef|workflowGraphId|workflowNodeId|authorityScopes|failClosedWhenUnavailable|controlReceipt|humanHandoffState|cleanupReceipt|receiptId)\s*[:,]?/m.test(
-        computerUseControlPayloadSummaryBlock,
-      ),
+        computerUseToolIdentityBodies[1],
+      ) &&
+      !/control_receipt:\s*controlReceipt/.test(computerUseToolIdentityBodies[1]) &&
+      !/human_handoff_state:\s*humanHandoffState/.test(computerUseToolIdentityBodies[1]),
     [
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use control event payloads must expose canonical snake_case fields without duplicate camelCase aliases",
+    "Phase 10/11 is pending: computer-use control JS event payload construction must stay retired without duplicate camelCase aliases",
   );
   assertCheck(
     result,
     "computer-use-control-request-aliases-retired",
-    /optionalString\(input\.lease_id \?\? input\.computer_use_lease_id\)/.test(
-      computerUseToolIdentityBodies[1],
-    ) &&
-      /optionalString\(input\.handoff_ref \?\? input\.human_handoff_ref\)/.test(
-        computerUseToolIdentityBodies[1],
-      ) &&
-      /optionalString\(input\.cleanup_ref\)/.test(computerUseToolIdentityBodies[1]) &&
-      /optionalString\(input\.resume_observation_ref\)/.test(computerUseToolIdentityBodies[1]) &&
-      /optionalString\(input\.observation_retention_mode\)/.test(
-        computerUseToolIdentityBodies[1],
-      ) &&
+    computerUseInvocationBodiesGuardOnly &&
+      /"computer_use\.control"/.test(computerUseToolIdentityBodies[1]) &&
+      !/optionalString\(input\./.test(computerUseToolIdentityBodies[1]) &&
       !/input\.(?:leaseId|computerUseLeaseId|handoffRef|humanHandoffRef|cleanupRef|resumeObservationRef|observationRetentionMode)\b/.test(
         computerUseToolIdentityBodies[1],
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use control requests must use canonical snake_case lease, handoff, cleanup, resume, and retention fields without retired camelCase aliases",
+    "Phase 10/11 is pending: retired computer-use control JS facade must stay guard-only without lease/handoff/cleanup request alias handling",
   );
   assertCheck(
     result,
     "computer-use-tool-identity-request-aliases-retired",
-    computerUseToolIdentityBodies.every((body) => body.length > 0) &&
-      computerUseToolIdentityBodies.slice(0, 5).every((body) =>
-        /optionalString\(request\.turn_id\)/.test(body) &&
-        /optionalString\(request\.workflow_node_id\)/.test(body) &&
-        /optionalString\(request\.workflow_graph_id\)/.test(body) &&
-        /optionalString\(request\.idempotency_key\)/.test(body)
-      ) &&
-      /optionalString\(request\.idempotency_key\)/.test(computerUseToolIdentityBodies[5]) &&
-      /optionalString\(request\.workflow_node_id\)/.test(computerUseToolIdentityBodies[5]) &&
-      /tool_call_id:\s*toolCallId/.test(computerUseToolIdentityBodies[5]) &&
-      /idempotency_key:\s*idempotencyKey/.test(computerUseToolIdentityBodies[5]) &&
-      /workflow_node_id:/.test(computerUseToolIdentityBodies[5]) &&
+    computerUseInvocationBodiesGuardOnly &&
+      /tool_call_id:\s*optionalString\(request\?\.tool_call_id\)/.test(runtimeDaemonIndex) &&
+      /workflow_graph_id:\s*optionalString\(request\?\.workflow_graph_id\)/.test(runtimeDaemonIndex) &&
+      /workflow_node_id:\s*optionalString\(request\?\.workflow_node_id\)/.test(runtimeDaemonIndex) &&
+      /"computer_use\.browser_discovery"/.test(computerUseToolIdentityBodies[0]) &&
+      /"computer_use\.visual_gui\.observe"/.test(computerUseToolIdentityBodies[5]) &&
       !computerUseToolIdentityBodies.some((body) =>
         /request\.(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey|toolCallId)\b/.test(body)
       ) &&
-      !/^\s*(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey):/m.test(
-        computerUseToolIdentityBodies[5],
+      !computerUseToolIdentityBodies.some((body) =>
+        /^\s*(?:turnId|workflowGraphId|workflowNodeId|idempotencyKey):/m.test(body)
       ),
     [
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use tool invocation identity must use canonical turn_id/workflow_*_id/idempotency_key request fields without retired camelCase aliases",
+    "Phase 10/11 is pending: retired computer-use JS facades must stay guard-only while Rust-core-required errors expose canonical identity details without retired camelCase aliases",
   );
   assertCheck(
     result,
@@ -5767,8 +5737,10 @@ function runBridge() {
   assertCheck(
     result,
     "computer-use-route-authority-scope-alias-retired",
-    /computerUseAuthorityScopesForInput\(input\)/.test(runtimeDaemonIndex) &&
-      /authority_scopes:\s*computerUseAuthorityScopesForInput\(input\)/.test(runtimeDaemonIndex) &&
+    computerUseInvocationBodiesGuardOnly &&
+      /export function computerUseAuthorityScopesForInput/.test(computerUseInputs) &&
+      /computer-use inputs consume canonical authority scopes only/.test(computerUseInputsTest) &&
+      !/computerUseAuthorityScopesForInput/.test(runtimeDaemonIndex) &&
       !/normalizeArray\(input\.authorityScopes\s*\?\?\s*input\.authority_scopes\)/.test(
         runtimeDaemonIndex,
       ) &&
@@ -5780,20 +5752,15 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use route metadata must ignore retired authorityScopes input aliases before StepModule/Rust dispatch",
+    "Phase 10/11 is pending: computer-use route authority metadata must remain outside retired daemon JS invocation bodies",
   );
   assertCheck(
     result,
     "computer-use-route-observation-retention-alias-retired",
-    /computerUseObservationRetentionModeForInput\(\s*[\r\n\s]*input,\s*[\r\n\s]*"prompt_visible_summary_only"/.test(
-      runtimeDaemonIndex,
-    ) &&
-      /computerUseObservationRetentionModeForInput\(\s*[\r\n\s]*input,\s*[\r\n\s]*"local_redacted_artifacts"/.test(
-        runtimeDaemonIndex,
-      ) &&
-      /computerUseObservationRetentionModeForInput\(\s*[\r\n\s]*input,\s*[\r\n\s]*"no_persistence"/.test(
-        runtimeDaemonIndex,
-      ) &&
+    computerUseInvocationBodiesGuardOnly &&
+      /export function computerUseObservationRetentionModeForInput/.test(computerUseInputs) &&
+      /computer-use inputs consume canonical observation retention only/.test(computerUseInputsTest) &&
+      !/computerUseObservationRetentionModeForInput/.test(runtimeDaemonIndex) &&
       !/optionalString\(input\.observationRetentionMode\s*\?\?\s*input\.observation_retention_mode\)/.test(
         runtimeDaemonIndex,
       ),
@@ -5802,16 +5769,15 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use route metadata must ignore retired observationRetentionMode input aliases before StepModule/Rust dispatch",
+    "Phase 10/11 is pending: computer-use route observation-retention metadata must remain outside retired daemon JS invocation bodies",
   );
   assertCheck(
     result,
     "computer-use-route-workflow-node-alias-retired",
     /export function computerUseWorkflowNodeIdsForInput/.test(computerUseInputs) &&
-      /computerUseWorkflowNodeIdsForInput,\s*[\r\n\s]*nativeBrowserActionKindForInput/.test(
-        runtimeDaemonIndex,
-      ) &&
-      [...runtimeDaemonIndex.matchAll(/\.\.\.computerUseWorkflowNodeIdsForInput\(input\)/g)].length === 3 &&
+      computerUseInvocationBodiesGuardOnly &&
+      !/computerUseWorkflowNodeIdsForInput/.test(runtimeDaemonIndex) &&
+      [...runtimeDaemonIndex.matchAll(/\.\.\.computerUseWorkflowNodeIdsForInput\(input\)/g)].length === 0 &&
       /computer-use inputs consume canonical workflow node ids only/.test(
         computerUseInputsTest,
       ) &&
@@ -5825,7 +5791,7 @@ function runBridge() {
       "packages/runtime-daemon/src/computer-use-inputs.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: computer-use route metadata must ignore retired workflowNodeIds input aliases before StepModule/Rust dispatch",
+    "Phase 10/11 is pending: computer-use route workflow-node metadata must remain outside retired daemon JS invocation bodies",
   );
   assertCheck(
     result,

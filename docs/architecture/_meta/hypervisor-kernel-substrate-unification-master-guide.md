@@ -5786,6 +5786,25 @@ daemon-core admission, execution dispatch, Agentgres expected-head/state-root
 binding, replay, and projection rather than by recreating a Node bridge-thread
 facade.
 
+Slice 1095 retires the dead computer-use JS invocation bodies that remained
+behind the fail-closed facade guards. Browser discovery, control,
+native-browser action, visual GUI action, sandboxed-hosted action, and visual
+GUI observe now return the Rust-core-required boundary directly. The daemon
+index no longer imports or calls local browser discovery, CDP execution,
+controlled native-browser launch, visual GUI local capture/execution, or
+computer-use request metadata helper plumbing from those invocation surfaces.
+Visual GUI observe is also guard-only, so it cannot read local capture files or
+look up JS truth before refusing the retired path.
+
+Conformance now treats the absence of those JS invocation bodies as the
+invariant. The bridge tier no longer expects canonical snake_case payload,
+request, workflow-binding, selector, sandbox, controlled-relaunch, or visual
+metadata construction inside daemon `index.mjs`; those shapes may only survive
+in non-authoritative helper/replay contracts until direct Rust daemon-core
+computer-use admission, wallet.network authority, cTEE custody policy where
+applicable, Agentgres expected-head/state-root binding, event materialization,
+replay, and projection own the positive path.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
