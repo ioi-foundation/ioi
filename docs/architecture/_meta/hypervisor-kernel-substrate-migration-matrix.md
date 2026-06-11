@@ -20366,6 +20366,40 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 988
+
+Slice 988 removed the public studio intent-frame daemon-store wrapper. The
+`/v1/studio/intent-frame` route now calls the injected studio intent resolver
+dependency directly instead of routing through
+`RuntimeDaemonStore.resolveStudioIntentFrame()`, and the daemon-store wrapper
+method is deleted. Route tests poison the retired store wrapper, and conformance
+requires the direct resolver call while banning the public route layer and store
+class from reintroducing the compatibility method.
+
+This is still non-terminal migration work: studio intent framing remains
+product/protocol glue until Rust daemon-core admission, route authority, wallet
+authority where an intent exits local trust, receipt/state-root binding, replay,
+and stable IDE/CLI/SDK protocol APIs own consequential routing decisions. The
+slice only removes the false store-authority boundary from the public route.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 988 | Public studio intent-frame route calls the resolver dependency directly and the daemon-store compatibility wrapper is deleted. | Rust daemon-core intent/admission authority for consequential routing decisions with wallet authority where needed, Agentgres truth, receipt/state-root binding, replay, and stable protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/studio-intent-frame.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 987
 
 Slice 987 removed another public-route compatibility-wrapper layer from catalog

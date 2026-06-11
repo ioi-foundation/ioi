@@ -56,6 +56,10 @@ function routeHarness(overrides = {}) {
       return text || null;
     },
     readBody: async (req) => req.body ?? {},
+    resolveStudioIntentFrame: (input) => ({
+      object: "ioi.studio_intent_frame",
+      target: input.prompt ?? null,
+    }),
     runtimeError: (error) => Object.assign(new Error(error.message), error),
     usageRequestMetadataFromUrl: () => ({ requestMetadata: true }),
     usageTelemetryWithRequestMetadata: (payload, metadata) => ({ payload, metadata }),
@@ -268,6 +272,42 @@ test("public runtime model catalog routes use mounted model projection surface",
     { method: "runtimeModelCatalogList" },
     { method: "listModelCapabilities" },
   ]);
+});
+
+test("public runtime studio intent route uses resolver dependency directly", async () => {
+  const calls = [];
+  const { handleRequest } = routeHarness({
+    resolveStudioIntentFrame(input) {
+      calls.push(input);
+      return {
+        object: "ioi.studio_intent_frame",
+        route_directive: "agent",
+        target: input.prompt,
+      };
+    },
+  });
+  const response = responseRecorder();
+  const store = {
+    resolveStudioIntentFrame: retiredRouteWrapper,
+  };
+
+  await handleRequest({
+    request: request({
+      method: "POST",
+      url: "/v1/studio/intent-frame",
+      body: { prompt: "inspect the runtime" },
+    }),
+    response,
+    store,
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(calls, [{ prompt: "inspect the runtime" }]);
+  assert.deepEqual(JSON.parse(response.body), {
+    object: "ioi.studio_intent_frame",
+    route_directive: "agent",
+    target: "inspect the runtime",
+  });
 });
 
 test("public runtime account node and tool routes use mounted tool surface", async () => {

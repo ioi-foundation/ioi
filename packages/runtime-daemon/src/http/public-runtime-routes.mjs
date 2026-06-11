@@ -16,6 +16,7 @@ export function createPublicRuntimeRequestHandler(deps) {
     notFound,
     optionalString,
     readBody,
+    resolveStudioIntentFrame,
     runtimeError,
     usageRequestMetadataFromUrl,
     usageTelemetryWithRequestMetadata,
@@ -149,7 +150,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "POST" && url.pathname === "/v1/studio/intent-frame") {
-        writeJsonResponse(response, store.resolveStudioIntentFrame(await readBody(request)));
+        writeJsonResponse(response, resolveStudioIntentFrame(await readBody(request)));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/conversation-artifacts") {

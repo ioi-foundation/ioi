@@ -519,6 +519,7 @@ const handleRequest = createPublicRuntimeRequestHandler({
   notFound,
   optionalString,
   readBody,
+  resolveStudioIntentFrame,
   runtimeError,
   usageRequestMetadataFromUrl,
   usageTelemetryWithRequestMetadata,
@@ -907,10 +908,6 @@ export class AgentgresRuntimeStateStore {
 
   close() {
     this.modelMounting.close();
-  }
-
-  resolveStudioIntentFrame(input = {}) {
-    return resolveStudioIntentFrame(input);
   }
 
   createAgent(options = {}) {

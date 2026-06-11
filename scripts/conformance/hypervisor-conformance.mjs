@@ -24393,12 +24393,19 @@ function runCompositor() {
       /executionMode: "ask"/.test(studioIntentFrameTest) &&
       /retiredOnlyAsk\.execution_mode,\s*"agent"/.test(studioIntentFrameTest) &&
       /retiredOnlyAsk\.route_directive,\s*"agent"/.test(studioIntentFrameTest) &&
-      !/\b(?:input|context)\.executionMode\b/.test(studioIntentFrame),
+      !/\b(?:input|context)\.executionMode\b/.test(studioIntentFrame) &&
+      /resolveStudioIntentFrame\(await readBody\(request\)\)/.test(publicRuntimeRoutes) &&
+      !/store\.resolveStudioIntentFrame/.test(publicRuntimeRoutes) &&
+      !/resolveStudioIntentFrame\(input = \{\}\)/.test(runtimeDaemonIndex) &&
+      /public runtime studio intent route uses resolver dependency directly/.test(publicRuntimeRoutesTest),
     [
       "packages/runtime-daemon/src/studio-intent-frame.mjs",
       "packages/runtime-daemon/src/studio-intent-frame.test.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: Studio intent routing must use canonical execution_mode without retired executionMode input aliases",
+    "Phase 10/11 is pending: Studio intent routing must use canonical execution_mode without retired executionMode input aliases or daemon-store route wrappers",
   );
   assertCheck(
     result,
