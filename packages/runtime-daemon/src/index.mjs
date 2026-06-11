@@ -1027,22 +1027,6 @@ export class AgentgresRuntimeStateStore {
     return this.threadForAgent(this.agentForThread(threadId));
   }
 
-  async inspectManagedSessionsForThread(threadId, request = {}) {
-    return this.threadAuxiliarySurface.inspectManagedSessionsForThread(this, threadId, request);
-  }
-
-  async inspectWorkspaceChangeReviewsForThread(threadId, request = {}) {
-    return this.threadAuxiliarySurface.inspectWorkspaceChangeReviewsForThread(this, threadId, request);
-  }
-
-  async controlWorkspaceChangeForThread(threadId, request = {}) {
-    return this.threadAuxiliarySurface.controlWorkspaceChangeForThread(this, threadId, request);
-  }
-
-  async controlManagedSessionForThread(threadId, request = {}) {
-    return this.threadAuxiliarySurface.controlManagedSessionForThread(this, threadId, request);
-  }
-
   appendWorkspaceTrustWarningEvent({
     agent,
     threadId,
@@ -1065,10 +1049,6 @@ export class AgentgresRuntimeStateStore {
       modeEvent,
       now,
     });
-  }
-
-  forkThread(threadId, request = {}) {
-    return this.threadAuxiliarySurface.forkThread(this, threadId, request);
   }
 
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
@@ -1163,64 +1143,6 @@ export class AgentgresRuntimeStateStore {
     return this.workflowEditSurface.resolveWorkflowEditTarget(agent, request);
   }
 
-  applyThreadMcpServerMutation({
-    threadId,
-    agent,
-    request,
-    mutationKind,
-    sourceEventKind,
-    eventKind,
-    workflowNodeId,
-    serversToUpsert,
-  }) {
-    return this.mcpControlSurface.applyThreadMcpServerMutation(this, {
-      threadId,
-      agent,
-      request,
-      mutationKind,
-      sourceEventKind,
-      eventKind,
-      workflowNodeId,
-      serversToUpsert,
-    });
-  }
-
-  async mcpStatusWithLiveDiscovery(status, agent, request = {}) {
-    return this.mcpControlSurface.mcpStatusWithLiveDiscovery(this, status, agent, request);
-  }
-
-  appendThreadMcpControlEvent({
-    threadId,
-    agent,
-    request,
-    controlKind,
-    sourceEventKind,
-    eventKind,
-    componentKind,
-    workflowNodeId,
-    payloadSchemaVersion,
-    status,
-    payload,
-  }) {
-    return this.mcpControlSurface.appendThreadMcpControlEvent(this, {
-      threadId,
-      agent,
-      request,
-      controlKind,
-      sourceEventKind,
-      eventKind,
-      componentKind,
-      workflowNodeId,
-      payloadSchemaVersion,
-      status,
-      payload,
-    });
-  }
-
-  mcpServersForContext(options = {}) {
-    return this.mcpCatalogSurface.mcpServersForContext(this, options);
-  }
-
   agentForThread(threadId) {
     return agentForThreadState(this, threadId, {
       agentIdForThread,
@@ -1272,10 +1194,6 @@ export class AgentgresRuntimeStateStore {
 
   authorityEvidenceSummary(options = {}) {
     return this.runReadSurface.authorityEvidenceSummary(this, options);
-  }
-
-  cancelRun(runId) {
-    return this.threadAuxiliarySurface.cancelRun(this, runId);
   }
 
   replayFromCanonicalState(runId, cursor) {

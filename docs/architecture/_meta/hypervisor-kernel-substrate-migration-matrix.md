@@ -15784,6 +15784,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1098
+
+Slice 1098 retires the remaining unused daemon-store thread auxiliary and MCP
+helper pass-through delegates. Public/thread routes already call mounted thread
+auxiliary and MCP catalog/control surfaces directly, so the daemon store no
+longer exposes `inspectManagedSessionsForThread()`,
+`inspectWorkspaceChangeReviewsForThread()`, `controlWorkspaceChangeForThread()`,
+`controlManagedSessionForThread()`, `forkThread()`, `cancelRun()`,
+`applyThreadMcpServerMutation()`, `mcpStatusWithLiveDiscovery()`,
+`appendThreadMcpControlEvent()`, or `mcpServersForContext()` as compatibility
+entrypoints.
+
+Conformance now fails if those delegates return on the daemon store. Future
+thread auxiliary and MCP direct APIs must come from Rust daemon-core lifecycle,
+authority/admission, Agentgres expected-head/state-root binding, replay, and
+projection ownership rather than revived JS store wrappers.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1097
 
 Slice 1097 retires the coding-tool budget blocked-event JS projection facade.

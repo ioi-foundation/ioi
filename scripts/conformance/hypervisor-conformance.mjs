@@ -7994,8 +7994,18 @@ function runBridge() {
       /"updateThreadRuntimeControls"[\s\S]*"appendThreadRuntimeControlEvent"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
+      /"inspectManagedSessionsForThread"[\s\S]*"inspectWorkspaceChangeReviewsForThread"[\s\S]*"controlWorkspaceChangeForThread"[\s\S]*"controlManagedSessionForThread"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"forkThread"[\s\S]*"cancelRun"/.test(runtimeThreadSurfaceDelegatesRetiredTest) &&
+      /"applyThreadMcpServerMutation"[\s\S]*"mcpStatusWithLiveDiscovery"[\s\S]*"appendThreadMcpControlEvent"[\s\S]*"mcpServersForContext"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
       /Object\.hasOwn\(prototype, method\), false/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      !/^\s*(?:inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext)\(/m.test(
+        runtimeDaemonIndex,
       ) &&
       /thread turn surface fails closed for non-runtime resume before JS mutation/.test(
         runtimeThreadTurnSurfaceTest,
@@ -8090,9 +8100,7 @@ function runBridge() {
       /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /return this\.threadAuxiliarySurface\.cancelRun\(this,\s*runId\);/.test(
-        runtimeDaemonIndex,
-      ) &&
+      !/^\s*cancelRun\(runId\)/m.test(runtimeDaemonIndex) &&
       /store\.threadAuxiliarySurface\.cancelRun\(store, runId\)/.test(
         runtimeRouteHandlers,
       ) &&
@@ -9104,9 +9112,7 @@ function runBridge() {
     /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
       runtimeDaemonIndex,
     ) &&
-    /return this\.threadAuxiliarySurface\.forkThread\(this,\s*threadId,\s*request\);/.test(
-      runtimeDaemonIndex,
-    ) &&
+    !/^\s*forkThread\(threadId,/m.test(runtimeDaemonIndex) &&
     /store\.threadAuxiliarySurface\.forkThread\(store, threadId,/.test(
       runtimeRouteHandlers,
     ) &&
@@ -27043,10 +27049,10 @@ function runCompositor() {
       /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /return this\.threadAuxiliarySurface\.inspectManagedSessionsForThread\(this,\s*threadId,\s*request\);/.test(
+      !/^\s*inspectManagedSessionsForThread\(threadId,/m.test(
         runtimeDaemonIndex,
       ) &&
-      /return this\.threadAuxiliarySurface\.controlManagedSessionForThread\(this,\s*threadId,\s*request\);/.test(
+      !/^\s*controlManagedSessionForThread\(threadId,/m.test(
         runtimeDaemonIndex,
       ) &&
       /store\.threadAuxiliarySurface\.inspectManagedSessionsForThread\(store, threadId,/.test(
@@ -27124,10 +27130,10 @@ function runCompositor() {
       /this\.threadAuxiliarySurface = createRuntimeThreadAuxiliarySurface\(\)/.test(
         runtimeDaemonIndex,
       ) &&
-      /return this\.threadAuxiliarySurface\.inspectWorkspaceChangeReviewsForThread\(this,\s*threadId,\s*request\);/.test(
+      !/^\s*inspectWorkspaceChangeReviewsForThread\(threadId,/m.test(
         runtimeDaemonIndex,
       ) &&
-      /return this\.threadAuxiliarySurface\.controlWorkspaceChangeForThread\(this,\s*threadId,\s*request\);/.test(
+      !/^\s*controlWorkspaceChangeForThread\(threadId,/m.test(
         runtimeDaemonIndex,
       ) &&
       /store\.threadAuxiliarySurface\.inspectWorkspaceChangeReviewsForThread\(store, threadId,/.test(

@@ -5834,6 +5834,23 @@ projection must be authored by Rust daemon-core projection over Agentgres
 admitted truth, not by reintroducing daemon-local event scans or JS projection
 helpers.
 
+Slice 1098 retires the remaining unused daemon-store thread auxiliary and MCP
+helper pass-through delegates. Public/thread routes already call the mounted
+thread auxiliary and MCP catalog/control surfaces directly; the daemon store no
+longer exposes `inspectManagedSessionsForThread()`,
+`inspectWorkspaceChangeReviewsForThread()`, `controlWorkspaceChangeForThread()`,
+`controlManagedSessionForThread()`, `forkThread()`, `cancelRun()`,
+`applyThreadMcpServerMutation()`, `mcpStatusWithLiveDiscovery()`,
+`appendThreadMcpControlEvent()`, or `mcpServersForContext()` as compatibility
+entrypoints.
+
+Conformance now fails if those store-level delegates return. Thread auxiliary
+and MCP route behavior must stay mounted-surface/protocol-edge only until Rust
+daemon-core thread lifecycle, MCP authority/admission, Agentgres
+expected-head/state-root binding, replay, and projection own the direct APIs;
+future direct Rust APIs should replace the mounted JS surfaces rather than
+reviving daemon-store wrapper methods.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
