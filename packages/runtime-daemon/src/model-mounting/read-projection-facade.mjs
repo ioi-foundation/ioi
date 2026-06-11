@@ -47,6 +47,10 @@ export function createModelMountingReadProjectionFacade({
     return rustReadProjection(state, "downloads");
   }
 
+  function listBackends(state) {
+    return rustReadProjection(state, "backends");
+  }
+
   function listOAuthSessions(state) {
     try {
       return rustReadProjection(state, "oauth_sessions");
@@ -333,6 +337,7 @@ export function createModelMountingReadProjectionFacade({
       projectionKind === "routes" ||
       projectionKind === "model_capabilities" ||
       projectionKind === "downloads" ||
+      projectionKind === "backends" ||
       projectionKind === "product_artifacts" ||
       projectionKind === "runtime_model_catalog" ||
       projectionKind === "open_ai_model_list"
@@ -379,6 +384,7 @@ export function createModelMountingReadProjectionFacade({
     latestRuntimeSurvey,
     latestVaultHealth,
     listArtifacts,
+    listBackends,
     listDownloads,
     listEndpoints,
     listInstances,

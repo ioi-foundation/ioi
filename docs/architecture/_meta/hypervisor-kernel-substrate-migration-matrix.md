@@ -20366,6 +20366,24 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 997
+
+Slice 997 moved public model backend list projection onto the Rust model-mount
+read-projection command. `ModelMountingState.listBackends()` now delegates to
+the read-projection facade, the facade requests projection kind `backends` with
+empty JS state, and the Rust bridge returns the current non-authoritative empty
+backend projection instead of reading `backendRegistry()` from the JS daemon.
+
+This is still non-terminal migration work: Rust now owns the public backend
+list projection envelope, but direct Agentgres-backed Rust backend inventory,
+backend lifecycle/process control, replay, projection, and stable SDK/IDE/CLI
+protocol APIs remain required before backend lifecycle reaches the pure Rust
+substrate target.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 997 | Routed public backend list readback through Rust read projection kind `backends` with empty JS request state. | Direct Agentgres-backed Rust backend inventory/lifecycle/projection replaces private JS backend registry/process scaffolding and command-transport migration plumbing. |
+
 ## Implementation Slice Evidence: 996
 
 Slice 996 retired model-mount backend seeding as a JS backend-truth path.

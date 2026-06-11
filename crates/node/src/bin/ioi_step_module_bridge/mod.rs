@@ -2234,6 +2234,7 @@ fn model_mount_read_projection(
         "routes" => Ok(Value::Array(Vec::new())),
         "model_capabilities" => Ok(Value::Array(Vec::new())),
         "downloads" => Ok(Value::Array(Vec::new())),
+        "backends" => Ok(Value::Array(Vec::new())),
         "oauth_sessions" => Err(BridgeError::new(
             "model_mount_oauth_read_projection_js_retired",
             "OAuth session read projection requires Rust daemon-core wallet/cTEE projection"
@@ -8881,6 +8882,29 @@ mod tests {
             response["projection"]["routes"]
                 .as_array()
                 .expect("routes")
+                .len(),
+            0
+        );
+        let backend_projection_request: ModelMountReadProjectionBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "plan_model_mount_read_projection",
+                "backend": "rust_model_mount_read_projection",
+                "request": {
+                    "projection_kind": "backends",
+                    "schema_version": MODEL_MOUNT_RUNTIME_SCHEMA_VERSION,
+                    "generated_at": "2026-06-08T00:00:00.000Z",
+                    "state": {}
+                }
+            }))
+            .expect("backend read projection bridge request");
+        let backend_projection = plan_model_mount_read_projection(backend_projection_request)
+            .expect("backend projection planned in Rust");
+        assert_eq!(backend_projection["projection_kind"], "backends");
+        assert_eq!(
+            backend_projection["projection"]
+                .as_array()
+                .expect("backend projection")
                 .len(),
             0
         );

@@ -258,6 +258,7 @@ function rustProjectionFixture(request) {
   if (request.projection_kind === "routes") return [];
   if (request.projection_kind === "model_capabilities") return [];
   if (request.projection_kind === "downloads") return [];
+  if (request.projection_kind === "backends") return [];
   if (request.projection_kind === "oauth_sessions" || request.projection_kind === "oauth_states") {
     throw Object.assign(new Error("OAuth session/state read projection is retired"), {
       code: "model_mount_oauth_read_projection_js_retired",
@@ -653,6 +654,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   assert.deepEqual(facade.listRoutes(state), []);
   assert.deepEqual(facade.listModelCapabilities(state), []);
   assert.deepEqual(facade.listDownloads(state), []);
+  assert.deepEqual(facade.listBackends(state), []);
   assertOAuthReadProjectionRetired(
     () => facade.listOAuthSessions(state),
     "model_mount.catalog_provider_oauth.sessions",
@@ -678,6 +680,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
     "routes",
     "model_capabilities",
     "downloads",
+    "backends",
     "oauth_sessions",
     "oauth_states",
     "provider_health",
@@ -697,7 +700,7 @@ test("read projection facade delegates product-safe lists and capabilities", () 
   const providerHealthRequest = readProjectionRequests.find((request) => request.projection_kind === "provider_health");
   assert.deepEqual(providerHealthRequest.state, {});
   const topologyRequests = readProjectionRequests.filter((request) =>
-    ["artifacts", "providers", "endpoints", "instances", "routes", "model_capabilities", "downloads"].includes(
+    ["artifacts", "providers", "endpoints", "instances", "routes", "model_capabilities", "downloads", "backends"].includes(
       request.projection_kind,
     ));
   assert.equal(topologyRequests.every((request) => Object.keys(request.state).length === 0), true);

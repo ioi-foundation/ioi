@@ -9529,7 +9529,8 @@ function runBridge() {
       /listRoutes\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"routes"\)/.test(modelMountingReadProjectionFacade) &&
       /listModelCapabilities\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"model_capabilities"\)/.test(modelMountingReadProjectionFacade) &&
       /listDownloads\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"downloads"\)/.test(modelMountingReadProjectionFacade) &&
-      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
+      /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(modelMountingReadProjectionFacade) &&
+      /projectionKind === "artifacts"[\s\S]*?projectionKind === "providers"[\s\S]*?projectionKind === "endpoints"[\s\S]*?projectionKind === "instances"[\s\S]*?projectionKind === "routes"[\s\S]*?projectionKind === "model_capabilities"[\s\S]*?projectionKind === "downloads"[\s\S]*?projectionKind === "backends"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       /projectionKind === "product_artifacts"[\s\S]*?projectionKind === "runtime_model_catalog"[\s\S]*?projectionKind === "open_ai_model_list"[\s\S]*?return \{\};/.test(modelMountingReadProjectionFacade) &&
       !/if \(projectionKind === "endpoints"\)[\s\S]*?return \{ endpoints \};/.test(modelMountingReadProjectionFacade) &&
       !/if \(projectionKind === "providers"\)[\s\S]*?return \{ providers \};/.test(modelMountingReadProjectionFacade) &&
@@ -9622,6 +9623,7 @@ function runBridge() {
       /assert\.deepEqual\(facade\.listRoutes\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listModelCapabilities\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listDownloads\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /assert\.deepEqual\(facade\.listBackends\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /store\.modelMounting\.runtimeModelCatalogList\(\)/.test(publicRuntimeRoutes) &&
       /store\.modelMounting\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
       !/store\.listModels\(\)/.test(publicRuntimeRoutes) &&
@@ -15829,13 +15831,13 @@ function runReceipts() {
       !/providers\.get\("provider\.(?:lmstudio|openai-compatible|ollama|vllm)"\)/.test(defaultRecords) &&
       /backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
       /rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
-      /listBackends\(\)\s*\{[\s\S]*?throwBackendProjectionRustCoreRequired\("model_mount\.backend\.list"\)/.test(
+      /listBackends\(\)\s*\{[\s\S]*?return this\.readProjectionFacade\.listBackends\(this\)/.test(
         backendLifecycle,
       ) &&
-      /model_mount_backend_projection_rust_core_required/.test(backendLifecycle) &&
-      /rust_core_boundary:\s*"model_mount\.backend_projection"/.test(backendLifecycle) &&
-      /public_backend_projection_js_facade_retired/.test(backendLifecycle) &&
-      /agentgres_backend_projection_truth_required/.test(backendLifecycle) &&
+      /listBackends\(state\)\s*\{[\s\S]*?rustReadProjection\(state,\s*"backends"\)/.test(
+        modelMountingReadProjectionFacade,
+      ) &&
+      /"backends" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(bridgeModule) &&
       !/listBackends\(\)\s*\{[\s\S]*?return this\.backendRegistry\(\)/.test(backendLifecycle) &&
       /url\.pathname === "\/api\/v1\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
       /url\.pathname === "\/api\/v1\/models\/backends"[\s\S]*?mounts\.listBackends\(\)/.test(runtimeRouteHandlers) &&
@@ -15864,11 +15866,10 @@ function runReceipts() {
       /public backend lifecycle facade fails closed until Rust core owns lifecycle control/.test(
         backendLifecycleTest,
       ) &&
-      /public backend list facade fails closed before JS backend registry projection/.test(
+      /public backend list delegates to Rust projection without JS backend registry input/.test(
         backendLifecycleTest,
       ) &&
-      /listBackends must not read JS backend registry/.test(backendLifecycleTest) &&
-      /model_mount\.backend\.list/.test(backendLifecycleTest) &&
+      /Rust backend list projection must not read JS backend registry/.test(backendLifecycleTest) &&
       /blocked backend public lifecycle start still fails at Rust-core boundary before JS control/.test(
         backendLifecycleTest,
       ) &&

@@ -1553,7 +1553,7 @@ export class ModelMountingState {
   }
 
   listBackends() {
-    throwBackendProjectionRustCoreRequired("model_mount.backend.list");
+    return this.readProjectionFacade.listBackends(this);
   }
 
   listBackendProcesses() {
