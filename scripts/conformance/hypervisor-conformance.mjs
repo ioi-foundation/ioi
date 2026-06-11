@@ -13727,10 +13727,19 @@ function runBridge() {
       /WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /operation_apply_blocked_reason/.test(workspaceRestoreKernel) &&
       /mod workspace_restore_command;/.test(bridgeModule) &&
-      /WorkspaceRestoreApplyPolicyBridgeRequest/.test(workspaceRestoreCommandBridge) &&
+      /pub struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(workspaceRestoreKernel) &&
+      /pub struct WorkspaceRestoreCommandError/.test(workspaceRestoreKernel) &&
+      /pub fn plan_workspace_restore_apply_policy_response/.test(workspaceRestoreKernel) &&
+      /rust_workspace_restore_policy_command/.test(workspaceRestoreKernel) &&
+      /workspace_restore_apply_policy_invalid/.test(workspaceRestoreKernel) &&
+      /core_plan_workspace_restore_apply_policy/.test(workspaceRestoreCommandBridge) &&
       /fn plan_workspace_restore_apply_policy/.test(workspaceRestoreCommandBridge) &&
-      /rust_workspace_restore_policy_command/.test(workspaceRestoreCommandBridge) &&
-      /workspace_restore_apply_policy_invalid/.test(workspaceRestoreCommandBridge) &&
+      !/WorkspaceRestoreApplyPolicyCore/.test(workspaceRestoreCommandBridge) &&
+      !/WorkspaceRestoreApplyPolicyRequest\b/.test(workspaceRestoreCommandBridge) &&
+      !/rust_workspace_restore_policy_command/.test(workspaceRestoreCommandBridge) &&
+      !/workspace_restore_apply_policy_invalid/.test(workspaceRestoreCommandBridge) &&
+      !/serde::Deserialize/.test(workspaceRestoreCommandBridge) &&
+      !/serde_json::json/.test(workspaceRestoreCommandBridge) &&
       !/struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(bridgeModule) &&
       !/fn plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       /bridge_plans_workspace_restore_apply_policy_through_rust_core/.test(bridgeModule),
@@ -13748,11 +13757,19 @@ function runBridge() {
       /apply_operations/.test(workspaceRestoreKernel) &&
       /WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
-      /WorkspaceRestoreOperationsBridgeRequest/.test(workspaceRestoreCommandBridge) &&
+      /pub struct WorkspaceRestoreOperationsBridgeRequest/.test(workspaceRestoreKernel) &&
+      /pub fn preview_workspace_restore_operations_response/.test(workspaceRestoreKernel) &&
+      /pub fn apply_workspace_restore_operations_response/.test(workspaceRestoreKernel) &&
+      /rust_workspace_restore_operations_command/.test(workspaceRestoreKernel) &&
+      /workspace_restore_operations_invalid/.test(workspaceRestoreKernel) &&
+      /core_preview_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
+      /core_apply_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
       /fn preview_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
       /fn apply_workspace_restore_operations/.test(workspaceRestoreCommandBridge) &&
-      /rust_workspace_restore_operations_command/.test(workspaceRestoreCommandBridge) &&
-      /workspace_restore_operations_invalid/.test(workspaceRestoreCommandBridge) &&
+      !/WorkspaceRestoreOperationsCore/.test(workspaceRestoreCommandBridge) &&
+      !/WorkspaceRestoreOperationsRequest\b/.test(workspaceRestoreCommandBridge) &&
+      !/rust_workspace_restore_operations_command/.test(workspaceRestoreCommandBridge) &&
+      !/workspace_restore_operations_invalid/.test(workspaceRestoreCommandBridge) &&
       !/struct WorkspaceRestoreOperationsBridgeRequest/.test(bridgeModule) &&
       !/fn preview_workspace_restore_operations/.test(bridgeModule) &&
       !/fn apply_workspace_restore_operations/.test(bridgeModule) &&
@@ -13771,10 +13788,16 @@ function runBridge() {
       /capture_files/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
       /WORKSPACE_SNAPSHOT_CAPTURE_RESULT_SCHEMA_VERSION/.test(workspaceRestoreKernel) &&
-      /WorkspaceSnapshotCaptureBridgeRequest/.test(workspaceRestoreCommandBridge) &&
+      /pub struct WorkspaceSnapshotCaptureBridgeRequest/.test(workspaceRestoreKernel) &&
+      /pub fn capture_workspace_snapshot_files_response/.test(workspaceRestoreKernel) &&
+      /rust_workspace_snapshot_capture_command/.test(workspaceRestoreKernel) &&
+      /workspace_snapshot_capture_invalid/.test(workspaceRestoreKernel) &&
+      /core_capture_workspace_snapshot_files/.test(workspaceRestoreCommandBridge) &&
       /fn capture_workspace_snapshot_files/.test(workspaceRestoreCommandBridge) &&
-      /rust_workspace_snapshot_capture_command/.test(workspaceRestoreCommandBridge) &&
-      /workspace_snapshot_capture_invalid/.test(workspaceRestoreCommandBridge) &&
+      !/WorkspaceSnapshotCaptureCore/.test(workspaceRestoreCommandBridge) &&
+      !/WorkspaceSnapshotCaptureRequest\b/.test(workspaceRestoreCommandBridge) &&
+      !/rust_workspace_snapshot_capture_command/.test(workspaceRestoreCommandBridge) &&
+      !/workspace_snapshot_capture_invalid/.test(workspaceRestoreCommandBridge) &&
       !/struct WorkspaceSnapshotCaptureBridgeRequest/.test(bridgeModule) &&
       !/fn capture_workspace_snapshot_files/.test(bridgeModule) &&
       /bridge_captures_workspace_snapshot_files_through_rust_core/.test(bridgeModule),

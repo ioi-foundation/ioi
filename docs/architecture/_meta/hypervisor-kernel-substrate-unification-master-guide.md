@@ -6298,6 +6298,24 @@ Agentgres expected-head and state-root truth, policy receipts, context
 compaction event materialization, replay, projection, and stable IDE/CLI/SDK
 surfaces end to end.
 
+Slice 1125 moves workspace-restore apply-policy, preview/apply operations, and
+workspace-snapshot capture command request/response shaping out of the
+temporary Node workspace-restore bridge and into Rust `workspace_restore.rs`.
+Rust core now owns the bridge request structs, response envelopes, canonical
+command source markers, and bridge-facing error codes for rejected
+workspace-restore command bodies.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, workspace-restore
+runner, and public fail-closed workspace snapshot/restore surfaces still
+exist. The remaining `ioi_step_module_bridge/workspace_restore_command.rs`
+file is a temporary delegate to Rust core, not a durable workspace
+snapshot/restore boundary. The long-term target remains direct Rust
+daemon-core workspace snapshot/restore admission, policy/approval,
+filesystem-operation, artifact/payload admission, Agentgres expected-head and
+state-root truth, receipts/events, replay, projection, and stable IDE/CLI/SDK
+surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

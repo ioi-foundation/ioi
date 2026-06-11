@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -21,6 +21,26 @@ pub const WORKSPACE_RESTORE_APPLY_POLICY_PLAN_SCHEMA_VERSION: &str =
     "ioi.workspace_restore_apply_policy_plan.v1";
 pub const WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES: u64 = 256 * 1024;
 pub const WORKSPACE_RESTORE_PREVIEW_DIFF_MAX_BYTES: u64 = 32 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkspaceRestoreCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl WorkspaceRestoreCommandError {
+    fn new(code: &'static str, message: String) -> Self {
+        Self { code, message }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WorkspaceSnapshotCaptureRequest {
@@ -451,6 +471,27 @@ pub struct WorkspaceRestoreApplyCounts {
     pub failed_count: u64,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceRestoreApplyPolicyBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: WorkspaceRestoreApplyPolicyRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceRestoreOperationsBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: WorkspaceRestoreOperationsRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkspaceSnapshotCaptureBridgeRequest {
+    #[serde(default)]
+    pub backend: Option<String>,
+    pub request: WorkspaceSnapshotCaptureRequest,
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct WorkspaceRestoreApplyPolicyCore;
 
@@ -540,6 +581,95 @@ impl WorkspaceRestoreApplyPolicyCore {
             summary,
         })
     }
+}
+
+pub fn plan_workspace_restore_apply_policy_response(
+    request: WorkspaceRestoreApplyPolicyBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    let plan = WorkspaceRestoreApplyPolicyCore
+        .plan_apply_policy(&request.request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_restore_apply_policy_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_restore_policy_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "plan": plan.clone(),
+        "approval": plan.approval.clone(),
+        "allow_conflicts": plan.allow_conflicts,
+        "conflict_policy": plan.conflict_policy.clone(),
+        "hard_blocked": plan.hard_blocked,
+        "conflict_blocked": plan.conflict_blocked,
+        "policy_status": plan.policy_status.clone(),
+        "apply_status": plan.apply_status.clone(),
+        "policy_decision_refs": plan.policy_decision_refs.clone(),
+        "operation_policies": plan.operation_policies.clone(),
+        "summary": plan.summary.clone(),
+    }))
+}
+
+pub fn preview_workspace_restore_operations_response(
+    request: WorkspaceRestoreOperationsBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    let operations = WorkspaceRestoreOperationsCore
+        .preview_operations(&request.request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_restore_operations_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_restore_operations_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "operation": "preview_workspace_restore_operations",
+        "operations": operations,
+    }))
+}
+
+pub fn apply_workspace_restore_operations_response(
+    request: WorkspaceRestoreOperationsBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    let operations = WorkspaceRestoreOperationsCore
+        .apply_operations(&request.request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_restore_operations_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_restore_operations_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "operation": "apply_workspace_restore_operations",
+        "operations": operations,
+    }))
+}
+
+pub fn capture_workspace_snapshot_files_response(
+    request: WorkspaceSnapshotCaptureBridgeRequest,
+) -> Result<Value, WorkspaceRestoreCommandError> {
+    let capture = WorkspaceSnapshotCaptureCore
+        .capture_files(&request.request)
+        .map_err(|error| {
+            WorkspaceRestoreCommandError::new(
+                "workspace_snapshot_capture_invalid",
+                format!("{error:?}"),
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_workspace_snapshot_capture_command",
+        "backend": request.backend.unwrap_or_else(|| "rust_workspace_restore".to_string()),
+        "capture": capture.clone(),
+        "files": capture.files.clone(),
+        "content_files": capture.content_files.clone(),
+        "captured_file_count": capture.captured_file_count,
+        "omitted_file_count": capture.omitted_file_count,
+        "content_captured": capture.content_captured,
+    }))
 }
 
 impl WorkspaceRestoreApplyPolicyRequest {

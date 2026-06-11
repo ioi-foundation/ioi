@@ -15784,6 +15784,44 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1125
+
+Slice 1125 moves workspace-restore apply-policy, preview/apply operations, and
+workspace-snapshot capture command request/response shaping out of the
+temporary `ioi_step_module_bridge/workspace_restore_command.rs` bridge module
+into Rust `crates/services/src/agentic/runtime/kernel/workspace_restore.rs`.
+The Rust workspace-restore core now owns the bridge request structs, response
+envelopes, canonical command source markers, and bridge-facing error codes for
+rejected workspace-restore command bodies.
+
+The workspace-restore bridge command module is now a thin delegate that maps
+`WorkspaceRestoreCommandError` into `BridgeError`. It no longer imports or owns
+the workspace-restore planner cores, raw request types, response envelopes,
+command source markers, or bridge-facing rejection codes.
+
+This is Rust-core extraction and bridge-shape retirement progress, not
+terminal workspace snapshot/restore migration. The Node daemon-core command
+transport, command dispatch table, shared command runner, JS command callers,
+workspace-restore runner, and public fail-closed surfaces remain migration
+scaffolding until direct Rust daemon-core workspace snapshot/restore admission
+APIs own policy/approval, filesystem operations, artifact/payload admission,
+Agentgres expected-head and state-root truth, receipts/events, replay,
+projection, and stable protocol APIs end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services workspace_restore --lib` | passed |
+| `cargo test -p ioi-node workspace_restore --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node workspace_snapshot --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1124
 
 Slice 1124 moves context budget, coding-tool budget, compaction policy,
