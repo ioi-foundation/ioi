@@ -4603,12 +4603,14 @@ making receipt/state-root binding a distinct Rust core boundary rather than
 broad model-mount helper code;
 model-mount provider lifecycle, provider inventory, and model-instance
 lifecycle request/result types, validation, backend/driver classification,
-evidence refs, and transition hashes now live in the dedicated Rust
-`model_mount/lifecycle.rs` module behind `ModelMountCore`, making local
-provider and model-instance lifecycle planning a distinct Rust core boundary
-for the next direct daemon-core API cut, and the lifecycle/inventory/instance
-Rust tests now live beside that module instead of accumulating in the broad
-model-mount kernel file;
+evidence refs, and transition hashes now live behind the Rust
+`model_mount/lifecycle.rs` facade, with provider lifecycle owned by
+`model_mount/lifecycle/provider.rs`, provider inventory owned by
+`model_mount/lifecycle/inventory.rs`, and model-instance lifecycle owned by
+`model_mount/lifecycle/instance.rs`; `ModelMountCore` still forwards through
+the facade, but each lifecycle family now carries its own module-local Rust
+proof so the next direct daemon-core API cut can retire JS edge translation
+without treating the broad lifecycle facade as the long-term owner;
 model-mount provider execution admission now lives in the Rust
 `model_mount/provider_execution.rs` boundary behind `ModelMountCore`, while
 fixture/native-local provider invocation execution lives in

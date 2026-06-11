@@ -2359,6 +2359,15 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           : "",
@@ -13646,6 +13655,15 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           : "",
@@ -14048,6 +14066,7 @@ function runReceipts() {
     "model-mount-native-local-lifecycle-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs") &&
       /MODEL_MOUNT_PROVIDER_LIFECYCLE_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
@@ -14056,33 +14075,45 @@ function runReceipts() {
       /lifecycle::plan_provider_lifecycle\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderLifecycleRequest/.test(
+      /mod provider;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /provider::plan_provider_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /ModelMountProviderLifecycleRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+      ) &&
+      /provider_lifecycle_child_module_owns_planner_surface/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       /native_local_provider_lifecycle_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       /fixture_provider_lifecycle_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       /native_local_provider_lifecycle_rejects_unsupported_backend_and_action/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       !/#\[cfg\(test\)\]/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /UnsupportedProviderLifecycleBackend/.test(
+      !/fn native_local_provider_lifecycle_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
       ) &&
+      /UnsupportedProviderLifecycleBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
+      ) &&
       /rust_model_mount_fixture_lifecycle/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       /plan_provider_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
       /rust_model_mount_native_local_lifecycle/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       /provider_lifecycle_evidence_refs/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs"),
       ) &&
       /plan_model_mount_provider_lifecycle/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -14090,6 +14121,7 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/provider.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own native-local health/load/unload lifecycle backend, evidence, and hash planning",
@@ -14162,42 +14194,55 @@ function runReceipts() {
     "model-mount-local-provider-inventory-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs") &&
       /MODEL_MOUNT_PROVIDER_INVENTORY_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /lifecycle::plan_provider_inventory\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderInventoryRequest/.test(
+      /mod inventory;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /inventory::plan_provider_inventory/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /ModelMountProviderInventoryRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
+      ) &&
+      /provider_inventory_child_module_owns_planner_surface/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /native_local_provider_inventory_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /fixture_provider_inventory_is_planned_in_rust_model_mount/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /native_local_provider_inventory_rejects_unsupported_backend_and_action/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       !/fn native_local_provider_inventory_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /UnsupportedProviderInventoryBackend/.test(
+      !/fn native_local_provider_inventory_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /UnsupportedProviderInventoryBackend/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /UnsupportedProviderInventoryAction/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /rust_model_mount_fixture_inventory/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /rust_model_mount_native_local_inventory/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /plan_provider_inventory/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
       /provider_inventory_evidence_refs/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs"),
       ) &&
       /plan_model_mount_provider_inventory/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -14205,6 +14250,7 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/inventory.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 9/10 is pending: Rust model_mount core must own local provider model/list-loaded inventory backend, evidence, and hash planning",
@@ -14214,42 +14260,55 @@ function runReceipts() {
     "model-mount-instance-lifecycle-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs") &&
       /MODEL_MOUNT_INSTANCE_LIFECYCLE_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /lifecycle::plan_instance_lifecycle\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountInstanceLifecycleRequest/.test(
+      /mod instance;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /instance::plan_instance_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+      ) &&
+      /ModelMountInstanceLifecycleRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
+      ) &&
+      /instance_lifecycle_child_module_owns_planner_surface/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /UnsupportedInstanceLifecycleBackend/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /InstanceLifecycleStatusMismatch/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /"evict" if self\.target_status\.trim\(\) == "evicted"/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /"supersede" if self\.target_status\.trim\(\) == "superseded"/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /model_instance_eviction_and_supersede_lifecycle_are_planned/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /model_instance_lifecycle_rejects_js_backend_and_status_drift/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       !/fn model_instance_lifecycle_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /plan_instance_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
-      /rust_model_mount_instance_lifecycle/.test(
+      !/fn model_instance_lifecycle_is_planned_in_rust_model_mount/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
       ) &&
+      /plan_instance_lifecycle/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /rust_model_mount_instance_lifecycle/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
+      ) &&
       /instance_lifecycle_evidence_refs/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs"),
       ) &&
       /plan_model_mount_instance_lifecycle/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -14257,6 +14316,7 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/lifecycle/instance.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/receipt-write-guards.mjs",
       "packages/runtime-daemon/src/model-mounting.mjs",
