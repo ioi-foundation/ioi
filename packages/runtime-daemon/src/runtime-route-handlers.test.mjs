@@ -1596,6 +1596,105 @@ test("thread route invokes coding tools through mounted invocation surface", asy
   });
 });
 
+test("thread route sends turn controls through mounted turn surface", async () => {
+  const { handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const store = {
+    threadTurnSurface: {
+      resumeThread(surfaceStore, threadId, requestBody) {
+        calls.push({ method: "resumeThread", surfaceStore, threadId, requestBody });
+        return { status: "active", thread_id: threadId, request: requestBody };
+      },
+      createTurn(surfaceStore, threadId, requestBody) {
+        calls.push({ method: "createTurn", surfaceStore, threadId, requestBody });
+        return { status: "created", thread_id: threadId, turn_id: "turn_route", request: requestBody };
+      },
+      interruptTurn(surfaceStore, threadId, turnId, requestBody) {
+        calls.push({ method: "interruptTurn", surfaceStore, threadId, turnId, requestBody });
+        return { status: "blocked", thread_id: threadId, turn_id: turnId, request: requestBody };
+      },
+      steerTurn(surfaceStore, threadId, turnId, requestBody) {
+        calls.push({ method: "steerTurn", surfaceStore, threadId, turnId, requestBody });
+        return { status: "blocked", thread_id: threadId, turn_id: turnId, request: requestBody };
+      },
+    },
+    resumeThread() {
+      throw new Error("retired resumeThread wrapper must not be routed");
+    },
+    createTurn() {
+      throw new Error("retired createTurn wrapper must not be routed");
+    },
+    interruptTurn() {
+      throw new Error("retired interruptTurn wrapper must not be routed");
+    },
+    steerTurn() {
+      throw new Error("retired steerTurn wrapper must not be routed");
+    },
+  };
+  const cases = [
+    {
+      method: "resumeThread",
+      path: "/v1/threads/thread_route/resume",
+      segments: ["v1", "threads", "thread_route", "resume"],
+      body: { reason: "continue" },
+      expected: { method: "resumeThread", surfaceStore: store, threadId: "thread_route", requestBody: { reason: "continue" } },
+    },
+    {
+      method: "createTurn",
+      path: "/v1/threads/thread_route/turns",
+      segments: ["v1", "threads", "thread_route", "turns"],
+      body: { prompt: "next" },
+      expected: { method: "createTurn", surfaceStore: store, threadId: "thread_route", requestBody: { prompt: "next" } },
+    },
+    {
+      method: "interruptTurn",
+      path: "/v1/threads/thread_route/turns/turn_route/interrupt",
+      segments: ["v1", "threads", "thread_route", "turns", "turn_route", "interrupt"],
+      body: { reason: "stop" },
+      expected: {
+        method: "interruptTurn",
+        surfaceStore: store,
+        threadId: "thread_route",
+        turnId: "turn_route",
+        requestBody: { reason: "stop" },
+      },
+    },
+    {
+      method: "steerTurn",
+      path: "/v1/threads/thread_route/turns/turn_route/steer",
+      segments: ["v1", "threads", "thread_route", "turns", "turn_route", "steer"],
+      body: { guidance: "focus" },
+      expected: {
+        method: "steerTurn",
+        surfaceStore: store,
+        threadId: "thread_route",
+        turnId: "turn_route",
+        requestBody: { guidance: "focus" },
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    const response = responseRecorder();
+    await handleThreadRoute({
+      request: request({
+        method: "POST",
+        url: testCase.path,
+        body: testCase.body,
+      }),
+      response,
+      store,
+      url: new URL(testCase.path, "http://daemon.test"),
+      segments: testCase.segments,
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(JSON.parse(response.body).status, testCase.method === "createTurn" ? "created" : testCase.method === "resumeThread" ? "active" : "blocked");
+  }
+
+  assert.deepEqual(calls, cases.map((testCase) => testCase.expected));
+});
+
 test("thread route sends runtime controls through thread control surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const response = responseRecorder();

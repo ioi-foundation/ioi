@@ -4538,7 +4538,7 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 983, public runtime account, runtime-node, tool
+Current lane note: after Slice 984, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
 thread usage, thread turns, thread turn detail, thread events, run usage, run
 events, run replay, run trace/inspect, run computer-use trace/trajectory, run
@@ -4559,17 +4559,22 @@ directly before daemon-store pass-through wrappers; thread fork,
 managed-session inspection/control, workspace-change inspection, and run cancel
 routes call a mounted auxiliary fail-closed surface instead of daemon-store
 pass-through wrappers while direct Rust daemon-core projection and admission APIs
-are extracted. This is a
+are extracted; thread resume, turn create, interrupt, and steer routes now call
+the mounted thread-turn surface directly instead of daemon-store route
+pass-through wrappers while store methods remain temporary internal delegates
+until direct Rust daemon-core turn admission and stable protocol APIs own that
+surface. This is a
 larger-cut migration seam, not terminal architecture: the command transport, JS
 edge error translation, remaining internal descriptor helpers, and remaining
 internal agent/thread/run list/get, usage, turn, event/replay, trace, and
 artifact helpers plus internal memory and conversation-artifact projection
 helpers are scaffolding only until Rust daemon-core catalog, lifecycle, agent/run
 admission, memory admission/projection, managed-session/workspace-change control,
-thread-fork/run-cancel admission, and conversation-artifact projection over
-Agentgres-admitted truth, ArtifactRef/PayloadRef binding where needed,
-wallet/network and cTEE authority where required, receipt/state-root binding,
-replay, and stable IDE/CLI/SDK protocol APIs own the surfaces end to end.
+thread-fork/run-cancel admission, runtime thread/turn control, and
+conversation-artifact projection over Agentgres-admitted truth,
+ArtifactRef/PayloadRef binding where needed, wallet/network and cTEE authority
+where required, receipt/state-root binding, replay, and stable IDE/CLI/SDK
+protocol APIs own the surfaces end to end.
 Thread-tool invocation routes now also call the mounted coding-tool invocation
 surface directly instead of the daemon-store `invokeThreadTool()` pass-through,
 and post-edit diagnostics feedback now invokes `lsp.diagnostics` through that

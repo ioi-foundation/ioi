@@ -147,6 +147,7 @@ import { createRuntimeWorkerServicePackageSurface } from "./runtime-worker-servi
 import { createRuntimeCteePrivateWorkspaceSurface } from "./runtime-ctee-private-workspace-surface.mjs";
 import { createRuntimeL1SettlementSurface } from "./runtime-l1-settlement-surface.mjs";
 import { createRuntimeThreadControlSurface } from "./runtime-thread-control-surface.mjs";
+import { createRuntimeThreadTurnSurface } from "./runtime-thread-turn-surface.mjs";
 import { createRuntimeThreadEventSurface } from "./runtime-thread-event-surface.mjs";
 import { createRuntimeToolSurface } from "./runtime-tool-surface.mjs";
 import { createRuntimeSubagentSurface } from "./runtime-subagent-surface.mjs";
@@ -196,7 +197,6 @@ import {
   normalizeThreadApprovalMode,
   normalizeThreadInteractionMode,
   normalizedAgentRuntimeControls,
-  requestWithThreadRuntimeControls,
   runModeForThreadMode,
   threadModeForRunMode,
 } from "./threads/thread-runtime-controls.mjs";
@@ -223,7 +223,6 @@ import {
 } from "./threads/thread-store.mjs";
 import { createRuntimeThreadAuxiliarySurface } from "./runtime-thread-auxiliary-surface.mjs";
 import {
-  controlRuntimeBridgeThread as controlRuntimeBridgeThreadState,
   createRuntimeBridgeThread as createRuntimeBridgeThreadState,
   createRuntimeBridgeTurn as createRuntimeBridgeTurnState,
   normalizeRuntimeBridgeLiveEvent as normalizeRuntimeBridgeLiveEventState,
@@ -661,18 +660,6 @@ const {
 
 const RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS = 8;
 
-function throwOperatorTurnControlRustCoreRequired(details = {}) {
-  throw runtimeError({
-    status: 501,
-    code: "runtime_operator_turn_control_rust_core_required",
-    message: "Operator turn control requires direct Rust daemon-core state admission and persistence.",
-    details: {
-      rust_core_boundary: "runtime.operator_turn_control",
-      ...details,
-    },
-  });
-}
-
 export async function startRuntimeDaemonService(options = {}) {
   return startRuntimeDaemonServiceWithStore({
     options,
@@ -875,6 +862,11 @@ export class AgentgresRuntimeStateStore {
     });
     this.threadControlSurface = createRuntimeThreadControlSurface({
       contextPolicyRunner: this.contextPolicyRunner,
+    });
+    this.threadTurnSurface = createRuntimeThreadTurnSurface({
+      diagnosticsFeedbackBlocksContinuation,
+      requestWithDiagnosticsFeedback,
+      runtimeError,
     });
     this.subagentSurface = createRuntimeSubagentSurface();
     this.threadTurnProjection = createThreadTurnProjection({
@@ -1145,31 +1137,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   async resumeThread(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    let runtimeControl = null;
-    if (isRuntimeBackedAgent(agent)) {
-      runtimeControl = await controlRuntimeBridgeThreadState(this, {
-        agent,
-        threadId,
-        action: "resume",
-        reason:
-          optionalString(request.reason ?? request.message ?? request.input) ??
-          "operator requested resume",
-      }, {
-        RuntimeApiBridgeUnavailableError,
-        runtimeError,
-        runtimeSessionIdForAgent,
-      });
-    }
-    const updated = this.updateAgent(agent.id, "active", "thread.resume");
-    const thread = this.threadForAgent(updated);
-    return runtimeControl
-      ? {
-          ...thread,
-          runtime_control: runtimeControl,
-          runtimeControl,
-        }
-      : thread;
+    return this.threadTurnSurface.resumeThread(this, threadId, request);
   }
 
   updateThreadRuntimeControls(threadId, request = {}) {
@@ -1265,62 +1233,7 @@ export class AgentgresRuntimeStateStore {
   }
 
   async createTurn(threadId, request = {}) {
-    const agent = this.agentForThread(threadId);
-    const controlledRequest = requestWithThreadRuntimeControls(agent, request);
-    const diagnosticsFeedback = this.pendingDiagnosticsFeedbackForNextTurn(threadId, controlledRequest);
-    if (diagnosticsFeedbackBlocksContinuation(diagnosticsFeedback)) {
-      const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
-      const run = this.createRun(agent.id, {
-        mode: controlledRequest.mode ?? "send",
-        threadMode: controlledRequest.threadMode,
-        approvalMode: controlledRequest.approvalMode,
-        prompt,
-        options: controlledRequest.options ?? {},
-        memory: controlledRequest.memory,
-        remember: controlledRequest.remember,
-        diagnosticsFeedback,
-      });
-      return this.turnForRun(run);
-    }
-    if (isRuntimeBackedAgent(agent)) {
-      return this.createRuntimeBridgeTurn({
-        agent,
-        threadId,
-        request: requestWithDiagnosticsFeedback(controlledRequest, diagnosticsFeedback),
-        diagnosticsFeedback,
-      });
-    }
-    const requestedRuntimeProfile = runtimeProfileForRequest(
-      controlledRequest,
-      controlledRequest.options ?? {},
-    );
-    if (isRuntimeServiceProfile(requestedRuntimeProfile)) {
-      throw runtimeError({
-        status: 409,
-        code: "runtime_thread_profile_mismatch",
-        message:
-          "Agent requested runtime_service execution on a non-runtime thread. Start a runtime_service thread before submitting governed Agent work.",
-        details: {
-          threadId,
-          agentId: agent.id,
-          agentRuntimeProfile: agent.runtimeProfile ?? "fixture",
-          requestedRuntimeProfile,
-          syntheticFallbackAllowed: false,
-        },
-      });
-    }
-    const prompt = controlledRequest.prompt ?? controlledRequest.message ?? controlledRequest.input ?? "";
-    const run = this.createRun(agent.id, {
-      mode: controlledRequest.mode ?? "send",
-      threadMode: controlledRequest.threadMode,
-      approvalMode: controlledRequest.approvalMode,
-      prompt,
-      options: controlledRequest.options ?? {},
-      memory: controlledRequest.memory,
-      remember: controlledRequest.remember,
-      diagnosticsFeedback,
-    });
-    return this.turnForRun(run);
+    return this.threadTurnSurface.createTurn(this, threadId, request);
   }
 
   async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
@@ -1416,32 +1329,11 @@ export class AgentgresRuntimeStateStore {
   }
 
   async interruptTurn(threadId, turnId, request = {}) {
-    throwOperatorTurnControlRustCoreRequired({
-      operation: "operator_interrupt",
-      operation_kind: "turn.interrupt",
-      thread_id: threadId,
-      turn_id: turnId,
-      requested_action: request.runtime_control_action ?? request.control_action ?? null,
-      evidence_refs: [
-        "operator_interrupt_js_facade_retired",
-        "rust_daemon_core_operator_interrupt_required",
-        "agentgres_operator_interrupt_state_truth_required",
-      ],
-    });
+    return this.threadTurnSurface.interruptTurn(this, threadId, turnId, request);
   }
 
   steerTurn(threadId, turnId, request = {}) {
-    throwOperatorTurnControlRustCoreRequired({
-      operation: "operator_steer",
-      operation_kind: "turn.steer",
-      thread_id: threadId,
-      turn_id: turnId,
-      evidence_refs: [
-        "operator_steer_js_facade_retired",
-        "rust_daemon_core_operator_steer_required",
-        "agentgres_operator_steer_state_truth_required",
-      ],
-    });
+    return this.threadTurnSurface.steerTurn(this, threadId, turnId, request);
   }
 
   latestApprovalDecisionEvent(threadId, approvalId) {

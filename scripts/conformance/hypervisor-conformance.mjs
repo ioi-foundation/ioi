@@ -2813,6 +2813,12 @@ function runBridge() {
   const runtimeThreadControlSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs")
     : "";
+  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+    : "";
+  const runtimeThreadTurnSurfaceTest = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs")
+    : "";
   const runtimeThreadAuxiliarySurface = exists("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-thread-auxiliary-surface.mjs")
     : "";
@@ -2875,9 +2881,9 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs")
     : "";
   const operatorInterruptTurnBody =
-    runtimeDaemonIndex.match(/async interruptTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  steerTurn\(/)?.[0] ?? "";
+    runtimeThreadTurnSurface.match(/async interruptTurn\(store, threadId, turnId, request = \{\}\) \{[\s\S]*?\n    steerTurn\(/)?.[0] ?? "";
   const operatorSteerTurnBody =
-    runtimeDaemonIndex.match(/steerTurn\(threadId, turnId, request = \{\}\) \{[\s\S]*?\n  requestThreadApproval\(/)?.[0] ?? "";
+    runtimeThreadTurnSurface.match(/steerTurn\(store, threadId, turnId, request = \{\}\) \{[\s\S]*?\n  \};/)?.[0] ?? "";
   const approvalRequestFacadeBody =
     runtimeApprovalSurface.match(/function requestThreadApproval\(store, threadId, request = \{\}\) \{[\s\S]*?\n  function decideThreadApproval/)?.[0] ?? "";
   const approvalDecisionFacadeBody =
@@ -6761,20 +6767,20 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /createContextPolicyRunnerFromEnv/.test(runtimeDaemonIndex) &&
-      /runtime_operator_turn_control_rust_core_required/.test(runtimeDaemonIndex) &&
-      /rust_core_boundary:\s*"runtime\.operator_turn_control"/.test(runtimeDaemonIndex) &&
-      /operator_interrupt_js_facade_retired/.test(runtimeDaemonIndex) &&
-      /rust_daemon_core_operator_interrupt_required/.test(runtimeDaemonIndex) &&
-      /agentgres_operator_interrupt_state_truth_required/.test(runtimeDaemonIndex) &&
+      /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /rust_core_boundary:\s*"runtime\.operator_turn_control"/.test(runtimeThreadTurnSurface) &&
+      /operator_interrupt_js_facade_retired/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_operator_interrupt_required/.test(runtimeThreadTurnSurface) &&
+      /agentgres_operator_interrupt_state_truth_required/.test(runtimeThreadTurnSurface) &&
       !/this\.contextPolicyRunner\.planOperatorInterruptStateUpdate/.test(operatorInterruptTurnBody) &&
       !/plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
       !/requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
       !/this\.runs\.set|this\.writeRun|this\.appendRuntimeEvent|controlRuntimeBridgeThreadState/.test(
         operatorInterruptTurnBody,
       ) &&
-      !/control:\s*"interrupt"/.test(runtimeDaemonIndex) &&
-      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.interrupt"/.test(runtimeDaemonIndex) &&
+      !/control:\s*"interrupt"/.test(runtimeThreadTurnSurface) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeThreadTurnSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.interrupt"/.test(runtimeThreadTurnSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorInterruptTurnBody,
       ) &&
@@ -6802,7 +6808,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
-      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Phase 9/10 is pending: public operator interrupt must fail closed until Rust daemon-core owns event admission, runtime control, and run-state persistence; bridge planner remains migration plumbing only",
@@ -6842,19 +6848,19 @@ function runBridge() {
       /Object\.hasOwn\(result\.operator_control,\s*"createdAt"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /runtime_operator_turn_control_rust_core_required/.test(runtimeDaemonIndex) &&
-      /operator_steer_js_facade_retired/.test(runtimeDaemonIndex) &&
-      /rust_daemon_core_operator_steer_required/.test(runtimeDaemonIndex) &&
-      /agentgres_operator_steer_state_truth_required/.test(runtimeDaemonIndex) &&
+      /runtime_operator_turn_control_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /operator_steer_js_facade_retired/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_operator_steer_required/.test(runtimeThreadTurnSurface) &&
+      /agentgres_operator_steer_state_truth_required/.test(runtimeThreadTurnSurface) &&
       !/this\.contextPolicyRunner\.planOperatorSteerStateUpdate/.test(operatorSteerTurnBody) &&
       !/plannedOperatorControlRunRecord/.test(runtimeDaemonIndex) &&
       !/requiredOperatorControlOperationKind/.test(runtimeDaemonIndex) &&
       !/this\.runs\.set|this\.writeRun|this\.appendRuntimeEvent|this\.agentForThread|this\.getRun/.test(
         operatorSteerTurnBody,
       ) &&
-      !/control:\s*"steer"|appendOperatorControl/.test(runtimeDaemonIndex) &&
-      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeDaemonIndex) &&
-      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.steer"/.test(runtimeDaemonIndex) &&
+      !/control:\s*"steer"|appendOperatorControl/.test(runtimeThreadTurnSurface) &&
+      !/stateUpdate\.run\s*\?\?\s*run/.test(runtimeThreadTurnSurface) &&
+      !/stateUpdate\.operation_kind\s*\?\?\s*"turn\.steer"/.test(runtimeThreadTurnSurface) &&
       !/request\.(?:workflowGraphId|workflowNodeId|idempotencyKey)\b/.test(
         operatorSteerTurnBody,
       ) &&
@@ -6876,7 +6882,7 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.mjs",
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
-      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Phase 9/10 is pending: public operator steer must fail closed until Rust daemon-core owns event admission and run-state persistence; bridge planner remains migration plumbing only",
@@ -6884,10 +6890,12 @@ function runBridge() {
   assertCheck(
     result,
     "operator-control-state-update-error-detail-aliases-retired",
-    /thread_id:\s*threadId/.test(runtimeDaemonIndex) &&
-      /turn_id:\s*turnId/.test(runtimeDaemonIndex) &&
-      /operation_kind:\s*"turn\.interrupt"/.test(runtimeDaemonIndex) &&
-      /operation_kind:\s*"turn\.steer"/.test(runtimeDaemonIndex) &&
+    /thread_id:\s*threadId/.test(runtimeThreadTurnSurface) &&
+      /turn_id:\s*turnId/.test(runtimeThreadTurnSurface) &&
+      /operation_kind:\s*operationKind/.test(runtimeThreadTurnSurface) &&
+      /operationKind:\s*"turn\.interrupt"/.test(runtimeThreadTurnSurface) &&
+      /operationKind:\s*"turn\.steer"/.test(runtimeThreadTurnSurface) &&
+      /thread turn surface fails closed for operator turn controls/.test(runtimeThreadTurnSurfaceTest) &&
       /assertNoRetiredOperatorTurnControlDetailAliases\(error\.details\)/.test(
         runtimeOperatorTurnControlFacadeTest,
       ) &&
@@ -6895,13 +6903,14 @@ function runBridge() {
       /error\.details\.turn_id/.test(runtimeOperatorTurnControlFacadeTest) &&
       /error\.details\.operation_kind/.test(runtimeOperatorTurnControlFacadeTest) &&
       !/details:\s*\{[^}\n]*\b(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\s*:/.test(
-        runtimeDaemonIndex,
+        runtimeThreadTurnSurface,
       ) &&
       !/error\.details\.(?:threadId|turnId|runId|operationKind|expectedOperationKind|requestedAction)\b/.test(
         runtimeOperatorTurnControlFacadeTest,
       ),
     [
-      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
       "packages/runtime-daemon/src/runtime-operator-turn-control-facade.test.mjs",
     ],
     "Phase 10/11 is pending: operator-control Rust-core-required details must expose canonical snake_case fields without duplicate camelCase aliases",
@@ -7308,6 +7317,9 @@ function runBridge() {
       /thread route sends runtime controls through thread control surface/.test(
         runtimeRouteHandlersTest,
       ) &&
+      /thread route sends turn controls through mounted turn surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /store\.threadControlSurface\.updateThreadMode\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
       ) &&
@@ -7315,6 +7327,21 @@ function runBridge() {
         runtimeRouteHandlers,
       ) &&
       /store\.threadControlSurface\.updateThreadThinking\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadTurnSurface\.resumeThread\(store, threadId, await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadTurnSurface\.createTurn\(store, threadId, await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadTurnSurface\.interruptTurn\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadTurnSurface\.steerTurn\(store, threadId, decodeURIComponent\(segments\[4\]\), await readBody\(request\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.(?:resumeThread|createTurn|interruptTurn|steerTurn)\(threadId/.test(
         runtimeRouteHandlers,
       ) &&
       !/^\s*(?:updateThreadMode|updateThreadModel|updateThreadThinking)\(threadId, request = \{\}\) \{/m.test(

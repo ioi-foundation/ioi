@@ -20366,6 +20366,42 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 984
+
+Slice 984 mounted a `RuntimeThreadTurn` surface for thread resume, turn create,
+operator interrupt, and operator steer route families. The public HTTP routes
+now call `store.threadTurnSurface.*(store, ...)` directly instead of entering
+through daemon-store `resumeThread()`, `createTurn()`, `interruptTurn()`, or
+`steerTurn()` route pass-through wrappers, and the route regression test poisons
+those wrappers. The operator turn-control Rust-core-required fail-closed details
+now live in the mounted surface with focused tests that do not require full
+daemon-store construction.
+
+This is still non-terminal migration plumbing: store methods remain temporary
+internal delegates for existing direct store tests/callers, and the mounted JS
+surface is not the final owner. Direct Rust daemon-core thread/turn admission,
+runtime bridge control/turn submission, wallet/cTEE/session authority,
+Agentgres expected-head/state-root binding, receipt/event materialization,
+replay, and stable protocol APIs remain required before terminal conformance.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 984 | Thread resume/create-turn/interrupt/steer HTTP routes now call the mounted thread-turn surface directly instead of daemon-store route wrappers. | Direct Rust daemon-core runtime thread/turn admission and control over Agentgres-admitted truth, wallet/cTEE authority, receipt/state-root binding, replay, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-thread-turn-surface.mjs packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 983
 
 Slice 983 retired the daemon-store `invokeThreadTool()` compatibility wrapper
