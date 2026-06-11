@@ -1248,6 +1248,7 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
                 projection_kind: "agent_runs",
                 agent_id: "agent_123",
                 run_id: "run_123",
+                artifact_ref: "artifact_123",
                 workspace_root: "/workspace/project",
                 evidence_refs: [
                   "runtime_lifecycle_js_projection_retired",
@@ -1267,6 +1268,7 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
     projection_kind: "agent_runs",
     agent_id: "agent_123",
     run_id: "run_123",
+    artifact_ref: "artifact_123",
     workspace_root: "/workspace/project",
     evidence_refs: ["runtime_lifecycle_js_projection_retired"],
   });
@@ -1289,6 +1291,7 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
   assert.equal(captured.request.projection_kind, "agent_runs");
   assert.equal(captured.request.agent_id, "agent_123");
   assert.equal(captured.request.run_id, "run_123");
+  assert.equal(captured.request.artifact_ref, "artifact_123");
   assert.equal(
     result.source,
     "rust_runtime_lifecycle_projection_required_command",
@@ -1296,6 +1299,7 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.workspace_root, "/workspace/project");
   assert.equal(Object.hasOwn(result.record.details, "agentId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "artifactRef"), false);
   assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
 });
 

@@ -66,6 +66,71 @@ export function createRuntimeLifecycleProjectionSurface({
         run_id: optionalString(runId),
       });
     },
+    waitRun(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_wait",
+        projection_kind: "run_wait",
+        run_id: optionalString(runId),
+      });
+    },
+    getRunConversation(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_conversation",
+        projection_kind: "run_conversation",
+        run_id: optionalString(runId),
+      });
+    },
+    getRunTrace(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_trace",
+        projection_kind: "run_trace",
+        run_id: optionalString(runId),
+      });
+    },
+    getRunComputerUseTrace(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_computer_use_trace",
+        projection_kind: "run_computer_use_trace",
+        run_id: optionalString(runId),
+      });
+    },
+    getRunComputerUseTrajectory(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_computer_use_trajectory",
+        projection_kind: "run_computer_use_trajectory",
+        run_id: optionalString(runId),
+      });
+    },
+    getRunScorecard(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_scorecard",
+        projection_kind: "run_scorecard",
+        run_id: optionalString(runId),
+      });
+    },
+    listRunArtifacts(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_artifacts",
+        projection_kind: "run_artifacts",
+        run_id: optionalString(runId),
+      });
+    },
+    getRunArtifact(_store, runId, artifactRef) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_artifact",
+        projection_kind: "run_artifact",
+        run_id: optionalString(runId),
+        artifact_ref: optionalString(artifactRef),
+      });
+    },
   };
 }
 

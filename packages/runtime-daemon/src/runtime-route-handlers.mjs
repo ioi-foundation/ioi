@@ -5,7 +5,6 @@ export function createRuntimeRouteHandlers(deps) {
     nativeInvocationResponse,
     notFound,
     readBody,
-    resolveRunArtifact,
     runtimeEventCursorFromRequest,
     usageRequestMetadataFromUrl,
     usageTelemetryWithRequestMetadata,
@@ -1164,22 +1163,11 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "wait") {
-      const run = store.getRun(runId);
-      writeJsonResponse(response, {
-        id: run.id,
-        agentId: run.agentId,
-        status: run.status,
-        result: run.result,
-        stopCondition: run.trace.stopCondition,
-        routeDecision: run.modelRouteDecision ?? run.trace.modelRouteDecision ?? null,
-        usage: store.usageForRun(run.id),
-        trace: run.trace,
-        scorecard: run.trace.scorecard,
-      });
+      writeJsonResponse(response, store.lifecycleProjectionSurface.waitRun(store, runId));
       return;
     }
     if (request.method === "GET" && action === "conversation") {
-      writeJsonResponse(response, store.getRun(runId).conversation);
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunConversation(store, runId));
       return;
     }
     if (request.method === "GET" && action === "events") {
@@ -1203,34 +1191,28 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && (action === "trace" || action === "inspect")) {
-      const trace = store.traceFromCanonicalState(runId);
-      writeJsonResponse(response, {
-        ...trace,
-        canonicalState: store.canonicalProjection(runId),
-      });
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunTrace(store, runId));
       return;
     }
     if (request.method === "GET" && action === "computer-use" && segments[4] === "trace" && !segments[5]) {
-      writeJsonResponse(response, store.getRun(runId).trace?.computerUse ?? null);
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunComputerUseTrace(store, runId));
       return;
     }
     if (request.method === "GET" && action === "computer-use" && segments[4] === "trajectory" && !segments[5]) {
-      writeJsonResponse(response, store.getRun(runId).trace?.computerUse?.trajectory ?? null);
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunComputerUseTrajectory(store, runId));
       return;
     }
     if (request.method === "GET" && action === "scorecard") {
-      writeJsonResponse(response, store.getRun(runId).trace.scorecard);
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunScorecard(store, runId));
       return;
     }
     if (request.method === "GET" && action === "artifacts" && !segments[4]) {
-      writeJsonResponse(response, store.getRun(runId).artifacts);
+      writeJsonResponse(response, store.lifecycleProjectionSurface.listRunArtifacts(store, runId));
       return;
     }
     if (request.method === "GET" && action === "artifacts" && segments[4]) {
       const artifactRef = decodeURIComponent(segments[4]);
-      const artifact = resolveRunArtifact(store.getRun(runId), artifactRef);
-      if (!artifact) throw notFound(`Artifact not found: ${artifactRef}`, { runId, artifactRef });
-      writeJsonResponse(response, artifact);
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunArtifact(store, runId, artifactRef));
       return;
     }
     throw notFound("Run route not found.", { runId, action, method: request.method });

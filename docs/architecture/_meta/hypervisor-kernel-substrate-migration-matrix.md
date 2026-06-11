@@ -20366,6 +20366,51 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 974
+
+Slice 974 expanded the Rust-authored lifecycle projection-required boundary to
+public run sub-projections. `/v1/runs/:id/wait`, `/v1/runs/:id/conversation`,
+`/v1/runs/:id/trace`, `/v1/runs/:id/inspect`,
+`/v1/runs/:id/computer-use/trace`,
+`/v1/runs/:id/computer-use/trajectory`, `/v1/runs/:id/scorecard`,
+`/v1/runs/:id/artifacts`, and `/v1/runs/:id/artifacts/:artifact_ref` now fail
+closed through the mounted lifecycle projection surface before JS `getRun()`,
+trace projection, canonical projection, scorecard, conversation, or artifact
+helpers can author public read truth. `RuntimeLifecycleProjectionRequiredCore`
+now carries canonical `artifact_ref` detail for artifact sub-projections.
+
+This is still non-terminal migration plumbing: direct Rust daemon-core lifecycle
+projection over Agentgres-admitted agent/thread/run truth, ArtifactRef/PayloadRef
+aware run artifact projection, wallet/cTEE authority where lifecycle access
+exits local trust, receipt/state-root binding, replay, command-transport
+retirement, and stable protocol APIs remain required before terminal
+conformance. Internal JS read helpers remain temporary non-authoritative
+scaffolding for migrated controls until direct Rust lifecycle projection APIs own
+those shapes.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 974 | Extended `RuntimeLifecycleProjectionRequiredCore` with canonical `artifact_ref` and routed public run wait/conversation/trace/computer-use/scorecard/artifact sub-projections through the Rust-authored fail-closed lifecycle envelope before JS run-map or trace/artifact readback. | Direct Rust daemon-core lifecycle/run artifact projection over Agentgres-admitted truth, ArtifactRef/PayloadRef binding, wallet/cTEE authority where needed, receipt/state-root binding, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services rust_policy_plans_runtime_lifecycle_projection_required` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo test -p ioi-node bridge_plans_runtime_lifecycle_projection_required_through_rust_core` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo check -p ioi-services` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `cargo check -p ioi-node` | passed with pre-existing unused-import warning in `tool_outcome.rs` |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 973
 
 Slice 973 moved public runtime lifecycle projection refusal authoring into

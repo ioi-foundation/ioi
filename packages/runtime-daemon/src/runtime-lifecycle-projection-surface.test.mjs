@@ -112,3 +112,40 @@ test("lifecycle projection surface keeps route identifiers in canonical snake_ca
     "agent_runs",
   ]);
 });
+
+test("lifecycle projection surface fails public run sub-projections through Rust core", () => {
+  const calls = [];
+  const surface = createRuntimeLifecycleProjectionSurface({
+    lifecycleRunner: lifecycleRunner(calls),
+    workspaceRoot: "/workspace/project",
+  });
+
+  const methods = [
+    ["waitRun", ["run_123"], "run_wait"],
+    ["getRunConversation", ["run_123"], "run_conversation"],
+    ["getRunTrace", ["run_123"], "run_trace"],
+    ["getRunComputerUseTrace", ["run_123"], "run_computer_use_trace"],
+    ["getRunComputerUseTrajectory", ["run_123"], "run_computer_use_trajectory"],
+    ["getRunScorecard", ["run_123"], "run_scorecard"],
+    ["listRunArtifacts", ["run_123"], "run_artifacts"],
+    ["getRunArtifact", ["run_123", "artifact_123"], "run_artifact"],
+  ];
+
+  for (const [method, args, projectionKind] of methods) {
+    assert.throws(
+      () => surface[method]({}, ...args),
+      (error) => {
+        assert.equal(error.status, 501);
+        assert.equal(error.code, "runtime_lifecycle_projection_rust_core_required");
+        assert.equal(error.details.projection_kind, projectionKind);
+        assert.equal(error.details.run_id, "run_123");
+        assert.equal(Object.hasOwn(error.details, "runId"), false);
+        return true;
+      },
+    );
+  }
+
+  assert.deepEqual(calls.map((call) => call.projection_kind), methods.map(([, , projectionKind]) => projectionKind));
+  assert.equal(calls.at(-1).artifact_ref, "artifact_123");
+  assert.equal(Object.hasOwn(calls.at(-1), "artifactRef"), false);
+});

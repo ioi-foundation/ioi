@@ -1324,6 +1324,8 @@ pub struct RuntimeLifecycleProjectionRequiredRequest {
     #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
+    pub artifact_ref: Option<String>,
+    #[serde(default)]
     pub workspace_root: Option<String>,
     #[serde(default)]
     pub source: Option<String>,
@@ -1350,6 +1352,8 @@ pub struct RuntimeLifecycleProjectionRequiredRecord {
     pub thread_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_ref: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workspace_root: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3412,6 +3416,7 @@ impl RuntimeLifecycleProjectionRequiredCore {
         let agent_id = optional_trimmed(request.agent_id.as_deref());
         let thread_id = optional_trimmed(request.thread_id.as_deref());
         let run_id = optional_trimmed(request.run_id.as_deref());
+        let artifact_ref = optional_trimmed(request.artifact_ref.as_deref());
         let workspace_root = optional_trimmed(request.workspace_root.as_deref());
         let source = optional_trimmed(request.source.as_deref())
             .or_else(|| Some("rust_runtime_lifecycle_projection_required_command".to_string()));
@@ -3432,6 +3437,7 @@ impl RuntimeLifecycleProjectionRequiredCore {
             "agent_id": agent_id,
             "thread_id": thread_id,
             "run_id": run_id,
+            "artifact_ref": artifact_ref,
             "workspace_root": workspace_root,
             "source": source,
             "evidence_refs": evidence_refs,
@@ -3452,6 +3458,7 @@ impl RuntimeLifecycleProjectionRequiredCore {
             agent_id,
             thread_id,
             run_id,
+            artifact_ref,
             workspace_root,
             source,
             evidence_refs,
@@ -8448,6 +8455,7 @@ mod tests {
                 agent_id: Some("agent_123".to_string()),
                 thread_id: None,
                 run_id: Some("run_123".to_string()),
+                artifact_ref: Some("artifact_123".to_string()),
                 workspace_root: Some("/workspace/project".to_string()),
                 source: Some("runtime.lifecycle_projection_surface".to_string()),
                 evidence_refs: vec![
@@ -8477,9 +8485,11 @@ mod tests {
         assert_eq!(record.details["projection_kind"], "agent_runs");
         assert_eq!(record.details["agent_id"], "agent_123");
         assert_eq!(record.details["run_id"], "run_123");
+        assert_eq!(record.details["artifact_ref"], "artifact_123");
         assert_eq!(record.details["workspace_root"], "/workspace/project");
         assert!(record.details.get("projectionKind").is_none());
         assert!(record.details.get("agentId").is_none());
+        assert!(record.details.get("artifactRef").is_none());
         assert!(record.details.get("workspaceRoot").is_none());
     }
 

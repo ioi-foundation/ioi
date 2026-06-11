@@ -16565,6 +16565,7 @@ function runReceipts() {
       /rust_daemon_core_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
       /agentgres_runtime_lifecycle_truth_required/.test(policyCoreForState) &&
       /runtime_lifecycle_projection_rust_core_required/.test(policyCoreForState) &&
+      /artifact_ref/.test(policyCoreForState) &&
       /rust_policy_plans_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
       /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
       /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
@@ -16577,6 +16578,9 @@ function runReceipts() {
       ) &&
       /planRuntimeLifecycleProjectionRequired/.test(runtimeContextPolicyRunnerForState) &&
       /runtime lifecycle projection-required runner sends Rust daemon-core request/.test(
+        runtimeContextPolicyRunnerTestForState,
+      ) &&
+      /captured\.request\.artifact_ref,\s*"artifact_123"/.test(
         runtimeContextPolicyRunnerTestForState,
       ) &&
       /throwRuntimeLifecycleProjectionRustCoreRequired/.test(
@@ -16596,10 +16600,25 @@ function runReceipts() {
       ) &&
       /projection_kind:\s*"agents"/.test(runtimeLifecycleProjectionSurface) &&
       /agent_runs/.test(runtimeLifecycleProjectionSurface) &&
+      /run_wait/.test(runtimeLifecycleProjectionSurface) &&
+      /run_conversation/.test(runtimeLifecycleProjectionSurface) &&
+      /run_trace/.test(runtimeLifecycleProjectionSurface) &&
+      /run_computer_use_trace/.test(runtimeLifecycleProjectionSurface) &&
+      /run_computer_use_trajectory/.test(runtimeLifecycleProjectionSurface) &&
+      /run_scorecard/.test(runtimeLifecycleProjectionSurface) &&
+      /run_artifacts/.test(runtimeLifecycleProjectionSurface) &&
+      /run_artifact/.test(runtimeLifecycleProjectionSurface) &&
+      /artifact_ref:\s*optionalString\(artifactRef\)/.test(runtimeLifecycleProjectionSurface) &&
       /lifecycle projection surface fails public agent\/thread\/run list projections through Rust core/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
       /lifecycle projection surface keeps route identifiers in canonical snake_case details/.test(
+        runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      /lifecycle projection surface fails public run sub-projections through Rust core/.test(
+        runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      /calls\.at\(-1\)\.artifact_ref,\s*"artifact_123"/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
       /lifecycleProjectionSurface = createRuntimeLifecycleProjectionSurface/.test(
@@ -16627,6 +16646,30 @@ function runReceipts() {
       /store\.lifecycleProjectionSurface\.getRun\(store,\s*runId\)/.test(
         runtimeRouteHandlers,
       ) &&
+      /store\.lifecycleProjectionSurface\.waitRun\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRunConversation\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRunTrace\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRunComputerUseTrace\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRunComputerUseTrajectory\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRunScorecard\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listRunArtifacts\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getRunArtifact\(store,\s*runId,\s*artifactRef\)/.test(
+        runtimeRouteHandlers,
+      ) &&
       /public runtime agent and thread list routes fail closed through lifecycle projection surface/.test(
         publicRuntimeRoutesTest,
       ) &&
@@ -16636,6 +16679,8 @@ function runReceipts() {
       /agent, thread, and run detail routes use lifecycle projection surface/.test(
         runtimeRouteHandlersTest,
       ) &&
+      /getRunComputerUseTrajectory/.test(runtimeRouteHandlersTest) &&
+      /getRunArtifact/.test(runtimeRouteHandlersTest) &&
       !/writeJsonResponse\(response,\s*store\.listAgents\(\)\)/.test(
         publicRuntimeRoutes,
       ) &&
@@ -16655,6 +16700,21 @@ function runReceipts() {
         runtimeRouteHandlers,
       ) &&
       !/writeJsonResponse\(response,\s*store\.getRun\(runId\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/const run = store\.getRun\(runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/traceFromCanonicalState\(runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/canonicalProjection\(runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.getRun\(runId\)\.trace/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/resolveRunArtifact/.test(
         runtimeRouteHandlers,
       ),
     [
