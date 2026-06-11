@@ -67,11 +67,11 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/skills") {
-        writeJsonResponse(response, store.listSkills());
+        writeJsonResponse(response, store.skillHookSurface.listSkills({ cwd: store.defaultCwd }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/hooks") {
-        writeJsonResponse(response, store.listHooks());
+        writeJsonResponse(response, store.skillHookSurface.listHooks({ cwd: store.defaultCwd }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repository-context") {
@@ -256,11 +256,11 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/models") {
-        writeJsonResponse(response, store.listModels());
+        writeJsonResponse(response, store.modelMounting.runtimeModelCatalogList());
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/model-capabilities") {
-        writeJsonResponse(response, store.listModelCapabilities());
+        writeJsonResponse(response, store.modelMounting.listModelCapabilities());
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/repositories") {

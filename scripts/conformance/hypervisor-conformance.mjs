@@ -7046,6 +7046,17 @@ function runBridge() {
       /runtime skill hook surface translates mounted Rust projection-required record/.test(
         runtimeSkillHookSurfaceTest,
       ) &&
+      /store\.skillHookSurface\.listSkills\(\{ cwd: store\.defaultCwd \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      /store\.skillHookSurface\.listHooks\(\{ cwd: store\.defaultCwd \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/store\.listSkills\(\)/.test(publicRuntimeRoutes) &&
+      !/store\.listHooks\(\)/.test(publicRuntimeRoutes) &&
+      /public runtime skill and hook routes use mounted skill hook surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
       /createRuntimeSkillHookSurface\(\{\s*defaultCwd:\s*this\.defaultCwd,\s*skillHookRunner:\s*this\.contextPolicyRunner,/s.test(
         runtimeDaemonIndex,
       ),
@@ -7057,6 +7068,8 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-skill-hook-surface.mjs",
       "packages/runtime-daemon/src/runtime-skill-hook-surface.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.mjs",
+      "packages/runtime-daemon/src/http/public-runtime-routes.test.mjs",
     ],
     "Phase 6/10/11 is pending: public skill/hook registry projection must fail closed through Rust daemon-core until direct Rust projection over Agentgres/governance truth replaces the migration bridge",
   );
@@ -9494,6 +9507,13 @@ function runBridge() {
       /assert\.deepEqual\(facade\.listRoutes\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listModelCapabilities\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
       /assert\.deepEqual\(facade\.listDownloads\(state\),\s*\[\]\)/.test(modelMountingReadProjectionFacadeTest) &&
+      /store\.modelMounting\.runtimeModelCatalogList\(\)/.test(publicRuntimeRoutes) &&
+      /store\.modelMounting\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
+      !/store\.listModels\(\)/.test(publicRuntimeRoutes) &&
+      !/store\.listModelCapabilities\(\)/.test(publicRuntimeRoutes) &&
+      /public runtime model catalog routes use mounted model projection surface/.test(
+        publicRuntimeRoutesTest,
+      ) &&
       /topologyRequests\.every\(\(request\) => Object\.keys\(request\.state\)\.length === 0\)/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.keys\(readProjectionRequests\[0\]\.state\),\s*\["receipts"\]/.test(modelMountingReadProjectionFacadeTest) &&
       /Object\.hasOwn\(readProjectionRequests\[0\]\.state,\s*"provider_health"\),\s*false/.test(modelMountingReadProjectionFacadeTest) &&

@@ -175,6 +175,101 @@ test("public runtime repository workflow routes use mounted repository surface",
   assert.equal(calls.every((call) => call.surfaceStore === store), true);
 });
 
+test("public runtime skill and hook routes use mounted skill hook surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    defaultCwd: "/workspace/canonical",
+    skillHookSurface: {
+      listSkills(request) {
+        calls.push({ method: "listSkills", request });
+        return {
+          skills: [{ id: "skill.route" }],
+          rust_core_boundary: "runtime.skill_hook_registry",
+        };
+      },
+      listHooks(request) {
+        calls.push({ method: "listHooks", request });
+        return {
+          hooks: [{ id: "hook.route" }],
+          rust_core_boundary: "runtime.skill_hook_registry",
+        };
+      },
+    },
+    listSkills: retiredRouteWrapper,
+    listHooks: retiredRouteWrapper,
+  };
+
+  const skillsResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/skills" }), response: skillsResponse, store });
+  assert.equal(skillsResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(skillsResponse.body), {
+    skills: [{ id: "skill.route" }],
+    rust_core_boundary: "runtime.skill_hook_registry",
+  });
+
+  const hooksResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/hooks" }), response: hooksResponse, store });
+  assert.equal(hooksResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(hooksResponse.body), {
+    hooks: [{ id: "hook.route" }],
+    rust_core_boundary: "runtime.skill_hook_registry",
+  });
+
+  assert.deepEqual(calls, [
+    { method: "listSkills", request: { cwd: "/workspace/canonical" } },
+    { method: "listHooks", request: { cwd: "/workspace/canonical" } },
+  ]);
+});
+
+test("public runtime model catalog routes use mounted model projection surface", async () => {
+  const { handleRequest } = routeHarness();
+  const calls = [];
+  const store = {
+    modelMounting: {
+      runtimeModelCatalogList() {
+        calls.push({ method: "runtimeModelCatalogList" });
+        return {
+          object: "list",
+          data: [{ id: "model.route" }],
+        };
+      },
+      listModelCapabilities() {
+        calls.push({ method: "listModelCapabilities" });
+        return {
+          capabilities: [{ model: "model.route", features: ["chat"] }],
+        };
+      },
+    },
+    listModels: retiredRouteWrapper,
+    listModelCapabilities: retiredRouteWrapper,
+  };
+
+  const modelsResponse = responseRecorder();
+  await handleRequest({ request: request({ url: "/v1/models" }), response: modelsResponse, store });
+  assert.equal(modelsResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(modelsResponse.body), {
+    object: "list",
+    data: [{ id: "model.route" }],
+  });
+
+  const capabilitiesResponse = responseRecorder();
+  await handleRequest({
+    request: request({ url: "/v1/model-capabilities" }),
+    response: capabilitiesResponse,
+    store,
+  });
+  assert.equal(capabilitiesResponse.statusCode, 200);
+  assert.deepEqual(JSON.parse(capabilitiesResponse.body), {
+    capabilities: [{ model: "model.route", features: ["chat"] }],
+  });
+
+  assert.deepEqual(calls, [
+    { method: "runtimeModelCatalogList" },
+    { method: "listModelCapabilities" },
+  ]);
+});
+
 test("public runtime account node and tool routes use mounted tool surface", async () => {
   const { handleRequest } = routeHarness();
   const calls = [];
