@@ -20366,6 +20366,44 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 989
+
+Slice 989 removed the final public runtime route daemon-store pass-through
+wrapper. The `/v1/doctor` route now calls the mounted
+`RuntimeDoctorReport` aggregate directly instead of
+`RuntimeDaemonStore.doctorReport()`, and the daemon-store wrapper method is
+deleted. The doctor aggregate now reads mounted `RuntimeTool` and
+`RuntimeSkillHookRegistry` surfaces directly for tool, runtime-node, and
+skill/hook catalog sections instead of re-entering store-level
+`listTools()`, `listRuntimeNodes()`, or `skillHookCatalog()` compatibility
+wrappers. Route and doctor tests poison the retired wrappers, and conformance
+requires the mounted aggregate/surface calls.
+
+This is still non-terminal migration work: the doctor report remains a
+diagnostic/readiness aggregate assembled at the JS daemon edge. Direct Rust
+daemon-core diagnostic projection over the admitted runtime graph, Agentgres
+truth, wallet/cTEE authority where applicable, receipt/state-root binding,
+replay, command-transport retirement, and stable IDE/CLI/SDK protocol APIs
+remain required before terminal conformance can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 989 | `/v1/doctor` calls the mounted doctor-report aggregate directly, the store wrapper is deleted, and doctor tool/skill catalog sections read mounted surfaces directly. | Direct Rust daemon-core diagnostic/readiness projection over the admitted runtime graph with Agentgres truth, wallet/cTEE authority where needed, receipt/state-root binding, replay, and stable protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/http/public-runtime-routes.mjs packages/runtime-daemon/src/runtime-doctor-report.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-doctor-report.test.mjs packages/runtime-daemon/src/index.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-doctor-report.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 988
 
 Slice 988 removed the public studio intent-frame daemon-store wrapper. The

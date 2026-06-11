@@ -1204,10 +1204,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  doctorReport({ baseUrl = null } = {}) {
-    return this.runtimeDoctorReport.doctorReport(this, { baseUrl });
-  }
-
   skillHookCatalog({ cwd = this.defaultCwd } = {}) {
     return this.skillHookSurface.skillHookCatalog({ cwd });
   }

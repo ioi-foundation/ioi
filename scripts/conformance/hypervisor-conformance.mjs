@@ -16709,11 +16709,25 @@ function runReceipts() {
         publicRuntimeRoutesTest,
       ) &&
       !/store\.(?:getAccount|listRuntimeNodes|listTools)\(/.test(publicRuntimeRoutes) &&
+      /store\.runtimeDoctorReport\.doctorReport\(store, \{ baseUrl: baseUrlForRequest\(request\) \}\)/.test(
+        publicRuntimeRoutes,
+      ) &&
+      !/store\.doctorReport\(/.test(publicRuntimeRoutes) &&
+      !/doctorReport\(\{ baseUrl = null \} = \{\}\)/.test(runtimeDaemonIndex) &&
+      /public runtime routes dispatch top-level daemon projections/.test(
+        publicRuntimeRoutesTest,
+      ) &&
+      /doctorReport: retiredRouteWrapper/.test(publicRuntimeRoutesTest) &&
       /runtimeToolCatalogForDoctor/.test(runtimeDoctorReport) &&
+      /store\.toolSurface\.listTools\(\)/.test(runtimeDoctorReport) &&
+      /store\.toolSurface\.listRuntimeNodes\(\)/.test(runtimeDoctorReport) &&
+      !/store\.listTools\(\)/.test(runtimeDoctorReport) &&
+      !/store\.listRuntimeNodes\(\)/.test(runtimeDoctorReport) &&
       /runtime_tool_catalog_rust_core_required/.test(runtimeDoctorReport) &&
       /runtime doctor report degrades when runtime tool catalog projection is Rust-core required/.test(
         runtimeDoctorReportTest,
       ) &&
+      /retired doctor store wrapper must not be routed/.test(runtimeDoctorReportTest) &&
       /const catalog = await fetchJsonStatus\(`\$\{daemon\.endpoint\}\/v1\/tools\?pack=coding`\)/.test(
         liveRuntimeDaemonContractForState,
       ) &&

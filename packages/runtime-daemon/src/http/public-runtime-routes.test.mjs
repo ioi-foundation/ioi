@@ -100,14 +100,22 @@ test("public runtime routes answer CORS preflight without store access", async (
 test("public runtime routes dispatch top-level daemon projections", async () => {
   const { handleRequest } = routeHarness();
   const response = responseRecorder();
+  const calls = [];
   const store = {
-    doctorReport: ({ baseUrl }) => ({ ok: true, baseUrl }),
+    runtimeDoctorReport: {
+      doctorReport(surfaceStore, { baseUrl }) {
+        calls.push({ surfaceStore, baseUrl });
+        return { ok: true, baseUrl };
+      },
+    },
+    doctorReport: retiredRouteWrapper,
   };
 
   await handleRequest({ request: request({ url: "/v1/doctor" }), response, store });
 
   assert.equal(response.statusCode, 200);
   assert.deepEqual(JSON.parse(response.body), { ok: true, baseUrl: "http://daemon.test" });
+  assert.deepEqual(calls, [{ surfaceStore: store, baseUrl: "http://daemon.test" }]);
 });
 
 test("public runtime repository workflow routes use mounted repository surface", async () => {

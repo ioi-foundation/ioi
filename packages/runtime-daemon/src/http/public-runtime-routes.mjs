@@ -49,7 +49,7 @@ export function createPublicRuntimeRequestHandler(deps) {
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/doctor") {
-        writeJsonResponse(response, store.doctorReport({ baseUrl: baseUrlForRequest(request) }));
+        writeJsonResponse(response, store.runtimeDoctorReport.doctorReport(store, { baseUrl: baseUrlForRequest(request) }));
         return;
       }
       if (request.method === "GET" && url.pathname === "/v1/computer-use/browser-discovery") {

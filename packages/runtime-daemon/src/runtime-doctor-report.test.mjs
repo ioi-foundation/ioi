@@ -4,6 +4,10 @@ import test from "node:test";
 import { createRuntimeDoctorReport } from "./runtime-doctor-report.mjs";
 import { doctorCheck } from "./runtime-value-helpers.mjs";
 
+function retiredDoctorStoreWrapper() {
+  throw new Error("retired doctor store wrapper must not be routed");
+}
+
 function createHarness({ exists = () => true, env = {} } = {}) {
   const helper = createRuntimeDoctorReport({
     doctorCheck,
@@ -39,18 +43,25 @@ function createHarness({ exists = () => true, env = {} } = {}) {
       }),
       effectivePolicy: () => ({ id: "policy-default", effective: true }),
     },
-    skillHookCatalog: () => ({
-      status: "pass",
-      skillCount: 1,
-      hookCount: 1,
-      sources: [{ id: "workspace" }],
-      activeSkillSetHash: "skill-hash",
-      activeHookSetHash: "hook-hash",
-      validationIssueCount: 0,
-    }),
-    listTools: () => [{ stable_tool_id: "fs.read" }],
+    skillHookSurface: {
+      skillHookCatalog: () => ({
+        status: "pass",
+        skillCount: 1,
+        hookCount: 1,
+        sources: [{ id: "workspace" }],
+        activeSkillSetHash: "skill-hash",
+        activeHookSetHash: "hook-hash",
+        validationIssueCount: 0,
+      }),
+    },
+    skillHookCatalog: retiredDoctorStoreWrapper,
+    toolSurface: {
+      listTools: () => [{ stable_tool_id: "fs.read" }],
+      listRuntimeNodes: () => [{ id: "hosted", endpoint: "https://provider.example" }],
+    },
+    listTools: retiredDoctorStoreWrapper,
     runs: new Map([["run-one", {}], ["run-two", {}], ["run-three", {}]]),
-    listRuntimeNodes: () => [{ id: "hosted", endpoint: "https://provider.example" }],
+    listRuntimeNodes: retiredDoctorStoreWrapper,
   };
   return { helper, store };
 }
@@ -97,7 +108,7 @@ test("runtime doctor report blocks when required state paths are missing", () =>
 
 test("runtime doctor report degrades when runtime tool catalog projection is Rust-core required", () => {
   const { helper, store } = createHarness();
-  store.listTools = () => {
+  store.toolSurface.listTools = () => {
     const error = new Error("Runtime tool catalog requires Rust core.");
     error.code = "runtime_tool_catalog_rust_core_required";
     error.details = {
@@ -107,7 +118,7 @@ test("runtime doctor report degrades when runtime tool catalog projection is Rus
     };
     throw error;
   };
-  store.listRuntimeNodes = () => {
+  store.toolSurface.listRuntimeNodes = () => {
     const error = new Error("Runtime nodes require Rust core.");
     error.code = "runtime_tool_catalog_rust_core_required";
     error.details = {
