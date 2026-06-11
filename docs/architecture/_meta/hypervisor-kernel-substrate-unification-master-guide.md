@@ -4618,6 +4618,12 @@ provider execution and provider-result binding separate Rust core boundaries
 for the next direct daemon-core API cuts, and the provider execution/invocation
 and provider-result Rust tests now live beside their owning modules instead of
 accumulating in the broad model-mount kernel file;
+model-mount read-projection adapter-boundary and workflow-binding projection
+authors now live in the dedicated Rust
+`model_mount/read_projection/adapter_boundary.rs` module, with module-local
+Rust proof that wallet.network, cTEE/vault, OAuth, Agentgres, and workflow node
+projection metadata are authored by Rust instead of a JS compatibility helper
+or broad dispatcher body;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

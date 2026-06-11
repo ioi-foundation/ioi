@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1021
+
+Slice 1021 split the model_mount read-projection adapter/workflow projection
+cluster out of the broad `model_mount/read_projection.rs` dispatcher and into
+`model_mount/read_projection/adapter_boundary.rs`. Adapter boundary and
+workflow binding authorship, including wallet.network authority metadata,
+cTEE/vault no-plaintext metadata, OAuth metadata, Agentgres metadata, and
+workflow node routing metadata, now has a dedicated Rust owner module and
+module-local proof.
+
+This is still non-terminal migration work: adapter/workflow projection
+authorship is isolated in Rust, but direct Rust daemon-core projection APIs over
+Agentgres-backed state must still replace command transport, JS state
+materialization, and JS edge translation before terminal projection ownership
+can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1021 | Moved adapter-boundary and workflow-binding projection authors from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs`; conformance now requires module-local adapter/workflow tests and fails if the old broad dispatcher helper names regrow. | Direct Rust daemon-core projection APIs over Agentgres-backed model_mount truth replace command bridge, JS state materialization, and JS edge translation for adapter/workflow projections. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1020
 
 Slice 1020 split provider-result admission out of the broad

@@ -3,6 +3,8 @@ use serde_json::{json, Value};
 
 use super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 
+mod adapter_boundary;
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelMountReadProjectionRequest {
     pub projection_kind: String,
@@ -87,8 +89,8 @@ pub(super) fn model_mount_read_projection(
             "OAuth state read projection requires Rust daemon-core wallet/cTEE projection",
         )),
         "provider_health" => Ok(Value::Array(Vec::new())),
-        "workflow_bindings" => Ok(model_mount_workflow_bindings()),
-        "adapter_boundaries" => Ok(model_mount_adapter_boundaries(&request.state)),
+        "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
+        "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),
         "runtime_engines" => Ok(Value::Array(Vec::new())),
         "runtime_engine_profiles" => Ok(Value::Array(Vec::new())),
         "runtime_preference" => Ok(Value::Null),
@@ -147,10 +149,10 @@ fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": [],
         "conversationStates": [],
-        "workflowNodes": model_mount_workflow_bindings(),
+        "workflowNodes": adapter_boundary::workflow_bindings(),
         "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
         "projection": model_mount_projection_summary(request),
-        "adapterBoundaries": model_mount_adapter_boundaries(state),
+        "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
     })
 }
 
@@ -189,8 +191,8 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": [],
         "conversationStates": [],
-        "workflowBindings": model_mount_workflow_bindings(),
-        "adapterBoundaries": model_mount_adapter_boundaries(state),
+        "workflowBindings": adapter_boundary::workflow_bindings(),
+        "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
         "routeDecisions": route_decisions_from_receipts(&receipts),
@@ -200,94 +202,6 @@ fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
         "toolReceipts": receipts_by_kind(&receipts, "mcp_tool_invocation"),
         "receipts": receipts,
     })
-}
-
-fn model_mount_adapter_boundaries(state: &Value) -> Value {
-    let _ = state;
-    json!({
-        "wallet": {
-            "port": "WalletAuthorityPort",
-            "implementation": "wallet_network_authority",
-            "methods": ["authorizeCapabilityExit", "listTokens", "revokeToken", "adapterStatus"],
-            "evidenceRefs": [
-                "wallet.network.authority_boundary",
-                "rust_daemon_core_wallet_authority_projection_required"
-            ],
-        },
-        "vault": {
-            "port": "VaultPort",
-            "implementation": "ctee_private_workspace_vault",
-            "methods": ["bindVaultRef", "resolveVaultRef", "listVaultRefs", "removeVaultRef", "adapterStatus"],
-            "plaintextPersistence": false,
-            "evidenceRefs": [
-                "ctee_no_plaintext_custody_boundary",
-                "rust_daemon_core_vault_projection_required"
-            ],
-        },
-        "oauth": {
-            "port": "OAuthCredentialProvider",
-            "implementation": "agentgres_vault_oauth_session",
-            "methods": [
-                "startAuthorization",
-                "completeAuthorization",
-                "exchangeAuthorizationCode",
-                "refreshAccessToken",
-                "revokeSession",
-                "resolveAccessHeader",
-            ],
-            "plaintextPersistence": false,
-            "evidenceRefs": [
-                "OAuthCredentialProvider",
-                "VaultOAuthAuthorizationState",
-                "VaultOAuthSession",
-                "oauth_tokens_not_persisted",
-            ],
-        },
-        "agentgres": {
-            "port": "AgentgresStorePort",
-            "implementation": "agentgres_admitted_model_mounting_store",
-            "methods": ["appendAcceptedReceipt", "recordState", "expectedHeads", "adapterStatus"],
-            "evidenceRefs": [
-                "agentgres_model_mount_read_truth_required",
-                "rust_daemon_core_agentgres_projection_required"
-            ],
-        },
-    })
-}
-
-fn model_mount_workflow_bindings() -> Value {
-    Value::Array(
-        [
-            ("Model Call", "chat"),
-            ("Structured Output", "responses"),
-            ("Verifier", "chat"),
-            ("Planner", "chat"),
-            ("Embedding", "embeddings"),
-            ("Reranker", "rerank"),
-            ("Vision", "vision"),
-            ("Local Tool/MCP", "mcp"),
-            ("Model Router", "chat"),
-            ("Receipt Gate", "receipt_gate"),
-        ]
-        .into_iter()
-        .map(|(node, capability)| {
-            json!({
-                "node": node,
-                "modelId": Value::Null,
-                "supportsExplicitModelId": true,
-                "supportsModelPolicy": true,
-                "capability": capability,
-                "receiptRequired": true,
-                "routeId": "route.local-first",
-                "daemonApi": if node == "Receipt Gate" {
-                    "/api/v1/workflows/receipt-gate"
-                } else {
-                    "/api/v1/workflows/nodes/execute"
-                },
-            })
-        })
-        .collect(),
-    )
 }
 
 fn model_mount_server_status(request: &ModelMountReadProjectionRequest) -> Value {
