@@ -2528,6 +2528,9 @@ function runBridge() {
   const runtimeCodingToolInvocationSurfaceTest = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs")
     : "";
+  const runtimeComputerUseInvocationStoreTest = exists("packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs")
+    ? read("packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs")
+    : "";
   const runtimeDiagnosticsFeedbackSurface = exists("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
     ? read("packages/runtime-daemon/src/runtime-diagnostics-feedback-surface.mjs")
     : "";
@@ -4047,6 +4050,52 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-invocation-results.test.mjs",
     ],
     "Phase 10/11 is pending: runtime invocation replay projections must expose canonical snake_case fields without duplicate camelCase replay aliases",
+  );
+  assertCheck(
+    result,
+    "computer-use-invocation-js-facades-retired",
+    /runtime_computer_use_invocation_rust_core_required/.test(runtimeDaemonIndex) &&
+      /rust_core_boundary:\s*"runtime\.computer_use_invocation"/.test(runtimeDaemonIndex) &&
+      /operation:\s*"computer_use_invocation_admission"/.test(runtimeDaemonIndex) &&
+      /computer_use_invocation_js_facade_retired/.test(runtimeDaemonIndex) &&
+      /rust_daemon_core_computer_use_invocation_required/.test(runtimeDaemonIndex) &&
+      /wallet_network_computer_use_authority_required/.test(runtimeDaemonIndex) &&
+      /agentgres_computer_use_expected_head_required/.test(runtimeDaemonIndex) &&
+      /operation_kind:\s*event\.event_kind \?\? "computer_use\.event"/.test(runtimeDaemonIndex) &&
+      /computer_use_event_js_append_retired/.test(runtimeDaemonIndex) &&
+      computerUseToolIdentityBodies.slice(0, 5).every((body) =>
+        /return this\.requireComputerUseInvocationRustCore\(/.test(body) &&
+        !/this\.appendRuntimeEvent\(/.test(body),
+      ) &&
+      /agentForThread must not be called by retired computer-use JS facade/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /runtimeEventStream must not be read by retired computer-use JS facade/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /admitComputerUseRuntimeEvent must not be reached by retired computer-use JS facade/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /assertComputerUseRustCoreRequired\(error, "computer_use\.browser_discovery"\)/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /assertComputerUseRustCoreRequired\(error, "computer_use\.control"\)/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /assertComputerUseRustCoreRequired\(error, "computer_use\.native_browser"\)/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /assertComputerUseRustCoreRequired\(error, "computer_use\.visual_gui"\)/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ) &&
+      /assertComputerUseRustCoreRequired\(error, "computer_use\.sandboxed_hosted"\)/.test(
+        runtimeComputerUseInvocationStoreTest,
+      ),
+    [
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/runtime-computer-use-invocation-store.test.mjs",
+    ],
+    "Phase 10/11 is pending: computer-use invocation facades must fail closed before JS event/projection truth and direct append",
   );
   assertCheck(
     result,
