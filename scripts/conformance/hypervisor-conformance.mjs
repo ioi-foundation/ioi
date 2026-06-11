@@ -8013,10 +8013,22 @@ function runBridge() {
       /"maybeRunPostEditDiagnostics"[\s\S]*"pendingDiagnosticsFeedbackForNextTurn"[\s\S]*"materializeCodingToolArtifactDrafts"[\s\S]*"materializeVisualGuiObservationArtifacts"[\s\S]*"readCodingToolArtifact"[\s\S]*"retrieveCodingToolResult"/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
+      /"executeDiagnosticsOperatorOverride"[\s\S]*"turnForOperatorOverrideEvent"[\s\S]*"appendDiagnosticsOperatorOverrideEvent"[\s\S]*"createDiagnosticsRepairRetryTurn"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"turnForRepairRetryEvent"[\s\S]*"appendDiagnosticsRepairRetryTurnEvent"[\s\S]*"resolveDiagnosticsRepairDecision"[\s\S]*"appendDiagnosticsRepairDecisionExecutedEvent"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"createConversationArtifact"[\s\S]*"listConversationArtifacts"[\s\S]*"getConversationArtifact"[\s\S]*"listConversationArtifactRevisions"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
+      /"performConversationArtifactAction"[\s\S]*"exportConversationArtifact"[\s\S]*"promoteConversationArtifact"/.test(
+        runtimeThreadSurfaceDelegatesRetiredTest,
+      ) &&
       /Object\.hasOwn\(prototype, method\), false/.test(
         runtimeThreadSurfaceDelegatesRetiredTest,
       ) &&
-      !/^\s*(?:inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult)\(/m.test(
+      !/^\s*(?:inspectManagedSessionsForThread|inspectWorkspaceChangeReviewsForThread|controlWorkspaceChangeForThread|controlManagedSessionForThread|forkThread|cancelRun|applyThreadMcpServerMutation|mcpStatusWithLiveDiscovery|appendThreadMcpControlEvent|mcpServersForContext|appendCodingToolCommandStreamEvents|codingToolApprovalSatisfaction|blockCodingToolForApproval|blockCodingToolForBudget|prepareWorkspaceSnapshotForPatch|materializeWorkspaceSnapshotArtifact|appendWorkspaceSnapshotEvent|workspaceSnapshotContentPackage|materializeWorkspaceRestorePreviewArtifact|materializeWorkspaceRestoreApplyArtifact|appendWorkspaceRestorePreviewEvent|appendWorkspaceRestoreApplyEvent|maybeRunPostEditDiagnostics|pendingDiagnosticsFeedbackForNextTurn|materializeCodingToolArtifactDrafts|materializeVisualGuiObservationArtifacts|readCodingToolArtifact|retrieveCodingToolResult|executeDiagnosticsOperatorOverride|turnForOperatorOverrideEvent|appendDiagnosticsOperatorOverrideEvent|createDiagnosticsRepairRetryTurn|turnForRepairRetryEvent|appendDiagnosticsRepairRetryTurnEvent|resolveDiagnosticsRepairDecision|appendDiagnosticsRepairDecisionExecutedEvent|createConversationArtifact|listConversationArtifacts|getConversationArtifact|listConversationArtifactRevisions|performConversationArtifactAction|exportConversationArtifact|promoteConversationArtifact)\(/m.test(
         runtimeDaemonIndex,
       ) &&
       /thread turn surface fails closed for non-runtime resume before JS mutation/.test(

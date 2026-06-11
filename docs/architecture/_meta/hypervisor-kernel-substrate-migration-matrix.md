@@ -15784,6 +15784,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1100
+
+Slice 1100 retires daemon-store diagnostics-repair and conversation-artifact
+helper pass-through delegates. Public/thread routes already call the mounted
+diagnostics-repair and conversation-artifact surfaces directly, so the daemon
+store no longer exposes operator-override, repair-retry, repair-decision event,
+conversation-artifact create/list/get/revision/action/export, or promotion
+wrappers as compatibility entrypoints.
+
+Conformance now fails if those delegates return on the daemon store. The mounted
+surfaces remain migration scaffolding only; future positive ownership belongs in
+direct Rust daemon-core diagnostics-repair admission/projection and
+conversation-artifact admission/projection backed by Agentgres
+expected-head/state-root binding, receipt_binder, ArtifactRef/PayloadRef
+admission, replay, and projection.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/http/public-runtime-routes.test.mjs packages/runtime-daemon/src/runtime-diagnostics-repair-surface.test.mjs packages/runtime-daemon/src/runtime-conversation-artifact-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1099
 
 Slice 1099 retires daemon-store coding-tool artifact/governance,

@@ -5878,6 +5878,27 @@ direct Rust daemon-core coding-tool governance, artifact admission, snapshot
 admission, diagnostics feedback projection, Agentgres expected-head/state-root
 binding, replay, and projection APIs replace them.
 
+Slice 1100 retires the daemon-store diagnostics-repair and conversation-artifact
+helper pass-through delegates. Public/thread routes already call the mounted
+diagnostics-repair and conversation-artifact surfaces directly; the daemon store
+no longer exposes `executeDiagnosticsOperatorOverride()`,
+`turnForOperatorOverrideEvent()`, `appendDiagnosticsOperatorOverrideEvent()`,
+`createDiagnosticsRepairRetryTurn()`, `turnForRepairRetryEvent()`,
+`appendDiagnosticsRepairRetryTurnEvent()`,
+`resolveDiagnosticsRepairDecision()`,
+`appendDiagnosticsRepairDecisionExecutedEvent()`,
+`createConversationArtifact()`, `listConversationArtifacts()`,
+`getConversationArtifact()`, `listConversationArtifactRevisions()`,
+`performConversationArtifactAction()`, `exportConversationArtifact()`, or
+`promoteConversationArtifact()` as compatibility entrypoints.
+
+Conformance now fails if those store-level delegates return. The mounted JS
+surfaces remain migration scaffolding only: future direct positive APIs must be
+owned by Rust daemon-core diagnostics repair admission/projection and
+conversation-artifact admission/projection, with Agentgres expected-head and
+state-root binding, receipt_binder, ArtifactRef/PayloadRef admission, replay,
+and projection replacing the temporary protocol-edge surface calls.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
