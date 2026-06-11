@@ -1135,13 +1135,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "usage" && !segments[4]) {
-      writeJsonResponse(
-        response,
-        usageTelemetryWithRequestMetadata(
-          store.usageForRun(runId),
-          usageRequestMetadataFromUrl(url, { defaultScope: "run" }),
-        ),
-      );
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getRunUsage(store, runId));
       return;
     }
     if (request.method === "POST" && action === "context-budget" && !segments[4]) {
@@ -1173,20 +1167,14 @@ export function createRuntimeRouteHandlers(deps) {
     if (request.method === "GET" && action === "events") {
       writeSse(
         response,
-        store.eventsForRun(
-          runId,
-          runtimeEventCursorFromRequest({ request, url }),
-        ),
+        store.lifecycleProjectionSurface.listRunEvents(store, runId),
       );
       return;
     }
     if (request.method === "GET" && action === "replay") {
       writeSse(
         response,
-        store.replayFromCanonicalState(
-          runId,
-          runtimeEventCursorFromRequest({ request, url }),
-        ),
+        store.lifecycleProjectionSurface.replayRun(store, runId),
       );
       return;
     }

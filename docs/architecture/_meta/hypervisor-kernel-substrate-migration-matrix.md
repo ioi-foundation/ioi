@@ -20366,6 +20366,43 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 975
+
+Slice 975 expanded the lifecycle projection-required retirement to the remaining
+public run readback projections that still reached JS projection state.
+`/v1/runs/:id/usage`, `/v1/runs/:id/events`, and `/v1/runs/:id/replay` now fail
+closed through the mounted lifecycle projection surface before JS usage
+telemetry, event-stream projection, or canonical replay helpers can author
+public read truth. The lifecycle surface now reports canonical
+`run_usage`, `run_events`, and `run_replay` projection kinds through
+`RuntimeLifecycleProjectionRequiredCore`.
+
+This is still non-terminal migration plumbing: direct Rust daemon-core lifecycle
+projection over Agentgres-admitted run truth, event/replay projection,
+receipt/state-root binding, wallet/cTEE authority where lifecycle access exits
+local trust, command-transport retirement, and stable protocol APIs remain
+required before terminal conformance. Internal JS usage/event/replay helpers
+remain temporary non-authoritative scaffolding for migrated controls until
+direct Rust lifecycle projection APIs own those shapes.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 975 | Routed public run usage/events/replay projections through the Rust-authored fail-closed lifecycle envelope before JS usage telemetry, event-stream, or canonical replay readback. | Direct Rust daemon-core lifecycle/event/replay projection over Agentgres-admitted truth, receipt/state-root binding, wallet/cTEE authority where needed, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-lifecycle-projection-surface.mjs packages/runtime-daemon/src/runtime-route-handlers.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-lifecycle-projection-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 974
 
 Slice 974 expanded the Rust-authored lifecycle projection-required boundary to

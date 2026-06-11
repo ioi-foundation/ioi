@@ -123,6 +123,9 @@ test("lifecycle projection surface fails public run sub-projections through Rust
   const methods = [
     ["waitRun", ["run_123"], "run_wait"],
     ["getRunConversation", ["run_123"], "run_conversation"],
+    ["getRunUsage", ["run_123"], "run_usage"],
+    ["listRunEvents", ["run_123"], "run_events"],
+    ["replayRun", ["run_123"], "run_replay"],
     ["getRunTrace", ["run_123"], "run_trace"],
     ["getRunComputerUseTrace", ["run_123"], "run_computer_use_trace"],
     ["getRunComputerUseTrajectory", ["run_123"], "run_computer_use_trajectory"],

@@ -107,6 +107,30 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
       error.details = { projection_kind: "run_conversation", run_id: runId };
       throw error;
     },
+    getRunUsage(_store, runId) {
+      calls.push({ method: "getRunUsage", id: runId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "run_usage", run_id: runId };
+      throw error;
+    },
+    listRunEvents(_store, runId) {
+      calls.push({ method: "listRunEvents", id: runId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "run_events", run_id: runId };
+      throw error;
+    },
+    replayRun(_store, runId) {
+      calls.push({ method: "replayRun", id: runId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "run_replay", run_id: runId };
+      throw error;
+    },
     getRunTrace(_store, runId) {
       calls.push({ method: "getRunTrace", id: runId });
       const error = new Error("runtime lifecycle projection requires Rust core");
@@ -164,7 +188,12 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
       throw error;
     },
   };
-  const store = { lifecycleProjectionSurface };
+  const store = {
+    lifecycleProjectionSurface,
+    usageForRun: retiredRouteWrapper,
+    eventsForRun: retiredRouteWrapper,
+    replayFromCanonicalState: retiredRouteWrapper,
+  };
 
   await assert.rejects(
     () => handleAgentRoute({
@@ -207,8 +236,11 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     { code: "runtime_lifecycle_projection_rust_core_required" },
   );
   for (const path of [
+    "/v1/runs/run_route/usage",
     "/v1/runs/run_route/wait",
     "/v1/runs/run_route/conversation",
+    "/v1/runs/run_route/events",
+    "/v1/runs/run_route/replay",
     "/v1/runs/run_route/trace",
     "/v1/runs/run_route/inspect",
     "/v1/runs/run_route/computer-use/trace",
@@ -234,8 +266,11 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     { method: "listRuns", id: "agent_route" },
     { method: "getThread", id: "thread_route" },
     { method: "getRun", id: "run_route" },
+    { method: "getRunUsage", id: "run_route" },
     { method: "waitRun", id: "run_route" },
     { method: "getRunConversation", id: "run_route" },
+    { method: "listRunEvents", id: "run_route" },
+    { method: "replayRun", id: "run_route" },
     { method: "getRunTrace", id: "run_route" },
     { method: "getRunTrace", id: "run_route" },
     { method: "getRunComputerUseTrace", id: "run_route" },

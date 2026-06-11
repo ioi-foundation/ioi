@@ -82,6 +82,30 @@ export function createRuntimeLifecycleProjectionSurface({
         run_id: optionalString(runId),
       });
     },
+    getRunUsage(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_usage",
+        projection_kind: "run_usage",
+        run_id: optionalString(runId),
+      });
+    },
+    listRunEvents(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_events",
+        projection_kind: "run_events",
+        run_id: optionalString(runId),
+      });
+    },
+    replayRun(_store, runId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.run_replay",
+        projection_kind: "run_replay",
+        run_id: optionalString(runId),
+      });
+    },
     getRunTrace(_store, runId) {
       fail({
         operation: "runtime_lifecycle_projection",

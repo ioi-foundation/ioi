@@ -16602,6 +16602,9 @@ function runReceipts() {
       /agent_runs/.test(runtimeLifecycleProjectionSurface) &&
       /run_wait/.test(runtimeLifecycleProjectionSurface) &&
       /run_conversation/.test(runtimeLifecycleProjectionSurface) &&
+      /run_usage/.test(runtimeLifecycleProjectionSurface) &&
+      /run_events/.test(runtimeLifecycleProjectionSurface) &&
+      /run_replay/.test(runtimeLifecycleProjectionSurface) &&
       /run_trace/.test(runtimeLifecycleProjectionSurface) &&
       /run_computer_use_trace/.test(runtimeLifecycleProjectionSurface) &&
       /run_computer_use_trajectory/.test(runtimeLifecycleProjectionSurface) &&
@@ -16652,6 +16655,15 @@ function runReceipts() {
       /store\.lifecycleProjectionSurface\.getRunConversation\(store,\s*runId\)/.test(
         runtimeRouteHandlers,
       ) &&
+      /store\.lifecycleProjectionSurface\.getRunUsage\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listRunEvents\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.replayRun\(store,\s*runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
       /store\.lifecycleProjectionSurface\.getRunTrace\(store,\s*runId\)/.test(
         runtimeRouteHandlers,
       ) &&
@@ -16679,6 +16691,9 @@ function runReceipts() {
       /agent, thread, and run detail routes use lifecycle projection surface/.test(
         runtimeRouteHandlersTest,
       ) &&
+      /getRunUsage/.test(runtimeRouteHandlersTest) &&
+      /listRunEvents/.test(runtimeRouteHandlersTest) &&
+      /replayRun/.test(runtimeRouteHandlersTest) &&
       /getRunComputerUseTrajectory/.test(runtimeRouteHandlersTest) &&
       /getRunArtifact/.test(runtimeRouteHandlersTest) &&
       !/writeJsonResponse\(response,\s*store\.listAgents\(\)\)/.test(
@@ -16703,6 +16718,15 @@ function runReceipts() {
         runtimeRouteHandlers,
       ) &&
       !/const run = store\.getRun\(runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.usageForRun\(runId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.eventsForRun\(runId/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.replayFromCanonicalState\(runId/.test(
         runtimeRouteHandlers,
       ) &&
       !/traceFromCanonicalState\(runId\)/.test(
