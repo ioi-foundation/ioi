@@ -1,5 +1,3 @@
-import { createRuntimeAgentServiceCommandAdapterFromEnv } from "./runtime-agent-service-adapter.mjs";
-
 const RUNTIME_SERVICE_PROFILES = new Set(["runtime", "runtime_service", "live", "production"]);
 const FIXTURE_RUNTIME_PROFILES = new Set(["fixture", "agentgres_fixture", "local_daemon_agentgres_projection"]);
 
@@ -28,7 +26,7 @@ export function isFixtureRuntimeProfile(profile) {
 }
 
 export function createRuntimeApiBridge(adapter = null) {
-  return new RuntimeApiBridge(adapter ?? createRuntimeAgentServiceCommandAdapterFromEnv());
+  return new RuntimeApiBridge(adapter);
 }
 
 export class RuntimeApiBridge {

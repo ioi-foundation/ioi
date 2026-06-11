@@ -3161,12 +3161,6 @@ function runBridge() {
   const runtimeApiBridgeTest = exists("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-api-bridge.test.mjs")
     : "";
-  const runtimeAgentServiceAdapter = exists("packages/runtime-daemon/src/runtime-agent-service-adapter.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agent-service-adapter.mjs")
-    : "";
-  const runtimeAgentServiceAdapterTest = exists("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs")
-    ? read("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs")
-    : "";
   const runtimeAgentServiceBridgeBinary = exists("crates/node/src/bin/ioi-runtime-bridge.rs")
     ? read("crates/node/src/bin/ioi-runtime-bridge.rs")
     : "";
@@ -9360,29 +9354,25 @@ function runBridge() {
   );
   assertCheck(
     result,
-    "runtime-agent-service-adapter-result-bridge-id-alias-retired",
-    /const \{ bridgeId: _retiredBridgeId, \.\.\.canonicalResult \} = result;/.test(
-      runtimeAgentServiceAdapter,
-    ) &&
-      /bridge_id:\s*canonicalResult\.bridge_id \?\? this\.bridgeId/.test(
-        runtimeAgentServiceAdapter,
+    "runtime-agent-service-command-adapter-retired",
+    !exists("packages/runtime-daemon/src/runtime-agent-service-adapter.mjs") &&
+      !exists("packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs") &&
+      !/runtime-agent-service-adapter\.mjs/.test(runtimeApiBridge) &&
+      !/createRuntimeAgentServiceCommandAdapterFromEnv/.test(runtimeApiBridge) &&
+      !/IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND|IOI_RUNTIME_BRIDGE_COMMAND/.test(
+        runtimeApiBridge,
       ) &&
-      !/parseCommandArgs/.test(runtimeAgentServiceAdapter) &&
-      !/normalizeArgs/.test(runtimeAgentServiceAdapter) &&
-      !/this\.args/.test(runtimeAgentServiceAdapter) &&
-      /assertNoRuntimeAgentServiceBridgeArgs/.test(runtimeAgentServiceAdapter) &&
-      /runtime_agent_service_bridge_args_retired/.test(runtimeAgentServiceAdapter) &&
-      /assertNoRetiredRuntimeAgentServiceBridgeInputAliases\(operation, input\);/.test(
-        runtimeAgentServiceAdapter,
+      /return new RuntimeApiBridge\(adapter\);/.test(runtimeApiBridge) &&
+      /RuntimeApiBridge no longer auto-configures command transport from env/.test(
+        runtimeApiBridgeTest,
       ) &&
-      /runtime_agent_service_bridge_input_aliases_retired/.test(
-        runtimeAgentServiceAdapter,
-      ) &&
-      /retiredRuntimeAgentServiceBridgeInputAliases/.test(runtimeAgentServiceAdapter) &&
-      /spawn\(command,\s*\[\]/.test(runtimeAgentServiceAdapter) &&
-      !/bridge_id:\s*result\.bridge_id \?\? result\.bridgeId/.test(
-        runtimeAgentServiceAdapter,
-      ) &&
+      /IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND/.test(runtimeApiBridgeTest) &&
+      /IOI_RUNTIME_BRIDGE_COMMAND/.test(runtimeApiBridgeTest) &&
+      /bridge\.canStartThread,\s*false/.test(runtimeApiBridgeTest) &&
+      /bridge\.canSubmitTurn,\s*false/.test(runtimeApiBridgeTest) &&
+      /bridge\.canInspectThread,\s*false/.test(runtimeApiBridgeTest) &&
+      /bridge\.canControlThread,\s*false/.test(runtimeApiBridgeTest) &&
+      /RuntimeApiBridgeUnavailableError/.test(runtimeApiBridgeTest) &&
       !/alias\s*=\s*"(?:schemaVersion|bridgeId|runtime_profile|agent_id|thread_id|workspace_root|created_at|session_id|streamed_events_only|streamEventsOnly|stream_events_only|projection_mode|managed_sessions_only|request_hash|managed_session_id|change_id|workspaceChangeId)"/.test(
         runtimeAgentServiceBridgeBinary,
       ) &&
@@ -9392,38 +9382,13 @@ function runBridge() {
       ) &&
       /ignores_retired_optional_runtime_bridge_input_aliases/.test(
         runtimeAgentServiceBridgeBinary,
-      ) &&
-      /RuntimeAgentService command adapter ignores retired bridgeId result alias/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /RuntimeAgentService command adapter input aliases fail closed before transport/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /bridgeId:\s*"retired-bridge-result"/.test(runtimeAgentServiceAdapterTest) &&
-      /adapter\.startThread\(\{ thread_id: "thread_dynamic_env" \}\)/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /adapter\.startThread\(\{ threadId: "thread_retired" \}\)/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /result\.bridge_id,\s*"canonical-adapter-bridge"/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /Object\.hasOwn\(result,\s*"bridgeId"\),\s*false/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /RuntimeAgentService command adapter bridge args env fails closed/.test(
-        runtimeAgentServiceAdapterTest,
-      ) &&
-      /RuntimeAgentService command adapter bridge args constructor option fails closed/.test(
-        runtimeAgentServiceAdapterTest,
       ),
     [
-      "packages/runtime-daemon/src/runtime-agent-service-adapter.mjs",
-      "packages/runtime-daemon/src/runtime-agent-service-adapter.test.mjs",
+      "packages/runtime-daemon/src/runtime-api-bridge.mjs",
+      "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
       "crates/node/src/bin/ioi-runtime-bridge.rs",
     ],
-    "Phase 10/11 is pending: RuntimeAgentService command adapter and bridge binary must use canonical snake_case command payloads without accepting retired bridge/input aliases",
+    "Phase 10/11 is pending: RuntimeApiBridge must remain injected-only while the retired JS RuntimeAgentService command adapter stays absent until direct Rust daemon-core APIs replace bridge transport",
   );
   assertCheck(
     result,

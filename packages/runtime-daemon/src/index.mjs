@@ -261,13 +261,6 @@ import {
   relative,
 } from "./runtime-http-utils.mjs";
 
-export {
-  RuntimeAgentServiceCommandAdapter,
-  RuntimeAgentServiceCommandAdapterError,
-  createRuntimeAgentServiceCommandAdapter,
-  createRuntimeAgentServiceCommandAdapterFromEnv,
-} from "./runtime-agent-service-adapter.mjs";
-
 import {
   TERMINAL_EVENT_TYPES,
   JOB_TERMINAL_EVENT_TYPES,

@@ -174,7 +174,7 @@ The repo also contains extensive product-facing Hypervisor daemon infrastructure
 | Approval routes | `packages/runtime-daemon/src/runtime-route-handlers.mjs` exposes thread approvals, tool invocation, events, replay, trace, and inspect routes. | The daemon owns product UX/control surfaces. |
 | Runtime event envelopes | `packages/runtime-daemon/src/runtime-event-envelopes.mjs` maps runtime events into workflow-node, component-kind, receipt-ref, artifact-ref, policy-ref projections. | The daemon already has the projection vocabulary needed by the IDE. |
 | Model mounting | `packages/runtime-daemon/src/model-mounting/*` stores model artifacts, routes, providers, instances, vault refs, receipts, and projections. | Model mounting is currently product-daemon state, with Agentgres-like receipt/operation hooks. |
-| Command bridge | `packages/runtime-daemon/src/runtime-agent-service-adapter.mjs` can call an external command bridge for runtime agent service operations. | There is a product-level bridge mechanism that can evolve into a workload-client bridge. |
+| Retired runtime-service command bridge | The old JS RuntimeAgentService command adapter is retired; `RuntimeApiBridge` is injected-only and does not auto-configure command transport from env. | Runtime-service execution must return through stable Rust daemon-core protocol/API ownership, not a revived Node command bridge. |
 
 The architecture docs already name the intended boundaries:
 
@@ -4001,7 +4001,7 @@ construction, or no execution.
 
 Likely files/modules:
 
-- `packages/runtime-daemon/src/runtime-agent-service-adapter.mjs`
+- `packages/runtime-daemon/src/runtime-api-bridge.mjs` as an injected-only edge that must stay non-authoritative until direct Rust daemon-core runtime-service APIs replace bridge transport
 - `packages/runtime-daemon/src/runtime-route-handlers.mjs`
 - `packages/runtime-daemon/src/coding-tools.mjs`
 - `crates/client/src/workload_client/mod.rs`
@@ -5736,6 +5736,23 @@ bridge module, daemon index, and focused tests.
 
 This keeps the verifier aligned with the target architecture: deleted JS bridge
 projection bodies must not remain encoded as parse targets inside conformance.
+
+Slice 1092 retires the JS RuntimeAgentService command adapter itself. The
+daemon no longer imports or exports `runtime-agent-service-adapter.mjs`, the
+adapter module and positive command-spawn tests are deleted, and
+`RuntimeApiBridge` no longer auto-configures command transport from
+`IOI_RUNTIME_AGENT_SERVICE_BRIDGE_COMMAND` or `IOI_RUNTIME_BRIDGE_COMMAND`.
+The API bridge is now injected-only and unavailable by default, so runtime
+service profiles cannot regain live execution through env-selected Node command
+transport.
+
+Conformance now fails if the retired adapter module/test return, if
+`RuntimeApiBridge` re-imports the adapter factory, or if env bridge command
+selection becomes a default runtime-service path again. The remaining
+`ioi-runtime-bridge` Rust binary evidence is historical alias-rejection guard
+coverage only; new positive runtime-service execution must land as direct Rust
+daemon-core admission, Agentgres expected-head/state-root binding, replay, and
+projection over stable protocol APIs.
 
 ## Final Doctrine
 
