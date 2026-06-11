@@ -15661,6 +15661,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1046
+
+Slice 1046 splits the MCP control state-update, MCP server validation, MCP
+validation input projection, MCP manager status/validation/catalog/catalog
+summary projection, memory manager status/validation projection, and
+thread-memory state-update daemon-core command wrappers out of the monolithic
+Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport and into
+`crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs`. The
+canonical MCP/memory policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs`; the new
+bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge conformance guard now proves the MCP/memory
+command wrappers are outside the broad bridge module while the existing bridge
+tests continue to prove the Rust policy path.
+
+This is a Rust transport-boundary cleanup, not terminal MCP or memory
+migration. The current JS MCP control/catalog/serve facades, JS thread-memory
+surface, JS context-policy runner, and Node command bridge remain scaffolding
+until direct Rust daemon-core MCP/memory admission/projection/persistence,
+wallet authority for external exits, cTEE custody where private workspace
+memory is involved, Agentgres expected-head and state-root persistence,
+MCP/memory receipts/events, replay, projection, and stable protocol APIs own
+the MCP and memory paths end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node mcp --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node memory --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,

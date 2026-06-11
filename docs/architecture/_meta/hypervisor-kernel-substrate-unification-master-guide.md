@@ -4966,6 +4966,24 @@ admission/persistence/projection APIs over wallet authority where applicable,
 Agentgres expected heads/state roots, policy receipts/events, replay, and
 stable IDE/CLI/SDK protocol APIs.
 
+Slice 1046 moves the MCP control state-update, MCP server validation, MCP
+validation input projection, MCP manager status/validation/catalog/catalog
+summary projection, memory manager status/validation projection, and
+thread-memory state-update daemon-core command wrappers out of the monolithic
+Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration transport
+into `crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs`. The
+MCP/memory policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs`; the bridge
+child module is only fixed migration transport that translates Rust-authored
+MCP and memory policy records at the process boundary. The conformance guard
+now proves the MCP/memory command wrappers stay out of the broad bridge
+module. This is not terminal MCP or memory migration. Resume by replacing this
+command transport with direct Rust daemon-core MCP and memory
+admission/projection/persistence APIs over wallet authority for external
+exits, cTEE custody where private workspace memory is involved, Agentgres
+expected heads/state roots, MCP/memory receipts/events, replay, projection,
+and stable IDE/CLI/SDK protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

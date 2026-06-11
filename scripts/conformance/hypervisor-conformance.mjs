@@ -2269,6 +2269,9 @@ function runBridge() {
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
+  const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
+    : "";
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
@@ -8058,34 +8061,49 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         mcpControlAgentStateUpdateCoreBlock,
       ) &&
-      /plan_mcp_control_agent_state_update/.test(bridgeModule) &&
-      /McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_control_agent_state_update_command/.test(bridgeModule) &&
+      /mod mcp_memory_command;/.test(bridgeModule) &&
+      /fn plan_mcp_control_agent_state_update/.test(mcpMemoryCommandBridge) &&
+      /McpControlAgentStateUpdateBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_control_agent_state_update_command/.test(mcpMemoryCommandBridge) &&
       /bridge_plans_mcp_control_agent_state_update_through_rust_core/.test(bridgeModule) &&
-      /validate_mcp_servers/.test(bridgeModule) &&
-      /McpServerValidationBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_server_validation_command/.test(bridgeModule) &&
+      /fn validate_mcp_servers/.test(mcpMemoryCommandBridge) &&
+      /McpServerValidationBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_server_validation_command/.test(mcpMemoryCommandBridge) &&
       /bridge_validates_mcp_servers_through_rust_core/.test(bridgeModule) &&
-      /project_mcp_server_validation_input/.test(bridgeModule) &&
-      /McpServerValidationInputBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_server_validation_input_command/.test(bridgeModule) &&
+      /fn project_mcp_server_validation_input/.test(mcpMemoryCommandBridge) &&
+      /McpServerValidationInputBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_server_validation_input_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_server_validation_input_through_rust_core/.test(bridgeModule) &&
-      /plan_mcp_manager_status_projection/.test(bridgeModule) &&
-      /McpManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_manager_status_projection_command/.test(bridgeModule) &&
+      /fn plan_mcp_manager_status_projection/.test(mcpMemoryCommandBridge) &&
+      /McpManagerStatusProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_manager_status_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_status_through_rust_core/.test(bridgeModule) &&
-      /plan_mcp_manager_catalog_projection/.test(bridgeModule) &&
-      /McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_manager_catalog_projection_command/.test(bridgeModule) &&
+      /fn plan_mcp_manager_catalog_projection/.test(mcpMemoryCommandBridge) &&
+      /McpManagerCatalogProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_manager_catalog_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_catalog_through_rust_core/.test(bridgeModule) &&
-      /plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
-      /McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_manager_catalog_summary_projection_command/.test(bridgeModule) &&
+      /fn plan_mcp_manager_catalog_summary_projection/.test(mcpMemoryCommandBridge) &&
+      /McpManagerCatalogSummaryProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_manager_catalog_summary_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_catalog_summary_through_rust_core/.test(bridgeModule) &&
-      /plan_mcp_manager_validation_projection/.test(bridgeModule) &&
-      /McpManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
-      /rust_mcp_manager_validation_projection_command/.test(bridgeModule) &&
+      /fn plan_mcp_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
+      /McpManagerValidationProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_mcp_manager_validation_projection_command/.test(mcpMemoryCommandBridge) &&
       /bridge_projects_mcp_manager_validation_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_mcp_control_agent_state_update/.test(bridgeModule) &&
+      !/struct McpControlAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
+      !/fn validate_mcp_servers/.test(bridgeModule) &&
+      !/struct McpServerValidationBridgeRequest/.test(bridgeModule) &&
+      !/fn project_mcp_server_validation_input/.test(bridgeModule) &&
+      !/struct McpServerValidationInputBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_mcp_manager_status_projection/.test(bridgeModule) &&
+      !/struct McpManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_mcp_manager_catalog_projection/.test(bridgeModule) &&
+      !/struct McpManagerCatalogProjectionBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_mcp_manager_catalog_summary_projection/.test(bridgeModule) &&
+      !/struct McpManagerCatalogSummaryProjectionBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_mcp_manager_validation_projection/.test(bridgeModule) &&
+      !/struct McpManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
       /"secret_refs":/.test(policyCore) &&
       /"secretRefs":/.test(policyCore) &&
       /server\.get\("secret_refs"\)/.test(mcpServerValidationCoreBlock) &&
@@ -8327,12 +8345,14 @@ function runBridge() {
       !/"controlKind": control_kind|"eventId": request\.event_id|"createdAt": request\.created_at/.test(
         threadMemoryAgentStateUpdateCoreBlock,
       ) &&
-      /plan_thread_memory_agent_state_update/.test(bridgeModule) &&
-      /ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_thread_memory_agent_state_update_command/.test(bridgeModule) &&
+      /fn plan_thread_memory_agent_state_update/.test(mcpMemoryCommandBridge) &&
+      /ThreadMemoryAgentStateUpdateBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_thread_memory_agent_state_update_command/.test(mcpMemoryCommandBridge) &&
       /bridge_plans_thread_memory_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_thread_memory_agent_state_update/.test(bridgeModule) &&
+      !/struct ThreadMemoryAgentStateUpdateBridgeRequest/.test(bridgeModule) &&
       /response\["control"\]\["control_kind"\]/.test(bridgeModule) &&
       /response\["control"\]\["event_id"\]/.test(bridgeModule) &&
       /response\["control"\]\.get\("controlKind"\)\.is_none\(\)/.test(
@@ -19423,6 +19443,9 @@ function runCompositor() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
+    : "";
   const runtimeContextPolicyRunner = exists("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     ? read("packages/runtime-daemon/src/runtime-context-policy-runner.mjs")
     : "";
@@ -21752,10 +21775,16 @@ function runCompositor() {
       !/json_string_value\(paths,\s*"recordsPath"\)/.test(policyCore) &&
       !/json_string_value\(paths,\s*"effectivePolicyId"\)/.test(policyCore) &&
       !/json_string_value\(policy,\s*"subagentInheritance"\)/.test(policyCore) &&
-      /plan_memory_manager_status_projection/.test(bridgeModule) &&
-      /plan_memory_manager_validation_projection/.test(bridgeModule) &&
-      /rust_memory_manager_status_projection_command/.test(bridgeModule) &&
-      /rust_memory_manager_validation_projection_command/.test(bridgeModule) &&
+      /fn plan_memory_manager_status_projection/.test(mcpMemoryCommandBridge) &&
+      /MemoryManagerStatusProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_memory_manager_status_projection_command/.test(mcpMemoryCommandBridge) &&
+      /fn plan_memory_manager_validation_projection/.test(mcpMemoryCommandBridge) &&
+      /MemoryManagerValidationProjectionBridgeRequest/.test(mcpMemoryCommandBridge) &&
+      /rust_memory_manager_validation_projection_command/.test(mcpMemoryCommandBridge) &&
+      !/fn plan_memory_manager_status_projection/.test(bridgeModule) &&
+      !/struct MemoryManagerStatusProjectionBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_memory_manager_validation_projection/.test(bridgeModule) &&
+      !/struct MemoryManagerValidationProjectionBridgeRequest/.test(bridgeModule) &&
       /memory manager status projection runner sends Rust daemon-core projection request/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
