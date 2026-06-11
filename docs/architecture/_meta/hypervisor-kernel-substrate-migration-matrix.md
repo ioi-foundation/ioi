@@ -20371,6 +20371,28 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1017
+
+Slice 1017 moved the model_mount admission proof surface out of the broad
+`model_mount.rs` facade and into `model_mount/admission.rs`. Route-decision and
+invocation-admission tests now live beside the request/record types, schema
+validation, cTEE custody/plaintext checks, receipt binding checks, admission
+refs, and admission hashes they prove. `ModelMountCore` remains the public
+facade, but the admission module owns both implementation and module-local
+proof for the model-route/invocation admission gate.
+
+This is still non-terminal migration work: admission implementation and proof
+ownership are now colocated in Rust, but direct Rust daemon-core route decision
+and invocation admission protocol APIs must still replace command transport and
+JS edge translation before terminal admission ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1017 | Moved route-decision and invocation-admission tests from `model_mount.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/admission.rs`; conformance now requires those tests in the admission module and fails if the parent facade regrows the admission proof tail. | Direct Rust daemon-core route-decision and invocation-admission protocol APIs replace the command bridge and JS edge translation once the admission Rust boundary can own control/projection end to end. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1016
 
 Slice 1016 moved the model_mount Rust-core-required planner proof surface out

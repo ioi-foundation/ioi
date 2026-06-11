@@ -13629,6 +13629,21 @@ function runReceipts() {
       /ModelMountRouteDecisionRequest/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
       ) &&
+      /admits_resolved_model_route_decision/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /route_decision_requires_receipt_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /private_workspace_route_requires_ctee_custody_without_plaintext/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      !/fn admits_resolved_model_route_decision/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/fn route_decision_requires_receipt_refs/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
       /UnresolvedAutoModel/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
       ) &&
@@ -13657,6 +13672,21 @@ function runReceipts() {
       ) &&
       /ModelMountInvocationAdmissionRequest/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /admits_model_invocation_with_route_and_invocation_receipts/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /invocation_requires_bound_route_and_invocation_receipts/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /private_workspace_invocation_requires_ctee_custody_without_plaintext/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      !/fn admits_model_invocation_with_route_and_invocation_receipts/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      !/fn invocation_requires_bound_route_and_invocation_receipts/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
       /MissingRouteReceiptRef/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),

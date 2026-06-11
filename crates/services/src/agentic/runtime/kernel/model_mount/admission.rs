@@ -352,3 +352,207 @@ fn invocation_admission_hash(
         .map_err(|error| ModelMountError::HashFailed(error.to_string()))?;
     Ok(format!("sha256:{}", hex::encode(Sha256::digest(bytes))))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn route_decision_request() -> ModelMountRouteDecisionRequest {
+        ModelMountRouteDecisionRequest {
+            schema_version: MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION.to_string(),
+            route_ref: "model-route://default/local-first".to_string(),
+            provider_ref: "provider://ioi-native-local".to_string(),
+            endpoint_ref: "endpoint://ioi-native-local/qwen3".to_string(),
+            model_ref: "model://qwen/qwen3.5-9b".to_string(),
+            capability: "chat".to_string(),
+            policy_hash: "sha256:model-route-policy".to_string(),
+            idempotency_key: "model-route:thread:test".to_string(),
+            receipt_refs: vec!["receipt://model-route/qwen3".to_string()],
+            authority_grant_refs: vec![],
+            authority_receipt_refs: vec![],
+            custody_ref: None,
+            privacy_profile: Some("internal".to_string()),
+            node_plaintext_allowed: false,
+            workflow_graph_ref: Some("workflow://graph".to_string()),
+            workflow_node_ref: Some("workflow://node/model-router".to_string()),
+        }
+    }
+
+    fn invocation_admission_request() -> ModelMountInvocationAdmissionRequest {
+        ModelMountInvocationAdmissionRequest {
+            schema_version: MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION.to_string(),
+            invocation_ref: "model-invocation://response/test".to_string(),
+            route_decision_ref: "model_mount://route_decision/test".to_string(),
+            route_receipt_ref: "receipt://route/test".to_string(),
+            invocation_receipt_ref: "receipt://invocation/test".to_string(),
+            route_ref: "model-route://default/local-first".to_string(),
+            provider_ref: "provider://ioi-native-local".to_string(),
+            endpoint_ref: "endpoint://ioi-native-local/qwen3".to_string(),
+            model_ref: "model://qwen/qwen3.5-9b".to_string(),
+            capability: "chat".to_string(),
+            invocation_kind: "responses".to_string(),
+            policy_hash: "sha256:model-route-policy".to_string(),
+            input_hash: "sha256:input".to_string(),
+            output_hash: "sha256:output".to_string(),
+            idempotency_key: "model-invocation:thread:test".to_string(),
+            receipt_refs: vec![
+                "receipt://route/test".to_string(),
+                "receipt://invocation/test".to_string(),
+            ],
+            authority_grant_refs: vec!["grant://wallet/model-chat".to_string()],
+            authority_receipt_refs: vec!["receipt://wallet/model-chat".to_string()],
+            provider_auth_evidence_refs: vec![],
+            backend_evidence_refs: vec!["backend://native-local".to_string()],
+            tool_receipt_refs: vec![],
+            custody_ref: None,
+            privacy_profile: Some("internal".to_string()),
+            node_plaintext_allowed: false,
+            workflow_graph_ref: Some("workflow://graph".to_string()),
+            workflow_node_ref: Some("workflow://node/model-invocation".to_string()),
+            response_ref: Some("response://test".to_string()),
+            previous_response_ref: None,
+            stream_status: None,
+        }
+    }
+
+    #[test]
+    fn admits_resolved_model_route_decision() {
+        let record =
+            admit_route_decision(&route_decision_request()).expect("route decision admitted");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION
+        );
+        assert_eq!(record.model_ref, "model://qwen/qwen3.5-9b");
+        assert_eq!(record.receipt_refs, vec!["receipt://model-route/qwen3"]);
+        assert!(record.route_decision_hash.starts_with("sha256:"));
+        assert!(record
+            .route_decision_ref
+            .starts_with("model_mount://route_decision/"));
+    }
+
+    #[test]
+    fn rejects_unresolved_auto_model_before_provider_invocation() {
+        let mut request = route_decision_request();
+        request.model_ref = "auto".to_string();
+
+        let error = admit_route_decision(&request)
+            .expect_err("auto must be resolved before provider invocation");
+
+        assert_eq!(error, ModelMountError::UnresolvedAutoModel);
+    }
+
+    #[test]
+    fn route_decision_requires_receipt_refs() {
+        let mut request = route_decision_request();
+        request.receipt_refs.clear();
+
+        let error =
+            admit_route_decision(&request).expect_err("route decision must be receipt bound");
+
+        assert_eq!(error, ModelMountError::MissingReceiptRef);
+
+        request.receipt_refs = vec![" ".to_string()];
+        let error = admit_route_decision(&request)
+            .expect_err("route decision cannot use a blank receipt ref");
+
+        assert_eq!(error, ModelMountError::MissingReceiptRef);
+    }
+
+    #[test]
+    fn private_workspace_route_requires_ctee_custody_without_plaintext() {
+        let mut request = route_decision_request();
+        request.privacy_profile = Some("private_workspace_ctee".to_string());
+        request.node_plaintext_allowed = true;
+
+        let error = admit_route_decision(&request)
+            .expect_err("private workspace route requires custody ref first");
+
+        assert_eq!(error, ModelMountError::PrivateWorkspaceMissingCustodyRef);
+
+        request.custody_ref = Some("ctee://custody/private-workspace".to_string());
+        let error = admit_route_decision(&request)
+            .expect_err("private workspace route cannot allow plaintext");
+
+        assert_eq!(error, ModelMountError::PrivateWorkspacePlaintextNotAllowed);
+
+        request.node_plaintext_allowed = false;
+        let record = admit_route_decision(&request).expect("private cTEE route admitted");
+
+        assert_eq!(
+            record.custody_ref.as_deref(),
+            Some("ctee://custody/private-workspace")
+        );
+    }
+
+    #[test]
+    fn admits_model_invocation_with_route_and_invocation_receipts() {
+        let record =
+            admit_invocation(&invocation_admission_request()).expect("invocation admitted");
+
+        assert_eq!(
+            record.schema_version,
+            MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION
+        );
+        assert_eq!(
+            record.route_decision_ref,
+            "model_mount://route_decision/test"
+        );
+        assert_eq!(record.route_receipt_ref, "receipt://route/test");
+        assert_eq!(record.invocation_receipt_ref, "receipt://invocation/test");
+        assert!(record.invocation_admission_hash.starts_with("sha256:"));
+        assert!(record
+            .invocation_admission_ref
+            .starts_with("model_mount://invocation_admission/"));
+    }
+
+    #[test]
+    fn invocation_requires_bound_route_and_invocation_receipts() {
+        let mut request = invocation_admission_request();
+        request.receipt_refs = vec![request.invocation_receipt_ref.clone()];
+
+        let error = admit_invocation(&request).expect_err("route receipt must be bound");
+
+        assert_eq!(error, ModelMountError::MissingRouteReceiptRef);
+
+        request.receipt_refs = vec![request.route_receipt_ref.clone()];
+        let error = admit_invocation(&request).expect_err("invocation receipt must be bound");
+
+        assert_eq!(error, ModelMountError::MissingInvocationReceiptRef);
+
+        request.receipt_refs.clear();
+        let error = admit_invocation(&request).expect_err("invocation admission requires receipts");
+
+        assert_eq!(error, ModelMountError::MissingReceiptRef);
+    }
+
+    #[test]
+    fn invocation_rejects_auto_model_before_receipt_admission() {
+        let mut request = invocation_admission_request();
+        request.model_ref = "auto".to_string();
+
+        let error = admit_invocation(&request)
+            .expect_err("auto must be resolved before invocation admission");
+
+        assert_eq!(error, ModelMountError::UnresolvedAutoModel);
+    }
+
+    #[test]
+    fn private_workspace_invocation_requires_ctee_custody_without_plaintext() {
+        let mut request = invocation_admission_request();
+        request.privacy_profile = Some("private_workspace_ctee".to_string());
+        request.node_plaintext_allowed = true;
+
+        let error = admit_invocation(&request)
+            .expect_err("private workspace invocation requires custody ref first");
+
+        assert_eq!(error, ModelMountError::PrivateWorkspaceMissingCustodyRef);
+
+        request.custody_ref = Some("ctee://custody/private-workspace".to_string());
+        let error = admit_invocation(&request)
+            .expect_err("private workspace invocation cannot allow plaintext");
+
+        assert_eq!(error, ModelMountError::PrivateWorkspacePlaintextNotAllowed);
+    }
+}

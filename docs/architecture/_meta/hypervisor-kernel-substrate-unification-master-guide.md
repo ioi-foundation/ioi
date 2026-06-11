@@ -4584,7 +4584,9 @@ model-mount route-decision and invocation-admission request/record types,
 validation, cTEE custody/plaintext checks, receipt binding checks, and admission
 hashing now live in the dedicated Rust `model_mount/admission.rs` module behind
 `ModelMountCore`, making the model-route and invocation admission gate a
-distinct Rust core boundary rather than broad model-mount helper code;
+distinct Rust core boundary rather than broad model-mount helper code, and the
+admission Rust tests now live beside those gates instead of accumulating in the
+broad model-mount kernel file;
 model-mount backend-process plan request/result types, validation, public/spawn
 argument shaping, readiness status, evidence refs, and plan hashing now live in
 the dedicated Rust `model_mount/backend_process.rs` module behind
