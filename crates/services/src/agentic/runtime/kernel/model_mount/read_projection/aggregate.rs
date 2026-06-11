@@ -4,7 +4,9 @@ use super::common::{
     array_field, model_mount_projection_generated_at, model_mount_projection_schema_version,
     receipts_by_kind,
 };
-use super::{adapter_boundary, receipt, status, ModelMountReadProjectionRequest};
+use super::{
+    adapter_boundary, health, receipt, route_decision, status, ModelMountReadProjectionRequest,
+};
 
 pub(super) fn snapshot(request: &ModelMountReadProjectionRequest) -> Value {
     let state = &request.state;
@@ -34,7 +36,7 @@ pub(super) fn snapshot(request: &ModelMountReadProjectionRequest) -> Value {
         "runtimeEngines": [],
         "runtimeEngineProfiles": [],
         "runtimePreference": Value::Null,
-        "runtimeSurvey": receipt::latest_runtime_survey(request),
+        "runtimeSurvey": health::latest_runtime_survey(request),
         "tokens": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": [],
@@ -76,7 +78,7 @@ pub(super) fn projection(request: &ModelMountReadProjectionRequest) -> Value {
         "runtimeEngines": [],
         "runtimeEngineProfiles": [],
         "runtimePreference": Value::Null,
-        "runtimeSurvey": receipt::latest_runtime_survey(request),
+        "runtimeSurvey": health::latest_runtime_survey(request),
         "grants": array_field(state, "grants"),
         "vaultRefs": array_field(state, "vault_refs"),
         "mcpServers": [],
@@ -85,7 +87,7 @@ pub(super) fn projection(request: &ModelMountReadProjectionRequest) -> Value {
         "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
         "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
         "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
-        "routeDecisions": receipt::route_decisions_from_receipts(&receipts),
+        "routeDecisions": route_decision::route_decisions_from_receipts(&receipts),
         "providerHealthReceipts": receipts_by_kind(&receipts, "provider_health"),
         "runtimeSurveyReceipts": receipts_by_kind(&receipts, "runtime_survey"),
         "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),

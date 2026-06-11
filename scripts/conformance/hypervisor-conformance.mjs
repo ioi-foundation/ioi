@@ -2338,6 +2338,12 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/route_decision.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/route_decision.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/health.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/health.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           : "",
@@ -9850,10 +9856,12 @@ function runBridge() {
       /"projection" => Ok\(aggregate::projection\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /mod authority;/.test(modelMountReadProjectionEvidence) &&
       /mod receipt;/.test(modelMountReadProjectionEvidence) &&
+      /mod route_decision;/.test(modelMountReadProjectionEvidence) &&
+      /mod health;/.test(modelMountReadProjectionEvidence) &&
       /mod status;/.test(modelMountReadProjectionEvidence) &&
       /"projection_summary" => Ok\(receipt::projection_summary\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"receipt_replay" => receipt::receipt_replay\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"model_route_decisions" => Ok\(receipt::route_decisions\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"model_route_decisions" => Ok\(route_decision::route_decisions\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"authority_snapshot" => Ok\(authority::authority_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /"server_status" => Ok\(status::server_status\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /mod common;/.test(modelMountReadProjectionEvidence) &&
@@ -9877,9 +9885,9 @@ function runBridge() {
       /pub\(super\) fn status/.test(modelMountReadProjectionEvidence) &&
       /direct_catalog_status_readback_fails_closed_in_rust_boundary/.test(modelMountReadProjectionEvidence) &&
       !/"catalog_status" => Err\(ModelMountReadProjectionError::new/.test(modelMountReadProjectionEvidence) &&
-      /"latest_provider_health" => receipt::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"latest_vault_health" => receipt::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
-      /"latest_runtime_survey" => Ok\(receipt::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_provider_health" => health::latest_provider_health\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_vault_health" => health::latest_vault_health\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /"latest_runtime_survey" => Ok\(health::latest_runtime_survey\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /mod topology;/.test(modelMountReadProjectionEvidence) &&
       /"artifacts" => Ok\(topology::artifacts\(\)\)/.test(modelMountReadProjectionEvidence) &&
       /"product_artifacts" => Ok\(topology::product_artifacts\(\)\)/.test(modelMountReadProjectionEvidence) &&
@@ -9968,9 +9976,9 @@ function runBridge() {
       /fn runtime_survey_not_checked/.test(modelMountReadProjectionEvidence) &&
       /projection_summary_is_planned_from_receipt_truth/.test(modelMountReadProjectionEvidence) &&
       /receipt_replay_is_planned_from_receipt_only_context/.test(modelMountReadProjectionEvidence) &&
-      /route_decisions_are_planned_from_route_selection_receipts/.test(modelMountReadProjectionEvidence) &&
-      /latest_health_projections_are_planned_from_receipts_only/.test(modelMountReadProjectionEvidence) &&
-      /runtime_survey_is_planned_from_runtime_survey_receipts/.test(modelMountReadProjectionEvidence) &&
+      /route_decisions_have_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
+      /latest_health_projections_have_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
+      /runtime_survey_has_dedicated_receipt_projection_owner/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_projection_summary/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_receipt_replay_context/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_receipt_replay_projection/.test(modelMountReadProjectionEvidence) &&
@@ -13610,6 +13618,12 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/route_decision.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/route_decision.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/health.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/health.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")

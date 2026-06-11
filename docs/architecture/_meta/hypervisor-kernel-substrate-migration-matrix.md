@@ -20371,6 +20371,31 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1029
+
+Slice 1029 split the model_mount receipt-derived read-projection family into
+explicit Rust owner modules instead of preserving `receipt.rs` as a broad
+second dispatcher. Projection summary and receipt replay remain in
+`model_mount/read_projection/receipt.rs`; model-route decision extraction now
+lives in `model_mount/read_projection/route_decision.rs`; latest provider
+health, latest vault health, and runtime-survey receipt readback now live in
+`model_mount/read_projection/health.rs`. The root read-projection dispatcher
+delegates to those explicit owners, and module-local Rust proof tests guard the
+new boundaries.
+
+This is still non-terminal migration work: receipt-family ownership is more
+precise in Rust, but direct Rust daemon-core projection APIs over
+Agentgres-backed receipt/state-root truth must still replace command transport,
+JS state materialization, and JS edge translation before terminal projection
+ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1029 | Split receipt-derived model_mount read projections into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs`, `route_decision.rs`, and `health.rs`; conformance now requires the dedicated modules, delegated dispatcher arms, and module-local proof tests. | Direct Rust daemon-core projection APIs over Agentgres-backed model_mount receipt/state-root truth replace command bridge, JS state materialization, and JS edge translation for receipt summary/replay, route decisions, provider/vault health, and runtime-survey readback. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1028
 
 Slice 1028 split the model_mount read-projection shared helper cluster out of

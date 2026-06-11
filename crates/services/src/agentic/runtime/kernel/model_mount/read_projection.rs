@@ -6,8 +6,10 @@ mod aggregate;
 mod authority;
 mod catalog;
 mod common;
+mod health;
 mod oauth;
 mod receipt;
+mod route_decision;
 mod runtime;
 mod status;
 mod topology;
@@ -75,7 +77,7 @@ pub(super) fn model_mount_read_projection(
         "projection" => Ok(aggregate::projection(request)),
         "projection_summary" => Ok(receipt::projection_summary(request)),
         "receipt_replay" => receipt::receipt_replay(request),
-        "model_route_decisions" => Ok(receipt::route_decisions(request)),
+        "model_route_decisions" => Ok(route_decision::route_decisions(request)),
         "authority_snapshot" => Ok(authority::authority_snapshot(request)),
         "server_status" => Ok(status::server_status(request)),
         "artifacts" => Ok(topology::artifacts()),
@@ -100,9 +102,9 @@ pub(super) fn model_mount_read_projection(
         "runtime_engine_detail" => runtime::engine_detail(request),
         "runtime_model_catalog" => Ok(topology::runtime_model_catalog()),
         "open_ai_model_list" => Ok(topology::open_ai_model_list()),
-        "latest_provider_health" => receipt::latest_provider_health(request),
-        "latest_vault_health" => receipt::latest_vault_health(request),
-        "latest_runtime_survey" => Ok(receipt::latest_runtime_survey(request)),
+        "latest_provider_health" => health::latest_provider_health(request),
+        "latest_vault_health" => health::latest_vault_health(request),
+        "latest_runtime_survey" => Ok(health::latest_runtime_survey(request)),
         "catalog_status" => catalog::status(),
         other => Err(ModelMountReadProjectionError::new(
             "model_mount_read_projection_kind_unsupported",

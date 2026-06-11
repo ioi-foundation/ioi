@@ -4630,12 +4630,13 @@ live in dedicated Rust `model_mount/read_projection/status.rs` and
 proof that server status ignores retired JS status inputs, catalog status
 ignores retired catalog-status inputs, and wallet authority summary/readback
 metadata is owned outside the broad read-projection dispatcher;
-model-mount receipt-derived read projections now live in the dedicated Rust
-`model_mount/read_projection/receipt.rs` module, with module-local Rust proof
-that projection summaries, receipt replay, route-decision readback, latest
-provider/vault health, and runtime-survey status are derived from admitted
-receipt truth instead of JS topology, provider-health, or runtime-survey
-materialization;
+model-mount receipt summary/replay read projections now live in the dedicated
+Rust `model_mount/read_projection/receipt.rs` module, route-decision readback
+now lives in Rust `model_mount/read_projection/route_decision.rs`, and latest
+provider/vault health plus runtime-survey status now live in Rust
+`model_mount/read_projection/health.rs`, with module-local Rust proof that
+each family is derived from admitted receipt truth instead of JS topology,
+provider-health, or runtime-survey materialization;
 model-mount aggregate snapshot and projection envelopes now live in the
 dedicated Rust `model_mount/read_projection/aggregate.rs` module, with
 module-local Rust proof that top-level model_mount readback is assembled from
