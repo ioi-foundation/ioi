@@ -6010,6 +6010,21 @@ coding-tool JS facades remain temporary scaffolding until direct Rust
 daemon-core/workload APIs own coding-tool execution, admission, replay, and
 stable protocol projection end to end.
 
+Slice 1109 moves the coding-tool `file.apply_patch` workspace mutation path out
+of the temporary StepModule bridge helper and into Rust
+`coding_tool_workspace.rs` under the kernel service crate. Rust core now owns
+patch edit validation, workspace path escape rejection, file read/write
+execution, diff preview hashing, workspace snapshot draft construction, and
+Agentgres-style operation/payload/head/state-root transition derivation for
+patch mutations. The bridge helper delegates to Rust core and translates errors
+only.
+
+This remains non-terminal because the bridge still carries other coding-tool
+workspace observation helpers and the JS invocation facade/StepModule command
+transport still exist. The long-term target remains direct Rust
+daemon-core/workload coding-tool execution and admission, with JS retained only
+as stable protocol/API composition where needed.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

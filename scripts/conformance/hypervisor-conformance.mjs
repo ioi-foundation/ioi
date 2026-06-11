@@ -2294,6 +2294,9 @@ function runBridge() {
   const codingToolExecutionCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
     ? read("crates/services/src/agentic/runtime/kernel/coding_tool_execution.rs")
     : "";
+  const codingToolWorkspaceCore = exists("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
+    ? read("crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs")
+    : "";
   const contextPolicyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/context_policy_command.rs")
     : "";
@@ -3864,6 +3867,35 @@ function runBridge() {
       "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
     ],
     "Phase 10/11 remains non-terminal: coding-tool process/git execution must stay in the Rust kernel service crate while the bridge remains temporary StepModule protocol glue",
+  );
+  assertCheck(
+    result,
+    "coding-tool-workspace-patch-rust-core-boundary",
+    /pub mod coding_tool_workspace;/.test(kernelModuleForBridgeChecks) &&
+      /pub fn apply_workspace_patch/.test(codingToolWorkspaceCore) &&
+      /WorkspacePatchOutcome/.test(codingToolWorkspaceCore) &&
+      /WorkspacePatchTransition/.test(codingToolWorkspaceCore) &&
+      /fs::read_to_string/.test(codingToolWorkspaceCore) &&
+      /fs::write/.test(codingToolWorkspaceCore) &&
+      /file_apply_patch_write_failed/.test(codingToolWorkspaceCore) &&
+      /path_outside_workspace/.test(codingToolWorkspaceCore) &&
+      /payload:\/\/workspace\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
+      /agentgres:\/\/operation\/file\.apply_patch/.test(codingToolWorkspaceCore) &&
+      /apply_core_workspace_patch/.test(codingToolHelpersBridge) &&
+      !/fn normalize_patch_edits/.test(codingToolHelpersBridge) &&
+      !/fn patch_transition/.test(codingToolHelpersBridge) &&
+      !/fn text_diff_preview/.test(codingToolHelpersBridge) &&
+      !/file_apply_patch_write_failed/.test(codingToolHelpersBridge) &&
+      !/fs::write\(&target\.absolute_path/.test(codingToolHelpersBridge) &&
+      !/fs::read_to_string\(&target\.absolute_path/.test(codingToolHelpersBridge) &&
+      !/APPLY_PATCH_MAX_FILE_BYTES/.test(bridgeModule),
+    [
+      "crates/services/src/agentic/runtime/kernel/coding_tool_workspace.rs",
+      "crates/services/src/agentic/runtime/kernel/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/coding_tool_helpers.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+    ],
+    "Phase 10/11 remains non-terminal: file.apply_patch workspace mutation, path validation, diff preview, and transition derivation must stay in the Rust kernel service crate while the bridge remains temporary StepModule response glue",
   );
   assertCheck(
     result,

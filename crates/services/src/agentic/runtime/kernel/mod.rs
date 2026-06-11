@@ -8,6 +8,7 @@ pub mod approval;
 pub mod authority;
 pub mod capability;
 pub mod coding_tool_execution;
+pub mod coding_tool_workspace;
 pub mod command_protocol;
 pub mod ctee;
 pub mod deadline;
