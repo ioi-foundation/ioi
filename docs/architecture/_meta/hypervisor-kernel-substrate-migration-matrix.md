@@ -20371,6 +20371,30 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1032
+
+Slice 1032 split provider-execution admission out of the broad
+`model_mount/provider_execution.rs` facade and into
+`model_mount/provider_execution/admission.rs`. The child module now owns
+provider-execution request/record types, route receipt binding, unresolved
+`auto` rejection, cTEE private-workspace custody/plaintext checks,
+provider-execution hash/ref derivation, and module-local proof tests. The
+parent provider-execution module remains a facade and shared invocation helper
+owner for the invocation and stream child modules.
+
+This is still non-terminal migration work: provider-execution admission is
+isolated in Rust, but direct Rust daemon-core provider execution APIs,
+Agentgres-backed provider state/projection, command-transport retirement, and
+stable protocol APIs must still replace JS request shaping and edge translation
+before terminal provider execution ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1032 | Split provider-execution admission out of `crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs` into `provider_execution/admission.rs`; conformance now requires the admission child module, parent facade delegation, and module-local admission proof tests. | Direct Rust daemon-core provider-execution APIs over Agentgres-backed provider, route, custody, receipt, and projection truth replace command bridge, JS request shaping, JS state materialization, and JS edge translation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1031
 
 Slice 1031 split the model_mount lifecycle Rust boundary into explicit provider

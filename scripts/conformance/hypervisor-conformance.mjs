@@ -2371,6 +2371,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
           : "",
@@ -13667,6 +13670,9 @@ function runReceipts() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/invocation.rs")
           : "",
@@ -13908,6 +13914,7 @@ function runReceipts() {
     "model-mount-provider-execution-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
       exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs") &&
       /MODEL_MOUNT_PROVIDER_EXECUTION_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
@@ -13918,20 +13925,32 @@ function runReceipts() {
       /provider_execution::admit_provider_execution\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountProviderExecutionRequest/.test(
+      /mod admission;/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /admission::admit_provider_execution\(request\)/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /ModelMountProviderExecutionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs"),
+      ) &&
+      /provider_execution_admission_child_module_owns_planner_surface/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs"),
       ) &&
       /admits_provider_execution_with_route_receipt_before_driver_call/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs"),
       ) &&
       /provider_execution_requires_route_receipt_binding/.test(
-        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs"),
       ) &&
       !/fn admits_provider_execution_with_route_receipt_before_driver_call/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /MissingProviderExecutionRouteReceiptRef/.test(
+      !/fn admits_provider_execution_with_route_receipt_before_driver_call/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs"),
+      ) &&
+      /MissingProviderExecutionRouteReceiptRef/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs"),
       ) &&
       /admit_model_mount_provider_execution/.test(
         read("crates/services/src/agentic/runtime/kernel/mod.rs"),
@@ -13942,6 +13961,7 @@ function runReceipts() {
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/provider_execution/admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],

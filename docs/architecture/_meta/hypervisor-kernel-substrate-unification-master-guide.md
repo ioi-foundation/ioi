@@ -4612,7 +4612,8 @@ the facade, but each lifecycle family now carries its own module-local Rust
 proof so the next direct daemon-core API cut can retire JS edge translation
 without treating the broad lifecycle facade as the long-term owner;
 model-mount provider execution admission now lives in the Rust
-`model_mount/provider_execution.rs` boundary behind `ModelMountCore`, while
+`model_mount/provider_execution/admission.rs` boundary behind the
+`model_mount/provider_execution.rs` facade and `ModelMountCore`, while
 fixture/native-local provider invocation execution lives in
 `model_mount/provider_execution/invocation.rs` and native-local stream
 invocation chunk planning lives in
