@@ -15820,9 +15820,12 @@ function runReceipts() {
       !/state\.backendProcesses\.set/.test(backendLifecycle) &&
       !/state\.backendChildProcesses/.test(backendLifecycle) &&
       /model_mount_backend_log_js_writer_retired/.test(backendRegistryState) &&
+      /model_mount_backend_seed_js_map_write_retired/.test(backendRegistryState) &&
       /persistenceStatus:\s*"not_persisted"/.test(backendRegistryState) &&
       !/from "node:fs"|from "node:path"|appendFileSync|backend-logs/.test(backendRegistryState) &&
       !/providers:\s*state\.providers/.test(backendRegistryState) &&
+      !/state\.backends\.set/.test(backendRegistryState) &&
+      !/state\.seedBackends\(checkedAt\)/.test(stateSeeding) &&
       !/providers\.get\("provider\.(?:lmstudio|openai-compatible|ollama|vllm)"\)/.test(defaultRecords) &&
       /backend_registry_provider_map_readback_retired/.test(defaultRecords) &&
       /rust_daemon_core_backend_projection_required/.test(defaultRecords) &&
@@ -15843,6 +15846,8 @@ function runReceipts() {
       ) &&
       /deriveBackendRegistry must not read JS provider inventory/.test(backendRegistryStateTest) &&
       /Object\.hasOwn\(request,\s*"providers"\),\s*false/.test(backendRegistryStateTest) &&
+      /seedBackends fails closed before JS backend map mutation/.test(backendRegistryStateTest) &&
+      /state\.backends\.set\("backend\.llama_cpp"/.test(backendRegistryStateTest) &&
       /writeBackendLog returns redacted telemetry without local backend log files/.test(backendRegistryStateTest) &&
       /existsSync\(endpointLog\),\s*false/.test(backendRegistryStateTest) &&
       /existsSync\(backendLog\),\s*false/.test(backendRegistryStateTest) &&

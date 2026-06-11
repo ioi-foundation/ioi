@@ -77,7 +77,6 @@ test("state seeding preserves default providers, routes, and native fixture reco
   assert.equal(state.providers.get("provider.vllm").vllmBinary, "/bin/vllm");
   assert.equal(Object.hasOwn(state.endpoints.get("endpoint.native"), "backendCount"), false);
   assert.deepEqual(state.calls, [
-    ["seedBackends", "2026-06-03T12:00:00.000Z"],
     ["ensureNativeLocalFixtureArtifact", "2026-06-03T12:00:00.000Z"],
   ]);
 });
@@ -92,7 +91,6 @@ test("state seeding prunes disabled fixtures without JS LM Studio artifact fallb
   assert.equal(state.providers.has("provider.lmstudio"), false);
   assert.deepEqual(state.calls, [
     ["pruneInternalFixtureProjectionRecords"],
-    ["seedBackends", "2026-06-03T12:00:00.000Z"],
   ]);
 });
 

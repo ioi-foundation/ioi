@@ -41,8 +41,6 @@ export function seedModelMountingDefaults(state, deps = {}) {
     state.upsertDefault(state.providers, provider);
   }
 
-  state.seedBackends(checkedAt);
-
   let nativeFixtureArtifact = null;
   if (internalFixtureModelsEnabled()) {
     for (const artifact of localFixtureArtifactRecords(checkedAt)) {

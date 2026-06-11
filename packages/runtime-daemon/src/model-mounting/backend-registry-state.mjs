@@ -1,8 +1,12 @@
 export function seedBackends(state, checkedAt) {
-  for (const backend of state.deriveBackendRegistry(checkedAt)) {
-    const previous = state.backends.get(backend.id);
-    state.backends.set(backend.id, previous ? { ...previous, ...backend } : backend);
-  }
+  throwBackendProjectionRustCoreRequired("model_mount.backend.seed", {
+    checked_at: checkedAt ?? null,
+    evidence_refs: [
+      "model_mount_backend_seed_js_map_write_retired",
+      "rust_daemon_core_backend_projection_required",
+      "agentgres_backend_projection_truth_required",
+    ],
+  });
 }
 
 export function backendRegistry(state) {
@@ -120,4 +124,16 @@ export function writeBackendLog(state, endpointId, event, deps = {}) {
     ],
   };
   return record;
+}
+
+function throwBackendProjectionRustCoreRequired(operationKind, details = {}) {
+  const error = new Error("Model backend projection requires direct Rust daemon-core projection.");
+  error.status = 501;
+  error.code = "model_mount_backend_projection_rust_core_required";
+  error.details = {
+    rust_core_boundary: "model_mount.backend_projection",
+    operation_kind: operationKind,
+    ...details,
+  };
+  throw error;
 }

@@ -107,15 +107,31 @@ test("deriveBackendRegistry uses environment override, discovery, executables, a
   assert.equal(derived[2].binary, "/usr/bin/vllm");
 });
 
-test("seedBackends merges derived backend records into stored registry", () => {
+test("seedBackends fails closed before JS backend map mutation", () => {
   const state = fakeState();
   state.backends.set("backend.llama_cpp", { id: "backend.llama_cpp", status: "custom" });
 
-  seedBackends(state, "2026-06-04T05:00:00.000Z");
-
-  assert.equal(state.backends.get("backend.llama_cpp").status, "custom");
-  assert.equal(state.backends.get("backend.llama_cpp").binary, "/home/test/bin/llama-server");
-  assert.equal(state.backends.get("backend.ollama").id, "backend.ollama");
+  assert.throws(
+    () => seedBackends(state, "2026-06-04T05:00:00.000Z"),
+    (error) => {
+      assert.equal(error.status, 501);
+      assert.equal(error.code, "model_mount_backend_projection_rust_core_required");
+      assert.equal(error.details.rust_core_boundary, "model_mount.backend_projection");
+      assert.equal(error.details.operation_kind, "model_mount.backend.seed");
+      assert.equal(error.details.checked_at, "2026-06-04T05:00:00.000Z");
+      assert.deepEqual(error.details.evidence_refs, [
+        "model_mount_backend_seed_js_map_write_retired",
+        "rust_daemon_core_backend_projection_required",
+        "agentgres_backend_projection_truth_required",
+      ]);
+      assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+      assert.equal(Object.hasOwn(error.details, "checkedAt"), false);
+      return true;
+    },
+  );
+  assert.deepEqual([...state.backends.entries()], [
+    ["backend.llama_cpp", { id: "backend.llama_cpp", status: "custom" }],
+  ]);
 });
 
 test("backendRegistry overlays stored records, process snapshots, and sorted output", () => {

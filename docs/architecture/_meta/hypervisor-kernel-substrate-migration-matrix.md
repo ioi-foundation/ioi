@@ -20366,6 +20366,24 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 996
+
+Slice 996 retired model-mount backend seeding as a JS backend-truth path.
+Default model-mount seeding no longer calls `state.seedBackends(checkedAt)`,
+and `seedBackends()` now fails closed with
+`model_mount_backend_projection_rust_core_required` before writing derived
+backend records into `state.backends`.
+
+This is still non-terminal migration work: private backend registry derivation
+and process snapshot helpers remain temporary readback/planning scaffolding
+while direct Rust daemon-core backend lifecycle/projection APIs own backend
+inventory, process control, Agentgres-backed replay/projection, and stable
+IDE/CLI/SDK protocol surfaces.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 996 | Retired default backend seed map writes and made `seedBackends()` fail closed before JS backend registry mutation. | Direct Rust daemon-core backend lifecycle/projection APIs replace JS backend registry/readback scaffolding with Agentgres-backed backend truth and stable SDK/IDE/CLI APIs. |
+
 ## Implementation Slice Evidence: 995
 
 Slice 995 hardened runtime agent/subagent persistence cache ordering. Agent and
