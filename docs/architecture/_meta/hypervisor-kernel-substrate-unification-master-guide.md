@@ -5754,6 +5754,21 @@ coverage only; new positive runtime-service execution must land as direct Rust
 daemon-core admission, Agentgres expected-head/state-root binding, replay, and
 projection over stable protocol APIs.
 
+Slice 1093 retires the stale JS runtime-service bridge projection authoring
+that survived after the command adapter and runtime bridge facades were made
+fail-closed. `runtime-record-projections.mjs` no longer exports
+`runtimeBridgeRunRecord()`, `runtimeBridgeMessagesForProjection()`, or
+`runtimeBridgeComputerUseTrace()`, and `runtime-event-envelopes.mjs` no longer
+derives action-proposal or commit-gate events from bridge readback. The daemon
+index no longer wires these helpers into `createRuntimeBridgeTurn()`, whose JS
+facade remains fail-closed before dispatch, persistence, or event append.
+
+Conformance now proves these projection builders and derived-event injector
+stay absent instead of merely proving their output uses canonical field names.
+Future positive runtime-service replay must be emitted by direct Rust
+daemon-core projection over Agentgres-admitted truth, not by resurrected JS
+bridge event shaping.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

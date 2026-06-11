@@ -43,22 +43,6 @@ function helpers() {
     }),
     policyDecisionRefsForRunEvent: (event) => normalizeArray(event.data?.policy_decision_refs),
     receiptRefsForRunEvent: (event) => normalizeArray(event.data?.receipt_refs),
-    runtimeBridgeComputerUseTrace: () => ({
-      actionProposal: {
-        proposal_ref: "proposal-one",
-        target_ref: "target-one",
-        policy_decision_ref: "policy-one",
-        confirmation_required: true,
-      },
-      commitGate: {
-        commit_gate_ref: "commit-one",
-        authority_required: "operator",
-      },
-      outcomeContract: {
-        outcome_ref: "outcome-one",
-      },
-    }),
-    runtimeBridgeMessagesForProjection: ({ projection }) => projection.events,
     runtimeEventStatusForRunEvent: (event) =>
       event.type === "policy_blocked" ? "blocked" : "running",
     stringRecord: (value) =>
@@ -70,91 +54,6 @@ function helpers() {
       event.type === "policy_blocked" ? "runtime.lsp-diagnostics.blocking-gate" : "runtime.thread",
   });
 }
-
-test("runtime event envelopes inject missing computer-use derived events after observation", () => {
-  const runtime = helpers();
-
-  const events = runtime.insertRuntimeBridgeComputerUseDerivedEvents({
-    projection: {
-      runId: "run-one",
-      turnId: "turn-one",
-      created_at: "2026-06-03T00:00:00.000Z",
-      updated_at: "2026-06-03T00:00:01.000Z",
-      events: [
-        { event_kind: "turn.started", id: "start" },
-        { event_kind: "computer_use.observation", id: "observe" },
-        { event_kind: "delta", id: "delta" },
-      ],
-    },
-    agent: { cwd: "/workspace" },
-    threadId: "thread-one",
-  });
-
-  assert.deepEqual(events.map((event) => event.event_kind), [
-    "turn.started",
-    "computer_use.observation",
-    "computer_use.action_proposed",
-    "computer_use.commit_gate",
-    "delta",
-  ]);
-  assert.equal(events[2].event_stream_id, "events_thread-one");
-  assert.equal(events[2].created_at, "2026-06-03T00:00:01.000Z");
-  assert.equal(events[2].payload_schema_version, "computer.v1");
-  assert.equal(events[2].payload.computer_use_proposal_ref, "proposal-one");
-  assert.equal(events[2].status, "running");
-  assert.deepEqual(events[2].policy_decision_refs, ["policy-one"]);
-  assert.equal(events[3].payload.outcome_contract.outcome_ref, "outcome-one");
-  assert.deepEqual(events[3].receipt_refs, ["receipt_run-one_runtime_bridge_computer_use_trace"]);
-});
-
-test("runtime event envelopes ignore retired bridge projection timestamp aliases for derived events", () => {
-  const runtime = helpers();
-
-  const events = runtime.insertRuntimeBridgeComputerUseDerivedEvents({
-    projection: {
-      runId: "run-one",
-      turnId: "turn-one",
-      created_at: "2026-06-03T00:00:00.000Z",
-      updated_at: "2026-06-03T00:00:01.000Z",
-      createdAt: "1999-01-01T00:00:00.000Z",
-      updatedAt: "1999-01-01T00:00:01.000Z",
-      events: [
-        { event_kind: "turn.started", id: "start" },
-        { event_kind: "computer_use.observation", id: "observe" },
-      ],
-    },
-    agent: { cwd: "/workspace" },
-    threadId: "thread-one",
-  });
-
-  const derivedEvents = events.filter((event) =>
-    ["computer_use.action_proposed", "computer_use.commit_gate"].includes(event.event_kind),
-  );
-  assert.equal(derivedEvents.length, 2);
-  for (const event of derivedEvents) {
-    assert.equal(event.created_at, "2026-06-03T00:00:01.000Z");
-    assert.notEqual(event.created_at, "1999-01-01T00:00:01.000Z");
-    assert.equal(Object.hasOwn(event, "createdAt"), false);
-  }
-});
-
-test("runtime event envelopes do not duplicate existing computer-use derived events", () => {
-  const runtime = helpers();
-  const inputEvents = [
-    { event_kind: "computer_use.observation" },
-    { event_kind: "computer_use.action_proposed" },
-    { event_kind: "computer_use.commit_gate" },
-  ];
-
-  const events = runtime.insertRuntimeBridgeComputerUseDerivedEvents({
-    projection: { runId: "run-one", turnId: "turn-one", events: inputEvents },
-    agent: { cwd: "/workspace" },
-    threadId: "thread-one",
-  });
-
-  assert.deepEqual(events, inputEvents);
-  assert.notEqual(events, inputEvents);
-});
 
 test("tti envelopes preserve diagnostics and computer-use public envelopes", () => {
   const runtime = helpers();

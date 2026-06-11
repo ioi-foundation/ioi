@@ -586,9 +586,6 @@ const {
 
 const {
   attachChecklistToRuntimeJob,
-  runtimeBridgeComputerUseTrace,
-  runtimeBridgeMessagesForProjection,
-  runtimeBridgeRunRecord,
   runtimeChecklistRecord,
   runtimeChecklistRecordForRun,
   runtimeJobRecord,
@@ -596,8 +593,6 @@ const {
   runtimeTaskRecord,
   runtimeTaskRecordForRun,
 } = createRuntimeRecordProjections({
-  COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-  artifact,
   doctorHash,
   eventStreamIdForThread,
   isComputerUseRunEventType,
@@ -615,7 +610,6 @@ const {
 });
 
 const {
-  insertRuntimeBridgeComputerUseDerivedEvents,
   normalizeRuntimeEventEnvelope,
   ttiEnvelopeForRunEvent,
 } = createRuntimeEventEnvelopeHelpers({
@@ -635,8 +629,6 @@ const {
   payloadSummaryForRunEvent,
   policyDecisionRefsForRunEvent,
   receiptRefsForRunEvent,
-  runtimeBridgeComputerUseTrace,
-  runtimeBridgeMessagesForProjection,
   runtimeEventStatusForRunEvent,
   stringRecord,
   workflowNodeForRunEvent,
@@ -1145,14 +1137,12 @@ export class AgentgresRuntimeStateStore {
       RuntimeApiBridgeUnavailableError,
       RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS,
       eventStreamIdForThread,
-      insertRuntimeBridgeComputerUseDerivedEvents,
       insertRuntimeBridgeDiagnosticsInjectionEvent,
       insertRuntimeBridgeUsageDeltaEvents,
       normalizeArray,
       optionalPositiveInteger,
       optionalString,
       runIdForTurn,
-      runtimeBridgeRunRecord,
       runtimeError,
       runtimeSessionIdForAgent,
     });

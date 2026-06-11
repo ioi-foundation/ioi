@@ -20888,10 +20888,6 @@ function runCompositor() {
   const runtimeEventEnvelopesTest = exists("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
     ? read("packages/runtime-daemon/src/runtime-event-envelopes.test.mjs")
     : "";
-  const insertRuntimeBridgeComputerUseDerivedEventsBlock =
-    runtimeEventEnvelopes.match(
-      /function insertRuntimeBridgeComputerUseDerivedEvents\(\{ projection, agent, threadId \}\) \{[\s\S]*?\n  \}/,
-    )?.[0] ?? "";
   const ttiEnvelopeForRunEventBlock =
     runtimeEventEnvelopes.match(
       /function ttiEnvelopeForRunEvent\(\{ event, threadId, turnId, workspaceRoot \}\) \{[\s\S]*?\n  \}/,
@@ -21678,21 +21674,6 @@ function runCompositor() {
     const endIndex = remainder.indexOf(endMarker, startMarker.length);
     return endIndex < 0 ? remainder : remainder.slice(0, endIndex);
   }
-  const runtimeBridgeComputerUseTraceBlock = blockBetween(
-    runtimeRecordProjections,
-    "function runtimeBridgeComputerUseTrace",
-    "function runtimeBridgeRunStateFromTrace",
-  );
-  const runtimeBridgeMessageForEventBlock = blockBetween(
-    runtimeRecordProjections,
-    "function runtimeBridgeMessageForEvent",
-    "function runtimeBridgeEventPayload",
-  );
-  const runtimeBridgeComputerUseTrajectoryBlock = blockBetween(
-    runtimeRecordProjections,
-    "function runtimeBridgeTrajectoryFromComputerUseEvents",
-    "function runtimeTaskRecordForRun",
-  );
   const runtimeTaskRecordForRunBlock = blockBetween(
     runtimeRecordProjections,
     "function runtimeTaskRecordForRun",
@@ -23917,92 +23898,55 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-bridge-run-record-usage-aliases-retired",
-    !/^\s*usageTelemetry,?\s*$/m.test(runtimeRecordProjections) &&
-      !/^\s*runtimeUsage:\s*usageTelemetry,?\s*$/m.test(runtimeRecordProjections) &&
-      /retiredRuntimeBridgeUsageAliasKeys/.test(runtimeRecordProjectionsTest) &&
-      /runtime bridge run record emits canonical usage telemetry only/.test(
-        runtimeRecordProjectionsTest,
-      ) &&
-      /assertMissingKeys\(run\.trace,\s*retiredRuntimeBridgeUsageAliasKeys\)/.test(
-        runtimeRecordProjectionsTest,
-      ),
+    !/function runtimeBridgeRunRecord/.test(runtimeRecordProjections) &&
+      !/runtimeBridgeRunRecord/.test(runtimeRecordProjectionsTest) &&
+      !/runtimeBridgeRunRecord/.test(runtimeDaemonIndex) &&
+      !/runtimeBridgeRunRecord/.test(runtimeBridgeThread),
     [
       "packages/runtime-daemon/src/runtime-record-projections.mjs",
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge run records must not emit retired usage telemetry aliases",
+    "Phase 10/11 is pending: runtime bridge run-record projection authoring must stay retired until direct Rust daemon-core projection APIs own runtime-service replay",
   );
   assertCheck(
     result,
     "runtime-bridge-message-data-aliases-retired",
-    runtimeBridgeMessageForEventBlock.length > 0 &&
-      /const payload = canonicalRuntimeBridgeEventPayload\(event\);/.test(
-        runtimeBridgeMessageForEventBlock,
-      ) &&
-      /event_kind:\s*payload\.event_kind \?\? event\.source_event_kind \?\? event\.event_kind \?\? type/.test(
-        runtimeBridgeMessageForEventBlock,
-      ) &&
-      !/^\s*(?:eventKind|workflowGraphId|workflowNodeId|componentKind|payloadSchemaVersion|runtimeEventId|runtimeEventKind|sourceEventKind|receiptRefs|artifactRefs|policyDecisionRefs):/m.test(
-        runtimeBridgeMessageForEventBlock,
-      ) &&
-      /function canonicalRuntimeBridgeEventPayload/.test(runtimeRecordProjections) &&
-      /"eventKind",\s*[\r\n\s]*"workflowGraphId",\s*[\r\n\s]*"workflowNodeId",\s*[\r\n\s]*"componentKind",\s*[\r\n\s]*"payloadSchemaVersion"/.test(
-        runtimeRecordProjections,
-      ) &&
-      /runtime bridge messages emit canonical event data fields only/.test(
-        runtimeRecordProjectionsTest,
-      ) &&
-      /retiredRuntimeBridgeMessageDataAliasKeys/.test(runtimeRecordProjectionsTest) &&
-      /assertMissingKeys\(message\.data,\s*retiredRuntimeBridgeMessageDataAliasKeys\)/.test(
-        runtimeRecordProjectionsTest,
-      ),
+    !/function runtimeBridgeMessagesForProjection/.test(runtimeRecordProjections) &&
+      !/function runtimeBridgeMessageForEvent/.test(runtimeRecordProjections) &&
+      !/function canonicalRuntimeBridgeEventPayload/.test(runtimeRecordProjections) &&
+      !/runtimeBridgeMessagesForProjection/.test(runtimeRecordProjectionsTest) &&
+      !/runtimeBridgeMessagesForProjection/.test(runtimeEventEnvelopes) &&
+      !/runtimeBridgeMessagesForProjection/.test(runtimeDaemonIndex),
     [
       "packages/runtime-daemon/src/runtime-record-projections.mjs",
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+      "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge message data must emit canonical snake_case fields without retired camelCase projection aliases",
+    "Phase 10/11 is pending: runtime bridge message projection authoring must stay retired instead of preserving JS bridge readback shims",
   );
   assertCheck(
     result,
     "runtime-bridge-computer-use-trace-aliases-retired",
-    runtimeBridgeComputerUseTraceBlock.length > 0 &&
-      /runtime bridge computer-use trace emits canonical projection fields only/.test(
-        runtimeRecordProjectionsTest,
+    !/function runtimeBridgeComputerUseTrace/.test(runtimeRecordProjections) &&
+      !/function runtimeBridgeTrajectoryFromComputerUseEvents/.test(
+        runtimeRecordProjections,
       ) &&
-      /runtime_event_id:\s*event\.data\?\.runtime_event_id \?\? null/.test(
-        runtimeBridgeComputerUseTraceBlock,
+      !/function runtimeBridge(?:RunStateFromTrace|OutcomeContractFromProposal|CommitGateFromProposal|ActionProposalFromAffordanceGraph|EnvironmentSelectionFromObservation|LeaseFromObservation)/.test(
+        runtimeRecordProjections,
       ) &&
-      /workflow_node_id:\s*event\.data\?\.workflow_node_id \?\? null/.test(
-        runtimeBridgeComputerUseTraceBlock,
-      ) &&
-      /receipt_refs:\s*normalizeArray\(event\.data\?\.receipt_refs\)/.test(
-        runtimeBridgeComputerUseTraceBlock,
-      ) &&
-      runtimeBridgeComputerUseTrajectoryBlock.length > 0 &&
-      /runtime_event_ref:\s*event\.data\?\.runtime_event_id \?\? null/.test(
-        runtimeBridgeComputerUseTrajectoryBlock,
-      ) &&
-      /workflow_node_id:\s*event\.data\?\.workflow_node_id \?\? null/.test(
-        runtimeBridgeComputerUseTrajectoryBlock,
-      ) &&
-      /assertMissingKeys\(trace\.events\[0\], \[/.test(runtimeRecordProjectionsTest) &&
-      !/^\s*(?:schemaVersion|runId|turnId|eventCount|environmentSelection|runState|observationBundle|targetIndex|affordanceGraph|actionProposal|actionReceipt|outcomeContract|commitGate|recoveryPolicy|humanHandoffState|contractIngest|retentionMode)\s*:/m.test(
-        runtimeBridgeComputerUseTraceBlock,
-      ) &&
-      !/^\s*(?:runtimeEventId|runtimeEventKind|workflowNodeId|componentKind|receiptRefs|artifactRefs)\s*:/m.test(
-        runtimeBridgeComputerUseTraceBlock,
-      ) &&
-      !/event\.data\?\.(?:runtimeEventId|runtimeEventKind|workflowNodeId|componentKind|receiptRefs|artifactRefs)\b/.test(
-        runtimeBridgeComputerUseTraceBlock,
-      ) &&
-      !/event\.data\?\.(?:runtimeEventId|workflowNodeId)\b/.test(
-        runtimeBridgeComputerUseTrajectoryBlock,
-      ),
+      !/runtimeBridgeComputerUseTrace/.test(runtimeRecordProjectionsTest) &&
+      !/runtimeBridgeComputerUseTrace/.test(runtimeEventEnvelopes) &&
+      !/runtimeBridgeComputerUseTrace/.test(runtimeDaemonIndex),
     [
       "packages/runtime-daemon/src/runtime-record-projections.mjs",
       "packages/runtime-daemon/src/runtime-record-projections.test.mjs",
+      "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
+      "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge computer-use trace artifacts must emit canonical snake_case projection fields without retired camelCase aliases",
+    "Phase 10/11 is pending: runtime bridge computer-use trace authoring must stay retired until Rust projection owns runtime-service replay",
   );
   assertCheck(
     result,
@@ -28002,26 +27946,19 @@ function runCompositor() {
   assertCheck(
     result,
     "runtime-bridge-derived-event-timestamp-aliases-retired",
-    insertRuntimeBridgeComputerUseDerivedEventsBlock.length > 0 &&
-      /projection\.updated_at\s*\?\?\s*[\r\n\s]*projection\.created_at/.test(
-        insertRuntimeBridgeComputerUseDerivedEventsBlock,
-      ) &&
-      !/projection\.(?:updatedAt|createdAt)\b/.test(
-        insertRuntimeBridgeComputerUseDerivedEventsBlock,
-      ) &&
-      /runtime event envelopes ignore retired bridge projection timestamp aliases for derived events/.test(
-        runtimeEventEnvelopesTest,
-      ) &&
-      /updatedAt:\s*"1999-01-01T00:00:01\.000Z"/.test(runtimeEventEnvelopesTest) &&
-      /assert\.notEqual\(event\.created_at,\s*"1999-01-01T00:00:01\.000Z"\)/.test(
-        runtimeEventEnvelopesTest,
-      ) &&
-      /Object\.hasOwn\(event,\s*"createdAt"\),\s*false/.test(runtimeEventEnvelopesTest),
+    !/insertRuntimeBridgeComputerUseDerivedEvents/.test(runtimeEventEnvelopes) &&
+      !/runtimeBridgeDerivedComputerUseEvent/.test(runtimeEventEnvelopes) &&
+      !/insertRuntimeBridgeComputerUseDerivedEvents/.test(runtimeEventEnvelopesTest) &&
+      !/runtimeBridgeDerivedComputerUseEvent/.test(runtimeEventEnvelopesTest) &&
+      !/insertRuntimeBridgeComputerUseDerivedEvents/.test(runtimeDaemonIndex) &&
+      !/insertRuntimeBridgeComputerUseDerivedEvents/.test(runtimeBridgeThread),
     [
       "packages/runtime-daemon/src/runtime-event-envelopes.mjs",
       "packages/runtime-daemon/src/runtime-event-envelopes.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
+      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge derived event insertion must ignore retired camelCase projection timestamp aliases",
+    "Phase 10/11 is pending: runtime bridge derived event insertion must stay retired rather than minting JS projection events from bridge readback",
   );
   assertCheck(
     result,

@@ -15,133 +15,10 @@ export function createRuntimeEventEnvelopeHelpers({
   payloadSummaryForRunEvent,
   policyDecisionRefsForRunEvent,
   receiptRefsForRunEvent,
-  runtimeBridgeComputerUseTrace,
-  runtimeBridgeMessagesForProjection,
   runtimeEventStatusForRunEvent,
   stringRecord,
   workflowNodeForRunEvent,
 } = {}) {
-  function insertRuntimeBridgeComputerUseDerivedEvents({ projection, agent, threadId }) {
-    const events = [...normalizeArray(projection.events)];
-    const hasActionProposal = events.some((event) => event?.event_kind === "computer_use.action_proposed");
-    const hasCommitGate = events.some((event) => event?.event_kind === "computer_use.commit_gate");
-    if (hasActionProposal && hasCommitGate) return events;
-    const bridgeMessages = runtimeBridgeMessagesForProjection({ agent, projection: { ...projection, events } });
-    const trace = runtimeBridgeComputerUseTrace({ projection, events: bridgeMessages });
-    if (!trace?.actionProposal || !trace?.commitGate || !trace?.outcomeContract) return events;
-    const insertionIndex = Math.max(
-      events.findIndex((event) => event?.event_kind === "computer_use.affordance_graph"),
-      events.findIndex((event) => event?.event_kind === "computer_use.observation"),
-    );
-    if (insertionIndex < 0) return events;
-    const createdAt =
-      events[insertionIndex]?.created_at ??
-      projection.updated_at ??
-      projection.created_at ??
-      new Date().toISOString();
-    const derivedEvents = [
-      ...(hasActionProposal
-        ? []
-        : [
-            runtimeBridgeDerivedComputerUseEvent({
-              projection,
-              threadId,
-              createdAt,
-              eventKind: "computer_use.action_proposed",
-              sourceEventKind: "ComputerUse.ActionProposed",
-              itemSuffix: "computer-use-action-proposed",
-              workflowNodeId: "computer-use.action-proposal",
-              workspaceRoot: agent.cwd,
-              payload: {
-                computer_use_step: "propose_action",
-                computer_use_proposal_ref: trace.actionProposal.proposal_ref,
-                computer_use_target_ref: trace.actionProposal.target_ref,
-                computer_use_policy_decision_ref: trace.actionProposal.policy_decision_ref,
-                action_proposal: trace.actionProposal,
-                policy_gate: {
-                  policy_decision_ref: trace.actionProposal.policy_decision_ref,
-                  outcome: trace.actionProposal.confirmation_required
-                    ? "requires_confirmation_before_execution"
-                    : "approved_for_proposal_only",
-                  authority_scope: trace.commitGate.authority_required,
-                },
-              },
-            }),
-          ]),
-      ...(hasCommitGate
-        ? []
-        : [
-            runtimeBridgeDerivedComputerUseEvent({
-              projection,
-              threadId,
-              createdAt,
-              eventKind: "computer_use.commit_gate",
-              sourceEventKind: "ComputerUse.CommitGate",
-              itemSuffix: "computer-use-commit-gate",
-              workflowNodeId: "computer-use.commit-gate",
-              workspaceRoot: agent.cwd,
-              payload: {
-                computer_use_step: "commit_or_handoff",
-                computer_use_commit_gate_ref: trace.commitGate.commit_gate_ref,
-                outcome_contract: trace.outcomeContract,
-                commit_gate: trace.commitGate,
-                human_handoff_state: null,
-              },
-            }),
-          ]),
-    ];
-    events.splice(insertionIndex + 1, 0, ...derivedEvents);
-    return events;
-  }
-
-  function runtimeBridgeDerivedComputerUseEvent({
-    projection,
-    threadId,
-    createdAt,
-    eventKind,
-    sourceEventKind,
-    itemSuffix,
-    workflowNodeId,
-    workspaceRoot,
-    payload,
-  }) {
-    return {
-      event_stream_id: eventStreamIdForThread(threadId),
-      thread_id: threadId,
-      turn_id: projection.turnId,
-      item_id: `${projection.turnId}:item:${itemSuffix}`,
-      idempotency_key: `turn:${projection.turnId}:${eventKind}`,
-      source: "runtime_auto",
-      source_event_kind: sourceEventKind,
-      event_kind: eventKind,
-      status: payload?.commit_gate?.user_confirmation_required
-        ? "blocked"
-        : eventKind === "computer_use.action_proposed"
-          ? "running"
-          : "completed",
-      actor: "runtime",
-      created_at: createdAt,
-      workspace_root: workspaceRoot,
-      workflow_node_id: workflowNodeId,
-      component_kind: "computer_use_harness",
-      payload_schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-      payload: {
-        schema_version: COMPUTER_USE_CONTRACT_SCHEMA_VERSION,
-        event_kind: sourceEventKind,
-        ...payload,
-      },
-      receipt_refs: [`receipt_${projection.runId}_runtime_bridge_computer_use_trace`],
-      artifact_refs: ["computer-use-trace.json"],
-      policy_decision_refs: [
-        payload?.computer_use_policy_decision_ref ??
-        payload?.commit_gate?.policy_decision_ref,
-      ].filter(Boolean),
-      rollback_refs: [],
-      redaction_profile: "internal",
-      fixture_profile: null,
-    };
-  }
-
   function ttiEnvelopeForRunEvent({ event, threadId, turnId, workspaceRoot }) {
     const eventKind = RUN_EVENT_TO_TTI_EVENT[event.type] ?? `item.${event.type}`;
     const payload = payloadSummaryForRunEvent(event);
@@ -232,9 +109,7 @@ export function createRuntimeEventEnvelopeHelpers({
   }
 
   return {
-    insertRuntimeBridgeComputerUseDerivedEvents,
     normalizeRuntimeEventEnvelope,
-    runtimeBridgeDerivedComputerUseEvent,
     ttiEnvelopeForRunEvent,
   };
 }
