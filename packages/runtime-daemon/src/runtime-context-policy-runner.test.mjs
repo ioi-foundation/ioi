@@ -1267,6 +1267,8 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
     operation_kind: "runtime.lifecycle_projection.agent_runs",
     projection_kind: "agent_runs",
     agent_id: "agent_123",
+    thread_id: "thread_123",
+    turn_id: "turn_123",
     run_id: "run_123",
     artifact_ref: "artifact_123",
     workspace_root: "/workspace/project",
@@ -1290,6 +1292,8 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
   );
   assert.equal(captured.request.projection_kind, "agent_runs");
   assert.equal(captured.request.agent_id, "agent_123");
+  assert.equal(captured.request.thread_id, "thread_123");
+  assert.equal(captured.request.turn_id, "turn_123");
   assert.equal(captured.request.run_id, "run_123");
   assert.equal(captured.request.artifact_ref, "artifact_123");
   assert.equal(
@@ -1299,6 +1303,8 @@ test("runtime lifecycle projection-required runner sends Rust daemon-core reques
   assert.equal(result.record.status_code, 501);
   assert.equal(result.record.details.workspace_root, "/workspace/project");
   assert.equal(Object.hasOwn(result.record.details, "agentId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "threadId"), false);
+  assert.equal(Object.hasOwn(result.record.details, "turnId"), false);
   assert.equal(Object.hasOwn(result.record.details, "artifactRef"), false);
   assert.equal(Object.hasOwn(result.record.details, "workspaceRoot"), false);
 });

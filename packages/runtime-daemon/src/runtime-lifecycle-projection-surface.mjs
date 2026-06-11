@@ -48,6 +48,39 @@ export function createRuntimeLifecycleProjectionSurface({
         thread_id: optionalString(threadId),
       });
     },
+    getThreadUsage(_store, threadId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.thread_usage",
+        projection_kind: "thread_usage",
+        thread_id: optionalString(threadId),
+      });
+    },
+    listThreadTurns(_store, threadId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.thread_turns",
+        projection_kind: "thread_turns",
+        thread_id: optionalString(threadId),
+      });
+    },
+    getThreadTurn(_store, threadId, turnId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.thread_turn",
+        projection_kind: "thread_turn",
+        thread_id: optionalString(threadId),
+        turn_id: optionalString(turnId),
+      });
+    },
+    listThreadEvents(_store, threadId) {
+      fail({
+        operation: "runtime_lifecycle_projection",
+        operation_kind: "runtime.lifecycle_projection.thread_events",
+        projection_kind: "thread_events",
+        thread_id: optionalString(threadId),
+      });
+    },
     listRuns(_store, agentId = null) {
       fail({
         operation: "runtime_lifecycle_projection",

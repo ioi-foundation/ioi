@@ -16567,6 +16567,7 @@ function runReceipts() {
       /runtime_lifecycle_projection_rust_core_required/.test(policyCoreForState) &&
       /artifact_ref/.test(policyCoreForState) &&
       /rust_policy_plans_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
+      /turn_id/.test(policyCoreForState) &&
       /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
       /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
@@ -16581,6 +16582,9 @@ function runReceipts() {
         runtimeContextPolicyRunnerTestForState,
       ) &&
       /captured\.request\.artifact_ref,\s*"artifact_123"/.test(
+        runtimeContextPolicyRunnerTestForState,
+      ) &&
+      /captured\.request\.turn_id,\s*"turn_123"/.test(
         runtimeContextPolicyRunnerTestForState,
       ) &&
       /throwRuntimeLifecycleProjectionRustCoreRequired/.test(
@@ -16600,6 +16604,10 @@ function runReceipts() {
       ) &&
       /projection_kind:\s*"agents"/.test(runtimeLifecycleProjectionSurface) &&
       /agent_runs/.test(runtimeLifecycleProjectionSurface) &&
+      /thread_usage/.test(runtimeLifecycleProjectionSurface) &&
+      /thread_turns/.test(runtimeLifecycleProjectionSurface) &&
+      /thread_turn/.test(runtimeLifecycleProjectionSurface) &&
+      /thread_events/.test(runtimeLifecycleProjectionSurface) &&
       /run_wait/.test(runtimeLifecycleProjectionSurface) &&
       /run_conversation/.test(runtimeLifecycleProjectionSurface) &&
       /run_usage/.test(runtimeLifecycleProjectionSurface) &&
@@ -16612,13 +16620,17 @@ function runReceipts() {
       /run_artifacts/.test(runtimeLifecycleProjectionSurface) &&
       /run_artifact/.test(runtimeLifecycleProjectionSurface) &&
       /artifact_ref:\s*optionalString\(artifactRef\)/.test(runtimeLifecycleProjectionSurface) &&
+      /turn_id:\s*optionalString\(turnId\)/.test(runtimeLifecycleProjectionSurface) &&
       /lifecycle projection surface fails public agent\/thread\/run list projections through Rust core/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
       /lifecycle projection surface keeps route identifiers in canonical snake_case details/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
-      /lifecycle projection surface fails public run sub-projections through Rust core/.test(
+      /lifecycle projection surface fails public thread and run sub-projections through Rust core/.test(
+        runtimeLifecycleProjectionSurfaceTest,
+      ) &&
+      /turn_id,\s*"turn_123"/.test(
         runtimeLifecycleProjectionSurfaceTest,
       ) &&
       /calls\.at\(-1\)\.artifact_ref,\s*"artifact_123"/.test(
@@ -16644,6 +16656,18 @@ function runReceipts() {
         runtimeRouteHandlers,
       ) &&
       /store\.lifecycleProjectionSurface\.getThread\(store,\s*threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getThreadUsage\(store,\s*threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listThreadTurns\(store,\s*threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.getThreadTurn\(store,\s*threadId,\s*decodeURIComponent\(segments\[4\]\)\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.lifecycleProjectionSurface\.listThreadEvents\(store,\s*threadId\)/.test(
         runtimeRouteHandlers,
       ) &&
       /store\.lifecycleProjectionSurface\.getRun\(store,\s*runId\)/.test(
@@ -16691,6 +16715,10 @@ function runReceipts() {
       /agent, thread, and run detail routes use lifecycle projection surface/.test(
         runtimeRouteHandlersTest,
       ) &&
+      /getThreadUsage/.test(runtimeRouteHandlersTest) &&
+      /listThreadTurns/.test(runtimeRouteHandlersTest) &&
+      /getThreadTurn/.test(runtimeRouteHandlersTest) &&
+      /listThreadEvents/.test(runtimeRouteHandlersTest) &&
       /getRunUsage/.test(runtimeRouteHandlersTest) &&
       /listRunEvents/.test(runtimeRouteHandlersTest) &&
       /replayRun/.test(runtimeRouteHandlersTest) &&
@@ -16712,6 +16740,18 @@ function runReceipts() {
         runtimeRouteHandlers,
       ) &&
       !/writeJsonResponse\(response,\s*store\.getThread\(threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.usageForThread\(threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.listTurns\(threadId\)/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.getTurn\(threadId/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.eventsForThread\(threadId/.test(
         runtimeRouteHandlers,
       ) &&
       !/writeJsonResponse\(response,\s*store\.getRun\(runId\)\)/.test(

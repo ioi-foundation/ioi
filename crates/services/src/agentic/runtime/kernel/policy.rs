@@ -1322,6 +1322,8 @@ pub struct RuntimeLifecycleProjectionRequiredRequest {
     #[serde(default)]
     pub thread_id: Option<String>,
     #[serde(default)]
+    pub turn_id: Option<String>,
+    #[serde(default)]
     pub run_id: Option<String>,
     #[serde(default)]
     pub artifact_ref: Option<String>,
@@ -1350,6 +1352,8 @@ pub struct RuntimeLifecycleProjectionRequiredRecord {
     pub agent_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turn_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3415,6 +3419,7 @@ impl RuntimeLifecycleProjectionRequiredCore {
         let projection_kind = optional_trimmed(request.projection_kind.as_deref());
         let agent_id = optional_trimmed(request.agent_id.as_deref());
         let thread_id = optional_trimmed(request.thread_id.as_deref());
+        let turn_id = optional_trimmed(request.turn_id.as_deref());
         let run_id = optional_trimmed(request.run_id.as_deref());
         let artifact_ref = optional_trimmed(request.artifact_ref.as_deref());
         let workspace_root = optional_trimmed(request.workspace_root.as_deref());
@@ -3436,6 +3441,7 @@ impl RuntimeLifecycleProjectionRequiredCore {
             "projection_kind": projection_kind,
             "agent_id": agent_id,
             "thread_id": thread_id,
+            "turn_id": turn_id,
             "run_id": run_id,
             "artifact_ref": artifact_ref,
             "workspace_root": workspace_root,
@@ -3457,6 +3463,7 @@ impl RuntimeLifecycleProjectionRequiredCore {
             projection_kind,
             agent_id,
             thread_id,
+            turn_id,
             run_id,
             artifact_ref,
             workspace_root,
@@ -8453,7 +8460,8 @@ mod tests {
                 operation_kind: "runtime.lifecycle_projection.agent_runs".to_string(),
                 projection_kind: Some("agent_runs".to_string()),
                 agent_id: Some("agent_123".to_string()),
-                thread_id: None,
+                thread_id: Some("thread_123".to_string()),
+                turn_id: Some("turn_123".to_string()),
                 run_id: Some("run_123".to_string()),
                 artifact_ref: Some("artifact_123".to_string()),
                 workspace_root: Some("/workspace/project".to_string()),
@@ -8484,11 +8492,15 @@ mod tests {
         );
         assert_eq!(record.details["projection_kind"], "agent_runs");
         assert_eq!(record.details["agent_id"], "agent_123");
+        assert_eq!(record.details["thread_id"], "thread_123");
+        assert_eq!(record.details["turn_id"], "turn_123");
         assert_eq!(record.details["run_id"], "run_123");
         assert_eq!(record.details["artifact_ref"], "artifact_123");
         assert_eq!(record.details["workspace_root"], "/workspace/project");
         assert!(record.details.get("projectionKind").is_none());
         assert!(record.details.get("agentId").is_none());
+        assert!(record.details.get("threadId").is_none());
+        assert!(record.details.get("turnId").is_none());
         assert!(record.details.get("artifactRef").is_none());
         assert!(record.details.get("workspaceRoot").is_none());
     }

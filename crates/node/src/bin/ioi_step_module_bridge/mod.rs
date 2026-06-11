@@ -12182,6 +12182,8 @@ mod tests {
                     "operation_kind": "runtime.lifecycle_projection.agent_runs",
                     "projection_kind": "agent_runs",
                     "agent_id": "agent_123",
+                    "thread_id": "thread_123",
+                    "turn_id": "turn_123",
                     "run_id": "run_123",
                     "artifact_ref": "artifact_123",
                     "workspace_root": "/workspace/project",
@@ -12219,11 +12221,15 @@ mod tests {
         );
         assert_eq!(response["details"]["projection_kind"], "agent_runs");
         assert_eq!(response["details"]["agent_id"], "agent_123");
+        assert_eq!(response["details"]["thread_id"], "thread_123");
+        assert_eq!(response["details"]["turn_id"], "turn_123");
         assert_eq!(response["details"]["run_id"], "run_123");
         assert_eq!(response["details"]["artifact_ref"], "artifact_123");
         assert_eq!(response["details"]["workspace_root"], "/workspace/project");
         assert!(response["details"].get("projectionKind").is_none());
         assert!(response["details"].get("agentId").is_none());
+        assert!(response["details"].get("threadId").is_none());
+        assert!(response["details"].get("turnId").is_none());
         assert!(response["details"].get("artifactRef").is_none());
         assert!(response["details"].get("workspaceRoot").is_none());
     }

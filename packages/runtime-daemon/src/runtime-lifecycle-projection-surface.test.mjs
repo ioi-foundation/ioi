@@ -84,6 +84,17 @@ test("lifecycle projection surface keeps route identifiers in canonical snake_ca
     },
   );
   assert.throws(
+    () => surface.getThreadTurn({}, "thread_123", "turn_123"),
+    (error) => {
+      assert.equal(error.details.projection_kind, "thread_turn");
+      assert.equal(error.details.thread_id, "thread_123");
+      assert.equal(error.details.turn_id, "turn_123");
+      assert.equal(Object.hasOwn(error.details, "threadId"), false);
+      assert.equal(Object.hasOwn(error.details, "turnId"), false);
+      return true;
+    },
+  );
+  assert.throws(
     () => surface.getRun({}, "run_123"),
     (error) => {
       assert.equal(error.details.projection_kind, "run");
@@ -108,12 +119,13 @@ test("lifecycle projection surface keeps route identifiers in canonical snake_ca
   assert.deepEqual(calls.map((call) => call.projection_kind), [
     "agent",
     "thread",
+    "thread_turn",
     "run",
     "agent_runs",
   ]);
 });
 
-test("lifecycle projection surface fails public run sub-projections through Rust core", () => {
+test("lifecycle projection surface fails public thread and run sub-projections through Rust core", () => {
   const calls = [];
   const surface = createRuntimeLifecycleProjectionSurface({
     lifecycleRunner: lifecycleRunner(calls),
@@ -121,6 +133,9 @@ test("lifecycle projection surface fails public run sub-projections through Rust
   });
 
   const methods = [
+    ["getThreadUsage", ["thread_123"], "thread_usage", "thread_id"],
+    ["listThreadTurns", ["thread_123"], "thread_turns", "thread_id"],
+    ["listThreadEvents", ["thread_123"], "thread_events", "thread_id"],
     ["waitRun", ["run_123"], "run_wait"],
     ["getRunConversation", ["run_123"], "run_conversation"],
     ["getRunUsage", ["run_123"], "run_usage"],
@@ -134,15 +149,16 @@ test("lifecycle projection surface fails public run sub-projections through Rust
     ["getRunArtifact", ["run_123", "artifact_123"], "run_artifact"],
   ];
 
-  for (const [method, args, projectionKind] of methods) {
+  for (const [method, args, projectionKind, idKey = "run_id"] of methods) {
     assert.throws(
       () => surface[method]({}, ...args),
       (error) => {
         assert.equal(error.status, 501);
         assert.equal(error.code, "runtime_lifecycle_projection_rust_core_required");
         assert.equal(error.details.projection_kind, projectionKind);
-        assert.equal(error.details.run_id, "run_123");
+        assert.equal(error.details[idKey], idKey === "thread_id" ? "thread_123" : "run_123");
         assert.equal(Object.hasOwn(error.details, "runId"), false);
+        assert.equal(Object.hasOwn(error.details, "threadId"), false);
         return true;
       },
     );

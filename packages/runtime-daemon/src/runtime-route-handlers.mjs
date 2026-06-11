@@ -5,9 +5,6 @@ export function createRuntimeRouteHandlers(deps) {
     nativeInvocationResponse,
     notFound,
     readBody,
-    runtimeEventCursorFromRequest,
-    usageRequestMetadataFromUrl,
-    usageTelemetryWithRequestMetadata,
     writeJsonResponse,
     writeMcpJsonRpcResponse,
     writeSse,
@@ -685,13 +682,7 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "usage" && !segments[4]) {
-      writeJsonResponse(
-        response,
-        usageTelemetryWithRequestMetadata(
-          store.usageForThread(threadId),
-          usageRequestMetadataFromUrl(url, { defaultScope: "thread" }),
-        ),
-      );
+      writeJsonResponse(response, store.lifecycleProjectionSurface.getThreadUsage(store, threadId));
       return;
     }
     if (request.method === "POST" && action === "context-budget" && !segments[4]) {
@@ -1085,15 +1076,18 @@ export function createRuntimeRouteHandlers(deps) {
       return;
     }
     if (request.method === "GET" && action === "turns" && !segments[4]) {
-      writeJsonResponse(response, store.listTurns(threadId));
+      writeJsonResponse(response, store.lifecycleProjectionSurface.listThreadTurns(store, threadId));
       return;
     }
     if (request.method === "GET" && action === "turns" && segments[4] && !segments[5]) {
-      writeJsonResponse(response, store.getTurn(threadId, decodeURIComponent(segments[4])));
+      writeJsonResponse(
+        response,
+        store.lifecycleProjectionSurface.getThreadTurn(store, threadId, decodeURIComponent(segments[4])),
+      );
       return;
     }
     if (request.method === "GET" && action === "events" && (!segments[4] || segments[4] === "stream")) {
-      writeSse(response, store.eventsForThread(threadId, runtimeEventCursorFromRequest({ request, url })));
+      writeSse(response, store.lifecycleProjectionSurface.listThreadEvents(store, threadId));
       return;
     }
     if (request.method === "GET" && action === "memory" && segments[4] === "policy") {

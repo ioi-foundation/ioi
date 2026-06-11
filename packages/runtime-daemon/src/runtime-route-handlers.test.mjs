@@ -83,6 +83,38 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
       error.details = { projection_kind: "thread", thread_id: threadId };
       throw error;
     },
+    getThreadUsage(_store, threadId) {
+      calls.push({ method: "getThreadUsage", id: threadId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "thread_usage", thread_id: threadId };
+      throw error;
+    },
+    listThreadTurns(_store, threadId) {
+      calls.push({ method: "listThreadTurns", id: threadId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "thread_turns", thread_id: threadId };
+      throw error;
+    },
+    getThreadTurn(_store, threadId, turnId) {
+      calls.push({ method: "getThreadTurn", id: threadId, turnId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "thread_turn", thread_id: threadId, turn_id: turnId };
+      throw error;
+    },
+    listThreadEvents(_store, threadId) {
+      calls.push({ method: "listThreadEvents", id: threadId });
+      const error = new Error("runtime lifecycle projection requires Rust core");
+      error.status = 501;
+      error.code = "runtime_lifecycle_projection_rust_core_required";
+      error.details = { projection_kind: "thread_events", thread_id: threadId };
+      throw error;
+    },
     getRun(_store, runId) {
       calls.push({ method: "getRun", id: runId });
       const error = new Error("runtime lifecycle projection requires Rust core");
@@ -193,6 +225,10 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     usageForRun: retiredRouteWrapper,
     eventsForRun: retiredRouteWrapper,
     replayFromCanonicalState: retiredRouteWrapper,
+    usageForThread: retiredRouteWrapper,
+    listTurns: retiredRouteWrapper,
+    getTurn: retiredRouteWrapper,
+    eventsForThread: retiredRouteWrapper,
   };
 
   await assert.rejects(
@@ -225,6 +261,24 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     }),
     { code: "runtime_lifecycle_projection_rust_core_required" },
   );
+  for (const path of [
+    "/v1/threads/thread_route/usage",
+    "/v1/threads/thread_route/turns",
+    "/v1/threads/thread_route/turns/turn_1",
+    "/v1/threads/thread_route/events",
+    "/v1/threads/thread_route/events/stream",
+  ]) {
+    await assert.rejects(
+      () => handleThreadRoute({
+        request: request({ url: path }),
+        response: responseRecorder(),
+        store,
+        url: new URL(path, "http://daemon.test"),
+        segments: path.split("/").filter(Boolean),
+      }),
+      { code: "runtime_lifecycle_projection_rust_core_required" },
+    );
+  }
   await assert.rejects(
     () => handleRunRoute({
       request: request({ url: "/v1/runs/run_route" }),
@@ -265,6 +319,11 @@ test("agent, thread, and run detail routes use lifecycle projection surface", as
     { method: "getAgent", id: "agent_route" },
     { method: "listRuns", id: "agent_route" },
     { method: "getThread", id: "thread_route" },
+    { method: "getThreadUsage", id: "thread_route" },
+    { method: "listThreadTurns", id: "thread_route" },
+    { method: "getThreadTurn", id: "thread_route", turnId: "turn_1" },
+    { method: "listThreadEvents", id: "thread_route" },
+    { method: "listThreadEvents", id: "thread_route" },
     { method: "getRun", id: "run_route" },
     { method: "getRunUsage", id: "run_route" },
     { method: "waitRun", id: "run_route" },

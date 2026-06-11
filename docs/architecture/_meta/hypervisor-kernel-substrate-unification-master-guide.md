@@ -4535,18 +4535,19 @@ slice begins. A clean worktree is a conformance aid: it keeps review, rollback,
 and context recovery tractable as the daemon, Rust core, workflow compositor,
 Agentgres, wallet.network, and cTEE paths converge.
 
-Current lane note: after Slice 975, public runtime account, runtime-node, tool
+Current lane note: after Slice 976, public runtime account, runtime-node, tool
 catalog, agent, thread, run, agent-run lifecycle, run wait, run conversation,
-run usage, run events, run replay, run trace/inspect, run computer-use
-trace/trajectory, run scorecard, and run artifact projections are no longer
-JS-authored public truth. The daemon edge now
+thread usage, thread turns, thread turn detail, thread events, run usage, run
+events, run replay, run trace/inspect, run computer-use trace/trajectory, run
+scorecard, and run artifact projections are no longer JS-authored public truth.
+The daemon edge now
 translates `RuntimeToolCatalogProjectionRequiredCore` and
 `RuntimeLifecycleProjectionRequiredCore` fail-closed records for those surfaces
 while direct Rust daemon-core projection APIs are extracted. This is a
 larger-cut migration seam, not terminal architecture: the command transport, JS
 edge error translation, remaining internal descriptor helpers, and remaining
-internal agent/thread/run list/get, usage, event/replay, trace, and artifact
-helpers are scaffolding only until Rust daemon-core catalog and lifecycle projection over
+internal agent/thread/run list/get, usage, turn, event/replay, trace, and
+artifact helpers are scaffolding only until Rust daemon-core catalog and lifecycle projection over
 Agentgres-admitted truth, ArtifactRef/PayloadRef binding where needed,
 wallet/network and cTEE authority where required, receipt/state-root binding,
 replay, and stable IDE/CLI/SDK protocol APIs own the surfaces end to end.
