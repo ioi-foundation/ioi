@@ -15697,6 +15697,51 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1128
+
+Slice 1128 moves runtime-control daemon-core command request/response shaping
+out of the temporary Node
+`crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs`
+transport and into Rust policy owner modules:
+`crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`,
+`crates/services/src/agentic/runtime/kernel/policy/operator_control.rs`, and
+`crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs`. Rust policy
+core now owns the bridge request structs, response envelopes, canonical command
+source markers, bridge-facing error codes, and policy facade exports for
+coding-tool budget recovery state updates and admission-required refusals,
+diagnostics operator override state updates, operator turn-control
+admission-required refusals, operator interrupt state updates, operator steer
+state updates, run-cancel state updates, and run-cancel admission-required
+refusals. The Node runtime-control bridge is now a thin temporary delegate that
+converts Rust policy command errors into the local `BridgeError`; it no longer
+owns `serde::Deserialize`, `serde_json::json`, source markers, or local
+error-code shaping.
+
+This is Rust-core ownership progress, not terminal runtime-control migration.
+The current Node command bridge, command dispatch table, shared daemon-core
+command runner, JS command callers, runtime context-policy runner, diagnostics
+repair surface, operator turn-control surface, coding-tool budget recovery
+surface, and run-cancel surface remain scaffolding until direct Rust
+daemon-core runtime-control admission/persistence/projection APIs own
+wallet.network authority where approval or operator authority applies,
+Agentgres expected-head and state-root persistence, receipts/events, replay,
+projection, and stable IDE/CLI/SDK protocol surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services coding_tool_budget_recovery --lib` | passed |
+| `cargo test -p ioi-services operator_control --lib` | passed |
+| `cargo test -p ioi-services run_cancel --lib` | passed |
+| `cargo test -p ioi-node runtime_control --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1127
 
 Slice 1127 moves MCP/memory daemon-core command request/response shaping out of

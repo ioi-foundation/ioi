@@ -191,6 +191,154 @@ pub struct OperatorTurnControlAdmissionRequiredRecord {
     pub generated_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct OperatorControlCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl OperatorControlCommandError {
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        self.message.as_str()
+    }
+
+    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
+        Self {
+            code,
+            message: format!("{error:?}"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: DiagnosticsOperatorOverrideStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OperatorTurnControlAdmissionRequiredBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: OperatorTurnControlAdmissionRequiredRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OperatorInterruptStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: OperatorInterruptStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OperatorSteerStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: OperatorSteerStateUpdateRequest,
+}
+
+pub fn plan_diagnostics_operator_override_state_update_response(
+    request: DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
+) -> Result<Value, OperatorControlCommandError> {
+    let record = DiagnosticsOperatorOverrideStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            OperatorControlCommandError::from_debug(
+                "diagnostics_operator_override_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_diagnostics_operator_override_state_update_command",
+        "backend": runtime_control_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+pub fn plan_operator_turn_control_admission_required_response(
+    request: OperatorTurnControlAdmissionRequiredBridgeRequest,
+) -> Result<Value, OperatorControlCommandError> {
+    let record = OperatorTurnControlAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            OperatorControlCommandError::from_debug(
+                "operator_turn_control_admission_required_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_operator_turn_control_admission_required_command",
+        "backend": runtime_control_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation": record.operation.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+pub fn plan_operator_interrupt_state_update_response(
+    request: OperatorInterruptStateUpdateBridgeRequest,
+) -> Result<Value, OperatorControlCommandError> {
+    let record = OperatorInterruptStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            OperatorControlCommandError::from_debug(
+                "operator_interrupt_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_operator_interrupt_state_update_command",
+        "backend": runtime_control_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "stop_condition": record.stop_condition.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+pub fn plan_operator_steer_state_update_response(
+    request: OperatorSteerStateUpdateBridgeRequest,
+) -> Result<Value, OperatorControlCommandError> {
+    let record = OperatorSteerStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            OperatorControlCommandError::from_debug("operator_steer_state_update_invalid", error)
+        })?;
+    Ok(json!({
+        "source": "rust_operator_steer_state_update_command",
+        "backend": runtime_control_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+fn runtime_control_policy_backend(backend: Option<String>) -> String {
+    backend.unwrap_or_else(|| "rust_policy".to_string())
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct DiagnosticsOperatorOverrideStateUpdateCore;
 

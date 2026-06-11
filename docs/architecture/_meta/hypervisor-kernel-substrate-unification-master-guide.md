@@ -6356,6 +6356,28 @@ Agentgres expected-head and state-root truth, receipt/event materialization,
 transport containment, replay, projection, and stable IDE/CLI/SDK surfaces end
 to end.
 
+Slice 1128 moves runtime-control command request/response shaping out of the
+temporary Node runtime-control bridge and into the Rust policy owner modules:
+`policy/coding_tool_budget_recovery.rs`, `policy/operator_control.rs`, and
+`policy/run_cancel.rs`. Rust core now owns the bridge request structs, response
+envelopes, canonical command source markers, and bridge-facing error codes for
+coding-tool budget recovery state updates and admission-required refusals,
+diagnostics operator override state updates, operator turn-control
+admission-required refusals, operator interrupt/steer state updates, and
+run-cancel state updates and admission-required refusals.
+
+This remains non-terminal because the Node bridge, command dispatch table,
+shared daemon-core command runner, JS command callers, runtime context-policy
+runner, diagnostics repair surface, operator turn-control surface,
+coding-tool budget recovery surface, and run-cancel surface still exist. The
+remaining `ioi_step_module_bridge/runtime_control_command.rs` file is a
+temporary delegate to Rust core, not a durable runtime-control boundary. The
+long-term target remains direct Rust daemon-core runtime-control
+admission/persistence/projection APIs over wallet.network authority where
+approval or operator authority applies, Agentgres expected-head and state-root
+truth, receipt/event materialization, replay, projection, and stable
+IDE/CLI/SDK surfaces end to end.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

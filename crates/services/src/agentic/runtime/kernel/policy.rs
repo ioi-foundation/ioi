@@ -20,9 +20,13 @@ pub use admission_required::{
     WorkflowEditAdmissionRequiredRecord, WorkflowEditAdmissionRequiredRequest,
 };
 pub use coding_tool_budget_recovery::{
+    plan_coding_tool_budget_recovery_admission_required_response,
+    plan_coding_tool_budget_recovery_state_update_response,
+    CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
     CodingToolBudgetRecoveryAdmissionRequiredCore, CodingToolBudgetRecoveryAdmissionRequiredError,
     CodingToolBudgetRecoveryAdmissionRequiredRecord,
-    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryStateUpdateCore,
+    CodingToolBudgetRecoveryAdmissionRequiredRequest, CodingToolBudgetRecoveryCommandError,
+    CodingToolBudgetRecoveryStateUpdateBridgeRequest, CodingToolBudgetRecoveryStateUpdateCore,
     CodingToolBudgetRecoveryStateUpdateError, CodingToolBudgetRecoveryStateUpdateRecord,
     CodingToolBudgetRecoveryStateUpdateRequest,
 };
@@ -75,12 +79,18 @@ pub use mcp_memory::{
     ThreadMemoryAgentStateUpdateRequest,
 };
 pub use operator_control::{
+    plan_diagnostics_operator_override_state_update_response,
+    plan_operator_interrupt_state_update_response, plan_operator_steer_state_update_response,
+    plan_operator_turn_control_admission_required_response,
+    DiagnosticsOperatorOverrideStateUpdateBridgeRequest,
     DiagnosticsOperatorOverrideStateUpdateCore, DiagnosticsOperatorOverrideStateUpdateError,
     DiagnosticsOperatorOverrideStateUpdateRecord, DiagnosticsOperatorOverrideStateUpdateRequest,
+    OperatorControlCommandError, OperatorInterruptStateUpdateBridgeRequest,
     OperatorInterruptStateUpdateCore, OperatorInterruptStateUpdateError,
     OperatorInterruptStateUpdateRecord, OperatorInterruptStateUpdateRequest,
-    OperatorSteerStateUpdateCore, OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord,
-    OperatorSteerStateUpdateRequest, OperatorTurnControlAdmissionRequiredCore,
+    OperatorSteerStateUpdateBridgeRequest, OperatorSteerStateUpdateCore,
+    OperatorSteerStateUpdateError, OperatorSteerStateUpdateRecord, OperatorSteerStateUpdateRequest,
+    OperatorTurnControlAdmissionRequiredBridgeRequest, OperatorTurnControlAdmissionRequiredCore,
     OperatorTurnControlAdmissionRequiredError, OperatorTurnControlAdmissionRequiredRecord,
     OperatorTurnControlAdmissionRequiredRequest,
 };
@@ -101,9 +111,12 @@ pub use projection_required::{
     SkillHookRegistryProjectionRequiredRecord, SkillHookRegistryProjectionRequiredRequest,
 };
 pub use run_cancel::{
-    RunCancelAdmissionRequiredCore, RunCancelAdmissionRequiredError,
-    RunCancelAdmissionRequiredRecord, RunCancelAdmissionRequiredRequest, RunCancelStateUpdateCore,
-    RunCancelStateUpdateError, RunCancelStateUpdateRecord, RunCancelStateUpdateRequest,
+    plan_run_cancel_admission_required_response, plan_run_cancel_state_update_response,
+    RunCancelAdmissionRequiredBridgeRequest, RunCancelAdmissionRequiredCore,
+    RunCancelAdmissionRequiredError, RunCancelAdmissionRequiredRecord,
+    RunCancelAdmissionRequiredRequest, RunCancelCommandError, RunCancelStateUpdateBridgeRequest,
+    RunCancelStateUpdateCore, RunCancelStateUpdateError, RunCancelStateUpdateRecord,
+    RunCancelStateUpdateRequest,
 };
 pub use thread_lifecycle::{
     plan_agent_create_state_update_response, plan_agent_status_state_update_response,

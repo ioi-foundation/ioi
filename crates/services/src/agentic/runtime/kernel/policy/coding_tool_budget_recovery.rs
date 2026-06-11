@@ -108,6 +108,95 @@ pub struct CodingToolBudgetRecoveryAdmissionRequiredRecord {
     pub generated_at: String,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CodingToolBudgetRecoveryCommandError {
+    code: &'static str,
+    message: String,
+}
+
+impl CodingToolBudgetRecoveryCommandError {
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        self.message.as_str()
+    }
+
+    fn from_debug<E: std::fmt::Debug>(code: &'static str, error: E) -> Self {
+        Self {
+            code,
+            message: format!("{error:?}"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolBudgetRecoveryStateUpdateBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: CodingToolBudgetRecoveryStateUpdateRequest,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
+    #[serde(default)]
+    backend: Option<String>,
+    request: CodingToolBudgetRecoveryAdmissionRequiredRequest,
+}
+
+pub fn plan_coding_tool_budget_recovery_state_update_response(
+    request: CodingToolBudgetRecoveryStateUpdateBridgeRequest,
+) -> Result<Value, CodingToolBudgetRecoveryCommandError> {
+    let record = CodingToolBudgetRecoveryStateUpdateCore
+        .plan(&request.request)
+        .map_err(|error| {
+            CodingToolBudgetRecoveryCommandError::from_debug(
+                "coding_tool_budget_recovery_state_update_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_budget_recovery_state_update_command",
+        "backend": runtime_control_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "updated_at": record.updated_at.clone(),
+        "operator_control": record.operator_control.clone(),
+        "run": record.run.clone(),
+    }))
+}
+
+pub fn plan_coding_tool_budget_recovery_admission_required_response(
+    request: CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest,
+) -> Result<Value, CodingToolBudgetRecoveryCommandError> {
+    let record = CodingToolBudgetRecoveryAdmissionRequiredCore
+        .plan(&request.request)
+        .map_err(|error| {
+            CodingToolBudgetRecoveryCommandError::from_debug(
+                "coding_tool_budget_recovery_admission_required_invalid",
+                error,
+            )
+        })?;
+    Ok(json!({
+        "source": "rust_coding_tool_budget_recovery_admission_required_command",
+        "backend": runtime_control_policy_backend(request.backend),
+        "record": record.clone(),
+        "status": record.status.clone(),
+        "status_code": record.status_code,
+        "code": record.code.clone(),
+        "message": record.message.clone(),
+        "rust_core_boundary": record.rust_core_boundary.clone(),
+        "operation_kind": record.operation_kind.clone(),
+        "details": record.details.clone(),
+    }))
+}
+
+fn runtime_control_policy_backend(backend: Option<String>) -> String {
+    backend.unwrap_or_else(|| "rust_policy".to_string())
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct CodingToolBudgetRecoveryStateUpdateCore;
 
