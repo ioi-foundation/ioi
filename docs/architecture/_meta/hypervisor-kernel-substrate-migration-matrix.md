@@ -20710,3 +20710,35 @@ Focused evidence:
 | `npm run hypervisor-conformance:docs` | passed |
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
+
+## Implementation Slice Evidence: 1044
+
+Slice 1044 splits the coding-tool approval manifest and approval
+request/decision/revoke state-update daemon-core command wrappers out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` transport
+and into `crates/node/src/bin/ioi_step_module_bridge/approval_command.rs`. The
+canonical approval authority owner remains
+`crates/services/src/agentic/runtime/kernel/approval.rs`; the new bridge child
+module is fixed migration transport only, not a long-term architecture
+endpoint. The bridge conformance guard now proves the approval command
+wrappers are outside the broad bridge module while the existing bridge tests
+continue to prove the Rust authority path.
+
+This is a Rust transport-boundary cleanup, not terminal approval migration.
+The current JS approval surfaces, approval state runners, and Node command
+bridge remain scaffolding until direct Rust daemon-core approval
+authority/admission/persistence, wallet.network grants, Agentgres
+expected-head and state-root persistence, approval receipts/events, replay,
+projection, and stable protocol APIs own the approval paths end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node approval --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |

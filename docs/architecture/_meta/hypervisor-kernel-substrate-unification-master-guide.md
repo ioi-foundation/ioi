@@ -4935,6 +4935,21 @@ APIs over wallet approval authority where applicable, Agentgres expected
 heads/state roots, proposal/apply/repair receipts and events, replay,
 projection, and stable IDE/CLI/SDK protocol APIs.
 
+Slice 1044 moves the coding-tool approval manifest and approval
+request/decision/revoke state-update daemon-core command wrappers out of the
+monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs` migration
+transport into `crates/node/src/bin/ioi_step_module_bridge/approval_command.rs`.
+The approval authority owner remains
+`crates/services/src/agentic/runtime/kernel/approval.rs`; the bridge child
+module is only fixed migration transport that translates Rust-authored
+approval authority records at the process boundary. The conformance guard now
+proves the approval command wrappers stay out of the broad bridge module.
+This is not terminal approval migration. Resume by replacing this command
+transport with direct Rust daemon-core approval authority/admission/persistence
+APIs over wallet.network grants, Agentgres expected heads/state roots,
+approval receipts/events, replay, projection, and stable IDE/CLI/SDK protocol
+APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

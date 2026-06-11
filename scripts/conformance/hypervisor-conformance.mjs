@@ -2263,6 +2263,9 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const approvalCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/approval_command.rs")
+    : "";
   const computerUseBridge = exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs")
     : "";
@@ -5785,12 +5788,15 @@ function runBridge() {
       /CODING_TOOL_APPROVAL_REQUEST_SCHEMA_VERSION/.test(approvalCore) &&
       /CODING_TOOL_APPROVAL_MANIFEST_SCHEMA_VERSION/.test(approvalCore) &&
       /rust_authority_plans_coding_tool_approval_manifest/.test(approvalCore) &&
-      /plan_coding_tool_approval_manifest/.test(bridgeModule) &&
-      /CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /mod approval_command;/.test(bridgeModule) &&
+      /fn plan_coding_tool_approval_manifest/.test(approvalCommandBridge) &&
+      /CodingToolApprovalBridgeRequest/.test(approvalCommandBridge) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(approvalCommandBridge) &&
       /approval_authority_rejects_step_module_command_schema/.test(bridgeModule) &&
-      /rust_coding_tool_approval_command/.test(bridgeModule) &&
+      /rust_coding_tool_approval_command/.test(approvalCommandBridge) &&
       /bridge_plans_coding_tool_approval_manifest_through_rust_core/.test(bridgeModule) &&
+      !/fn plan_coding_tool_approval_manifest/.test(bridgeModule) &&
+      !/struct CodingToolApprovalBridgeRequest/.test(bridgeModule) &&
       /createCodingToolApprovalRunnerFromEnv/.test(runtimeCodingToolApprovalRunner) &&
       /RustCodingToolApprovalRunner/.test(runtimeCodingToolApprovalRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeCodingToolApprovalRunner) &&
@@ -5833,6 +5839,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-coding-tool-approval.mjs",
@@ -6200,17 +6207,19 @@ function runBridge() {
       !/"approvalId": approval_id|"eventId": request\.event_id|"receiptRefs": request\.receipt_refs|"policyDecisionRefs": request\.policy_decision_refs|"createdAt": request\.created_at/.test(
         approvalCore,
       ) &&
-      /plan_approval_request_state_update/.test(bridgeModule) &&
-      /ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(bridgeModule) &&
+      /fn plan_approval_request_state_update/.test(approvalCommandBridge) &&
+      /ApprovalRequestStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
+      /DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(approvalCommandBridge) &&
       /approval_state_rejects_step_module_command_schema/.test(bridgeModule) &&
-      /rust_approval_request_state_update_command/.test(bridgeModule) &&
+      /rust_approval_request_state_update_command/.test(approvalCommandBridge) &&
       /bridge_plans_approval_request_state_update_through_rust_core/.test(bridgeModule) &&
       /bridge_plans_approval_request_agent_state_update_through_rust_core/.test(
         bridgeModule,
       ) &&
       /response\["operator_control"\]\["approval_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("approvalId"\)\.is_none\(\)/.test(bridgeModule) &&
+      !/fn plan_approval_request_state_update/.test(bridgeModule) &&
+      !/struct ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
       /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
       /RustRuntimeApprovalStateRunner/.test(runtimeApprovalStateRunner) &&
       /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeApprovalStateRunner) &&
@@ -6288,6 +6297,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
@@ -6309,12 +6319,14 @@ function runBridge() {
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": lease_status/.test(
         approvalCore,
       ) &&
-      /plan_approval_decision_state_update/.test(bridgeModule) &&
-      /ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_approval_decision_state_update_command/.test(bridgeModule) &&
+      /fn plan_approval_decision_state_update/.test(approvalCommandBridge) &&
+      /ApprovalDecisionStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
+      /rust_approval_decision_state_update_command/.test(approvalCommandBridge) &&
       /bridge_plans_approval_decision_state_update_through_rust_core/.test(bridgeModule) &&
       /response\["operator_control"\]\["lease_id"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("leaseId"\)\.is_none\(\)/.test(bridgeModule) &&
+      !/fn plan_approval_decision_state_update/.test(bridgeModule) &&
+      !/struct ApprovalDecisionStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planApprovalDecisionStateUpdate/.test(runtimeApprovalStateRunner) &&
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
@@ -6372,6 +6384,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
@@ -6393,12 +6406,14 @@ function runBridge() {
       !/"approvalId": approval_id|"leaseId": lease_id|"leaseStatus": "revoked"/.test(
         approvalCore,
       ) &&
-      /plan_approval_revoke_state_update/.test(bridgeModule) &&
-      /ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
-      /rust_approval_revoke_state_update_command/.test(bridgeModule) &&
+      /fn plan_approval_revoke_state_update/.test(approvalCommandBridge) &&
+      /ApprovalRevokeStateUpdateBridgeRequest/.test(approvalCommandBridge) &&
+      /rust_approval_revoke_state_update_command/.test(approvalCommandBridge) &&
       /bridge_plans_approval_revoke_state_update_through_rust_core/.test(bridgeModule) &&
       /response\["operator_control"\]\["lease_status"\]/.test(bridgeModule) &&
       /response\["operator_control"\]\.get\("leaseStatus"\)\.is_none\(\)/.test(bridgeModule) &&
+      !/fn plan_approval_revoke_state_update/.test(bridgeModule) &&
+      !/struct ApprovalRevokeStateUpdateBridgeRequest/.test(bridgeModule) &&
       /planApprovalRevokeStateUpdate/.test(runtimeApprovalStateRunner) &&
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
@@ -6446,6 +6461,7 @@ function runBridge() {
     [
       "crates/services/src/agentic/runtime/kernel/approval.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
+      "crates/node/src/bin/ioi_step_module_bridge/approval_command.rs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.mjs",
       "packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-approval-surface.mjs",
