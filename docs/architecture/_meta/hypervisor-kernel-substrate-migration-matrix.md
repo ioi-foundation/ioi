@@ -20371,6 +20371,30 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1012
+
+Slice 1012 split the model_mount route-decision and invocation-admission gate
+out of the broad `model_mount.rs` kernel file into `model_mount/admission.rs`.
+Route-decision and invocation-admission request/record types, validation,
+receipt-ref binding checks, cTEE private-workspace custody/plaintext checks,
+route-decision hashing, and invocation-admission hashing now live in the
+dedicated Rust module, while `ModelMountCore` remains the public facade and
+forwards to that module.
+
+This is still non-terminal migration work: route decision and invocation
+admission still cross migration command transport and JS edge translation until
+direct Rust daemon-core admission/projection APIs own authority, Agentgres-backed
+truth, replay, and stable protocol surfaces. The dedicated Rust module is the
+admission ownership boundary for that retirement work, not a canonical
+long-term bridge.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1012 | Moved route-decision and invocation-admission request/record types, validators, cTEE custody/plaintext checks, receipt binding checks, refs, and hashes into `crates/services/src/agentic/runtime/kernel/model_mount/admission.rs`; `ModelMountCore` forwards to the module. | Direct Rust daemon-core admission/projection APIs replace command transport and JS edge translation for model-route decisions and invocation admission over wallet-gated, Agentgres-backed truth. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1011
 
 Slice 1011 split the model_mount provider execution and provider-result cluster

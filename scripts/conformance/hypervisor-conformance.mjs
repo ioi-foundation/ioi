@@ -2300,11 +2300,14 @@ function runBridge() {
     ? read("packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs")
     : "";
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
-    ? [
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-          : "",
+      ? [
+          read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+          exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+            ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+            : "",
+          exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+            ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+            : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -13438,11 +13441,14 @@ function runReceipts() {
     ? read("crates/services/src/agentic/runtime/kernel/agentgres_admission.rs")
     : "";
   const modelMountCore = exists("crates/services/src/agentic/runtime/kernel/model_mount.rs")
-    ? [
-        read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
-        exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-          ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
-          : "",
+      ? [
+          read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+          exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+            ? read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs")
+            : "",
+          exists("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+            ? read("crates/services/src/agentic/runtime/kernel/model_mount/accepted_receipt.rs")
+            : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
@@ -13568,17 +13574,29 @@ function runReceipts() {
     result,
     "model-mount-route-decision-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs") &&
       /MODEL_MOUNT_ROUTE_DECISION_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
+      /mod admission;/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /pub use admission::/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
       /ModelMountCore/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
-      /UnresolvedAutoModel/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
-      /PrivateWorkspacePlaintextNotAllowed/.test(
+      /admission::admit_route_decision\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
+      ) &&
+      /ModelMountRouteDecisionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /UnresolvedAutoModel/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /PrivateWorkspacePlaintextNotAllowed/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
       ) &&
       /admit_model_mount_route_decision/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/admission.rs",
       "crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
@@ -13588,17 +13606,26 @@ function runReceipts() {
     result,
     "model-mount-invocation-admission-core",
     exists("crates/services/src/agentic/runtime/kernel/model_mount.rs") &&
+      exists("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs") &&
       /MODEL_MOUNT_INVOCATION_ADMISSION_SCHEMA_VERSION/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /ModelMountInvocationAdmissionRequest/.test(
+      /admission::admit_invocation\(request\)/.test(
         read("crates/services/src/agentic/runtime/kernel/model_mount.rs"),
       ) &&
-      /MissingRouteReceiptRef/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
-      /MissingInvocationReceiptRef/.test(read("crates/services/src/agentic/runtime/kernel/model_mount.rs")) &&
+      /ModelMountInvocationAdmissionRequest/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /MissingRouteReceiptRef/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
+      /MissingInvocationReceiptRef/.test(
+        read("crates/services/src/agentic/runtime/kernel/model_mount/admission.rs"),
+      ) &&
       /admit_model_mount_invocation/.test(read("crates/services/src/agentic/runtime/kernel/mod.rs")),
     [
       "crates/services/src/agentic/runtime/kernel/model_mount.rs",
+      "crates/services/src/agentic/runtime/kernel/model_mount/admission.rs",
       "crates/services/src/agentic/runtime/kernel/mod.rs",
     ],
     "Phase 4/9 is pending: Rust model_mount core must own invocation receipt admission and route-decision binding",
