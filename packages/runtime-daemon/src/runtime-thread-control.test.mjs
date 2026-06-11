@@ -105,7 +105,7 @@ test("runtime-service thread creation fails before JS runtime bridge dispatch", 
   const calls = [];
   const store = runtimeControlStore(stateDir, calls);
   try {
-    await assert.rejects(
+    assert.throws(
       () =>
         store.agentRunLifecycleSurface.createThread(store, {
           runtime_profile: "runtime_service",

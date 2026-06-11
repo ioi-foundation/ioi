@@ -34,7 +34,19 @@ export function createThread(store, request = {}, deps = {}) {
   const options = request.options ?? request;
   const runtimeProfile = runtimeProfileForRequest(request, options);
   if (isRuntimeServiceProfile(runtimeProfile)) {
-    return store.createRuntimeBridgeThread({ request, options, runtimeProfile });
+    throwRuntimeBridgeThreadRustCoreRequired({
+      runtimeError: deps.runtimeError,
+      operation: "runtime_bridge_thread_start",
+      operationKind: "thread.runtime_bridge.start",
+      details: {
+        runtime_profile: runtimeProfile,
+        evidence_refs: [
+          "runtime_bridge_thread_start_js_facade_retired",
+          "rust_daemon_core_runtime_bridge_thread_start_required",
+          "agentgres_runtime_bridge_thread_start_truth_required",
+        ],
+      },
+    });
   }
   const agent = createAgent(store, options, deps);
   store.ensureThreadStartedEvent(agent);
@@ -120,5 +132,28 @@ function throwRuntimeLifecycleRustCoreRequired({
     ...details,
     evidence_refs,
   };
+  throw error;
+}
+
+function throwRuntimeBridgeThreadRustCoreRequired({ runtimeError, operation, operationKind, details = {} }) {
+  const input = {
+    status: 501,
+    code: "runtime_bridge_thread_rust_core_required",
+    message:
+      "Runtime bridge thread start and turn submission require direct Rust daemon-core admission and persistence.",
+    details: {
+      rust_core_boundary: "runtime.bridge_thread",
+      operation,
+      operation_kind: operationKind,
+      ...details,
+    },
+  };
+  if (runtimeError) {
+    throw runtimeError(input);
+  }
+  const error = new Error(input.message);
+  error.status = input.status;
+  error.code = input.code;
+  error.details = input.details;
   throw error;
 }

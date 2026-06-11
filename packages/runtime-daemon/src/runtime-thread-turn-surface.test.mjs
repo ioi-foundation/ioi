@@ -76,6 +76,32 @@ function assertThreadTurnRustCoreRequired(error, {
   return true;
 }
 
+function assertRuntimeBridgeThreadRustCoreRequired(error, {
+  operation,
+  operationKind,
+  runtimeProfile = "runtime_service",
+  threadId = "thread_alpha",
+  agentId = "agent_runtime",
+  action = null,
+  evidenceRef,
+} = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_bridge_thread_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.bridge_thread");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.thread_id, threadId);
+  assert.equal(error.details.agent_id, agentId);
+  assert.equal(error.details.runtime_profile, runtimeProfile);
+  if (action !== null) assert.equal(error.details.action, action);
+  assert.equal(error.details.evidence_refs.includes(evidenceRef), true);
+  assert.equal(Object.hasOwn(error.details, "threadId"), false);
+  assert.equal(Object.hasOwn(error.details, "agentId"), false);
+  assert.equal(Object.hasOwn(error.details, "runtimeProfile"), false);
+  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+  return true;
+}
+
 function createThreadTurnAdmissionRunner(calls) {
   return {
     planThreadTurnAdmissionRequired(request) {
@@ -104,13 +130,8 @@ function createThreadTurnAdmissionRunner(calls) {
   };
 }
 
-test("thread turn surface resumes runtime threads through mounted runtime bridge control path", async () => {
-  const controlCalls = [];
+test("thread turn surface fails closed for runtime thread resume before bridge control dispatch", async () => {
   const surface = createRuntimeThreadTurnSurface({
-    controlRuntimeBridgeThread(_store, input) {
-      controlCalls.push(input);
-      return { status: "accepted", action: input.action };
-    },
     diagnosticsFeedbackBlocksContinuation: () => false,
     isRuntimeBackedAgent: () => true,
     runtimeError,
@@ -119,17 +140,45 @@ test("thread turn surface resumes runtime threads through mounted runtime bridge
     agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
   });
 
-  const result = await surface.resumeThread(store, "thread_alpha", { reason: "continue" });
+  await assert.rejects(
+    () => surface.resumeThread(store, "thread_alpha", { reason: "continue" }),
+    (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
+      operation: "runtime_bridge_thread_control",
+      operationKind: "thread.runtime_bridge.control",
+      action: "resume",
+      evidenceRef: "runtime_bridge_thread_control_js_facade_retired",
+    }),
+  );
 
-  assert.equal(result.status, "accepted");
-  assert.deepEqual(controlCalls, [{
-    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
-    threadId: "thread_alpha",
-    action: "resume",
-    reason: "continue",
-  }]);
   assert.equal(store.calls.some((call) => call.method === "updateAgent"), false);
   assert.equal(store.calls.some((call) => call.method === "threadForAgent"), false);
+});
+
+test("thread turn surface fails closed for runtime turns before bridge submit dispatch", async () => {
+  const surface = createRuntimeThreadTurnSurface({
+    diagnosticsFeedbackBlocksContinuation: () => false,
+    isRuntimeBackedAgent: () => true,
+    runtimeError,
+  });
+  const store = createStore({
+    agent: { id: "agent_runtime", runtimeProfile: "runtime_service" },
+  });
+
+  await assert.rejects(
+    () => surface.createTurn(store, "thread_alpha", {
+      prompt: "ship it",
+      options: {},
+    }),
+    (error) => assertRuntimeBridgeThreadRustCoreRequired(error, {
+      operation: "runtime_bridge_turn_submit",
+      operationKind: "turn.runtime_bridge.submit",
+      evidenceRef: "runtime_bridge_turn_submit_js_facade_retired",
+    }),
+  );
+
+  assert.equal(store.calls.some((call) => call.method === "createRuntimeBridgeTurn"), false);
+  assert.equal(store.calls.some((call) => call.method === "createRun"), false);
+  assert.equal(store.calls.some((call) => call.method === "turnForRun"), false);
 });
 
 test("thread turn surface fails closed for non-runtime resume before JS mutation", async () => {

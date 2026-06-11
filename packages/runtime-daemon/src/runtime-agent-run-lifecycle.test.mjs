@@ -74,10 +74,6 @@ function fakeStore() {
     writeRun(run, operationKind) {
       this.writes.push({ kind: "run", operationKind, run });
     },
-    createRuntimeBridgeThread(input) {
-      this.runtimeThreadCalls.push(input);
-      return { thread_id: "thread_runtime", runtime_profile: input.runtimeProfile };
-    },
     ensureThreadStartedEvent(agent) {
       this.startedEvents.push(agent.id);
     },
@@ -100,6 +96,26 @@ function assertNoRetiredLifecycleDetailAliases(details) {
   ]) {
     assert.equal(Object.hasOwn(details, key), false, `retired detail alias ${key} must be absent`);
   }
+}
+
+function assertRuntimeBridgeThreadRustCoreRequired(error, {
+  operation = "runtime_bridge_thread_start",
+  operationKind = "thread.runtime_bridge.start",
+  runtimeProfile = "runtime_service",
+} = {}) {
+  assert.equal(error.status, 501);
+  assert.equal(error.code, "runtime_bridge_thread_rust_core_required");
+  assert.equal(error.details.rust_core_boundary, "runtime.bridge_thread");
+  assert.equal(error.details.operation, operation);
+  assert.equal(error.details.operation_kind, operationKind);
+  assert.equal(error.details.runtime_profile, runtimeProfile);
+  assert.equal(
+    error.details.evidence_refs.includes("runtime_bridge_thread_start_js_facade_retired"),
+    true,
+  );
+  assert.equal(Object.hasOwn(error.details, "runtimeProfile"), false);
+  assert.equal(Object.hasOwn(error.details, "operationKind"), false);
+  return true;
 }
 
 test("createAgent facade fails closed before Rust planning or JS persistence", () => {
@@ -244,22 +260,20 @@ test("createThread facade fails closed before JS agent persistence for default t
   assert.deepEqual(store.writes, []);
 });
 
-test("createThread facade routes runtime-service threads through runtime bridge boundary", async () => {
+test("createThread facade fails closed for runtime-service threads before bridge boundary dispatch", () => {
   const store = fakeStore();
 
-  const result = await createThread(store, {
-    options: {
-      runtime_profile: "runtime_service",
-      local: { cwd: "/workspace/runtime" },
-    },
-  });
+  assert.throws(
+    () => createThread(store, {
+      options: {
+        runtime_profile: "runtime_service",
+        local: { cwd: "/workspace/runtime" },
+      },
+    }),
+    assertRuntimeBridgeThreadRustCoreRequired,
+  );
 
-  assert.deepEqual(result, {
-    thread_id: "thread_runtime",
-    runtime_profile: "runtime_service",
-  });
-  assert.equal(store.runtimeThreadCalls.length, 1);
-  assert.equal(store.runtimeThreadCalls[0].runtimeProfile, "runtime_service");
+  assert.deepEqual(store.runtimeThreadCalls, []);
   assert.deepEqual(store.startedEvents, []);
   assert.deepEqual(store.writes, []);
 });
@@ -287,15 +301,14 @@ test("agent/run lifecycle surface routes create, run creation, and thread creati
       return true;
     },
   );
-  const thread = await surface.createThread(store, {
-    options: { runtime_profile: "runtime_service" },
-  });
+  assert.throws(
+    () => surface.createThread(store, {
+      options: { runtime_profile: "runtime_service" },
+    }),
+    assertRuntimeBridgeThreadRustCoreRequired,
+  );
 
-  assert.deepEqual(thread, {
-    thread_id: "thread_runtime",
-    runtime_profile: "runtime_service",
-  });
-  assert.equal(store.runtimeThreadCalls.length, 1);
+  assert.deepEqual(store.runtimeThreadCalls, []);
   assert.equal(store.lifecycleAdmissionRequiredCalls.length, 2);
   assert.deepEqual(store.writes, []);
   assert.deepEqual(store.getAgentCalls, []);

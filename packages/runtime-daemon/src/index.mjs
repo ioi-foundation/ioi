@@ -55,7 +55,6 @@ import {
   codingToolInputSummary,
 } from "./coding-tools.mjs";
 import {
-  RuntimeApiBridgeUnavailableError,
   createRuntimeApiBridge,
 } from "./runtime-api-bridge.mjs";
 import {
@@ -216,10 +215,6 @@ import {
   updateAgent as updateAgentState,
 } from "./threads/thread-store.mjs";
 import { createRuntimeThreadAuxiliarySurface } from "./runtime-thread-auxiliary-surface.mjs";
-import {
-  createRuntimeBridgeThread as createRuntimeBridgeThreadState,
-  createRuntimeBridgeTurn as createRuntimeBridgeTurnState,
-} from "./threads/runtime-bridge-thread.mjs";
 import { createModelRouteSelection } from "./threads/model-route-selection.mjs";
 import { createRunMemoryResolution } from "./threads/run-memory-resolution.mjs";
 import { createThreadTurnProjection } from "./threads/thread-turn-projection.mjs";
@@ -1058,16 +1053,6 @@ export class AgentgresRuntimeStateStore {
     });
   }
 
-  async createRuntimeBridgeThread({ request, options, runtimeProfile }) {
-    return createRuntimeBridgeThreadState(this, { request, options, runtimeProfile }, {
-      RuntimeApiBridgeUnavailableError,
-      eventStreamIdForThread,
-      normalizeArray,
-      runtimeError,
-      threadIdForAgent,
-    });
-  }
-
   listThreads() {
     return this.listAgents().map((agent) => this.threadForAgent(agent));
   }
@@ -1129,22 +1114,6 @@ export class AgentgresRuntimeStateStore {
   runtimeBridgeUnavailable({ runtimeProfile, operation, details = {} }) {
     return runtimeBridgeUnavailableState({ runtimeProfile, operation, details }, {
       externalBlocker,
-    });
-  }
-
-  async createRuntimeBridgeTurn({ agent, threadId, request, diagnosticsFeedback = null }) {
-    return createRuntimeBridgeTurnState(this, { agent, threadId, request, diagnosticsFeedback }, {
-      RuntimeApiBridgeUnavailableError,
-      RUNTIME_BRIDGE_AGENT_TURN_MIN_STEPS,
-      eventStreamIdForThread,
-      insertRuntimeBridgeDiagnosticsInjectionEvent,
-      insertRuntimeBridgeUsageDeltaEvents,
-      normalizeArray,
-      optionalPositiveInteger,
-      optionalString,
-      runIdForTurn,
-      runtimeError,
-      runtimeSessionIdForAgent,
     });
   }
 

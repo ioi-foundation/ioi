@@ -5760,14 +5760,31 @@ fail-closed. `runtime-record-projections.mjs` no longer exports
 `runtimeBridgeRunRecord()`, `runtimeBridgeMessagesForProjection()`, or
 `runtimeBridgeComputerUseTrace()`, and `runtime-event-envelopes.mjs` no longer
 derives action-proposal or commit-gate events from bridge readback. The daemon
-index no longer wires these helpers into `createRuntimeBridgeTurn()`, whose JS
-facade remains fail-closed before dispatch, persistence, or event append.
+index no longer wires these helpers into the runtime bridge turn path; Slice
+1094 then deletes the remaining JS bridge-thread facade rather than preserving
+it as a fail-closed wrapper.
 
 Conformance now proves these projection builders and derived-event injector
 stay absent instead of merely proving their output uses canonical field names.
 Future positive runtime-service replay must be emitted by direct Rust
 daemon-core projection over Agentgres-admitted truth, not by resurrected JS
 bridge event shaping.
+
+Slice 1094 retires the standalone runtime bridge thread/turn/control JS facade
+module instead of preserving it as a fail-closed compatibility wrapper.
+`packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs` and its focused
+test are deleted, and the daemon store no longer imports or exposes
+`createRuntimeBridgeThread()` or `createRuntimeBridgeTurn()` pass-through
+methods. Runtime-service thread start still fails closed at the agent lifecycle
+surface, and runtime-service turn submit/control still fail closed at the
+thread-turn surface before bridge dispatch, JS event append, in-flight
+registration, agent/run map mutation, or persistence.
+
+Conformance now treats the deleted module as the invariant. Future positive
+runtime-service start, turn submit, and control must arrive through direct Rust
+daemon-core admission, execution dispatch, Agentgres expected-head/state-root
+binding, replay, and projection rather than by recreating a Node bridge-thread
+facade.
 
 ## Final Doctrine
 

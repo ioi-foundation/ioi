@@ -9256,58 +9256,48 @@ function runBridge() {
       /Object\.hasOwn\(captured\.request\.projection,\s*"runId"\),\s*false/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
-      /runtime_bridge_thread_rust_core_required/.test(runtimeBridgeThread) &&
-      /runtime_bridge_thread_start_js_facade_retired/.test(runtimeBridgeThread) &&
-      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeBridgeThread) &&
-      /runtime_bridge_thread_control_js_facade_retired/.test(runtimeBridgeThread) &&
-      /rust_daemon_core_runtime_bridge_thread_start_required/.test(runtimeBridgeThread) &&
-      /rust_daemon_core_runtime_bridge_turn_required/.test(runtimeBridgeThread) &&
-      /rust_daemon_core_runtime_bridge_thread_control_required/.test(runtimeBridgeThread) &&
-      /agentgres_runtime_bridge_thread_start_truth_required/.test(runtimeBridgeThread) &&
-      /agentgres_runtime_bridge_turn_truth_required/.test(runtimeBridgeThread) &&
-      /agentgres_runtime_bridge_thread_control_truth_required/.test(runtimeBridgeThread) &&
-      !/details:\s*\{[^}\n]*\b(?:threadId|runId|turnId|sessionId|runtimeProfile|operationKind|expectedOperationKind)\s*:/.test(
-        runtimeBridgeThread,
+      !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs") &&
+      !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs") &&
+      !/runtime-bridge-thread\.mjs/.test(runtimeDaemonIndex) &&
+      !/runtime-bridge-thread\.mjs/.test(runtimeThreadTurnSurface) &&
+      !/createRuntimeBridgeThreadState|createRuntimeBridgeTurnState|controlRuntimeBridgeThread/.test(
+        runtimeDaemonIndex,
       ) &&
-      !/contextPolicyRunner\.planRuntimeBridgeThreadStartAgentStateUpdate/.test(
-        runtimeBridgeThread,
+      !/createRuntimeBridgeThreadState|createRuntimeBridgeTurnState|controlRuntimeBridgeThread/.test(
+        runtimeThreadTurnSurface,
       ) &&
-      !/contextPolicyRunner\.planRuntimeBridgeTurnRunStateUpdate/.test(runtimeBridgeThread) &&
-      !/requiredRuntimeBridgeOperationKind/.test(runtimeBridgeThread) &&
-      !/store\.runtimeBridge\.startThread/.test(runtimeBridgeThread) &&
-      !/store\.runtimeBridge\.submitTurn/.test(runtimeBridgeThread) &&
-      !/store\.runtimeBridge\.controlThread/.test(runtimeBridgeThread) &&
-      !/store\.assertRuntimeBridgeAvailable/.test(runtimeBridgeThread) &&
-      !/store\.agents\.set|store\.runs\.set|store\.writeAgent|store\.writeRun|store\.appendRuntimeEvent|store\.registerInFlightRuntimeTurn/.test(
-        runtimeBridgeThread,
+      !/async createRuntimeBridgeThread|async createRuntimeBridgeTurn/.test(runtimeDaemonIndex) &&
+      !/store\.createRuntimeBridgeTurn/.test(runtimeThreadTurnSurface) &&
+      !/RuntimeApiBridgeUnavailableError/.test(runtimeThreadTurnSurface) &&
+      /runtime_bridge_thread_rust_core_required/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_thread_start_js_facade_retired/.test(runtimeAgentRunLifecycle) &&
+      /rust_daemon_core_runtime_bridge_thread_start_required/.test(runtimeAgentRunLifecycle) &&
+      /agentgres_runtime_bridge_thread_start_truth_required/.test(runtimeAgentRunLifecycle) &&
+      /runtime_bridge_thread_rust_core_required/.test(runtimeThreadTurnSurface) &&
+      /runtime_bridge_turn_submit_js_facade_retired/.test(runtimeThreadTurnSurface) &&
+      /runtime_bridge_thread_control_js_facade_retired/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_runtime_bridge_turn_required/.test(runtimeThreadTurnSurface) &&
+      /rust_daemon_core_runtime_bridge_thread_control_required/.test(runtimeThreadTurnSurface) &&
+      /agentgres_runtime_bridge_turn_truth_required/.test(runtimeThreadTurnSurface) &&
+      /agentgres_runtime_bridge_thread_control_truth_required/.test(runtimeThreadTurnSurface) &&
+      /createThread facade fails closed for runtime-service threads before bridge boundary dispatch/.test(
+        runtimeAgentRunLifecycleTest,
       ) &&
-      /runtime bridge thread creation fails closed before JS bridge dispatch and agent persistence/.test(
-        runtimeBridgeThreadTest,
+      /thread turn surface fails closed for runtime thread resume before bridge control dispatch/.test(
+        runtimeThreadTurnSurfaceTest,
       ) &&
-      /runtime bridge turn creation fails closed before JS bridge dispatch and run persistence/.test(
-        runtimeBridgeThreadTest,
+      /thread turn surface fails closed for runtime turns before bridge submit dispatch/.test(
+        runtimeThreadTurnSurfaceTest,
       ) &&
-      /runtime bridge thread control fails closed before JS bridge dispatch/.test(
-        runtimeBridgeThreadTest,
+      /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeAgentRunLifecycleTest) &&
+      /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeThreadTurnSurfaceTest) &&
+      /store\.calls\.some\(\(call\) => call\.method === "createRuntimeBridgeTurn"\), false/.test(
+        runtimeThreadTurnSurfaceTest,
       ) &&
-      /assertRuntimeBridgeThreadRustCoreRequired/.test(runtimeBridgeThreadTest) &&
-      /store\.calls\.some\(\(call\) => call\.operation === "start_thread"\), false/.test(
-        runtimeBridgeThreadTest,
+      !/runtimeBridge:\s*\{/.test(runtimeThreadTurnSurfaceTest) &&
+      !/store\.runtimeBridge\.startThread|store\.runtimeBridge\.submitTurn|store\.runtimeBridge\.controlThread/.test(
+        runtimeAgentRunLifecycle,
       ) &&
-      /store\.calls\.some\(\(call\) => call\.operation === "submit_turn"\), false/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /store\.calls\.some\(\(call\) => call\.operation === "control_thread"\), false/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      !/function fake(?:Turn|Control)?Store/.test(runtimeBridgeThreadTest) &&
-      !/class BridgeUnavailableError/.test(runtimeBridgeThreadTest) &&
-      !/contextPolicyRunner/.test(runtimeBridgeThreadTest) &&
-      !/runtimeBridge:\s*\{/.test(runtimeBridgeThreadTest) &&
-      !/\b(?:registerInFlightRuntimeTurn|unregisterInFlightRuntimeTurn|appendOperation|writeAgent|writeRun|appendRuntimeEvent)\s*\(/.test(
-        runtimeBridgeThreadTest,
-      ) &&
-      /error\.details\.runtime_profile/.test(runtimeBridgeThreadTest) &&
       /runtime thread-control integration proof rejects retired model-route seeding/.test(
         runtimeThreadControlTest,
       ) &&
@@ -9344,13 +9334,16 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.mjs",
       "packages/runtime-daemon/src/runtime-api-bridge.test.mjs",
-      "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
-      "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.mjs",
+      "packages/runtime-daemon/src/runtime-agent-run-lifecycle.test.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.test.mjs",
+      "packages/runtime-daemon/src/index.mjs",
       "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
       "scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs",
       "scripts/lib/workflow-stage7-delegation-live-gui-proof.mjs",
     ],
-    "Phase 10/11 is pending: runtime bridge thread start/turn/control JS facades must stay retired before bridge dispatch, Rust-planner calls from the facade, JS event append, or JS agent/run persistence while direct Rust daemon-core admission is extracted",
+    "Phase 10/11 is pending: runtime bridge thread start/turn/control JS facades and store wrappers must stay deleted while lifecycle/turn surfaces fail closed before bridge dispatch, JS event append, or JS agent/run persistence",
   );
   assertCheck(
     result,
@@ -14756,6 +14749,9 @@ function runReceipts() {
   const runtimeBridgeThread = exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     ? read("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs")
     : "";
+  const runtimeThreadTurnSurface = exists("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+    ? read("packages/runtime-daemon/src/runtime-thread-turn-surface.mjs")
+    : "";
   const threadStore = exists("packages/runtime-daemon/src/threads/thread-store.mjs")
     ? read("packages/runtime-daemon/src/threads/thread-store.mjs")
     : "";
@@ -18604,15 +18600,16 @@ function runReceipts() {
   assertCheck(
     result,
     "runtime-bridge-turn-operation-append-retired",
-    !/turn\.runtime_bridge\.submit_(?:budget|error)/.test(runtimeBridgeThread) &&
-      /assert\.equal\(store\.calls\.some\(\(call\) => call\.operation === "append_operation"\), false\)/.test(
-        read("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs"),
-      ),
+    !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs") &&
+      !exists("packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs") &&
+      !/turn\.runtime_bridge\.submit_(?:budget|error)/.test(runtimeThreadTurnSurface) &&
+      !/appendOperation|append_operation/.test(runtimeThreadTurnSurface),
     [
+      "packages/runtime-daemon/src/runtime-thread-turn-surface.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
     ],
-    "Phase 5/11 is pending: runtime bridge turn submit budget/error mirrors must not append duplicate daemon-local operation records outside run receipts/projections",
+    "Phase 5/11 is pending: runtime bridge turn submit budget/error mirrors must stay deleted with the retired bridge-thread facade instead of appending duplicate daemon-local operation records outside run receipts/projections",
   );
   assertCheck(
     result,
