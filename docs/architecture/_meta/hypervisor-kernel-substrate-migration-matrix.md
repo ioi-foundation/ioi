@@ -20366,6 +20366,44 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 980
+
+Slice 980 removed route-level thread/agent memory mutation daemon-store
+pass-through wrappers from the agent and thread HTTP routes. Agent memory
+policy/write/edit/delete routes and thread memory status/validation,
+policy/write/edit/delete routes now call the mounted thread-memory surface
+directly before the fail-closed Rust-core-required boundary. No route-level
+memory control path should call `store.rememberForThread()`,
+`store.rememberForAgentId()`, `store.setMemoryPolicyForThread()`,
+`store.setMemoryPolicyForAgent()`, edit/delete wrappers, status wrappers, or
+validation wrappers.
+
+This is still non-terminal migration plumbing: direct Rust daemon-core memory
+admission/projection, Agentgres expected-head/state-root binding, receipt/event
+materialization, wallet/policy authority, ArtifactRef/PayloadRef binding where
+needed, replay, command-transport retirement, and stable protocol APIs remain
+required before terminal conformance. Runtime store wrapper methods and JS memory
+helpers remain temporary internal scaffolding until direct Rust memory APIs own
+those shapes.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 980 | Agent/thread memory mutation, policy, status, and validation routes now call the mounted Rust-core-required thread-memory surface directly instead of daemon-store pass-through wrappers. | Direct Rust daemon-core memory admission/projection over Agentgres-admitted truth, wallet/policy authority, receipt/state-root binding, ArtifactRef/PayloadRef binding where needed, replay, command-transport retirement, and stable SDK/IDE/CLI protocol APIs. |
+
+Verification commands for this slice:
+
+| Command | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-route-handlers.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-route-handlers.test.mjs packages/runtime-daemon/src/threads/thread-memory-state.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 979
 
 Slice 979 removed route-level agent/run lifecycle daemon-store pass-through

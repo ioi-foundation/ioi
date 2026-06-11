@@ -548,6 +548,135 @@ test("agent and thread memory read routes use mounted thread memory surface", as
   );
 });
 
+test("agent and thread memory mutation routes use mounted thread memory surface", async () => {
+  const { handleAgentRoute, handleThreadRoute } = routeHandlers();
+  const calls = [];
+  const rustCoreRequired = (details = {}) => {
+    const error = new Error("thread memory control requires Rust core");
+    error.status = 501;
+    error.code = "runtime_thread_memory_control_rust_core_required";
+    error.details = {
+      rust_core_boundary: "runtime.thread_memory_control",
+      ...details,
+    };
+    throw error;
+  };
+  const threadMemorySurface = {
+    setMemoryPolicyForAgent(surfaceStore, agentId, input) {
+      calls.push({ method: "setMemoryPolicyForAgent", surfaceStore, agentId, input });
+      rustCoreRequired({ requested_control_kind: "memory_policy", agent_id: agentId });
+    },
+    updateMemoryForAgentId(surfaceStore, agentId, memoryId, input) {
+      calls.push({ method: "updateMemoryForAgentId", surfaceStore, agentId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_edit", agent_id: agentId, memory_id: memoryId });
+    },
+    deleteMemoryForAgentId(surfaceStore, agentId, memoryId, input) {
+      calls.push({ method: "deleteMemoryForAgentId", surfaceStore, agentId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_delete", agent_id: agentId, memory_id: memoryId });
+    },
+    rememberForAgentId(surfaceStore, agentId, input) {
+      calls.push({ method: "rememberForAgentId", surfaceStore, agentId, input });
+      rustCoreRequired({ requested_control_kind: "memory_write", agent_id: agentId });
+    },
+    recordThreadMemoryStatus(surfaceStore, threadId, input) {
+      calls.push({ method: "recordThreadMemoryStatus", surfaceStore, threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_status", thread_id: threadId });
+    },
+    validateThreadMemory(surfaceStore, threadId, input) {
+      calls.push({ method: "validateThreadMemory", surfaceStore, threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_validate", thread_id: threadId });
+    },
+    setMemoryPolicyForThread(surfaceStore, threadId, input) {
+      calls.push({ method: "setMemoryPolicyForThread", surfaceStore, threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_policy", thread_id: threadId });
+    },
+    updateMemoryForThread(surfaceStore, threadId, memoryId, input) {
+      calls.push({ method: "updateMemoryForThread", surfaceStore, threadId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_edit", thread_id: threadId, memory_id: memoryId });
+    },
+    deleteMemoryForThread(surfaceStore, threadId, memoryId, input) {
+      calls.push({ method: "deleteMemoryForThread", surfaceStore, threadId, memoryId, input });
+      rustCoreRequired({ requested_control_kind: "memory_delete", thread_id: threadId, memory_id: memoryId });
+    },
+    rememberForThread(surfaceStore, threadId, input) {
+      calls.push({ method: "rememberForThread", surfaceStore, threadId, input });
+      rustCoreRequired({ requested_control_kind: "memory_write", thread_id: threadId });
+    },
+  };
+  const store = {
+    threadMemorySurface,
+    setMemoryPolicyForAgent: retiredRouteWrapper,
+    updateMemoryForAgentId: retiredRouteWrapper,
+    deleteMemoryForAgentId: retiredRouteWrapper,
+    rememberForAgentId: retiredRouteWrapper,
+    recordThreadMemoryStatus: retiredRouteWrapper,
+    validateThreadMemory: retiredRouteWrapper,
+    setMemoryPolicyForThread: retiredRouteWrapper,
+    updateMemoryForThread: retiredRouteWrapper,
+    deleteMemoryForThread: retiredRouteWrapper,
+    rememberForThread: retiredRouteWrapper,
+  };
+
+  const agentRoutes = [
+    { method: "PUT", path: "/v1/agents/agent_route/memory/policy", body: { read_only: true } },
+    { method: "PATCH", path: "/v1/agents/agent_route/memory/memory_1", body: { text: "edited" } },
+    { method: "DELETE", path: "/v1/agents/agent_route/memory/memory_1", body: { reason: "stale" } },
+    { method: "POST", path: "/v1/agents/agent_route/memory", body: { text: "remember" } },
+  ];
+  for (const route of agentRoutes) {
+    const url = new URL(route.path, "http://daemon.test");
+    await assert.rejects(
+      () => handleAgentRoute({
+        request: request({ method: route.method, url: route.path, body: route.body }),
+        response: responseRecorder(),
+        store,
+        url,
+        segments: url.pathname.split("/").filter(Boolean),
+      }),
+      { code: "runtime_thread_memory_control_rust_core_required" },
+    );
+  }
+
+  const threadRoutes = [
+    { method: "POST", path: "/v1/threads/thread_route/memory/status", body: { source: "status" } },
+    { method: "POST", path: "/v1/threads/thread_route/memory/validate", body: { source: "validate" } },
+    { method: "PATCH", path: "/v1/threads/thread_route/memory/policy", body: { read_only: false } },
+    { method: "PUT", path: "/v1/threads/thread_route/memory/memory_1", body: { text: "edited" } },
+    { method: "DELETE", path: "/v1/threads/thread_route/memory/memory_1", body: { reason: "stale" } },
+    { method: "POST", path: "/v1/threads/thread_route/memory", body: { text: "remember" } },
+  ];
+  for (const route of threadRoutes) {
+    const url = new URL(route.path, "http://daemon.test");
+    await assert.rejects(
+      () => handleThreadRoute({
+        request: request({ method: route.method, url: route.path, body: route.body }),
+        response: responseRecorder(),
+        store,
+        url,
+        segments: url.pathname.split("/").filter(Boolean),
+      }),
+      { code: "runtime_thread_memory_control_rust_core_required" },
+    );
+  }
+
+  assert.equal(calls.every((call) => call.surfaceStore === store), true);
+  assert.deepEqual(
+    calls.map(({ method, agentId, threadId, memoryId, input }) => ({ method, agentId, threadId, memoryId, input })),
+    [
+      { method: "setMemoryPolicyForAgent", agentId: "agent_route", threadId: undefined, memoryId: undefined, input: { read_only: true } },
+      { method: "updateMemoryForAgentId", agentId: "agent_route", threadId: undefined, memoryId: "memory_1", input: { text: "edited" } },
+      { method: "deleteMemoryForAgentId", agentId: "agent_route", threadId: undefined, memoryId: "memory_1", input: { reason: "stale" } },
+      { method: "rememberForAgentId", agentId: "agent_route", threadId: undefined, memoryId: undefined, input: { text: "remember" } },
+      { method: "recordThreadMemoryStatus", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { source: "status" } },
+      { method: "validateThreadMemory", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { source: "validate" } },
+      { method: "setMemoryPolicyForThread", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { read_only: false } },
+      { method: "updateMemoryForThread", agentId: undefined, threadId: "thread_route", memoryId: "memory_1", input: { text: "edited" } },
+      { method: "deleteMemoryForThread", agentId: undefined, threadId: "thread_route", memoryId: "memory_1", input: { reason: "stale" } },
+      { method: "rememberForThread", agentId: undefined, threadId: "thread_route", memoryId: undefined, input: { text: "remember" } },
+    ],
+  );
+});
+
 test("thread conversation artifact routes use mounted artifact surface", async () => {
   const { handleThreadRoute } = routeHandlers();
   const calls = [];

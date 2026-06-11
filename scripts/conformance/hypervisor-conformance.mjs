@@ -19925,6 +19925,36 @@ function runCompositor() {
       /store\.threadMemorySurface\.publicListMemoryForThread\(store, threadId,/.test(
         runtimeRouteHandlers,
       ) &&
+      /store\.threadMemorySurface\.setMemoryPolicyForAgent\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.updateMemoryForAgentId\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.deleteMemoryForAgentId\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.rememberForAgentId\(store, agentId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.recordThreadMemoryStatus\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.validateThreadMemory\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.setMemoryPolicyForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.updateMemoryForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.deleteMemoryForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
+      /store\.threadMemorySurface\.rememberForThread\(store, threadId,/.test(
+        runtimeRouteHandlers,
+      ) &&
       /store\.threadMemorySurface\.publicMemoryStatus\(store,/.test(publicRuntimeRoutes) &&
       /store\.threadMemorySurface\.publicMemoryProjectionForContext\(store,/.test(
         publicRuntimeRoutes,
@@ -19939,10 +19969,16 @@ function runCompositor() {
       /agent and thread memory read routes use mounted thread memory surface/.test(
         runtimeRouteHandlersTest,
       ) &&
+      /agent and thread memory mutation routes use mounted thread memory surface/.test(
+        runtimeRouteHandlersTest,
+      ) &&
       /public runtime memory projection routes fail closed through thread memory surface/.test(
         publicRuntimeRoutesTest,
       ) &&
       !/store\.(?:listMemoryForThread|memoryPolicyForThread|memoryPathForThread|listMemoryForAgent|memoryPolicyForAgent|memoryPathForAgent)\(/.test(
+        runtimeRouteHandlers,
+      ) &&
+      !/store\.(?:setMemoryPolicyForThread|updateMemoryForThread|deleteMemoryForThread|rememberForThread|setMemoryPolicyForAgent|updateMemoryForAgentId|deleteMemoryForAgentId|rememberForAgentId|recordThreadMemoryStatus|validateThreadMemory)\(/.test(
         runtimeRouteHandlers,
       ) &&
       !/store\.(?:memoryStatus|memoryProjectionForContext|validateMemory)\(/.test(
