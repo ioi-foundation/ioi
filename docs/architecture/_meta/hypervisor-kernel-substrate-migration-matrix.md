@@ -15777,6 +15777,42 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1049
+
+Slice 1049 splits the skill/hook registry, repository workflow, runtime tool
+catalog, and runtime lifecycle projection-required daemon-core command wrappers
+out of the monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs`
+transport and into
+`crates/node/src/bin/ioi_step_module_bridge/projection_command.rs`. The
+canonical projection-required policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`; the
+new bridge child module is fixed migration transport only, not a long-term
+architecture endpoint. The bridge and receipts conformance guards now prove the
+projection-required command wrappers are outside the broad bridge module while
+the existing bridge tests continue to prove the Rust policy path.
+
+This is a Rust transport-boundary cleanup, not terminal projection migration.
+The current JS skill/hook registry, repository workflow, runtime tool catalog,
+runtime lifecycle/run-read, doctor/readiness, JS context-policy runner, and
+Node command bridge remain scaffolding until direct Rust daemon-core projection
+APIs over Agentgres-admitted truth, receipt/state-root binding, wallet
+authority where applicable, cTEE custody where private workspace projection is
+involved, replay, and stable IDE/CLI/SDK protocol surfaces own those paths end
+to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node projection_required --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 This does not claim terminal memory migration: direct Rust daemon-core memory
 truth, Agentgres expected-head/state-root admission, wallet authority,
 StepModuleRouter dispatch for admitted memory work, cTEE custody coupling,

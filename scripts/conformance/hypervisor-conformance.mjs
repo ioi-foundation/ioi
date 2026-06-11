@@ -2281,6 +2281,9 @@ function runBridge() {
   const policyCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/policy_command.rs")
     : "";
+  const projectionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
+    : "";
   const runtimeControlCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/runtime_control_command.rs")
     : "";
@@ -7613,15 +7616,18 @@ function runBridge() {
   assertCheck(
     result,
     "skill-hook-registry-projection-rust-core-required",
-    /SkillHookRegistryProjectionRequiredCore/.test(policyCore) &&
+      /SkillHookRegistryProjectionRequiredCore/.test(policyCore) &&
       /SKILL_HOOK_REGISTRY_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_skill_hook_registry_projection_required/.test(policyCore) &&
-      /plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
-      /SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /rust_skill_hook_registry_projection_required_command/.test(bridgeModule) &&
+      /mod projection_command;/.test(bridgeModule) &&
+      /fn plan_skill_hook_registry_projection_required/.test(projectionCommandBridge) &&
+      /SkillHookRegistryProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
+      /rust_skill_hook_registry_projection_required_command/.test(projectionCommandBridge) &&
       /bridge_plans_skill_hook_registry_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_skill_hook_registry_projection_required/.test(bridgeModule) &&
+      !/struct SkillHookRegistryProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /planSkillHookRegistryProjectionRequired\(request = \{\}\)/.test(
         runtimeContextPolicyRunner,
       ) &&
@@ -7688,15 +7694,17 @@ function runBridge() {
   assertCheck(
     result,
     "repository-workflow-projection-rust-core-required",
-    /RepositoryWorkflowProjectionRequiredCore/.test(policyCore) &&
+      /RepositoryWorkflowProjectionRequiredCore/.test(policyCore) &&
       /REPOSITORY_WORKFLOW_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(policyCore) &&
       /rust_policy_plans_repository_workflow_projection_required/.test(policyCore) &&
-      /plan_repository_workflow_projection_required/.test(bridgeModule) &&
-      /RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /rust_repository_workflow_projection_required_command/.test(bridgeModule) &&
+      /fn plan_repository_workflow_projection_required/.test(projectionCommandBridge) &&
+      /RepositoryWorkflowProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
+      /rust_repository_workflow_projection_required_command/.test(projectionCommandBridge) &&
       /bridge_plans_repository_workflow_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/fn plan_repository_workflow_projection_required/.test(bridgeModule) &&
+      !/struct RepositoryWorkflowProjectionRequiredBridgeRequest/.test(bridgeModule) &&
       /planRepositoryWorkflowProjectionRequired\(request = \{\}\)/.test(
         runtimeContextPolicyRunner,
       ) &&
@@ -13648,6 +13656,9 @@ function runReceipts() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const projectionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/projection_command.rs")
+    : "";
   const modelInvocationOps = exists("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     ? read("packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs")
     : "";
@@ -18021,11 +18032,14 @@ function runReceipts() {
       /runtime_tool_catalog_rust_core_required/.test(policyCoreForState) &&
       /rust_policy_plans_runtime_tool_catalog_projection_required/.test(policyCoreForState) &&
       /plan_runtime_tool_catalog_projection_required/.test(runtimeKernelModule) &&
-      /RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
+      /mod projection_command;/.test(bridgeModule) &&
+      /RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
+      /fn plan_runtime_tool_catalog_projection_required/.test(projectionCommandBridge) &&
       /bridge_plans_runtime_tool_catalog_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/struct RuntimeToolCatalogProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_runtime_tool_catalog_projection_required/.test(bridgeModule) &&
       /RUNTIME_TOOL_CATALOG_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunnerForState,
       ) &&
@@ -18115,11 +18129,13 @@ function runReceipts() {
       /rust_policy_plans_runtime_lifecycle_projection_required/.test(policyCoreForState) &&
       /turn_id/.test(policyCoreForState) &&
       /plan_runtime_lifecycle_projection_required/.test(runtimeKernelModule) &&
-      /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
-      /plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
+      /RuntimeLifecycleProjectionRequiredBridgeRequest/.test(projectionCommandBridge) &&
+      /fn plan_runtime_lifecycle_projection_required/.test(projectionCommandBridge) &&
       /bridge_plans_runtime_lifecycle_projection_required_through_rust_core/.test(
         bridgeModule,
       ) &&
+      !/struct RuntimeLifecycleProjectionRequiredBridgeRequest/.test(bridgeModule) &&
+      !/fn plan_runtime_lifecycle_projection_required/.test(bridgeModule) &&
       /RUNTIME_LIFECYCLE_PROJECTION_REQUIRED_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunnerForState,
       ) &&

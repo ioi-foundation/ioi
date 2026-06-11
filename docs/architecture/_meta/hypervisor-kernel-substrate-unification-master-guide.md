@@ -5022,6 +5022,23 @@ Agentgres expected heads/state roots, runtime-control receipts/events, replay,
 projection, StepModuleRouter dispatch where control work enters admitted
 module execution, and stable IDE/CLI/SDK protocol APIs.
 
+Slice 1049 moves the skill/hook registry, repository workflow, runtime tool
+catalog, and runtime lifecycle projection-required daemon-core command wrappers
+out of the monolithic Rust `crates/node/src/bin/ioi_step_module_bridge/mod.rs`
+migration transport into
+`crates/node/src/bin/ioi_step_module_bridge/projection_command.rs`. The
+projection-required policy owner remains
+`crates/services/src/agentic/runtime/kernel/policy/projection_required.rs`; the
+bridge child module is only fixed migration transport that translates
+Rust-authored projection-required refusal records at the process boundary. The
+conformance guard now proves the projection-required command wrappers stay out
+of the broad bridge module. This is not terminal projection migration. Resume
+by replacing this command transport with direct Rust daemon-core projection
+APIs for registry, repository workflow, tool catalog, lifecycle/run-read,
+doctor/readiness, replay, and stable IDE/CLI/SDK surfaces over
+Agentgres-admitted truth, receipt/state-root binding, wallet authority where
+applicable, and cTEE custody where private workspace projection is involved.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
