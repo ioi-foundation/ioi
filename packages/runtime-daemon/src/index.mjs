@@ -1025,30 +1025,6 @@ export class AgentgresRuntimeStateStore {
     return this.threadForAgent(this.agentForThread(threadId));
   }
 
-  appendWorkspaceTrustWarningEvent({
-    agent,
-    threadId,
-    controls,
-    request,
-    source,
-    requestedBy,
-    workflowGraphId,
-    modeEvent,
-    now,
-  }) {
-    return this.threadControlSurface.appendWorkspaceTrustWarningEvent(this, {
-      agent,
-      threadId,
-      controls,
-      request,
-      source,
-      requestedBy,
-      workflowGraphId,
-      modeEvent,
-      now,
-    });
-  }
-
   assertRuntimeBridgeAvailable({ runtimeProfile, operation }) {
     return assertRuntimeBridgeAvailableState(this.runtimeBridge, { runtimeProfile, operation }, {
       externalBlocker,

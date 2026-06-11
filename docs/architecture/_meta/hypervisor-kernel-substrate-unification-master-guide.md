@@ -5913,6 +5913,17 @@ target resolution, proposal admission, apply admission, wallet approval
 authority, Agentgres expected-head/state-root binding, receipt binding, replay,
 and projection APIs replace the temporary surface.
 
+Slice 1102 retires the daemon-store workspace-trust warning pass-through
+delegate. The mounted thread-control surface still exposes
+`appendWorkspaceTrustWarningEvent()` as a fail-closed migration surface, but
+the daemon store no longer provides a duplicate `store.appendWorkspaceTrustWarningEvent()`
+compatibility entrypoint, and conformance fails if that wrapper returns.
+
+Workspace-trust warning and acknowledgement positive ownership remains a Rust
+daemon-core target: direct Rust APIs must own wallet/cTEE workspace authority,
+Agentgres expected-head/state-root binding, receipt/event materialization,
+replay, and projection before the mounted protocol-edge surface can be retired.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

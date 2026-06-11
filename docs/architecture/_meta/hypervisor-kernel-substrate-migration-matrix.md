@@ -15784,6 +15784,30 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1102
+
+Slice 1102 retires the daemon-store workspace-trust warning pass-through
+delegate. The mounted thread-control surface still exposes
+`appendWorkspaceTrustWarningEvent()` as a fail-closed migration surface, but
+the daemon store no longer provides a duplicate
+`store.appendWorkspaceTrustWarningEvent()` compatibility entrypoint, and
+conformance fails if that wrapper returns.
+
+Workspace-trust warning and acknowledgement positive ownership remains a Rust
+daemon-core target: direct Rust APIs must own wallet/cTEE workspace authority,
+Agentgres expected-head/state-root binding, receipt/event materialization,
+replay, and projection before the mounted protocol-edge surface can be retired.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/index.mjs packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-thread-surface-delegates-retired.test.mjs packages/runtime-daemon/src/runtime-thread-control-surface.test.mjs packages/runtime-daemon/src/runtime-route-handlers.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1101
 
 Slice 1101 retires unused workflow-edit target/context JS helper facades. No
