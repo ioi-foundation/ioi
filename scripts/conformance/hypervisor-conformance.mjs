@@ -2314,6 +2314,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           : "",
@@ -9827,7 +9830,9 @@ function runBridge() {
       /pub fn plan_read_projection/.test(modelMountCore) &&
       /read_projection_is_planned_in_rust_model_mount_core/.test(modelMountCore) &&
       !/fn model_mount_read_projection/.test(bridgeModule) &&
-      /"snapshot" => Ok\(model_mount_snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /mod aggregate;/.test(modelMountReadProjectionEvidence) &&
+      /"snapshot" => Ok\(aggregate::snapshot\(request\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"projection" => Ok\(aggregate::projection\(request\)\)/.test(modelMountReadProjectionEvidence) &&
       /mod authority;/.test(modelMountReadProjectionEvidence) &&
       /mod receipt;/.test(modelMountReadProjectionEvidence) &&
       /mod status;/.test(modelMountReadProjectionEvidence) &&
@@ -9865,8 +9870,12 @@ function runBridge() {
       /"runtime_engine_detail" => model_mount_runtime_engine_detail\(request\)/.test(modelMountReadProjectionEvidence) &&
       /"runtime_model_catalog" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
       /"open_ai_model_list" => Ok\(json!\(\{\s*"object": "list",\s*"data": \[\],\s*\}\)\)/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_snapshot/.test(modelMountReadProjectionEvidence) &&
-      !/fn model_mount_snapshot(?:(?!\nfn ).)*model_mount_projection\(request\);/s.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn snapshot/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn projection/.test(modelMountReadProjectionEvidence) &&
+      /aggregate_projection_is_planned_from_admitted_receipts/.test(modelMountReadProjectionEvidence) &&
+      /aggregate_snapshot_is_planned_from_projection_summary_and_recent_receipts/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_snapshot/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_projection\(/.test(modelMountReadProjectionEvidence) &&
       /"artifacts": \[\][\s\S]*"productArtifacts": \[\][\s\S]*"runtimeModelCatalog": \[\][\s\S]*"openAiModelList": \{\s*"object": "list",\s*"data": \[\],\s*\}/.test(modelMountReadProjectionEvidence) &&
       /"routes": \[\][\s\S]*"modelCapabilities": \[\]/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_product_artifacts/.test(modelMountReadProjectionEvidence) &&
@@ -13512,6 +13521,9 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/adapter_boundary.rs")

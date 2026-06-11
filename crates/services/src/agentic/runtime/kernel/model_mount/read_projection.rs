@@ -4,6 +4,7 @@ use serde_json::{json, Value};
 use super::MODEL_MOUNT_RUNTIME_SCHEMA_VERSION;
 
 mod adapter_boundary;
+mod aggregate;
 mod authority;
 mod receipt;
 mod status;
@@ -67,8 +68,8 @@ pub(super) fn model_mount_read_projection(
     request: &ModelMountReadProjectionRequest,
 ) -> Result<Value, ModelMountReadProjectionError> {
     match request.projection_kind.as_str() {
-        "snapshot" => Ok(model_mount_snapshot(request)),
-        "projection" => Ok(model_mount_projection(request)),
+        "snapshot" => Ok(aggregate::snapshot(request)),
+        "projection" => Ok(aggregate::projection(request)),
         "projection_summary" => Ok(receipt::projection_summary(request)),
         "receipt_replay" => receipt::receipt_replay(request),
         "model_route_decisions" => Ok(receipt::route_decisions(request)),
@@ -117,94 +118,6 @@ pub(super) fn model_mount_read_projection(
             format!("unsupported model_mount read projection kind {other}"),
         )),
     }
-}
-
-fn model_mount_snapshot(request: &ModelMountReadProjectionRequest) -> Value {
-    let state = &request.state;
-    let receipts = array_field(state, "receipts");
-    json!({
-        "schemaVersion": model_mount_projection_schema_version(request),
-        "server": status::server_status(request),
-        "catalog": status::catalog_status(request),
-        "oauthSessions": [],
-        "oauthStates": [],
-        "artifacts": [],
-        "productArtifacts": [],
-        "backends": [],
-        "backendProcesses": [],
-        "endpoints": [],
-        "instances": [],
-        "providers": [],
-        "routes": [],
-        "modelCapabilities": [],
-        "runtimeModelCatalog": [],
-        "openAiModelList": {
-            "object": "list",
-            "data": [],
-        },
-        "downloads": [],
-        "providerHealth": [],
-        "runtimeEngines": [],
-        "runtimeEngineProfiles": [],
-        "runtimePreference": Value::Null,
-        "runtimeSurvey": receipt::latest_runtime_survey(request),
-        "tokens": array_field(state, "grants"),
-        "vaultRefs": array_field(state, "vault_refs"),
-        "mcpServers": [],
-        "conversationStates": [],
-        "workflowNodes": adapter_boundary::workflow_bindings(),
-        "receipts": receipts.into_iter().rev().take(25).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>(),
-        "projection": receipt::projection_summary(request),
-        "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
-    })
-}
-
-fn model_mount_projection(request: &ModelMountReadProjectionRequest) -> Value {
-    let state = &request.state;
-    let receipts = array_field(state, "receipts");
-    json!({
-        "schemaVersion": model_mount_projection_schema_version(request),
-        "source": "agentgres_model_mounting_projection",
-        "generatedAt": model_mount_projection_generated_at(request),
-        "watermark": receipts.len(),
-        "artifacts": [],
-        "productArtifacts": [],
-        "endpoints": [],
-        "instances": [],
-        "routes": [],
-        "modelCapabilities": [],
-        "runtimeModelCatalog": [],
-        "openAiModelList": {
-            "object": "list",
-            "data": [],
-        },
-        "backends": [],
-        "backendProcesses": [],
-        "providers": [],
-        "catalog": status::catalog_status(request),
-        "oauthSessions": [],
-        "oauthStates": [],
-        "downloads": [],
-        "providerHealth": [],
-        "runtimeEngines": [],
-        "runtimeEngineProfiles": [],
-        "runtimePreference": Value::Null,
-        "runtimeSurvey": receipt::latest_runtime_survey(request),
-        "grants": array_field(state, "grants"),
-        "vaultRefs": array_field(state, "vault_refs"),
-        "mcpServers": [],
-        "conversationStates": [],
-        "workflowBindings": adapter_boundary::workflow_bindings(),
-        "adapterBoundaries": adapter_boundary::adapter_boundaries(state),
-        "lifecycleEvents": receipts_by_kind(&receipts, "model_lifecycle"),
-        "routeReceipts": receipts_by_kind(&receipts, "model_route_selection"),
-        "routeDecisions": receipt::route_decisions_from_receipts(&receipts),
-        "providerHealthReceipts": receipts_by_kind(&receipts, "provider_health"),
-        "runtimeSurveyReceipts": receipts_by_kind(&receipts, "runtime_survey"),
-        "invocationReceipts": receipts_by_kind(&receipts, "model_invocation"),
-        "toolReceipts": receipts_by_kind(&receipts, "mcp_tool_invocation"),
-        "receipts": receipts,
-    })
 }
 
 fn model_mount_runtime_engine_detail(

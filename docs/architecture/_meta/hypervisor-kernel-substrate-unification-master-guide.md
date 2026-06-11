@@ -4636,6 +4636,11 @@ that projection summaries, receipt replay, route-decision readback, latest
 provider/vault health, and runtime-survey status are derived from admitted
 receipt truth instead of JS topology, provider-health, or runtime-survey
 materialization;
+model-mount aggregate snapshot and projection envelopes now live in the
+dedicated Rust `model_mount/read_projection/aggregate.rs` module, with
+module-local Rust proof that top-level model_mount readback is assembled from
+admitted receipts, projection summary, wallet/vault refs, adapter-boundary
+metadata, and Rust-owned status/catalog helpers outside the broad dispatcher;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

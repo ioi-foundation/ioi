@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1024
+
+Slice 1024 split the model_mount aggregate snapshot/projection envelope cluster
+out of the broad `model_mount/read_projection.rs` dispatcher and into
+`model_mount/read_projection/aggregate.rs`. Top-level snapshot and projection
+readback, recent receipt windowing, route/provider/runtime receipt grouping,
+projection-summary embedding, wallet/vault ref passthrough, adapter-boundary
+metadata, and status/catalog composition now have a dedicated Rust owner module
+and module-local proof.
+
+This is still non-terminal migration work: aggregate readback authorship is
+isolated in Rust, but direct Rust daemon-core projection APIs over
+Agentgres-backed receipt/state-root truth must still replace command transport,
+JS state materialization, and JS edge translation before terminal projection
+ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1024 | Moved aggregate `snapshot` and `projection` readback authorship from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/aggregate.rs`; conformance now requires aggregate module proof tests and fails if the old broad dispatcher helper names regrow. | Direct Rust daemon-core projection APIs over Agentgres-backed model_mount receipt/state-root truth replace command bridge, JS state materialization, and JS edge translation for aggregate snapshot/projection readback. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1023
 
 Slice 1023 split the model_mount receipt-derived read-projection cluster out of
