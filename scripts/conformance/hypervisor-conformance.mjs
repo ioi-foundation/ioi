@@ -2352,10 +2352,13 @@ function runBridge() {
       /mod command_envelope;/.test(bridgeModule) &&
       /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
-      /command_family\(&envelope\.operation\)/.test(bridgeDispatch) &&
-      /dispatch_bridge_operation\(envelope\.operation\.as_str\(\),\s*command_family,\s*raw_request\)/.test(
+      /validate_command_envelope\(&envelope\.operation,\s*&envelope\.schema_version\)/.test(bridgeDispatch) &&
+      /error\.into_parts\(\)/.test(bridgeDispatch) &&
+      /dispatch_bridge_operation\(validated\.operation,\s*validated\.command_family,\s*raw_request\)/.test(
         bridgeDispatch,
       ) &&
+      !/expected_schema_version/.test(bridgeDispatch) &&
+      !/schema_version_invalid/.test(bridgeDispatch) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeDispatch) &&
       /pub\(super\) fn dispatch_bridge_operation\(\s*operation: &str,\s*command_family: CommandFamily,\s*raw_request: Value,\s*\)/.test(
         bridgeCommandDispatch,
@@ -2363,8 +2366,8 @@ function runBridge() {
       /match \(command_family, operation\)/.test(bridgeCommandDispatch) &&
       /\(CommandFamily::StepModule, "run_coding_tool_step_module"\)/.test(bridgeCommandDispatch) &&
       /\(CommandFamily::DaemonCore, "admit_model_mount_route_decision"\)/.test(bridgeCommandDispatch) &&
-      /expected_command_schema_version/.test(bridgeDispatch) &&
-      /operation_unknown/.test(bridgeDispatch) &&
+      /expected_command_schema_version/.test(commandProtocolCore) &&
+      /operation_unknown/.test(commandProtocolCore) &&
       !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
       /pub\(super\) use ioi_services::agentic::runtime::kernel::command_protocol/.test(bridgeCommandEnvelope) &&
       !/pub\(super\) const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(bridgeCommandEnvelope) &&
@@ -2377,6 +2380,11 @@ function runBridge() {
       /pub const DAEMON_CORE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
       /pub enum CommandFamily/.test(commandProtocolCore) &&
       /pub fn command_family\(operation: &str\) -> Option<CommandFamily>/.test(commandProtocolCore) &&
+      /pub struct ValidatedCommandEnvelope/.test(commandProtocolCore) &&
+      /pub struct CommandProtocolError/.test(commandProtocolCore) &&
+      /pub fn validate_command_envelope/.test(commandProtocolCore) &&
+      /CommandProtocolError::operation_unknown/.test(commandProtocolCore) &&
+      /CommandProtocolError::schema_version_invalid/.test(commandProtocolCore) &&
       /pub fn expected_command_schema_version\(operation: &str\) -> Option<&'static str>/.test(commandProtocolCore) &&
       /command_family\(operation\)\.map\(CommandFamily::schema_version\)/.test(commandProtocolCore) &&
       /pub fn is_step_module_operation/.test(commandProtocolCore) &&
@@ -2385,12 +2393,15 @@ function runBridge() {
       /step_module_operation_uses_step_module_command_schema/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
       /command_catalog_operations_have_schema_families/.test(commandProtocolCore) &&
+      /validate_command_envelope_returns_rust_owned_family/.test(commandProtocolCore) &&
+      /validate_command_envelope_rejects_schema_family_mismatch/.test(commandProtocolCore) &&
       /"validate_mcp_servers"/.test(commandProtocolCore) &&
       /"plan_workflow_edit_admission_required"/.test(commandProtocolCore) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
       !/fn is_daemon_core_operation/.test(bridgeModule) &&
       /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
       /bridge_unknown_operation_has_no_command_schema_family/.test(bridgeModule) &&
+      /bridge_schema_family_mismatch_is_rejected_by_rust_protocol/.test(bridgeModule) &&
       /command_family\("unknown_operation"\)/.test(bridgeModule) &&
       /"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
     [

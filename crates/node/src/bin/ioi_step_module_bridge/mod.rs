@@ -53,8 +53,9 @@ use bridge_dispatch::*;
 use coding_tool_command::*;
 use coding_tool_helpers::*;
 use command_envelope::{
-    command_family, expected_command_schema_version, is_step_module_operation, CommandFamily,
-    COMMAND_SCHEMA_VERSION, DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
+    command_family, expected_command_schema_version, is_step_module_operation,
+    validate_command_envelope, CommandFamily, COMMAND_SCHEMA_VERSION,
+    DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
 };
 use context_policy_command::{
     evaluate_coding_tool_budget_policy, evaluate_compaction_policy, evaluate_context_budget_policy,
@@ -208,7 +209,24 @@ mod tests {
     fn bridge_unknown_operation_has_no_command_schema_family() {
         assert_eq!(command_family("unknown_operation"), None);
         assert_eq!(expected_command_schema_version("unknown_operation"), None);
+        assert_eq!(
+            validate_command_envelope("unknown_operation", COMMAND_SCHEMA_VERSION)
+                .unwrap_err()
+                .code(),
+            "operation_unknown"
+        );
         assert!(!is_step_module_operation("unknown_operation"));
+    }
+
+    #[test]
+    fn bridge_schema_family_mismatch_is_rejected_by_rust_protocol() {
+        let error = validate_command_envelope(
+            "admit_model_mount_route_decision",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("schema mismatch should fail closed");
+
+        assert_eq!(error.code(), "schema_version_invalid");
     }
 
     fn temp_workspace(name: &str) -> PathBuf {

@@ -97,6 +97,47 @@ impl CommandFamily {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ValidatedCommandEnvelope<'a> {
+    pub operation: &'a str,
+    pub command_family: CommandFamily,
+    pub schema_version: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandProtocolError {
+    code: &'static str,
+    message: String,
+}
+
+impl CommandProtocolError {
+    fn operation_unknown(operation: &str) -> Self {
+        Self {
+            code: "operation_unknown",
+            message: format!("unknown bridge operation {operation}"),
+        }
+    }
+
+    fn schema_version_invalid(expected: &str, received: &str) -> Self {
+        Self {
+            code: "schema_version_invalid",
+            message: format!("expected {expected} but received {received}"),
+        }
+    }
+
+    pub fn code(&self) -> &'static str {
+        self.code
+    }
+
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    pub fn into_parts(self) -> (&'static str, String) {
+        (self.code, self.message)
+    }
+}
+
 pub fn command_family(operation: &str) -> Option<CommandFamily> {
     if STEP_MODULE_OPERATIONS.contains(&operation) {
         Some(CommandFamily::StepModule)
@@ -109,6 +150,27 @@ pub fn command_family(operation: &str) -> Option<CommandFamily> {
 
 pub fn expected_command_schema_version(operation: &str) -> Option<&'static str> {
     command_family(operation).map(CommandFamily::schema_version)
+}
+
+pub fn validate_command_envelope<'a>(
+    operation: &'a str,
+    schema_version: &str,
+) -> Result<ValidatedCommandEnvelope<'a>, CommandProtocolError> {
+    let command_family = command_family(operation)
+        .ok_or_else(|| CommandProtocolError::operation_unknown(operation))?;
+    let expected_schema_version = command_family.schema_version();
+    if schema_version != expected_schema_version {
+        return Err(CommandProtocolError::schema_version_invalid(
+            expected_schema_version,
+            schema_version,
+        ));
+    }
+
+    Ok(ValidatedCommandEnvelope {
+        operation,
+        command_family,
+        schema_version: expected_schema_version,
+    })
 }
 
 pub fn is_step_module_operation(operation: &str) -> bool {
@@ -163,6 +225,12 @@ mod tests {
     fn unknown_operation_has_no_command_schema_family() {
         assert_eq!(command_family("unknown_operation"), None);
         assert_eq!(expected_command_schema_version("unknown_operation"), None);
+        assert_eq!(
+            validate_command_envelope("unknown_operation", STEP_MODULE_COMMAND_SCHEMA_VERSION)
+                .unwrap_err()
+                .code(),
+            "operation_unknown"
+        );
         assert!(!is_step_module_operation("unknown_operation"));
         assert!(!is_daemon_core_operation("unknown_operation"));
     }
@@ -183,5 +251,47 @@ mod tests {
                 Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
             );
         }
+    }
+
+    #[test]
+    fn validate_command_envelope_returns_rust_owned_family() {
+        let step_module = validate_command_envelope(
+            "run_coding_tool_step_module",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect("step module command envelope");
+        assert_eq!(step_module.operation, "run_coding_tool_step_module");
+        assert_eq!(step_module.command_family, CommandFamily::StepModule);
+        assert_eq!(
+            step_module.schema_version,
+            STEP_MODULE_COMMAND_SCHEMA_VERSION
+        );
+
+        let daemon_core = validate_command_envelope(
+            "admit_model_mount_route_decision",
+            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect("daemon-core command envelope");
+        assert_eq!(daemon_core.operation, "admit_model_mount_route_decision");
+        assert_eq!(daemon_core.command_family, CommandFamily::DaemonCore);
+        assert_eq!(
+            daemon_core.schema_version,
+            DAEMON_CORE_COMMAND_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn validate_command_envelope_rejects_schema_family_mismatch() {
+        let error = validate_command_envelope(
+            "admit_model_mount_route_decision",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("schema mismatch should fail closed");
+
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert_eq!(
+            error.message(),
+            "expected ioi.runtime.daemon_core.command.v1 but received ioi.step_module.command_bridge.v1"
+        );
     }
 }

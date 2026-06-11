@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::command_dispatch::dispatch_bridge_operation;
-use super::command_envelope::{command_family, expected_command_schema_version};
+use super::command_envelope::validate_command_envelope;
 use super::BridgeError;
 
 #[derive(Debug, Deserialize)]
@@ -35,28 +35,11 @@ pub(super) fn run_bridge() -> Result<Value, BridgeError> {
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
     let envelope: BridgeEnvelope = serde_json::from_value(raw_request.clone())
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
-    let command_family = command_family(&envelope.operation).ok_or_else(|| {
-        BridgeError::new(
-            "operation_unknown",
-            format!("unknown bridge operation {}", envelope.operation),
-        )
-    })?;
-    let expected_schema_version =
-        expected_command_schema_version(&envelope.operation).ok_or_else(|| {
-            BridgeError::new(
-                "operation_unknown",
-                format!("unknown bridge operation {}", envelope.operation),
-            )
+    let validated = validate_command_envelope(&envelope.operation, &envelope.schema_version)
+        .map_err(|error| {
+            let (code, message) = error.into_parts();
+            BridgeError::new(code, message)
         })?;
-    if envelope.schema_version != expected_schema_version {
-        return Err(BridgeError::new(
-            "schema_version_invalid",
-            format!(
-                "expected {} but received {}",
-                expected_schema_version, envelope.schema_version
-            ),
-        ));
-    }
 
-    dispatch_bridge_operation(envelope.operation.as_str(), command_family, raw_request)
+    dispatch_bridge_operation(validated.operation, validated.command_family, raw_request)
 }

@@ -5318,6 +5318,23 @@ Rust/WASM execution, Agentgres admission, receipt/state-root binding, replay,
 projection, wallet.network authority, cTEE custody, and stable IDE/CLI/SDK
 protocol surfaces.
 
+Slice 1068 moves command-envelope validation into the Rust kernel protocol.
+`command_protocol.rs` now exposes `ValidatedCommandEnvelope`,
+`CommandProtocolError`, and `validate_command_envelope()`, so the Rust
+protocol layer owns both unknown-operation rejection and schema-family mismatch
+rejection. The temporary bridge stdin transport now parses JSON, calls the
+Rust validator, adapts the Rust protocol error into the bridge response shape,
+and passes the Rust-owned `CommandFamily` into dispatch; it no longer rebuilds
+`expected_schema_version` or `schema_version_invalid` logic locally.
+Conformance now fails if schema-version validation drifts back into
+`bridge_dispatch.rs` or if Rust loses the typed envelope validator and mismatch
+tests. This is still not terminal bridge retirement: the remaining Node command
+dispatch table, adapter-only command envelope, StepModule command helper, and
+shared daemon-core command helper must still be replaced by direct Rust
+daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
+admission, receipt/state-root binding, replay, projection, wallet.network
+authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
