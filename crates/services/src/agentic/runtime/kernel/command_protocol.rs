@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 pub const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_bridge.v1";
 pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
 pub const COMMAND_SCHEMA_VERSION: &str = STEP_MODULE_COMMAND_SCHEMA_VERSION;
@@ -307,6 +309,13 @@ pub struct ValidatedCommandEnvelope<'a> {
     pub schema_version: &'static str,
 }
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct CommandEnvelope {
+    #[serde(rename = "schema_version")]
+    pub schema_version: String,
+    pub operation: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommandProtocolError {
     code: &'static str,
@@ -562,6 +571,12 @@ pub fn validate_command_envelope<'a>(
     })
 }
 
+pub fn validate_command_envelope_payload<'a>(
+    envelope: &'a CommandEnvelope,
+) -> Result<ValidatedCommandEnvelope<'a>, CommandProtocolError> {
+    validate_command_envelope(&envelope.operation, &envelope.schema_version)
+}
+
 pub fn is_step_module_operation(operation: &str) -> bool {
     command_family(operation) == Some(CommandFamily::StepModule)
 }
@@ -692,6 +707,32 @@ mod tests {
         assert_eq!(
             daemon_core.schema_version,
             DAEMON_CORE_COMMAND_SCHEMA_VERSION
+        );
+    }
+
+    #[test]
+    fn command_envelope_requires_canonical_schema_version_field() {
+        let canonical: CommandEnvelope = serde_json::from_value(serde_json::json!({
+            "schema_version": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "run_coding_tool_step_module"
+        }))
+        .expect("canonical command envelope");
+
+        let validated =
+            validate_command_envelope_payload(&canonical).expect("validated command envelope");
+        assert_eq!(
+            validated.command_operation,
+            CommandOperation::RunCodingToolStepModule
+        );
+
+        let retired_alias = serde_json::from_value::<CommandEnvelope>(serde_json::json!({
+            "schemaVersion": STEP_MODULE_COMMAND_SCHEMA_VERSION,
+            "operation": "run_coding_tool_step_module"
+        }));
+
+        assert!(
+            retired_alias.is_err(),
+            "Rust command envelope must require canonical schema_version"
         );
     }
 

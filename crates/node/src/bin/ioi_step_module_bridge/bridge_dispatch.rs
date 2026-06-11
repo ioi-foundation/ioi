@@ -1,17 +1,11 @@
-use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::{self, Read};
 
 use super::command_dispatch::dispatch_bridge_operation;
 use super::BridgeError;
-use ioi_services::agentic::runtime::kernel::command_protocol::validate_command_envelope;
-
-#[derive(Debug, Deserialize)]
-pub(super) struct BridgeEnvelope {
-    #[serde(rename = "schema_version")]
-    pub(super) schema_version: String,
-    pub(super) operation: String,
-}
+use ioi_services::agentic::runtime::kernel::command_protocol::{
+    validate_command_envelope_payload, CommandEnvelope,
+};
 
 pub fn run_bridge_response_from_stdin() -> Value {
     match run_bridge() {
@@ -33,13 +27,12 @@ pub(super) fn run_bridge() -> Result<Value, BridgeError> {
         .map_err(|error| BridgeError::new("stdin_read_failed", error.to_string()))?;
     let raw_request: Value = serde_json::from_str(&input)
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
-    let envelope: BridgeEnvelope = serde_json::from_value(raw_request.clone())
+    let envelope: CommandEnvelope = serde_json::from_value(raw_request.clone())
         .map_err(|error| BridgeError::new("request_json_invalid", error.to_string()))?;
-    let validated = validate_command_envelope(&envelope.operation, &envelope.schema_version)
-        .map_err(|error| {
-            let (code, message) = error.into_parts();
-            BridgeError::new(code, message)
-        })?;
+    let validated = validate_command_envelope_payload(&envelope).map_err(|error| {
+        let (code, message) = error.into_parts();
+        BridgeError::new(code, message)
+    })?;
 
     dispatch_bridge_operation(validated.command_operation, raw_request)
 }

@@ -5368,6 +5368,23 @@ daemon-core/workload protocol APIs over Rust/WASM execution, Agentgres
 admission, receipt/state-root binding, replay, projection, wallet.network
 authority, cTEE custody, and stable IDE/CLI/SDK protocol surfaces.
 
+Slice 1071 moves temporary bridge envelope parsing into the Rust command
+protocol. `command_protocol.rs` now owns the deserializable `CommandEnvelope`
+wire shape with canonical `schema_version` plus operation fields, exposes
+`validate_command_envelope_payload()`, and tests that the retired
+`schemaVersion` alias cannot satisfy command intake. The stdin bridge still
+reads bytes and parses JSON transport, but it no longer declares a bridge-local
+`BridgeEnvelope`; it deserializes the Rust protocol envelope and passes it back
+to Rust validation before dispatching on the Rust-owned `CommandOperation`.
+Conformance now fails if a bridge-local envelope struct returns or if the
+bridge stops using the Rust envelope/payload validator. This is still not
+terminal bridge retirement: the remaining `command_dispatch.rs` function table,
+StepModule command helper, and shared daemon-core command helper must still be
+replaced by direct Rust daemon-core/workload protocol APIs over Rust/WASM
+execution, Agentgres admission, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

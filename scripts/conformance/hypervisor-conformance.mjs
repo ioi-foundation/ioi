@@ -2349,13 +2349,15 @@ function runBridge() {
       /mod command_dispatch;/.test(bridgeModule) &&
       !/mod command_envelope;/.test(bridgeModule) &&
       !bridgeCommandEnvelopeExists &&
-      /#\[serde\(rename = "schema_version"\)\]/.test(bridgeDispatch) &&
+      !/struct BridgeEnvelope/.test(bridgeDispatch) &&
+      !/#\[derive\(Debug, Deserialize\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
-      /use ioi_services::agentic::runtime::kernel::command_protocol::validate_command_envelope;/.test(
+      /use ioi_services::agentic::runtime::kernel::command_protocol::\{\s*validate_command_envelope_payload,\s*CommandEnvelope,\s*\};/.test(
         bridgeDispatch,
       ) &&
       /use ioi_services::agentic::runtime::kernel::command_protocol::/.test(bridgeModule) &&
-      /validate_command_envelope\(&envelope\.operation,\s*&envelope\.schema_version\)/.test(bridgeDispatch) &&
+      /let envelope: CommandEnvelope = serde_json::from_value\(raw_request\.clone\(\)\)/.test(bridgeDispatch) &&
+      /validate_command_envelope_payload\(&envelope\)/.test(bridgeDispatch) &&
       /error\.into_parts\(\)/.test(bridgeDispatch) &&
       /dispatch_bridge_operation\(validated\.command_operation,\s*raw_request\)/.test(
         bridgeDispatch,
@@ -2381,6 +2383,9 @@ function runBridge() {
       /pub const DAEMON_CORE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
       /pub enum CommandFamily/.test(commandProtocolCore) &&
       /pub enum CommandOperation/.test(commandProtocolCore) &&
+      /pub struct CommandEnvelope/.test(commandProtocolCore) &&
+      /#\[derive\(Debug, Clone, Deserialize, PartialEq, Eq\)\]/.test(commandProtocolCore) &&
+      /#\[serde\(rename = "schema_version"\)\]/.test(commandProtocolCore) &&
       /pub fn command_operation\(operation: &str\) -> Option<CommandOperation>/.test(commandProtocolCore) &&
       /pub command_operation: CommandOperation/.test(commandProtocolCore) &&
       /impl CommandOperation/.test(commandProtocolCore) &&
@@ -2390,6 +2395,7 @@ function runBridge() {
       /pub struct ValidatedCommandEnvelope/.test(commandProtocolCore) &&
       /pub struct CommandProtocolError/.test(commandProtocolCore) &&
       /pub fn validate_command_envelope/.test(commandProtocolCore) &&
+      /pub fn validate_command_envelope_payload/.test(commandProtocolCore) &&
       /CommandProtocolError::operation_unknown/.test(commandProtocolCore) &&
       /CommandProtocolError::schema_version_invalid/.test(commandProtocolCore) &&
       /pub fn expected_command_schema_version\(operation: &str\) -> Option<&'static str>/.test(commandProtocolCore) &&
@@ -2400,6 +2406,7 @@ function runBridge() {
       /step_module_operation_uses_step_module_command_schema/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
       /command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
+      /command_envelope_requires_canonical_schema_version_field/.test(commandProtocolCore) &&
       /command_catalog_operations_have_schema_families/.test(commandProtocolCore) &&
       /validate_command_envelope_returns_rust_owned_family/.test(commandProtocolCore) &&
       /validate_command_envelope_rejects_schema_family_mismatch/.test(commandProtocolCore) &&

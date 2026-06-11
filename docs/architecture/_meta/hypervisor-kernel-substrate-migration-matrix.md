@@ -15785,6 +15785,51 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1071
+
+Slice 1071 moves temporary bridge envelope parsing into Rust command protocol
+ownership. `crates/services/src/agentic/runtime/kernel/command_protocol.rs`
+now owns the deserializable `CommandEnvelope` wire shape, including the
+canonical `schema_version` field and operation field, and exposes
+`validate_command_envelope_payload()` so validation consumes the Rust protocol
+envelope directly. Rust protocol tests now prove the retired `schemaVersion`
+alias fails before command validation.
+
+`crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs` remains stdin
+and JSON transport, but it no longer declares a bridge-local `BridgeEnvelope`.
+It deserializes `CommandEnvelope`, calls
+`validate_command_envelope_payload()`, and then dispatches on the Rust-owned
+`CommandOperation`. This removes another bridge-local protocol wrapper from
+the temporary Node command path.
+
+Conformance now fails if a bridge-local envelope struct returns, if the bridge
+stops using `CommandEnvelope`, or if Rust loses the canonical-envelope test and
+payload validator. This is a Rust protocol-ownership cut, not terminal bridge
+retirement. The remaining `command_dispatch.rs` function table, StepModule
+command helper, and shared daemon-core command helper must still be replaced by
+direct Rust daemon-core/workload protocol APIs over Rust/WASM execution,
+Agentgres admission, receipt/state-root binding, replay, projection,
+wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
+surfaces.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services command_protocol --lib` | passed |
+| `cargo test -p ioi-node bridge_ --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1070
 
 Slice 1070 moves temporary bridge operation identity into Rust command

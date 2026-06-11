@@ -47,8 +47,6 @@ use authority_command::{
     authorize_external_capability_exit, ExternalCapabilityExitAuthorityBridgeRequest,
 };
 pub use bridge_dispatch::run_bridge_response_from_stdin;
-#[cfg(test)]
-use bridge_dispatch::*;
 use coding_tool_command::*;
 use coding_tool_helpers::*;
 use context_policy_command::{
@@ -176,6 +174,7 @@ impl BridgeError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ioi_services::agentic::runtime::kernel::command_protocol::CommandEnvelope;
     use ioi_services::agentic::runtime::kernel::model_mount::{
         ModelMountAcceptedReceiptTransitionRequest, ModelMountCore,
     };
@@ -185,7 +184,7 @@ mod tests {
 
     #[test]
     fn bridge_command_schema_version_alias_is_retired() {
-        let canonical: BridgeEnvelope = serde_json::from_value(json!({
+        let canonical: CommandEnvelope = serde_json::from_value(json!({
             "schema_version": COMMAND_SCHEMA_VERSION,
             "operation": "run_coding_tool_step_module"
         }))
@@ -193,7 +192,7 @@ mod tests {
 
         assert_eq!(canonical.schema_version, COMMAND_SCHEMA_VERSION);
 
-        let retired_alias = serde_json::from_value::<BridgeEnvelope>(json!({
+        let retired_alias = serde_json::from_value::<CommandEnvelope>(json!({
             "schemaVersion": COMMAND_SCHEMA_VERSION,
             "operation": "run_coding_tool_step_module"
         }));
