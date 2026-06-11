@@ -15784,6 +15784,29 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1088
+
+Slice 1088 deletes the obsolete Stage 5 stop/cancel/recover and Stage 7
+delegation live-GUI proof scripts. They still encoded retired JS model-mount
+`importModel`/`mountEndpoint` setup plus JS runtime-service bridge dispatch as
+successful proof, while current conformance requires those paths to fail closed
+until Rust daemon-core admission, runtime-service/subagent dispatch, Agentgres
+expected-head/state-root binding, replay, projection, and stable protocol APIs
+own the surface.
+
+This is not terminal runtime-service migration. New live GUI proof for these
+scenarios must be added only after the Rust daemon-core runtime-service and
+subagent path is implemented end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1087
 
 Slice 1087 converts `runtime-thread-control.test.mjs` from an obsolete live JS

@@ -5687,6 +5687,20 @@ turn submit, managed-session control, and subagent recovery still need direct
 Rust daemon-core admission, dispatch, Agentgres binding, replay, and projection
 before they can become active live proofs again.
 
+Slice 1088 deletes the obsolete Stage 5 stop/cancel/recover and Stage 7
+delegation live-GUI proof scripts that still encoded JS model-mount
+`importModel`/`mountEndpoint` setup plus JS runtime-service bridge dispatch as
+successful product proof. Those scripts were self-contained, unreferenced by
+the conformance suite, and contradicted the current Rust-required boundary
+where model-route mutation, runtime-service thread start, turn submit/control,
+managed-session control, and subagent recovery must fail closed until direct
+Rust daemon-core admission and Agentgres binding exist.
+
+Conformance now fails if either retired live-GUI proof script is restored. New
+live GUI proof for these scenarios must be introduced only after the Rust
+daemon core owns the runtime-service/subagent execution path end to end and the
+proof drives stable protocol APIs over the unified substrate.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

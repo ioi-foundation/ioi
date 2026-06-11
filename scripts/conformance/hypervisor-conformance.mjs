@@ -9329,6 +9329,8 @@ function runBridge() {
         runtimeThreadControlTest,
       ) &&
       /typeof store\.createThread,\s*"undefined"/.test(runtimeThreadControlTest) &&
+      !exists("scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs") &&
+      !exists("scripts/lib/workflow-stage7-delegation-live-gui-proof.mjs") &&
       /runtime profile request normalization ignores retired camelCase aliases/.test(
         runtimeApiBridgeTest,
       ) &&
@@ -9350,6 +9352,8 @@ function runBridge() {
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.mjs",
       "packages/runtime-daemon/src/threads/runtime-bridge-thread.test.mjs",
       "packages/runtime-daemon/src/runtime-thread-control.test.mjs",
+      "scripts/lib/workflow-stage5-stop-cancel-recover-live-gui-proof.mjs",
+      "scripts/lib/workflow-stage7-delegation-live-gui-proof.mjs",
     ],
     "Phase 10/11 is pending: runtime bridge thread start/turn/control JS facades must stay retired before bridge dispatch, Rust-planner calls from the facade, JS event append, or JS agent/run persistence while direct Rust daemon-core admission is extracted",
   );
