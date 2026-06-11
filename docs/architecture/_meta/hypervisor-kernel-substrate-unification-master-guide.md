@@ -4641,6 +4641,11 @@ dedicated Rust `model_mount/read_projection/aggregate.rs` module, with
 module-local Rust proof that top-level model_mount readback is assembled from
 admitted receipts, projection summary, wallet/vault refs, adapter-boundary
 metadata, and Rust-owned status/catalog helpers outside the broad dispatcher;
+model-mount runtime-engine read-projection defaults and runtime-engine detail
+fail-closed behavior now live in the dedicated Rust
+`model_mount/read_projection/runtime.rs` module, with module-local Rust proof
+that caller-supplied JS runtime-engine maps, profiles, preferences, and default
+load options cannot become projection truth;
 public studio intent-frame routing now calls the intent resolver dependency
 directly instead of a daemon-store route wrapper;
 public doctor routing now calls the mounted doctor-report aggregate directly,

@@ -7,6 +7,7 @@ mod adapter_boundary;
 mod aggregate;
 mod authority;
 mod receipt;
+mod runtime;
 mod status;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -95,12 +96,12 @@ pub(super) fn model_mount_read_projection(
         "provider_health" => Ok(Value::Array(Vec::new())),
         "workflow_bindings" => Ok(adapter_boundary::workflow_bindings()),
         "adapter_boundaries" => Ok(adapter_boundary::adapter_boundaries(&request.state)),
-        "runtime_engines" => Ok(Value::Array(Vec::new())),
-        "runtime_engine_profiles" => Ok(Value::Array(Vec::new())),
-        "runtime_preference" => Ok(Value::Null),
-        "runtime_preference_for_endpoint" => Ok(Value::Null),
-        "runtime_default_load_options" => Ok(Value::Null),
-        "runtime_engine_detail" => model_mount_runtime_engine_detail(request),
+        "runtime_engines" => Ok(runtime::engines()),
+        "runtime_engine_profiles" => Ok(runtime::engine_profiles()),
+        "runtime_preference" => Ok(runtime::preference()),
+        "runtime_preference_for_endpoint" => Ok(runtime::preference_for_endpoint()),
+        "runtime_default_load_options" => Ok(runtime::default_load_options()),
+        "runtime_engine_detail" => runtime::engine_detail(request),
         "runtime_model_catalog" => Ok(Value::Array(Vec::new())),
         "open_ai_model_list" => Ok(json!({
             "object": "list",
@@ -118,19 +119,6 @@ pub(super) fn model_mount_read_projection(
             format!("unsupported model_mount read projection kind {other}"),
         )),
     }
-}
-
-fn model_mount_runtime_engine_detail(
-    request: &ModelMountReadProjectionRequest,
-) -> Result<Value, ModelMountReadProjectionError> {
-    let engine_id = request
-        .engine_id
-        .as_deref()
-        .unwrap_or("unknown_runtime_engine");
-    Err(ModelMountReadProjectionError::new(
-        "model_mount_runtime_engine_not_found",
-        format!("runtime engine not found: {engine_id}"),
-    ))
 }
 
 fn model_mount_projection_schema_version(request: &ModelMountReadProjectionRequest) -> String {

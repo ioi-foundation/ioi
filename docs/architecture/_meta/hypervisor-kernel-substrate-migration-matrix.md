@@ -20371,6 +20371,29 @@ Verification commands for this slice:
 Schedule the next matrix-compaction pass only after the next Rust-core
 extraction or facade-retirement seam lands and its non-terminal target is clear.
 
+## Implementation Slice Evidence: 1025
+
+Slice 1025 split the model_mount runtime-engine read-projection cluster out of
+the broad `model_mount/read_projection.rs` dispatcher and into
+`model_mount/read_projection/runtime.rs`. Runtime engine lists, runtime engine
+profiles, runtime preference, endpoint preference, default load options, and
+runtime-engine detail not-found refusal now have a dedicated Rust owner module
+and module-local proof that caller-supplied JS runtime-engine state cannot
+become public projection truth.
+
+This is still non-terminal migration work: runtime-engine readback defaults and
+fail-closed detail behavior are isolated in Rust, but direct Rust daemon-core
+runtime-engine projection APIs over Agentgres-backed receipt/state-root truth
+must still replace command transport, JS state materialization, and JS edge
+translation before terminal runtime-engine projection ownership can be claimed.
+
+| Slice | Landed movement | Remaining non-terminal target |
+| --- | --- | --- |
+| 1025 | Moved runtime-engine read-projection default/fail-closed authorship from `crates/services/src/agentic/runtime/kernel/model_mount/read_projection.rs` into `crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs`; conformance now requires runtime module proof tests and fails if the old broad dispatcher runtime-engine detail helper regrows. | Direct Rust daemon-core runtime-engine projection APIs over Agentgres-backed model_mount runtime-engine receipt/state-root truth replace command bridge, JS state materialization, and JS edge translation. |
+
+Schedule the next matrix-compaction pass only after the next Rust-core
+extraction or facade-retirement seam lands and its non-terminal target is clear.
+
 ## Implementation Slice Evidence: 1024
 
 Slice 1024 split the model_mount aggregate snapshot/projection envelope cluster

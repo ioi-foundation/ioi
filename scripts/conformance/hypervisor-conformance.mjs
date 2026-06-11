@@ -2329,6 +2329,9 @@ function runBridge() {
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
+          : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           : "",
@@ -9862,12 +9865,21 @@ function runBridge() {
       /adapter_boundaries_are_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       /workflow_bindings_are_planned_in_rust_model_mount_projection/.test(modelMountReadProjectionEvidence) &&
       /engine_id:\s*Option<String>/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_engines" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_engine_profiles" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_preference" => Ok\(Value::Null\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_preference_for_endpoint" => Ok\(Value::Null\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_default_load_options" => Ok\(Value::Null\)/.test(modelMountReadProjectionEvidence) &&
-      /"runtime_engine_detail" => model_mount_runtime_engine_detail\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /mod runtime;/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_engines" => Ok\(runtime::engines\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_engine_profiles" => Ok\(runtime::engine_profiles\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_preference" => Ok\(runtime::preference\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_preference_for_endpoint" => Ok\(runtime::preference_for_endpoint\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_default_load_options" => Ok\(runtime::default_load_options\(\)\)/.test(modelMountReadProjectionEvidence) &&
+      /"runtime_engine_detail" => runtime::engine_detail\(request\)/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn engines/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn engine_profiles/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn preference/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn preference_for_endpoint/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn default_load_options/.test(modelMountReadProjectionEvidence) &&
+      /pub\(super\) fn engine_detail/.test(modelMountReadProjectionEvidence) &&
+      /runtime_projection_defaults_ignore_caller_supplied_js_state/.test(modelMountReadProjectionEvidence) &&
+      /runtime_engine_detail_fails_closed_until_rust_projection_owns_state/.test(modelMountReadProjectionEvidence) &&
       /"runtime_model_catalog" => Ok\(Value::Array\(Vec::new\(\)\)\)/.test(modelMountReadProjectionEvidence) &&
       /"open_ai_model_list" => Ok\(json!\(\{\s*"object": "list",\s*"data": \[\],\s*\}\)\)/.test(modelMountReadProjectionEvidence) &&
       /pub\(super\) fn snapshot/.test(modelMountReadProjectionEvidence) &&
@@ -9930,7 +9942,7 @@ function runBridge() {
       !/fn model_mount_catalog_adapter_boundary/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_authority_snapshot/.test(modelMountReadProjectionEvidence) &&
       !/fn status_count/.test(modelMountReadProjectionEvidence) &&
-      /fn model_mount_runtime_engine_detail/.test(modelMountReadProjectionEvidence) &&
+      !/fn model_mount_runtime_engine_detail/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_model_capabilities/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_product_artifacts/.test(modelMountReadProjectionEvidence) &&
       !/fn model_mount_runtime_model_catalog/.test(modelMountReadProjectionEvidence) &&
@@ -13536,6 +13548,9 @@ function runReceipts() {
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/receipt.rs")
+          : "",
+        exists("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
+          ? read("crates/services/src/agentic/runtime/kernel/model_mount/read_projection/runtime.rs")
           : "",
         exists("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
           ? read("crates/services/src/agentic/runtime/kernel/model_mount/required.rs")
