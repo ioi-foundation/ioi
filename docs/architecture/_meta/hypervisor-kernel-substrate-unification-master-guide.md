@@ -7301,6 +7301,22 @@ daemon-core lifecycle, MCP, and memory API ownership where admission,
 projection, Agentgres truth, replay, and conformance no longer depend on Node
 bridge endpoint proof scaffolding.
 
+Slice 1181 moves the workspace-restore command-response proof cluster out of
+the temporary bridge proof surface and relies on the Rust workspace owner at
+`crates/services/src/agentic/runtime/kernel/workspace_restore.rs`. Workspace
+restore apply-policy planning, restore operation preview/apply response
+shaping, and workspace snapshot capture response shaping now run as Rust owner
+tests. Bridge conformance now requires those owner tests and proves the old
+bridge-named workspace-restore tests, request-type imports, and
+response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because workspace snapshot and restore decisions
+still cross temporary command transport. The target is direct Rust daemon-core
+workspace snapshot/restore API ownership where snapshot capture, restore
+policy, restore application, Agentgres truth, replay, and stable IDE/CLI/SDK
+surfaces no longer depend on Node bridge endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -6632,13 +6632,16 @@ function runBridge() {
       !/plan_approval_request_state_update_response as plan_approval_request_state_update/.test(bridgeModule) &&
       !/plan_approval_decision_state_update_response as plan_approval_decision_state_update/.test(bridgeModule) &&
       !/plan_approval_revoke_state_update_response as plan_approval_revoke_state_update/.test(bridgeModule) &&
-      /plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
+      /rust_core_shapes_workspace_restore_apply_policy_command_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_restore_apply_operations_command_response/.test(workspaceRestoreKernel) &&
+      /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
+      !/plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/pub\(super\) fn preview_workspace_restore_operations/.test(
         workspaceRestoreCommandBridge,
       ) &&
-      /apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
-      /capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule),
+      !/apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
+      !/capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -14690,10 +14693,11 @@ function runBridge() {
       /pub fn plan_workspace_restore_apply_policy_response/.test(workspaceRestoreKernel) &&
       /rust_workspace_restore_policy_command/.test(workspaceRestoreKernel) &&
       /workspace_restore_apply_policy_invalid/.test(workspaceRestoreKernel) &&
-      /plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
+      /rust_core_shapes_workspace_restore_apply_policy_command_response/.test(workspaceRestoreKernel) &&
+      !/plan_workspace_restore_apply_policy_response as plan_workspace_restore_apply_policy/.test(bridgeModule) &&
       !/struct WorkspaceRestoreApplyPolicyBridgeRequest/.test(bridgeModule) &&
       !/fn plan_workspace_restore_apply_policy/.test(bridgeModule) &&
-      /bridge_plans_workspace_restore_apply_policy_through_rust_core/.test(bridgeModule),
+      !/bridge_plans_workspace_restore_apply_policy_through_rust_core/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
@@ -14714,12 +14718,13 @@ function runBridge() {
       /rust_workspace_restore_operations_command/.test(workspaceRestoreKernel) &&
       /workspace_restore_operations_invalid/.test(workspaceRestoreKernel) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
-      /apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
+      /rust_core_shapes_workspace_restore_apply_operations_command_response/.test(workspaceRestoreKernel) &&
+      !/apply_workspace_restore_operations_response as apply_workspace_restore_operations/.test(bridgeModule) &&
       /preview_workspace_restore_operations_response/.test(coreCommandDispatch) &&
       !/struct WorkspaceRestoreOperationsBridgeRequest/.test(bridgeModule) &&
       !/fn preview_workspace_restore_operations/.test(bridgeModule) &&
       !/fn apply_workspace_restore_operations/.test(bridgeModule) &&
-      /bridge_applies_workspace_restore_operations_through_rust_core/.test(bridgeModule) &&
+      !/bridge_applies_workspace_restore_operations_through_rust_core/.test(bridgeModule) &&
       !/workspace_restore_apply_rejects_step_module_command_schema/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
@@ -14738,10 +14743,11 @@ function runBridge() {
       /pub fn capture_workspace_snapshot_files_response/.test(workspaceRestoreKernel) &&
       /rust_workspace_snapshot_capture_command/.test(workspaceRestoreKernel) &&
       /workspace_snapshot_capture_invalid/.test(workspaceRestoreKernel) &&
-      /capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule) &&
+      /rust_core_shapes_workspace_snapshot_capture_command_response/.test(workspaceRestoreKernel) &&
+      !/capture_workspace_snapshot_files_response as capture_workspace_snapshot_files/.test(bridgeModule) &&
       !/struct WorkspaceSnapshotCaptureBridgeRequest/.test(bridgeModule) &&
       !/fn capture_workspace_snapshot_files/.test(bridgeModule) &&
-      /bridge_captures_workspace_snapshot_files_through_rust_core/.test(bridgeModule),
+      !/bridge_captures_workspace_snapshot_files_through_rust_core/.test(bridgeModule),
     [
       "crates/services/src/agentic/runtime/kernel/workspace_restore.rs",
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",

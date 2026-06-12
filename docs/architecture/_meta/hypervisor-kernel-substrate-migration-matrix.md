@@ -15705,6 +15705,40 @@ pass only after a larger direct Rust-core API extraction or facade-retirement
 seam lands. Future resumes must continue to treat JS bridges, JS facades,
 readback projections, and Node command transport as temporary scaffolding only.
 
+## Implementation Slice Evidence: 1181
+
+Slice 1181 moves the workspace-restore command-response proof cluster out of
+the temporary bridge proof surface and into the Rust workspace owner:
+
+- `crates/services/src/agentic/runtime/kernel/workspace_restore.rs`
+
+The Rust owner tests now cover workspace snapshot capture response shaping,
+workspace restore operation preview/apply response shaping, and workspace
+restore apply-policy response shaping. The bridge proof surface no longer
+imports those request types or carries the bridge-named workspace-restore
+proof tests. `cargo test -p ioi-node --bin ioi-step-module-bridge` now runs 52
+bridge tests.
+
+This is a Rust-owner proof-retirement cut, not terminal workspace
+snapshot/restore migration. Workspace snapshot and restore decisions still
+cross temporary command transport until direct Rust daemon-core protocol APIs
+own snapshot capture, restore policy, restore application, Agentgres truth,
+replay, and stable IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::workspace_restore::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed; 52 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1046
 
 Slice 1046 splits the MCP control state-update, MCP server validation, MCP

@@ -1585,7 +1585,7 @@ fn unique_strings(values: Vec<String>) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use serde_json::{json, Value};
     use std::fs;
     use std::path::PathBuf;
 
@@ -1660,6 +1660,50 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_shapes_workspace_snapshot_capture_command_response() {
+        let old_hash = sha256_hex("old");
+        let new_hash = sha256_hex("new");
+        let response =
+            capture_workspace_snapshot_files_response(WorkspaceSnapshotCaptureBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceSnapshotCaptureRequest {
+                    schema_version: WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION.to_string(),
+                    max_content_bytes: Some(WORKSPACE_SNAPSHOT_MAX_CAPTURE_BYTES),
+                    changed_files: vec![WorkspaceSnapshotChangedFile {
+                        path: "src/app.js".to_string(),
+                        created: false,
+                        before_hash: Some(old_hash),
+                        after_hash: Some(new_hash),
+                        before_exists: true,
+                        after_exists: Some(true),
+                        before_size_bytes: Some(3),
+                        after_size_bytes: Some(3),
+                        before_mtime_ms: None,
+                        after_mtime_ms: None,
+                    }],
+                    content_drafts: vec![WorkspaceSnapshotContentDraft {
+                        path: "src/app.js".to_string(),
+                        before_content: Some("old".to_string()),
+                        after_content: Some("new".to_string()),
+                        encoding: None,
+                    }],
+                },
+            })
+            .expect("workspace snapshot capture command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_workspace_snapshot_capture_command"
+        );
+        assert_eq!(response["backend"], "rust_workspace_restore");
+        assert_eq!(response["captured_file_count"], 1);
+        assert_eq!(response["omitted_file_count"], 0);
+        assert_eq!(response["files"][0]["path"], "src/app.js");
+        assert_eq!(response["files"][0]["before"]["content"], Value::Null);
+        assert_eq!(response["content_files"][0]["before"]["content"], "old");
+    }
+
+    #[test]
     fn workspace_restore_operations_preview_ready_file_from_rust_core() {
         let workspace = temp_workspace("preview");
         let file_path = workspace.join("src/app.js");
@@ -1711,6 +1755,38 @@ mod tests {
             "old"
         );
         assert_eq!(operations[0].applied_matches_target, Some(true));
+        let _ = fs::remove_dir_all(workspace);
+    }
+
+    #[test]
+    fn rust_core_shapes_workspace_restore_apply_operations_command_response() {
+        let workspace = temp_workspace("apply-response");
+        let target = workspace.join("src/app.js");
+        fs::create_dir_all(target.parent().expect("parent")).expect("mkdir");
+        fs::write(&target, "new").expect("write current");
+        let response =
+            apply_workspace_restore_operations_response(WorkspaceRestoreOperationsBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceRestoreOperationsRequest {
+                    schema_version: WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    workspace_root: workspace.to_string_lossy().to_string(),
+                    files: vec![restore_file("src/app.js", "old", "new")],
+                    max_diff_bytes: Some(4096),
+                    allow_conflicts: Some(false),
+                },
+            })
+            .expect("workspace restore apply operations command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_workspace_restore_operations_command"
+        );
+        assert_eq!(response["backend"], "rust_workspace_restore");
+        assert_eq!(response["operation"], "apply_workspace_restore_operations");
+        assert_eq!(response["operations"][0]["status"], "ready");
+        assert_eq!(response["operations"][0]["apply_status"], "applied");
+        assert_eq!(fs::read_to_string(&target).expect("restored"), "old");
         let _ = fs::remove_dir_all(workspace);
     }
 
@@ -1803,6 +1879,66 @@ mod tests {
         assert_eq!(
             plan.summary.as_deref(),
             Some("Restore apply restored 1 file(s) from workspace/snapshot beta with conflict override.")
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_workspace_restore_apply_policy_command_response() {
+        let response = plan_workspace_restore_apply_policy_response(
+            WorkspaceRestoreApplyPolicyBridgeRequest {
+                backend: Some("rust_workspace_restore".to_string()),
+                request: WorkspaceRestoreApplyPolicyRequest {
+                    schema_version: WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION
+                        .to_string(),
+                    snapshot_id: "workspace_snapshot_alpha".to_string(),
+                    confirm_restore_apply: Some(Value::Bool(true)),
+                    restore_conflict_policy: Some("override_conflicts".to_string()),
+                    operations: vec![WorkspaceRestoreOperationPolicyInput {
+                        path: "src/app.js".to_string(),
+                        status: "conflict".to_string(),
+                        blocked_reason: None,
+                    }],
+                    counts: Some(WorkspaceRestoreApplyCounts {
+                        file_count: 1,
+                        conflict_count: 1,
+                        applied_count: 1,
+                        ..Default::default()
+                    }),
+                    approval: None,
+                    approval_decision: None,
+                    policy_decision: None,
+                    decision: None,
+                    status: None,
+                    confirm: None,
+                    confirmed: None,
+                    apply_confirmed: None,
+                    approval_granted: None,
+                    approved: None,
+                    conflict_policy: None,
+                    restore_policy: None,
+                    allow_conflicts: None,
+                    override_conflicts: None,
+                    hard_blocked: None,
+                    conflict_blocked: None,
+                    apply_status: None,
+                },
+            },
+        )
+        .expect("workspace restore apply policy command response");
+
+        assert_eq!(response["source"], "rust_workspace_restore_policy_command");
+        assert_eq!(response["backend"], "rust_workspace_restore");
+        assert_eq!(response["approval"]["satisfied"], true);
+        assert_eq!(response["allow_conflicts"], true);
+        assert_eq!(response["conflict_policy"], "override_conflicts");
+        assert_eq!(response["apply_status"], "applied");
+        assert_eq!(
+            response["policy_decision_refs"][1],
+            "policy_workspace_restore_apply_workspace_snapshot_alpha_conflict_override"
+        );
+        assert_eq!(
+            response["summary"],
+            "Restore apply restored 1 file(s) from workspace_snapshot_alpha with conflict override."
         );
     }
 }
