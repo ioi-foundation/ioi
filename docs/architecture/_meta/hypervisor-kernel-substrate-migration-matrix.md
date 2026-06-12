@@ -15825,6 +15825,36 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1153
+
+Slice 1153 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs` for
+Rust-owned cTEE Private Workspace receipt/evidence refs. The cTEE runner now
+preserves missing Rust-authored `receipt_refs` and `evidence_refs` as `null`
+instead of synthesizing empty arrays from JS when Rust omits those fields.
+Rust `governed_receipt.rs` remains the receipt-bearing cTEE
+execution/admission/projection owner behind the temporary daemon-core command
+path.
+
+This is not terminal cTEE migration. The JS cTEE runner, shared daemon-core
+command runner, and Node bridge transport remain migration scaffolding until
+direct Rust daemon-core cTEE APIs own custody admission, receipt/state-root
+binding, Agentgres persistence, projection, replay, and stable IDE/CLI/SDK
+protocol surfaces end to end. The retired JS fallback behavior must not be
+recreated as compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

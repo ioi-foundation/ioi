@@ -165,6 +165,32 @@ test("cTEE private workspace runner sends execution bridge request", () => {
   assert.deepEqual(result.receipt_refs, ["receipt://ctee/private-workspace/daemon-runner"]);
 });
 
+test("cTEE private workspace runner does not synthesize Rust-owned receipt or evidence refs", () => {
+  const runner = new RustCteePrivateWorkspaceRunner({
+    command: "mock-ctee-bridge",
+    spawnSyncImpl() {
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: {
+            record: {
+              result: {},
+              projection: {},
+            },
+          },
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const result = runner.executeAction(cteeRequest());
+
+  assert.equal(result.receipt_refs, null);
+  assert.equal(result.evidence_refs, null);
+});
+
 test("cTEE private workspace runner env uses daemon-core command boundary", () => {
   const runner = createCteePrivateWorkspaceRunnerFromEnv({
     [CTEE_PRIVATE_WORKSPACE_COMMAND_ENV]: "ioi-runtime-daemon-core",

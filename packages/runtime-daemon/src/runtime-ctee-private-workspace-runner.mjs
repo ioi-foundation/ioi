@@ -121,8 +121,8 @@ export function normalizeCteePrivateWorkspaceBridgeResult(value = {}) {
     agentgres_admission:
       objectRecord(result.agentgres_admission) ?? objectRecord(record.agentgres_admission) ?? null,
     projection_record: objectRecord(result.projection_record) ?? objectRecord(record.projection) ?? null,
-    receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.result?.receipt_refs) ?? [],
-    evidence_refs: stringArray(result.evidence_refs) ?? stringArray(record.projection?.evidence_refs) ?? [],
+    receipt_refs: stringArray(result.receipt_refs) ?? stringArray(record.result?.receipt_refs) ?? null,
+    evidence_refs: stringArray(result.evidence_refs) ?? stringArray(record.projection?.evidence_refs) ?? null,
   };
 }
 

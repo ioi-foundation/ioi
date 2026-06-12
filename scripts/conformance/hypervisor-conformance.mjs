@@ -21371,6 +21371,21 @@ function runCtee() {
       !/from "node:child_process"/.test(cteePrivateWorkspaceRunner) &&
       /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /cTEE private workspace runner sends execution bridge request/.test(cteePrivateWorkspaceRunnerTest) &&
+      /cTEE private workspace runner does not synthesize Rust-owned receipt or evidence refs/.test(
+        cteePrivateWorkspaceRunnerTest,
+      ) &&
+      /receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.result\?\.receipt_refs\)\s*\?\?\s*null/.test(
+        cteePrivateWorkspaceRunner,
+      ) &&
+      /evidence_refs:\s*stringArray\(result\.evidence_refs\)\s*\?\?\s*stringArray\(record\.projection\?\.evidence_refs\)\s*\?\?\s*null/.test(
+        cteePrivateWorkspaceRunner,
+      ) &&
+      !/receipt_refs:\s*stringArray\(result\.receipt_refs\)\s*\?\?\s*stringArray\(record\.result\?\.receipt_refs\)\s*\?\?\s*\[\]/.test(
+        cteePrivateWorkspaceRunner,
+      ) &&
+      !/evidence_refs:\s*stringArray\(result\.evidence_refs\)\s*\?\?\s*stringArray\(record\.projection\?\.evidence_refs\)\s*\?\?\s*\[\]/.test(
+        cteePrivateWorkspaceRunner,
+      ) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(cteePrivateWorkspaceRunnerTest) &&
       /assert\.equal\(calls\[0\]\.bridgeRequest\.thread_id,\s*"thread:ctee-runner"\)/.test(
         cteePrivateWorkspaceRunnerTest,
