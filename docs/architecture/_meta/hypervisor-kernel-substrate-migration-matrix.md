@@ -15697,6 +15697,42 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1146
+
+Slice 1146 moves governed runtime-improvement route-response envelope
+authorship from the JS product surface into Rust governed admission. Rust
+`GovernedRuntimeImprovementBridgeRequest` now carries optional `thread_id` and
+`agent_id` route context, and
+`admit_governed_runtime_improvement_proposal_response()` emits the canonical
+`ioi.runtime.governed_improvement_admission.v1` public admission envelope with
+`proposal_admitted`, `mutation_executed`, `thread_id`, `agent_id`, proposal
+refs, admission hash, Agentgres operation/state roots, resulting head,
+approval ref, and rollback ref. The JS
+`runtime-governed-improvement-surface.mjs` remains route glue only: it extracts
+the canonical `proposal`, rejects retired request/truth fields, resolves the
+thread agent, and forwards context to the Rust-backed runner without minting
+the public governed-improvement admission response.
+
+This is migration progress only. The Node bridge binary, shared JS daemon-core
+command runner/caller path, and broad stdin/JSON bridge transport remain
+temporary scaffolding until direct Rust daemon-core APIs replace command
+transport. The retired JS-side governed-improvement admission
+response-envelope authorship must not be recreated or treated as canonical
+architecture.
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services governed_admission --lib` | passed |
+| `cargo test -p ioi-node bridge_admits_governed_runtime_improvement_proposal_through_rust_core --bin ioi-step-module-bridge` | passed |
+| `cargo test -p ioi-node governed_improvement --bin ioi-step-module-bridge` | passed |
+| `node --check packages/runtime-daemon/src/runtime-governed-improvement-runner.mjs packages/runtime-daemon/src/runtime-governed-improvement-surface.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-governed-improvement-runner.test.mjs packages/runtime-daemon/src/runtime-governed-improvement-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1145
 
 Slice 1145 moves cTEE Private Workspace route-response envelope authorship

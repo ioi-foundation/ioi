@@ -50,11 +50,13 @@ export class RustGovernedImprovementRunner {
     });
   }
 
-  admitProposal(proposal) {
+  admitProposal(proposal, context = {}) {
     const bridgeRequest = {
       schema_version: GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION,
       operation: "admit_governed_runtime_improvement_proposal",
       backend: RUST_GOVERNED_IMPROVEMENT_BACKEND,
+      thread_id: optionalString(context.thread_id),
+      agent_id: optionalString(context.agent_id),
       proposal,
     };
     return normalizeGovernedImprovementBridgeResult(this.invokeBridge(bridgeRequest));
@@ -76,8 +78,15 @@ export function normalizeGovernedImprovementBridgeResult(value = {}) {
   const result = value && typeof value === "object" && !Array.isArray(value) ? value : {};
   const record = result.record && typeof result.record === "object" ? result.record : {};
   return {
+    schema_version: result.schema_version ?? null,
+    object: result.object ?? null,
+    status: result.status ?? null,
+    proposal_admitted: result.proposal_admitted ?? null,
+    mutation_executed: result.mutation_executed ?? null,
     source: result.source ?? "rust_governed_meta_improvement_command",
     backend: result.backend ?? RUST_GOVERNED_IMPROVEMENT_BACKEND,
+    thread_id: result.thread_id ?? null,
+    agent_id: result.agent_id ?? null,
     record,
     proposal_id: result.proposal_id ?? record.proposal_id ?? null,
     target_ref: result.target_ref ?? record.target_ref ?? null,

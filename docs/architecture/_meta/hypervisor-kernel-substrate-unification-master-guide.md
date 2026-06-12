@@ -6731,6 +6731,27 @@ runner/caller path and broad bridge transport with direct Rust daemon-core
 protocol APIs once that seam is clear enough, then continue facade retirement
 for the remaining JS product/readback surfaces.
 
+Slice 1146 moves governed runtime-improvement product-route admission envelope
+authorship out of the JS surface and into Rust `governed_admission.rs`. The
+Rust `GovernedRuntimeImprovementBridgeRequest` now accepts thread/agent route
+context and `admit_governed_runtime_improvement_proposal_response()` emits the
+canonical `ioi.runtime.governed_improvement_admission.v1` route envelope,
+including `proposal_admitted`, `mutation_executed`, `thread_id`, `agent_id`,
+proposal refs, admission hash, Agentgres operation/state roots, resulting
+head, approval ref, and rollback ref. The JS governed-improvement surface now
+only extracts the canonical `proposal` body, rejects retired request/truth
+fields, looks up the thread agent, and forwards context to the Rust-backed
+runner; it no longer mints the public governed-improvement admission response
+locally.
+
+This remains non-terminal because the route still reaches Rust through the
+shared JS daemon-core command runner and Node bridge stdin/JSON transport. The
+deleted JS-side governed-improvement response-envelope authorship must not be
+recreated or treated as canonical. The next larger cuts should replace the
+shared command runner/caller path and broad bridge transport with direct Rust
+daemon-core protocol APIs once that seam is clear enough, then continue facade
+retirement for the remaining JS product/readback surfaces.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

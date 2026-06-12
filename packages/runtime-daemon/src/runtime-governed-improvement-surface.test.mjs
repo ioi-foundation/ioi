@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
   createRuntimeGovernedImprovementSurface,
 } from "./runtime-governed-improvement-surface.mjs";
+
+const GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
+  "ioi.runtime.governed_improvement_admission.v1";
 
 function proposal() {
   return {
@@ -30,11 +32,18 @@ function store() {
       return { id: "agent_surface" };
     },
     governedImprovementRunner: {
-      admitProposal(input) {
-        calls.push({ name: "admitProposal", input });
+      admitProposal(input, context) {
+        calls.push({ name: "admitProposal", input, context });
         return {
+          schema_version: GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
+          object: "ioi.runtime_governed_improvement_admission",
+          status: "admitted",
+          proposal_admitted: true,
+          mutation_executed: false,
           source: "rust_governed_meta_improvement_command",
           backend: "rust_governed_evolution",
+          thread_id: context.thread_id,
+          agent_id: context.agent_id,
           record: {
           ...input,
           admission_hash: "sha256:surface-admission",
@@ -151,6 +160,10 @@ test("governed improvement surface admits nested proposal through Rust runner", 
   assert.equal(result.approval_ref, "approval://wallet/runtime-improvement/surface");
   assert.equal(result.rollback_ref, "rollback://skill/runtime-auditor/current");
   assert.deepEqual(runtimeStore.calls.map((call) => call.name), ["agentForThread", "admitProposal"]);
+  assert.deepEqual(runtimeStore.calls.at(-1).context, {
+    thread_id: "thread_surface",
+    agent_id: "agent_surface",
+  });
 });
 
 test("governed improvement surface exposes only canonical snake_case admission fields", () => {
@@ -177,6 +190,12 @@ test("governed improvement surface does not derive proposal id from retired prop
       admitProposal(input) {
         calls.push({ name: "admitProposal", input });
         return {
+          schema_version: GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
+          object: "ioi.runtime_governed_improvement_admission",
+          status: "admitted",
+          proposal_admitted: true,
+          mutation_executed: false,
+          proposal_id: null,
           source: "rust_governed_meta_improvement_command",
           backend: "rust_governed_evolution",
           record: {

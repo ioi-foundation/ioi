@@ -40,6 +40,10 @@ pub struct L1SettlementAdmissionBridgeRequest {
 pub struct GovernedRuntimeImprovementBridgeRequest {
     #[serde(default)]
     pub backend: Option<String>,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+    #[serde(default)]
+    pub agent_id: Option<String>,
     pub proposal: GovernedRuntimeImprovementProposal,
 }
 
@@ -82,8 +86,15 @@ pub fn admit_governed_runtime_improvement_proposal_response(
             )
         })?;
     Ok(json!({
+        "schema_version": "ioi.runtime.governed_improvement_admission.v1",
+        "object": "ioi.runtime_governed_improvement_admission",
+        "status": "admitted",
+        "proposal_admitted": true,
+        "mutation_executed": false,
         "source": "rust_governed_meta_improvement_command",
         "backend": request.backend.unwrap_or_else(|| "rust_governed_evolution".to_string()),
+        "thread_id": request.thread_id,
+        "agent_id": request.agent_id,
         "record": record.clone(),
         "proposal_id": record.proposal_id.clone(),
         "target_ref": record.target_ref.clone(),
@@ -152,6 +163,8 @@ mod tests {
         let response = admit_governed_runtime_improvement_proposal_response(
             GovernedRuntimeImprovementBridgeRequest {
                 backend: Some("rust_governed_evolution".to_string()),
+                thread_id: Some("thread:governed".to_string()),
+                agent_id: Some("agent:governed".to_string()),
                 proposal: GovernedRuntimeImprovementProposal {
                     schema_version: GOVERNED_RUNTIME_IMPROVEMENT_SCHEMA_VERSION.to_string(),
                     proposal_id: "proposal://runtime-improvement/core".to_string(),
@@ -177,6 +190,19 @@ mod tests {
 
         assert_eq!(response["source"], "rust_governed_meta_improvement_command");
         assert_eq!(response["backend"], "rust_governed_evolution");
+        assert_eq!(
+            response["schema_version"],
+            "ioi.runtime.governed_improvement_admission.v1"
+        );
+        assert_eq!(
+            response["object"],
+            "ioi.runtime_governed_improvement_admission"
+        );
+        assert_eq!(response["status"], "admitted");
+        assert_eq!(response["proposal_admitted"], true);
+        assert_eq!(response["mutation_executed"], false);
+        assert_eq!(response["thread_id"], "thread:governed");
+        assert_eq!(response["agent_id"], "agent:governed");
         assert_eq!(
             response["proposal_id"],
             "proposal://runtime-improvement/core"

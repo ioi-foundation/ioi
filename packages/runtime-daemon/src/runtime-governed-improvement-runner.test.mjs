@@ -37,8 +37,15 @@ test("governed improvement runner sends proposal admission bridge request", () =
         stdout: JSON.stringify({
           ok: true,
           result: {
+            schema_version: "ioi.runtime.governed_improvement_admission.v1",
+            object: "ioi.runtime_governed_improvement_admission",
+            status: "admitted",
+            proposal_admitted: true,
+            mutation_executed: false,
             source: "rust_governed_meta_improvement_command",
             backend: RUST_GOVERNED_IMPROVEMENT_BACKEND,
+            thread_id: request.thread_id,
+            agent_id: request.agent_id,
             record: {
               ...request.proposal,
               admission_hash: "sha256:governed-improvement-admission",
@@ -62,7 +69,10 @@ test("governed improvement runner sends proposal admission bridge request", () =
     },
   });
 
-  const result = runner.admitProposal(governedProposal());
+  const result = runner.admitProposal(governedProposal(), {
+    thread_id: "thread:governed-runner",
+    agent_id: "agent:governed-runner",
+  });
 
   assert.equal(calls.length, 1);
   assert.equal(calls[0].command, "mock-governed-improvement-bridge");
@@ -70,7 +80,16 @@ test("governed improvement runner sends proposal admission bridge request", () =
   assert.equal(calls[0].request.schema_version, GOVERNED_IMPROVEMENT_COMMAND_SCHEMA_VERSION);
   assert.equal(calls[0].request.operation, "admit_governed_runtime_improvement_proposal");
   assert.equal(calls[0].request.backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
+  assert.equal(calls[0].request.thread_id, "thread:governed-runner");
+  assert.equal(calls[0].request.agent_id, "agent:governed-runner");
   assert.equal(calls[0].request.proposal.proposal_id, "proposal://runtime-improvement/daemon-runner");
+  assert.equal(result.schema_version, "ioi.runtime.governed_improvement_admission.v1");
+  assert.equal(result.object, "ioi.runtime_governed_improvement_admission");
+  assert.equal(result.status, "admitted");
+  assert.equal(result.proposal_admitted, true);
+  assert.equal(result.mutation_executed, false);
+  assert.equal(result.thread_id, "thread:governed-runner");
+  assert.equal(result.agent_id, "agent:governed-runner");
   assert.equal(result.source, "rust_governed_meta_improvement_command");
   assert.equal(result.backend, RUST_GOVERNED_IMPROVEMENT_BACKEND);
   assert.equal(result.admission_hash, "sha256:governed-improvement-admission");

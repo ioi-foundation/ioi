@@ -1,8 +1,5 @@
 import { runtimeError } from "./runtime-http-utils.mjs";
-import { objectRecord, optionalString } from "./runtime-value-helpers.mjs";
-
-export const GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION =
-  "ioi.runtime.governed_improvement_admission.v1";
+import { objectRecord } from "./runtime-value-helpers.mjs";
 
 const RETIRED_GOVERNED_IMPROVEMENT_REQUEST_ALIASES = [
   "proposalPayload",
@@ -77,29 +74,10 @@ export function createRuntimeGovernedImprovementSurface(deps = {}) {
   function admitGovernedImprovementProposal(store, threadId, request = {}) {
     const proposal = proposalForRequest(request);
     const agent = store.agentForThread(threadId);
-    const admission = store.governedImprovementRunner.admitProposal(proposal);
-    const record = objectRecord(admission.record) ?? {};
-    return {
-      schema_version: GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION,
-      object: "ioi.runtime_governed_improvement_admission",
-      status: "admitted",
-      proposal_admitted: true,
-      mutation_executed: false,
+    return store.governedImprovementRunner.admitProposal(proposal, {
       thread_id: threadId,
       agent_id: agent.id,
-      proposal_id:
-        admission.proposal_id ?? record.proposal_id ?? optionalString(proposal.proposal_id) ?? null,
-      admission_hash: admission.admission_hash ?? record.admission_hash ?? null,
-      agentgres_operation_ref:
-        admission.agentgres_operation_ref ?? record.agentgres_operation_ref ?? null,
-      state_root_before: admission.state_root_before ?? record.state_root_before ?? null,
-      state_root_after: admission.state_root_after ?? record.state_root_after ?? null,
-      resulting_head: admission.resulting_head ?? record.resulting_head ?? null,
-      approval_ref: admission.approval_ref ?? record.approval_ref ?? null,
-      rollback_ref: admission.rollback_ref ?? record.rollback_ref ?? null,
-      admission,
-      record,
-    };
+    });
   }
 
   return {

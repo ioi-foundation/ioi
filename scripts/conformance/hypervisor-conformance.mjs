@@ -15060,6 +15060,12 @@ function runBridge() {
       /GovernedRuntimeImprovementProposal/.test(governedAdmissionCore) &&
       /GovernedEvolutionCore/.test(governedAdmissionCore) &&
       /rust_governed_meta_improvement_command/.test(governedAdmissionCore) &&
+      /"schema_version":\s*"ioi\.runtime\.governed_improvement_admission\.v1"/.test(governedAdmissionCore) &&
+      /"object":\s*"ioi\.runtime_governed_improvement_admission"/.test(governedAdmissionCore) &&
+      /"proposal_admitted":\s*true/.test(governedAdmissionCore) &&
+      /"mutation_executed":\s*false/.test(governedAdmissionCore) &&
+      /"thread_id":\s*request\.thread_id/.test(governedAdmissionCore) &&
+      /"agent_id":\s*request\.agent_id/.test(governedAdmissionCore) &&
       /bridge_admits_governed_runtime_improvement_proposal_through_rust_core/.test(bridgeModule) &&
       /governed_improvement_rejects_step_module_command_schema/.test(bridgeModule) &&
       /agentgres:\/\/runtime-improvement\/head\/current/.test(bridgeModule),
@@ -15090,6 +15096,8 @@ function runBridge() {
       /this\.governedImprovementRunner/.test(runtimeDaemonIndex) &&
       /admitProposal/.test(governedImprovementRunner) &&
       /admit_governed_runtime_improvement_proposal/.test(governedImprovementRunner) &&
+      /thread_id:\s*optionalString\(context\.thread_id\)/.test(governedImprovementRunner) &&
+      /agent_id:\s*optionalString\(context\.agent_id\)/.test(governedImprovementRunner) &&
       /rust_governed_evolution/.test(governedImprovementRunner) &&
       /governed_improvement_bridge_unconfigured/.test(governedImprovementRunner) &&
       /governed_improvement_command_args_retired/.test(governedImprovementRunner) &&
@@ -15098,6 +15106,12 @@ function runBridge() {
       /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /governed improvement runner sends proposal admission bridge request/.test(governedImprovementRunnerTest) &&
       /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(governedImprovementRunnerTest) &&
+      /assert\.equal\(calls\[0\]\.request\.thread_id,\s*"thread:governed-runner"\)/.test(
+        governedImprovementRunnerTest,
+      ) &&
+      /assert\.equal\(calls\[0\]\.request\.agent_id,\s*"agent:governed-runner"\)/.test(
+        governedImprovementRunnerTest,
+      ) &&
       /governed improvement runner env uses daemon-core command boundary/.test(governedImprovementRunnerTest) &&
       /governed improvement runner command args env fails closed/.test(governedImprovementRunnerTest) &&
       /governed improvement runner command args constructor option fails closed/.test(governedImprovementRunnerTest) &&
@@ -15120,11 +15134,16 @@ function runBridge() {
       !/^\s*admitGovernedImprovementProposal\(threadId, request = \{\}\) \{/m.test(
         runtimeDaemonIndex,
       ) &&
-      /GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementSurface) &&
-      /mutation_executed:\s*false/.test(governedImprovementSurface) &&
+      !/GOVERNED_IMPROVEMENT_ADMISSION_RESPONSE_SCHEMA_VERSION/.test(governedImprovementSurface) &&
+      !/proposal_admitted:\s*true/.test(governedImprovementSurface) &&
+      !/mutation_executed:\s*false/.test(governedImprovementSurface) &&
+      !/admission_hash:\s*admission\.admission_hash/.test(governedImprovementSurface) &&
+      !/state_root_after:\s*admission\.state_root_after/.test(governedImprovementSurface) &&
       /RETIRED_GOVERNED_IMPROVEMENT_TRUTH_FIELDS/.test(governedImprovementSurface) &&
       /governed_improvement_agentgres_truth_fields_retired/.test(governedImprovementSurface) &&
-      /store\.governedImprovementRunner\.admitProposal/.test(governedImprovementSurface) &&
+      /return store\.governedImprovementRunner\.admitProposal\(proposal,\s*\{\s*thread_id:\s*threadId,\s*agent_id:\s*agent\.id,\s*\}\)/.test(
+        governedImprovementSurface,
+      ) &&
       /governed-improvement-proposals/.test(runtimeRouteHandlers) &&
       /store\.governedImprovementSurface\.admitGovernedImprovementProposal\(store,\s*threadId,\s*await readBody\(request\)\)/.test(
         runtimeRouteHandlers,
@@ -15132,6 +15151,9 @@ function runBridge() {
       /thread route sends admission controls through mounted admission surfaces/.test(runtimeRouteHandlersTest) &&
       /thread route does not expose governed improvement apply shortcut/.test(runtimeRouteHandlersTest) &&
       /governed improvement surface admits nested proposal through Rust runner/.test(governedImprovementSurfaceTest) &&
+      /assert\.deepEqual\(runtimeStore\.calls\.at\(-1\)\.context,\s*\{\s*thread_id:\s*"thread_surface",\s*agent_id:\s*"agent_surface",\s*\}\)/.test(
+        governedImprovementSurfaceTest,
+      ) &&
       /governed improvement surface rejects client supplied Agentgres truth before Rust runner/.test(
         governedImprovementSurfaceTest,
       ) &&
