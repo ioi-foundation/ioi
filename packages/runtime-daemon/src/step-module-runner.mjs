@@ -1,5 +1,5 @@
 import {
-  createCodingToolStepModuleProjection,
+  createStepModuleInvocationForCodingTool,
 } from "./step-module-abi.mjs";
 import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
@@ -93,17 +93,13 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
   }
 
   runCodingTool({ contract, toolId, input = {}, result = {}, context = {} } = {}) {
-    const projection = createCodingToolStepModuleProjection({
+    const invocation = createStepModuleInvocationForCodingTool({
       contract,
       toolId,
       input,
-      result,
       ...context,
       module_kind: "workload_job",
       execution_backend: "workload_grpc",
-      workflow_projection_status:
-        context.workflow_projection_status ??
-        "live",
     });
     const request = {
       schema_version: COMMAND_SCHEMA_VERSION,
@@ -111,7 +107,7 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       backend: this.backend,
       workload_grpc_addr: this.grpcAddr,
       shmem_id: this.shmemId,
-      invocation: projection.invocation,
+      invocation,
       workspace_root: context.workspace_root ?? null,
       input,
     };
@@ -122,8 +118,8 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       blocking: this.blocksDaemonJsExecution,
       source: bridgeResult.source,
       bridge_result: bridgeResult,
-      invocation: bridgeResult.invocation ?? projection.invocation,
-      result: bridgeResult.result ?? projection.result,
+      invocation: bridgeResult.invocation ?? invocation,
+      result: bridgeResult.result ?? null,
     };
   }
 

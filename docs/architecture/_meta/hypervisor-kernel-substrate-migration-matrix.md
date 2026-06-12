@@ -16051,6 +16051,40 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1161
+
+Slice 1161 retires JS-side fallback authorship in
+`packages/runtime-daemon/src/step-module-abi.mjs` and
+`packages/runtime-daemon/src/step-module-runner.mjs` for coding-tool
+StepModule results. The coding-tool StepModule ABI helper no longer synthesizes
+`receipt://projection/...` refs when accepted results omit receipts; success
+and partial results must carry explicit Rust-owned receipt refs or fail closed
+through the shared StepModuleResult validator. The Rust-workload StepModule
+runner now builds only the StepModule invocation before command transport and
+preserves an omitted Rust result as `null` instead of falling back to a
+JS-authored projection result.
+
+This is not terminal StepModule migration. The JS StepModule ABI helper, shared
+daemon-core command runner, and `ioi-step-module-bridge` transport remain
+migration scaffolding until direct Rust daemon-core StepModuleRouter,
+workload-client, receipt-binder, Agentgres-admission, projection, replay, and
+stable IDE/CLI/SDK APIs own invocation/result construction end to end. The
+retired JS result/receipt fallback behavior must not be recreated as
+compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-abi.mjs packages/runtime-daemon/src/step-module-runner.mjs packages/runtime-daemon/src/step-module-abi.test.mjs packages/runtime-daemon/src/step-module-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-abi.test.mjs packages/runtime-daemon/src/step-module-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:abi` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

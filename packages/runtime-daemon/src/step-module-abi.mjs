@@ -124,7 +124,7 @@ export function createStepModuleResultForCodingTool({
   workflow_projection_status = "projected",
   execution_result_ref = null,
   normalized_observation_ref = null,
-  receipt_refs = null,
+  receipt_refs = [],
   artifact_refs = [],
   payload_refs = [],
   agentgres_operation_refs = [],
@@ -146,7 +146,7 @@ export function createStepModuleResultForCodingTool({
     status,
     result,
   });
-  const normalizedReceiptRefs = receipt_refs ?? [`receipt://projection/${resultHash.slice(7, 39)}`];
+  const normalizedReceiptRefs = normalizeStringArray(receipt_refs);
   const stepResult = {
     schema_version: STEP_MODULE_RESULT_SCHEMA_VERSION,
     invocation_id: invocation.invocation_id,

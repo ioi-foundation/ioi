@@ -6984,6 +6984,23 @@ admission, receipt/state-root binding, Agentgres projection, replay, and
 stable IDE/CLI/SDK protocol surfaces, not preservation of JS normalizers as
 compatibility shims.
 
+Slice 1161 retires JS-side StepModuleResult receipt and result fallback
+authorship for coding-tool StepModule execution. `step-module-abi.mjs` no
+longer invents `receipt://projection/...` refs for successful coding-tool
+StepModule results; accepted coding-tool results now require explicit
+Rust-owned receipt refs just like the Rust `StepModuleResult` validator. The
+Rust-workload StepModule runner now builds only the StepModule invocation before
+calling Rust and preserves an omitted Rust result as `null` instead of falling
+back to a JS-authored projection result.
+
+This remains non-terminal because the JS StepModule ABI helper, shared
+daemon-core command runner, and `ioi-step-module-bridge` transport still carry
+the invocation to Rust. The target is direct Rust daemon-core StepModuleRouter,
+workload-client, receipt-binder, Agentgres-admission, and projection ownership
+over invocation/result construction, execution, receipt/state-root binding,
+replay, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS result
+projection as a compatibility fallback.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

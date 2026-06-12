@@ -10,6 +10,7 @@ import {
   STEP_MODULE_RESULT_SCHEMA_VERSION,
   createModelMountStepModuleProjection,
   createStepModuleInvocationForCodingTool,
+  createStepModuleResultForCodingTool,
   validateStepModuleInvocationShape,
   validateStepModuleResultShape,
 } from "./step-module-abi.mjs";
@@ -31,6 +32,7 @@ test("every coding tool contract can project into the Step/Module ABI", () => {
         workflow_node_id: `node:test:${contract.stable_tool_id}`,
         state_root_before: "sha256:before",
         projection_watermark: "domain_seq:1",
+        receipt_refs: [`receipt://projection-test/${contract.stable_tool_id}`],
       },
     );
 
@@ -54,6 +56,34 @@ test("every coding tool contract can project into the Step/Module ABI", () => {
     assert.doesNotThrow(() => validateStepModuleInvocationShape(invocation));
     assert.doesNotThrow(() => validateStepModuleResultShape(result));
   }
+});
+
+test("coding tool StepModule result requires Rust-owned receipt refs for accepted statuses", () => {
+  const contract = codingToolContracts()[0];
+  const invocation = createStepModuleInvocationForCodingTool({
+    contract,
+    toolId: contract.stable_tool_id,
+  });
+
+  assert.throws(
+    () =>
+      createStepModuleResultForCodingTool({
+        invocation,
+        contract,
+        result: {},
+        status: "success",
+      }),
+    /accepted StepModuleResult statuses require at least one receipt ref/,
+  );
+
+  const blocked = createStepModuleResultForCodingTool({
+    invocation,
+    contract,
+    result: {},
+    status: "blocked",
+  });
+  assert.deepEqual(blocked.receipt_refs, []);
+  assert.doesNotThrow(() => validateStepModuleResultShape(blocked));
 });
 
 test("cTEE private workspace projection refuses node plaintext custody", () => {

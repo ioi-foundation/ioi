@@ -167,4 +167,5 @@ test("rust workload command bridge sends StepModuleInvocation request", () => {
     projection.bridge_result.receipt_binding.schema_version,
     "ioi.step_module_receipt_binding.v1",
   );
+  assert.equal(projection.result, null);
 });

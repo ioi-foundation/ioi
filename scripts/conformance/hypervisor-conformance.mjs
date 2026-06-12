@@ -2203,6 +2203,12 @@ function runAbi() {
       /agentgres_operation_refs:\s*context\.agentgres_operation_refs \?\? \[\]/.test(
         read("packages/runtime-daemon/src/coding-tools.mjs"),
       ) &&
+      /receipt_refs = \[\]/.test(stepModuleAbi) &&
+      /const normalizedReceiptRefs = normalizeStringArray\(receipt_refs\)/.test(stepModuleAbi) &&
+      !/receipt:\/\/projection/.test(stepModuleAbi) &&
+      /coding tool StepModule result requires Rust-owned receipt refs for accepted statuses/.test(
+        read("packages/runtime-daemon/src/step-module-abi.test.mjs"),
+      ) &&
       !/\b(?:runId|taskId|threadId|workflowGraphId|workflowNodeId|contextChamberRef|actionProposalRef|gateResultRef|moduleKind|executionBackend|manifestRef|actorId|runtimeNodeRef|policyHash|authorityGrantRefs|approvalRef|stateRootBefore|projectionWatermark|idempotencyKey|deadlineMs|workflowProjectionStatus|executionResultRef|normalizedObservationRef|receiptRefs|artifactRefs|payloadRefs|agentgresOperationRefs|stateRootAfter|resultingHead|evidenceRefs|modelReentryRequired|verifierRequired|invocationRef|routeRef|providerRef|endpointRef|modelRef|invocationKind|inputHash|outputHash|routeDecisionRef|routeReceiptRef|receiptRef|authorityScopes|privacyProfile|nodePlaintextAllowed|declassificationRequired|custodyProofRef|leakageProfileRef)\s*=/.test(
         stepModuleAbi,
       ) &&
@@ -3693,6 +3699,12 @@ function runBridge() {
       /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
       /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
       /assertNoStepModuleCommandArgs/.test(stepModuleRunner) &&
+      /createStepModuleInvocationForCodingTool/.test(stepModuleRunner) &&
+      !/createCodingToolStepModuleProjection/.test(stepModuleRunner) &&
+      /result:\s*bridgeResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
+      /assert\.equal\(projection\.result,\s*null\)/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
       /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
       !/STEP_MODULE_BACKEND_ENV/.test(stepModuleRunner) &&
       !/STEP_MODULE_COMMAND_ARGS_ENV/.test(stepModuleRunner) &&
