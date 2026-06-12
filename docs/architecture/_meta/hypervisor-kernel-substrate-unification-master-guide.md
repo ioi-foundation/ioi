@@ -7317,6 +7317,26 @@ workspace snapshot/restore API ownership where snapshot capture, restore
 policy, restore application, Agentgres truth, replay, and stable IDE/CLI/SDK
 surfaces no longer depend on Node bridge endpoint proof scaffolding.
 
+Slice 1182 moves the first model-mount admission/execution command-response
+proof cluster out of the temporary bridge proof surface and relies on the Rust
+model-mount owners at
+`crates/services/src/agentic/runtime/kernel/model_mount/admission.rs` and
+`crates/services/src/agentic/runtime/kernel/model_mount/provider_execution.rs`.
+Route-decision admission, invocation admission, provider-execution admission,
+fixture provider invocation, native-local provider invocation, and
+native-local provider stream command-response shaping now run as Rust owner
+tests. Bridge conformance now requires those owner tests, proves typed Rust
+`command_dispatch.rs` still dispatches those operations, and proves the old
+bridge-named tests, request-type imports, and response-function aliases stay
+absent from `ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because model-mount admission and provider execution
+still cross temporary command transport. The target is direct Rust daemon-core
+model-mount protocol/API ownership where route selection, invocation
+admission, provider execution, provider invocation, Agentgres truth, replay,
+and stable IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof
+scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

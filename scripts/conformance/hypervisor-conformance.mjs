@@ -7033,15 +7033,26 @@ function runBridge() {
       !/assert_model_mount_command_rejects_step_module_schema\(\s*"plan_model_mount_read_projection",?\s*\)/.test(
         bridgeModule,
       ) &&
-      /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
-      /admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
-      /admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(
+      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
+      !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
+      !/admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(
         bridgeModule,
       ) &&
-      /execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(
+      !/execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(
         bridgeModule,
       ) &&
-      /execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
+      !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
         bridgeModule,
       ) &&
       /plan_model_mount_provider_lifecycle_response as plan_model_mount_provider_lifecycle/.test(
@@ -7148,10 +7159,14 @@ function runBridge() {
       /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
       /rust_model_mount_invocation_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
-      /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
-      /admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
-      /ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
-      /ModelMountInvocationAdmissionBridgeRequest/.test(bridgeModule) &&
+      /rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_invocation_admission_command_response/.test(modelMountCore) &&
+      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
+      !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(bridgeModule) &&
+      !/ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
+      !/ModelMountInvocationAdmissionBridgeRequest/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
       !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountRouteDecisionRequest/.test(modelMountCommandBridge) &&
@@ -7185,9 +7200,18 @@ function runBridge() {
       /rust_model_mount_provider_stream_invocation_command/.test(modelMountCore) &&
       /rust_model_mount_provider_result_command/.test(modelMountCore) &&
       !modelMountCommandBridgeExists &&
-      /admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(bridgeModule) &&
-      /execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(bridgeModule) &&
-      /execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
+      /rust_core_shapes_model_mount_provider_execution_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_native_local_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_native_local_model_mount_provider_stream_command_response/.test(modelMountCore) &&
+      /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      !/admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(bridgeModule) &&
+      !/execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(bridgeModule) &&
+      !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
         bridgeModule,
       ) &&
       /admit_model_mount_provider_result_response as admit_model_mount_provider_result/.test(bridgeModule) &&
@@ -11583,12 +11607,14 @@ function runBridge() {
       !/fn admit_model_mount_route_decision/.test(bridgeModule) &&
       /pub struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_route_decision_response/.test(modelMountCore) &&
-      /admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
-      /ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
+      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_route_decision_response as admit_model_mount_route_decision/.test(bridgeModule) &&
+      !/ModelMountRouteDecisionBridgeRequest/.test(bridgeModule) &&
       !/struct ModelMountRouteDecisionBridgeRequest/.test(modelMountCommandBridge) &&
-      /admit_model_mount_route_decision/.test(modelMountCommandSurface) &&
+      /admit_model_mount_route_decision_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /ModelMountRouteDecisionRequest/.test(modelMountCore) &&
-      /bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
+      /rust_core_shapes_model_mount_route_decision_command_response/.test(modelMountCore) &&
+      !/bridge_admits_model_mount_route_decision_through_rust_core/.test(modelMountCommandSurface) &&
       !/model_mount_route_decision_rejects_step_module_command_schema/.test(modelMountCommandSurface) &&
       /RustModelMountAdmissionRunner/.test(modelMountAdmissionRunner) &&
       /MODEL_MOUNT_ADMISSION_COMMAND_ENV/.test(modelMountAdmissionRunner) &&
@@ -13681,14 +13707,16 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-invocation-admission-live-bridge",
-    /admit_model_mount_invocation/.test(modelMountCommandSurface) &&
+    /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /pub struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_invocation_response/.test(modelMountCore) &&
       /ModelMountInvocationAdmissionRequest/.test(modelMountCore) &&
-      /admit_model_mount_invocation_response as admit_model_mount_invocation/.test(modelMountCommandSurface) &&
+      /admit_model_mount_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_invocation_response as admit_model_mount_invocation/.test(modelMountCommandSurface) &&
       !/struct ModelMountInvocationAdmissionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountInvocationAdmissionRequest/.test(modelMountCommandBridge) &&
-      /bridge_admits_model_mount_invocation_through_rust_core/.test(modelMountCommandSurface) &&
+      /rust_core_shapes_model_mount_invocation_admission_command_response/.test(modelMountCore) &&
+      !/bridge_admits_model_mount_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /admitInvocation/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_invocation_command/.test(modelMountAdmissionRunner) &&
       /admitModelMountInvocation/.test(modelMountingState) &&
@@ -13708,14 +13736,16 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-provider-execution-live-bridge",
-    /admit_model_mount_provider_execution/.test(modelMountCommandSurface) &&
+    /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /ModelMountProviderExecutionRequest/.test(modelMountCore) &&
       /ModelMountProviderExecutionBridgeRequest/.test(modelMountCore) &&
       /pub fn admit_model_mount_provider_execution_response/.test(modelMountCore) &&
-      /admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(modelMountCommandSurface) &&
+      /admit_model_mount_provider_execution_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/admit_model_mount_provider_execution_response as admit_model_mount_provider_execution/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderExecutionBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderExecutionRequest/.test(modelMountCommandBridge) &&
-      /bridge_admits_model_mount_provider_execution_through_rust_core/.test(modelMountCommandSurface) &&
+      /rust_core_shapes_model_mount_provider_execution_command_response/.test(modelMountCore) &&
+      !/bridge_admits_model_mount_provider_execution_through_rust_core/.test(modelMountCommandSurface) &&
       /admitProviderExecution/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_execution_command/.test(modelMountAdmissionRunner) &&
       /admitModelMountProviderExecution/.test(modelMountingState) &&
@@ -13830,15 +13860,18 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-local-provider-invocation-live-bridge",
-    /execute_model_mount_provider_invocation/.test(modelMountCommandSurface) &&
+    /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /ModelMountProviderInvocationRequest/.test(modelMountCore) &&
       /ModelMountProviderInvocationBridgeRequest/.test(modelMountCore) &&
       /pub fn execute_model_mount_provider_invocation_response/.test(modelMountCore) &&
-      /execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(modelMountCommandSurface) &&
+      /execute_model_mount_provider_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
+      !/execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation/.test(modelMountCommandSurface) &&
       !/struct ModelMountProviderInvocationBridgeRequest/.test(modelMountCommandBridge) &&
       !/ModelMountProviderInvocationRequest/.test(modelMountCommandBridge) &&
-      /bridge_executes_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
-      /bridge_executes_native_local_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
+      /rust_core_shapes_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
+      /rust_core_shapes_native_local_model_mount_provider_invocation_command_response/.test(modelMountCore) &&
+      !/bridge_executes_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
+      !/bridge_executes_native_local_model_mount_provider_invocation_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderInvocation/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_invocation_command/.test(modelMountAdmissionRunner) &&
       /executeModelMountProviderInvocation/.test(modelMountingState) &&
@@ -13863,12 +13896,16 @@ function runBridge() {
   assertCheck(
     result,
     "model-mount-native-local-stream-invocation-live-bridge",
-      /execute_model_mount_provider_stream_invocation/.test(modelMountCommandSurface) &&
+      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(coreCommandDispatch) &&
       /pub fn execute_model_mount_provider_stream_invocation_response/.test(modelMountCore) &&
-      /execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
+      /execute_model_mount_provider_stream_invocation_response\(decode\(raw_request\)\?\)/.test(
+        coreCommandDispatch,
+      ) &&
+      !/execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation/.test(
         modelMountCommandSurface,
       ) &&
-      /bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(modelMountCommandSurface) &&
+      /rust_core_shapes_native_local_model_mount_provider_stream_command_response/.test(modelMountCore) &&
+      !/bridge_executes_native_local_model_mount_provider_stream_through_rust_core/.test(modelMountCommandSurface) &&
       /executeProviderStreamInvocation/.test(modelMountAdmissionRunner) &&
       /rust_model_mount_provider_stream_invocation_command/.test(modelMountAdmissionRunner) &&
       /executeModelMountProviderStreamInvocation/.test(modelMountingState) &&

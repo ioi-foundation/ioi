@@ -12,12 +12,7 @@ mod tests {
     };
     use ioi_services::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use ioi_services::agentic::runtime::kernel::model_mount::{
-        admit_model_mount_invocation_response as admit_model_mount_invocation,
-        admit_model_mount_provider_execution_response as admit_model_mount_provider_execution,
         admit_model_mount_provider_result_response as admit_model_mount_provider_result,
-        admit_model_mount_route_decision_response as admit_model_mount_route_decision,
-        execute_model_mount_provider_invocation_response as execute_model_mount_provider_invocation,
-        execute_model_mount_provider_stream_invocation_response as execute_model_mount_provider_stream_invocation,
         plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required,
         plan_model_mount_backend_process_response as plan_model_mount_backend_process,
         plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle,
@@ -31,11 +26,9 @@ mod tests {
         ModelMountAcceptedReceiptTransitionRequest,
         ModelMountBackendLifecycleRequiredBridgeRequest, ModelMountBackendProcessPlanBridgeRequest,
         ModelMountCore, ModelMountInstanceLifecycleBridgeRequest,
-        ModelMountInvocationAdmissionBridgeRequest, ModelMountProviderExecutionBridgeRequest,
-        ModelMountProviderInventoryBridgeRequest, ModelMountProviderInvocationBridgeRequest,
-        ModelMountProviderLifecycleBridgeRequest, ModelMountProviderResultAdmissionBridgeRequest,
-        ModelMountReadProjectionBridgeRequest, ModelMountRouteControlRequiredBridgeRequest,
-        ModelMountRouteDecisionBridgeRequest, ModelMountRuntimeEngineRequiredBridgeRequest,
+        ModelMountProviderInventoryBridgeRequest, ModelMountProviderLifecycleBridgeRequest,
+        ModelMountProviderResultAdmissionBridgeRequest, ModelMountReadProjectionBridgeRequest,
+        ModelMountRouteControlRequiredBridgeRequest, ModelMountRuntimeEngineRequiredBridgeRequest,
         ModelMountServerControlRequiredBridgeRequest, ModelMountTokenizerRequiredBridgeRequest,
     };
     use ioi_services::agentic::runtime::kernel::model_mount_receipt::{
@@ -49,479 +42,13 @@ mod tests {
     use serde_json::{json, Value};
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
-    use std::{
-        fs,
-        path::{Path, PathBuf},
-        process::Command,
-    };
+    use std::{fs, path::Path, process::Command};
 
     const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
     const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
 
     fn sha256_hex(bytes: &[u8]) -> String {
         hex::encode(ioi_crypto::algorithms::hash::sha256(bytes).expect("sha256"))
-    }
-
-    fn temp_workspace(name: &str) -> PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "ioi-step-module-bridge-workspace-restore-{}-{}",
-            name,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|duration| duration.as_nanos())
-                .unwrap_or(0)
-        ));
-        fs::create_dir_all(&path).expect("workspace dir");
-        path
-    }
-
-    #[test]
-    fn bridge_admits_model_mount_route_decision_through_rust_core() {
-        let request: ModelMountRouteDecisionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_model_mount_route_decision",
-            "backend": "rust_model_mount_live",
-            "request": {
-                "schema_version": "ioi.model_mount.route_decision.v1",
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "policy_hash": "sha256:policy",
-                "idempotency_key": "model_route_decision:test",
-                "receipt_refs": ["receipt://route"],
-                "authority_grant_refs": [],
-                "authority_receipt_refs": [],
-                "privacy_profile": "local_private",
-                "node_plaintext_allowed": false
-            }
-        }))
-        .expect("bridge request");
-
-        let response = admit_model_mount_route_decision(request).expect("admitted");
-
-        assert_eq!(response["source"], "rust_model_mount_command");
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["record"]["model_ref"], "model.local");
-        assert_eq!(response["record"]["receipt_refs"][0], "receipt://route");
-        assert!(response["route_decision_ref"]
-            .as_str()
-            .expect("route decision ref")
-            .starts_with("model_mount://route_decision/"));
-    }
-
-    #[test]
-    fn bridge_admits_model_mount_invocation_through_rust_core() {
-        let request: ModelMountInvocationAdmissionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_model_mount_invocation",
-            "backend": "rust_model_mount_live",
-            "request": {
-                "schema_version": "ioi.model_mount.invocation_admission.v1",
-                "invocation_ref": "model-invocation://response/test",
-                "route_decision_ref": "model_mount://route_decision/test",
-                "route_receipt_ref": "receipt://route/test",
-                "invocation_receipt_ref": "receipt://invocation/test",
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "invocation_kind": "responses",
-                "policy_hash": "sha256:policy",
-                "input_hash": "sha256:input",
-                "output_hash": "sha256:output",
-                "idempotency_key": "model_invocation:test",
-                "receipt_refs": ["receipt://route/test", "receipt://invocation/test"],
-                "authority_grant_refs": ["grant://wallet/model-chat"],
-                "authority_receipt_refs": ["receipt://wallet/model-chat"],
-                "provider_auth_evidence_refs": [],
-                "backend_evidence_refs": [],
-                "tool_receipt_refs": [],
-                "privacy_profile": "local_private",
-                "node_plaintext_allowed": false
-            }
-        }))
-        .expect("bridge request");
-
-        let response = admit_model_mount_invocation(request).expect("admitted");
-
-        assert_eq!(response["source"], "rust_model_mount_invocation_command");
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["record"]["model_ref"], "model.local");
-        assert_eq!(
-            response["record"]["route_receipt_ref"],
-            "receipt://route/test"
-        );
-        assert_eq!(
-            response["record"]["invocation_receipt_ref"],
-            "receipt://invocation/test"
-        );
-        assert!(response["invocation_admission_ref"]
-            .as_str()
-            .expect("invocation admission ref")
-            .starts_with("model_mount://invocation_admission/"));
-    }
-
-    #[test]
-    fn bridge_admits_model_mount_provider_execution_through_rust_core() {
-        let request: ModelMountProviderExecutionBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "admit_model_mount_provider_execution",
-            "backend": "rust_model_mount_live",
-            "request": {
-                "schema_version": "ioi.model_mount.provider_execution.v1",
-                "invocation_ref": "model-provider-execution://response/test",
-                "route_decision_ref": "model_mount://route_decision/test",
-                "route_receipt_ref": "receipt://route/test",
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "invocation_kind": "responses",
-                "policy_hash": "sha256:policy",
-                "input_hash": "sha256:input",
-                "request_hash": "sha256:request",
-                "idempotency_key": "model_provider_execution:test",
-                "receipt_refs": ["receipt://route/test"],
-                "authority_grant_refs": ["grant://wallet/model-chat"],
-                "authority_receipt_refs": ["receipt://wallet/model-chat"],
-                "provider_auth_evidence_refs": [],
-                "backend_evidence_refs": ["backend://native-local"],
-                "tool_receipt_refs": [],
-                "privacy_profile": "local_private",
-                "node_plaintext_allowed": false
-            }
-        }))
-        .expect("bridge request");
-
-        let response = admit_model_mount_provider_execution(request).expect("admitted");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_execution_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["record"]["request_hash"], "sha256:request");
-        assert_eq!(
-            response["record"]["route_receipt_ref"],
-            "receipt://route/test"
-        );
-        assert!(response["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref")
-            .starts_with("model_mount://provider_execution/"));
-    }
-
-    #[test]
-    fn bridge_executes_model_mount_provider_invocation_through_rust_core() {
-        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_execution",
-                "backend": "rust_model_mount_live",
-                "request": {
-                    "schema_version": "ioi.model_mount.provider_execution.v1",
-                    "invocation_ref": "model-provider-execution://response/test",
-                    "route_decision_ref": "model_mount://route_decision/test",
-                    "route_receipt_ref": "receipt://route/test",
-                    "route_ref": "route.local-first",
-                    "provider_ref": "provider.local",
-                    "endpoint_ref": "endpoint.local",
-                    "model_ref": "model.local",
-                    "capability": "chat",
-                    "invocation_kind": "chat.completions",
-                    "policy_hash": "sha256:policy",
-                    "input_hash": "sha256:input",
-                    "request_hash": "sha256:request",
-                    "idempotency_key": "model_provider_execution:test",
-                    "receipt_refs": ["receipt://route/test"],
-                    "authority_grant_refs": ["grant://wallet/model-chat"],
-                    "authority_receipt_refs": ["receipt://wallet/model-chat"],
-                    "provider_auth_evidence_refs": [],
-                    "backend_evidence_refs": ["backend.fixture"],
-                    "tool_receipt_refs": [],
-                    "privacy_profile": "local_private",
-                    "node_plaintext_allowed": false
-                }
-            }))
-            .expect("provider execution request");
-        let admission_response =
-            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
-        let admission = admission_response["record"].clone();
-        let provider_execution_ref = admission["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref");
-        let provider_execution_hash = admission["provider_execution_hash"]
-            .as_str()
-            .expect("provider execution hash");
-
-        let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "execute_model_mount_provider_invocation",
-            "backend": "rust_model_mount_fixture",
-            "request": {
-                "schema_version": "ioi.model_mount.provider_invocation.v1",
-                "provider_execution_ref": provider_execution_ref,
-                "provider_execution_hash": provider_execution_hash,
-                "route_decision_ref": "model_mount://route_decision/test",
-                "route_receipt_ref": "receipt://route/test",
-                "route_ref": "route.local-first",
-                "provider_ref": "provider.local",
-                "provider_kind": "local_folder",
-                "endpoint_ref": "endpoint.local",
-                "model_ref": "model.local",
-                "capability": "chat",
-                "invocation_kind": "chat.completions",
-                "input": "user: hello",
-                "request_hash": "sha256:request",
-                "execution_backend": "rust_model_mount_fixture",
-                "api_format": "ioi_fixture",
-                "driver": "fixture",
-                "backend_ref": "backend.fixture",
-                "receipt_refs": ["receipt://route/test"],
-                "evidence_refs": [provider_execution_ref],
-                "admitted_provider_execution": admission.clone()
-            }
-        }))
-        .expect("provider invocation bridge request");
-
-        let response = execute_model_mount_provider_invocation(request).expect("fixture executed");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_invocation_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_fixture");
-        assert_eq!(response["execution_backend"], "rust_model_mount_fixture");
-        assert_eq!(response["backendId"], "backend.fixture");
-        assert!(response["outputText"]
-            .as_str()
-            .expect("output text")
-            .starts_with("IOI model router fixture response from model.local."));
-        assert_eq!(
-            response["provider_execution_ref"],
-            admission["provider_execution_ref"]
-        );
-        assert!(response["invocation_hash"]
-            .as_str()
-            .expect("invocation hash")
-            .starts_with("sha256:"));
-    }
-
-    #[test]
-    fn bridge_executes_native_local_model_mount_provider_invocation_through_rust_core() {
-        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_execution",
-                "backend": "rust_model_mount_live",
-                "request": {
-                    "schema_version": "ioi.model_mount.provider_execution.v1",
-                    "invocation_ref": "model-provider-execution://native-local/response/test",
-                    "route_decision_ref": "model_mount://route_decision/native-local/test",
-                    "route_receipt_ref": "receipt://route/native-local/test",
-                    "route_ref": "route.native-local",
-                    "provider_ref": "provider.autopilot.local",
-                    "endpoint_ref": "endpoint.native-local",
-                    "model_ref": "model://qwen/qwen3.5-9b",
-                    "capability": "responses",
-                    "invocation_kind": "responses",
-                    "policy_hash": "sha256:policy",
-                    "input_hash": "sha256:input",
-                    "request_hash": "sha256:request",
-                    "idempotency_key": "model_provider_execution:native-local:test",
-                    "receipt_refs": ["receipt://route/native-local/test"],
-                    "authority_grant_refs": ["grant://wallet/model-responses"],
-                    "authority_receipt_refs": ["receipt://wallet/model-responses"],
-                    "provider_auth_evidence_refs": [],
-                    "backend_evidence_refs": ["backend.autopilot.native-local.fixture"],
-                    "tool_receipt_refs": [],
-                    "privacy_profile": "local_private",
-                    "node_plaintext_allowed": false
-                }
-            }))
-            .expect("native-local provider execution request");
-        let admission_response =
-            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
-        let admission = admission_response["record"].clone();
-        let provider_execution_ref = admission["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref");
-        let provider_execution_hash = admission["provider_execution_hash"]
-            .as_str()
-            .expect("provider execution hash");
-
-        let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "execute_model_mount_provider_invocation",
-            "backend": "rust_model_mount_native_local",
-            "request": {
-                "schema_version": "ioi.model_mount.provider_invocation.v1",
-                "provider_execution_ref": provider_execution_ref,
-                "provider_execution_hash": provider_execution_hash,
-                "route_decision_ref": "model_mount://route_decision/native-local/test",
-                "route_receipt_ref": "receipt://route/native-local/test",
-                "route_ref": "route.native-local",
-                "provider_ref": "provider.autopilot.local",
-                "provider_kind": "ioi_native_local",
-                "endpoint_ref": "endpoint.native-local",
-                "model_ref": "model://qwen/qwen3.5-9b",
-                "capability": "responses",
-                "invocation_kind": "responses",
-                "input": "user: hello",
-                "request_hash": "sha256:request",
-                "execution_backend": "rust_model_mount_native_local",
-                "api_format": "ioi_native",
-                "driver": "native_local",
-                "backend_ref": "backend.autopilot.native-local.fixture",
-                "receipt_refs": ["receipt://route/native-local/test"],
-                "evidence_refs": [provider_execution_ref],
-                "admitted_provider_execution": admission.clone()
-            }
-        }))
-        .expect("native-local provider invocation bridge request");
-
-        let response = execute_model_mount_provider_invocation(request)
-            .expect("native-local provider invocation executed");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_invocation_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_native_local");
-        assert_eq!(
-            response["execution_backend"],
-            "rust_model_mount_native_local"
-        );
-        assert_eq!(
-            response["result"]["backend"],
-            "autopilot.native_local.fixture"
-        );
-        assert_eq!(
-            response["backendId"],
-            "backend.autopilot.native-local.fixture"
-        );
-        assert_eq!(
-            response["providerResponseKind"],
-            "rust_model_mount.native_local"
-        );
-        assert!(response["outputText"]
-            .as_str()
-            .expect("output text")
-            .starts_with("Autopilot native local model response from model://qwen/qwen3.5-9b."));
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_native_local_backend"));
-    }
-
-    #[test]
-    fn bridge_executes_native_local_model_mount_provider_stream_through_rust_core() {
-        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_execution",
-                "backend": "rust_model_mount_live",
-                "request": {
-                    "schema_version": "ioi.model_mount.provider_execution.v1",
-                    "invocation_ref": "model-provider-execution://native-local/stream/test",
-                    "route_decision_ref": "model_mount://route_decision/native-local/stream/test",
-                    "route_receipt_ref": "receipt://route/native-local/stream/test",
-                    "route_ref": "route.native-local",
-                    "provider_ref": "provider.autopilot.local",
-                    "endpoint_ref": "endpoint.native-local",
-                    "model_ref": "model://qwen/qwen3.5-9b",
-                    "capability": "responses",
-                    "invocation_kind": "responses",
-                    "policy_hash": "sha256:policy",
-                    "input_hash": "sha256:input",
-                    "request_hash": "sha256:request",
-                    "idempotency_key": "model_provider_execution:native-local-stream:test",
-                    "receipt_refs": ["receipt://route/native-local/stream/test"],
-                    "authority_grant_refs": ["grant://wallet/model-responses"],
-                    "authority_receipt_refs": ["receipt://wallet/model-responses"],
-                    "provider_auth_evidence_refs": [],
-                    "backend_evidence_refs": ["backend.autopilot.native-local.fixture"],
-                    "tool_receipt_refs": [],
-                    "privacy_profile": "local_private",
-                    "node_plaintext_allowed": false,
-                    "stream_status": "started"
-                }
-            }))
-            .expect("native-local stream provider execution request");
-        let admission_response =
-            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
-        let admission = admission_response["record"].clone();
-        let provider_execution_ref = admission["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref");
-        let provider_execution_hash = admission["provider_execution_hash"]
-            .as_str()
-            .expect("provider execution hash");
-
-        let request: ModelMountProviderInvocationBridgeRequest = serde_json::from_value(json!({
-            "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-            "operation": "execute_model_mount_provider_stream_invocation",
-            "backend": "rust_model_mount_native_local_stream",
-            "request": {
-                "schema_version": "ioi.model_mount.provider_invocation.v1",
-                "provider_execution_ref": provider_execution_ref,
-                "provider_execution_hash": provider_execution_hash,
-                "route_decision_ref": "model_mount://route_decision/native-local/stream/test",
-                "route_receipt_ref": "receipt://route/native-local/stream/test",
-                "route_ref": "route.native-local",
-                "provider_ref": "provider.autopilot.local",
-                "provider_kind": "ioi_native_local",
-                "endpoint_ref": "endpoint.native-local",
-                "model_ref": "model://qwen/qwen3.5-9b",
-                "capability": "responses",
-                "invocation_kind": "responses",
-                "input": "user: hello",
-                "request_hash": "sha256:request",
-                "execution_backend": "rust_model_mount_native_local_stream",
-                "api_format": "ioi_native",
-                "driver": "native_local",
-                "backend_ref": "backend.autopilot.native-local.fixture",
-                "stream_status": "started",
-                "receipt_refs": ["receipt://route/native-local/stream/test"],
-                "evidence_refs": [provider_execution_ref],
-                "admitted_provider_execution": admission.clone()
-            }
-        }))
-        .expect("native-local provider stream invocation bridge request");
-
-        let response = execute_model_mount_provider_stream_invocation(request)
-            .expect("native-local provider stream executed");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_stream_invocation_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_native_local_stream");
-        assert_eq!(
-            response["execution_backend"],
-            "rust_model_mount_native_local_stream"
-        );
-        assert_eq!(response["streamFormat"], "ioi_jsonl");
-        assert_eq!(response["streamKind"], "openai_responses_native_local");
-        assert_eq!(
-            response["providerResponseKind"],
-            "rust_model_mount.native_local.stream"
-        );
-        assert!(response["streamChunks"]
-            .as_array()
-            .expect("stream chunks")
-            .iter()
-            .any(|value| value.as_str().unwrap_or("").contains("\"done\":true")));
-        assert!(response["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_native_local_stream_backend"));
     }
 
     #[test]
@@ -2049,40 +1576,37 @@ mod tests {
 
     #[test]
     fn bridge_admits_model_mount_provider_result_through_rust_core() {
-        let provider_execution_request: ModelMountProviderExecutionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_execution",
-                "backend": "rust_model_mount_live",
-                "request": {
-                    "schema_version": "ioi.model_mount.provider_execution.v1",
-                    "invocation_ref": "model-provider-execution://response/test",
-                    "route_decision_ref": "model_mount://route_decision/test",
-                    "route_receipt_ref": "receipt://route/test",
-                    "route_ref": "route.local-first",
-                    "provider_ref": "provider.fixture",
-                    "endpoint_ref": "endpoint.fixture",
-                    "model_ref": "fixture:model",
-                    "capability": "chat",
-                    "invocation_kind": "chat.completions",
-                    "policy_hash": "sha256:policy",
-                    "input_hash": "sha256:input",
-                    "request_hash": "sha256:request",
-                    "idempotency_key": "model_provider_execution:test",
-                    "receipt_refs": ["receipt://route/test"],
-                    "authority_grant_refs": ["grant://wallet/model-chat"],
-                    "authority_receipt_refs": ["receipt://wallet/model-chat"],
-                    "provider_auth_evidence_refs": [],
-                    "backend_evidence_refs": ["backend.fixture"],
-                    "tool_receipt_refs": [],
-                    "privacy_profile": "local_private",
-                    "node_plaintext_allowed": false
-                }
-            }))
-            .expect("provider execution request");
-        let admission_response =
-            admit_model_mount_provider_execution(provider_execution_request).expect("admitted");
-        let admission = admission_response["record"].clone();
+        let admission = json!({
+            "schema_version": "ioi.model_mount.provider_execution.v1",
+            "provider_execution_ref": "model_mount://provider_execution/test",
+            "provider_execution_hash": "sha256:provider-execution",
+            "invocation_ref": "model-provider-execution://response/test",
+            "route_decision_ref": "model_mount://route_decision/test",
+            "route_receipt_ref": "receipt://route/test",
+            "route_ref": "route.local-first",
+            "provider_ref": "provider.fixture",
+            "endpoint_ref": "endpoint.fixture",
+            "model_ref": "fixture:model",
+            "capability": "chat",
+            "invocation_kind": "chat.completions",
+            "policy_hash": "sha256:policy",
+            "input_hash": "sha256:input",
+            "request_hash": "sha256:request",
+            "idempotency_key": "model_provider_execution:test",
+            "receipt_refs": ["receipt://route/test"],
+            "authority_grant_refs": ["grant://wallet/model-chat"],
+            "authority_receipt_refs": ["receipt://wallet/model-chat"],
+            "provider_auth_evidence_refs": [],
+            "backend_evidence_refs": ["backend.fixture"],
+            "tool_receipt_refs": [],
+            "privacy_profile": "local_private",
+            "node_plaintext_allowed": false,
+            "workflow_graph_ref": null,
+            "workflow_node_ref": null,
+            "response_ref": null,
+            "previous_response_ref": null,
+            "stream_status": null
+        });
         let provider_execution_ref = admission["provider_execution_ref"]
             .as_str()
             .expect("provider execution ref");

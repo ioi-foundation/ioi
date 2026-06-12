@@ -649,6 +649,63 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_shapes_model_mount_provider_execution_command_response() {
+        let response = admit_model_mount_provider_execution_response(
+            ModelMountProviderExecutionBridgeRequest {
+                backend: Some("rust_model_mount_live".to_string()),
+                request: provider_execution_request(),
+            },
+        )
+        .expect("provider execution admitted");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_execution_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_live");
+        assert_eq!(response["record"]["request_hash"], "sha256:request");
+        assert_eq!(
+            response["record"]["route_receipt_ref"],
+            "receipt://route/test"
+        );
+        assert!(response["provider_execution_ref"]
+            .as_str()
+            .expect("provider execution ref")
+            .starts_with("model_mount://provider_execution/"));
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_provider_invocation_command_response() {
+        let response = execute_model_mount_provider_invocation_response(
+            ModelMountProviderInvocationBridgeRequest {
+                backend: Some("rust_model_mount_fixture".to_string()),
+                request: provider_invocation_request(),
+            },
+        )
+        .expect("provider invocation executed");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_invocation_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_fixture");
+        assert!(response["outputText"]
+            .as_str()
+            .expect("output text")
+            .starts_with("IOI model router fixture response"));
+        assert_eq!(response["execution_backend"], "rust_model_mount_fixture");
+        assert_eq!(response["backend_id"], "backend.fixture");
+        assert!(response["provider_execution_ref"]
+            .as_str()
+            .expect("provider execution ref")
+            .starts_with("model_mount://provider_execution/"));
+        assert!(response["invocation_hash"]
+            .as_str()
+            .expect("invocation hash")
+            .starts_with("sha256:"));
+    }
+
+    #[test]
     fn native_local_provider_invocation_executes_in_rust_model_mount() {
         let mut request = provider_invocation_request();
         request.execution_backend = "rust_model_mount_native_local".to_string();
@@ -691,6 +748,63 @@ mod tests {
     }
 
     #[test]
+    fn rust_core_shapes_native_local_model_mount_provider_invocation_command_response() {
+        let mut request = provider_invocation_request();
+        request.execution_backend = "rust_model_mount_native_local".to_string();
+        request.provider_kind = "ioi_native_local".to_string();
+        request.api_format = Some("ioi_native".to_string());
+        request.driver = Some("native_local".to_string());
+        request.backend_ref = Some("backend.autopilot.native-local.fixture".to_string());
+        request.admitted_provider_execution = Some(ModelMountProviderExecutionRecord {
+            provider_ref: request.provider_ref.clone(),
+            endpoint_ref: request.endpoint_ref.clone(),
+            model_ref: request.model_ref.clone(),
+            capability: request.capability.clone(),
+            invocation_kind: request.invocation_kind.clone(),
+            request_hash: request.request_hash.clone(),
+            ..request
+                .admitted_provider_execution
+                .clone()
+                .expect("admission")
+        });
+
+        let response = execute_model_mount_provider_invocation_response(
+            ModelMountProviderInvocationBridgeRequest {
+                backend: Some("rust_model_mount_native_local".to_string()),
+                request,
+            },
+        )
+        .expect("native-local provider invocation executed");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_invocation_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_native_local");
+        assert_eq!(
+            response["execution_backend"],
+            "rust_model_mount_native_local"
+        );
+        assert_eq!(
+            response["backend_id"],
+            "backend.autopilot.native-local.fixture"
+        );
+        assert_eq!(
+            response["provider_response_kind"],
+            "rust_model_mount.native_local"
+        );
+        assert!(response["output_text"]
+            .as_str()
+            .expect("output text")
+            .starts_with("Autopilot native local model response"));
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_native_local_backend"));
+    }
+
+    #[test]
     fn native_local_provider_stream_invocation_executes_in_rust_model_mount() {
         let request = provider_stream_invocation_request();
         let result = invoke_provider_stream(&request)
@@ -729,6 +843,45 @@ mod tests {
             .evidence_refs
             .contains(&"rust_model_mount_native_local_stream_backend".to_string()));
         assert!(result.invocation_hash.starts_with("sha256:"));
+    }
+
+    #[test]
+    fn rust_core_shapes_native_local_model_mount_provider_stream_command_response() {
+        let response = execute_model_mount_provider_stream_invocation_response(
+            ModelMountProviderInvocationBridgeRequest {
+                backend: Some("rust_model_mount_native_local_stream".to_string()),
+                request: provider_stream_invocation_request(),
+            },
+        )
+        .expect("native-local provider stream executed");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_provider_stream_invocation_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_native_local_stream");
+        assert_eq!(
+            response["execution_backend"],
+            "rust_model_mount_native_local_stream"
+        );
+        assert_eq!(response["stream_format"], "ioi_jsonl");
+        assert_eq!(response["stream_kind"], "openai_responses_native_local");
+        assert_eq!(
+            response["provider_response_kind"],
+            "rust_model_mount.native_local.stream"
+        );
+        assert!(
+            response["stream_chunks"]
+                .as_array()
+                .expect("stream chunks")
+                .len()
+                >= 2
+        );
+        assert!(response["evidence_refs"]
+            .as_array()
+            .expect("evidence refs")
+            .iter()
+            .any(|value| value == "rust_model_mount_native_local_stream_backend"));
     }
 
     #[test]
