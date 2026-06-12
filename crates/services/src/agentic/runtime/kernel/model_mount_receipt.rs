@@ -276,6 +276,7 @@ fn expected_heads_from_transition(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use crate::agentic::runtime::kernel::model_mount::{
         MODEL_MOUNT_ACCEPTED_RECEIPT_HEAD_SCHEMA_VERSION,
         MODEL_MOUNT_ACCEPTED_RECEIPT_TRANSITION_SCHEMA_VERSION,
@@ -455,6 +456,52 @@ mod tests {
         assert_eq!(
             response["projection_record"]["component_kind"],
             "ModelInvocationNode"
+        );
+    }
+
+    #[test]
+    fn rust_core_shapes_model_mount_invocation_receipt_command_response() {
+        let transition = transition();
+        let request: ModelMountInvocationReceiptBindingBridgeRequest =
+            serde_json::from_value(json!({
+                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+                "operation": "bind_model_mount_invocation_receipt",
+                "backend": "rust_model_mount_live",
+                "invocation": invocation(&transition),
+                "result": result(&transition),
+                "accepted_receipt_transition": transition,
+                "receipt_ref": "receipt://receipt.test"
+            }))
+            .expect("receipt binding command request");
+
+        let response =
+            bind_model_mount_invocation_receipt_response(request).expect("receipt bound");
+
+        assert_eq!(
+            response["source"],
+            "rust_model_mount_receipt_binding_command"
+        );
+        assert_eq!(response["backend"], "rust_model_mount_live");
+        assert_eq!(response["router_admission"]["backend"], "model_mount");
+        assert_eq!(
+            response["accepted_receipt_append"]["receipt_ref"],
+            "receipt://receipt.test"
+        );
+        assert_eq!(
+            response["projection_record"]["component_kind"],
+            "ModelInvocationNode"
+        );
+        assert_eq!(
+            response["receipt_binding"]["receipt_refs"][0],
+            "receipt://receipt.test"
+        );
+        assert_eq!(
+            response["receipt_binding"]["expected_heads"][0],
+            "agentgres://model-mounting/accepted-receipts/head/0"
+        );
+        assert_eq!(
+            response["agentgres_admission"]["operation_ref"],
+            "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"
         );
     }
 

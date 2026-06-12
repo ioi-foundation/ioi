@@ -7337,6 +7337,28 @@ admission, provider execution, provider invocation, Agentgres truth, replay,
 and stable IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof
 scaffolding.
 
+Slice 1183 moves the next model-mount provider-result and receipt-binding
+command-response proof cluster out of the temporary bridge proof surface and
+into the Rust owners at
+`crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs`
+and `crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs`.
+Provider-result command-envelope shaping, retired JS provider-observation
+rejection, and model invocation receipt-binding command-envelope shaping now
+run as Rust owner tests. Bridge conformance now requires those owner tests,
+proves typed Rust `command_dispatch.rs` still dispatches
+`admit_model_mount_provider_result` and
+`bind_model_mount_invocation_receipt`, and proves the old bridge-named tests,
+request-type imports, and response-function aliases stay absent from
+`ioi_step_module_bridge/proof_tests.rs`. The bridge proof suite now runs 44
+tests.
+
+This remains non-terminal because provider-result admission and invocation
+receipt binding still cross temporary command transport. The target is direct
+Rust daemon-core model-mount protocol/API ownership where provider result
+admission, receipt binding, accepted-receipt append, Agentgres truth, replay,
+and stable IDE/CLI/SDK surfaces no longer depend on Node bridge endpoint proof
+scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

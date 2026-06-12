@@ -12,7 +12,6 @@ mod tests {
     };
     use ioi_services::agentic::runtime::kernel::command_protocol::DAEMON_CORE_COMMAND_SCHEMA_VERSION;
     use ioi_services::agentic::runtime::kernel::model_mount::{
-        admit_model_mount_provider_result_response as admit_model_mount_provider_result,
         plan_model_mount_backend_lifecycle_required_response as plan_model_mount_backend_lifecycle_required,
         plan_model_mount_backend_process_response as plan_model_mount_backend_process,
         plan_model_mount_instance_lifecycle_response as plan_model_mount_instance_lifecycle,
@@ -23,21 +22,17 @@ mod tests {
         plan_model_mount_runtime_engine_required_response as plan_model_mount_runtime_engine_required,
         plan_model_mount_server_control_required_response as plan_model_mount_server_control_required,
         plan_model_mount_tokenizer_required_response as plan_model_mount_tokenizer_required,
-        ModelMountAcceptedReceiptTransitionRequest,
         ModelMountBackendLifecycleRequiredBridgeRequest, ModelMountBackendProcessPlanBridgeRequest,
-        ModelMountCore, ModelMountInstanceLifecycleBridgeRequest,
-        ModelMountProviderInventoryBridgeRequest, ModelMountProviderLifecycleBridgeRequest,
-        ModelMountProviderResultAdmissionBridgeRequest, ModelMountReadProjectionBridgeRequest,
+        ModelMountInstanceLifecycleBridgeRequest, ModelMountProviderInventoryBridgeRequest,
+        ModelMountProviderLifecycleBridgeRequest, ModelMountReadProjectionBridgeRequest,
         ModelMountRouteControlRequiredBridgeRequest, ModelMountRuntimeEngineRequiredBridgeRequest,
         ModelMountServerControlRequiredBridgeRequest, ModelMountTokenizerRequiredBridgeRequest,
     };
     use ioi_services::agentic::runtime::kernel::model_mount_receipt::{
-        bind_model_mount_invocation_receipt_response as bind_model_mount_invocation_receipt,
         plan_model_mount_accepted_receipt_head_response as plan_model_mount_accepted_receipt_head,
         plan_model_mount_accepted_receipt_transition_response as plan_model_mount_accepted_receipt_transition,
         ModelMountAcceptedReceiptHeadBridgeRequest,
         ModelMountAcceptedReceiptTransitionBridgeRequest,
-        ModelMountInvocationReceiptBindingBridgeRequest,
     };
     use serde_json::{json, Value};
     #[cfg(unix)]
@@ -46,10 +41,6 @@ mod tests {
 
     const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
     const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
-
-    fn sha256_hex(bytes: &[u8]) -> String {
-        hex::encode(ioi_crypto::algorithms::hash::sha256(bytes).expect("sha256"))
-    }
 
     #[test]
     fn bridge_plans_native_local_model_mount_provider_lifecycle_through_rust_core() {
@@ -1572,274 +1563,6 @@ mod tests {
             .expect("evidence refs")
             .iter()
             .any(|value| value == "rust_model_mount_instance_lifecycle"));
-    }
-
-    #[test]
-    fn bridge_admits_model_mount_provider_result_through_rust_core() {
-        let admission = json!({
-            "schema_version": "ioi.model_mount.provider_execution.v1",
-            "provider_execution_ref": "model_mount://provider_execution/test",
-            "provider_execution_hash": "sha256:provider-execution",
-            "invocation_ref": "model-provider-execution://response/test",
-            "route_decision_ref": "model_mount://route_decision/test",
-            "route_receipt_ref": "receipt://route/test",
-            "route_ref": "route.local-first",
-            "provider_ref": "provider.fixture",
-            "endpoint_ref": "endpoint.fixture",
-            "model_ref": "fixture:model",
-            "capability": "chat",
-            "invocation_kind": "chat.completions",
-            "policy_hash": "sha256:policy",
-            "input_hash": "sha256:input",
-            "request_hash": "sha256:request",
-            "idempotency_key": "model_provider_execution:test",
-            "receipt_refs": ["receipt://route/test"],
-            "authority_grant_refs": ["grant://wallet/model-chat"],
-            "authority_receipt_refs": ["receipt://wallet/model-chat"],
-            "provider_auth_evidence_refs": [],
-            "backend_evidence_refs": ["backend.fixture"],
-            "tool_receipt_refs": [],
-            "privacy_profile": "local_private",
-            "node_plaintext_allowed": false,
-            "workflow_graph_ref": null,
-            "workflow_node_ref": null,
-            "response_ref": null,
-            "previous_response_ref": null,
-            "stream_status": null
-        });
-        let provider_execution_ref = admission["provider_execution_ref"]
-            .as_str()
-            .expect("provider execution ref");
-        let provider_execution_hash = admission["provider_execution_hash"]
-            .as_str()
-            .expect("provider execution hash");
-        let output_text = "fixture provider answer";
-        let output_hash = format!("sha256:{}", sha256_hex(output_text.as_bytes()));
-
-        let request: ModelMountProviderResultAdmissionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_result",
-                "backend": "rust_model_mount_live",
-                "request": {
-                    "schema_version": "ioi.model_mount.provider_result.v1",
-                    "provider_execution_ref": provider_execution_ref,
-                    "provider_execution_hash": provider_execution_hash,
-                    "route_decision_ref": "model_mount://route_decision/test",
-                    "route_receipt_ref": "receipt://route/test",
-                    "route_ref": "route.local-first",
-                    "provider_ref": "provider.fixture",
-                    "provider_kind": "local_folder",
-                    "endpoint_ref": "endpoint.fixture",
-                    "model_ref": "fixture:model",
-                    "capability": "chat",
-                    "invocation_kind": "chat.completions",
-                    "request_hash": "sha256:request",
-                    "output_text": output_text,
-                    "output_hash": output_hash,
-                    "token_count": { "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3 },
-                    "provider_response_kind": "rust_model_mount.fixture",
-                    "execution_backend": "rust_model_mount_fixture",
-                    "backend_ref": "backend.fixture",
-                    "receipt_refs": ["receipt://route/test"],
-                    "provider_auth_evidence_refs": [],
-                    "backend_evidence_refs": ["rust_model_mount_fixture_backend"],
-                    "evidence_refs": [provider_execution_ref],
-                    "admitted_provider_execution": admission.clone()
-                }
-            }))
-            .expect("provider result bridge request");
-
-        let response = admit_model_mount_provider_result(request).expect("result admitted");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_provider_result_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(
-            response["record"]["execution_backend"],
-            "rust_model_mount_fixture"
-        );
-        assert_eq!(response["record"]["output_hash"], output_hash);
-        assert!(response["record"]["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "rust_model_mount_provider_result_backend_bound"));
-        assert!(!response["record"]["evidence_refs"]
-            .as_array()
-            .expect("evidence refs")
-            .iter()
-            .any(|value| value == "js_provider_driver_observation_bound"));
-        assert!(response["provider_result_ref"]
-            .as_str()
-            .expect("provider result ref")
-            .starts_with("model_mount://provider_result/"));
-        assert!(response["provider_result_hash"]
-            .as_str()
-            .expect("provider result hash")
-            .starts_with("sha256:"));
-
-        let mut retired_observation_request = response["record"].clone();
-        retired_observation_request["schema_version"] = json!("ioi.model_mount.provider_result.v1");
-        retired_observation_request["output_text"] = json!(output_text);
-        retired_observation_request["execution_backend"] = json!("js_provider_driver_observation");
-        retired_observation_request["admitted_provider_execution"] = admission.clone();
-        let request: ModelMountProviderResultAdmissionBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "admit_model_mount_provider_result",
-                "backend": "rust_model_mount_live",
-                "request": retired_observation_request
-            }))
-            .expect("retired provider result bridge request");
-        let error = admit_model_mount_provider_result(request)
-            .expect_err("retired JS provider result observations fail in Rust core");
-        assert!(format!("{error:?}").contains("UnsupportedProviderResultBackend"));
-    }
-
-    #[test]
-    fn bridge_binds_model_mount_invocation_receipt_through_rust_core() {
-        let accepted_receipt_transition = ModelMountCore
-            .plan_accepted_receipt_transition(&ModelMountAcceptedReceiptTransitionRequest {
-                schema_version: "ioi.model_mount.accepted_receipt_transition.v1".to_string(),
-                current_sequence: 0,
-                current_head_ref: "agentgres://model-mounting/accepted-receipts/head/0".to_string(),
-                current_state_root: "sha256:state-0".to_string(),
-                receipt_id: "receipt.test".to_string(),
-                receipt_kind: "model_invocation".to_string(),
-                route_decision_ref: Some("model_mount://route_decision/test".to_string()),
-                invocation_admission_ref: Some(
-                    "model_mount://invocation_admission/test".to_string(),
-                ),
-                invocation_admission_hash: Some("sha256:admission".to_string()),
-                input_hash: Some("sha256:input".to_string()),
-                output_hash: None,
-            })
-            .expect("accepted receipt transition planned");
-        let request: ModelMountInvocationReceiptBindingBridgeRequest =
-            serde_json::from_value(json!({
-                "schema_version": DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-                "operation": "bind_model_mount_invocation_receipt",
-                "backend": "rust_model_mount_live",
-                "invocation": {
-                    "schema_version": "ioi.step_module_invocation.v1",
-                    "invocation_id": "model-invocation://receipt.test",
-                    "run_id": "run:model-mount",
-                    "task_id": "task:model-mount",
-                    "thread_id": null,
-                    "workflow_graph_id": "workflow.graph",
-                    "workflow_node_id": "workflow.node",
-                    "context_chamber_ref": null,
-                    "action_proposal_ref": "action:model-mount:receipt.test",
-                    "gate_result_ref": "gate:model-mount:receipt.test",
-                    "module_ref": {
-                        "kind": "model_mount",
-                        "id": "chat:route.local-first:endpoint.local",
-                        "version": "migration",
-                        "manifest_ref": null
-                    },
-                    "actor": {
-                        "actor_id": "runtime:hypervisor-daemon",
-                        "runtime_node_ref": "node://local"
-                    },
-                    "authority": {
-                        "authority_grant_refs": ["grant://wallet/model-chat"],
-                        "policy_hash": "sha256:policy",
-                        "primitive_capabilities": ["model:chat"],
-                        "authority_scopes": [],
-                        "approval_ref": null
-                    },
-                    "input": {
-                        "input_hash": "sha256:input",
-                        "expected_schema_ref": "schema://model-mount/chat/input",
-                        "context_refs": [
-                            "model_mount://route_decision/test",
-                            "receipt://route/test"
-                        ],
-                        "artifact_refs": [],
-                        "payload_refs": [],
-                        "state_root_before": accepted_receipt_transition.state_root_before.clone(),
-                        "projection_watermark": "model-mounting-accepted-receipts:0",
-                        "data_plane_handle": null
-                    },
-                    "custody": {
-                        "privacy_profile": "internal",
-                        "plaintext_policy": {
-                            "node_plaintext_allowed": false,
-                            "declassification_required": false
-                        },
-                        "custody_proof_ref": null,
-                        "leakage_profile_ref": null
-                    },
-                    "execution": {
-                        "backend": "model_mount",
-                        "idempotency_key": "model_invocation:receipt.test",
-                        "deadline_ms": 300000,
-                        "resource_lease_ref": null,
-                        "retry_policy_ref": null
-                    }
-                },
-                "result": {
-                    "schema_version": "ioi.step_module_result.v1",
-                    "invocation_id": "model-invocation://receipt.test",
-                    "status": "success",
-                    "execution_result_ref": "result://model-mount/receipt.test",
-                    "normalized_observation_ref": "observation://model-mount/receipt.test",
-                    "receipt_refs": ["receipt://receipt.test"],
-                    "artifact_refs": [],
-                    "payload_refs": [],
-                    "agentgres_operation_refs": [accepted_receipt_transition.operation_ref.clone()],
-                    "state_root_after": accepted_receipt_transition.state_root_after.clone(),
-                    "resulting_head": accepted_receipt_transition.resulting_head.clone(),
-                    "workflow_projection": {
-                        "workflow_graph_id": "workflow.graph",
-                        "workflow_node_id": "workflow.node",
-                        "component_kind": "ModelInvocationNode",
-                        "status": "live",
-                        "attempt_id": "attempt://model-mount/receipt.test",
-                        "evidence_refs": ["model_mount://invocation_admission/test"],
-                        "receipt_refs": ["receipt://receipt.test"]
-                    },
-                    "next": {
-                        "model_reentry_required": false,
-                        "verifier_required": false
-                    }
-                },
-                "accepted_receipt_transition": accepted_receipt_transition.clone(),
-                "receipt_ref": "receipt://receipt.test"
-            }))
-            .expect("bridge request");
-
-        let response = bind_model_mount_invocation_receipt(request).expect("receipt bound");
-
-        assert_eq!(
-            response["source"],
-            "rust_model_mount_receipt_binding_command"
-        );
-        assert_eq!(response["backend"], "rust_model_mount_live");
-        assert_eq!(response["router_admission"]["backend"], "model_mount");
-        assert_eq!(
-            response["accepted_receipt_append"]["receipt_ref"],
-            "receipt://receipt.test"
-        );
-        assert_eq!(
-            response["projection_record"]["component_kind"],
-            "ModelInvocationNode"
-        );
-        assert_eq!(
-            response["receipt_binding"]["receipt_refs"][0],
-            "receipt://receipt.test"
-        );
-        assert_eq!(
-            response["receipt_binding"]["expected_heads"][0],
-            "agentgres://model-mounting/accepted-receipts/head/0"
-        );
-        assert_eq!(
-            response["agentgres_admission"]["operation_ref"],
-            "agentgres://model-mounting/accepted-receipts/op_00000001_model_invocation"
-        );
     }
 
     #[test]

@@ -15779,6 +15779,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1183
+
+Slice 1183 moves the next model-mount provider-result and receipt-binding
+command-response proof cluster out of the temporary bridge proof surface and
+into Rust owners:
+
+- `crates/services/src/agentic/runtime/kernel/model_mount/provider_result.rs`
+- `crates/services/src/agentic/runtime/kernel/model_mount_receipt.rs`
+- `crates/services/src/agentic/runtime/kernel/command_dispatch.rs`
+
+The Rust owner tests now cover provider-result command-envelope response
+shaping, fail-closed rejection of retired JS provider observations, and model
+invocation receipt-binding command-envelope response shaping. Bridge
+conformance requires those owner tests, proves typed Rust `command_dispatch.rs`
+dispatches `admit_model_mount_provider_result` and
+`bind_model_mount_invocation_receipt`, and proves the old bridge proof aliases,
+request-type imports, and bridge-named tests stay absent from
+`ioi_step_module_bridge/proof_tests.rs`. `cargo test -p ioi-node --bin
+ioi-step-module-bridge` now runs 44 bridge tests.
+
+This is a Rust-owner proof-retirement cut, not terminal model-mount migration.
+Provider-result admission and invocation receipt binding still cross temporary
+command transport until direct Rust daemon-core protocol APIs own provider
+result admission, receipt binding, accepted-receipt append, Agentgres truth,
+replay, and stable IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo fmt --check` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount::provider_result::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::model_mount_receipt::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed; 44 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1046
 
 Slice 1046 splits the MCP control state-update, MCP server validation, MCP
