@@ -15697,6 +15697,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1149
+
+Slice 1149 retires JS-side public projection fallbacks from MCP/memory manager
+context-policy runner normalizers. `normalizeMcpManagerStatusProjectionBridgeResult()`,
+`normalizeMcpManagerValidationProjectionBridgeResult()`,
+`normalizeMcpManagerCatalogProjectionBridgeResult()`,
+`normalizeMcpManagerCatalogSummaryProjectionBridgeResult()`,
+`normalizeMemoryManagerStatusProjectionBridgeResult()`, and
+`normalizeMemoryManagerValidationProjectionBridgeResult()` now pass missing
+Rust-owned public projection fields through as `null` instead of synthesizing
+`object`, `status`, count, readiness, route, or policy/default projection
+values in JS. Rust `policy/mcp_memory.rs` remains the owner of those MCP and
+memory manager projection envelopes; the JS runner remains temporary command
+transport normalization only.
+
+This is migration progress only. The shared daemon-core command runner and
+Node bridge stdin/JSON transport remain scaffolding until direct Rust
+daemon-core MCP/memory projection APIs replace command transport and broader
+Agentgres-backed MCP/memory projection truth is unified. The retired JS-side
+projection fallback behavior must not be recreated or treated as compatibility
+behavior.
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-context-policy-runner.mjs packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-context-policy-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

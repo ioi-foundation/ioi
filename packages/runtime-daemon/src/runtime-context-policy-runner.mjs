@@ -850,14 +850,14 @@ export function normalizeMcpManagerStatusProjectionBridgeResult(value = {}) {
     source: result.source ?? record.source ?? "rust_mcp_manager_status_projection_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
-    object: optionalString(result.object ?? record.object) ?? "ioi.runtime_mcp_manager_status",
-    status: optionalString(result.status ?? record.status) ?? "needs_review",
-    server_count: numberValue(result.server_count ?? record.server_count) ?? 0,
-    tool_count: numberValue(result.tool_count ?? record.tool_count) ?? 0,
-    resource_count: numberValue(result.resource_count ?? record.resource_count) ?? 0,
-    prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? 0,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    server_count: numberValue(result.server_count ?? record.server_count),
+    tool_count: numberValue(result.tool_count ?? record.tool_count),
+    resource_count: numberValue(result.resource_count ?? record.resource_count),
+    prompt_count: numberValue(result.prompt_count ?? record.prompt_count),
     enabled_server_count:
-      numberValue(result.enabled_server_count ?? record.enabled_server_count) ?? 0,
+      numberValue(result.enabled_server_count ?? record.enabled_server_count),
     ...(enabledToolCount === null ? {} : { enabled_tool_count: enabledToolCount }),
     servers: arrayValue(result.servers ?? record.servers),
     tools: arrayValue(result.tools ?? record.tools),
@@ -882,20 +882,16 @@ export function normalizeMcpManagerValidationProjectionBridgeResult(value = {}) 
       "rust_mcp_manager_validation_projection_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
-    object:
-      optionalString(result.object ?? record.object) ??
-      "ioi.runtime_mcp_manager_validation",
+    object: optionalString(result.object ?? record.object) ?? null,
     ok,
-    status:
-      optionalString(result.status ?? record.status) ??
-      (ok ? "pass" : "blocked"),
-    server_count: numberValue(result.server_count ?? record.server_count) ?? 0,
-    tool_count: numberValue(result.tool_count ?? record.tool_count) ?? 0,
-    resource_count: numberValue(result.resource_count ?? record.resource_count) ?? 0,
-    prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? 0,
-    issue_count: numberValue(result.issue_count ?? record.issue_count) ?? issues.length,
+    status: optionalString(result.status ?? record.status) ?? null,
+    server_count: numberValue(result.server_count ?? record.server_count),
+    tool_count: numberValue(result.tool_count ?? record.tool_count),
+    resource_count: numberValue(result.resource_count ?? record.resource_count),
+    prompt_count: numberValue(result.prompt_count ?? record.prompt_count),
+    issue_count: numberValue(result.issue_count ?? record.issue_count),
     warning_count:
-      numberValue(result.warning_count ?? record.warning_count) ?? warnings.length,
+      numberValue(result.warning_count ?? record.warning_count),
     issues,
     warnings,
     servers: arrayValue(result.servers ?? record.servers),
@@ -917,21 +913,18 @@ export function normalizeMemoryManagerStatusProjectionBridgeResult(value = {}) {
       "rust_memory_manager_status_projection_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
-    object:
-      optionalString(result.object ?? record.object) ??
-      "ioi.runtime_memory_manager_status",
-    status: optionalString(result.status ?? record.status) ?? "needs_review",
-    disabled: Boolean(result.disabled ?? record.disabled),
-    injection_enabled: Boolean(result.injection_enabled ?? record.injection_enabled ?? true),
-    read_only: Boolean(result.read_only ?? record.read_only),
-    write_requires_approval: Boolean(
-      result.write_requires_approval ?? record.write_requires_approval,
-    ),
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    disabled: result.disabled ?? record.disabled ?? null,
+    injection_enabled: result.injection_enabled ?? record.injection_enabled ?? null,
+    read_only: result.read_only ?? record.read_only ?? null,
+    write_requires_approval:
+      result.write_requires_approval ?? record.write_requires_approval ?? null,
     write_blocked_reason:
       optionalString(result.write_blocked_reason ?? record.write_blocked_reason) ?? null,
-    record_count: numberValue(result.record_count ?? record.record_count) ?? 0,
-    scope_count: numberValue(result.scope_count ?? record.scope_count) ?? 0,
-    memory_key_count: numberValue(result.memory_key_count ?? record.memory_key_count) ?? 0,
+    record_count: numberValue(result.record_count ?? record.record_count),
+    scope_count: numberValue(result.scope_count ?? record.scope_count),
+    memory_key_count: numberValue(result.memory_key_count ?? record.memory_key_count),
     scopes: stringArray(result.scopes ?? record.scopes),
     memory_keys: stringArray(result.memory_keys ?? record.memory_keys),
     policy: objectRecord(result.policy ?? record.policy) ?? {},
@@ -958,17 +951,13 @@ export function normalizeMemoryManagerValidationProjectionBridgeResult(value = {
       "rust_memory_manager_validation_projection_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
-    object:
-      optionalString(result.object ?? record.object) ??
-      "ioi.runtime_memory_manager_validation",
+    object: optionalString(result.object ?? record.object) ?? null,
     ok,
-    status:
-      optionalString(result.status ?? record.status) ??
-      (ok ? "pass" : "blocked"),
-    issue_count: numberValue(result.issue_count ?? record.issue_count) ?? issues.length,
+    status: optionalString(result.status ?? record.status) ?? null,
+    issue_count: numberValue(result.issue_count ?? record.issue_count),
     warning_count:
-      numberValue(result.warning_count ?? record.warning_count) ?? warnings.length,
-    record_count: numberValue(result.record_count ?? record.record_count) ?? 0,
+      numberValue(result.warning_count ?? record.warning_count),
+    record_count: numberValue(result.record_count ?? record.record_count),
     issues,
     warnings,
     policy: objectRecord(result.policy ?? record.policy) ?? {},
@@ -990,17 +979,15 @@ export function normalizeMcpManagerCatalogProjectionBridgeResult(value = {}) {
     source: result.source ?? record.source ?? "rust_mcp_manager_catalog_projection_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
-    object:
-      optionalString(result.object ?? record.object) ??
-      "ioi.runtime_mcp_manager_catalog_projection",
-    status: optionalString(result.status ?? record.status) ?? "projected",
-    server_count: numberValue(result.server_count ?? record.server_count) ?? 0,
-    tool_count: numberValue(result.tool_count ?? record.tool_count) ?? tools.length,
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
+    server_count: numberValue(result.server_count ?? record.server_count),
+    tool_count: numberValue(result.tool_count ?? record.tool_count),
     resource_count:
-      numberValue(result.resource_count ?? record.resource_count) ?? resources.length,
-    prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? prompts.length,
+      numberValue(result.resource_count ?? record.resource_count),
+    prompt_count: numberValue(result.prompt_count ?? record.prompt_count),
     enabled_tool_count:
-      numberValue(result.enabled_tool_count ?? record.enabled_tool_count) ?? enabledTools.length,
+      numberValue(result.enabled_tool_count ?? record.enabled_tool_count),
     servers: arrayValue(result.servers ?? record.servers),
     tools,
     resources,
@@ -1023,32 +1010,26 @@ export function normalizeMcpManagerCatalogSummaryProjectionBridgeResult(value = 
       "rust_mcp_manager_catalog_summary_projection_command",
     backend: result.backend ?? record.backend ?? RUST_CONTEXT_POLICY_BACKEND,
     schema_version: optionalString(result.schema_version ?? record.schema_version) ?? null,
-    object:
-      optionalString(result.object ?? record.object) ??
-      "ioi.runtime_mcp_catalog_summary",
-    status: optionalString(result.status ?? record.status) ?? "completed",
+    object: optionalString(result.object ?? record.object) ?? null,
+    status: optionalString(result.status ?? record.status) ?? null,
     server_id: optionalString(result.server_id ?? record.server_id) ?? null,
     server_label: optionalString(result.server_label ?? record.server_label) ?? null,
     transport: optionalString(result.transport ?? record.transport) ?? null,
     execution_mode: optionalString(result.execution_mode ?? record.execution_mode) ?? null,
     catalog_hash: optionalString(result.catalog_hash ?? record.catalog_hash) ?? null,
-    tool_count: numberValue(result.tool_count ?? record.tool_count) ?? 0,
-    resource_count: numberValue(result.resource_count ?? record.resource_count) ?? 0,
-    prompt_count: numberValue(result.prompt_count ?? record.prompt_count) ?? 0,
+    tool_count: numberValue(result.tool_count ?? record.tool_count),
+    resource_count: numberValue(result.resource_count ?? record.resource_count),
+    prompt_count: numberValue(result.prompt_count ?? record.prompt_count),
     namespace_count:
-      numberValue(result.namespace_count ?? record.namespace_count) ?? namespaces.length,
+      numberValue(result.namespace_count ?? record.namespace_count),
     namespaces,
-    preview_limit: numberValue(result.preview_limit ?? record.preview_limit) ?? 25,
+    preview_limit: numberValue(result.preview_limit ?? record.preview_limit),
     preview_tool_names: previewToolNames,
     deferred,
-    full_catalog_included: Boolean(result.full_catalog_included ?? record.full_catalog_included ?? !deferred),
+    full_catalog_included: result.full_catalog_included ?? record.full_catalog_included ?? null,
     error_code: optionalString(result.error_code ?? record.error_code) ?? null,
-    search_route:
-      optionalString(result.search_route ?? record.search_route) ??
-      "/v1/mcp/tools/search",
-    fetch_route:
-      optionalString(result.fetch_route ?? record.fetch_route) ??
-      "/v1/mcp/tools/{tool_id}",
+    search_route: optionalString(result.search_route ?? record.search_route) ?? null,
+    fetch_route: optionalString(result.fetch_route ?? record.fetch_route) ?? null,
   };
 }
 

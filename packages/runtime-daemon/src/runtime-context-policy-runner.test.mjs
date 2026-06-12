@@ -47,6 +47,12 @@ import {
   createContextPolicyRunnerFromEnv,
   normalizeAgentCreateStateUpdateBridgeResult,
   normalizeContextCompactionStateUpdateBridgeResult,
+  normalizeMcpManagerCatalogProjectionBridgeResult,
+  normalizeMcpManagerCatalogSummaryProjectionBridgeResult,
+  normalizeMcpManagerStatusProjectionBridgeResult,
+  normalizeMcpManagerValidationProjectionBridgeResult,
+  normalizeMemoryManagerStatusProjectionBridgeResult,
+  normalizeMemoryManagerValidationProjectionBridgeResult,
   normalizeOperatorInterruptStateUpdateBridgeResult,
   normalizeSubagentRecordStateUpdateBridgeResult,
   normalizeThreadControlAgentStateUpdateBridgeResult,
@@ -1769,6 +1775,8 @@ test("MCP manager status projection runner sends Rust daemon-core projection req
           result: {
             source: "rust_mcp_manager_status_projection_command",
             backend: "rust_policy",
+            schema_version: "ioi.runtime.mcp-manager-status.v1",
+            object: "ioi.runtime_mcp_manager_status",
             status: "ready",
             server_count: 2,
             tool_count: 1,
@@ -1949,6 +1957,8 @@ test("MCP manager catalog projection runner sends Rust daemon-core projection re
           result: {
             source: "rust_mcp_manager_catalog_projection_command",
             backend: "rust_policy",
+            schema_version: "ioi.runtime.mcp-manager-catalog-projection.v1",
+            object: "ioi.runtime_mcp_manager_catalog_projection",
             status: "projected",
             server_count: 1,
             tool_count: 1,
@@ -2002,6 +2012,8 @@ test("MCP manager catalog summary projection runner sends Rust daemon-core proje
           result: {
             source: "rust_mcp_manager_catalog_summary_projection_command",
             backend: "rust_policy",
+            schema_version: "ioi.runtime.mcp-catalog-summary.v1",
+            object: "ioi.runtime_mcp_catalog_summary",
             status: "completed",
             server_id: "mcp.docs",
             server_label: "Docs",
@@ -2108,6 +2120,70 @@ test("MCP manager validation projection runner sends Rust daemon-core projection
   assert.equal(result.tools[0].stable_tool_id, "mcp.docs.search");
   assert.equal(Object.hasOwn(result, "serverCount"), false);
   assert.equal(Object.hasOwn(result.tools[0], "stableToolId"), false);
+});
+
+test("MCP and memory manager projection runners do not synthesize Rust-owned projection envelopes", () => {
+  const mcpStatus = normalizeMcpManagerStatusProjectionBridgeResult({
+    source: "legacy_mcp_status_projection_fixture",
+    servers: [{ id: "mcp.docs" }],
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+  });
+  assert.equal(mcpStatus.object, null);
+  assert.equal(mcpStatus.status, null);
+  assert.equal(mcpStatus.server_count, null);
+  assert.equal(mcpStatus.tool_count, null);
+
+  const mcpValidation = normalizeMcpManagerValidationProjectionBridgeResult({
+    source: "legacy_mcp_validation_projection_fixture",
+    ok: true,
+    issues: [],
+    warnings: [],
+  });
+  assert.equal(mcpValidation.object, null);
+  assert.equal(mcpValidation.status, null);
+  assert.equal(mcpValidation.issue_count, null);
+  assert.equal(mcpValidation.warning_count, null);
+
+  const memoryStatus = normalizeMemoryManagerStatusProjectionBridgeResult({
+    source: "legacy_memory_status_projection_fixture",
+    records: [{ id: "memory.one" }],
+  });
+  assert.equal(memoryStatus.object, null);
+  assert.equal(memoryStatus.status, null);
+  assert.equal(memoryStatus.injection_enabled, null);
+  assert.equal(memoryStatus.record_count, null);
+
+  const memoryValidation = normalizeMemoryManagerValidationProjectionBridgeResult({
+    source: "legacy_memory_validation_projection_fixture",
+    ok: false,
+    issues: [{ code: "invalid" }],
+    warnings: [],
+  });
+  assert.equal(memoryValidation.object, null);
+  assert.equal(memoryValidation.status, null);
+  assert.equal(memoryValidation.issue_count, null);
+  assert.equal(memoryValidation.record_count, null);
+
+  const mcpCatalog = normalizeMcpManagerCatalogProjectionBridgeResult({
+    source: "legacy_mcp_catalog_projection_fixture",
+    tools: [{ stable_tool_id: "mcp.docs.search" }],
+    enabled_tools: [{ stable_tool_id: "mcp.docs.search" }],
+  });
+  assert.equal(mcpCatalog.object, null);
+  assert.equal(mcpCatalog.status, null);
+  assert.equal(mcpCatalog.tool_count, null);
+  assert.equal(mcpCatalog.enabled_tool_count, null);
+
+  const mcpSummary = normalizeMcpManagerCatalogSummaryProjectionBridgeResult({
+    source: "legacy_mcp_summary_projection_fixture",
+    namespaces: ["search"],
+  });
+  assert.equal(mcpSummary.object, null);
+  assert.equal(mcpSummary.status, null);
+  assert.equal(mcpSummary.namespace_count, null);
+  assert.equal(mcpSummary.preview_limit, null);
+  assert.equal(mcpSummary.search_route, null);
+  assert.equal(mcpSummary.fetch_route, null);
 });
 
 test("thread memory agent state update runner sends Rust state update bridge request", () => {

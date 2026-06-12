@@ -9711,6 +9711,33 @@ function runBridge() {
       /planMcpManagerCatalogProjection/.test(runtimeContextPolicyRunner) &&
       /planMcpManagerCatalogSummaryProjection/.test(runtimeContextPolicyRunner) &&
       /planMcpManagerValidationProjection/.test(runtimeContextPolicyRunner) &&
+      /object:\s*optionalString\(result\.object \?\? record\.object\)\s*\?\?\s*null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /status:\s*optionalString\(result\.status \?\? record\.status\)\s*\?\?\s*null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /server_count:\s*numberValue\(result\.server_count \?\? record\.server_count\)/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /injection_enabled:\s*result\.injection_enabled \?\? record\.injection_enabled \?\? null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /full_catalog_included:\s*result\.full_catalog_included \?\? record\.full_catalog_included \?\? null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      /search_route:\s*optionalString\(result\.search_route \?\? record\.search_route\)\s*\?\?\s*null/.test(
+        runtimeContextPolicyRunner,
+      ) &&
+      !/ioi\.runtime_mcp_manager_status"/.test(runtimeContextPolicyRunner) &&
+      !/ioi\.runtime_mcp_manager_validation"/.test(runtimeContextPolicyRunner) &&
+      !/ioi\.runtime_memory_manager_status"/.test(runtimeContextPolicyRunner) &&
+      !/ioi\.runtime_memory_manager_validation"/.test(runtimeContextPolicyRunner) &&
+      !/ioi\.runtime_mcp_manager_catalog_projection"/.test(runtimeContextPolicyRunner) &&
+      !/ioi\.runtime_mcp_catalog_summary"/.test(runtimeContextPolicyRunner) &&
+      !/\?\?\s*tools\.length/.test(runtimeContextPolicyRunner) &&
+      !/\?\?\s*namespaces\.length/.test(runtimeContextPolicyRunner) &&
+      !/\?\?\s*!deferred/.test(runtimeContextPolicyRunner) &&
       /MCP_CONTROL_AGENT_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeContextPolicyRunner,
       ) &&
@@ -9787,6 +9814,9 @@ function runBridge() {
         runtimeContextPolicyRunnerTest,
       ) &&
       /result\.source,\s*"rust_mcp_manager_validation_projection_command"/.test(
+        runtimeContextPolicyRunnerTest,
+      ) &&
+      /MCP and memory manager projection runners do not synthesize Rust-owned projection envelopes/.test(
         runtimeContextPolicyRunnerTest,
       ) &&
       (runtimeMcpCatalogSurface.match(/contextPolicyRunner\.validateMcpServers\(\{ servers \}\)/g) ?? []).length === 2 &&

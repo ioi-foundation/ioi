@@ -6787,6 +6787,23 @@ Node bridge transport still carry the request to Rust. The long-term target is
 still direct Rust daemon-core authority protocol/API wiring, not preservation
 of the current Node command path.
 
+Slice 1149 retires JS-side public projection fallbacks from the MCP/memory
+manager context-policy runner normalizers. Rust `policy/mcp_memory.rs` already
+authors MCP manager status, MCP validation, MCP catalog, MCP catalog summary,
+memory manager status, and memory validation projection response fields through
+the daemon-core command path. The JS
+`runtime-context-policy-runner.mjs` now passes missing Rust-owned
+`object`, `status`, count, readiness, route, and projection policy fields
+through as `null` instead of reconstructing public projection truth from
+arrays, booleans, or hard-coded defaults.
+
+This remains non-terminal because the shared JS daemon-core command runner and
+Node bridge transport still carry those projection requests to Rust, and the
+broader MCP/memory surfaces still need direct Rust daemon-core protocol APIs,
+Agentgres-backed truth, replay, and stable IDE/CLI/SDK projection wiring. The
+retired JS fallback projection behavior must not be recreated as a
+compatibility shim.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
