@@ -16207,6 +16207,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1166
+
+Slice 1166 retires JS-side artifact-read receipt synthesis in
+`packages/runtime-daemon/src/runtime-coding-tool-results.mjs`. The temporary
+coding-tool artifact read/retrieve adapter still returns data-plane content for
+already materialized artifacts, but it no longer creates local
+`receipt_artifact_read...` identifiers from the artifact id and byte range.
+Read results now pass through existing admitted `artifactRecord.receipt_refs`
+and leave `receipt_refs` empty when Rust/Agentgres did not provide admitted
+refs. The helper no longer depends on `safeId` for retired read-receipt
+construction.
+
+This is not terminal coding-tool artifact migration. Artifact read/retrieve
+remains JS read adapter scaffolding until direct Rust daemon-core artifact/result
+projection owns ArtifactRef/PayloadRef admission, receipt binding,
+expected-head/state-root checks, replay, and stable IDE/CLI/SDK protocol APIs.
+The retired local read-receipt synthesis must not be recreated as data-plane
+compatibility.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-coding-tool-results.mjs packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-coding-tool-results.test.mjs packages/runtime-daemon/src/runtime-coding-tool-artifact-surface.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

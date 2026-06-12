@@ -7065,6 +7065,20 @@ helper. The target is direct Rust daemon-core diagnostics repair admission,
 repair-policy projection, receipt/policy binding, Agentgres replay, and stable
 IDE/CLI/SDK APIs without JS repair-context assembly as accepted truth.
 
+Slice 1166 retires JS-side artifact-read receipt synthesis from the temporary
+coding-tool artifact read/retrieve adapter. `runtime-coding-tool-results.mjs`
+now passes through existing admitted `artifactRecord.receipt_refs` and leaves
+`receipt_refs` empty when Rust/Agentgres did not provide them; it no longer
+constructs `receipt_artifact_read...` identifiers from the artifact id and byte
+range. The helper also no longer depends on `safeId` for retired receipt-id
+construction.
+
+This remains non-terminal because artifact read/retrieve is still a JS
+data-plane read adapter over already materialized records. The target is direct
+Rust daemon-core coding-tool artifact/result projection backed by Agentgres
+ArtifactRef/PayloadRef admission, receipt binding, expected-head/state-root
+checks, replay, and stable protocol APIs.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

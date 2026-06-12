@@ -5074,10 +5074,23 @@ function runBridge() {
       /artifact_refs:\s*\[artifactRecord\.id\]\.filter\(Boolean\)/.test(runtimeCodingToolResults) &&
       /offset_bytes:\s*offsetBytes/.test(runtimeCodingToolResults) &&
       /full_content_hash:\s*metadata\.content_hash/.test(runtimeCodingToolResults) &&
-      /receipt_refs:\s*\[`receipt_artifact_read_/.test(runtimeCodingToolResults) &&
+      /receipt_refs:\s*uniqueStrings\(normalizeArray\(artifactRecord\.receipt_refs\)\)/.test(
+        runtimeCodingToolResults,
+      ) &&
+      !/receipt_artifact_read_/.test(runtimeCodingToolResults) &&
       /shell_fallback_used:\s*false/.test(runtimeCodingToolResults) &&
+      /coding tool artifact read result slices content without synthesizing JS receipt refs/.test(
+        runtimeCodingToolResultsTest,
+      ) &&
+      /coding tool artifact read result leaves omitted Rust receipt refs empty/.test(
+        runtimeCodingToolResultsTest,
+      ) &&
+      /receipt:\/\/artifact\/admitted/.test(runtimeCodingToolResultsTest) &&
       /Object\.hasOwn\(publicResult\.artifacts\[0\], field\), false/.test(runtimeCodingToolResultsTest) &&
       /Object\.hasOwn\(result, field\), false/.test(runtimeCodingToolResultsTest) &&
+      /assert\.deepEqual\(result\.receipt_refs,\s*\["receipt:\/\/artifact\/admitted"\]\)/.test(
+        runtimeCodingToolArtifactSurfaceTest,
+      ) &&
       /assert\.equal\(result\.result\.artifact_id, "artifact_alpha"\)/.test(
         runtimeCodingToolInvocationSurfaceTest,
       ) &&

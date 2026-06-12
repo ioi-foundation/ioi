@@ -163,6 +163,7 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
     media_type: "text/plain",
     content: "abcdef",
     content_hash: "hash_full",
+    receipt_refs: ["receipt://artifact/admitted"],
   });
 
   const result = surface.readCodingToolArtifact(store, "thread_alpha", "artifact_alpha", {
@@ -175,6 +176,7 @@ test("coding-tool artifact surface reads artifacts inside the owning thread", ()
   assert.equal(result.total_bytes, 6);
   assert.equal(result.truncated, true);
   assert.deepEqual(result.artifact_refs, ["artifact_alpha"]);
+  assert.deepEqual(result.receipt_refs, ["receipt://artifact/admitted"]);
   for (const field of ["schemaVersion", "totalBytes", "artifactRefs", "shellFallbackUsed"]) {
     assert.equal(Object.hasOwn(result, field), false);
   }

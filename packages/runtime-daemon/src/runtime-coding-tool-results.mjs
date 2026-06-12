@@ -6,7 +6,6 @@ export function createRuntimeCodingToolResultHelpers({
   uniqueStrings,
   optionalString,
   doctorHash,
-  safeId,
 }) {
   function codingToolResultWithoutDrafts(result = {}, artifacts = []) {
     if (!result || typeof result !== "object" || Array.isArray(result)) return result;
@@ -92,7 +91,7 @@ export function createRuntimeCodingToolResultHelpers({
       content_hash: doctorHash(text),
       full_content_hash: metadata.content_hash,
       truncated: offsetBytes + chunk.byteLength < buffer.byteLength,
-      receipt_refs: [`receipt_artifact_read_${safeId(artifactRecord.id)}_${doctorHash(`${offsetBytes}:${chunk.byteLength}`).slice(0, 12)}`],
+      receipt_refs: uniqueStrings(normalizeArray(artifactRecord.receipt_refs)),
       shell_fallback_used: false,
     };
   }

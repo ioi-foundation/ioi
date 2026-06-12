@@ -13,7 +13,6 @@ import {
   doctorHash,
   normalizeArray,
   optionalString,
-  safeId,
   uniqueStrings,
 } from "./runtime-value-helpers.mjs";
 
@@ -29,7 +28,6 @@ const {
   doctorHash,
   normalizeArray,
   optionalString,
-  safeId,
   uniqueStrings,
 });
 

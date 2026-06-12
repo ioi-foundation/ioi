@@ -13,7 +13,6 @@ function makeHelpers() {
     uniqueStrings: (values) => [...new Set(values.filter((value) => typeof value === "string" && value))],
     optionalString: (value) => (typeof value === "string" && value ? value : null),
     doctorHash: (value) => crypto.createHash("sha256").update(String(value)).digest("hex"),
-    safeId: (value) => String(value ?? "unknown").replace(/[^a-zA-Z0-9_.:-]+/g, "_"),
   });
 }
 
@@ -48,7 +47,7 @@ test("coding tool public result removes drafts and attaches artifact metadata", 
   }
 });
 
-test("coding tool artifact read result slices content and emits stable receipt refs", () => {
+test("coding tool artifact read result slices content without synthesizing JS receipt refs", () => {
   const { codingToolArtifactReadResult } = makeHelpers();
   const result = codingToolArtifactReadResult(
     {
@@ -56,6 +55,7 @@ test("coding tool artifact read result slices content and emits stable receipt r
       content: "abcdef",
       content_hash: "full_hash",
       media_type: "text/plain",
+      receipt_refs: ["receipt://artifact/admitted"],
     },
     {
       offset_bytes: 2,
@@ -69,10 +69,26 @@ test("coding tool artifact read result slices content and emits stable receipt r
   assert.equal(result.total_bytes, 6);
   assert.equal(result.truncated, true);
   assert.equal(result.full_content_hash, "full_hash");
-  assert.match(result.receipt_refs[0], /^receipt_artifact_read_artifact_1_/);
+  assert.deepEqual(result.receipt_refs, ["receipt://artifact/admitted"]);
   for (const field of ["schemaVersion", "artifactRefs", "lengthBytes", "totalBytes", "fullContentHash", "receiptRefs"]) {
     assert.equal(Object.hasOwn(result, field), false);
   }
+});
+
+test("coding tool artifact read result leaves omitted Rust receipt refs empty", () => {
+  const { codingToolArtifactReadResult } = makeHelpers();
+  const result = codingToolArtifactReadResult(
+    {
+      id: "artifact/1",
+      content: "abcdef",
+    },
+    {
+      offset_bytes: 0,
+      length_bytes: 3,
+    },
+  );
+
+  assert.deepEqual(result.receipt_refs, []);
 });
 
 test("coding tool command stream helpers preserve channel order and chunk long output", () => {
