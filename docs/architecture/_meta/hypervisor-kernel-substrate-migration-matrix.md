@@ -16114,6 +16114,37 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1163
+
+Slice 1163 retires JS-side receipt and policy-decision synthesis in
+`packages/runtime-daemon/src/diagnostics-feedback.mjs` for diagnostics feedback
+projection. Compacted post-edit diagnostics, repair-retry injected context, and
+blocking-gate rows remain advisory protocol/UI scaffolding, but the JS helper no
+longer mints local `receipt_lsp_diagnostics...` or
+`policy_lsp_diagnostics_gate...` identifiers for those records. Existing
+receipt refs from admitted diagnostic events may pass through; new diagnostics
+repair, retry, override, gate, and policy receipts must be supplied by a future
+Rust-owned diagnostics-repair admission path.
+
+This is not terminal diagnostics repair migration. Diagnostics repair policy
+objects, feedback compaction, and injected-context projection remain JS
+scaffolding until direct Rust daemon-core diagnostics repair admission,
+receipt/policy binding, Agentgres projection, replay, and stable IDE/CLI/SDK
+APIs own the surface end to end. The retired JS receipt/policy synthesis must
+not be recreated as compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/diagnostics-feedback.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/diagnostics-feedback.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

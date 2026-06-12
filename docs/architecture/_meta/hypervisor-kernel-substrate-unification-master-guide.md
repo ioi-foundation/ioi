@@ -7017,6 +7017,23 @@ context-budget policy, receipt/policy admission, Agentgres-backed projection,
 replay, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
 advisory alerts as a source of accepted receipt or policy truth.
 
+Slice 1163 retires JS-side receipt and policy-decision synthesis from
+diagnostics feedback projection. `diagnostics-feedback.mjs` may still compact
+post-edit diagnostics into advisory injected context, repair-retry context, and
+blocking-gate projection rows for the protocol/UI edge, but it no longer mints
+`receipt_lsp_diagnostics...`, `receipt_lsp_diagnostics_gate...`, or
+`policy_lsp_diagnostics_gate...` fields for those advisory records. Existing
+receipt refs from Rust/admitted diagnostic events may pass through; new
+diagnostics repair, retry, override, gate, and policy receipts must come from a
+future Rust-owned diagnostics-repair admission path.
+
+This remains non-terminal because diagnostics repair policy objects and
+diagnostics feedback projection are still assembled by JS while direct Rust
+daemon-core diagnostics repair admission, receipt/policy binding,
+Agentgres-backed projection, replay, and stable IDE/CLI/SDK APIs are pending.
+The target is not preservation of JS diagnostics feedback helpers as accepted
+truth authors; they are temporary protocol/context scaffolding only.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

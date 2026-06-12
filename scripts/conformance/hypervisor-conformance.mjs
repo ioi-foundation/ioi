@@ -29150,7 +29150,7 @@ function runCompositor() {
 	        diagnosticsRepairRetryFeedbackBody,
 	      ) &&
 	      /normalizeArray\(payload\.diagnostic_event_ids\)/.test(diagnosticsRepairRetryFeedbackBody) &&
-	      /optionalString\(request\.repair_retry_receipt_id\)/.test(
+	      !/optionalString\(request\.repair_retry_receipt_id\)/.test(
 	        diagnosticsRepairRetryFeedbackBody,
 	      ) &&
 	      /optionalString\(request\.repair_prompt_text\)/.test(diagnosticsRepairRetryFeedbackBody) &&
@@ -29244,18 +29244,19 @@ function runCompositor() {
       !/\b(?:repairContext|context)\.(?:rollbackRefs|workspaceSnapshotId|sourceToolCallId)\b/.test(
         compactDiagnosticsFeedbackBody,
       ) &&
-      /receipt_id:\s*receiptId/.test(compactDiagnosticsFeedbackBody) &&
+      /receipt_id:\s*null/.test(compactDiagnosticsFeedbackBody) &&
       /prompt_text:\s*diagnosticsPromptText/.test(compactDiagnosticsFeedbackBody) &&
       /schema_version:\s*LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION/.test(
         diagnosticsBlockingGateForFeedbackBody,
       ) &&
       /gate_id:\s*gateId/.test(diagnosticsBlockingGateForFeedbackBody) &&
-      /policy_decision_id:\s*`policy_\$\{gateId\}`/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /policy_decision_id:\s*null/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /policy_decision_refs:\s*\[\]/.test(diagnosticsBlockingGateForFeedbackBody) &&
       /requires_input:\s*true/.test(diagnosticsBlockingGateForFeedbackBody) &&
       /diagnostic_status:\s*diagnosticsFeedback\.diagnostic_status/.test(
         diagnosticsBlockingGateForFeedbackBody,
       ) &&
-      /receipt_id:\s*`receipt_\$\{gateId\}`/.test(diagnosticsBlockingGateForFeedbackBody) &&
+      /receipt_id:\s*null/.test(diagnosticsBlockingGateForFeedbackBody) &&
       /recommended_next_actions:\s*normalizeArray\(repairPolicy\.decisions\)/.test(
         diagnosticsBlockingGateForFeedbackBody,
       ) &&
@@ -29266,7 +29267,15 @@ function runCompositor() {
       /diagnostics_feedback:\s*diagnosticsFeedback/.test(requestWithDiagnosticsFeedbackBody) &&
       !/^ {6}diagnosticsFeedback,?\s*$/m.test(requestWithDiagnosticsFeedbackBody) &&
       /diagnosticsFeedback\.injection_id/.test(insertRuntimeBridgeDiagnosticsInjectionEventBody) &&
-      /diagnosticsFeedback\.receipt_id/.test(insertRuntimeBridgeDiagnosticsInjectionEventBody) &&
+      /receipt_refs:\s*uniqueStrings\(normalizeArray\(diagnosticsFeedback\.receipt_refs\)\)/.test(
+        insertRuntimeBridgeDiagnosticsInjectionEventBody,
+      ) &&
+      !/\[diagnosticsFeedback\.receipt_id\]/.test(
+        insertRuntimeBridgeDiagnosticsInjectionEventBody,
+      ) &&
+      !/const\s+receiptId\s*=/.test(diagnosticsFeedback) &&
+      !/receipt_id:\s*`receipt_\$\{/.test(diagnosticsFeedback) &&
+      !/policy_decision_id:\s*`policy_\$\{/.test(diagnosticsFeedback) &&
       !/^ {6}(?:schemaVersion|injectionId|threadId|diagnosticStatus|diagnosticCount|injectedFindingCount|omittedFindingCount|diagnosticEventIds|rollbackRefs|workspaceSnapshotRefs|sourceToolCallIds|diagnosticsRepairContexts|repairPolicyConfig|repairPolicy|receiptRefs|receiptId|promptText|gateId|policyDecisionId|policyDecisionRefs|requiresInput|diagnosticsReceiptId|repairDecisions|recommendedNextActions|workflowNodeId|componentKind)\s*:/m.test(
         `${diagnosticsRepairRetryFeedbackReturn}\n${compactDiagnosticsFeedbackReturn}\n${diagnosticsBlockingGateForFeedbackReturn}`,
       ) &&
@@ -29300,6 +29309,14 @@ function runCompositor() {
         diagnosticsFeedbackTest,
       ) &&
       /alias must be absent/.test(diagnosticsFeedbackTest) &&
+      /diagnostics feedback does not synthesize JS receipt or policy refs/.test(
+        diagnosticsFeedbackTest,
+      ) &&
+      /assert\.equal\(feedback\.receipt_id,\s*null\)/.test(diagnosticsFeedbackTest) &&
+      /assert\.equal\(gate\.policy_decision_id,\s*null\)/.test(diagnosticsFeedbackTest) &&
+      /assert\.deepEqual\(gate\.policy_decision_refs,\s*\[\]\)/.test(
+        diagnosticsFeedbackTest,
+      ) &&
       /runtime event payloads consume canonical diagnostics injection and blocking gate fields/.test(
         runtimeEventPayloadsTest,
       ),

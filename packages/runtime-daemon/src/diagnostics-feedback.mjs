@@ -76,11 +76,6 @@ export function createDiagnosticsFeedbackHelpers({
       ...normalizeArray(repairPolicy?.workspace_snapshot_refs),
     ]);
     const diagnosticEventIds = uniqueStrings(normalizeArray(payload.diagnostic_event_ids));
-    const receiptId =
-      optionalString(request.repair_retry_receipt_id) ??
-      `receipt_lsp_diagnostics_repair_retry_context_${doctorHash(
-        `${threadId}:${gateEvent?.event_id ?? ""}:${diagnosticEventIds.join(",")}`,
-      ).slice(0, 12)}`;
     const promptText =
       optionalString(request.repair_prompt_text) ??
       diagnosticsPromptText({
@@ -93,7 +88,7 @@ export function createDiagnosticsFeedbackHelpers({
       schema_version: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,
       object: "ioi.runtime_lsp_diagnostics_injection",
       injection_id: `lsp_diagnostics_repair_retry_${doctorHash(
-        `${threadId}:${gateEvent?.event_id ?? ""}:${receiptId}`,
+        `${threadId}:${gateEvent?.event_id ?? ""}:${diagnosticEventIds.join(",")}`,
       ).slice(0, 16)}`,
       thread_id: threadId,
       mode: "repair_retry",
@@ -108,8 +103,8 @@ export function createDiagnosticsFeedbackHelpers({
       workspace_snapshot_refs: workspaceSnapshotRefs,
       source_tool_call_ids: uniqueStrings(normalizeArray(payload.source_tool_call_ids)),
       repair_policy: repairPolicy,
-      receipt_refs: uniqueStrings([receiptId, ...normalizeArray(payload.receipt_refs)]),
-      receipt_id: receiptId,
+      receipt_refs: uniqueStrings(normalizeArray(payload.receipt_refs)),
+      receipt_id: null,
       summary: `Repair retry injected ${injectedFindingCount} diagnostic finding(s) into a new turn.`,
       prompt_text: promptText,
     };
@@ -154,7 +149,6 @@ export function createDiagnosticsFeedbackHelpers({
     const injectionId = `lsp_diagnostics_injection_${doctorHash(
       `${threadId}:${diagnosticEventIds.join(",")}:${mode}`,
     ).slice(0, 16)}`;
-    const receiptId = `receipt_${injectionId}`;
     const uniqueRollbackRefs = uniqueStrings(rollbackRefs);
     const workspaceSnapshotRefs = uniqueStrings([
       ...uniqueRollbackRefs,
@@ -202,7 +196,7 @@ export function createDiagnosticsFeedbackHelpers({
       repair_policy_config: repairPolicyConfig,
       repair_policy: repairPolicy,
       receipt_refs: uniqueStrings(receiptRefs),
-      receipt_id: receiptId,
+      receipt_id: null,
       summary,
       prompt_text: diagnosticsPromptText({ diagnosticStatus, mode, visibleFindings, omittedCount }),
     };
@@ -276,7 +270,6 @@ export function createDiagnosticsFeedbackHelpers({
         diagnosticsRepairDefault: diagnosticsFeedback.repair_policy_config?.diagnostics_repair_default,
         operatorOverrideRequiresApproval: diagnosticsFeedback.repair_policy_config?.operator_override_requires_approval,
       });
-    const policyDecisionRefs = uniqueStrings([`policy_${gateId}`, repairPolicy.policy_id, ...normalizeArray(repairPolicy.decision_refs)]);
     const rollbackRefs = uniqueStrings(normalizeArray(repairPolicy.rollback_refs));
     const workspaceSnapshotRefs = uniqueStrings(normalizeArray(repairPolicy.workspace_snapshot_refs));
     const summary = `Blocking diagnostics gate paused model continuation after ${diagnosticCount} finding(s).`;
@@ -284,9 +277,9 @@ export function createDiagnosticsFeedbackHelpers({
       schema_version: LSP_DIAGNOSTICS_BLOCKING_GATE_SCHEMA_VERSION,
       object: "ioi.runtime_lsp_diagnostics_blocking_gate",
       gate_id: gateId,
-      policy_decision_id: `policy_${gateId}`,
-      policy_decision_refs: policyDecisionRefs,
-      receipt_id: `receipt_${gateId}`,
+      policy_decision_id: null,
+      policy_decision_refs: [],
+      receipt_id: null,
       status: "blocked",
       decision: "block_model_continuation",
       reason: "post_edit_diagnostics_findings",
@@ -362,7 +355,7 @@ export function createDiagnosticsFeedbackHelpers({
         run_id: projection.runId,
         turn_id: projection.turnId,
       },
-      receipt_refs: [diagnosticsFeedback.receipt_id],
+      receipt_refs: uniqueStrings(normalizeArray(diagnosticsFeedback.receipt_refs)),
       artifact_refs: [],
     };
     const events = [...normalizeArray(projection.events)];
