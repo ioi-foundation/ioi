@@ -25284,6 +25284,32 @@ function runCompositor() {
   );
   assertCheck(
     result,
+    "runtime-context-pressure-alert-js-receipt-synthesis-retired",
+    !/const\s+receiptId\s*=\s*`receipt_\$\{alertId\}`/.test(runtimeUsageEvents) &&
+      !/const\s+policyDecisionId\s*=\s*`policy_\$\{alertId\}_\$\{primaryAction\}`/.test(
+        runtimeUsageEvents,
+      ) &&
+      !/receipt_refs:\s*\[receiptId\]/.test(runtimeUsageEvents) &&
+      !/policy_decision_refs:\s*\[policyDecisionId\]/.test(runtimeUsageEvents) &&
+      /receipt_refs:\s*\[\]/.test(runtimeUsageEvents) &&
+      /policy_decision_refs:\s*\[\]/.test(runtimeUsageEvents) &&
+      /runtime context-pressure alerts do not synthesize JS receipt or policy refs/.test(
+        runtimeUsageEventsTest,
+      ) &&
+      /JSON\.stringify\(alert\)\.includes\("receipt_context_pressure"\),\s*false/.test(
+        runtimeUsageEventsTest,
+      ) &&
+      /JSON\.stringify\(alert\)\.includes\("policy_context_pressure"\),\s*false/.test(
+        runtimeUsageEventsTest,
+      ),
+    [
+      "packages/runtime-daemon/src/runtime-usage-events.mjs",
+      "packages/runtime-daemon/src/runtime-usage-events.test.mjs",
+    ],
+    "Phase 10/11 is pending: context-pressure alert projection must not synthesize JS receipt or policy-decision refs outside Rust receipt/policy admission",
+  );
+  assertCheck(
+    result,
     "runtime-usage-telemetry-output-aliases-retired",
     !/schemaVersion:\s*RUNTIME_USAGE_TELEMETRY_SCHEMA_VERSION/.test(usageTelemetry) &&
       !/^\s*generatedAt\s*:/m.test(usageTelemetry) &&

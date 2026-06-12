@@ -16085,6 +16085,35 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1162
+
+Slice 1162 retires JS-side receipt and policy-decision synthesis in
+`packages/runtime-daemon/src/runtime-usage-events.mjs` for runtime
+context-pressure alert projection. Advisory `context.pressure_alert` rows still
+surface context-budget pressure to protocol/UI consumers, but the JS producer no
+longer mints `receipt_context_pressure...` or `policy_context_pressure...`
+identifiers. Alert `receipt_refs` and `policy_decision_refs` now remain empty
+unless a future Rust-owned receipt/policy admission path supplies admitted refs.
+
+This is not terminal runtime usage/context-pressure migration. The JS usage
+event helper remains projection scaffolding until direct Rust daemon-core usage
+telemetry, context-budget policy, receipt/policy admission, Agentgres
+projection, replay, and stable IDE/CLI/SDK APIs own the surface end to end. The
+retired JS receipt/policy synthesis must not be recreated as compatibility
+normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-usage-events.mjs packages/runtime-daemon/src/runtime-usage-events.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-usage-events.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

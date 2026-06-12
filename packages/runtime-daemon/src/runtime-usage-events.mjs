@@ -262,8 +262,6 @@ export function createRuntimeUsageEventHelpers({
     const alertLevel = pressureStatus === "high" ? "blocked" : "warn";
     const alertId = `context_pressure_${safeId(scope)}_${safeId(runId ?? turnId ?? threadId ?? "detached")}_${safeId(usageDelta.stage ?? "delta")}`;
     const primaryAction = pressureStatus === "high" ? "compact" : "delegate_summary";
-    const policyDecisionId = `policy_${alertId}_${primaryAction}`;
-    const receiptId = `receipt_${alertId}`;
     const stopExecutable = Boolean(turnId);
     const actionBase = {
       pressure,
@@ -340,8 +338,8 @@ export function createRuntimeUsageEventHelpers({
       turn_id: turnId,
       run_id: runId,
       summary,
-      receipt_refs: [receiptId],
-      policy_decision_refs: [policyDecisionId],
+      receipt_refs: [],
+      policy_decision_refs: [],
       generated_at: new Date().toISOString(),
     };
   }

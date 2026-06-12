@@ -154,9 +154,8 @@ test("runtime usage deltas emit canonical telemetry payloads and context pressur
   assert.equal(alert.object, "ioi.runtime_context_pressure_alert");
   assert.equal(alert.alert_level, "blocked");
   assert.equal(alert.recommended_action, "compact");
-  assert.deepEqual(alert.policy_decision_refs, [
-    "policy_context_pressure_turn_run-one_completion_streamed_compact",
-  ]);
+  assert.deepEqual(alert.receipt_refs, []);
+  assert.deepEqual(alert.policy_decision_refs, []);
   assert.equal(alert.actions.some((action) => action.action === "stop" && action.executable), true);
   assertMissingKeys(alert, retiredContextPressureAlertAliasKeys);
   for (const action of alert.actions) {
@@ -241,7 +240,31 @@ test("runtime bridge usage events are inserted after turn start and keep public 
   assert.equal(events[1].created_at, "2026-06-03T00:00:01.000Z");
   assert.equal(events[3].payload.stage, "completion_streamed");
   assert.equal(events[5].status, "blocked");
-  assert.equal(events[5].receipt_refs[0], "receipt_context_pressure_turn_run-one_completion_streamed");
+  assert.deepEqual(events[5].receipt_refs, []);
+  assert.deepEqual(events[5].policy_decision_refs, []);
+});
+
+test("runtime context-pressure alerts do not synthesize JS receipt or policy refs", () => {
+  const runtime = helpers();
+  const alert = runtime.contextPressureAlertPayload({
+    run_id: "run-one",
+    thread_id: "thread-one",
+    turn_id: "turn-one",
+    stage: "completion_streamed",
+    delta_index: 2,
+    delta_total: 2,
+    total_tokens: 1000,
+    estimated_cost_usd: 0.12,
+    context_pressure: 0.9,
+    context_pressure_status: "high",
+  });
+
+  assert.equal(alert.alert_id, "context_pressure_turn_run-one_completion_streamed");
+  assert.equal(alert.recommended_action, "compact");
+  assert.deepEqual(alert.receipt_refs, []);
+  assert.deepEqual(alert.policy_decision_refs, []);
+  assert.equal(JSON.stringify(alert).includes("receipt_context_pressure"), false);
+  assert.equal(JSON.stringify(alert).includes("policy_context_pressure"), false);
 });
 
 test("runtime bridge usage events ignore retired projection timestamp aliases", () => {

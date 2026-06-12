@@ -7001,6 +7001,22 @@ over invocation/result construction, execution, receipt/state-root binding,
 replay, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS result
 projection as a compatibility fallback.
 
+Slice 1162 retires JS-side receipt and policy-decision synthesis from
+runtime context-pressure alert projection. `runtime-usage-events.mjs` may still
+produce advisory `context.pressure_alert` projection rows for the protocol/UI
+edge, but those alerts now carry empty `receipt_refs` and
+`policy_decision_refs` unless a future Rust-owned policy/receipt admission path
+provides admitted refs. The JS producer no longer mints
+`receipt_context_pressure...` or `policy_context_pressure...` identifiers for
+alert projection.
+
+This remains non-terminal because runtime usage/context-pressure projection is
+still assembled by JS while direct Rust daemon-core projection and policy APIs
+are pending. The target is Rust daemon-core ownership of usage telemetry,
+context-budget policy, receipt/policy admission, Agentgres-backed projection,
+replay, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
+advisory alerts as a source of accepted receipt or policy truth.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
