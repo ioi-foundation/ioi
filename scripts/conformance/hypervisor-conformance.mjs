@@ -14888,19 +14888,25 @@ function runBridge() {
   assertCheck(
     result,
     "worker-service-package-daemon-runner",
-    /WORKER_SERVICE_PACKAGE_COMMAND_ENV/.test(workerServicePackageRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workerServicePackageRunner) &&
+    !/WORKER_SERVICE_PACKAGE_COMMAND_ENV/.test(workerServicePackageRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(workerServicePackageRunner) &&
-      !/IOI_WORKER_SERVICE_PACKAGE_COMMAND/.test(workerServicePackageRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(workerServicePackageRunner) &&
       !/WORKER_SERVICE_PACKAGE_COMMAND_ARGS_ENV/.test(workerServicePackageRunner) &&
       !/parseCommandArgs/.test(workerServicePackageRunner) &&
       !/normalizeArgs/.test(workerServicePackageRunner) &&
       !/this\.args/.test(workerServicePackageRunner) &&
+      !/this\.command/.test(workerServicePackageRunner) &&
       !/argsEnv/.test(workerServicePackageRunner) &&
       /RustWorkerServicePackageRunner/.test(workerServicePackageRunner) &&
       /assertNoWorkerServicePackageCommandArgs/.test(workerServicePackageRunner) &&
+      /assertNoWorkerServicePackageCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_WORKER_SERVICE_PACKAGE_COMMAND/.test(
+        workerServicePackageRunner,
+      ) &&
+      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        workerServicePackageRunner,
+      ) &&
       /createWorkerServicePackageRunnerFromEnv/.test(workerServicePackageRunner) &&
+      /daemonCoreInvoker:\s*options\.daemonCoreInvoker/.test(workerServicePackageRunner) &&
       /createWorkerServicePackageRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.workerServicePackageRunner/.test(runtimeDaemonIndex) &&
       /admitInvocation/.test(workerServicePackageRunner) &&
@@ -14908,12 +14914,13 @@ function runBridge() {
       /thread_id:\s*optionalString\(context\.thread_id\)/.test(workerServicePackageRunner) &&
       /agent_id:\s*optionalString\(context\.agent_id\)/.test(workerServicePackageRunner) &&
       /rust_package_invocation/.test(workerServicePackageRunner) &&
-      /worker_service_package_bridge_unconfigured/.test(workerServicePackageRunner) &&
+      /worker_service_package_direct_invoker_unconfigured/.test(workerServicePackageRunner) &&
+      /worker_service_package_command_selection_retired/.test(workerServicePackageRunner) &&
       /worker_service_package_command_args_retired/.test(workerServicePackageRunner) &&
-      /createDaemonCoreCommandInvoker/.test(workerServicePackageRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(workerServicePackageRunner) &&
+      !/spawnSyncImpl/.test(workerServicePackageRunner) &&
       !/from "node:child_process"/.test(workerServicePackageRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      /worker\/service package runner sends invocation admission bridge request/.test(
+      /worker\/service package runner sends invocation admission through direct daemon-core invoker/.test(
         workerServicePackageRunnerTest,
       ) &&
       /worker\/service package runner does not synthesize Rust-owned refs/.test(
@@ -14943,14 +14950,19 @@ function runBridge() {
       !/authority_grant_refs:[\s\S]*?stringArray\(result\.authority_grant_refs\)\s*\?\?\s*stringArray\(record\.authority_grant_refs\)\s*\?\?\s*\[\]/.test(
         workerServicePackageRunner,
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(workerServicePackageRunnerTest) &&
-      /assert\.equal\(calls\[0\]\.bridgeRequest\.thread_id,\s*"thread:worker-runner"\)/.test(
+      /assert\.equal\(calls\[0\]\.thread_id,\s*"thread:worker-runner"\)/.test(
         workerServicePackageRunnerTest,
       ) &&
-      /assert\.equal\(calls\[0\]\.bridgeRequest\.agent_id,\s*"agent:worker-runner"\)/.test(
+      /assert\.equal\(calls\[0\]\.agent_id,\s*"agent:worker-runner"\)/.test(
         workerServicePackageRunnerTest,
       ) &&
-      /worker\/service package runner env uses daemon-core command boundary/.test(
+      /worker\/service package runner env uses daemon-level direct invoker/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner rejects retired daemon-core command env/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner rejects retired package command env/.test(
         workerServicePackageRunnerTest,
       ) &&
       /worker\/service package runner command args env fails closed/.test(
@@ -14959,7 +14971,10 @@ function runBridge() {
       /worker\/service package runner command args constructor option fails closed/.test(
         workerServicePackageRunnerTest,
       ) &&
-      /worker\/service package runner fails closed without command/.test(
+      /worker\/service package runner command constructor option fails closed/.test(
+        workerServicePackageRunnerTest,
+      ) &&
+      /worker\/service package runner fails closed without direct invoker/.test(
         workerServicePackageRunnerTest,
       ) &&
       /worker\/service package runner surfaces Rust package rejection/.test(
@@ -14974,7 +14989,7 @@ function runBridge() {
       "packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-    "Phase 8 is pending: daemon worker/service package facade must call the Rust package admission bridge and fail closed when unconfigured",
+    "Phase 8 is pending: daemon worker/service package facade must call the direct Rust package admission seam and fail closed when unconfigured",
   );
   assertCheck(
     result,

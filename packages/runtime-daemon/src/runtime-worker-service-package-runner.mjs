@@ -1,15 +1,13 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const WORKER_SERVICE_PACKAGE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const WORKER_SERVICE_PACKAGE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_WORKER_SERVICE_PACKAGE_BACKEND = "rust_package_invocation";
 
 export function createWorkerServicePackageRunnerFromEnv(env = process.env, options = {}) {
   assertNoWorkerServicePackageCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoWorkerServicePackageCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_WORKER_SERVICE_PACKAGE_COMMAND,
+  );
   return new RustWorkerServicePackageRunner({
-    command: options.command ?? env[WORKER_SERVICE_PACKAGE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -24,28 +22,21 @@ export function assertNoWorkerServicePackageCommandArgs(value) {
   );
 }
 
+export function assertNoWorkerServicePackageCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new WorkerServicePackageRunnerError(
+    "Worker/service package binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core package admission.",
+    "worker_service_package_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustWorkerServicePackageRunner {
   constructor(options = {}) {
     assertNoWorkerServicePackageCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: WorkerServicePackageRunnerError,
-      env: WORKER_SERVICE_PACKAGE_COMMAND_ENV,
-      unconfiguredMessage:
-        "Worker/service package invocation admission requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core package admission.",
-      unconfiguredCode: "worker_service_package_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust worker/service package admission bridge command.",
-      spawnFailedCode: "worker_service_package_bridge_spawn_failed",
-      commandFailedMessage: "Rust worker/service package admission bridge command failed.",
-      commandFailedCode: "worker_service_package_bridge_failed",
-      invalidJsonMessage: "Rust worker/service package admission bridge command returned invalid JSON.",
-      invalidJsonCode: "worker_service_package_bridge_invalid_json",
-      rejectedMessage: "Rust worker/service package core rejected the invocation.",
-      rejectedCode: "worker_service_package_bridge_rejected",
-    });
+    assertNoWorkerServicePackageCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   admitInvocation(request, context = {}) {
@@ -57,9 +48,28 @@ export class RustWorkerServicePackageRunner {
       agent_id: optionalString(context.agent_id),
       request,
     };
-    return normalizeWorkerServicePackageBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeWorkerServicePackageBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new WorkerServicePackageRunnerError(
+        "Worker/service package invocation admission requires daemonCoreInvoker for direct Rust daemon-core package admission.",
+        "worker_service_package_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new WorkerServicePackageRunnerError(
+        error.message ?? "Rust worker/service package core rejected the invocation.",
+        error.code ?? "worker_service_package_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class WorkerServicePackageRunnerError extends Error {
@@ -117,4 +127,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }

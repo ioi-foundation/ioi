@@ -15979,6 +15979,46 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1200
+
+Slice 1200 retires worker/service package binary-spawn fallback from the daemon
+runner:
+
+- `packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs`
+- `packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The worker/service package runner no longer imports the shared JS daemon-core
+command invoker, no longer exposes a command-env transport constant, and no
+longer accepts constructor command selection or spawn hooks. The surface now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+`admit_worker_service_package_invocation`, rejects
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_WORKER_SERVICE_PACKAGE_COMMAND` values as forbidden command selection, and
+fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: the JS product surface still
+extracts the invocation and forwards it to the runner, and other daemon-core
+runners may still use temporary shared command transport until their direct
+Rust API boundaries are clear. It does make worker/service package admission a
+larger pure-Rust-direction cut: command transport can no longer admit
+receipt-bearing package invocation truth as a compatibility fallback, and
+future work must either provide a real direct Rust daemon-core package
+admission invoker or fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-worker-service-package-runner.mjs packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs` | passed; 10 tests |
+| `node --test packages/runtime-daemon/src/runtime-worker-service-package-runner.test.mjs packages/runtime-daemon/src/runtime-worker-service-package-store.test.mjs` | passed; 11 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1199
 
 Slice 1199 retires cTEE Private Workspace binary-spawn fallback from the daemon
