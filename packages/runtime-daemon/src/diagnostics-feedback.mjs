@@ -171,10 +171,10 @@ export function createDiagnosticsFeedbackHelpers({
       workspaceSnapshotRefs,
       rollbackRefs: uniqueRollbackRefs,
       sourceToolCallIds,
-      restorePolicy: repairPolicyConfig.restorePolicy,
-      restoreConflictPolicy: repairPolicyConfig.restoreConflictPolicy,
-      diagnosticsRepairDefault: repairPolicyConfig.diagnosticsRepairDefault,
-      operatorOverrideRequiresApproval: repairPolicyConfig.operatorOverrideRequiresApproval,
+      restorePolicy: repairPolicyConfig.restore_policy,
+      restoreConflictPolicy: repairPolicyConfig.restore_conflict_policy,
+      diagnosticsRepairDefault: repairPolicyConfig.diagnostics_repair_default,
+      operatorOverrideRequiresApproval: repairPolicyConfig.operator_override_requires_approval,
     });
     return {
       schema_version: LSP_DIAGNOSTICS_INJECTION_SCHEMA_VERSION,

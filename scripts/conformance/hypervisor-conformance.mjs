@@ -28990,6 +28990,10 @@ function runCompositor() {
     diagnosticsRepairPolicy.match(
       /  function hasDiagnosticsRepairPolicyConfig\(request = \{\}, input = \{\}\) \{[\s\S]*?(?=\n  function normalizeDiagnosticsMode)/,
     )?.[0] ?? "";
+  const diagnosticsRollbackRepairPolicyBody =
+    diagnosticsRepairPolicy.match(
+      /  function diagnosticsRollbackRepairPolicy\(\{[\s\S]*?(?=\n  function diagnosticsRepairDefaultForDecisions)/,
+    )?.[0] ?? "";
   assertCheck(
     result,
     "diagnostics-repair-policy-config-aliases-retired",
@@ -29014,6 +29018,15 @@ function runCompositor() {
       !/\bpack\.(?:restorePolicy|restoreConflictPolicy|conflictPolicy|diagnosticsRepairDefault|defaultRepairDecision|operatorOverrideRequiresApproval)\b/.test(
         `${diagnosticsRepairPolicyConfigBody}\n${hasDiagnosticsRepairPolicyConfigBody}`,
       ) &&
+      /restore_policy:\s*restorePolicy/.test(diagnosticsRepairPolicyConfigBody) &&
+      /restore_conflict_policy:\s*restoreConflictPolicy/.test(diagnosticsRepairPolicyConfigBody) &&
+      /diagnostics_repair_default:\s*diagnosticsRepairDefault/.test(diagnosticsRepairPolicyConfigBody) &&
+      /operator_override_requires_approval:\s*operatorOverrideRequiresApproval/.test(
+        diagnosticsRepairPolicyConfigBody,
+      ) &&
+      !/^\s*(?:restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval)\s*:/m.test(
+        diagnosticsRepairPolicyConfigBody,
+      ) &&
       /diagnostics repair policy config ignores retired request, input, and tool-pack aliases/.test(
         diagnosticsRepairPolicyTest,
       ) &&
@@ -29028,6 +29041,55 @@ function runCompositor() {
       "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
     ],
     "Phase 10/11 is pending: diagnostics repair policy config must use canonical snake_case request, input, and tool_pack fields without retired camelCase fallbacks",
+  );
+  assertCheck(
+    result,
+    "diagnostics-repair-policy-output-aliases-retired",
+    /schema_version:\s*DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION/.test(
+      diagnosticsRollbackRepairPolicyBody,
+    ) &&
+      /policy_id:\s*policyId/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /thread_id:\s*threadId/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /injection_id:\s*injectionId/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /diagnostic_status:\s*diagnosticStatus/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /diagnostic_count:\s*diagnosticCount/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /workspace_snapshot_refs:\s*workspaceSnapshotRefs/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /rollback_refs:\s*rollbackRefs/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /source_tool_call_ids:\s*sourceToolCallIds/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /restore_policy:\s*normalizedRestorePolicy/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /restore_conflict_policy:\s*normalizedRestoreConflictPolicy/.test(
+        diagnosticsRollbackRepairPolicyBody,
+      ) &&
+      /diagnostics_repair_default:\s*defaultDecision/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /operator_override_requires_approval:\s*overrideRequiresApproval/.test(
+        diagnosticsRollbackRepairPolicyBody,
+      ) &&
+      /default_decision:\s*defaultDecision/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /decision_refs:\s*decisions\.map\(\(decision\) => decision\.decision_id\)/.test(
+        diagnosticsRollbackRepairPolicyBody,
+      ) &&
+      /decision_id:\s*`\$\{decisionBase\}_repair_retry`/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /requires_approval:\s*false/.test(diagnosticsRollbackRepairPolicyBody) &&
+      /restore_conflict_policy:\s*normalizedRestoreConflictPolicy/.test(
+        diagnosticsRollbackRepairPolicyBody,
+      ) &&
+      !/^\s*(?:schemaVersion|policyId|threadId|injectionId|diagnosticStatus|diagnosticCount|workspaceSnapshotRefs|rollbackRefs|sourceToolCallIds|restorePolicy|restoreConflictPolicy|diagnosticsRepairDefault|operatorOverrideRequiresApproval|defaultDecision|decisionRefs|decisionId|requiresApproval)\s*:/m.test(
+        diagnosticsRollbackRepairPolicyBody,
+      ) &&
+      /diagnostics rollback repair policy preserves decision defaults and refs/.test(
+        diagnosticsRepairPolicyTest,
+      ) &&
+      /Object\.hasOwn\(policy,\s*field\),\s*false/.test(diagnosticsRepairPolicyTest) &&
+      /Object\.hasOwn\(decision,\s*field\),\s*false/.test(diagnosticsRepairPolicyTest) &&
+      /repairPolicyConfig\.restore_policy/.test(diagnosticsFeedbackTest) &&
+      /repair_policy\.restore_policy/.test(diagnosticsFeedbackTest),
+    [
+      "packages/runtime-daemon/src/diagnostics-repair-policy.mjs",
+      "packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs",
+      "packages/runtime-daemon/src/diagnostics-feedback.mjs",
+      "packages/runtime-daemon/src/diagnostics-feedback.test.mjs",
+    ],
+    "Phase 10/11 is pending: diagnostics rollback repair policy output must expose canonical snake_case fields only while JS policy projection remains temporary migration scaffolding",
   );
 	  assertCheck(
 	    result,

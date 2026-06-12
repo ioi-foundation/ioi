@@ -77,10 +77,10 @@ test("post-edit diagnostics config normalizes command and repair policy aliases"
   assert.equal(config.cwd, "packages/runtime-daemon");
   assert.equal(config.timeoutMs, 1500);
   assert.equal(config.maxOutputBytes, 2048);
-  assert.equal(config.repairPolicyConfig.restorePolicy, "preview_only");
-  assert.equal(config.repairPolicyConfig.restoreConflictPolicy, "require_approval");
-  assert.equal(config.repairPolicyConfig.diagnosticsRepairDefault, "restore_apply");
-  assert.equal(config.repairPolicyConfig.operatorOverrideRequiresApproval, false);
+  assert.equal(config.repairPolicyConfig.restore_policy, "preview_only");
+  assert.equal(config.repairPolicyConfig.restore_conflict_policy, "require_approval");
+  assert.equal(config.repairPolicyConfig.diagnostics_repair_default, "restore_apply");
+  assert.equal(config.repairPolicyConfig.operator_override_requires_approval, false);
 });
 
 test("post-edit diagnostics config ignores retired request and input aliases", () => {
@@ -174,8 +174,8 @@ test("compact diagnostics feedback emits canonical envelope and bounded prompt c
   assert.equal(Object.hasOwn(feedback.findings[0], "diagnosticEventId"), false);
   assert.match(feedback.prompt_text, /Post-edit diagnostics \(blocking, findings\)/);
   assert.match(feedback.prompt_text, /1 additional finding/);
-  assert.equal(feedback.repair_policy.restorePolicy, "preview_only");
-  assert.equal(feedback.repair_policy.diagnosticsRepairDefault, "restore_preview");
+  assert.equal(feedback.repair_policy.restore_policy, "preview_only");
+  assert.equal(feedback.repair_policy.diagnostics_repair_default, "restore_preview");
   assert.equal(feedback.receipt_id, null);
   for (const field of [
     "schemaVersion",

@@ -7034,6 +7034,22 @@ Agentgres-backed projection, replay, and stable IDE/CLI/SDK APIs are pending.
 The target is not preservation of JS diagnostics feedback helpers as accepted
 truth authors; they are temporary protocol/context scaffolding only.
 
+Slice 1164 retires duplicate camelCase compatibility output from diagnostics
+rollback repair policy objects. `diagnostics-repair-policy.mjs` may still build
+temporary advisory policy records for diagnostics feedback and blocking-gate
+protocol scaffolding, but those records now expose only canonical snake_case
+fields such as `policy_id`, `thread_id`, `decision_id`,
+`requires_approval`, `rollback_refs`, `workspace_snapshot_refs`, and
+`decision_refs`. `diagnostics-feedback.mjs` consumes the canonical policy
+config fields directly instead of reading duplicate JS convenience aliases.
+
+This remains non-terminal because the diagnostics repair policy object is still
+assembled in JS. The target is Rust daemon-core diagnostics repair admission and
+projection ownership backed by wallet authority where override exits policy,
+Agentgres expected-head/state-root binding, receipt/policy binding, replay, and
+stable IDE/CLI/SDK protocol APIs. The snake_case-only shape is a migration
+guard so temporary JS scaffolding cannot be mistaken for a compatibility API.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

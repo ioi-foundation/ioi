@@ -16145,6 +16145,38 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1164
+
+Slice 1164 retires duplicate camelCase compatibility output in
+`packages/runtime-daemon/src/diagnostics-repair-policy.mjs` for diagnostics
+rollback repair policy records. The helper still assembles temporary advisory
+diagnostics repair policy scaffolding for feedback and blocking-gate protocol
+edges, but the emitted object and decision records now expose only canonical
+snake_case fields: `policy_id`, `thread_id`, `decision_id`,
+`requires_approval`, `rollback_refs`, `workspace_snapshot_refs`,
+`default_decision`, and `decision_refs`. `diagnostics-feedback.mjs` now consumes
+canonical `repair_policy_config` fields directly instead of reading duplicate
+JS convenience aliases.
+
+This is not terminal diagnostics repair migration. Diagnostics repair policy
+projection remains JS scaffolding until Rust daemon-core diagnostics repair
+admission/projection, wallet-governed override authority, receipt/policy
+binding, Agentgres expected-head/state-root binding, replay, and stable
+IDE/CLI/SDK APIs own the surface end to end. The retired camelCase output must
+not be recreated as protocol compatibility.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/diagnostics-repair-policy.mjs packages/runtime-daemon/src/diagnostics-feedback.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/diagnostics-repair-policy.test.mjs packages/runtime-daemon/src/diagnostics-feedback.test.mjs` | passed |
+| `npm run hypervisor-conformance:compositor` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1158
 
 Slice 1158 retires JS-side fallback synthesis in

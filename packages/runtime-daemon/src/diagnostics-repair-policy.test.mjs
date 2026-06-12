@@ -35,13 +35,9 @@ test("diagnostics repair policy config normalizes canonical request, input, and 
       },
     },
   }), {
-    restorePolicy: "preview_only",
     restore_policy: "preview_only",
-    restoreConflictPolicy: "require_approval",
     restore_conflict_policy: "require_approval",
-    diagnosticsRepairDefault: "restore_apply",
     diagnostics_repair_default: "restore_apply",
-    operatorOverrideRequiresApproval: false,
     operator_override_requires_approval: false,
   });
 
@@ -84,13 +80,9 @@ test("diagnostics repair policy config ignores retired request, input, and tool-
     defaultRepairDecision: "operator_override",
     operatorOverrideRequiresApproval: "false",
   }), {
-    restorePolicy: "apply_with_approval",
     restore_policy: "apply_with_approval",
-    restoreConflictPolicy: "block",
     restore_conflict_policy: "block",
-    diagnosticsRepairDefault: "repair_retry",
     diagnostics_repair_default: "repair_retry",
-    operatorOverrideRequiresApproval: true,
     operator_override_requires_approval: true,
   });
 
@@ -209,13 +201,43 @@ test("diagnostics rollback repair policy preserves decision defaults and refs", 
   });
 
   assert.equal(policy.object, "ioi.runtime_diagnostics_rollback_repair_policy");
-  assert.equal(policy.threadId, "thread-one");
-  assert.equal(policy.restorePolicy, "apply_with_approval");
-  assert.equal(policy.restoreConflictPolicy, "allow_override");
-  assert.equal(policy.diagnosticsRepairDefault, "restore_apply");
-  assert.equal(policy.operatorOverrideRequiresApproval, false);
-  assert.deepEqual(policy.decisionRefs, policy.decisions.map((decision) => decision.decisionId));
+  assert.equal(policy.thread_id, "thread-one");
+  assert.equal(policy.restore_policy, "apply_with_approval");
+  assert.equal(policy.restore_conflict_policy, "allow_override");
+  assert.equal(policy.diagnostics_repair_default, "restore_apply");
+  assert.equal(policy.operator_override_requires_approval, false);
+  assert.deepEqual(policy.decision_refs, policy.decisions.map((decision) => decision.decision_id));
   assert.equal(policy.decisions.find((decision) => decision.action === "restore_apply").status, "requires_approval");
   assert.equal(runtime.diagnosticsRepairDefaultForDecisions(policy.decisions, "operator_override"), "operator_override");
   assert.equal(runtime.diagnosticsRepairDefaultForDecisions([], "restore_apply"), "repair_retry");
+  for (const field of [
+    "schemaVersion",
+    "policyId",
+    "threadId",
+    "injectionId",
+    "diagnosticStatus",
+    "diagnosticCount",
+    "workspaceSnapshotRefs",
+    "rollbackRefs",
+    "sourceToolCallIds",
+    "restorePolicy",
+    "restoreConflictPolicy",
+    "diagnosticsRepairDefault",
+    "operatorOverrideRequiresApproval",
+    "defaultDecision",
+    "decisionRefs",
+  ]) {
+    assert.equal(Object.hasOwn(policy, field), false, `${field} alias must be absent`);
+  }
+  for (const decision of policy.decisions) {
+    for (const field of [
+      "decisionId",
+      "requiresApproval",
+      "rollbackRefs",
+      "workspaceSnapshotRefs",
+      "restoreConflictPolicy",
+    ]) {
+      assert.equal(Object.hasOwn(decision, field), false, `${field} decision alias must be absent`);
+    }
+  }
 });

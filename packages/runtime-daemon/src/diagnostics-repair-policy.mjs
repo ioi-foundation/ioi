@@ -39,13 +39,9 @@ export function createDiagnosticsRepairPolicyHelpers({
       true,
     );
     return {
-      restorePolicy,
       restore_policy: restorePolicy,
-      restoreConflictPolicy,
       restore_conflict_policy: restoreConflictPolicy,
-      diagnosticsRepairDefault,
       diagnostics_repair_default: diagnosticsRepairDefault,
-      operatorOverrideRequiresApproval,
       operator_override_requires_approval: operatorOverrideRequiresApproval,
     };
   }
@@ -212,24 +208,18 @@ export function createDiagnosticsRepairPolicyHelpers({
     const decisionBase = `${policyId}_decision`;
     const decisions = [
       {
-        decisionId: `${decisionBase}_repair_retry`,
         decision_id: `${decisionBase}_repair_retry`,
         action: "repair_retry",
         status: "available",
-        requiresApproval: false,
         requires_approval: false,
         summary: "Retry with diagnostics context and repair the reported findings.",
       },
       {
-        decisionId: `${decisionBase}_restore_preview`,
         decision_id: `${decisionBase}_restore_preview`,
         action: "restore_preview",
         status: restorePreviewStatus,
-        requiresApproval: false,
         requires_approval: false,
-        rollbackRefs,
         rollback_refs: rollbackRefs,
-        workspaceSnapshotRefs,
         workspace_snapshot_refs: workspaceSnapshotRefs,
         summary:
           normalizedRestorePolicy === "disabled"
@@ -239,17 +229,12 @@ export function createDiagnosticsRepairPolicyHelpers({
               : "No content-backed workspace snapshot is available for restore preview.",
       },
       {
-        decisionId: `${decisionBase}_restore_apply`,
         decision_id: `${decisionBase}_restore_apply`,
         action: "restore_apply",
         status: restoreApplyStatus,
-        requiresApproval: normalizedRestorePolicy === "apply_with_approval",
         requires_approval: normalizedRestorePolicy === "apply_with_approval",
-        rollbackRefs,
         rollback_refs: rollbackRefs,
-        workspaceSnapshotRefs,
         workspace_snapshot_refs: workspaceSnapshotRefs,
-        restoreConflictPolicy: normalizedRestoreConflictPolicy,
         restore_conflict_policy: normalizedRestoreConflictPolicy,
         summary:
           normalizedRestorePolicy === "disabled"
@@ -261,11 +246,9 @@ export function createDiagnosticsRepairPolicyHelpers({
                 : "No content-backed workspace snapshot is available for restore apply.",
       },
       {
-        decisionId: `${decisionBase}_operator_override`,
         decision_id: `${decisionBase}_operator_override`,
         action: "operator_override",
         status: overrideRequiresApproval ? "requires_approval" : "available",
-        requiresApproval: overrideRequiresApproval,
         requires_approval: overrideRequiresApproval,
         summary: overrideRequiresApproval
           ? "Continue despite blocking diagnostics after explicit operator override."
@@ -274,38 +257,23 @@ export function createDiagnosticsRepairPolicyHelpers({
     ];
     const defaultDecision = diagnosticsRepairDefaultForDecisions(decisions, normalizedRepairDefault);
     return {
-      schemaVersion: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
       schema_version: DIAGNOSTICS_ROLLBACK_REPAIR_POLICY_SCHEMA_VERSION,
       object: "ioi.runtime_diagnostics_rollback_repair_policy",
-      policyId,
       policy_id: policyId,
-      threadId,
       thread_id: threadId,
-      injectionId,
       injection_id: injectionId,
       mode,
-      diagnosticStatus,
       diagnostic_status: diagnosticStatus,
-      diagnosticCount,
       diagnostic_count: diagnosticCount,
-      workspaceSnapshotRefs,
       workspace_snapshot_refs: workspaceSnapshotRefs,
-      rollbackRefs,
       rollback_refs: rollbackRefs,
-      sourceToolCallIds,
       source_tool_call_ids: sourceToolCallIds,
-      restorePolicy: normalizedRestorePolicy,
       restore_policy: normalizedRestorePolicy,
-      restoreConflictPolicy: normalizedRestoreConflictPolicy,
       restore_conflict_policy: normalizedRestoreConflictPolicy,
-      diagnosticsRepairDefault: defaultDecision,
       diagnostics_repair_default: defaultDecision,
-      operatorOverrideRequiresApproval: overrideRequiresApproval,
       operator_override_requires_approval: overrideRequiresApproval,
-      defaultDecision,
       default_decision: defaultDecision,
       decisions,
-      decisionRefs: decisions.map((decision) => decision.decisionId),
       decision_refs: decisions.map((decision) => decision.decision_id),
     };
   }
