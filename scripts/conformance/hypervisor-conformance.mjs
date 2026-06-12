@@ -15068,20 +15068,26 @@ function runBridge() {
   );
 	  assertCheck(
 	    result,
-	    "workspace-restore-daemon-runner-migration-transport",
-	    /WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(workspaceRestoreRunner) &&
+	    "workspace-restore-daemon-runner-direct-invoker",
+	    !/WORKSPACE_RESTORE_COMMAND_ENV/.test(workspaceRestoreRunner) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(workspaceRestoreRunner) &&
-      !/IOI_WORKSPACE_RESTORE_COMMAND/.test(workspaceRestoreRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(workspaceRestoreRunner) &&
       !/WORKSPACE_RESTORE_COMMAND_ARGS_ENV/.test(workspaceRestoreRunner) &&
       !/parseCommandArgs/.test(workspaceRestoreRunner) &&
       !/normalizeArgs/.test(workspaceRestoreRunner) &&
       !/this\.args/.test(workspaceRestoreRunner) &&
+      !/this\.command/.test(workspaceRestoreRunner) &&
       !/argsEnv/.test(workspaceRestoreRunner) &&
       /RustWorkspaceRestoreRunner/.test(workspaceRestoreRunner) &&
       /assertNoWorkspaceRestoreCommandArgs/.test(workspaceRestoreRunner) &&
+      /assertNoWorkspaceRestoreCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND\s*\?\?\s*env\.IOI_WORKSPACE_RESTORE_COMMAND/.test(
+        workspaceRestoreRunner,
+      ) &&
+      /this\.daemonCoreInvoker\s*=\s*optionalFunction\(options\.daemonCoreInvoker\)/.test(
+        workspaceRestoreRunner,
+      ) &&
       /createWorkspaceRestoreRunnerFromEnv/.test(workspaceRestoreRunner) &&
+      /daemonCoreInvoker:\s*options\.daemonCoreInvoker/.test(workspaceRestoreRunner) &&
       /createWorkspaceRestoreRunnerFromEnv/.test(runtimeDaemonIndex) &&
       /this\.workspaceRestoreRunner/.test(runtimeDaemonIndex) &&
       /planApplyPolicy/.test(workspaceRestoreRunner) &&
@@ -15093,22 +15099,22 @@ function runBridge() {
       /apply_workspace_restore_operations/.test(workspaceRestoreRunner) &&
       /capture_workspace_snapshot_files/.test(workspaceRestoreRunner) &&
       /rust_workspace_restore/.test(workspaceRestoreRunner) &&
-      /workspace_restore_bridge_unconfigured/.test(workspaceRestoreRunner) &&
+      /workspace_restore_direct_invoker_unconfigured/.test(workspaceRestoreRunner) &&
+      /workspace_restore_command_selection_retired/.test(workspaceRestoreRunner) &&
       /workspace_restore_command_args_retired/.test(workspaceRestoreRunner) &&
-      /createDaemonCoreCommandInvoker/.test(workspaceRestoreRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(workspaceRestoreRunner) &&
+      !/spawnSyncImpl/.test(workspaceRestoreRunner) &&
       !/from "node:child_process"/.test(workspaceRestoreRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
-      /workspace restore runner sends apply policy bridge request/.test(
+      /workspace restore runner sends apply policy through direct daemon-core invoker/.test(
         workspaceRestoreRunnerTest,
       ) &&
-      /assert\.deepEqual\(calls\[0\]\.args,\s*\[\]\)/.test(workspaceRestoreRunnerTest) &&
-      /workspace restore runner sends preview operations bridge request/.test(
+      /workspace restore runner sends preview operations through direct daemon-core invoker/.test(
         workspaceRestoreRunnerTest,
       ) &&
-      /workspace restore runner sends apply operations bridge request/.test(
+      /workspace restore runner sends apply operations through direct daemon-core invoker/.test(
         workspaceRestoreRunnerTest,
       ) &&
-      /workspace restore runner sends snapshot capture bridge request/.test(
+      /workspace restore runner sends snapshot capture through direct daemon-core invoker/.test(
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner does not synthesize Rust-owned snapshot capture refs/.test(
@@ -15126,7 +15132,13 @@ function runBridge() {
       /workspace restore runner ignores retired request aliases/.test(
         workspaceRestoreRunnerTest,
       ) &&
-      /workspace restore runner env uses daemon-core command boundary/.test(
+      /workspace restore runner env uses daemon-level direct invoker/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner rejects retired daemon-core command env/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner rejects retired workspace command env/.test(
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner command args env fails closed/.test(
@@ -15135,7 +15147,10 @@ function runBridge() {
       /workspace restore runner command args constructor option fails closed/.test(
         workspaceRestoreRunnerTest,
       ) &&
-      /workspace restore runner fails closed without command/.test(
+      /workspace restore runner command constructor option fails closed/.test(
+        workspaceRestoreRunnerTest,
+      ) &&
+      /workspace restore runner fails closed without direct invoker/.test(
         workspaceRestoreRunnerTest,
       ) &&
       /workspace restore runner surfaces Rust policy rejection/.test(
@@ -15204,7 +15219,7 @@ function runBridge() {
       "packages/runtime-daemon/src/workspace-restore.mjs",
       "packages/runtime-daemon/src/index.mjs",
     ],
-	    "Phase 10/11 is pending: workspace restore runner may remain migration transport, but daemon workspace snapshot/restore JS mutation facades must fail closed until direct Rust daemon-core admission owns the path",
+	    "Phase 10/11 is pending: workspace restore runner must use direct Rust daemon-core invoker while daemon workspace snapshot/restore JS mutation facades fail closed until direct Rust daemon-core admission owns the path",
 	  );
 	  assertCheck(
 	    result,

@@ -1,6 +1,3 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const WORKSPACE_RESTORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION =
   "ioi.workspace_restore_preview_operations_request.v1";
@@ -14,10 +11,11 @@ export const RUST_WORKSPACE_RESTORE_BACKEND = "rust_workspace_restore";
 
 export function createWorkspaceRestoreRunnerFromEnv(env = process.env, options = {}) {
   assertNoWorkspaceRestoreCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoWorkspaceRestoreCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_WORKSPACE_RESTORE_COMMAND,
+  );
   return new RustWorkspaceRestoreRunner({
-    command: options.command ?? env[WORKSPACE_RESTORE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -32,28 +30,21 @@ export function assertNoWorkspaceRestoreCommandArgs(value) {
   );
 }
 
+export function assertNoWorkspaceRestoreCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new WorkspaceRestoreRunnerError(
+    "Workspace restore binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core workspace restore admission.",
+    "workspace_restore_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustWorkspaceRestoreRunner {
   constructor(options = {}) {
     assertNoWorkspaceRestoreCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: WorkspaceRestoreRunnerError,
-      env: WORKSPACE_RESTORE_COMMAND_ENV,
-      unconfiguredMessage:
-        "Workspace restore requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core restore planning and execution.",
-      unconfiguredCode: "workspace_restore_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust workspace restore bridge command.",
-      spawnFailedCode: "workspace_restore_bridge_spawn_failed",
-      commandFailedMessage: "Rust workspace restore bridge command failed.",
-      commandFailedCode: "workspace_restore_bridge_failed",
-      invalidJsonMessage: "Rust workspace restore bridge command returned invalid JSON.",
-      invalidJsonCode: "workspace_restore_bridge_invalid_json",
-      rejectedMessage: "Rust workspace restore core rejected the request.",
-      rejectedCode: "workspace_restore_bridge_rejected",
-    });
+    assertNoWorkspaceRestoreCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   planApplyPolicy(request) {
@@ -66,7 +57,7 @@ export class RustWorkspaceRestoreRunner {
         schema_version: WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
       },
     };
-    return normalizeWorkspaceRestorePolicyBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeWorkspaceRestorePolicyBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
   previewOperations(request) {
@@ -80,7 +71,7 @@ export class RustWorkspaceRestoreRunner {
         files: normalizeRestoreFilesForBridge(request?.files),
       },
     };
-    return normalizeWorkspaceRestoreOperationsBridgeResult(this.invokeBridge(bridgeRequest)).operations;
+    return normalizeWorkspaceRestoreOperationsBridgeResult(this.invokeDaemonCore(bridgeRequest)).operations;
   }
 
   applyOperations(request) {
@@ -94,7 +85,7 @@ export class RustWorkspaceRestoreRunner {
         files: normalizeRestoreFilesForBridge(request?.files),
       },
     };
-    return normalizeWorkspaceRestoreOperationsBridgeResult(this.invokeBridge(bridgeRequest)).operations;
+    return normalizeWorkspaceRestoreOperationsBridgeResult(this.invokeDaemonCore(bridgeRequest)).operations;
   }
 
   captureSnapshotFiles(request) {
@@ -109,9 +100,28 @@ export class RustWorkspaceRestoreRunner {
         max_content_bytes: Number(request?.max_content_bytes ?? 0) || undefined,
       },
     };
-    return normalizeWorkspaceSnapshotCaptureBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeWorkspaceSnapshotCaptureBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new WorkspaceRestoreRunnerError(
+        "Workspace restore requires daemonCoreInvoker for direct Rust daemon-core restore planning and execution.",
+        "workspace_restore_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new WorkspaceRestoreRunnerError(
+        error.message ?? "Rust workspace restore core rejected the request.",
+        error.code ?? "workspace_restore_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class WorkspaceRestoreRunnerError extends Error {
@@ -353,4 +363,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }

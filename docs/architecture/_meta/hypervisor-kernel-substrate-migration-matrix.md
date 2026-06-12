@@ -15979,6 +15979,47 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1201
+
+Slice 1201 retires workspace restore binary-spawn fallback from the daemon
+runner:
+
+- `packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs`
+- `packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The workspace restore runner no longer imports the shared JS daemon-core
+command invoker, no longer exposes a command-env transport constant, and no
+longer accepts constructor command selection or spawn hooks. The surface now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+`plan_workspace_restore_apply_policy`,
+`preview_workspace_restore_operations`,
+`apply_workspace_restore_operations`, and `capture_workspace_snapshot_files`,
+rejects `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_WORKSPACE_RESTORE_COMMAND` values as forbidden command selection, and
+fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: the JS workspace
+snapshot/restore product facade remains fail-closed scaffolding until direct
+Rust daemon-core APIs own workspace snapshot/restore admission, artifact and
+payload refs, Agentgres expected-head and state-root binding, projection, and
+replay. It does make workspace restore a larger pure-Rust-direction cut:
+command transport can no longer plan restore policy, preview/apply operations,
+or snapshot capture as a compatibility fallback, and future work must either
+provide a real direct Rust daemon-core workspace restore invoker or fail
+closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-workspace-restore-runner.mjs packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-workspace-restore-runner.test.mjs` | passed; 15 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1200
 
 Slice 1200 retires worker/service package binary-spawn fallback from the daemon

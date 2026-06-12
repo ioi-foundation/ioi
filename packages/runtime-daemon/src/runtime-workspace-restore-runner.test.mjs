@@ -5,7 +5,6 @@ import {
   RustWorkspaceRestoreRunner,
   WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
   WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
-  WORKSPACE_RESTORE_COMMAND_ENV,
   WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION,
   WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
   WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
@@ -52,59 +51,48 @@ function operationsRequest() {
   };
 }
 
-test("workspace restore runner sends apply policy bridge request", () => {
+test("workspace restore runner sends apply policy through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl(command, args, options) {
-      const bridgeRequest = JSON.parse(options.input);
-      calls.push({ command, args, bridgeRequest });
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_restore_policy_command",
-            backend: "rust_workspace_restore",
-            approval: {
-              required: true,
-              satisfied: true,
-              source: "boolean_confirmation",
-            },
-            allow_conflicts: false,
-            conflict_policy: "clean_preview_only",
-            hard_blocked: false,
-            conflict_blocked: false,
-            policy_status: "allowed",
-            apply_status: "applied",
-            policy_decision_refs: ["policy_workspace_restore_apply_workspace_snapshot_alpha_approval_satisfied"],
-            operation_policies: [
-              {
-                path: "src/app.js",
-                apply_reason: "workspace_restore_apply_blocked_by_policy",
-              },
-            ],
-            summary: "Restore apply restored 1 file(s) from workspace_snapshot_alpha.",
+        source: "direct_daemon_core_api",
+        backend: "rust_workspace_restore",
+        approval: {
+          required: true,
+          satisfied: true,
+          source: "boolean_confirmation",
+        },
+        allow_conflicts: false,
+        conflict_policy: "clean_preview_only",
+        hard_blocked: false,
+        conflict_blocked: false,
+        policy_status: "allowed",
+        apply_status: "applied",
+        policy_decision_refs: ["policy_workspace_restore_apply_workspace_snapshot_alpha_approval_satisfied"],
+        operation_policies: [
+          {
+            path: "src/app.js",
+            apply_reason: "workspace_restore_apply_blocked_by_policy",
           },
-        }),
-        stderr: "",
+        ],
+        summary: "Restore apply restored 1 file(s) from workspace_snapshot_alpha.",
       };
     },
   });
 
   const result = runner.planApplyPolicy(policyRequest());
 
-  assert.equal(calls[0].command, "mock-workspace-restore-bridge");
-  assert.deepEqual(calls[0].args, []);
-  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
-  assert.equal(calls[0].bridgeRequest.operation, "plan_workspace_restore_apply_policy");
-  assert.equal(calls[0].bridgeRequest.backend, "rust_workspace_restore");
+  assert.equal(calls[0].schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].operation, "plan_workspace_restore_apply_policy");
+  assert.equal(calls[0].backend, "rust_workspace_restore");
   assert.equal(
-    calls[0].bridgeRequest.request.schema_version,
+    calls[0].request.schema_version,
     WORKSPACE_RESTORE_APPLY_POLICY_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(calls[0].bridgeRequest.request.snapshot_id, "workspace_snapshot_alpha");
-  assert.equal(result.source, "rust_workspace_restore_policy_command");
+  assert.equal(calls[0].request.snapshot_id, "workspace_snapshot_alpha");
+  assert.equal(result.source, "direct_daemon_core_api");
   assert.equal(result.approval.satisfied, true);
   assert.equal(result.apply_status, "applied");
   assert.deepEqual(result.policy_decision_refs, [
@@ -126,54 +114,45 @@ test("workspace restore runner sends apply policy bridge request", () => {
   }
 });
 
-test("workspace restore runner sends preview operations bridge request", () => {
+test("workspace restore runner sends preview operations through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl(command, args, options) {
-      const bridgeRequest = JSON.parse(options.input);
-      calls.push({ command, args, bridgeRequest });
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_restore_operations_command",
-            backend: "rust_workspace_restore",
-            operation: "preview_workspace_restore_operations",
-            operations: [
-              {
-                path: "src/app.js",
-                operation: "replace",
-                status: "ready",
-                current_exists: true,
-                current_hash: "sha256-new",
-                current_bytes: 3,
-                target_exists: true,
-                target_hash: "sha256-old",
-                snapshot_after_exists: true,
-                snapshot_after_hash: "sha256-new",
-                current_matches_snapshot_post: true,
-                current_matches_restore_target: false,
-                diff: "diff",
-                diff_bytes: 4,
-                diff_hash: "sha256-diff",
-                diff_truncated: false,
-              },
-            ],
+        source: "direct_daemon_core_api",
+        backend: "rust_workspace_restore",
+        operation: "preview_workspace_restore_operations",
+        operations: [
+          {
+            path: "src/app.js",
+            operation: "replace",
+            status: "ready",
+            current_exists: true,
+            current_hash: "sha256-new",
+            current_bytes: 3,
+            target_exists: true,
+            target_hash: "sha256-old",
+            snapshot_after_exists: true,
+            snapshot_after_hash: "sha256-new",
+            current_matches_snapshot_post: true,
+            current_matches_restore_target: false,
+            diff: "diff",
+            diff_bytes: 4,
+            diff_hash: "sha256-diff",
+            diff_truncated: false,
           },
-        }),
-        stderr: "",
+        ],
       };
     },
   });
 
   const operations = runner.previewOperations(operationsRequest());
 
-  assert.equal(calls[0].bridgeRequest.operation, "preview_workspace_restore_operations");
-  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].operation, "preview_workspace_restore_operations");
+  assert.equal(calls[0].schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(
-    calls[0].bridgeRequest.request.schema_version,
+    calls[0].request.schema_version,
     WORKSPACE_RESTORE_PREVIEW_OPERATIONS_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(operations[0].status, "ready");
@@ -198,59 +177,50 @@ test("workspace restore runner sends preview operations bridge request", () => {
   }
 });
 
-test("workspace restore runner sends apply operations bridge request", () => {
+test("workspace restore runner sends apply operations through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl(_command, _args, options) {
-      const bridgeRequest = JSON.parse(options.input);
-      calls.push({ bridgeRequest });
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_restore_operations_command",
-            backend: "rust_workspace_restore",
-            operation: "apply_workspace_restore_operations",
-            operations: [
-              {
-                path: "src/app.js",
-                operation: "replace",
-                status: "ready",
-                current_exists: true,
-                current_hash: "sha256-new",
-                current_bytes: 3,
-                target_exists: true,
-                target_hash: "sha256-old",
-                snapshot_after_exists: true,
-                snapshot_after_hash: "sha256-new",
-                current_matches_snapshot_post: true,
-                current_matches_restore_target: false,
-                diff: "diff",
-                diff_bytes: 4,
-                diff_hash: "sha256-diff",
-                diff_truncated: false,
-                apply_status: "applied",
-                applied_exists: true,
-                applied_hash: "sha256-old",
-                applied_bytes: 3,
-                applied_matches_target: true,
-              },
-            ],
+        source: "direct_daemon_core_api",
+        backend: "rust_workspace_restore",
+        operation: "apply_workspace_restore_operations",
+        operations: [
+          {
+            path: "src/app.js",
+            operation: "replace",
+            status: "ready",
+            current_exists: true,
+            current_hash: "sha256-new",
+            current_bytes: 3,
+            target_exists: true,
+            target_hash: "sha256-old",
+            snapshot_after_exists: true,
+            snapshot_after_hash: "sha256-new",
+            current_matches_snapshot_post: true,
+            current_matches_restore_target: false,
+            diff: "diff",
+            diff_bytes: 4,
+            diff_hash: "sha256-diff",
+            diff_truncated: false,
+            apply_status: "applied",
+            applied_exists: true,
+            applied_hash: "sha256-old",
+            applied_bytes: 3,
+            applied_matches_target: true,
           },
-        }),
-        stderr: "",
+        ],
       };
     },
   });
 
   const operations = runner.applyOperations({ ...operationsRequest(), allow_conflicts: false });
 
-  assert.equal(calls[0].bridgeRequest.operation, "apply_workspace_restore_operations");
-  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].operation, "apply_workspace_restore_operations");
+  assert.equal(calls[0].schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(
-    calls[0].bridgeRequest.request.schema_version,
+    calls[0].request.schema_version,
     WORKSPACE_RESTORE_APPLY_OPERATIONS_REQUEST_SCHEMA_VERSION,
   );
   assert.equal(operations[0].apply_status, "applied");
@@ -268,77 +238,68 @@ test("workspace restore runner sends apply operations bridge request", () => {
   }
 });
 
-test("workspace restore runner sends snapshot capture bridge request", () => {
+test("workspace restore runner sends snapshot capture through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl(_command, _args, options) {
-      const bridgeRequest = JSON.parse(options.input);
-      calls.push({ bridgeRequest });
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_snapshot_capture_command",
-            backend: "rust_workspace_restore",
-            captured_file_count: 1,
-            omitted_file_count: 0,
-            content_captured: true,
-            files: [
-              {
-                path: "src/app.js",
-                created: false,
-                deleted: false,
-                changed: true,
-                before: {
-                  exists: true,
-                  content_hash: "sha256-old",
-                  size_bytes: 3,
-                  content_captured: true,
-                  content_bytes: 3,
-                },
-                after: {
-                  exists: true,
-                  content_hash: "sha256-new",
-                  size_bytes: 3,
-                  content_captured: true,
-                  content_bytes: 3,
-                },
-                receipt_refs: [],
-                artifact_refs: [],
-              },
-            ],
-            content_files: [
-              {
-                path: "src/app.js",
-                created: false,
-                deleted: false,
-                changed: true,
-                before: {
-                  exists: true,
-                  content_hash: "sha256-old",
-                  size_bytes: 3,
-                  content_captured: true,
-                  content_bytes: 3,
-                  content: "old",
-                },
-                after: {
-                  exists: true,
-                  content_hash: "sha256-new",
-                  size_bytes: 3,
-                  content_captured: true,
-                  content_bytes: 3,
-                  content: "new",
-                },
-                receipt_refs: [],
-                artifact_refs: [],
-                encoding: "utf8",
-              },
-            ],
+        source: "direct_daemon_core_api",
+        backend: "rust_workspace_restore",
+        captured_file_count: 1,
+        omitted_file_count: 0,
+        content_captured: true,
+        files: [
+          {
+            path: "src/app.js",
+            created: false,
+            deleted: false,
+            changed: true,
+            before: {
+              exists: true,
+              content_hash: "sha256-old",
+              size_bytes: 3,
+              content_captured: true,
+              content_bytes: 3,
+            },
+            after: {
+              exists: true,
+              content_hash: "sha256-new",
+              size_bytes: 3,
+              content_captured: true,
+              content_bytes: 3,
+            },
+            receipt_refs: [],
+            artifact_refs: [],
           },
-        }),
-        stderr: "",
+        ],
+        content_files: [
+          {
+            path: "src/app.js",
+            created: false,
+            deleted: false,
+            changed: true,
+            before: {
+              exists: true,
+              content_hash: "sha256-old",
+              size_bytes: 3,
+              content_captured: true,
+              content_bytes: 3,
+              content: "old",
+            },
+            after: {
+              exists: true,
+              content_hash: "sha256-new",
+              size_bytes: 3,
+              content_captured: true,
+              content_bytes: 3,
+              content: "new",
+            },
+            receipt_refs: [],
+            artifact_refs: [],
+            encoding: "utf8",
+          },
+        ],
       };
     },
   });
@@ -365,14 +326,14 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
     max_content_bytes: 262144,
   });
 
-  assert.equal(calls[0].bridgeRequest.operation, "capture_workspace_snapshot_files");
-  assert.equal(calls[0].bridgeRequest.schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
+  assert.equal(calls[0].operation, "capture_workspace_snapshot_files");
+  assert.equal(calls[0].schema_version, WORKSPACE_RESTORE_COMMAND_SCHEMA_VERSION);
   assert.equal(
-    calls[0].bridgeRequest.request.schema_version,
+    calls[0].request.schema_version,
     WORKSPACE_SNAPSHOT_CAPTURE_REQUEST_SCHEMA_VERSION,
   );
-  assert.equal(calls[0].bridgeRequest.request.changed_files[0].before_hash, "sha256-old");
-  assert.equal(calls[0].bridgeRequest.request.content_drafts[0].before_content, "old");
+  assert.equal(calls[0].request.changed_files[0].before_hash, "sha256-old");
+  assert.equal(calls[0].request.content_drafts[0].before_content, "old");
   assert.equal(capture.captured_file_count, 1);
   assert.equal(capture.files[0].before.content_hash, "sha256-old");
   assert.equal(capture.content_files[0].before.content, "old");
@@ -396,32 +357,24 @@ test("workspace restore runner sends snapshot capture bridge request", () => {
 
 test("workspace restore runner does not synthesize Rust-owned snapshot capture refs", () => {
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl() {
+    daemonCoreInvoker() {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_snapshot_capture_command",
-            backend: "rust_workspace_restore",
-            files: [
-              {
-                path: "src/app.js",
-                before: {},
-                after: {},
-              },
-            ],
-            content_files: [
-              {
-                path: "src/app.js",
-                before: {},
-                after: {},
-              },
-            ],
+        source: "rust_workspace_snapshot_capture_command",
+        backend: "rust_workspace_restore",
+        files: [
+          {
+            path: "src/app.js",
+            before: {},
+            after: {},
           },
-        }),
-        stderr: "",
+        ],
+        content_files: [
+          {
+            path: "src/app.js",
+            before: {},
+            after: {},
+          },
+        ],
       };
     },
   });
@@ -438,76 +391,60 @@ test("workspace restore runner does not synthesize Rust-owned snapshot capture r
 
 test("workspace restore runner ignores retired result reader aliases", () => {
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl(_command, _args, options) {
-      const bridgeRequest = JSON.parse(options.input);
+    daemonCoreInvoker(bridgeRequest) {
       if (bridgeRequest.operation === "capture_workspace_snapshot_files") {
         return {
-          status: 0,
-          stdout: JSON.stringify({
-            ok: true,
-            result: {
-              source: "rust_workspace_snapshot_capture_command",
-              backend: "rust_workspace_restore",
-              files: [
-                {
-                  path: "src/app.js",
-                  before: {
-                    exists: true,
-                    contentHash: "sha256-alias",
-                    sizeBytes: 99,
-                    mtimeMs: 123,
-                    contentCaptured: true,
-                    contentBytes: 11,
-                    omittedReason: "alias-only",
-                  },
-                  after: {},
-                  receiptRefs: ["receipt_alias"],
-                  artifactRefs: ["artifact_alias"],
-                },
-              ],
+          source: "rust_workspace_snapshot_capture_command",
+          backend: "rust_workspace_restore",
+          files: [
+            {
+              path: "src/app.js",
+              before: {
+                exists: true,
+                contentHash: "sha256-alias",
+                sizeBytes: 99,
+                mtimeMs: 123,
+                contentCaptured: true,
+                contentBytes: 11,
+                omittedReason: "alias-only",
+              },
+              after: {},
+              receiptRefs: ["receipt_alias"],
+              artifactRefs: ["artifact_alias"],
             },
-          }),
-          stderr: "",
+          ],
         };
       }
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_restore_operations_command",
-            backend: "rust_workspace_restore",
-            operations: [
-              {
-                path: "src/app.js",
-                operation: "replace",
-                status: "ready",
-                currentExists: true,
-                currentHash: "sha256-current-alias",
-                currentBytes: 3,
-                targetExists: true,
-                targetHash: "sha256-target-alias",
-                snapshotAfterExists: true,
-                snapshotAfterHash: "sha256-snapshot-after-alias",
-                currentMatchesSnapshotPost: true,
-                currentMatchesRestoreTarget: true,
-                blockedReason: "alias-only",
-                diffBytes: 4,
-                diffHash: "sha256-diff-alias",
-                diffTruncated: true,
-                applyStatus: "applied",
-                applyReason: "alias-only",
-                appliedExists: true,
-                appliedHash: "sha256-applied-alias",
-                appliedBytes: 5,
-                appliedMatchesTarget: true,
-                errorMessage: "alias-only",
-              },
-            ],
+        source: "rust_workspace_restore_operations_command",
+        backend: "rust_workspace_restore",
+        operations: [
+          {
+            path: "src/app.js",
+            operation: "replace",
+            status: "ready",
+            currentExists: true,
+            currentHash: "sha256-current-alias",
+            currentBytes: 3,
+            targetExists: true,
+            targetHash: "sha256-target-alias",
+            snapshotAfterExists: true,
+            snapshotAfterHash: "sha256-snapshot-after-alias",
+            currentMatchesSnapshotPost: true,
+            currentMatchesRestoreTarget: true,
+            blockedReason: "alias-only",
+            diffBytes: 4,
+            diffHash: "sha256-diff-alias",
+            diffTruncated: true,
+            applyStatus: "applied",
+            applyReason: "alias-only",
+            appliedExists: true,
+            appliedHash: "sha256-applied-alias",
+            appliedBytes: 5,
+            appliedMatchesTarget: true,
+            errorMessage: "alias-only",
           },
-        }),
-        stderr: "",
+        ],
       };
     },
   });
@@ -558,21 +495,12 @@ test("workspace restore runner ignores retired result reader aliases", () => {
 test("workspace restore runner ignores retired request aliases", () => {
   const calls = [];
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl(_command, _args, options) {
-      const bridgeRequest = JSON.parse(options.input);
+    daemonCoreInvoker(bridgeRequest) {
       calls.push(bridgeRequest);
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            source: "rust_workspace_snapshot_capture_command",
-            backend: "rust_workspace_restore",
-            files: [],
-          },
-        }),
-        stderr: "",
+        source: "rust_workspace_snapshot_capture_command",
+        backend: "rust_workspace_restore",
+        files: [],
       };
     },
   });
@@ -626,23 +554,62 @@ test("workspace restore runner ignores retired request aliases", () => {
   assert.equal(calls[1].request.files[0].after.content_hash, null);
 });
 
-test("workspace restore runner env uses daemon-core command boundary", () => {
+test("workspace restore runner env uses daemon-level direct invoker", () => {
+  const calls = [];
   const runner = createWorkspaceRestoreRunnerFromEnv({
-    [WORKSPACE_RESTORE_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    IOI_WORKSPACE_RESTORE_COMMAND: "retired-workspace-restore-bridge",
     IOI_WORKSPACE_RESTORE_COMMAND_ARGS: "--retired-restore",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+  }, {
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
+      return {
+        source: "direct_daemon_core_api",
+        backend: "rust_workspace_restore",
+        operation: bridgeRequest.operation,
+        operations: [],
+      };
+    },
   });
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const operations = runner.previewOperations(operationsRequest());
+
+  assert.equal(calls[0].operation, "preview_workspace_restore_operations");
+  assert.deepEqual(operations, []);
+});
+
+test("workspace restore runner rejects retired daemon-core command env", () => {
+  assert.throws(
+    () =>
+      createWorkspaceRestoreRunnerFromEnv({
+        IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof WorkspaceRestoreRunnerError &&
+      error.code === "workspace_restore_command_selection_retired",
+  );
+});
+
+test("workspace restore runner rejects retired workspace command env", () => {
+  assert.throws(
+    () =>
+      createWorkspaceRestoreRunnerFromEnv({
+        IOI_WORKSPACE_RESTORE_COMMAND: "retired-workspace-restore-bridge",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof WorkspaceRestoreRunnerError &&
+      error.code === "workspace_restore_command_selection_retired",
+  );
 });
 
 test("workspace restore runner command args env fails closed", () => {
   assert.throws(
     () =>
       createWorkspaceRestoreRunnerFromEnv({
-        [WORKSPACE_RESTORE_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--restore",
       }),
     (error) =>
@@ -660,29 +627,33 @@ test("workspace restore runner command args constructor option fails closed", ()
   );
 });
 
-test("workspace restore runner fails closed without command", () => {
+test("workspace restore runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustWorkspaceRestoreRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof WorkspaceRestoreRunnerError &&
+      error.code === "workspace_restore_command_selection_retired",
+  );
+});
+
+test("workspace restore runner fails closed without direct invoker", () => {
   const runner = createWorkspaceRestoreRunnerFromEnv({});
 
   assert.throws(
     () => runner.planApplyPolicy(policyRequest()),
-    (error) => error.code === "workspace_restore_bridge_unconfigured",
+    (error) => error.code === "workspace_restore_direct_invoker_unconfigured",
   );
 });
 
 test("workspace restore runner surfaces Rust policy rejection", () => {
   const runner = new RustWorkspaceRestoreRunner({
-    command: "mock-workspace-restore-bridge",
-    spawnSyncImpl() {
+    daemonCoreInvoker() {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: false,
-          error: {
-            code: "workspace_restore_apply_policy_invalid",
-            message: "MissingSnapshotId",
-          },
-        }),
-        stderr: "",
+        ok: false,
+        error: {
+          code: "workspace_restore_apply_policy_invalid",
+          message: "MissingSnapshotId",
+        },
       };
     },
   });

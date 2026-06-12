@@ -7679,6 +7679,28 @@ temporary command transport. Resume by cutting the remaining command-transport
 runners the same way, then delete the shared JS command invoker once every live
 surface has a direct Rust daemon-core API.
 
+Slice 1201 retires the temporary binary-spawn fallback for the daemon workspace
+restore runner. `runtime-workspace-restore-runner.mjs` no longer imports the
+shared JS daemon-core command invoker, no longer exposes or reads a live
+`WORKSPACE_RESTORE_COMMAND_ENV`, and no longer accepts constructor command
+selection or spawn hooks. Workspace restore apply-policy planning,
+preview/apply operation planning, and snapshot capture now require the
+daemon-level `daemonCoreInvoker` direct Rust-core seam and fail closed when it
+is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_WORKSPACE_RESTORE_COMMAND` values are treated only as forbidden command
+selection input for this surface, not as fallback transport.
+
+This makes workspace snapshot/restore planning direct-invoker-only at the
+daemon runner: policy decisions, restore operations, snapshot capture file
+records, receipt refs, and artifact refs must arrive from Rust daemon-core
+output or remain absent at the JS edge. It is still not terminal because the
+JS product facade remains fail-closed scaffolding until direct Rust daemon-core
+workspace snapshot/restore APIs own admission, artifact/payload refs,
+Agentgres expected-head/state-root binding, projection, and replay end to end.
+Resume by cutting the remaining command-transport runners, then delete the
+shared JS command invoker once every live surface has a direct Rust daemon-core
+API.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
