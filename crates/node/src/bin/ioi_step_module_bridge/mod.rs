@@ -158,8 +158,6 @@ use ioi_services::agentic::runtime::kernel::workspace_restore::{
     WorkspaceRestoreApplyPolicyBridgeRequest, WorkspaceRestoreOperationsBridgeRequest,
     WorkspaceSnapshotCaptureBridgeRequest,
 };
-const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
-const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
 
 #[cfg(test)]
 mod tests {
@@ -171,6 +169,9 @@ mod tests {
     use serde_json::{json, Value};
     #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
+
+    const CODING_TOOL_RESULT_SCHEMA_VERSION: &str = "ioi.runtime.coding-tool-result.v1";
+    const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION: &str = "ioi.model-mounting.runtime.v1";
 
     fn sha256_hex(bytes: &[u8]) -> String {
         hex::encode(ioi_crypto::algorithms::hash::sha256(bytes).expect("sha256"))

@@ -7106,6 +7106,17 @@ remove the Node bridge path entirely after StepModule/coding-tool dispatch,
 receipt/state-root binding, Agentgres admission, replay, and projection are
 owned end to end by the Rust daemon core.
 
+Slice 1169 scopes the remaining bridge proof schema constants into the Rust
+test module. `CODING_TOOL_RESULT_SCHEMA_VERSION` and
+`MODEL_MOUNT_RUNTIME_SCHEMA_VERSION` no longer live at broad
+`ioi_step_module_bridge/mod.rs` module scope; they now live inside
+`#[cfg(test)] mod tests`, where the bridge proof assertions use them.
+
+This remains non-terminal because the broad bridge module still hosts the
+temporary proof suite. The target is direct Rust daemon-core protocol APIs and
+focused owner tests where the Node bridge no longer exists as a long-term
+endpoint or proof surface.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

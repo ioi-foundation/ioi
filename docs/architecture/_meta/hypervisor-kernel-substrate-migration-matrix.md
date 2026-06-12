@@ -16207,6 +16207,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1169
+
+Slice 1169 scopes the remaining bridge proof schema constants into
+`#[cfg(test)] mod tests` inside `ioi_step_module_bridge/mod.rs`.
+`CODING_TOOL_RESULT_SCHEMA_VERSION` and `MODEL_MOUNT_RUNTIME_SCHEMA_VERSION`
+no longer live at broad bridge module scope; they remain available only to the
+temporary Rust bridge proof tests that assert coding-tool and model-mount
+response shapes.
+
+This is not terminal bridge retirement. The Node bridge still hosts a large
+temporary proof suite until direct Rust daemon-core protocol APIs and focused
+owner tests replace it. The important invariant is that broad bridge module
+scope keeps shrinking and does not accumulate test/proof constants as runtime
+surface.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1168
 
 Slice 1168 narrows temporary bridge transport ownership by moving

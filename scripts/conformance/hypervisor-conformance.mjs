@@ -4032,7 +4032,15 @@ function runBridge() {
       !/fn tool_retrieve_result_response\(/.test(bridgeModule) &&
       !/fn computer_use_request_lease_response\(/.test(bridgeModule) &&
       !/coding_tool_bridge_error/.test(bridgeModule) &&
-      !/CodingToolStepModuleCommandError/.test(bridgeModule),
+      !/CodingToolStepModuleCommandError/.test(bridgeModule) &&
+      !/^const CODING_TOOL_RESULT_SCHEMA_VERSION:/m.test(bridgeModule) &&
+      !/^const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION:/m.test(bridgeModule) &&
+      /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*const CODING_TOOL_RESULT_SCHEMA_VERSION:/.test(
+        bridgeModule,
+      ) &&
+      /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*const MODEL_MOUNT_RUNTIME_SCHEMA_VERSION:/.test(
+        bridgeModule,
+      ),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/services/src/agentic/runtime/kernel/coding_tool_step_module.rs",
