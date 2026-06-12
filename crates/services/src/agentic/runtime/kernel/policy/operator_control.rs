@@ -997,6 +997,57 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_diagnostics_operator_override_state_update_command_response() {
+        let response = plan_diagnostics_operator_override_state_update_response(
+            DiagnosticsOperatorOverrideStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: diagnostics_operator_override_state_update_request(),
+            },
+        )
+        .expect("diagnostics operator override state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_diagnostics_operator_override_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(
+            response["operation_kind"],
+            "diagnostics.operator_override.event"
+        );
+        assert_eq!(
+            response["operator_control"]["control"],
+            "diagnostics_operator_override"
+        );
+        assert_eq!(
+            response["operator_control"]["decision_id"],
+            "decision_override"
+        );
+        for field in [
+            "decisionId",
+            "gateEventId",
+            "approvalRequired",
+            "approvalSatisfied",
+            "approvalSource",
+            "snapshotId",
+            "eventId",
+            "createdAt",
+        ] {
+            assert!(response["operator_control"].get(field).is_none());
+        }
+        assert_eq!(response["run"]["status"], "completed");
+        assert_eq!(
+            response["run"]["diagnosticsBlockingGate"]["status"],
+            "overridden"
+        );
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["event_id"],
+            "event_override"
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_operator_interrupt_state_update() {
         let record = OperatorInterruptStateUpdateCore
             .plan(&operator_interrupt_state_update_request())
@@ -1030,6 +1081,39 @@ mod tests {
                 .expect("failure labels")
                 .iter()
                 .any(|label| label.as_str() == Some("operator_interrupt"))
+        );
+    }
+
+    #[test]
+    fn rust_policy_shapes_operator_interrupt_state_update_command_response() {
+        let response = plan_operator_interrupt_state_update_response(
+            OperatorInterruptStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: operator_interrupt_state_update_request(),
+            },
+        )
+        .expect("operator interrupt state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_operator_interrupt_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "turn.interrupt");
+        assert_eq!(response["operator_control"]["control"], "interrupt");
+        assert_eq!(response["operator_control"]["event_id"], "event_interrupt");
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["event_id"],
+            "event_interrupt"
+        );
+        assert_eq!(response["run"]["status"], "canceled");
+        assert_eq!(response["run"]["turnStatus"], "interrupted");
+        assert_eq!(
+            response["run"]["trace"]["qualityLedger"]["failureOntologyLabels"][1],
+            "operator_interrupt"
         );
     }
 
@@ -1075,6 +1159,47 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_operator_turn_control_admission_required_command_response() {
+        let response = plan_operator_turn_control_admission_required_response(
+            OperatorTurnControlAdmissionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: operator_turn_control_admission_required_request(),
+            },
+        )
+        .expect("operator turn control admission-required command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_operator_turn_control_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_operator_turn_control_rust_core_required"
+        );
+        assert_eq!(response["operation_kind"], "turn.interrupt");
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.operator_turn_control"
+        );
+        assert_eq!(response["details"]["thread_id"], "thread_budget");
+        assert_eq!(response["details"]["turn_id"], "turn_budget");
+        assert_eq!(response["details"]["requested_action"], "cancel");
+        for field in [
+            "rustCoreBoundary",
+            "operationKind",
+            "threadId",
+            "turnId",
+            "requestedAction",
+            "evidenceRefs",
+        ] {
+            assert!(response["details"].get(field).is_none());
+        }
+    }
+
+    #[test]
     fn rust_policy_plans_operator_steer_state_update() {
         let record = OperatorSteerStateUpdateCore
             .plan(&operator_steer_state_update_request())
@@ -1102,6 +1227,37 @@ mod tests {
             "event_steer"
         );
         assert_eq!(record.run["operatorControls"][0]["event_id"], "event_steer");
+    }
+
+    #[test]
+    fn rust_policy_shapes_operator_steer_state_update_command_response() {
+        let response =
+            plan_operator_steer_state_update_response(OperatorSteerStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: operator_steer_state_update_request(),
+            })
+            .expect("operator steer state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_operator_steer_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "turn.steer");
+        assert_eq!(response["operator_control"]["control"], "steer");
+        assert_eq!(
+            response["operator_control"]["guidance"],
+            "focus on the failing bridge assertion"
+        );
+        assert_eq!(response["operator_control"]["event_id"], "event_steer");
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
+        assert_eq!(response["run"]["status"], "running");
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["event_id"],
+            "event_steer"
+        );
     }
 
     #[test]

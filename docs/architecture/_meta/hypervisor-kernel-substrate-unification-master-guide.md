@@ -7260,6 +7260,26 @@ scaffolding. Schedule the next matrix-compaction pass only after the next
 direct Rust-core API extraction or facade-retirement seam makes it clear which
 temporary transport rows can be collapsed without canonizing the bridge.
 
+Slice 1179 moves the runtime-control command-response proof cluster out of the
+temporary bridge proof surface and relies on the Rust policy owners at
+`crates/services/src/agentic/runtime/kernel/policy/coding_tool_budget_recovery.rs`,
+`crates/services/src/agentic/runtime/kernel/policy/operator_control.rs`, and
+`crates/services/src/agentic/runtime/kernel/policy/run_cancel.rs`. Coding-tool
+budget recovery state-update and admission-required responses, diagnostics
+operator override state-update responses, operator turn-control
+admission-required responses, operator interrupt/steer state-update responses,
+and run-cancel state-update/admission-required responses now run as Rust owner
+tests. Bridge conformance now requires those owner tests and proves the old
+bridge-named runtime-control tests, request-type imports, and response-function
+aliases stay absent from `ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because runtime-control policy decisions still cross
+temporary command transport. The target is direct Rust daemon-core
+runtime-control API ownership where coding-tool recovery, diagnostics override,
+operator interrupt/steer, and run-cancel admission/state transitions,
+Agentgres truth, replay, and conformance no longer depend on Node bridge
+endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -478,6 +478,40 @@ mod tests {
     }
 
     #[test]
+    fn rust_policy_shapes_coding_tool_budget_recovery_state_update_command_response() {
+        let response = plan_coding_tool_budget_recovery_state_update_response(
+            CodingToolBudgetRecoveryStateUpdateBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: coding_tool_budget_recovery_state_update_request(),
+            },
+        )
+        .expect("coding tool budget recovery state update command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_budget_recovery_state_update_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "planned");
+        assert_eq!(response["operation_kind"], "workflow.run.retry_completed");
+        assert_eq!(
+            response["operator_control"]["approval_id"],
+            "approval_budget"
+        );
+        assert!(response["operator_control"].get("approvalId").is_none());
+        assert!(response["operator_control"].get("eventId").is_none());
+        assert!(response["operator_control"].get("receiptRefs").is_none());
+        assert!(response["operator_control"]
+            .get("policyDecisionRefs")
+            .is_none());
+        assert!(response["operator_control"].get("createdAt").is_none());
+        assert_eq!(
+            response["run"]["trace"]["operatorControls"][0]["control"],
+            "coding_tool_budget_recovery"
+        );
+    }
+
+    #[test]
     fn rust_policy_plans_coding_tool_budget_recovery_admission_required() {
         let record = CodingToolBudgetRecoveryAdmissionRequiredCore
             .plan(&CodingToolBudgetRecoveryAdmissionRequiredRequest {
@@ -523,6 +557,62 @@ mod tests {
         assert_eq!(record.details["thread_id"], "thread_alpha");
         assert_eq!(record.details["approval_id"], "approval_alpha");
         assert!(record.details.get("runId").is_none());
+    }
+
+    #[test]
+    fn rust_policy_shapes_coding_tool_budget_recovery_admission_required_command_response() {
+        let response = plan_coding_tool_budget_recovery_admission_required_response(
+            CodingToolBudgetRecoveryAdmissionRequiredBridgeRequest {
+                backend: Some("rust_policy".to_string()),
+                request: CodingToolBudgetRecoveryAdmissionRequiredRequest {
+                    schema_version:
+                        CODING_TOOL_BUDGET_RECOVERY_ADMISSION_REQUIRED_REQUEST_SCHEMA_VERSION
+                            .to_string(),
+                    operation: "coding_tool_budget_recovery_control".to_string(),
+                    operation_kind: "workflow.run.coding_tool_budget_recovery".to_string(),
+                    run_id: "run_alpha".to_string(),
+                    thread_id: Some("thread_alpha".to_string()),
+                    action: Some("retry_approved".to_string()),
+                    approval_id: Some("approval_alpha".to_string()),
+                    source_event_id: Some("event_budget".to_string()),
+                    source: Some("agent_studio".to_string()),
+                    evidence_refs: vec![
+                        "coding_tool_budget_recovery_js_facade_retired".to_string(),
+                        "rust_daemon_core_budget_recovery_admission_required".to_string(),
+                        "agentgres_budget_recovery_state_truth_required".to_string(),
+                    ],
+                },
+            },
+        )
+        .expect("coding-tool budget recovery admission-required command response");
+
+        assert_eq!(
+            response["source"],
+            "rust_coding_tool_budget_recovery_admission_required_command"
+        );
+        assert_eq!(response["backend"], "rust_policy");
+        assert_eq!(response["status"], "rust_core_required");
+        assert_eq!(response["status_code"], 501);
+        assert_eq!(
+            response["code"],
+            "runtime_coding_tool_budget_recovery_rust_core_required"
+        );
+        assert_eq!(
+            response["details"]["rust_core_boundary"],
+            "runtime.coding_tool_budget_recovery"
+        );
+        assert_eq!(
+            response["details"]["operation"],
+            "coding_tool_budget_recovery_control"
+        );
+        assert_eq!(
+            response["details"]["operation_kind"],
+            "workflow.run.coding_tool_budget_recovery"
+        );
+        assert_eq!(response["details"]["run_id"], "run_alpha");
+        assert_eq!(response["details"]["approval_id"], "approval_alpha");
+        assert!(response["details"].get("runId").is_none());
+        assert!(response["details"].get("approvalId").is_none());
     }
 
     #[test]
