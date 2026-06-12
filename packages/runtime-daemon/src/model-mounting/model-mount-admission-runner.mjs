@@ -292,9 +292,13 @@ function normalizeRouteDecisionBridgeResult(value = {}) {
     record,
     route_decision_ref: result.route_decision_ref ?? record.route_decision_ref ?? null,
     route_decision_hash: result.route_decision_hash ?? record.route_decision_hash ?? null,
-    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
+    receipt_refs: Array.isArray(result.receipt_refs)
+      ? result.receipt_refs
+      : Array.isArray(record.receipt_refs)
+        ? record.receipt_refs
+        : null,
     accepted_receipt_record: result.accepted_receipt_record ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
 }
 
@@ -307,8 +311,12 @@ function normalizeInvocationBridgeResult(value = {}) {
     record,
     invocation_admission_ref: result.invocation_admission_ref ?? record.invocation_admission_ref ?? null,
     invocation_admission_hash: result.invocation_admission_hash ?? record.invocation_admission_hash ?? null,
-    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+    receipt_refs: Array.isArray(result.receipt_refs)
+      ? result.receipt_refs
+      : Array.isArray(record.receipt_refs)
+        ? record.receipt_refs
+        : null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
 }
 
@@ -321,8 +329,12 @@ function normalizeProviderExecutionBridgeResult(value = {}) {
     record,
     provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
     provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
-    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+    receipt_refs: Array.isArray(result.receipt_refs)
+      ? result.receipt_refs
+      : Array.isArray(record.receipt_refs)
+        ? record.receipt_refs
+        : null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
 }
 
@@ -343,8 +355,16 @@ function normalizeProviderInvocationBridgeResult(value = {}) {
     provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
     provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
     invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
-    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
+    backendEvidenceRefs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -375,8 +395,16 @@ function normalizeProviderStreamInvocationBridgeResult(value = {}) {
     provider_execution_ref: result.provider_execution_ref ?? record.provider_execution_ref ?? null,
     provider_execution_hash: result.provider_execution_hash ?? record.provider_execution_hash ?? null,
     invocation_hash: result.invocation_hash ?? record.invocation_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
-    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
+    backendEvidenceRefs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -393,8 +421,16 @@ function normalizeProviderLifecycleBridgeResult(value = {}) {
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     lifecycle_hash: result.lifecycle_hash ?? record.lifecycle_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
-    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
+    backendEvidenceRefs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -405,7 +441,7 @@ function normalizeProviderInventoryBridgeResult(value = {}) {
       ? result.item_refs
       : Array.isArray(record.item_refs)
         ? record.item_refs
-        : [];
+        : null;
   return {
     source: result.source ?? "rust_model_mount_provider_inventory_command",
     backend: result.backend ?? record.execution_backend ?? RUST_MODEL_MOUNT_NATIVE_LOCAL_INVENTORY_BACKEND,
@@ -416,10 +452,18 @@ function normalizeProviderInventoryBridgeResult(value = {}) {
     driver: result.driver ?? record.driver ?? null,
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     itemRefs,
-    itemCount: result.item_count ?? record.item_count ?? itemRefs.length,
+    itemCount: result.item_count ?? record.item_count ?? null,
     inventory_hash: result.inventory_hash ?? record.inventory_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
-    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
+    backendEvidenceRefs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -437,8 +481,16 @@ function normalizeInstanceLifecycleBridgeResult(value = {}) {
     executionBackend: result.execution_backend ?? record.execution_backend ?? null,
     provider_lifecycle_hash: result.provider_lifecycle_hash ?? record.provider_lifecycle_hash ?? null,
     instance_lifecycle_hash: result.instance_lifecycle_hash ?? record.instance_lifecycle_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
-    backendEvidenceRefs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
+    backendEvidenceRefs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -453,8 +505,16 @@ function normalizeProviderResultBridgeResult(value = {}) {
       result.provider_result_ref ?? record.provider_result_ref ?? null,
     provider_result_hash:
       result.provider_result_hash ?? record.provider_result_hash ?? null,
-    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : record.receipt_refs ?? [],
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    receipt_refs: Array.isArray(result.receipt_refs)
+      ? result.receipt_refs
+      : Array.isArray(record.receipt_refs)
+        ? record.receipt_refs
+        : null,
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -465,14 +525,26 @@ function normalizeBackendProcessPlanBridgeResult(value = {}) {
     source: result.source ?? "rust_model_mount_backend_process_command",
     backend: result.backend ?? RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND,
     result: record,
-    supports_supervision: Boolean(result.supports_supervision ?? record.supports_supervision),
+    supports_supervision: result.supports_supervision ?? record.supports_supervision ?? null,
     supervisor_kind: result.supervisor_kind ?? record.supervisor_kind ?? null,
-    public_args: Array.isArray(result.public_args) ? result.public_args : record.public_args ?? [],
-    spawn_args: Array.isArray(result.spawn_args) ? result.spawn_args : record.spawn_args ?? [],
-    spawn_required: Boolean(result.spawn_required ?? record.spawn_required),
+    public_args: Array.isArray(result.public_args)
+      ? result.public_args
+      : Array.isArray(record.public_args)
+        ? record.public_args
+        : null,
+    spawn_args: Array.isArray(result.spawn_args)
+      ? result.spawn_args
+      : Array.isArray(record.spawn_args)
+        ? record.spawn_args
+        : null,
+    spawn_required: result.spawn_required ?? record.spawn_required ?? null,
     spawn_status: result.spawn_status ?? record.spawn_status ?? null,
     plan_hash: result.plan_hash ?? record.plan_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : record.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(record.evidence_refs)
+        ? record.evidence_refs
+        : null,
   };
 }
 
@@ -630,7 +702,11 @@ function normalizeAcceptedReceiptHeadBridgeResult(value = {}) {
     state_root: result.state_root ?? head.state_root ?? null,
     projection_watermark: result.projection_watermark ?? head.projection_watermark ?? null,
     head_hash: result.head_hash ?? head.head_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : head.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(head.evidence_refs)
+        ? head.evidence_refs
+        : null,
   };
 }
 
@@ -643,13 +719,21 @@ function normalizeAcceptedReceiptTransitionBridgeResult(value = {}) {
     transition,
     operation_id: result.operation_id ?? transition.operation_id ?? null,
     operation_ref: result.operation_ref ?? transition.operation_ref ?? null,
-    expected_heads: Array.isArray(result.expected_heads) ? result.expected_heads : transition.expected_heads ?? [],
+    expected_heads: Array.isArray(result.expected_heads)
+      ? result.expected_heads
+      : Array.isArray(transition.expected_heads)
+        ? transition.expected_heads
+        : null,
     state_root_before: result.state_root_before ?? transition.state_root_before ?? null,
     state_root_after: result.state_root_after ?? transition.state_root_after ?? null,
     resulting_head: result.resulting_head ?? transition.resulting_head ?? null,
     projection_watermark: result.projection_watermark ?? transition.projection_watermark ?? null,
     transition_hash: result.transition_hash ?? transition.transition_hash ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : transition.evidence_refs ?? [],
+    evidence_refs: Array.isArray(result.evidence_refs)
+      ? result.evidence_refs
+      : Array.isArray(transition.evidence_refs)
+        ? transition.evidence_refs
+        : null,
   };
 }
 
@@ -665,8 +749,8 @@ function normalizeInvocationReceiptBindingBridgeResult(value = {}) {
     accepted_receipt_append: result.accepted_receipt_append ?? null,
     agentgres_admission: result.agentgres_admission ?? null,
     projection_record: result.projection_record ?? null,
-    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : [],
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+    receipt_refs: Array.isArray(result.receipt_refs) ? result.receipt_refs : null,
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
 }
 
@@ -677,7 +761,7 @@ function normalizeReadProjectionBridgeResult(value = {}) {
     backend: result.backend ?? "rust_model_mount_read_projection",
     projection_kind: result.projection_kind ?? result.projectionKind ?? null,
     projection: result.projection ?? null,
-    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : [],
+    evidence_refs: Array.isArray(result.evidence_refs) ? result.evidence_refs : null,
   };
 }
 

@@ -15792,6 +15792,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1152
+
+Slice 1152 retires JS-side fallback synthesis in
+`packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs`
+for Rust-owned model_mount result fields. Route-decision, invocation,
+provider-execution, provider invocation/stream/lifecycle/inventory,
+instance-lifecycle, provider-result, backend-process, accepted-head,
+accepted-transition, invocation receipt-binding, and read-projection
+normalizers now preserve missing Rust-owned receipt refs, evidence refs,
+process booleans, process args, inventory counts/items, expected heads, and
+binding/projection evidence as `null` instead of synthesizing empty arrays,
+`false`, or derived counts in JS.
+
+This is not terminal model_mount migration. The JS model_mount admission
+runner, shared daemon-core command runner, and Node bridge transport remain
+migration scaffolding until direct Rust daemon-core model_mount APIs own
+admission, receipt/state-root binding, Agentgres persistence, projection,
+replay, and stable IDE/CLI/SDK protocol surfaces end to end. The retired JS
+fallback behavior must not be recreated as compatibility normalization.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1148
 
 Slice 1148 removes the remaining JS-side defaulting for the external

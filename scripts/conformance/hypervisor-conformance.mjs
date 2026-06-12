@@ -13592,7 +13592,7 @@ function runBridge() {
         /operation:\s*"plan_model_mount_backend_process"/.test(modelMountAdmissionRunner) &&
         /RUST_MODEL_MOUNT_BACKEND_PROCESS_BACKEND/.test(modelMountAdmissionRunner) &&
         /function normalizeBackendProcessPlanBridgeResult/.test(modelMountAdmissionRunner) &&
-        /supports_supervision:\s*Boolean\(result\.supports_supervision \?\? record\.supports_supervision\)/.test(
+        /supports_supervision:\s*result\.supports_supervision \?\? record\.supports_supervision \?\? null/.test(
           backendProcessRunnerBlock,
         ) &&
         /public_args:\s*Array\.isArray\(result\.public_args\)/.test(backendProcessRunnerBlock) &&
@@ -13751,7 +13751,7 @@ function runBridge() {
       /providerBackend:\s*result\.provider_backend \?\? record\.backend \?\? null/.test(
         providerInventoryRunnerBlock,
       ) &&
-      /itemCount:\s*result\.item_count \?\? record\.item_count \?\? itemRefs\.length/.test(
+      /itemCount:\s*result\.item_count \?\? record\.item_count \?\? null/.test(
         providerInventoryRunnerBlock,
       ) &&
       !/result\.(?:backendId|providerBackend|itemRefs|itemCount)\b/.test(providerInventoryRunnerBlock) &&
@@ -21019,6 +21019,47 @@ function runReceipts() {
       "packages/runtime-daemon/src/model-mounting/model-invocation-operations.mjs",
     ],
     "Phase 4 is pending: model invocation receipt operations must pass through Rust Agentgres admission with expected heads and state-root binding",
+  );
+  const modelMountRunnerRetiredFallbackPatterns = [
+    /record\.receipt_refs\s*\?\?\s*\[\]/,
+    /record\.evidence_refs\s*\?\?\s*\[\]/,
+    /head\.evidence_refs\s*\?\?\s*\[\]/,
+    /transition\.expected_heads\s*\?\?\s*\[\]/,
+    /transition\.evidence_refs\s*\?\?\s*\[\]/,
+    /Array\.isArray\(result\.evidence_refs\)\s*\?\s*result\.evidence_refs\s*:\s*\[\]/,
+    /Array\.isArray\(result\.receipt_refs\)\s*\?\s*result\.receipt_refs\s*:\s*\[\]/,
+    /Boolean\(result\.supports_supervision\s*\?\?\s*record\.supports_supervision\)/,
+    /Boolean\(result\.spawn_required\s*\?\?\s*record\.spawn_required\)/,
+    /item_refs:[\s\S]{0,120}itemRefs\.length/,
+    /itemCount:[\s\S]{0,120}itemRefs\.length/,
+  ];
+  assertCheck(
+    result,
+    "model-mount-runner-rust-owned-field-fallbacks-retired",
+    /Rust model_mount runner does not synthesize Rust-owned receipt evidence or process fields/.test(
+      modelMountAdmissionRunnerTest,
+    ) &&
+      /receipt_refs:\s*Array\.isArray\(result\.receipt_refs\)[\s\S]*?:\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /evidence_refs:\s*Array\.isArray\(result\.evidence_refs\)[\s\S]*?:\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /supports_supervision:\s*result\.supports_supervision\s*\?\?\s*record\.supports_supervision\s*\?\?\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /spawn_required:\s*result\.spawn_required\s*\?\?\s*record\.spawn_required\s*\?\?\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      /itemCount:\s*result\.item_count\s*\?\?\s*record\.item_count\s*\?\?\s*null/.test(
+        modelMountAdmissionRunner,
+      ) &&
+      modelMountRunnerRetiredFallbackPatterns.every((pattern) => !pattern.test(modelMountAdmissionRunner)),
+    [
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.mjs",
+      "packages/runtime-daemon/src/model-mounting/model-mount-admission-runner.test.mjs",
+    ],
+    "Phase 4/5/11 is pending: the JS model_mount runner must not synthesize Rust-owned receipt evidence, accepted-head, process, inventory, binding, or projection fields when Rust omits them",
   );
   assertCheck(
     result,

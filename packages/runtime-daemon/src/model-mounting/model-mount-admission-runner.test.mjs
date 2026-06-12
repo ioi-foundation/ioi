@@ -334,6 +334,98 @@ function routeControlRequiredRequest() {
   };
 }
 
+test("Rust model_mount runner does not synthesize Rust-owned receipt evidence or process fields", () => {
+  const sparseResultByOperation = new Map([
+    ["admit_model_mount_route_decision", { record: {} }],
+    ["admit_model_mount_invocation", { record: {} }],
+    ["admit_model_mount_provider_execution", { record: {} }],
+    ["execute_model_mount_provider_invocation", { result: {} }],
+    ["execute_model_mount_provider_stream_invocation", { result: {} }],
+    ["plan_model_mount_provider_lifecycle", { result: {} }],
+    ["plan_model_mount_provider_inventory", { result: {} }],
+    ["plan_model_mount_instance_lifecycle", { result: {} }],
+    ["admit_model_mount_provider_result", { record: {} }],
+    ["plan_model_mount_backend_process", { result: {} }],
+    ["plan_model_mount_accepted_receipt_head", { head: {} }],
+    ["plan_model_mount_accepted_receipt_transition", { transition: {} }],
+    ["bind_model_mount_invocation_receipt", {}],
+    ["plan_model_mount_read_projection", {}],
+  ]);
+  const runner = new RustModelMountAdmissionRunner({
+    command: "ioi-runtime-daemon-core",
+    spawnSyncImpl(_command, _args, options) {
+      const request = JSON.parse(options.input);
+      return {
+        status: 0,
+        stdout: JSON.stringify({
+          ok: true,
+          result: sparseResultByOperation.get(request.operation) ?? {},
+        }),
+        stderr: "",
+      };
+    },
+  });
+
+  const route = runner.admitRouteDecision(routeRequest());
+  assert.equal(route.receipt_refs, null);
+  assert.equal(route.evidence_refs, null);
+
+  const invocation = runner.admitInvocation(invocationRequest());
+  assert.equal(invocation.receipt_refs, null);
+  assert.equal(invocation.evidence_refs, null);
+
+  const providerExecution = runner.admitProviderExecution(providerExecutionRequest());
+  assert.equal(providerExecution.receipt_refs, null);
+  assert.equal(providerExecution.evidence_refs, null);
+
+  const providerInvocation = runner.executeProviderInvocation(providerInvocationRequest());
+  assert.equal(providerInvocation.evidence_refs, null);
+  assert.equal(providerInvocation.backendEvidenceRefs, null);
+
+  const providerStream = runner.executeProviderStreamInvocation(providerStreamInvocationRequest());
+  assert.equal(providerStream.evidence_refs, null);
+  assert.equal(providerStream.backendEvidenceRefs, null);
+
+  const providerLifecycle = runner.planProviderLifecycle(providerLifecycleRequest());
+  assert.equal(providerLifecycle.evidence_refs, null);
+  assert.equal(providerLifecycle.backendEvidenceRefs, null);
+
+  const providerInventory = runner.planProviderInventory(providerInventoryRequest());
+  assert.equal(providerInventory.itemRefs, null);
+  assert.equal(providerInventory.itemCount, null);
+  assert.equal(providerInventory.evidence_refs, null);
+  assert.equal(providerInventory.backendEvidenceRefs, null);
+
+  const instanceLifecycle = runner.planInstanceLifecycle(instanceLifecycleRequest());
+  assert.equal(instanceLifecycle.evidence_refs, null);
+  assert.equal(instanceLifecycle.backendEvidenceRefs, null);
+
+  const providerResult = runner.admitProviderResult(providerResultRequest());
+  assert.equal(providerResult.receipt_refs, null);
+  assert.equal(providerResult.evidence_refs, null);
+
+  const backendProcess = runner.planBackendProcess(backendProcessPlanRequest());
+  assert.equal(backendProcess.supports_supervision, null);
+  assert.equal(backendProcess.public_args, null);
+  assert.equal(backendProcess.spawn_args, null);
+  assert.equal(backendProcess.spawn_required, null);
+  assert.equal(backendProcess.evidence_refs, null);
+
+  const head = runner.planAcceptedReceiptHead({});
+  assert.equal(head.evidence_refs, null);
+
+  const transition = runner.planAcceptedReceiptTransition({});
+  assert.equal(transition.expected_heads, null);
+  assert.equal(transition.evidence_refs, null);
+
+  const binding = runner.bindInvocationReceipt({ invocation: {}, result: {} });
+  assert.equal(binding.receipt_refs, null);
+  assert.equal(binding.evidence_refs, null);
+
+  const projection = runner.planReadProjection({});
+  assert.equal(projection.evidence_refs, null);
+});
+
 test("Rust model_mount admission runner sends route-decision bridge request", () => {
   const calls = [];
   const runner = new RustModelMountAdmissionRunner({

@@ -6838,6 +6838,22 @@ expected-head/state-root persistence, receipts/events, replay, and stable
 IDE/CLI/SDK protocol surfaces, not preservation of a JS normalizer as a
 canonical state-update envelope author.
 
+Slice 1152 retires JS-side fallback synthesis from the model_mount admission
+runner for Rust-authored receipt, evidence, process, inventory, accepted-head,
+accepted-transition, receipt-binding, and read-projection result fields. Rust
+`model_mount` already owns these response records behind the temporary
+daemon-core command path, so `model-mount-admission-runner.mjs` now preserves
+missing Rust-owned arrays, booleans, counts, and process args as `null` instead
+of inventing empty refs, `false` supervision/spawn decisions, or inventory
+counts from JS-local fallbacks.
+
+This remains non-terminal because the JS model_mount runner, shared
+daemon-core command runner, and Node bridge transport still carry requests to
+Rust. The target is direct Rust daemon-core model_mount protocol/API ownership
+over admission, receipt/state-root binding, Agentgres truth, projection,
+replay, and stable IDE/CLI/SDK protocol surfaces, not preservation of JS
+normalizers as compatibility shims.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The
