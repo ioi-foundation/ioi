@@ -7117,6 +7117,17 @@ temporary proof suite. The target is direct Rust daemon-core protocol APIs and
 focused owner tests where the Node bridge no longer exists as a long-term
 endpoint or proof surface.
 
+Slice 1170 moves Rust service-owner and workload-client imports out of
+production `ioi_step_module_bridge/mod.rs` scope and into the Rust test module.
+The production bridge module now exposes only the temporary dispatch re-export;
+the broad proof suite may still import Rust owners, but only behind
+`#[cfg(test)]`.
+
+This remains non-terminal because the bridge proof suite still lives beside the
+temporary Node bridge endpoint. The target is direct Rust daemon-core protocol
+APIs and focused owner tests where no production bridge module imports Rust
+owner families as if they were bridge-owned runtime surface.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

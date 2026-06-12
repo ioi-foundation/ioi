@@ -2269,6 +2269,7 @@ function runBridge() {
   const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
+  const bridgeModuleRuntime = bridgeModule.split("#[cfg(test)]")[0] ?? bridgeModule;
   const bridgeDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     : "";
@@ -2420,6 +2421,14 @@ function runBridge() {
       !/#\[derive\(Debug, Deserialize\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
       /dispatch_command_operation_response/.test(bridgeDispatch) &&
+      !/ioi_services::agentic::runtime::kernel::/.test(bridgeModuleRuntime) &&
+      !/ioi_client::workload_client/.test(bridgeModuleRuntime) &&
+      /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_services::agentic::runtime::kernel::command_protocol::/.test(
+        bridgeModule,
+      ) &&
+      /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_client::workload_client::WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(
+        bridgeModule,
+      ) &&
       /use ioi_services::agentic::runtime::kernel::command_protocol::\{\s*validate_command_envelope_payload,\s*CommandEnvelope,\s*\};/.test(
         bridgeDispatch,
       ) &&

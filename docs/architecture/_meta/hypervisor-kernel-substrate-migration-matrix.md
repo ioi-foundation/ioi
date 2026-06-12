@@ -16207,6 +16207,32 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1170
+
+Slice 1170 moves Rust service-owner and workload-client imports out of
+production `ioi_step_module_bridge/mod.rs` scope and into `#[cfg(test)] mod
+tests`. The production bridge module now keeps only `bridge_dispatch` plus the
+temporary `run_bridge_response_from_stdin()` re-export, while the proof suite
+continues to import Rust kernel owners directly behind the test boundary.
+
+This is not terminal bridge retirement. The Node bridge and its proof module
+remain temporary migration scaffolding until direct Rust daemon-core protocol
+APIs and focused owner tests replace the bridge endpoint. The important
+invariant is that Rust authority/admission/projection owner families are not
+production imports of the broad bridge module.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1169
 
 Slice 1169 scopes the remaining bridge proof schema constants into
