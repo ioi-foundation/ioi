@@ -7745,6 +7745,27 @@ Resume by cutting the remaining approval-state, context-policy, model_mount,
 and StepModule command-transport runners, then delete the shared JS command
 invoker once every live surface has a direct Rust daemon-core API.
 
+Slice 1204 retires the temporary binary-spawn fallback for the daemon approval
+state runner. `runtime-approval-state-runner.mjs` no longer imports the shared
+JS daemon-core command invoker, no longer exposes or reads a live
+`APPROVAL_STATE_COMMAND_ENV`, and no longer accepts constructor command
+selection or spawn hooks. Approval request, approval decision, and approval
+revoke state-update planning now require the daemon-level `daemonCoreInvoker`
+direct Rust-core seam and fail closed when it is absent.
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` is treated only as forbidden command
+selection input for this surface, not as fallback transport.
+
+This makes approval state-update planning direct-invoker-only at the daemon
+runner: approval operation kind, operator-control records, run/agent state
+updates, timestamps, lease refs, and approval trace mutations must arrive from
+Rust daemon-core output or remain absent at the JS edge. It is still not
+terminal because the public approval-control facade remains fail-closed JS
+scaffolding until direct Rust daemon-core approval APIs own wallet authority,
+Agentgres admission, state-root binding, projection, replay, and readback end
+to end. Resume by cutting the remaining context-policy, model_mount, and
+StepModule command-transport runners, then delete the shared JS command
+invoker once every live surface has a direct Rust daemon-core API.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -15979,6 +15979,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1204
+
+Slice 1204 retires approval-state binary-spawn fallback from the daemon runner:
+
+- `packages/runtime-daemon/src/runtime-approval-state-runner.mjs`
+- `packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The approval-state runner no longer imports the shared JS daemon-core command
+invoker, no longer exposes a command-env transport constant, and no longer
+accepts constructor command selection or spawn hooks. The surface now requires
+the daemon-level `daemonCoreInvoker` direct Rust-core seam for approval
+request, decision, and revoke state-update planning. It rejects
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` as forbidden command selection and fails
+closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: public approval request,
+decision, and revoke controls still fail closed through JS facade scaffolding
+until the Rust daemon-core approval protocol/API owns wallet authority,
+Agentgres admission, state-root binding, projection, replay, and readback end
+to end. It does make the approval state-update authority path a larger
+pure-Rust-direction cut: command transport can no longer plan approval state
+updates as a compatibility fallback, and future work must either provide a real
+direct Rust daemon-core approval invoker or fail closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-approval-state-runner.mjs packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-approval-state-runner.test.mjs` | passed; 11 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1203
 
 Slice 1203 retires coding-tool approval binary-spawn fallback from the daemon

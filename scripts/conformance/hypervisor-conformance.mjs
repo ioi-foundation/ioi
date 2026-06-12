@@ -8019,7 +8019,9 @@ function runBridge() {
       !/struct ApprovalRequestStateUpdateBridgeRequest/.test(bridgeModule) &&
       /createRuntimeApprovalStateRunnerFromEnv/.test(runtimeApprovalStateRunner) &&
       /RustRuntimeApprovalStateRunner/.test(runtimeApprovalStateRunner) &&
-      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(runtimeApprovalStateRunner) &&
+      /assertNoApprovalStateCommandSelection\(\s*options\.command\s*\?\?\s*env\.IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(
+        runtimeApprovalStateRunner,
+      ) &&
       /ioi\.runtime\.daemon_core\.command\.v1/.test(runtimeApprovalStateRunner) &&
       !/IOI_STEP_MODULE_COMMAND/.test(runtimeApprovalStateRunner) &&
       !/APPROVAL_STATE_COMMAND_ARGS_ENV/.test(runtimeApprovalStateRunner) &&
@@ -8028,18 +8030,24 @@ function runBridge() {
       !/this\.args/.test(runtimeApprovalStateRunner) &&
       !/argsEnv/.test(runtimeApprovalStateRunner) &&
       /assertNoApprovalStateCommandArgs/.test(runtimeApprovalStateRunner) &&
+      /assertNoApprovalStateCommandSelection/.test(runtimeApprovalStateRunner) &&
       /approval_state_command_args_retired/.test(runtimeApprovalStateRunner) &&
-      /createDaemonCoreCommandInvoker/.test(runtimeApprovalStateRunner) &&
+      /approval_state_command_selection_retired/.test(runtimeApprovalStateRunner) &&
+      /approval_state_direct_invoker_unconfigured/.test(runtimeApprovalStateRunner) &&
+      !/createDaemonCoreCommandInvoker/.test(runtimeApprovalStateRunner) &&
+      !/spawnSyncImpl/.test(runtimeApprovalStateRunner) &&
       !/from "node:child_process"/.test(runtimeApprovalStateRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /approval state runner command args env fails closed/.test(runtimeApprovalStateRunnerTest) &&
       /approval state runner command args constructor option fails closed/.test(runtimeApprovalStateRunnerTest) &&
-      /assert\.deepEqual\(capturedArgs,\s*\[\]\)/.test(runtimeApprovalStateRunnerTest) &&
+      /approval state runner command constructor option fails closed/.test(runtimeApprovalStateRunnerTest) &&
       /planApprovalRequestStateUpdate/.test(runtimeApprovalStateRunner) &&
-      /approval state runner env uses daemon-core command boundary/.test(
+      /approval state runner env uses daemon-level direct invoker/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
-      /approval request state runner sends Rust authority bridge request/.test(
+      /approval state runner rejects retired daemon-core command env/.test(
+        runtimeApprovalStateRunnerTest,
+      ) &&
+      /approval request state runner sends Rust authority request through direct daemon-core invoker/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
       /approval request state runner normalizes Rust agent target updates/.test(
@@ -8049,7 +8057,7 @@ function runBridge() {
       /Object\.hasOwn\(result\.operator_control,\s*field\),\s*false/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
-      /approval request state runner fails closed without bridge command/.test(
+      /approval request state runner fails closed without direct invoker/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
       /approval state runner fails closed without Rust-planned operation kinds/.test(
@@ -8134,7 +8142,7 @@ function runBridge() {
       /APPROVAL_DECISION_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
       ) &&
-      /approval decision state runner sends Rust authority bridge request/.test(
+      /approval decision state runner sends Rust authority request through direct daemon-core invoker/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
       /result\.operator_control\.lease_id/.test(runtimeApprovalStateRunnerTest) &&
@@ -8233,7 +8241,7 @@ function runBridge() {
       /APPROVAL_REVOKE_STATE_UPDATE_REQUEST_SCHEMA_VERSION/.test(
         runtimeApprovalStateRunner,
       ) &&
-      /approval revoke state runner sends Rust authority bridge request/.test(
+      /approval revoke state runner sends Rust authority request through direct daemon-core invoker/.test(
         runtimeApprovalStateRunnerTest,
       ) &&
       /result\.operator_control\.lease_status/.test(runtimeApprovalStateRunnerTest) &&

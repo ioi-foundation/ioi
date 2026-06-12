@@ -1,6 +1,3 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const APPROVAL_STATE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const APPROVAL_STATE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const APPROVAL_REQUEST_STATE_UPDATE_REQUEST_SCHEMA_VERSION =
   "ioi.runtime.approval-request-state-update-request.v1";
@@ -12,10 +9,9 @@ export const RUST_APPROVAL_STATE_BACKEND = "rust_authority";
 
 export function createRuntimeApprovalStateRunnerFromEnv(env = process.env, options = {}) {
   assertNoApprovalStateCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoApprovalStateCommandSelection(options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND);
   return new RustRuntimeApprovalStateRunner({
-    command: options.command ?? env[APPROVAL_STATE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -30,32 +26,25 @@ export function assertNoApprovalStateCommandArgs(value) {
   );
 }
 
+export function assertNoApprovalStateCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new RuntimeApprovalStateRunnerError(
+    "Runtime approval state binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core authority planning.",
+    "approval_state_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustRuntimeApprovalStateRunner {
   constructor(options = {}) {
     assertNoApprovalStateCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: RuntimeApprovalStateRunnerError,
-      env: APPROVAL_STATE_COMMAND_ENV,
-      unconfiguredMessage:
-        "Runtime approval state updates require IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core authority planning.",
-      unconfiguredCode: "approval_state_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust approval state bridge command.",
-      spawnFailedCode: "approval_state_bridge_spawn_failed",
-      commandFailedMessage: "Rust approval state bridge command failed.",
-      commandFailedCode: "approval_state_bridge_failed",
-      invalidJsonMessage: "Rust approval state bridge command returned invalid JSON.",
-      invalidJsonCode: "approval_state_bridge_invalid_json",
-      rejectedMessage: "Rust approval state core rejected the request.",
-      rejectedCode: "approval_state_bridge_rejected",
-    });
+    assertNoApprovalStateCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   planApprovalRequestStateUpdate(request = {}) {
-    return normalizeApprovalRequestStateUpdateBridgeResult(this.invokeBridge({
+    return normalizeApprovalRequestStateUpdateBridgeResult(this.invokeDaemonCore({
       schema_version: APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
       operation: "plan_approval_request_state_update",
       backend: RUST_APPROVAL_STATE_BACKEND,
@@ -67,7 +56,7 @@ export class RustRuntimeApprovalStateRunner {
   }
 
   planApprovalDecisionStateUpdate(request = {}) {
-    return normalizeApprovalDecisionStateUpdateBridgeResult(this.invokeBridge({
+    return normalizeApprovalDecisionStateUpdateBridgeResult(this.invokeDaemonCore({
       schema_version: APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
       operation: "plan_approval_decision_state_update",
       backend: RUST_APPROVAL_STATE_BACKEND,
@@ -79,7 +68,7 @@ export class RustRuntimeApprovalStateRunner {
   }
 
   planApprovalRevokeStateUpdate(request = {}) {
-    return normalizeApprovalRevokeStateUpdateBridgeResult(this.invokeBridge({
+    return normalizeApprovalRevokeStateUpdateBridgeResult(this.invokeDaemonCore({
       schema_version: APPROVAL_STATE_COMMAND_SCHEMA_VERSION,
       operation: "plan_approval_revoke_state_update",
       backend: RUST_APPROVAL_STATE_BACKEND,
@@ -90,6 +79,25 @@ export class RustRuntimeApprovalStateRunner {
     }));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new RuntimeApprovalStateRunnerError(
+        "Runtime approval state updates require daemonCoreInvoker for direct Rust daemon-core authority planning.",
+        "approval_state_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new RuntimeApprovalStateRunnerError(
+        error.message ?? "Rust approval state core rejected the request.",
+        error.code ?? "approval_state_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 export class RuntimeApprovalStateRunnerError extends Error {
@@ -197,6 +205,10 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed || null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }
 
 function objectRecord(value) {
