@@ -7141,6 +7141,19 @@ focused owner tests in the Rust kernel/service modules, after which the bridge
 endpoint and its proof surface can be retired rather than maintained as
 canonical architecture.
 
+Slice 1172 moves command schema-alias, unknown-operation, daemon-core
+schema-family mismatch, and StepModule schema-family mismatch proofs out of
+`ioi_step_module_bridge/proof_tests.rs` and into the Rust command protocol
+owner at `crates/services/src/agentic/runtime/kernel/command_protocol.rs`.
+Bridge conformance now requires the owner tests and proves the old
+bridge-named command-protocol proof tests are absent from the temporary bridge
+proof surface.
+
+This remains non-terminal because `proof_tests.rs` still contains many
+temporary bridge endpoint proofs. The target is to keep migrating generic
+protocol, authority, admission, receipt, projection, and replay proof coverage
+into Rust owner modules until the bridge proof surface can disappear.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

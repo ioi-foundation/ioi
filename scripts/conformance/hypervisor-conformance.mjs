@@ -2500,6 +2500,9 @@ function runBridge() {
       /daemon_core_operations_use_daemon_core_command_schema/.test(commandProtocolCore) &&
       /step_module_operation_uses_step_module_command_schema/.test(commandProtocolCore) &&
       /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
+      /command_envelope_rejects_retired_schema_version_alias/.test(commandProtocolCore) &&
+      /daemon_core_operation_rejects_step_module_command_schema/.test(commandProtocolCore) &&
+      /step_module_operation_rejects_daemon_core_command_schema/.test(commandProtocolCore) &&
       /command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
       /command_envelope_requires_canonical_schema_version_field/.test(commandProtocolCore) &&
       /command_catalog_operations_have_schema_families/.test(commandProtocolCore) &&
@@ -2509,11 +2512,10 @@ function runBridge() {
       /"plan_workflow_edit_admission_required"/.test(commandProtocolCore) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
       !/fn is_daemon_core_operation/.test(bridgeModule) &&
-      /bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
-      /bridge_unknown_operation_has_no_command_schema_family/.test(bridgeModule) &&
-      /bridge_schema_family_mismatch_is_rejected_by_rust_protocol/.test(bridgeModule) &&
-      /command_family\("unknown_operation"\)/.test(bridgeModule) &&
-      /"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
+      !/bridge_command_schema_version_alias_is_retired/.test(bridgeModule) &&
+      !/bridge_unknown_operation_has_no_command_schema_family/.test(bridgeModule) &&
+      !/bridge_schema_family_mismatch_is_rejected_by_rust_protocol/.test(bridgeModule) &&
+      !/"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
       "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
@@ -4220,9 +4222,10 @@ function runBridge() {
       !/operation_unsupported/.test(codingToolReceiptCommandBridge) &&
       /CommandOperation::RunCodingToolStepModule/.test(coreCommandDispatch) &&
       /validate_command_envelope\(\s*"run_coding_tool_step_module",[\s\n]*DAEMON_CORE_COMMAND_SCHEMA_VERSION,?\s*\)/.test(
-        bridgeModule,
+        commandProtocolCore,
       ) &&
-      /coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
+      /step_module_operation_rejects_daemon_core_command_schema/.test(commandProtocolCore) &&
+      !/coding_tool_step_module_rejects_daemon_core_command_schema/.test(bridgeModule) &&
       /CodingToolStepModuleBridgeRequest as StepModuleBridgeRequest/.test(bridgeModule) &&
       !/fn run_coding_tool_step_module/.test(bridgeModule) &&
       !/core_run_coding_tool_step_module/.test(bridgeModule) &&

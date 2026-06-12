@@ -16207,6 +16207,36 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1172
+
+Slice 1172 moves generic command-protocol proof coverage out of the temporary
+bridge proof surface and into the Rust command protocol owner. Canonical
+`schema_version` parsing, retired `schemaVersion` rejection,
+unknown-operation failure, daemon-core schema-family mismatch, and StepModule
+schema-family mismatch are now proven in
+`crates/services/src/agentic/runtime/kernel/command_protocol.rs`. The
+temporary `ioi_step_module_bridge/proof_tests.rs` no longer carries the old
+bridge-named command-protocol tests.
+
+This is not terminal bridge retirement. The bridge proof suite still contains
+temporary endpoint proofs for migrated command families, but generic protocol
+ownership has moved to the Rust command protocol module. Future slices should
+continue migrating proof coverage into Rust owner modules until the bridge
+proof surface is no longer needed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::command_protocol::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1171
 
 Slice 1171 extracts the temporary Rust bridge proof suite out of production

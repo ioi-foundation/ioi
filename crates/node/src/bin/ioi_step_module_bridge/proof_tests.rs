@@ -37,9 +37,8 @@ mod tests {
         inspect_workspace_status,
     };
     use ioi_services::agentic::runtime::kernel::command_protocol::{
-        command_family, expected_command_schema_version, is_step_module_operation,
-        validate_command_envelope, CommandEnvelope, COMMAND_SCHEMA_VERSION,
-        DAEMON_CORE_COMMAND_SCHEMA_VERSION, STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        validate_command_envelope, DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+        STEP_MODULE_COMMAND_SCHEMA_VERSION,
     };
     use ioi_services::agentic::runtime::kernel::governed_admission::{
         admit_governed_runtime_improvement_proposal_response as admit_governed_runtime_improvement_proposal,
@@ -169,64 +168,6 @@ mod tests {
 
     fn sha256_hex(bytes: &[u8]) -> String {
         hex::encode(ioi_crypto::algorithms::hash::sha256(bytes).expect("sha256"))
-    }
-
-    #[test]
-    fn bridge_command_schema_version_alias_is_retired() {
-        let canonical: CommandEnvelope = serde_json::from_value(json!({
-            "schema_version": COMMAND_SCHEMA_VERSION,
-            "operation": "run_coding_tool_step_module"
-        }))
-        .expect("canonical bridge envelope");
-
-        assert_eq!(canonical.schema_version, COMMAND_SCHEMA_VERSION);
-
-        let retired_alias = serde_json::from_value::<CommandEnvelope>(json!({
-            "schemaVersion": COMMAND_SCHEMA_VERSION,
-            "operation": "run_coding_tool_step_module"
-        }));
-
-        assert!(
-            retired_alias.is_err(),
-            "Rust bridge command intake must require canonical schema_version"
-        );
-    }
-
-    #[test]
-    fn bridge_unknown_operation_has_no_command_schema_family() {
-        assert_eq!(command_family("unknown_operation"), None);
-        assert_eq!(expected_command_schema_version("unknown_operation"), None);
-        assert_eq!(
-            validate_command_envelope("unknown_operation", COMMAND_SCHEMA_VERSION)
-                .unwrap_err()
-                .code(),
-            "operation_unknown"
-        );
-        assert!(!is_step_module_operation("unknown_operation"));
-    }
-
-    #[test]
-    fn bridge_schema_family_mismatch_is_rejected_by_rust_protocol() {
-        let error = validate_command_envelope(
-            "admit_model_mount_route_decision",
-            STEP_MODULE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("schema mismatch should fail closed");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-    }
-
-    #[test]
-    fn coding_tool_step_module_rejects_daemon_core_command_schema() {
-        let error = validate_command_envelope(
-            "run_coding_tool_step_module",
-            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-        )
-        .expect_err("Rust command protocol rejects daemon-core schema before StepModule dispatch");
-
-        assert_eq!(error.code(), "schema_version_invalid");
-        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
-        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
     }
 
     fn temp_workspace(name: &str) -> PathBuf {

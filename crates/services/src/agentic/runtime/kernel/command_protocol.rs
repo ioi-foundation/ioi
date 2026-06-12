@@ -667,6 +667,53 @@ mod tests {
     }
 
     #[test]
+    fn command_envelope_rejects_retired_schema_version_alias() {
+        let canonical: CommandEnvelope = serde_json::from_value(serde_json::json!({
+            "schema_version": COMMAND_SCHEMA_VERSION,
+            "operation": "run_coding_tool_step_module"
+        }))
+        .expect("canonical command envelope");
+
+        assert_eq!(canonical.schema_version, COMMAND_SCHEMA_VERSION);
+
+        let retired_alias = serde_json::from_value::<CommandEnvelope>(serde_json::json!({
+            "schemaVersion": COMMAND_SCHEMA_VERSION,
+            "operation": "run_coding_tool_step_module"
+        }));
+
+        assert!(
+            retired_alias.is_err(),
+            "Rust command intake must require canonical schema_version"
+        );
+    }
+
+    #[test]
+    fn daemon_core_operation_rejects_step_module_command_schema() {
+        let error = validate_command_envelope(
+            "admit_model_mount_route_decision",
+            STEP_MODULE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("schema mismatch should fail closed");
+
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
+    fn step_module_operation_rejects_daemon_core_command_schema() {
+        let error = validate_command_envelope(
+            "run_coding_tool_step_module",
+            DAEMON_CORE_COMMAND_SCHEMA_VERSION,
+        )
+        .expect_err("Rust command protocol rejects daemon-core schema before StepModule dispatch");
+
+        assert_eq!(error.code(), "schema_version_invalid");
+        assert!(error.message().contains(STEP_MODULE_COMMAND_SCHEMA_VERSION));
+        assert!(error.message().contains(DAEMON_CORE_COMMAND_SCHEMA_VERSION));
+    }
+
+    #[test]
     fn command_catalog_operations_have_schema_families() {
         for operation in STEP_MODULE_OPERATIONS {
             let command_operation =
