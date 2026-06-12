@@ -7504,6 +7504,23 @@ validation, dispatch, workload execution, receipt binding, Agentgres admission,
 replay, projection, and stable IDE/CLI/SDK surfaces do not depend on
 command-bridge transport.
 
+Slice 1191 moves the temporary stdin/JSON daemon-core command transport owner
+out of `crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs` and into
+Rust service-kernel ownership in `command_dispatch.rs`. The deleted bridge
+module no longer owns `BridgeError`, raw `run_bridge()` parsing, canonical
+`CommandEnvelope` validation, schema-alias rejection, operation dispatch, or
+the `{ ok, result/error }` response envelope. `ioi-step-module-bridge` remains
+only a temporary binary entry point that calls
+`run_daemon_core_command_response_from_stdin()` from `ioi-services`.
+
+This is still non-terminal because JS runners can still spawn the temporary
+binary through `IOI_RUNTIME_DAEMON_CORE_COMMAND`. It is nevertheless a larger
+pure-Rust cut: command transport semantics, error mapping, envelope validation,
+and dispatch framing are now owned by the Rust daemon-core service boundary,
+and conformance fails if the deleted bridge-local transport module is
+recreated. Resume by replacing the remaining JS command invoker and binary
+spawn path with direct Rust daemon-core protocol/API calls.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

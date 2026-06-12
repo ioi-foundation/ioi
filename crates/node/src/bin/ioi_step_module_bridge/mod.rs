@@ -1,3 +1,1 @@
-mod bridge_dispatch;
-
-pub use bridge_dispatch::run_bridge_response_from_stdin;
+pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;

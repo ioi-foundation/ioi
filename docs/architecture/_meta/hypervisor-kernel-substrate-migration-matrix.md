@@ -15971,6 +15971,45 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1191
+
+Slice 1191 moves temporary daemon-core command stdin/JSON transport ownership
+out of the Node-bin bridge module and into the Rust service kernel:
+
+- `crates/services/src/agentic/runtime/kernel/command_dispatch.rs`
+- `crates/node/src/bin/ioi_step_module_bridge/mod.rs`
+- `crates/node/src/bin/ioi-step-module-bridge.rs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs` is deleted.
+`command_dispatch.rs` now owns `CommandTransportError`,
+`run_daemon_core_command_response_from_stdin()`,
+`run_daemon_core_command_from_stdin()`,
+`run_daemon_core_command_from_json_str()`, and
+`run_daemon_core_command_from_value()`. That service-kernel boundary now owns
+stdin read errors, JSON parse errors, canonical `CommandEnvelope` validation,
+retired `schemaVersion` alias rejection, unknown-operation rejection before
+dispatch, and the `{ ok, result/error }` response envelope. The bridge binary
+is reduced to a temporary entry point that calls the service-owned function.
+
+This is not terminal transport retirement: JS runners still use
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` to spawn the temporary binary. The next
+Rust-core extraction should replace that shared JS command invoker and binary
+spawn path with direct daemon-core protocol/API calls.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo test -p ioi-services command_dispatch` | passed; 3 tests |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1190
 
 Slice 1190 removes the dead StepModule command-family/catalog API left after

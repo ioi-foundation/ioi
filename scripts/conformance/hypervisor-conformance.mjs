@@ -2422,7 +2422,8 @@ function runBridge() {
   assertCheck(
     result,
     "bridge-command-schema-version-alias-retired",
-    /mod bridge_dispatch;/.test(bridgeModuleSource) &&
+    !exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs") &&
+      !/mod bridge_dispatch;/.test(bridgeModuleSource) &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs") &&
       !/#\[cfg\(test\)\]\s*mod proof_tests;/.test(bridgeModuleSource) &&
       !/mod command_dispatch;/.test(bridgeModule) &&
@@ -2430,15 +2431,27 @@ function runBridge() {
       !bridgeCommandEnvelopeExists &&
       !bridgeCommandDispatchExists &&
       /pub mod command_dispatch;/.test(kernelModuleForBridgeChecks) &&
+      /pub use ioi_services::agentic::runtime::kernel::command_dispatch::run_daemon_core_command_response_from_stdin;/.test(
+        bridgeModuleRuntime,
+      ) &&
       !/struct BridgeEnvelope/.test(bridgeDispatch) &&
-      /struct BridgeError/.test(bridgeDispatch) &&
-      /fn run_bridge\(\) -> Result<Value, BridgeError>/.test(bridgeDispatch) &&
-      !/pub\(super\) fn run_bridge/.test(bridgeDispatch) &&
       !/struct BridgeError/.test(bridgeModule) &&
+      !/fn run_bridge\(\)/.test(bridgeModule) &&
+      /pub struct CommandTransportError/.test(coreCommandDispatch) &&
+      /pub fn run_daemon_core_command_response_from_stdin\(\) -> Value/.test(coreCommandDispatch) &&
+      /pub fn run_daemon_core_command_from_stdin\(\) -> Result<Value, CommandTransportError>/.test(
+        coreCommandDispatch,
+      ) &&
+      /pub fn run_daemon_core_command_from_json_str\(input: &str\) -> Result<Value, CommandTransportError>/.test(
+        coreCommandDispatch,
+      ) &&
+      /pub fn run_daemon_core_command_from_value\(\s*raw_request: Value,\s*\) -> Result<Value, CommandTransportError>/.test(
+        coreCommandDispatch,
+      ) &&
+      !/pub\(super\) fn run_bridge/.test(bridgeDispatch) &&
       !/#\[derive\(Debug, Deserialize\)\]/.test(bridgeDispatch) &&
       !/alias = "schemaVersion"/.test(bridgeDispatch) &&
-      /dispatch_command_operation_response/.test(bridgeDispatch) &&
-      !/ioi_services::agentic::runtime::kernel::/.test(bridgeModuleRuntime) &&
+      /dispatch_command_operation_response/.test(coreCommandDispatch) &&
       !/ioi_client::workload_client/.test(bridgeModuleRuntime) &&
       !/#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_services::agentic::runtime::kernel::command_protocol::/.test(
         bridgeProofTests,
@@ -2446,15 +2459,14 @@ function runBridge() {
       !/#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_client::workload_client::WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(
         bridgeProofTests,
       ) &&
-      /use ioi_services::agentic::runtime::kernel::command_protocol::\{\s*validate_command_envelope_payload,\s*CommandEnvelope,\s*\};/.test(
-        bridgeDispatch,
+      /super::command_protocol::CommandEnvelope/.test(coreCommandDispatch) &&
+      /let envelope: super::command_protocol::CommandEnvelope/.test(coreCommandDispatch) &&
+      /super::command_protocol::validate_command_envelope_payload\(&envelope\)/.test(
+        coreCommandDispatch,
       ) &&
-      /use ioi_services::agentic::runtime::kernel::command_protocol::/.test(bridgeDispatch) &&
-      /let envelope: CommandEnvelope = serde_json::from_value\(raw_request\.clone\(\)\)/.test(bridgeDispatch) &&
-      /validate_command_envelope_payload\(&envelope\)/.test(bridgeDispatch) &&
-      /error\.into_parts\(\)/.test(bridgeDispatch) &&
+      /error\.into_parts\(\)/.test(coreCommandDispatch) &&
       /dispatch_command_operation_response\(validated\.command_operation,\s*raw_request\)/.test(
-        bridgeDispatch,
+        coreCommandDispatch,
       ) &&
       !/expected_schema_version/.test(bridgeDispatch) &&
       !/schema_version_invalid/.test(bridgeDispatch) &&
@@ -2522,7 +2534,6 @@ function runBridge() {
       !/"schemaVersion": COMMAND_SCHEMA_VERSION/.test(bridgeModule),
     [
       "crates/node/src/bin/ioi_step_module_bridge/mod.rs",
-      "crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/command_dispatch.rs",
       "crates/services/src/agentic/runtime/kernel/command_protocol.rs",
     ],
@@ -3822,7 +3833,7 @@ function runBridge() {
       !exists("crates/node/src/bin/ioi_step_module_bridge/coding_tool_receipt_command.rs") &&
       !exists("crates/node/src/bin/ioi_step_module_bridge/computer_use.rs") &&
       exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs") &&
-      /run_bridge_response_from_stdin/.test(bridgeBin) &&
+      /run_daemon_core_command_response_from_stdin/.test(bridgeBin) &&
       !/mod coding_tool_command;/.test(bridgeModule) &&
       !/mod coding_tool_helpers;/.test(bridgeModule) &&
       !/mod coding_tool_receipt_command;/.test(bridgeModule) &&
