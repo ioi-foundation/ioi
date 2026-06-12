@@ -44,6 +44,17 @@ function read(relative) {
   return fs.readFileSync(absolutePath(relative), "utf8");
 }
 
+function bridgeProofSurfaceForConformance() {
+  return [
+    exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+      ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+      : "",
+    exists("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs")
+      ? read("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs")
+      : "",
+  ].join("\n");
+}
+
 function readRustPolicyCore() {
   return [
     exists("crates/services/src/agentic/runtime/kernel/policy.rs")
@@ -2266,10 +2277,14 @@ function runBridge() {
   const bridgeBin = exists("crates/node/src/bin/ioi-step-module-bridge.rs")
     ? read("crates/node/src/bin/ioi-step-module-bridge.rs")
     : "";
-  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
+  const bridgeModuleSource = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
     : "";
-  const bridgeModuleRuntime = bridgeModule.split("#[cfg(test)]")[0] ?? bridgeModule;
+  const bridgeProofTests = exists("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs")
+    ? read("crates/node/src/bin/ioi_step_module_bridge/proof_tests.rs")
+    : "";
+  const bridgeModule = [bridgeModuleSource, bridgeProofTests].join("\n");
+  const bridgeModuleRuntime = bridgeModuleSource;
   const bridgeDispatch = exists("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/bridge_dispatch.rs")
     : "";
@@ -2407,7 +2422,9 @@ function runBridge() {
   assertCheck(
     result,
     "bridge-command-schema-version-alias-retired",
-    /mod bridge_dispatch;/.test(bridgeModule) &&
+    /mod bridge_dispatch;/.test(bridgeModuleSource) &&
+      /#\[cfg\(test\)\]\s*mod proof_tests;/.test(bridgeModuleSource) &&
+      /#\[cfg\(test\)\]\s*mod tests \{/.test(bridgeProofTests) &&
       !/mod command_dispatch;/.test(bridgeModule) &&
       !/mod command_envelope;/.test(bridgeModule) &&
       !bridgeCommandEnvelopeExists &&
@@ -2424,10 +2441,10 @@ function runBridge() {
       !/ioi_services::agentic::runtime::kernel::/.test(bridgeModuleRuntime) &&
       !/ioi_client::workload_client/.test(bridgeModuleRuntime) &&
       /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_services::agentic::runtime::kernel::command_protocol::/.test(
-        bridgeModule,
+        bridgeProofTests,
       ) &&
       /#\[cfg\(test\)\]\s*mod tests \{[\s\S]*use ioi_client::workload_client::WORKLOAD_STEP_MODULE_DISPATCH_SCHEMA_VERSION/.test(
-        bridgeModule,
+        bridgeProofTests,
       ) &&
       /use ioi_services::agentic::runtime::kernel::command_protocol::\{\s*validate_command_envelope_payload,\s*CommandEnvelope,\s*\};/.test(
         bridgeDispatch,
@@ -15704,9 +15721,7 @@ function runBridge() {
 
 function runReceipts() {
   const result = createTierResult("receipts");
-  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    : "";
+  const bridgeModule = bridgeProofSurfaceForConformance();
   const commandProtocolCore = exists("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     ? read("crates/services/src/agentic/runtime/kernel/command_protocol.rs")
     : "";
@@ -21406,9 +21421,7 @@ function runCtee() {
   const kernelModule = exists("crates/services/src/agentic/runtime/kernel/mod.rs")
     ? read("crates/services/src/agentic/runtime/kernel/mod.rs")
     : "";
-  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    : "";
+  const bridgeModule = bridgeProofSurfaceForConformance();
   const governedAdmissionCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/governed_admission_command.rs")
     : "";
@@ -21879,9 +21892,7 @@ function runCompositor() {
   )
     ? read("crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs")
     : "";
-  const bridgeModule = exists("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    ? read("crates/node/src/bin/ioi_step_module_bridge/mod.rs")
-    : "";
+  const bridgeModule = bridgeProofSurfaceForConformance();
   const mcpMemoryCommandBridge = exists("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     ? read("crates/node/src/bin/ioi_step_module_bridge/mcp_memory_command.rs")
     : "";

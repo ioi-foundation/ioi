@@ -7108,9 +7108,10 @@ owned end to end by the Rust daemon core.
 
 Slice 1169 scopes the remaining bridge proof schema constants into the Rust
 test module. `CODING_TOOL_RESULT_SCHEMA_VERSION` and
-`MODEL_MOUNT_RUNTIME_SCHEMA_VERSION` no longer live at broad
-`ioi_step_module_bridge/mod.rs` module scope; they now live inside
-`#[cfg(test)] mod tests`, where the bridge proof assertions use them.
+`MODEL_MOUNT_RUNTIME_SCHEMA_VERSION` no longer live at broad bridge runtime
+module scope; after Slice 1171 they live in
+`ioi_step_module_bridge/proof_tests.rs`, where the bridge proof assertions use
+them.
 
 This remains non-terminal because the broad bridge module still hosts the
 temporary proof suite. The target is direct Rust daemon-core protocol APIs and
@@ -7127,6 +7128,18 @@ This remains non-terminal because the bridge proof suite still lives beside the
 temporary Node bridge endpoint. The target is direct Rust daemon-core protocol
 APIs and focused owner tests where no production bridge module imports Rust
 owner families as if they were bridge-owned runtime surface.
+
+Slice 1171 extracts the temporary Rust bridge proof suite out of production
+`ioi_step_module_bridge/mod.rs` and into
+`ioi_step_module_bridge/proof_tests.rs`. The production bridge module is now
+only `bridge_dispatch`, the temporary `run_bridge_response_from_stdin()`
+re-export, and `#[cfg(test)] mod proof_tests;`.
+
+This remains non-terminal because `proof_tests.rs` still proves the temporary
+Node bridge endpoint. The target is direct Rust daemon-core protocol APIs with
+focused owner tests in the Rust kernel/service modules, after which the bridge
+endpoint and its proof surface can be retired rather than maintained as
+canonical architecture.
 
 ## Final Doctrine
 

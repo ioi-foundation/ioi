@@ -16207,6 +16207,33 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1171
+
+Slice 1171 extracts the temporary Rust bridge proof suite out of production
+`ioi_step_module_bridge/mod.rs` and into
+`ioi_step_module_bridge/proof_tests.rs`. The production bridge module is now
+six lines: `bridge_dispatch`, the temporary
+`run_bridge_response_from_stdin()` re-export, and `#[cfg(test)] mod
+proof_tests;`.
+
+This is not terminal bridge retirement. `proof_tests.rs` is still temporary
+migration scaffolding for the Node bridge endpoint until direct Rust
+daemon-core protocol APIs and focused Rust owner tests replace the bridge path.
+The important invariant is that production bridge endpoint code no longer
+hosts the large proof suite or Rust owner-family imports.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1170
 
 Slice 1170 moves Rust service-owner and workload-client imports out of
@@ -16236,11 +16263,12 @@ Focused evidence:
 ## Implementation Slice Evidence: 1169
 
 Slice 1169 scopes the remaining bridge proof schema constants into
-`#[cfg(test)] mod tests` inside `ioi_step_module_bridge/mod.rs`.
+`#[cfg(test)] mod tests`; after Slice 1171 that test module lives in
+`ioi_step_module_bridge/proof_tests.rs`.
 `CODING_TOOL_RESULT_SCHEMA_VERSION` and `MODEL_MOUNT_RUNTIME_SCHEMA_VERSION`
-no longer live at broad bridge module scope; they remain available only to the
-temporary Rust bridge proof tests that assert coding-tool and model-mount
-response shapes.
+no longer live at broad bridge runtime module scope; they remain available
+only to the temporary Rust bridge proof tests that assert coding-tool and
+model-mount response shapes.
 
 This is not terminal bridge retirement. The Node bridge still hosts a large
 temporary proof suite until direct Rust daemon-core protocol APIs and focused
