@@ -15971,6 +15971,41 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1190
+
+Slice 1190 removes the dead StepModule command-family/catalog API left after
+coding-tool StepModule dispatch moved to the daemon-core command schema:
+
+- `crates/services/src/agentic/runtime/kernel/command_protocol.rs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`command_protocol.rs` no longer exposes `STEP_MODULE_OPERATIONS`,
+`CommandFamily`, `command_family()`, `is_step_module_operation()`, or
+`is_daemon_core_operation()`. All live temporary command operations resolve
+their schema through `CommandOperation::schema_version()` and the daemon-core
+operation catalog. The retired `ioi.step_module.command_bridge.v1` schema
+constant remains only for fail-closed negative proof that legacy StepModule
+command envelopes are rejected.
+
+This is a dead split-lane API removal, not terminal command-transport
+retirement. The unified daemon-core command protocol still crosses temporary
+Node-launched transport until direct Rust daemon-core StepModuleRouter and
+coding-tool protocol APIs own validation, dispatch, workload execution,
+receipt binding, Agentgres admission, replay, projection, and stable
+IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt` | passed |
+| `cargo test -p ioi-services command_protocol` | passed; 11 tests |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1186
 
 Slice 1186 moves the remaining model-mount accepted-receipt and

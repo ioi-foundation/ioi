@@ -7486,6 +7486,24 @@ dispatch, workload execution, receipt binding, Agentgres admission, replay,
 projection, and stable IDE/CLI/SDK surfaces no longer require command-bridge
 transport at all.
 
+Slice 1190 removes the dead StepModule command-family/catalog API left behind
+after Slice 1189. `command_protocol.rs` no longer exposes
+`STEP_MODULE_OPERATIONS`, `CommandFamily`, `command_family()`,
+`is_step_module_operation()`, or `is_daemon_core_operation()`; all live
+temporary command operations resolve their schema directly through
+`CommandOperation::schema_version()` and the daemon-core operation catalog. The
+retired `ioi.step_module.command_bridge.v1` schema constant remains only for
+negative tests that prove legacy StepModule command envelopes fail closed.
+Bridge conformance now rejects reintroducing the dead family API while still
+requiring Rust-owned typed command operation validation before dispatch.
+
+This remains non-terminal because the unified daemon-core command protocol
+still crosses temporary Node-launched transport. The target is direct Rust
+daemon-core StepModuleRouter/coding-tool protocol/API ownership where command
+validation, dispatch, workload execution, receipt binding, Agentgres admission,
+replay, projection, and stable IDE/CLI/SDK surfaces do not depend on
+command-bridge transport.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

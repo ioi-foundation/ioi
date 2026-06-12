@@ -2474,9 +2474,9 @@ function runBridge() {
       !/fn is_daemon_core_operation/.test(bridgeDispatch) &&
       /pub const STEP_MODULE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
       /pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION/.test(commandProtocolCore) &&
-      /pub const STEP_MODULE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
+      !/pub const STEP_MODULE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
       /pub const DAEMON_CORE_OPERATIONS: &\[&str\]/.test(commandProtocolCore) &&
-      /pub enum CommandFamily/.test(commandProtocolCore) &&
+      !/pub enum CommandFamily/.test(commandProtocolCore) &&
       /pub enum CommandOperation/.test(commandProtocolCore) &&
       /pub struct CommandEnvelope/.test(commandProtocolCore) &&
       /#\[derive\(Debug, Clone, Deserialize, PartialEq, Eq\)\]/.test(commandProtocolCore) &&
@@ -2485,8 +2485,9 @@ function runBridge() {
       /pub command_operation: CommandOperation/.test(commandProtocolCore) &&
       /impl CommandOperation/.test(commandProtocolCore) &&
       /pub fn as_str\(self\) -> &'static str/.test(commandProtocolCore) &&
-      /pub fn command_family\(self\) -> CommandFamily/.test(commandProtocolCore) &&
-      /pub fn command_family\(operation: &str\) -> Option<CommandFamily>/.test(commandProtocolCore) &&
+      /pub fn schema_version\(self\) -> &'static str/.test(commandProtocolCore) &&
+      !/pub fn command_family\(self\) -> CommandFamily/.test(commandProtocolCore) &&
+      !/pub fn command_family\(operation: &str\) -> Option<CommandFamily>/.test(commandProtocolCore) &&
       /pub struct ValidatedCommandEnvelope/.test(commandProtocolCore) &&
       /pub struct CommandProtocolError/.test(commandProtocolCore) &&
       /pub fn validate_command_envelope/.test(commandProtocolCore) &&
@@ -2494,12 +2495,12 @@ function runBridge() {
       /CommandProtocolError::operation_unknown/.test(commandProtocolCore) &&
       /CommandProtocolError::schema_version_invalid/.test(commandProtocolCore) &&
       /pub fn expected_command_schema_version\(operation: &str\) -> Option<&'static str>/.test(commandProtocolCore) &&
-      /command_family\(operation\)\.map\(CommandFamily::schema_version\)/.test(commandProtocolCore) &&
-      /pub fn is_step_module_operation/.test(commandProtocolCore) &&
-      /pub fn is_daemon_core_operation/.test(commandProtocolCore) &&
+      /command_operation\(operation\)\.map\(CommandOperation::schema_version\)/.test(commandProtocolCore) &&
+      !/pub fn is_step_module_operation/.test(commandProtocolCore) &&
+      !/pub fn is_daemon_core_operation/.test(commandProtocolCore) &&
       /daemon_core_operations_use_daemon_core_command_schema/.test(commandProtocolCore) &&
       /coding_tool_step_module_operation_uses_daemon_core_command_schema/.test(commandProtocolCore) &&
-      /unknown_operation_has_no_command_schema_family/.test(commandProtocolCore) &&
+      /unknown_operation_has_no_command_schema/.test(commandProtocolCore) &&
       /command_envelope_rejects_retired_schema_version_alias/.test(commandProtocolCore) &&
       /daemon_core_operation_rejects_step_module_command_schema/.test(commandProtocolCore) &&
       /daemon_core_catalog_rejects_step_module_command_schema/.test(commandProtocolCore) &&
@@ -2508,9 +2509,9 @@ function runBridge() {
       ) &&
       /command_operation\(operation\)\.expect\("daemon-core operation has typed identity"\)/.test(commandProtocolCore) &&
       /command_envelope_requires_canonical_schema_version_field/.test(commandProtocolCore) &&
-      /command_catalog_operations_have_schema_families/.test(commandProtocolCore) &&
-      /validate_command_envelope_returns_rust_owned_family/.test(commandProtocolCore) &&
-      /validate_command_envelope_rejects_schema_family_mismatch/.test(commandProtocolCore) &&
+      /command_catalog_operations_have_daemon_core_schema/.test(commandProtocolCore) &&
+      /validate_command_envelope_returns_rust_owned_operation_schema/.test(commandProtocolCore) &&
+      /validate_command_envelope_rejects_schema_mismatch/.test(commandProtocolCore) &&
       /"validate_mcp_servers"/.test(commandProtocolCore) &&
       /"plan_workflow_edit_admission_required"/.test(commandProtocolCore) &&
       !/match envelope\.operation\.as_str\(\)/.test(bridgeModule) &&
@@ -8266,7 +8267,7 @@ function runBridge() {
       /fn evaluate_context_budget_policy_response/.test(policyContextLifecycleCore) &&
       /ContextBudgetPolicyBridgeRequest/.test(policyContextLifecycleCore) &&
       /rust_policy_shapes_context_budget_command_response/.test(policyContextLifecycleCore) &&
-      /is_daemon_core_operation/.test(commandProtocolCore) &&
+      /pub fn schema_version\(self\) -> &'static str/.test(commandProtocolCore) &&
       !/is_daemon_core_operation/.test(bridgeDispatch) &&
       !/context_policy_rejects_step_module_command_schema/.test(bridgeModule) &&
       /rust_context_budget_policy_command/.test(policyContextLifecycleCore) &&

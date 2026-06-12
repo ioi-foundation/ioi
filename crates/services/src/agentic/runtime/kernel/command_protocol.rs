@@ -4,8 +4,6 @@ pub const STEP_MODULE_COMMAND_SCHEMA_VERSION: &str = "ioi.step_module.command_br
 pub const DAEMON_CORE_COMMAND_SCHEMA_VERSION: &str = "ioi.runtime.daemon_core.command.v1";
 pub const COMMAND_SCHEMA_VERSION: &str = DAEMON_CORE_COMMAND_SCHEMA_VERSION;
 
-pub const STEP_MODULE_OPERATIONS: &[&str] = &[];
-
 pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "run_coding_tool_step_module",
     "admit_storage_backend_write",
@@ -87,21 +85,6 @@ pub const DAEMON_CORE_OPERATIONS: &[&str] = &[
     "plan_agent_status_state_update",
     "plan_run_create_state_update",
 ];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommandFamily {
-    StepModule,
-    DaemonCore,
-}
-
-impl CommandFamily {
-    pub fn schema_version(self) -> &'static str {
-        match self {
-            Self::StepModule => STEP_MODULE_COMMAND_SCHEMA_VERSION,
-            Self::DaemonCore => DAEMON_CORE_COMMAND_SCHEMA_VERSION,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandOperation {
@@ -305,8 +288,8 @@ impl CommandOperation {
         }
     }
 
-    pub fn command_family(self) -> CommandFamily {
-        CommandFamily::DaemonCore
+    pub fn schema_version(self) -> &'static str {
+        DAEMON_CORE_COMMAND_SCHEMA_VERSION
     }
 }
 
@@ -314,7 +297,6 @@ impl CommandOperation {
 pub struct ValidatedCommandEnvelope<'a> {
     pub operation: &'a str,
     pub command_operation: CommandOperation,
-    pub command_family: CommandFamily,
     pub schema_version: &'static str,
 }
 
@@ -357,10 +339,6 @@ impl CommandProtocolError {
     pub fn into_parts(self) -> (&'static str, String) {
         (self.code, self.message)
     }
-}
-
-pub fn command_family(operation: &str) -> Option<CommandFamily> {
-    command_operation(operation).map(CommandOperation::command_family)
 }
 
 pub fn command_operation(operation: &str) -> Option<CommandOperation> {
@@ -563,7 +541,7 @@ pub fn command_operation(operation: &str) -> Option<CommandOperation> {
 }
 
 pub fn expected_command_schema_version(operation: &str) -> Option<&'static str> {
-    command_family(operation).map(CommandFamily::schema_version)
+    command_operation(operation).map(CommandOperation::schema_version)
 }
 
 pub fn validate_command_envelope<'a>(
@@ -572,8 +550,7 @@ pub fn validate_command_envelope<'a>(
 ) -> Result<ValidatedCommandEnvelope<'a>, CommandProtocolError> {
     let command_operation = command_operation(operation)
         .ok_or_else(|| CommandProtocolError::operation_unknown(operation))?;
-    let command_family = command_operation.command_family();
-    let expected_schema_version = command_family.schema_version();
+    let expected_schema_version = command_operation.schema_version();
     if schema_version != expected_schema_version {
         return Err(CommandProtocolError::schema_version_invalid(
             expected_schema_version,
@@ -584,7 +561,6 @@ pub fn validate_command_envelope<'a>(
     Ok(ValidatedCommandEnvelope {
         operation,
         command_operation,
-        command_family,
         schema_version: expected_schema_version,
     })
 }
@@ -595,24 +571,12 @@ pub fn validate_command_envelope_payload<'a>(
     validate_command_envelope(&envelope.operation, &envelope.schema_version)
 }
 
-pub fn is_step_module_operation(operation: &str) -> bool {
-    command_family(operation) == Some(CommandFamily::StepModule)
-}
-
-pub fn is_daemon_core_operation(operation: &str) -> bool {
-    command_family(operation) == Some(CommandFamily::DaemonCore)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn coding_tool_step_module_operation_uses_daemon_core_command_schema() {
-        assert_eq!(
-            command_family("run_coding_tool_step_module"),
-            Some(CommandFamily::DaemonCore)
-        );
         assert_eq!(
             command_operation("run_coding_tool_step_module"),
             Some(CommandOperation::RunCodingToolStepModule)
@@ -621,8 +585,6 @@ mod tests {
             expected_command_schema_version("run_coding_tool_step_module"),
             Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
         );
-        assert!(is_daemon_core_operation("run_coding_tool_step_module"));
-        assert!(!is_step_module_operation("run_coding_tool_step_module"));
     }
 
     #[test]
@@ -640,19 +602,15 @@ mod tests {
             "plan_thread_control_agent_state_update",
             "plan_operator_turn_control_admission_required",
         ] {
-            assert_eq!(command_family(operation), Some(CommandFamily::DaemonCore));
             assert_eq!(
                 expected_command_schema_version(operation),
                 Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
             );
-            assert!(is_daemon_core_operation(operation));
-            assert!(!is_step_module_operation(operation));
         }
     }
 
     #[test]
-    fn unknown_operation_has_no_command_schema_family() {
-        assert_eq!(command_family("unknown_operation"), None);
+    fn unknown_operation_has_no_command_schema() {
         assert_eq!(expected_command_schema_version("unknown_operation"), None);
         assert_eq!(
             validate_command_envelope("unknown_operation", STEP_MODULE_COMMAND_SCHEMA_VERSION)
@@ -660,8 +618,6 @@ mod tests {
                 .code(),
             "operation_unknown"
         );
-        assert!(!is_step_module_operation("unknown_operation"));
-        assert!(!is_daemon_core_operation("unknown_operation"));
     }
 
     #[test]
@@ -724,30 +680,11 @@ mod tests {
     }
 
     #[test]
-    fn command_catalog_operations_have_schema_families() {
-        for operation in STEP_MODULE_OPERATIONS {
-            let command_operation =
-                command_operation(operation).expect("step module operation has typed identity");
-            assert_eq!(command_operation.as_str(), *operation);
-            assert_eq!(command_family(operation), Some(CommandFamily::StepModule));
-            assert_eq!(
-                command_operation.command_family(),
-                CommandFamily::StepModule
-            );
-            assert_eq!(
-                expected_command_schema_version(operation),
-                Some(STEP_MODULE_COMMAND_SCHEMA_VERSION)
-            );
-        }
+    fn command_catalog_operations_have_daemon_core_schema() {
         for operation in DAEMON_CORE_OPERATIONS {
             let command_operation =
                 command_operation(operation).expect("daemon-core operation has typed identity");
             assert_eq!(command_operation.as_str(), *operation);
-            assert_eq!(command_family(operation), Some(CommandFamily::DaemonCore));
-            assert_eq!(
-                command_operation.command_family(),
-                CommandFamily::DaemonCore
-            );
             assert_eq!(
                 expected_command_schema_version(operation),
                 Some(DAEMON_CORE_COMMAND_SCHEMA_VERSION)
@@ -756,7 +693,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_command_envelope_returns_rust_owned_family() {
+    fn validate_command_envelope_returns_rust_owned_operation_schema() {
         let step_module = validate_command_envelope(
             "run_coding_tool_step_module",
             DAEMON_CORE_COMMAND_SCHEMA_VERSION,
@@ -767,7 +704,6 @@ mod tests {
             step_module.command_operation,
             CommandOperation::RunCodingToolStepModule
         );
-        assert_eq!(step_module.command_family, CommandFamily::DaemonCore);
         assert_eq!(
             step_module.schema_version,
             DAEMON_CORE_COMMAND_SCHEMA_VERSION
@@ -783,7 +719,6 @@ mod tests {
             daemon_core.command_operation,
             CommandOperation::AdmitModelMountRouteDecision
         );
-        assert_eq!(daemon_core.command_family, CommandFamily::DaemonCore);
         assert_eq!(
             daemon_core.schema_version,
             DAEMON_CORE_COMMAND_SCHEMA_VERSION
@@ -817,7 +752,7 @@ mod tests {
     }
 
     #[test]
-    fn validate_command_envelope_rejects_schema_family_mismatch() {
+    fn validate_command_envelope_rejects_schema_mismatch() {
         let error = validate_command_envelope(
             "admit_model_mount_route_decision",
             STEP_MODULE_COMMAND_SCHEMA_VERSION,
