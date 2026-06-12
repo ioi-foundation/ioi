@@ -7205,6 +7205,24 @@ authority/approval protocol/API ownership where approval admission, event
 materialization, state updates, and conformance no longer depend on Node bridge
 endpoint proof scaffolding.
 
+Slice 1176 moves the governed authority/admission/receipt command-response
+proof cluster out of the temporary bridge proof surface and relies on the Rust
+owners at `crates/services/src/agentic/runtime/kernel/authority.rs`,
+`crates/services/src/agentic/runtime/kernel/governed_admission.rs`, and
+`crates/services/src/agentic/runtime/kernel/governed_receipt.rs`. External
+capability authority, wallet.network negative authority, cTEE private workspace
+receipt admission, worker/service package invocation receipt admission, L1
+settlement admission, and governed meta-improvement proposal admission now run
+as Rust owner tests. Bridge conformance now requires those owner tests and
+proves the old bridge-named tests, request-type imports, and response-function
+aliases stay absent from `ioi_step_module_bridge/proof_tests.rs`.
+
+This remains non-terminal because these operations still cross temporary command
+transport. The target is direct Rust daemon-core governed authority/admission
+protocol/API ownership where wallet authority, cTEE custody, settlement
+triggering, receipt binding, Agentgres admission, projection, replay, and
+conformance no longer depend on Node bridge endpoint proof scaffolding.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

@@ -16207,6 +16207,43 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1176
+
+Slice 1176 moves governed authority/admission/receipt command-response proof
+coverage out of the temporary bridge proof surface and into the Rust owner
+modules. The owner tests in
+`crates/services/src/agentic/runtime/kernel/authority.rs`,
+`crates/services/src/agentic/runtime/kernel/governed_admission.rs`, and
+`crates/services/src/agentic/runtime/kernel/governed_receipt.rs` now prove
+external capability authority plus wallet.network failure, L1 settlement
+admission, governed meta-improvement admission, cTEE private workspace receipt
+admission, and worker/service package invocation receipt admission. The
+temporary `ioi_step_module_bridge/proof_tests.rs` no longer imports those
+request types or carries the old bridge-named governed/authority tests.
+
+This is not terminal command transport retirement. The temporary command
+transport still exists, but proof ownership moved to Rust authority,
+governed-admission, and governed-receipt modules so the bridge proof surface
+keeps shrinking toward removal.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `cargo fmt --check` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::authority::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::governed_admission::tests` | passed |
+| `cargo test -p ioi-services agentic::runtime::kernel::governed_receipt::tests` | passed |
+| `cargo test -p ioi-node --bin ioi-step-module-bridge` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:receipts` | passed |
+| `npm run hypervisor-conformance:negative` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1175
 
 Slice 1175 moves approval command-response proof coverage out of the temporary
