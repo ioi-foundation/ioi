@@ -60,6 +60,15 @@ test("retired StepModule command args env fails closed", () => {
   );
 });
 
+test("retired StepModule command env fails closed", () => {
+  assert.throws(
+    () => createStepModuleRunnerFromEnv({ IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge" }),
+    (error) =>
+      error instanceof StepModuleRunnerError &&
+      error.code === "step_module_command_env_retired",
+  );
+});
+
 test("retired StepModule command args constructor option fails closed", () => {
   assert.throws(
     () => new RustWorkloadStepModuleRunner({ args: ["--legacy-flag", "value"] }),
@@ -67,6 +76,40 @@ test("retired StepModule command args constructor option fails closed", () => {
       error instanceof StepModuleRunnerError &&
       error.code === "step_module_command_args_retired",
   );
+});
+
+test("StepModule runner reads unified daemon-core command env", () => {
+  const calls = [];
+  const runner = createStepModuleRunnerFromEnv(
+    { IOI_RUNTIME_DAEMON_CORE_COMMAND: "mock-daemon-core-command" },
+    {
+      spawnSyncImpl(command, args, options) {
+        calls.push({ command, args, request: JSON.parse(options.input) });
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            ok: true,
+            result: {
+              source: "rust_daemon_core_command",
+              result: null,
+            },
+          }),
+          stderr: "",
+        };
+      },
+    },
+  );
+  runner.runCodingTool({
+    contract: workspaceStatusContract,
+    toolId: "workspace.status",
+    input: {},
+    result: {},
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].command, "mock-daemon-core-command");
+  assert.deepEqual(calls[0].args, []);
+  assert.equal(calls[0].request.operation, "run_coding_tool_step_module");
 });
 
 test("rust workload live runner produces workload invocation with mock bridge result", () => {

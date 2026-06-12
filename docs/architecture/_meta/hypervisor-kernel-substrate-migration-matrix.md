@@ -15902,6 +15902,39 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1188
+
+Slice 1188 retires the StepModule-specific command env from the
+runtime-daemon StepModule runner:
+
+- `packages/runtime-daemon/src/step-module-runner.mjs`
+- `packages/runtime-daemon/src/step-module-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+`createStepModuleRunnerFromEnv()` no longer reads `IOI_STEP_MODULE_COMMAND`.
+It reads the unified `IOI_RUNTIME_DAEMON_CORE_COMMAND` migration transport
+used by daemon-core admission/control surfaces, and any non-empty
+`IOI_STEP_MODULE_COMMAND` fails closed with
+`step_module_command_env_retired`. Focused tests prove both the retired env
+refusal and the unified daemon-core command env path with empty argv.
+
+This is a command-path unification cut, not terminal command-transport
+retirement. `IOI_RUNTIME_DAEMON_CORE_COMMAND` still represents temporary
+transport until direct Rust daemon-core StepModuleRouter/coding-tool protocol
+APIs own validation, dispatch, workload execution, receipt binding, Agentgres
+admission, replay, projection, and stable IDE/CLI/SDK surfaces end to end.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs packages/runtime-daemon/src/step-module-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.test.mjs` | passed; 27 tests |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1186
 
 Slice 1186 moves the remaining model-mount accepted-receipt and

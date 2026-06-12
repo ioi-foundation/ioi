@@ -5,15 +5,16 @@ import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-ru
 
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
-export const STEP_MODULE_COMMAND_ENV = "IOI_STEP_MODULE_COMMAND";
+export const DAEMON_CORE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 
 const COMMAND_SCHEMA_VERSION = "ioi.step_module.command_bridge.v1";
 
 export function createStepModuleRunnerFromEnv(env = process.env, options = {}) {
   assertNoStepModuleBackendSelection(options.backend ?? env.IOI_STEP_MODULE_BACKEND);
   assertNoStepModuleCommandArgs(options.args ?? env.IOI_STEP_MODULE_COMMAND_ARGS);
+  assertNoStepModuleCommandSelection(env.IOI_STEP_MODULE_COMMAND);
   return new RustWorkloadStepModuleRunner({
-    command: options.command ?? env[STEP_MODULE_COMMAND_ENV] ?? null,
+    command: options.command ?? env[DAEMON_CORE_COMMAND_ENV] ?? null,
     grpcAddr: options.grpcAddr ?? env[WORKLOAD_GRPC_ADDR_ENV] ?? null,
     shmemId: options.shmemId ?? env[WORKLOAD_SHMEM_ID_ENV] ?? null,
     spawnSyncImpl: options.spawnSyncImpl,
@@ -38,6 +39,15 @@ export function assertNoStepModuleCommandArgs(value) {
     "StepModule command argument selection is retired; command-bridge argv is fixed migration transport.",
     "step_module_command_args_retired",
     { retired_args: value },
+  );
+}
+
+export function assertNoStepModuleCommandSelection(value) {
+  if (typeof value !== "string" || value.trim().length === 0) return;
+  throw new StepModuleRunnerError(
+    "IOI_STEP_MODULE_COMMAND is retired; StepModule execution uses IOI_RUNTIME_DAEMON_CORE_COMMAND until direct Rust daemon-core APIs replace command transport.",
+    "step_module_command_env_retired",
+    { retired_env: "IOI_STEP_MODULE_COMMAND", env: DAEMON_CORE_COMMAND_ENV },
   );
 }
 
@@ -73,9 +83,9 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
       mockSource: "rust_workload_mock",
       defaultBackend: this.backend,
       ErrorClass: StepModuleRunnerError,
-      env: STEP_MODULE_COMMAND_ENV,
+      env: DAEMON_CORE_COMMAND_ENV,
       unconfiguredMessage:
-        "Rust workload StepModule runner requires IOI_STEP_MODULE_COMMAND for command-bridge execution.",
+        "Rust workload StepModule runner requires IOI_RUNTIME_DAEMON_CORE_COMMAND for daemon-core command transport.",
       unconfiguredCode: "rust_workload_bridge_unconfigured",
       spawnFailedMessage: "Failed to spawn Rust workload StepModule bridge command.",
       spawnFailedCode: "rust_workload_bridge_spawn_failed",

@@ -7450,6 +7450,23 @@ protocol/API ownership where command-envelope validation, dispatch, workload
 execution, receipt binding, Agentgres admission, replay, projection, and stable
 IDE/CLI/SDK surfaces no longer require a Node bridge binary at all.
 
+Slice 1188 retires the StepModule-specific command path at the JS runner edge.
+`createStepModuleRunnerFromEnv()` no longer reads `IOI_STEP_MODULE_COMMAND`;
+it reads the unified `IOI_RUNTIME_DAEMON_CORE_COMMAND` migration transport used
+by the other daemon-core admission/control surfaces. Any non-empty
+`IOI_STEP_MODULE_COMMAND` now fails closed with
+`step_module_command_env_retired`, and the focused StepModule runner tests prove
+the unified daemon-core command env is the only live command source for
+runtime-daemon StepModule execution. Bridge conformance now requires the
+retired-env guard and the unified daemon-core command env fixture.
+
+This remains non-terminal because `IOI_RUNTIME_DAEMON_CORE_COMMAND` is still
+temporary command transport. The target is direct Rust daemon-core
+StepModuleRouter/coding-tool protocol/API ownership where command-envelope
+validation, dispatch, workload execution, receipt binding, Agentgres admission,
+replay, projection, and stable IDE/CLI/SDK surfaces no longer require any
+Node-launched command bridge.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

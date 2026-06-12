@@ -3732,6 +3732,7 @@ function runBridge() {
       /RustWorkloadStepModuleRunner/.test(stepModuleRunner) &&
       /assertNoStepModuleBackendSelection/.test(stepModuleRunner) &&
       /assertNoStepModuleCommandArgs/.test(stepModuleRunner) &&
+      /assertNoStepModuleCommandSelection/.test(stepModuleRunner) &&
       /createStepModuleInvocationForCodingTool/.test(stepModuleRunner) &&
       !/createCodingToolStepModuleProjection/.test(stepModuleRunner) &&
       /result:\s*bridgeResult\.result\s*\?\?\s*null/.test(stepModuleRunner) &&
@@ -3739,6 +3740,8 @@ function runBridge() {
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /IOI_WORKLOAD_GRPC_ADDR/.test(stepModuleRunner) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND/.test(stepModuleRunner) &&
+      !/STEP_MODULE_COMMAND_ENV/.test(stepModuleRunner) &&
       !/STEP_MODULE_BACKEND_ENV/.test(stepModuleRunner) &&
       !/STEP_MODULE_COMMAND_ARGS_ENV/.test(stepModuleRunner) &&
       !/normalizeStepModuleBackend/.test(stepModuleRunner) &&
@@ -3748,6 +3751,7 @@ function runBridge() {
       /options\.backend \?\? env\.IOI_STEP_MODULE_BACKEND/.test(stepModuleRunner) &&
       /step_module_backend_selection_retired/.test(stepModuleRunner) &&
       /step_module_command_args_retired/.test(stepModuleRunner) &&
+      /step_module_command_env_retired/.test(stepModuleRunner) &&
       !/DaemonJsStepModuleRunner/.test(stepModuleRunner) &&
       !/"daemon_js",/.test(stepModuleRunner) &&
       !/"rust_workload_shadow",/.test(stepModuleRunner) &&
@@ -3781,6 +3785,15 @@ function runBridge() {
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /retired StepModule command args env fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /retired StepModule command env fails closed/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /StepModule runner reads unified daemon-core command env/.test(
+        read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
+      ) &&
+      /IOI_RUNTIME_DAEMON_CORE_COMMAND: "mock-daemon-core-command"/.test(
         read("packages/runtime-daemon/src/step-module-runner.test.mjs"),
       ) &&
       /retired StepModule command args constructor option fails closed/.test(
