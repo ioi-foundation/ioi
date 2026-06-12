@@ -2874,7 +2874,8 @@ function runBridge() {
   const stepModuleRunner = exists("packages/runtime-daemon/src/step-module-runner.mjs")
     ? read("packages/runtime-daemon/src/step-module-runner.mjs")
     : "";
-  const stepModuleCommandRunner = exists("packages/runtime-daemon/src/step-module-command-runner.mjs")
+  const stepModuleCommandRunnerExists = exists("packages/runtime-daemon/src/step-module-command-runner.mjs");
+  const stepModuleCommandRunner = stepModuleCommandRunnerExists
     ? read("packages/runtime-daemon/src/step-module-command-runner.mjs")
     : "";
   const runtimeCodingToolInvocationSurface = exists("packages/runtime-daemon/src/runtime-coding-tool-invocation-surface.mjs")
@@ -3708,12 +3709,15 @@ function runBridge() {
       !/"rust_workload_gated",/.test(stepModuleRunner) &&
       /mode:\s*"live"/.test(stepModuleRunner) &&
       !/this\.backend\.replace\("rust_workload_"/.test(stepModuleRunner) &&
-      /createStepModuleCommandInvoker/.test(stepModuleRunner) &&
+      /createDaemonCoreCommandInvoker/.test(stepModuleRunner) &&
+      /from "\.\/runtime-daemon-core-command-runner\.mjs"/.test(stepModuleRunner) &&
       !/from "node:child_process"/.test(stepModuleRunner) &&
       !/spawnSyncImpl\(/.test(stepModuleRunner) &&
-      /createStepModuleCommandInvoker/.test(stepModuleCommandRunner) &&
-      /from "node:child_process"/.test(stepModuleCommandRunner) &&
-      /spawnSyncImpl\(commandPath,\s*\[\]/.test(stepModuleCommandRunner) &&
+      !stepModuleCommandRunnerExists &&
+      !/createStepModuleCommandInvoker/.test(stepModuleCommandRunner) &&
+      /createDaemonCoreCommandInvoker/.test(daemonCoreCommandRunner) &&
+      /from "node:child_process"/.test(daemonCoreCommandRunner) &&
+      /spawnSyncImpl\(commandPath,\s*\[\]/.test(daemonCoreCommandRunner) &&
       /workspace_root:\s*context\.workspace_root \?\? null/.test(stepModuleRunner) &&
       !/context\.workspaceRoot/.test(stepModuleRunner) &&
       /workspaceRoot: "\/tmp\/retired-workspace"/.test(

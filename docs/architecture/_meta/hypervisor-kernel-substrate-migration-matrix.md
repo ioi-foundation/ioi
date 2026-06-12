@@ -15697,6 +15697,37 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1142
+
+Slice 1142 retires the dedicated StepModule JS command-wrapper file:
+`packages/runtime-daemon/src/step-module-command-runner.mjs`. The
+`RustWorkloadStepModuleRunner` remains `rust_workload_live` by construction,
+still rejects retired backend/argv selectors, and now invokes the shared
+`runtime-daemon-core-command-runner.mjs` fixed empty-argv command transport
+with StepModule-specific messages and error codes. This collapses the duplicate
+StepModule child-process wrapper while Rust `command_protocol.rs`,
+`command_dispatch.rs`, `coding_tool_step_module.rs`, `receipt_binder.rs`, and
+`agentgres_admission.rs` remain the owners for schema validation, operation
+dispatch, StepModule admission, receipt/state-root binding, and Agentgres
+admission.
+
+This is migration progress only. The Node bridge binary, shared JS daemon-core
+command runner/caller path, runtime coding-tool facades, and broad stdin/JSON
+bridge transport remain temporary scaffolding until direct Rust daemon-core and
+Rust/WASM workload APIs replace command transport. The retired
+`step-module-command-runner.mjs` wrapper must not be recreated or treated as
+canonical architecture.
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/step-module-runner.mjs` | passed |
+| `node --test packages/runtime-daemon/src/step-module-runner.test.mjs` | passed |
+| `node --check scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1141
 
 Slice 1141 retires the final coding-tool bridge helper module that had become
@@ -15709,12 +15740,12 @@ Rust `command_dispatch.rs`:
 `ioi_step_module_bridge/mod.rs` now imports the Rust workspace inspect/test/git
 and LSP helper functions directly for the remaining broad bridge proof surface.
 
-This is migration progress only. The Node bridge binary, shared JS command
+This was migration progress only. The Node bridge binary, shared JS command
 runner/caller path, StepModule command runner, runtime coding-tool facades, and
-broad stdin/JSON bridge transport remain temporary scaffolding until direct
-Rust daemon-core and Rust/WASM workload APIs replace command transport. The
-retired coding-tool helper must not be recreated or treated as canonical
-architecture.
+broad stdin/JSON bridge transport remained temporary scaffolding until direct
+Rust daemon-core and Rust/WASM workload APIs replace command transport. Slice
+1142 later retires the dedicated StepModule command runner wrapper. The retired
+coding-tool helper must not be recreated or treated as canonical architecture.
 
 | Check | Result |
 | --- | --- |
@@ -18875,7 +18906,9 @@ bridge remain temporary migration transport until direct Rust daemon-core and
 Rust/WASM workload APIs own StepModuleRouter dispatch, workload execution,
 Agentgres admission, receipt/state-root binding, replay, projection,
 wallet.network authority, cTEE custody, and stable IDE/CLI/SDK protocol
-surfaces end to end.
+surfaces end to end. Slice 1142 later retires the dedicated StepModule command
+helper and collapses the remaining StepModule command transport onto the shared
+temporary daemon-core command invoker.
 
 Focused evidence:
 

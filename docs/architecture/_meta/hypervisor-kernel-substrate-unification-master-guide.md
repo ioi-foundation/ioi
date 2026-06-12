@@ -5236,7 +5236,9 @@ replacing the StepModule command helper, the shared daemon-core command helper,
 and the Node bridge with direct Rust daemon-core/workload protocol APIs,
 Rust/WASM module execution, Agentgres admission, receipt/state-root binding,
 replay, projection, wallet.network authority, cTEE custody, and stable
-IDE/CLI/SDK protocol surfaces.
+IDE/CLI/SDK protocol surfaces. Slice 1142 later retires the dedicated
+StepModule command helper and collapses the remaining StepModule command
+transport onto the shared temporary daemon-core command invoker.
 
 Slice 1063 moved bridge command-envelope schema ownership out of the temporary
 stdin dispatch transport and into the temporary bridge-envelope adapter at
@@ -6644,12 +6646,28 @@ Rust `command_dispatch.rs`. The broad bridge proof surface now imports the
 Rust workspace inspect/test/git/LSP helpers directly for proof tests instead
 of routing through a sibling helper module.
 
-This remains non-terminal because the Node bridge binary, JS StepModule
-command runner, JS daemon-core command runner, JS command callers, runtime
-coding-tool facades, and broad bridge stdin/JSON transport still exist as
-migration scaffolding. The deleted coding-tool helper must not be recreated or
-treated as canonical. The next larger cuts should replace the broad bridge
-transport and JS command-runner/caller path with direct Rust daemon-core and
+This was non-terminal because the Node bridge binary, JS StepModule command
+runner, JS daemon-core command runner, JS command callers, runtime coding-tool
+facades, and broad bridge stdin/JSON transport still existed as migration
+scaffolding. Slice 1142 later retires the dedicated StepModule command runner
+wrapper. The deleted coding-tool helper must not be recreated or treated as
+canonical.
+
+Slice 1142 retires `packages/runtime-daemon/src/step-module-command-runner.mjs`
+as a second JS command-wrapper shape. The StepModule runner remains
+`rust_workload_live` by construction and now calls the shared
+`runtime-daemon-core-command-runner.mjs` invoker with StepModule-specific
+schema/error metadata instead of owning a distinct child-process wrapper. This
+collapses duplicate JS command plumbing while preserving fixed empty-argv
+migration transport until the direct Rust daemon-core and Rust/WASM workload
+protocol/API seam is ready.
+
+This remains non-terminal because the Node bridge binary, shared JS daemon-core
+command runner, JS command callers, runtime coding-tool facades, and broad
+bridge stdin/JSON transport still exist as migration scaffolding. The deleted
+StepModule command runner wrapper must not be recreated or treated as
+canonical. The next larger cuts should replace the remaining shared command
+runner/caller path and broad bridge transport with direct Rust daemon-core and
 Rust/WASM workload protocol APIs once that seam is clear enough to remove
 without preserving compatibility behavior.
 

@@ -1,7 +1,7 @@
 import {
   createCodingToolStepModuleProjection,
 } from "./step-module-abi.mjs";
-import { createStepModuleCommandInvoker } from "./step-module-command-runner.mjs";
+import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
 
 export const WORKLOAD_GRPC_ADDR_ENV = "IOI_WORKLOAD_GRPC_ADDR";
 export const WORKLOAD_SHMEM_ID_ENV = "IOI_SHMEM_ID";
@@ -66,15 +66,25 @@ export class RustWorkloadStepModuleRunner extends StepModuleRunner {
     super();
     this.grpcAddr = optionalString(options.grpcAddr);
     this.shmemId = optionalString(options.shmemId);
-    this.invokeCommand = createStepModuleCommandInvoker({
+    this.invokeCommand = createDaemonCoreCommandInvoker({
       command: options.command,
       spawnSyncImpl: options.spawnSyncImpl,
       mockResult: options.mockResult,
+      mockSource: "rust_workload_mock",
+      defaultBackend: this.backend,
       ErrorClass: StepModuleRunnerError,
-      backend: this.backend,
       env: STEP_MODULE_COMMAND_ENV,
-      workloadGrpcAddrEnv: WORKLOAD_GRPC_ADDR_ENV,
-      shmemIdEnv: WORKLOAD_SHMEM_ID_ENV,
+      unconfiguredMessage:
+        "Rust workload StepModule runner requires IOI_STEP_MODULE_COMMAND for command-bridge execution.",
+      unconfiguredCode: "rust_workload_bridge_unconfigured",
+      spawnFailedMessage: "Failed to spawn Rust workload StepModule bridge command.",
+      spawnFailedCode: "rust_workload_bridge_spawn_failed",
+      commandFailedMessage: "Rust workload StepModule bridge command failed.",
+      commandFailedCode: "rust_workload_bridge_failed",
+      invalidJsonMessage: "Rust workload StepModule bridge command returned invalid JSON.",
+      invalidJsonCode: "rust_workload_bridge_invalid_json",
+      rejectedMessage: "Rust workload StepModule bridge rejected the invocation.",
+      rejectedCode: "rust_workload_bridge_rejected",
     });
   }
 
