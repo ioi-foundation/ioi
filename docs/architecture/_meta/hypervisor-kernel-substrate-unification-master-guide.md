@@ -7639,6 +7639,26 @@ temporary command transport. Resume by cutting the remaining admission and
 receipt-bearing runners the same way, then deleting the shared JS command
 invoker once no live surface depends on it.
 
+Slice 1199 retires the temporary binary-spawn fallback for the daemon cTEE
+Private Workspace runner. `runtime-ctee-private-workspace-runner.mjs` no longer
+imports the shared JS daemon-core command invoker, no longer exposes or reads a
+live `CTEE_PRIVATE_WORKSPACE_COMMAND_ENV`, and no longer accepts constructor
+command selection or spawn hooks. Private Workspace cTEE execution now requires
+the daemon-level `daemonCoreInvoker` direct Rust-core seam and fails closed
+when it is absent. `IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_CTEE_PRIVATE_WORKSPACE_COMMAND` values are treated only as forbidden
+command selection input for this surface, not as fallback transport.
+
+This is the first cTEE custody surface with binary-spawn fallback retired at
+the daemon runner. Receipt-bearing cTEE execution, custody proof refs,
+receipt binding, accepted receipt append, Agentgres admission, projection
+records, receipt refs, and evidence refs must arrive from Rust daemon-core
+output or remain absent at the JS edge. It is still not terminal because the JS
+product surface remains a request extractor and other command runners still
+carry temporary command transport. Resume by cutting the next receipt-bearing
+runner, then delete the shared JS command invoker once every live surface has a
+direct Rust daemon-core API.
+
 ## Final Doctrine
 
 Hypervisor is the product/control layer for private autonomous work. The

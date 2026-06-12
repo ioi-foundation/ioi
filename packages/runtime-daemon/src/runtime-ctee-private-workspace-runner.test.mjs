@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
   CteePrivateWorkspaceRunnerError,
   RustCteePrivateWorkspaceRunner,
   createCteePrivateWorkspaceRunnerFromEnv,
@@ -66,73 +65,68 @@ function cteeRequest() {
   };
 }
 
-test("cTEE private workspace runner sends execution bridge request", () => {
+function admittedResult(bridgeRequest) {
+  return {
+    schema_version: "ioi.runtime.ctee_private_workspace_admission.v1",
+    object: "ioi.runtime_ctee_private_workspace_admission",
+    status: "admitted",
+    action_executed: true,
+    source: "direct_daemon_core_api",
+    backend: "ctee_operator",
+    thread_id: bridgeRequest.thread_id,
+    agent_id: bridgeRequest.agent_id,
+    invocation_id: bridgeRequest.invocation.invocation_id,
+    receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
+    record: {
+      receipt: {
+        receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
+        custody_proof_ref: "artifact://custody-proof",
+      },
+      result: {
+        status: "success",
+        receipt_refs: ["receipt://ctee/private-workspace/daemon-runner"],
+      },
+      receipt_binding: {
+        binding_hash: "sha256:ctee-binding",
+      },
+      agentgres_admission: {
+        operation_ref: "agentgres://ctee/private-workspace/operations/daemon-runner",
+      },
+      projection: {
+        evidence_refs: ["receipt://ctee/private-workspace/daemon-runner"],
+      },
+    },
+    receipt: {
+      receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
+      custody_proof_ref: "artifact://custody-proof",
+    },
+    result: {
+      status: "success",
+      receipt_refs: ["receipt://ctee/private-workspace/daemon-runner"],
+    },
+    receipt_binding: {
+      binding_hash: "sha256:ctee-binding",
+    },
+    accepted_receipt_append: {
+      issuer: "rust_receipt_core",
+    },
+    agentgres_admission: {
+      operation_ref: "agentgres://ctee/private-workspace/operations/daemon-runner",
+    },
+    projection_record: {
+      evidence_refs: ["receipt://ctee/private-workspace/daemon-runner"],
+    },
+    receipt_refs: ["receipt://ctee/private-workspace/daemon-runner"],
+    evidence_refs: ["receipt://ctee/private-workspace/daemon-runner"],
+  };
+}
+
+test("cTEE private workspace runner sends execution request through direct daemon-core invoker", () => {
   const calls = [];
   const runner = new RustCteePrivateWorkspaceRunner({
-    command: "mock-ctee-bridge",
-    spawnSyncImpl(command, args, options) {
-      const bridgeRequest = JSON.parse(options.input);
-      calls.push({ command, args, bridgeRequest });
-      return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            schema_version: "ioi.runtime.ctee_private_workspace_admission.v1",
-            object: "ioi.runtime_ctee_private_workspace_admission",
-            status: "admitted",
-            action_executed: true,
-            source: "rust_ctee_private_workspace_command",
-            backend: "ctee_operator",
-            thread_id: bridgeRequest.thread_id,
-            agent_id: bridgeRequest.agent_id,
-            invocation_id: bridgeRequest.invocation.invocation_id,
-            receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
-            record: {
-              receipt: {
-                receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
-                custody_proof_ref: "artifact://custody-proof",
-              },
-              result: {
-                status: "success",
-                receipt_refs: ["receipt://ctee/private-workspace/daemon-runner"],
-              },
-              receipt_binding: {
-                binding_hash: "sha256:ctee-binding",
-              },
-              agentgres_admission: {
-                operation_ref: "agentgres://ctee/private-workspace/operations/daemon-runner",
-              },
-              projection: {
-                evidence_refs: ["receipt://ctee/private-workspace/daemon-runner"],
-              },
-            },
-            receipt: {
-              receipt_ref: "receipt://ctee/private-workspace/daemon-runner",
-              custody_proof_ref: "artifact://custody-proof",
-            },
-            result: {
-              status: "success",
-              receipt_refs: ["receipt://ctee/private-workspace/daemon-runner"],
-            },
-            receipt_binding: {
-              binding_hash: "sha256:ctee-binding",
-            },
-            accepted_receipt_append: {
-              issuer: "rust_receipt_core",
-            },
-            agentgres_admission: {
-              operation_ref: "agentgres://ctee/private-workspace/operations/daemon-runner",
-            },
-            projection_record: {
-              evidence_refs: ["receipt://ctee/private-workspace/daemon-runner"],
-            },
-            receipt_refs: ["receipt://ctee/private-workspace/daemon-runner"],
-            evidence_refs: ["receipt://ctee/private-workspace/daemon-runner"],
-          },
-        }),
-        stderr: "",
-      };
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
+      return admittedResult(bridgeRequest);
     },
   });
 
@@ -141,15 +135,13 @@ test("cTEE private workspace runner sends execution bridge request", () => {
     agent_id: "agent:ctee-runner",
   });
 
-  assert.equal(calls[0].command, "mock-ctee-bridge");
-  assert.deepEqual(calls[0].args, []);
-  assert.equal(calls[0].bridgeRequest.operation, "execute_private_workspace_ctee_action");
-  assert.equal(calls[0].bridgeRequest.backend, "ctee_operator");
-  assert.equal(calls[0].bridgeRequest.thread_id, "thread:ctee-runner");
-  assert.equal(calls[0].bridgeRequest.agent_id, "agent:ctee-runner");
-  assert.equal(calls[0].bridgeRequest.invocation.invocation_id, "invocation://ctee/daemon-runner");
-  assert.equal(calls[0].bridgeRequest.node_trust.trusted_for_plaintext, false);
-  assert.equal(Object.hasOwn(calls[0].bridgeRequest, "expected_heads"), false);
+  assert.equal(calls[0].operation, "execute_private_workspace_ctee_action");
+  assert.equal(calls[0].backend, "ctee_operator");
+  assert.equal(calls[0].thread_id, "thread:ctee-runner");
+  assert.equal(calls[0].agent_id, "agent:ctee-runner");
+  assert.equal(calls[0].invocation.invocation_id, "invocation://ctee/daemon-runner");
+  assert.equal(calls[0].node_trust.trusted_for_plaintext, false);
+  assert.equal(Object.hasOwn(calls[0], "expected_heads"), false);
   assert.equal(result.schema_version, "ioi.runtime.ctee_private_workspace_admission.v1");
   assert.equal(result.object, "ioi.runtime_ctee_private_workspace_admission");
   assert.equal(result.status, "admitted");
@@ -158,7 +150,7 @@ test("cTEE private workspace runner sends execution bridge request", () => {
   assert.equal(result.agent_id, "agent:ctee-runner");
   assert.equal(result.invocation_id, "invocation://ctee/daemon-runner");
   assert.equal(result.receipt_ref, "receipt://ctee/private-workspace/daemon-runner");
-  assert.equal(result.source, "rust_ctee_private_workspace_command");
+  assert.equal(result.source, "direct_daemon_core_api");
   assert.equal(result.receipt.custody_proof_ref, "artifact://custody-proof");
   assert.equal(result.receipt_binding.binding_hash, "sha256:ctee-binding");
   assert.equal(result.accepted_receipt_append.issuer, "rust_receipt_core");
@@ -167,20 +159,12 @@ test("cTEE private workspace runner sends execution bridge request", () => {
 
 test("cTEE private workspace runner does not synthesize Rust-owned receipt or evidence refs", () => {
   const runner = new RustCteePrivateWorkspaceRunner({
-    command: "mock-ctee-bridge",
-    spawnSyncImpl() {
+    daemonCoreInvoker() {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: true,
-          result: {
-            record: {
-              result: {},
-              projection: {},
-            },
-          },
-        }),
-        stderr: "",
+        record: {
+          result: {},
+          projection: {},
+        },
       };
     },
   });
@@ -191,28 +175,71 @@ test("cTEE private workspace runner does not synthesize Rust-owned receipt or ev
   assert.equal(result.evidence_refs, null);
 });
 
-test("cTEE private workspace runner env uses daemon-core command boundary", () => {
+test("cTEE private workspace runner env uses daemon-level direct invoker", () => {
+  const calls = [];
   const runner = createCteePrivateWorkspaceRunnerFromEnv({
-    [CTEE_PRIVATE_WORKSPACE_COMMAND_ENV]: "ioi-runtime-daemon-core",
-    IOI_CTEE_PRIVATE_WORKSPACE_COMMAND: "retired-ctee-bridge",
     IOI_CTEE_PRIVATE_WORKSPACE_COMMAND_ARGS: "--retired-ctee",
     IOI_STEP_MODULE_COMMAND: "retired-step-module-bridge",
     IOI_STEP_MODULE_COMMAND_ARGS: "--retired-step",
+  }, {
+    daemonCoreInvoker(bridgeRequest) {
+      calls.push(bridgeRequest);
+      return admittedResult(bridgeRequest);
+    },
   });
 
-  assert.equal(runner.command, "ioi-runtime-daemon-core");
+  const result = runner.executeAction(cteeRequest());
+
+  assert.equal(calls[0].operation, "execute_private_workspace_ctee_action");
+  assert.equal(result.source, "direct_daemon_core_api");
+});
+
+test("cTEE private workspace runner rejects retired binary command env", () => {
+  assert.throws(
+    () =>
+      createCteePrivateWorkspaceRunnerFromEnv({
+        IOI_RUNTIME_DAEMON_CORE_COMMAND: "ioi-runtime-daemon-core",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof CteePrivateWorkspaceRunnerError &&
+      error.code === "ctee_private_workspace_command_selection_retired",
+  );
+});
+
+test("cTEE private workspace runner rejects retired cTEE command env", () => {
+  assert.throws(
+    () =>
+      createCteePrivateWorkspaceRunnerFromEnv({
+        IOI_CTEE_PRIVATE_WORKSPACE_COMMAND: "retired-ctee-bridge",
+      }, {
+        daemonCoreInvoker() {},
+      }),
+    (error) =>
+      error instanceof CteePrivateWorkspaceRunnerError &&
+      error.code === "ctee_private_workspace_command_selection_retired",
+  );
 });
 
 test("cTEE private workspace runner command args env fails closed", () => {
   assert.throws(
     () =>
       createCteePrivateWorkspaceRunnerFromEnv({
-        [CTEE_PRIVATE_WORKSPACE_COMMAND_ENV]: "ioi-runtime-daemon-core",
         IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS: "--ctee",
       }),
     (error) =>
       error instanceof CteePrivateWorkspaceRunnerError &&
       error.code === "ctee_private_workspace_command_args_retired",
+  );
+});
+
+test("cTEE private workspace runner command constructor option fails closed", () => {
+  assert.throws(
+    () => new RustCteePrivateWorkspaceRunner({ command: "ioi-runtime-daemon-core" }),
+    (error) =>
+      error instanceof CteePrivateWorkspaceRunnerError &&
+      error.code === "ctee_private_workspace_command_selection_retired",
   );
 });
 
@@ -228,10 +255,9 @@ test("cTEE private workspace runner command args constructor option fails closed
 test("cTEE private workspace runner rejects retired bridge request aliases before command invocation", () => {
   const calls = [];
   const runner = new RustCteePrivateWorkspaceRunner({
-    command: "mock-ctee-bridge",
-    spawnSyncImpl() {
-      calls.push("spawned");
-      return { status: 0, stdout: "{}", stderr: "" };
+    daemonCoreInvoker() {
+      calls.push("invoked");
+      return {};
     },
   });
   const request = cteeRequest();
@@ -256,29 +282,24 @@ test("cTEE private workspace runner rejects retired bridge request aliases befor
   assert.deepEqual(calls, []);
 });
 
-test("cTEE private workspace runner fails closed without command", () => {
+test("cTEE private workspace runner fails closed without direct invoker", () => {
   const runner = createCteePrivateWorkspaceRunnerFromEnv({});
 
   assert.throws(
     () => runner.executeAction(cteeRequest()),
-    (error) => error.code === "ctee_private_workspace_bridge_unconfigured",
+    (error) => error.code === "ctee_private_workspace_direct_invoker_unconfigured",
   );
 });
 
 test("cTEE private workspace runner surfaces Rust execution rejection", () => {
   const runner = new RustCteePrivateWorkspaceRunner({
-    command: "mock-ctee-bridge",
-    spawnSyncImpl() {
+    daemonCoreInvoker() {
       return {
-        status: 0,
-        stdout: JSON.stringify({
-          ok: false,
-          error: {
-            code: "ctee_execution_invalid",
-            message: "untrusted node plaintext mount fails",
-          },
-        }),
-        stderr: "",
+        ok: false,
+        error: {
+          code: "ctee_execution_invalid",
+          message: "untrusted node plaintext mount fails",
+        },
       };
     },
   });

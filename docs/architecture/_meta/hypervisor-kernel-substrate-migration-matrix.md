@@ -15979,6 +15979,45 @@ Focused evidence:
 | `npm run hypervisor-conformance` | passed |
 | `git diff --check` | passed |
 
+## Implementation Slice Evidence: 1199
+
+Slice 1199 retires cTEE Private Workspace binary-spawn fallback from the daemon
+runner:
+
+- `packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs`
+- `packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs`
+- `scripts/conformance/hypervisor-conformance.mjs`
+
+The cTEE Private Workspace runner no longer imports the shared JS daemon-core
+command invoker, no longer exposes a command-env transport constant, and no
+longer accepts constructor command selection or spawn hooks. The surface now
+requires the daemon-level `daemonCoreInvoker` direct Rust-core seam for
+`execute_private_workspace_ctee_action`, rejects
+`IOI_RUNTIME_DAEMON_CORE_COMMAND` and retired
+`IOI_CTEE_PRIVATE_WORKSPACE_COMMAND` values as forbidden command selection, and
+fails closed when no direct invoker is configured.
+
+This is not terminal daemon-wide Rust ownership: the JS product surface still
+extracts the action and forwards it to the runner, and other daemon-core
+runners may still use temporary shared command transport until their direct
+Rust API boundaries are clear. It does make cTEE custody admission a larger
+pure-Rust-direction cut: command transport can no longer execute or admit
+Private Workspace cTEE custody work as a compatibility fallback, and future
+work must either provide a real direct Rust daemon-core cTEE invoker or fail
+closed.
+
+Focused evidence:
+
+| Check | Result |
+| --- | --- |
+| `node --check packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.mjs packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs scripts/conformance/hypervisor-conformance.mjs` | passed |
+| `node --test packages/runtime-daemon/src/runtime-ctee-private-workspace-runner.test.mjs` | passed; 11 tests |
+| `npm run hypervisor-conformance:ctee` | passed |
+| `npm run hypervisor-conformance:bridge` | passed |
+| `npm run hypervisor-conformance:docs` | passed |
+| `npm run hypervisor-conformance` | passed |
+| `git diff --check` | passed |
+
 ## Implementation Slice Evidence: 1198
 
 Slice 1198 retires governed improvement binary-spawn fallback from the daemon

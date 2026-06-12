@@ -1,6 +1,3 @@
-import { createDaemonCoreCommandInvoker } from "./runtime-daemon-core-command-runner.mjs";
-
-export const CTEE_PRIVATE_WORKSPACE_COMMAND_ENV = "IOI_RUNTIME_DAEMON_CORE_COMMAND";
 export const CTEE_PRIVATE_WORKSPACE_COMMAND_SCHEMA_VERSION = "ioi.runtime.daemon_core.command.v1";
 export const RUST_CTEE_PRIVATE_WORKSPACE_BACKEND = "ctee_operator";
 
@@ -12,10 +9,11 @@ const RETIRED_CTEE_PRIVATE_WORKSPACE_RUNNER_ALIASES = [
 
 export function createCteePrivateWorkspaceRunnerFromEnv(env = process.env, options = {}) {
   assertNoCteePrivateWorkspaceCommandArgs(options.args ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND_ARGS);
+  assertNoCteePrivateWorkspaceCommandSelection(
+    options.command ?? env.IOI_RUNTIME_DAEMON_CORE_COMMAND ?? env.IOI_CTEE_PRIVATE_WORKSPACE_COMMAND,
+  );
   return new RustCteePrivateWorkspaceRunner({
-    command: options.command ?? env[CTEE_PRIVATE_WORKSPACE_COMMAND_ENV] ?? null,
     daemonCoreInvoker: options.daemonCoreInvoker,
-    spawnSyncImpl: options.spawnSyncImpl,
   });
 }
 
@@ -30,28 +28,21 @@ export function assertNoCteePrivateWorkspaceCommandArgs(value) {
   );
 }
 
+export function assertNoCteePrivateWorkspaceCommandSelection(value) {
+  if (typeof value === "string" && value.trim().length === 0) return;
+  if (value == null) return;
+  throw new CteePrivateWorkspaceRunnerError(
+    "Private Workspace cTEE binary command selection is retired; use daemonCoreInvoker for direct Rust daemon-core cTEE custody admission.",
+    "ctee_private_workspace_command_selection_retired",
+    { retired_command: value },
+  );
+}
+
 export class RustCteePrivateWorkspaceRunner {
   constructor(options = {}) {
     assertNoCteePrivateWorkspaceCommandArgs(options.args);
-    this.command = optionalString(options.command);
-    this.invokeBridge = createDaemonCoreCommandInvoker({
-      command: this.command,
-      daemonCoreInvoker: options.daemonCoreInvoker,
-      spawnSyncImpl: options.spawnSyncImpl,
-      ErrorClass: CteePrivateWorkspaceRunnerError,
-      env: CTEE_PRIVATE_WORKSPACE_COMMAND_ENV,
-      unconfiguredMessage:
-        "Private Workspace cTEE execution requires IOI_RUNTIME_DAEMON_CORE_COMMAND for Rust daemon-core cTEE custody admission.",
-      unconfiguredCode: "ctee_private_workspace_bridge_unconfigured",
-      spawnFailedMessage: "Failed to spawn Rust Private Workspace cTEE bridge command.",
-      spawnFailedCode: "ctee_private_workspace_bridge_spawn_failed",
-      commandFailedMessage: "Rust Private Workspace cTEE bridge command failed.",
-      commandFailedCode: "ctee_private_workspace_bridge_failed",
-      invalidJsonMessage: "Rust Private Workspace cTEE bridge command returned invalid JSON.",
-      invalidJsonCode: "ctee_private_workspace_bridge_invalid_json",
-      rejectedMessage: "Rust cTEE Private Workspace core rejected the action.",
-      rejectedCode: "ctee_private_workspace_bridge_rejected",
-    });
+    assertNoCteePrivateWorkspaceCommandSelection(options.command);
+    this.daemonCoreInvoker = optionalFunction(options.daemonCoreInvoker);
   }
 
   executeAction(request = {}, context = {}) {
@@ -65,9 +56,28 @@ export class RustCteePrivateWorkspaceRunner {
       invocation: request.invocation,
       node_trust: request.node_trust,
     };
-    return normalizeCteePrivateWorkspaceBridgeResult(this.invokeBridge(bridgeRequest));
+    return normalizeCteePrivateWorkspaceBridgeResult(this.invokeDaemonCore(bridgeRequest));
   }
 
+  invokeDaemonCore(request) {
+    if (!this.daemonCoreInvoker) {
+      throw new CteePrivateWorkspaceRunnerError(
+        "Private Workspace cTEE execution requires daemonCoreInvoker for direct Rust daemon-core cTEE custody admission.",
+        "ctee_private_workspace_direct_invoker_unconfigured",
+        { boundary: "daemonCoreInvoker" },
+      );
+    }
+    const response = this.daemonCoreInvoker(request);
+    if (response?.ok === false) {
+      const error = objectRecord(response.error) ?? {};
+      throw new CteePrivateWorkspaceRunnerError(
+        error.message ?? "Rust cTEE Private Workspace core rejected the action.",
+        error.code ?? "ctee_private_workspace_direct_invoker_rejected",
+        { error },
+      );
+    }
+    return response?.ok === true ? response.result : response;
+  }
 }
 
 function assertCanonicalCteePrivateWorkspaceRunnerRequest(request = {}) {
@@ -139,4 +149,8 @@ function optionalString(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function optionalFunction(value) {
+  return typeof value === "function" ? value : null;
 }
